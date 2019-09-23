@@ -72,7 +72,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new L3out
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -83,7 +83,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove an L3out
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -94,7 +94,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific L3outs
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -106,7 +106,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all L3outs
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     host: mso_host
     username: admin
     password: SomeSecretPassword

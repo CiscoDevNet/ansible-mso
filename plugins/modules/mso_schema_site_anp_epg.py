@@ -61,7 +61,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new site EPG
-  mso_schema_site_anp_epg:
+  cisco.mso.mso_schema_site_anp_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -74,7 +74,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a site EPG
-  mso_schema_site_anp_epg:
+  cisco.mso.mso_schema_site_anp_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -87,7 +87,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific site EPGs
-  mso_schema_site_anp_epg:
+  cisco.mso.mso_schema_site_anp_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -101,7 +101,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all site EPGs
-  mso_schema_site_anp_epg:
+  cisco.mso.mso_schema_site_anp_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword

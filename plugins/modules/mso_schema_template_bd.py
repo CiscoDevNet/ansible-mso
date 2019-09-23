@@ -121,7 +121,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new BD
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -134,7 +134,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove an BD
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -145,7 +145,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific BDs
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -157,7 +157,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all BDs
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     host: mso_host
     username: admin
     password: SomeSecretPassword

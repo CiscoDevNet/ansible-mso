@@ -53,7 +53,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new schema
-  mso_schema:
+  cisco.mso.mso_schema:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -73,7 +73,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -82,7 +82,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a schema
-  mso_schema:
+  cisco.mso.mso_schema:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -92,7 +92,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     host: mso_host
     username: admin
     password: SomeSecretPassword

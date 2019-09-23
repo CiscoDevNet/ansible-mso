@@ -158,7 +158,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new EPG
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -174,7 +174,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Add a new EPG with preferred group.
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -187,7 +187,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove an EPG
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -203,7 +203,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific EPG
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -220,7 +220,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all EPGs
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword

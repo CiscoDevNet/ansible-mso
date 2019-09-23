@@ -56,7 +56,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new VRF
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -67,7 +67,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove an VRF
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -78,7 +78,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific VRFs
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -90,7 +90,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all VRFs
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     host: mso_host
     username: admin
     password: SomeSecretPassword

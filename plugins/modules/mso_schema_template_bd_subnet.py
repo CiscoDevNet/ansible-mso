@@ -73,7 +73,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new subnet to a BD
-  mso_schema_template_bd_subnet:
+  cisco.mso.mso_schema_template_bd_subnet:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -85,7 +85,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a subset from a BD
-  mso_schema_template_bd_subnet:
+  cisco.mso.mso_schema_template_bd_subnet:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -97,7 +97,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific BD subnet
-  mso_schema_template_bd_subnet:
+  cisco.mso.mso_schema_template_bd_subnet:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -110,7 +110,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all BD subnets
-  mso_schema_template_bd_subnet:
+  cisco.mso.mso_schema_template_bd_subnet:
     host: mso_host
     username: admin
     password: SomeSecretPassword

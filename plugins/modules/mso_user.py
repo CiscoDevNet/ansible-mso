@@ -80,7 +80,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Update initial admin password
-  mso_user:
+  cisco.mso.mso_user:
     host: mso_host
     username: admin
     password: we1come!
@@ -90,7 +90,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Add a new user
-  mso_user:
+  cisco.mso.mso_user:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -104,7 +104,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a user
-  mso_user:
+  cisco.mso.mso_user:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -113,7 +113,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a user
-  mso_user:
+  cisco.mso.mso_user:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -123,7 +123,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all users
-  mso_user:
+  cisco.mso.mso_user:
     host: mso_host
     username: admin
     password: SomeSecretPassword

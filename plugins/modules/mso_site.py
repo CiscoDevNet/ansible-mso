@@ -77,7 +77,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new site
-  mso_site:
+  cisco.mso.mso_site:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -101,7 +101,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a site
-  mso_site:
+  cisco.mso.mso_site:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -110,7 +110,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a site
-  mso_site:
+  cisco.mso.mso_site:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -120,7 +120,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all sites
-  mso_site:
+  cisco.mso.mso_site:
     host: mso_host
     username: admin
     password: SomeSecretPassword

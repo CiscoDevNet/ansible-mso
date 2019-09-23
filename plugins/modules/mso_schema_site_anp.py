@@ -57,7 +57,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new site ANP
-  mso_schema_site_anp:
+  cisco.mso.mso_schema_site_anp:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -69,7 +69,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a site ANP
-  mso_schema_site_anp:
+  cisco.mso.mso_schema_site_anp:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -81,7 +81,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific site ANPs
-  mso_schema_site_anp:
+  cisco.mso.mso_schema_site_anp:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -93,7 +93,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all site ANPs
-  mso_schema_site_anp:
+  cisco.mso.mso_schema_site_anp:
     host: mso_host
     username: admin
     password: SomeSecretPassword

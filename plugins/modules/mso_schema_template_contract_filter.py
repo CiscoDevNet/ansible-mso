@@ -95,7 +95,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new contract filter
-  mso_schema_template_contract_filter:
+  cisco.mso.mso_schema_template_contract_filter:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -108,7 +108,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a contract filter
-  mso_schema_template_contract_filter:
+  cisco.mso.mso_schema_template_contract_filter:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -120,7 +120,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific contract filter
-  mso_schema_template_contract_filter:
+  cisco.mso.mso_schema_template_contract_filter:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -133,7 +133,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all contract filters
-  mso_schema_template_contract_filter:
+  cisco.mso.mso_schema_template_contract_filter:
     host: mso_host
     username: admin
     password: SomeSecretPassword

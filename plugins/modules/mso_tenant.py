@@ -58,7 +58,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new tenant
-  mso_tenant:
+  cisco.mso.mso_tenant:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -69,7 +69,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a tenant
-  mso_tenant:
+  cisco.mso.mso_tenant:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -78,7 +78,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a tenant
-  mso_tenant:
+  cisco.mso.mso_tenant:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -88,7 +88,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all tenants
-  mso_tenant:
+  cisco.mso.mso_tenant:
     host: mso_host
     username: admin
     password: SomeSecretPassword

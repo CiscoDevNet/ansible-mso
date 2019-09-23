@@ -117,7 +117,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new filter entry
-  mso_schema_template_filter_entry:
+  cisco.mso.mso_schema_template_filter_entry:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -128,7 +128,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a filter entry
-  mso_schema_template_filter_entry:
+  cisco.mso.mso_schema_template_filter_entry:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -139,7 +139,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific filter entry
-  mso_schema_template_filter_entry:
+  cisco.mso.mso_schema_template_filter_entry:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -151,7 +151,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all filter entries
-  mso_schema_template_filter_entry:
+  cisco.mso.mso_schema_template_filter_entry:
     host: mso_host
     username: admin
     password: SomeSecretPassword

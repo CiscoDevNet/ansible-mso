@@ -45,7 +45,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new label
-  mso_label:
+  cisco.mso.mso_label:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -55,7 +55,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a label
-  mso_label:
+  cisco.mso.mso_label:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -64,7 +64,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a label
-  mso_label:
+  cisco.mso.mso_label:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -74,7 +74,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all labels
-  mso_label:
+  cisco.mso.mso_label:
     host: mso_host
     username: admin
     password: SomeSecretPassword

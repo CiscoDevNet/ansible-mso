@@ -86,7 +86,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new subnet to a site EPG
-  mso_schema_site_anp_epg_subnet:
+  cisco.mso.mso_schema_site_anp_epg_subnet:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -100,7 +100,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a subnet from a site EPG
-  mso_schema_site_anp_epg_subnet:
+  cisco.mso.mso_schema_site_anp_epg_subnet:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -114,7 +114,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific site EPG subnet
-  mso_schema_site_anp_epg_subnet:
+  cisco.mso.mso_schema_site_anp_epg_subnet:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -129,7 +129,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all site EPG subnets
-  mso_schema_site_anp_epg_subnet:
+  cisco.mso.mso_schema_site_anp_epg_subnet:
     host: mso_host
     username: admin
     password: SomeSecretPassword

@@ -72,7 +72,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new external EPG
-  mso_schema_template_externalepg:
+  cisco.mso.mso_schema_template_externalepg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -83,7 +83,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove an external EPG
-  mso_schema_template_externalepg:
+  cisco.mso.mso_schema_template_externalepg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -94,7 +94,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific external EPGs
-  mso_schema_template_externalepg:
+  cisco.mso.mso_schema_template_externalepg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -106,7 +106,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all external EPGs
-  mso_schema_template_externalepg:
+  cisco.mso.mso_schema_template_externalepg:
     host: mso_host
     username: admin
     password: SomeSecretPassword

@@ -56,7 +56,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new site VRF
-  mso_schema_site_vrf:
+  cisco.mso.mso_schema_site_vrf:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -68,7 +68,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a site VRF
-  mso_schema_site_vrf:
+  cisco.mso.mso_schema_site_vrf:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -80,7 +80,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific site VRF
-  mso_schema_site_vrf:
+  cisco.mso.mso_schema_site_vrf:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -93,7 +93,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all site VRFs
-  mso_schema_site_vrf:
+  cisco.mso.mso_schema_site_vrf:
     host: mso_host
     username: admin
     password: SomeSecretPassword

@@ -3,18 +3,19 @@
 The `ansible-mso` project provides an Ansible collection for managing and automating your Cisco ACI Multi-Site environment.
 It consists of a set of modules and roles for performing tasks related to ACI Multi-Site.
 
-> Note: This collection is not compatible with versions of Ansible before v2.8.
-
+*Note: This collection is not compatible with versions of Ansible before v2.8.*
 
 ## Requirements
-
 - Ansible v2.8 or newer
 
+## Install
+Ansible must be installed
+```
+sudo pip install ansible
+```
 
 ## Use
-
 Once the collection is installed, you can use it in a playbook by specifying the full namespace path to the module, plugin and/or role.
-
 ```yaml
 - hosts: mso
   gather_facts: no

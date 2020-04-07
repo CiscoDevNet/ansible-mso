@@ -315,12 +315,18 @@ class MSOModule(object):
 
         ids = []
         for role in roles:
-            r = self.get_obj('roles', name=role)
+            name = role
+            access_type = "readWrite"
+            if 'name' in role:
+                name = role['name']
+                if 'access_type' in role and role['access_type'] == 'read':
+                    access_type = 'readOnly'
+            r = self.get_obj('roles', name=name)
             if not r:
-                self.module.fail_json(msg="Role '%s' is not a valid role name." % role)
+                self.module.fail_json(msg="Role '%s' is not a valid role name." % name)
             if 'id' not in r:
-                self.module.fail_json(msg="Role lookup failed for role '%s': %s" % (role, r))
-            ids.append(dict(roleId=r['id']))
+                self.module.fail_json(msg="Role lookup failed for role '%s': %s" % (name, r))
+            ids.append(dict(roleId=r['id'], accessType=access_type))
         return ids
 
     def lookup_site(self, site):

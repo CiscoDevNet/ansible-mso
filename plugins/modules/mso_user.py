@@ -63,7 +63,8 @@ options:
     type: str
   roles:
     description:
-    - The roles for this user.
+    - The roles for this user and their access types (read or write).
+    - Access type defaults to C(write).
     type: list
   state:
     description:
@@ -100,7 +101,27 @@ EXAMPLES = r'''
     last_name: Wieers
     email: dag@wieers.com
     phone: +32 478 436 299
+    roles:
+    - name: siteManager
+      access_type: write
+    - name: schemaManager
+      access_type: read
     state: present
+  delegate_to: localhost
+
+- name: Add a new user
+  cisco.mso.mso_user:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    user_name: dag
+    description: Test user
+    first_name: Dag
+    last_name: Wieers
+    email: dag@wieers.com
+    phone: +32 478 436 299
+    roles:
+    - powerUser
   delegate_to: localhost
 
 - name: Remove a user

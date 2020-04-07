@@ -35,9 +35,32 @@ options:
     description:
     - The description of the role.
     type: str
-  permissions:
+  read_permissions:
     description:
-    - A list of permissions tied to this role.
+    - A list of read permissions tied to this role.
+    type: list
+    choices:
+    - backup-db
+    - manage-audit-records
+    - manage-labels
+    - manage-roles
+    - manage-schemas
+    - manage-sites
+    - manage-tenants
+    - manage-tenant-schemas
+    - manage-users
+    - platform-logs
+    - view-all-audit-records
+    - view-labels
+    - view-roles
+    - view-schemas
+    - view-sites
+    - view-tenants
+    - view-tenant-schemas
+    - view-users
+  write_permissions:
+    description:
+    - A list of write permissions tied to this role.
     type: list
     choices:
     - backup-db
@@ -77,13 +100,20 @@ EXAMPLES = r'''
     role: readOnly
     display_name: Read Only
     description: Read-only access for troubleshooting
-    permissions:
+    read_permissions:
     - view-roles
     - view-schemas
     - view-sites
     - view-tenants
     - view-tenant-schemas
     - view-users
+    write_permissions:
+    - manage-roles
+    - manage-schemas
+    - manage-sites
+    - manage-tenants
+    - manage-tenant-schemas
+    - manage-users
     state: present
   delegate_to: localhost
 
@@ -129,7 +159,27 @@ def main():
         role=dict(type='str', aliases=['name']),
         display_name=dict(type='str'),
         description=dict(type='str'),
-        permissions=dict(type='list', choices=[
+        read_permissions=dict(type='list', choices=[
+            'backup-db',
+            'manage-audit-records',
+            'manage-labels',
+            'manage-roles',
+            'manage-schemas',
+            'manage-sites',
+            'manage-tenants',
+            'manage-tenant-schemas',
+            'manage-users',
+            'platform-logs',
+            'view-all-audit-records',
+            'view-labels',
+            'view-roles',
+            'view-schemas',
+            'view-sites',
+            'view-tenants',
+            'view-tenant-schemas',
+            'view-users',
+        ]),
+        write_permissions=dict(type='list', choices=[
             'backup-db',
             'manage-audit-records',
             'manage-labels',
@@ -163,7 +213,8 @@ def main():
 
     role = module.params['role']
     description = module.params['description']
-    permissions = module.params['permissions']
+    read_permissions = module.params['read_permissions']
+    write_permissions = module.params['write_permissions']
     state = module.params['state']
 
     mso = MSOModule(module)
@@ -200,7 +251,8 @@ def main():
             name=role,
             displayName=role,
             description=description,
-            permissions=permissions,
+            readPermissions=read_permissions,
+            writePermissions=write_permissions,
         )
 
         mso.sanitize(payload, collate=True)

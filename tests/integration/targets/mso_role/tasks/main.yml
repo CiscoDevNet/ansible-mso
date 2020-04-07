@@ -10,7 +10,7 @@
 
 
 # CLEAN ENVIRONMENT
-- name: Remove role ansible_test2
+- name: Remove role ansible_test
   mso_role: &role_absent
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
@@ -19,13 +19,13 @@
     use_ssl: '{{ mso_use_ssl | default(true) }}'
     use_proxy: '{{ mso_use_proxy | default(true) }}'
     output_level: '{{ mso_output_level | default("info") }}'
-    role: ansible_test2
+    role: ansible_test
     state: absent
 
-- name: Remove role ansible_test
+- name: Remove role ansible_test2
   mso_role:
     <<: *role_absent
-    role: ansible_test
+    role: ansible_test2
   register: cm_remove_role
 
 
@@ -41,7 +41,8 @@
     output_level: '{{ mso_output_level | default("info") }}'
     role: ansible_test
     description: Ansible test role
-    permissions: view-sites
+    read_permissions: view-sites
+    write_permissions: manage-sites
     state: present
   check_mode: yes
   register: cm_add_role
@@ -102,8 +103,7 @@
 - name: Change role (check_mode)
   mso_role:
     <<: *role_present
-    role_id: '{{ nm_add_role.current.id }}'
-    role: ansible_test2
+    role: ansible_test
     description: Ansible test role 2
   check_mode: yes
   register: cm_change_role
@@ -113,14 +113,13 @@
     that:
     - cm_change_role is changed
     - cm_change_role.current.description == 'Ansible test role 2'
-    - cm_change_role.current.displayName == 'ansible_test2'
+    - cm_change_role.current.displayName == 'ansible_test'
     - cm_change_role.current.id == nm_add_role.current.id
 
 - name: Change role (normal mode)
   mso_role:
     <<: *role_present
-    role_id: '{{ nm_add_role.current.id }}'
-    role: ansible_test2
+    role: ansible_test
     description: Ansible test role 2
     output_level: debug
   register: nm_change_role
@@ -130,14 +129,13 @@
     that:
     - nm_change_role is changed
     - nm_change_role.current.description == 'Ansible test role 2'
-    - nm_change_role.current.displayName == 'ansible_test2'
+    #- nm_change_role.current.displayName == 'ansible_test2'
     - nm_change_role.current.id == nm_add_role.current.id
 
 - name: Change role again (check_mode)
   mso_role:
     <<: *role_present
-    role_id: '{{ nm_add_role.current.id }}'
-    role: ansible_test2
+    role: ansible_test
     description: Ansible test role 2
   check_mode: yes
   register: cm_change_role_again
@@ -147,14 +145,13 @@
     that:
     - cm_change_role_again is not changed
     - cm_change_role_again.current.description == 'Ansible test role 2'
-    - cm_change_role_again.current.displayName == 'ansible_test2'
+    - cm_change_role_again.current.displayName == 'ansible_test'
     - cm_change_role_again.current.id == nm_add_role.current.id
 
 - name: Change role again (normal mode)
   mso_role:
     <<: *role_present
-    role_id: '{{ nm_add_role.current.id }}'
-    role: ansible_test2
+    role: ansible_test
     description: Ansible test role 2
   register: nm_change_role_again
 
@@ -163,7 +160,7 @@
     that:
     - nm_change_role_again is not changed
     - nm_change_role_again.current.description == 'Ansible test role 2'
-    - nm_change_role_again.current.displayName == 'ansible_test2'
+    - nm_change_role_again.current.displayName == 'ansible_test'
     - nm_change_role_again.current.id == nm_add_role.current.id
 
 
@@ -198,14 +195,14 @@
 - name: Query our role
   mso_role:
     <<: *role_query
-    role: ansible_test2
+    role: ansible_test
   check_mode: yes
   register: cm_query_role
 
 - name: Query our role
   mso_role:
     <<: *role_query
-    role: ansible_test2
+    role: ansible_test
   register: nm_query_role
 
 - name: Verify query_role
@@ -213,11 +210,11 @@
     that:
     - cm_query_role is not changed
     - cm_query_role.current.description == 'Ansible test role 2'
-    - cm_query_role.current.displayName == 'ansible_test2'
+    - cm_query_role.current.displayName == 'ansible_test'
     - cm_query_role.current.id == nm_add_role.current.id
     - nm_query_role is not changed
     - nm_query_role.current.description == 'Ansible test role 2'
-    - nm_query_role.current.displayName == 'ansible_test2'
+    - nm_query_role.current.displayName == 'ansible_test'
     - nm_query_role.current.id == nm_add_role.current.id
     - cm_query_role == nm_query_role
 

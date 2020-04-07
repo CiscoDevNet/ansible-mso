@@ -573,3 +573,10 @@ class MSOModule(object):
 
         self.result.update(**kwargs)
         self.module.fail_json(msg=msg, **self.result)
+
+    def check_changed(self):
+        ''' Check if changed by comparing new values from existing'''
+        existing = self.existing
+        if 'password' in existing:
+            existing['password'] = self.sent['password']
+        return not issubset(self.sent, existing)

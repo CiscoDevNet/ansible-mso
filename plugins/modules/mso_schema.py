@@ -174,7 +174,7 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            if not issubset(mso.sent, mso.existing):
+            if mso.check_changed():
                 if module.check_mode:
                     mso.existing = mso.proposed
                 else:

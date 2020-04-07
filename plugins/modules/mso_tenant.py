@@ -182,7 +182,7 @@ def main():
             mso.sent['userAssociations'] = [dict(userId="0000ffff0000000000000020")]
 
         if mso.existing:
-            if not issubset(mso.sent, mso.existing):
+            if mso.check_changed():
                 if module.check_mode:
                     mso.existing = mso.proposed
                 else:

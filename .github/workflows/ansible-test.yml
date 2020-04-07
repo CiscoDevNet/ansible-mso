@@ -1,0 +1,78 @@
+name: CI
+on:
+- pull_request
+
+jobs:
+  sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          path: CiscoDevNet/ansible-mso
+
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+
+      - name: Install ansible-base (devel)
+        run: pip install https://github.com/ansible/ansible/archive/v2.9.6.tar.gz --disable-pip-version-check
+
+      - name: Run sanity tests
+        run: ansible-test sanity --docker -v --color --python 3.7
+
+  units:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          path: CiscoDevNet/ansible-mso
+
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+
+      - name: Install ansible-base (devel)
+        run: pip install https://github.com/ansible/ansible/archive/v2.9.6.tar.gz --disable-pip-version-check
+
+      - name: Run unit tests
+        run: ansible-test units --docker -v --color --python 3.7 --coverage
+
+      - name: Generate coverage report.
+        run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+
+      - uses: codecov/codecov-action@v1
+        with:
+          fail_ci_if_error: false
+
+  integration:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ansible_version: ["2.9.6", "devel"]
+        python_version: ["3.7"]
+    container:
+      image: python:${{ matrix.python_version }}-alpine
+    services:
+      grafana:
+        image: grafana/grafana:${{ matrix.grafana_version }}
+    steps:
+      - name: Install requirements on alpine
+        run: apk add bash git gcc python3-dev libc-dev libffi-dev openssl-dev
+
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          path: CiscoDevNet/ansible-mso
+
+      - name: Install deps
+        run: pip install coverage
+
+      - name: Install ansible-base (devel)
+        run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible_version}}.tar.gz --disable-pip-version-check
+
+      - name: Run integration tests on Python ${{ matrix.python_version }}
+        run: ansible-test integration -v --color --retry-on-error --python ${{ matrix.python_version }} --continue-on-error --diff

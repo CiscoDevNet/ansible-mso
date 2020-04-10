@@ -1,10 +1,11 @@
 name: CI
 on:
   push:
+    branches: master
   pull_request:
   schedule:
   # * is a special character in YAML so you have to quote this string
-  - cron:  '5 * * * *'
+  - cron:  '30 * * * *'
 jobs:
   build:
     name: Build collection
@@ -57,7 +58,7 @@ jobs:
       run: ansible-galaxy collection install .cache/collection-tarballs/*.tar.gz
 
     - name: Run sanity tests
-      run: ansible-test sanity --docker -v --color --truncate 0 --python 3.7 --coverage
+      run: ansible-test sanity --docker -v --color --truncate 0 --coverage
       working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
     
     - name: Generate coverage report
@@ -67,6 +68,7 @@ jobs:
     - uses: codecov/codecov-action@v1
       with:
         fail_ci_if_error: false
+        file: /home/runner/.ansible/collections/ansible_collections/cisco/mso/tests/output/reports/coverage.xml
 
   units:
     name: Units in ubuntu-latest
@@ -94,17 +96,18 @@ jobs:
     - name: Install the collection tarball
       run: ansible-galaxy collection install .cache/collection-tarballs/*.tar.gz
 
-    - name: Run unit tests
-      run: ansible-test units --docker -v --color --truncate 0 --python 3.7 --coverage
-      working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
+    #- name: Run unit tests
+    #  run: ansible-test units --docker -v --color --truncate 0 --python 3.7 --coverage
+    #  working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
 
-    - name: Generate coverage report.
-      run: ansible-test coverage xml -v --requirements --group-by command --group-by version
-      working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
+    #- name: Generate coverage report.
+    #  run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+    #  working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
 
-    - uses: codecov/codecov-action@v1
-      with:
-        fail_ci_if_error: false
+    #- uses: codecov/codecov-action@v1
+    #  with:
+    #    fail_ci_if_error: false
+    #    file: /home/runner/.ansible/collections/ansible_collections/cisco/mso/tests/output/reports/coverage.xml
 
   integration:
     name: Integration in ubuntu-latest
@@ -133,7 +136,7 @@ jobs:
       run: ansible-galaxy collection install .cache/collection-tarballs/*.tar.gz
 
     - name: Run integration tests on Python ${{ matrix.python_version }}
-      run: ansible-test integration -v --color --retry-on-error --python ${{ matrix.python_version }} --truncate 0 --continue-on-error --diff
+      run: ansible-test network-integration --docker -v --color --retry-on-error --python ${{ matrix.python_version }} --truncate 0 --continue-on-error --diff
       working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
     
     - name: Generate coverage report
@@ -142,3 +145,4 @@ jobs:
     - uses: codecov/codecov-action@v1
       with:
         fail_ci_if_error: false
+        file: /home/runner/.ansible/collections/ansible_collections/cisco/mso/tests/output/reports/coverage.xml

@@ -1,78 +1,144 @@
 name: CI
 on:
-- pull_request
-
+  push:
+  pull_request:
+  schedule:
+  # * is a special character in YAML so you have to quote this string
+  - cron:  '5 * * * *'
 jobs:
-  sanity:
+  build:
+    name: Build collection
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code
-        uses: actions/checkout@v2
-        with:
-          path: CiscoDevNet/ansible-mso
+    - name: Check out code
+      uses: actions/checkout@v2
+    
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
 
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.7
+    - name: Install ansible-base (v2.9.6)
+      run: pip install https://github.com/ansible/ansible/archive/v2.9.6.tar.gz --disable-pip-version-check
 
-      - name: Install ansible-base (devel)
-        run: pip install https://github.com/ansible/ansible/archive/v2.9.6.tar.gz --disable-pip-version-check
+    - name: Build a collection tarball
+      run: ansible-galaxy collection build --output-path "${GITHUB_WORKSPACE}/.cache/collection-tarballs"
 
-      - name: Run sanity tests
-        run: ansible-test sanity --docker -v --color --python 3.7
+    - name: Store migrated collection artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: collection
+        path: .cache/collection-tarballs
+
+  sanity:
+    name: Sanity in ubuntu-latest
+    needs:
+    - build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+
+    - name: Install ansible-base (devel)
+      run: pip install https://github.com/ansible/ansible/archive/v2.9.6.tar.gz --disable-pip-version-check
+
+    - name: Install coverage (v4.5.4)
+      run: pip install coverage==4.5.4
+
+    - name: Download migrated collection artifacts
+      uses: actions/download-artifact@v1
+      with:
+        name: collection
+        path: .cache/collection-tarballs
+
+    - name: Install the collection tarball
+      run: ansible-galaxy collection install .cache/collection-tarballs/*.tar.gz
+
+    - name: Run sanity tests
+      run: ansible-test sanity --docker -v --color --truncate 0 --python 3.7 --coverage
+      working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
+    
+    - name: Generate coverage report
+      run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+      working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
+    
+    - uses: codecov/codecov-action@v1
+      with:
+        fail_ci_if_error: false
 
   units:
+    name: Units in ubuntu-latest
+    needs:
+    - build
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code
-        uses: actions/checkout@v2
-        with:
-          path: CiscoDevNet/ansible-mso
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
 
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.7
+    - name: Install ansible-base (v2.9.6)
+      run: pip install https://github.com/ansible/ansible/archive/v2.9.6.tar.gz --disable-pip-version-check
 
-      - name: Install ansible-base (devel)
-        run: pip install https://github.com/ansible/ansible/archive/v2.9.6.tar.gz --disable-pip-version-check
+    - name: Install coverage (v4.5.4)
+      run: pip install coverage==4.5.4
 
-      - name: Run unit tests
-        run: ansible-test units --docker -v --color --python 3.7 --coverage
+    - name: Download migrated collection artifacts
+      uses: actions/download-artifact@v1
+      with:
+        name: collection
+        path: .cache/collection-tarballs
 
-      - name: Generate coverage report.
-        run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+    - name: Install the collection tarball
+      run: ansible-galaxy collection install .cache/collection-tarballs/*.tar.gz
 
-      - uses: codecov/codecov-action@v1
-        with:
-          fail_ci_if_error: false
+    - name: Run unit tests
+      run: ansible-test units --docker -v --color --truncate 0 --python 3.7 --coverage
+      working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
+
+    - name: Generate coverage report.
+      run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+      working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
+
+    - uses: codecov/codecov-action@v1
+      with:
+        fail_ci_if_error: false
 
   integration:
+    name: Integration in ubuntu-latest
+    needs:
+    - build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        ansible_version: ["2.9.6", "devel"]
-        python_version: ["3.7"]
-    container:
-      image: python:${{ matrix.python_version }}-alpine
-    services:
-      grafana:
-        image: grafana/grafana:${{ matrix.grafana_version }}
     steps:
-      - name: Install requirements on alpine
-        run: apk add bash git gcc python3-dev libc-dev libffi-dev openssl-dev
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+  
+    - name: Install ansible-base (v2.9.6)
+      run: pip install https://github.com/ansible/ansible/archive/v2.9.6.tar.gz --disable-pip-version-check
+  
+    - name: Install coverage (v4.5.4)
+      run: pip install coverage==4.5.4
+  
+    - name: Download migrated collection artifacts
+      uses: actions/download-artifact@v1
+      with:
+        name: collection
+        path: .cache/collection-tarballs
+  
+    - name: Install the collection tarball
+      run: ansible-galaxy collection install .cache/collection-tarballs/*.tar.gz
 
-      - name: Check out code
-        uses: actions/checkout@v2
-        with:
-          path: CiscoDevNet/ansible-mso
-
-      - name: Install deps
-        run: pip install coverage
-
-      - name: Install ansible-base (devel)
-        run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible_version}}.tar.gz --disable-pip-version-check
-
-      - name: Run integration tests on Python ${{ matrix.python_version }}
-        run: ansible-test integration -v --color --retry-on-error --python ${{ matrix.python_version }} --continue-on-error --diff
+    - name: Run integration tests on Python ${{ matrix.python_version }}
+      run: ansible-test integration -v --color --retry-on-error --python ${{ matrix.python_version }} --truncate 0 --continue-on-error --diff
+      working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
+    
+    - name: Generate coverage report
+      run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+  
+    - uses: codecov/codecov-action@v1
+      with:
+        fail_ci_if_error: false

@@ -9,6 +9,7 @@ __metaclass__ = type
 from copy import deepcopy
 from ansible.module_utils.basic import AnsibleModule, json
 from ansible.module_utils.six import PY3
+from ansible.module_utils.six.moves import filterfalse
 from ansible.module_utils.six.moves.urllib.parse import urlencode, urljoin
 from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_bytes, to_native
@@ -58,7 +59,8 @@ def issubset(subset, superset):
                     return False
             except TypeError:
                 # Fall back to exact comparison for lists of dicts
-                if not cmp(value, superset[key]):
+                diff = list(filterfalse(lambda i: i in value, superset[key])) + list(filterfalse(lambda j: j in superset[key], value))
+                if diff:
                     return False
         elif isinstance(value, set):
             if not value <= superset[key]:

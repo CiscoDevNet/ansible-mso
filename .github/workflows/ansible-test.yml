@@ -5,7 +5,7 @@ on:
   pull_request:
   schedule:
   # * is a special character in YAML so you have to quote this string
-  - cron:  '30 * * * *'
+  - cron:  '45 * * * *'
 jobs:
   build:
     name: Build collection
@@ -60,15 +60,6 @@ jobs:
     - name: Run sanity tests
       run: ansible-test sanity --docker -v --color --truncate 0 --coverage
       working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
-    
-    - name: Generate coverage report
-      run: ansible-test coverage xml -v --requirements --group-by command --group-by version
-      working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
-    
-    - uses: codecov/codecov-action@v1
-      with:
-        fail_ci_if_error: false
-        file: /home/runner/.ansible/collections/ansible_collections/cisco/mso/tests/output/reports/coverage.xml
 
   units:
     name: Units in ubuntu-latest
@@ -135,8 +126,8 @@ jobs:
     - name: Install the collection tarball
       run: ansible-galaxy collection install .cache/collection-tarballs/*.tar.gz
 
-    - name: Run integration tests on Python ${{ matrix.python_version }}
-      run: ansible-test network-integration --docker -v --color --retry-on-error --python ${{ matrix.python_version }} --truncate 0 --continue-on-error --diff
+    - name: Run integration tests on Python 3.7
+      run: ansible-test network-integration --docker -v --color --retry-on-error --python 3.7 --truncate 0 --continue-on-error
       working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
     
     - name: Generate coverage report

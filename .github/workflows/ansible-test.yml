@@ -5,7 +5,7 @@ on:
   pull_request:
   schedule:
   # * is a special character in YAML so you have to quote this string
-  - cron:  '45 * * * *'
+  - cron:  '0 7 * * *'
 jobs:
   build:
     name: Build collection
@@ -132,6 +132,7 @@ jobs:
     
     - name: Generate coverage report
       run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+      working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
   
     - uses: codecov/codecov-action@v1
       with:

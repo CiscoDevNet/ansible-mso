@@ -60,6 +60,15 @@ jobs:
     - name: Run sanity tests
       run: ansible-test sanity --docker -v --color --truncate 0 --coverage
       working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
+    
+    - name: Generate coverage report
+      run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+      working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
+  
+    - uses: codecov/codecov-action@v1
+      with:
+        fail_ci_if_error: false
+        file: /home/runner/.ansible/collections/ansible_collections/cisco/mso/tests/output/reports/*.xml
 
   units:
     name: Units in ubuntu-latest
@@ -137,4 +146,4 @@ jobs:
     - uses: codecov/codecov-action@v1
       with:
         fail_ci_if_error: false
-        file: /home/runner/.ansible/collections/ansible_collections/cisco/mso/tests/output/reports/coverage.xml
+        file: /home/runner/.ansible/collections/ansible_collections/cisco/mso/tests/output/reports/*.xml

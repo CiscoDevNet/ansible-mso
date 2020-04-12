@@ -60,28 +60,32 @@ options:
         - The template that defines the referenced VRF.
         - If this parameter is unspecified, it defaults to the current template.
         type: str
-  dhcp_label:
-    name:
-      description:
-      - The name of the DHCP Relay Policy
-      type: str
-    version:
-      description:
-      - The version of DHCP
-      type: int
-    dhcp_option_label:
-      description:
-      - The DHCP Option Policy
-      type: dict
-      suboptions:
-        name:
-          description:
-          - The name of the DHCP Option Policy
-          type: str
-        version:
-          description:
-          - The version of the DHCP Option Policy
-          type: int
+  dhcp_policy:
+    description:
+      - The DHCP Policy
+    type: dict
+    suboptions:
+      name:
+        description:
+        - The name of the DHCP Relay Policy
+        type: str
+      version:
+        description:
+        - The version of DHCP Relay Policy
+        type: int
+      dhcp_option_policy:
+        description:
+        - The DHCP Option Policy
+        type: dict
+        suboptions:
+          name:
+            description:
+            - The name of the DHCP Option Policy
+            type: str
+          version:
+            description:
+            - The version of the DHCP Option Policy
+            type: int
   subnets:
     description:
     - The subnets associated to this BD.
@@ -209,7 +213,7 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec, mso_subnet_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec, mso_subnet_spec, mso_dhcp_spec
 
 
 def main():
@@ -225,7 +229,7 @@ def main():
         layer2_unknown_unicast=dict(type='str', choices=['flood', 'proxy']),
         layer3_multicast=dict(type='bool'),
         vrf=dict(type='dict', options=mso_reference_spec()),
-        dhcp_label=dict(type='dict', options=mso_dhcp_spec()),
+        dhcp_policy=dict(type='dict', options=mso_dhcp_spec()),
         subnets=dict(type='list', options=mso_subnet_spec()),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
@@ -249,7 +253,7 @@ def main():
     layer2_unknown_unicast = module.params['layer2_unknown_unicast']
     layer3_multicast = module.params['layer3_multicast']
     vrf = module.params['vrf']
-    dhcp_label = module.params['dhcp_label']
+    dhcp_policy = module.params['dhcp_policy']
     subnets = module.params['subnets']
     state = module.params['state']
 
@@ -297,6 +301,7 @@ def main():
     elif state == 'present':
         vrf_ref = mso.make_reference(vrf, 'vrf', schema_id, template)
         subnets = mso.make_subnets(subnets)
+        dhcp_label = mso.make_dhcp_label(dhcp_policy)
 
         if display_name is None and not mso.existing:
             display_name = bd

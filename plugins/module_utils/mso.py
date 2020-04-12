@@ -113,16 +113,16 @@ def mso_subnet_spec():
 
 def mso_dhcp_spec():
     return dict(
-        dhcpOptionLabel=dict(type='dict', option=mso_dhcp_option_spec()),
-        name=dict(type='str'),
-        version=dict(type='int'),
+        dhcp_option_policy=dict(type='dict', option=mso_dhcp_option_spec()),
+        name=dict(type='str', required=True),
+        version=dict(type='int', required=True),
     )
 
 
 def mso_dhcp_option_spec():
     return dict(
-        name=dict(type='str'),
-        version=dict(type='int'),
+        name=dict(type='str', required=True),
+        version=dict(type='int', required=True),
     )
 
 
@@ -498,6 +498,15 @@ class MSOModule(object):
             ))
 
         return subnets
+
+    def make_dhcp_label(self, data):
+        ''' Create a DHCP policy from input '''
+        if data is None:
+            return None
+        if data and 'dhcp_option_policy' in data:
+            data['dhcpOptionLabel'] = data['dhcp_option_policy']
+            del data['dhcp_option_policy']
+        return data
 
     def sanitize(self, updates, collate=False, required=None, unwanted=None):
         ''' Clean up unset keys from a request payload '''

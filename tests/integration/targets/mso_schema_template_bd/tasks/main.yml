@@ -12,6 +12,30 @@
 
 
 # CLEAN ENVIRONMENT
+- name: Ensure site exist
+  mso_site: &site_present
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ apic_username }}'
+    apic_password: '{{ apic_password }}'
+    apic_site_id: 101
+    urls:
+    - https://{{ apic_hostname }}
+    location:
+      latitude: 50.887318
+      longitude: 4.447084
+    labels:
+    - Diegem
+    - EMEA
+    - POD51
+    state: present
+
 - name: Ensure tenant ansible_test exist
   mso_tenant: &tenant_present
     host: '{{ mso_hostname }}'
@@ -25,6 +49,8 @@
     users:
     - admin
     - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
@@ -245,6 +271,12 @@
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
+    dhcp_policy:
+      name: ansible_test
+      version: 1
+      dhcp_option_policy:
+        name: ansible_test_option
+        version: 1
   register: nm_add_bd_2
 
 - name: Add bd 3 (normal mode)
@@ -540,7 +572,7 @@
   check_mode: yes
   register: cm_query_all_bds
 
-- name: Query all sites (normal mode)
+- name: Query all bd (normal mode)
   mso_schema_template_bd:
     <<: *bd_query
   register: nm_query_all_bds

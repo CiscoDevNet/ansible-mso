@@ -108,6 +108,7 @@ def mso_subnet_spec():
         scope=dict(type='str', choices=['private', 'public']),
         shared=dict(type='bool'),
         no_default_gateway=dict(type='bool'),
+        querier=dict(type='bool'),
     )
 
 
@@ -495,6 +496,7 @@ class MSOModule(object):
                 scope=subnet.get('scope', 'private'),
                 shared=subnet.get('shared', False),
                 noDefaultGateway=subnet.get('no_default_gateway', False),
+                querier=subnet.get('querier', False),
             ))
 
         return subnets

@@ -1,0 +1,773 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+# Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
+# 
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
+- name: Ensure tenant ansible_test exist
+  mso_tenant: &tenant_present
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    tenant: ansible_test
+    users:
+    - admin
+    - '{{ mso_username }}'
+    state: present
+
+- name: Ensure schema 1 with Template 1 exist
+  mso_schema_template: &schema_present
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+
+- name: Ensure schema 1 with Template 2 exist
+  mso_schema_template:
+    <<: *schema_present
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 2
+    state: present
+
+- name: Ensure schema 2 with Template 3 exist
+  mso_schema_template:
+    <<: *schema_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    state: present
+
+- name: Ensure VRF exist
+  mso_schema_template_vrf: &vrf_present
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    state: present
+
+- name: Ensure VRF2 exist
+  mso_schema_template_vrf: 
+    <<: *vrf_present
+    vrf: VRF2
+    state: present
+
+- name: Ensure VRF3 exist
+  mso_schema_template_vrf:
+    <<: *vrf_present
+    template: Template 2
+    vrf: VRF3
+    state: present
+
+- name: Ensure VRF4 exist
+  mso_schema_template_vrf:
+    <<: *vrf_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    vrf: VRF4
+    state: present
+
+
+- name: Ensure ansible_test_1 BD does not exist
+  mso_schema_template_bd:
+    <<: *vrf_present
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    vrf:
+      name: VRF
+    state: absent
+
+- name: Ensure ansible_test_2 BD does not exist
+  mso_schema_template_bd:
+    <<: *vrf_present
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    bd: ansible_test_2
+    vrf:
+      name: VRF
+    state: absent
+
+- name: Ensure ansible_test_3 BD does not exist
+  mso_schema_template_bd:
+    <<: *vrf_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    bd: ansible_test_3
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: absent
+
+- name: Ensure ansible_test_4 BD does not exist
+  mso_schema_template_bd:
+    <<: *vrf_present
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_4
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: absent
+
+# ADD BD
+- name: Add bd (check_mode)
+  mso_schema_template_bd: &bd_present
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    vrf:
+      name: VRF
+    state: present
+  check_mode: yes
+  register: cm_add_bd
+
+- name: Verify cm_add_bd
+  assert:
+    that:
+    - cm_add_bd is changed
+    - cm_add_bd.previous == {}
+    - cm_add_bd.current.name == "ansible_test_1"
+    - cm_add_bd.current.vrfRef.templateName == "Template 1"
+    - cm_add_bd.current.vrfRef.vrfName == "VRF"
+
+- name: Add bd (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+  register: nm_add_bd
+
+- name: nm_Verify add_bd
+  assert:
+    that:
+    - nm_add_bd is changed
+    - nm_add_bd.previous == {}
+    - nm_add_bd.current.name == "ansible_test_1"
+    - cm_add_bd.current.vrfRef.templateName == "Template 1"
+    - cm_add_bd.current.vrfRef.vrfName == "VRF"
+    - cm_add_bd.current.vrfRef.schemaId ==  nm_add_bd.current.vrfRef.schemaId
+
+- name: Add bd again (check_mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+  check_mode: yes
+  register: cm_add_bd_again
+
+- name: Verify cm_add_bd_again
+  assert:
+    that:
+    - cm_add_bd_again is not changed
+    - cm_add_bd_again.previous.name == "ansible_test_1"
+    - cm_add_bd_again.current.name == "ansible_test_1"
+    - cm_add_bd_again.previous.vrfRef.templateName == "Template 1"
+    - cm_add_bd_again.current.vrfRef.templateName == "Template 1"
+    - cm_add_bd_again.previous.vrfRef.vrfName == "VRF"
+    - cm_add_bd_again.current.vrfRef.vrfName == "VRF"
+    - cm_add_bd_again.previous.vrfRef.schemaId ==  cm_add_bd_again.current.vrfRef.schemaId
+
+
+- name: Add bd again (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+  register: nm_add_bd_again
+
+- name: Verify nm_add_bd_again
+  assert:
+    that:
+    - nm_add_bd_again is not changed
+    - nm_add_bd_again.previous.name == "ansible_test_1"
+    - nm_add_bd_again.current.name == "ansible_test_1"
+    - nm_add_bd_again.previous.vrfRef.templateName == "Template 1"
+    - nm_add_bd_again.current.vrfRef.templateName == "Template 1"
+    - nm_add_bd_again.previous.vrfRef.vrfName == "VRF"
+    - nm_add_bd_again.current.vrfRef.vrfName == "VRF"
+    - nm_add_bd_again.previous.vrfRef.schemaId ==  nm_add_bd_again.current.vrfRef.schemaId
+
+- name: Add bd 2 (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    bd: ansible_test_2
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: true
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: true
+    subnets:
+    - subnet: 10.0.0.128/24
+    - subnet: 10.0.1.254/24
+      description: 1234567890
+    - subnet: 172.16.0.1/24
+      description: "My description for a subnet"
+      scope: public
+      shared: true
+      no_default_gateway: false
+    - ip: 192.168.0.254/24
+      description: "My description for a subnet"
+      scope: private
+      shared: false
+      no_default_gateway: true
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+  register: nm_add_bd_2
+
+- name: Add bd 3 (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    bd: ansible_test_3
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+  register: nm_add_bd_3
+
+- name: Add bd 4 (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_4
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+  register: nm_add_bd_4
+
+- name: Verify nm_add_bd_2 and nm_add_bd_3
+  assert:
+    that:
+    - nm_add_bd_2 is changed
+    - nm_add_bd_3 is changed
+    - nm_add_bd_2.current.name == "ansible_test_2" 
+    - nm_add_bd_3.current.name == "ansible_test_3"
+    - nm_add_bd_2.current.vrfRef.templateName == nm_add_bd_3.current.vrfRef.templateName == "Template 1"
+    - nm_add_bd_2.current.vrfRef.vrfName == nm_add_bd_3.current.vrfRef.vrfName == "VRF"
+    - nm_add_bd_2.current.vrfRef.schemaId ==  nm_add_bd_3.current.vrfRef.schemaId == nm_add_bd.current.vrfRef.schemaId
+    - nm_add_bd_2.current.intersiteBumTrafficAllow == true
+    - nm_add_bd_2.current.optimizeWanBandwidth == true
+    - nm_add_bd_2.current.l2Stretch == true
+    - nm_add_bd_2.current.l2UnknownUnicast == "flood"
+    - nm_add_bd_2.current.l3MCast == true
+    - nm_add_bd_2.current.subnets[0].description == "10.0.0.128/24"
+    - nm_add_bd_2.current.subnets[0].ip == "10.0.0.128/24"
+    - nm_add_bd_2.current.subnets[0].noDefaultGateway == false
+    - nm_add_bd_2.current.subnets[0].scope == "private"
+    - nm_add_bd_2.current.subnets[0].shared == false
+    - nm_add_bd_2.current.subnets[1].description == "1234567890"
+    - nm_add_bd_2.current.subnets[1].ip == "10.0.1.254/24"
+    - nm_add_bd_2.current.subnets[1].noDefaultGateway == false
+    - nm_add_bd_2.current.subnets[1].scope == "private"
+    - nm_add_bd_2.current.subnets[1].shared == false
+    - nm_add_bd_2.current.subnets[2].description == "My description for a subnet"
+    - nm_add_bd_2.current.subnets[2].ip == "172.16.0.1/24"
+    - nm_add_bd_2.current.subnets[2].noDefaultGateway == false
+    - nm_add_bd_2.current.subnets[2].scope == "public"
+    - nm_add_bd_2.current.subnets[2].shared == true
+    - nm_add_bd_2.current.subnets[3].description == "My description for a subnet"
+    - nm_add_bd_2.current.subnets[3].ip == "192.168.0.254/24"
+    - nm_add_bd_2.current.subnets[3].noDefaultGateway == true
+    - nm_add_bd_2.current.subnets[3].scope == "private"
+    - nm_add_bd_2.current.subnets[3].shared == false
+
+# CHANGE BD
+- name: Change bd (check_mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    vrf:
+      name: VRF2
+  check_mode: yes
+  register: cm_change_bd
+
+- name: Verify cm_change_bd
+  assert:
+    that:
+    - cm_change_bd is changed
+    - cm_change_bd.current.name == 'ansible_test_1'
+    - cm_change_bd.current.vrfRef.vrfName == 'VRF2'
+    - cm_change_bd.current.vrfRef.templateName == "Template 1"
+    - cm_change_bd.current.vrfRef.schemaId == cm_change_bd.previous.vrfRef.schemaId
+
+- name: Change bd (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    vrf:
+      name: VRF2
+    output_level: debug
+  register: nm_change_bd
+
+- name: Verify nm_change_bd
+  assert:
+    that:
+    - nm_change_bd is changed
+    - nm_change_bd.current.name == 'ansible_test_1'
+    - nm_change_bd.current.vrfRef.vrfName == 'VRF2'
+    - nm_change_bd.current.vrfRef.templateName == "Template 1"
+    - nm_change_bd.current.vrfRef.schemaId == nm_change_bd.previous.vrfRef.schemaId
+
+- name: Change bd again (check_mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    vrf:
+      name: VRF2
+  check_mode: yes
+  register: cm_change_bd_again
+
+- name: Verify cm_change_bd_again
+  assert:
+    that:
+    - cm_change_bd_again is not changed
+    - cm_change_bd_again.current.name == 'ansible_test_1'
+    - cm_change_bd_again.current.vrfRef.vrfName == 'VRF2'
+    - cm_change_bd_again.current.vrfRef.templateName == "Template 1"
+    - cm_change_bd_again.current.vrfRef.schemaId == cm_change_bd_again.previous.vrfRef.schemaId
+
+- name: Change bd again (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    vrf:
+      name: VRF2
+  register: nm_change_bd_again
+
+- name: Verify nm_change_bd_again
+  assert:
+    that:
+    - nm_change_bd_again is not changed
+    - nm_change_bd_again.current.name == 'ansible_test_1'
+    - nm_change_bd_again.current.vrfRef.vrfName == 'VRF2'
+    - nm_change_bd_again.current.vrfRef.templateName == "Template 1"
+    - nm_change_bd_again.current.vrfRef.schemaId == nm_change_bd_again.previous.vrfRef.schemaId
+
+- name: Change bd to VRF3 (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    vrf:
+      name: VRF3
+      template: Template 2
+  register: nm_change_bd_vrf3
+
+- name: Change bd to VRF4 (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    vrf:
+      name: VRF4
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
+  register: nm_change_bd_vrf4
+
+- name: Verify nm_change_bd_vrf3 and nm_change_bd_vrf4
+  assert:
+    that:
+    - nm_change_bd_vrf3 is changed
+    - nm_change_bd_vrf3.current.name == nm_change_bd_vrf4.current.name == 'ansible_test_1'
+    - nm_change_bd_vrf3.current.vrfRef.vrfName == 'VRF3'
+    - nm_change_bd_vrf3.current.vrfRef.templateName == "Template 2"
+    - nm_change_bd_vrf4.current.vrfRef.vrfName == 'VRF4'
+    - nm_change_bd_vrf4.current.vrfRef.templateName == "Template 3"
+
+- name: Change bd 1 settings(normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: true
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: true
+    subnets:
+    - subnet: 10.1.0.128/24
+    - subnet: 10.1.1.254/24
+      description: 1234567890
+    - subnet: 172.17.0.1/24
+      description: "My description for a subnet"
+      scope: public
+      shared: true
+      no_default_gateway: false
+    - ip: 192.168.1.254/24
+      description: "My description for a subnet"
+      scope: private
+      shared: false
+      no_default_gateway: true
+    vrf:
+      name: VRF4
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
+  register: nm_change_bd_1_settings
+
+- name: Change bd 1 subnets (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: true
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: true
+    subnets:
+    - subnet: 10.1.0.127/24
+    - subnet: 172.17.0.1/24
+      description: "New description for a subnet"
+      scope: private
+      shared: false
+      no_default_gateway: false
+    - ip: 192.168.1.254/24
+      description: "My description for a subnet"
+      scope: private
+      shared: false
+      no_default_gateway: false
+    vrf:
+      name: VRF4
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
+  register: nm_change_bd_1_subnets
+
+- name: Verify nm_change_bd_1_subnets
+  assert:
+    that:
+    - nm_change_bd_1_settings is changed
+    - nm_change_bd_1_settings.current.name == "ansible_test_1"
+    - nm_change_bd_1_settings.current.vrfRef.templateName ==  "Template 3"
+    - nm_change_bd_1_settings.current.vrfRef.vrfName == "VRF4"
+    - nm_change_bd_1_settings.current.intersiteBumTrafficAllow == true
+    - nm_change_bd_1_settings.current.optimizeWanBandwidth == true
+    - nm_change_bd_1_settings.current.l2Stretch == true
+    - nm_change_bd_1_settings.current.l2UnknownUnicast == "flood"
+    - nm_change_bd_1_settings.current.l3MCast == true
+    - nm_change_bd_1_settings.current.subnets[0].description == "10.1.0.128/24"
+    - nm_change_bd_1_settings.current.subnets[0].ip == "10.1.0.128/24"
+    - nm_change_bd_1_settings.current.subnets[0].noDefaultGateway == false
+    - nm_change_bd_1_settings.current.subnets[0].scope == "private"
+    - nm_change_bd_1_settings.current.subnets[0].shared == false
+    - nm_change_bd_1_settings.current.subnets[1].description == "1234567890"
+    - nm_change_bd_1_settings.current.subnets[1].ip == "10.1.1.254/24"
+    - nm_change_bd_1_settings.current.subnets[1].noDefaultGateway == false
+    - nm_change_bd_1_settings.current.subnets[1].scope == "private"
+    - nm_change_bd_1_settings.current.subnets[1].shared == false
+    - nm_change_bd_1_settings.current.subnets[2].description == "My description for a subnet"
+    - nm_change_bd_1_settings.current.subnets[2].ip == "172.17.0.1/24"
+    - nm_change_bd_1_settings.current.subnets[2].noDefaultGateway == false
+    - nm_change_bd_1_settings.current.subnets[2].scope == "public"
+    - nm_change_bd_1_settings.current.subnets[2].shared == true
+    - nm_change_bd_1_settings.current.subnets[3].description == "My description for a subnet"
+    - nm_change_bd_1_settings.current.subnets[3].ip == "192.168.1.254/24"
+    - nm_change_bd_1_settings.current.subnets[3].noDefaultGateway == true
+    - nm_change_bd_1_settings.current.subnets[3].scope == "private"
+    - nm_change_bd_1_settings.current.subnets[3].shared == false
+    - nm_change_bd_1_settings is changed
+    - nm_change_bd_1_subnets.current.subnets | length == 3
+    - nm_change_bd_1_subnets.current.name == "ansible_test_1"
+    - nm_change_bd_1_subnets.current.vrfRef.templateName == "Template 3"
+    - nm_change_bd_1_subnets.current.vrfRef.vrfName == "VRF4"
+    - nm_change_bd_1_subnets.current.intersiteBumTrafficAllow == true
+    - nm_change_bd_1_subnets.current.optimizeWanBandwidth == true
+    - nm_change_bd_1_subnets.current.l2Stretch == true
+    - nm_change_bd_1_subnets.current.l2UnknownUnicast == "flood"
+    - nm_change_bd_1_subnets.current.l3MCast == true
+    - nm_change_bd_1_subnets.current.subnets[0].description == "10.1.0.127/24"
+    - nm_change_bd_1_subnets.current.subnets[0].ip == "10.1.0.127/24"
+    - nm_change_bd_1_subnets.current.subnets[0].noDefaultGateway == false
+    - nm_change_bd_1_subnets.current.subnets[0].scope == "private"
+    - nm_change_bd_1_subnets.current.subnets[0].shared == false
+    - nm_change_bd_1_subnets.current.subnets[1].description == "New description for a subnet"
+    - nm_change_bd_1_subnets.current.subnets[1].ip == "172.17.0.1/24"
+    - nm_change_bd_1_subnets.current.subnets[1].noDefaultGateway == false
+    - nm_change_bd_1_subnets.current.subnets[1].scope == "private"
+    - nm_change_bd_1_subnets.current.subnets[1].shared == false
+    - nm_change_bd_1_subnets.current.subnets[2].description == "My description for a subnet"
+    - nm_change_bd_1_subnets.current.subnets[2].ip == "192.168.1.254/24"
+    - nm_change_bd_1_subnets.current.subnets[2].noDefaultGateway == false
+    - nm_change_bd_1_subnets.current.subnets[2].scope == "private"
+    - nm_change_bd_1_subnets.current.subnets[2].shared == false
+
+# FIXME: Add following capability:
+#         - Missing BD Subnet Querier
+#         - Missing DHCP Policy
+
+# QUERY ALL BD
+- name: Query all bd (check_mode)
+  mso_schema_template_bd: &bd_query
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    state: query
+  check_mode: yes
+  register: cm_query_all_bds
+
+- name: Query all sites (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_query
+  register: nm_query_all_bds
+
+- name: Verify query_all_bds
+  assert:
+    that:
+    - cm_query_all_bds is not changed
+    - nm_query_all_bds is not changed
+    - cm_query_all_bds.current | length == cm_query_all_bds.current | length == 2
+
+
+# QUERY A BD
+- name: Query bd 1
+  mso_schema_template_bd:
+    <<: *bd_query
+    bd: ansible_test_1
+  check_mode: yes
+  register: cm_query_bd
+
+- name: Query bd 1
+  mso_schema_template_bd:
+    <<: *bd_query
+    bd: ansible_test_1
+  register: nm_query_bd
+
+- name: Query bd 2
+  mso_schema_template_bd:
+    <<: *bd_query
+    template: Template 2
+    bd: ansible_test_2
+  register: nm_query_bd_2
+
+- name: Query bd 3
+  mso_schema_template_bd:
+    <<: *bd_query
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    bd: ansible_test_3
+  register: nm_query_bd_3
+
+- name: Verify query_bd
+  assert:
+    that:
+    - cm_query_bd is not changed
+    - nm_query_bd is not changed
+    - cm_query_bd.current.name == nm_query_bd.current.name == "ansible_test_1"
+    - cm_query_bd == nm_query_bd
+    - nm_query_bd_2.current.name == "ansible_test_2" 
+    - nm_query_bd_3.current.name == "ansible_test_3"
+    - nm_query_bd_2.current.intersiteBumTrafficAllow == true
+    - nm_query_bd_2.current.optimizeWanBandwidth == true
+    - nm_query_bd_2.current.l2Stretch == true
+    - nm_query_bd_2.current.l2UnknownUnicast == "flood"
+    - nm_query_bd_2.current.l3MCast == true
+    - nm_query_bd_2.current.subnets[0].description == "10.0.0.128/24"
+    - nm_query_bd_2.current.subnets[0].ip == "10.0.0.128/24"
+    - nm_query_bd_2.current.subnets[0].noDefaultGateway == false
+    - nm_query_bd_2.current.subnets[0].scope == "private"
+    - nm_query_bd_2.current.subnets[0].shared == false
+    - nm_query_bd_2.current.subnets[1].description == "1234567890"
+    - nm_query_bd_2.current.subnets[1].ip == "10.0.1.254/24"
+    - nm_query_bd_2.current.subnets[1].noDefaultGateway == false
+    - nm_query_bd_2.current.subnets[1].scope == "private"
+    - nm_query_bd_2.current.subnets[1].shared == false
+    - nm_query_bd_2.current.subnets[2].description == "My description for a subnet"
+    - nm_query_bd_2.current.subnets[2].ip == "172.16.0.1/24"
+    - nm_query_bd_2.current.subnets[2].noDefaultGateway == false
+    - nm_query_bd_2.current.subnets[2].scope == "public"
+    - nm_query_bd_2.current.subnets[2].shared == true
+    - nm_query_bd_2.current.subnets[3].description == "My description for a subnet"
+    - nm_query_bd_2.current.subnets[3].ip == "192.168.0.254/24"
+    - nm_query_bd_2.current.subnets[3].noDefaultGateway == true
+    - nm_query_bd_2.current.subnets[3].scope == "private"
+    - nm_query_bd_2.current.subnets[3].shared == false
+    
+
+# REMOVE BD
+- name: Remove bd (check_mode)
+  mso_schema_template_bd: &bd_absent
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    state: absent
+  check_mode: yes
+  register: cm_remove_bd
+
+- name: Verify cm_remove_bd
+  assert:
+    that:
+    - cm_remove_bd is changed
+    - cm_remove_bd.current == {}
+
+- name: Remove bd (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_absent
+  register: nm_remove_bd
+
+- name: Verify nm_remove_bd
+  assert:
+    that:
+    - nm_remove_bd is changed
+    - nm_remove_bd.current == {}
+
+- name: Remove bd again (check_mode)
+  mso_schema_template_bd: 
+    <<: *bd_absent
+  check_mode: yes
+  register: cm_remove_bd_again
+
+- name: Verify cm_remove_bd_again
+  assert:
+    that:
+    - cm_remove_bd_again is not changed
+    - cm_remove_bd_again.current == {}
+
+- name: Remove bd again (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_absent
+  register: nm_remove_bd_again
+
+- name: Verify nm_remove_bd_again
+  assert:
+    that:
+    - nm_remove_bd_again is not changed
+    - nm_remove_bd_again.current == {}
+
+# QUERY NON-EXISTING BD
+- name: Query non-existing bd (check_mode)
+  mso_schema_template_bd:
+    <<: *bd_query
+    bd: ansible_test_1
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_bd
+
+- name: Query non-existing site (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_query
+    bd: ansible_test_1
+  ignore_errors: yes
+  register: nm_query_non_bd
+
+- name: Verify query_non_bd
+  assert:
+    that:
+    - cm_query_non_bd is not changed
+    - nm_query_non_bd is not changed
+    - cm_query_non_bd == nm_query_non_bd
+    - cm_query_non_bd.msg == nm_query_non_bd.msg == "BD 'ansible_test_1' not found"
+
+
+# USE A NON-EXISTING STATE
+- name: Non-existing state for bd (check_mode)
+  mso_schema_template_bd:
+    <<: *bd_query
+    state: non-existing-state
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_state
+
+- name: Non-existing state for bd (normal_mode)
+  mso_schema_template_bd:
+    <<: *bd_query
+    state: non-existing-state
+  ignore_errors: yes
+  register: nm_non_existing_state
+
+- name: Verify non_existing_state
+  assert:
+    that:
+    - cm_non_existing_state is not changed
+    - nm_non_existing_state is not changed
+    - cm_non_existing_state == nm_non_existing_state
+    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+
+# USE A NON-EXISTING SCHEMA
+- name: Non-existing schema for bd (check_mode)
+  mso_schema_template_bd:
+    <<: *bd_query
+    schema: non-existing-schema
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_schema
+
+- name: Non-existing schema for bd (normal_mode)
+  mso_schema_template_bd:
+    <<: *bd_query
+    schema: non-existing-schema
+  ignore_errors: yes
+  register: nm_non_existing_schema
+
+- name: Verify non_existing_schema
+  assert:
+    that:
+    - cm_non_existing_schema is not changed
+    - nm_non_existing_schema is not changed
+    - cm_non_existing_schema == nm_non_existing_schema
+    - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist"
+
+# USE A NON-EXISTING TEMPLATE
+- name: Non-existing template for bd (check_mode)
+  mso_schema_template_bd:
+    <<: *bd_query
+    template: non-existing-template
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_template
+
+- name: Non-existing template for bd (normal_mode)
+  mso_schema_template_bd:
+    <<: *bd_query
+    template: non-existing-template
+  ignore_errors: yes
+  register: nm_non_existing_template
+
+- name: Verify non_existing_template
+  assert:
+    that:
+    - cm_non_existing_template is not changed
+    - nm_non_existing_template is not changed
+    - cm_non_existing_template == nm_non_existing_template
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template 1, Template 2"

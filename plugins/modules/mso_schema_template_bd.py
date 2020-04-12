@@ -246,7 +246,7 @@ def main():
         mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
     template_idx = templates.index(template)
 
-    # Get ANP
+    # Get BDs
     bds = [b['name'] for b in schema_obj['templates'][template_idx]['bds']]
 
     if bd is not None and bd in bds:
@@ -292,7 +292,6 @@ def main():
         )
 
         mso.sanitize(payload, collate=True)
-
         if mso.existing:
             ops.append(dict(op='replace', path=bd_path, value=mso.sent))
         else:
@@ -300,7 +299,12 @@ def main():
 
         mso.existing = mso.proposed
 
-    if not module.check_mode:
+    if 'bdRef' in mso.previous:
+        del mso.previous['bdRef']
+    if 'vrfRef' in mso.previous:
+        mso.previous['vrfRef'] = mso.vrf_dict_from_ref(mso.previous['vrfRef'])
+
+    if not module.check_mode and mso.proposed != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)
 
     mso.exit_json()

@@ -7,6 +7,7 @@ from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
 from copy import deepcopy
+import re
 from ansible.module_utils.basic import AnsibleModule, json
 from ansible.module_utils.six import PY3
 from ansible.module_utils.six.moves import filterfalse
@@ -432,6 +433,15 @@ class MSOModule(object):
         ''' Create vrfRef string '''
         return '/schemas/{schema_id}/templates/{template}/vrfs/{vrf}'.format(**data)
 
+    def vrf_dict_from_ref(self, data):
+        vrf_ref_regex = re.compile(r'\/schemas\/(.*)\/templates\/(.*)\/vrfs\/(.*)')
+        vrf_dict = vrf_ref_regex.search(data)
+        return {
+            'vrfName': vrf_dict.group(3),
+            'schemaId': vrf_dict.group(1),
+            'templateName': vrf_dict.group(2),
+        }
+
     def make_reference(self, data, reftype, schema_id, template):
         ''' Create a reference from a dictionary '''
         # Removes entry from payload
@@ -462,9 +472,11 @@ class MSOModule(object):
 
         subnets = []
         for subnet in data:
+            if 'subnet' in subnet:
+                subnet['ip'] = subnet['subnet']
             subnets.append(dict(
                 ip=subnet['ip'],
-                description=subnet.get('description', subnet['ip']),
+                description=str(subnet.get('description', subnet['ip'])),
                 scope=subnet.get('scope', 'private'),
                 shared=subnet.get('shared', False),
                 noDefaultGateway=subnet.get('no_default_gateway', False),

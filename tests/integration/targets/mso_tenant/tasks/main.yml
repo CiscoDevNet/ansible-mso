@@ -10,6 +10,62 @@
 
 
 # CLEAN ENVIRONMENT
+- name: Undeploy a schema 1 template 1
+  mso_schema_template_deploy: &schema_undeploy
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: ansible_test
+    template: Template 1
+    site: '{{ item }}'
+    state: undeploy
+  ignore_errors: yes
+  loop:
+  - '{{ mso_site | default("ansible_test") }}'
+  - '{{ mso_site | default("ansible_test") }}_2'
+
+- name: Undeploy a schema 1 template 2
+  mso_schema_template_deploy:
+    <<: *schema_undeploy
+    template: Template 2
+    site: '{{ item }}'
+    state: undeploy
+  ignore_errors: yes
+  loop:
+  - '{{ mso_site | default("ansible_test") }}'
+  - '{{ mso_site | default("ansible_test") }}_2'
+
+- name: Undeploy a schema 2 template 3
+  mso_schema_template_deploy:
+    <<: *schema_undeploy
+    schema: ansible_test_2
+    template: Template 3
+    site: '{{ item }}'
+    state: undeploy
+  ignore_errors: yes
+  loop:
+  - '{{ mso_site | default("ansible_test") }}'
+  - '{{ mso_site | default("ansible_test") }}_2'
+
+- name: Remove schemas
+  mso_schema:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
 - name: Remove tenant ansible_test
   mso_tenant: &tenant_absent
     host: '{{ mso_hostname }}'

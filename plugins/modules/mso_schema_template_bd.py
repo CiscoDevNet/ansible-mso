@@ -114,6 +114,10 @@ options:
         description:
         - Whether this subnet has a default gateway.
         type: bool
+      querier:
+        description:
+        - Whether this subnet is an IGMP querier.
+        type: bool
   intersite_bum_traffic:
     description:
     - Whether to allow intersite BUM traffic.

@@ -116,6 +116,10 @@ options:
         description:
         - Whether this subnet has a default gateway.
         type: bool
+      querier:
+        description:
+        - Whether this subnet is an IGMP querier.
+        type: bool
   useg_epg:
     description:
     - Whether this is a USEG EPG.

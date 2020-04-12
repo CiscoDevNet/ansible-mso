@@ -64,6 +64,10 @@ options:
     description:
     - Whether this subnet has a default gateway.
     type: bool
+  querier:
+    description:
+    - Whether this subnet is an IGMP querier.
+    type: bool
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -166,6 +170,7 @@ def main():
     scope = module.params['scope']
     shared = module.params['shared']
     no_default_gateway = module.params['no_default_gateway']
+    querier = module.params['querier']
     state = module.params['state']
 
     mso = MSOModule(module)
@@ -230,6 +235,8 @@ def main():
                 shared = False
             if no_default_gateway is None:
                 no_default_gateway = False
+            if querier is None:
+                querier = False
 
         payload = dict(
             ip=subnet,
@@ -237,6 +244,7 @@ def main():
             scope=scope,
             shared=shared,
             noDefaultGateway=no_default_gateway,
+            querier=querier,
         )
 
         mso.sanitize(payload, collate=True)

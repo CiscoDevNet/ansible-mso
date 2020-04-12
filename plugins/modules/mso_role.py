@@ -62,6 +62,7 @@ options:
     description:
     - A list of write permissions tied to this role.
     type: list
+    aliases: [ permissions ]
     choices:
     - backup-db
     - manage-audit-records
@@ -179,7 +180,7 @@ def main():
             'view-tenant-schemas',
             'view-users',
         ]),
-        write_permissions=dict(type='list', choices=[
+        write_permissions=dict(type='list', aliases=['permissions'], choices=[
             'backup-db',
             'manage-audit-records',
             'manage-labels',

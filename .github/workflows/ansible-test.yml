@@ -134,6 +134,12 @@ jobs:
     - name: Install the collection tarball
       run: ansible-galaxy collection install .cache/collection-tarballs/*.tar.gz
 
+    - name: Replace password in inventory with Github secret
+      env:
+        SUPER_SECRET: ${{ secrets.SuperSecret }}
+      run: sed "s/NotTheCurrentPassword/$SUPER_SECRET/g" ./tests/integration/inventory.networking
+      working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
+
     - name: Run integration tests on Python 3.7
       run: ansible-test network-integration --docker -v --color --retry-on-error --python 3.7 --truncate 0 --continue-on-error --coverage
       working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso

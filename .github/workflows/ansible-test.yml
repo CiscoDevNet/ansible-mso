@@ -134,16 +134,24 @@ jobs:
     - name: Install the collection tarball
       run: ansible-galaxy collection install .cache/collection-tarballs/*.tar.gz
 
-    - name: Replace password in inventory with Github secret
-      env:
-        SUPER_SECRET: ${{ secrets.SuperSecret }}
-      run: sed "s/NotTheCurrentPassword/$SUPER_SECRET/g" ./tests/integration/inventory.networking
-      working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
+    - name: Requesting integration mutex
+      uses: nev7n/wait_for_response@v1
+      with:
+        url: ${{ format('https://8v7s765ibh.execute-api.us-west-1.amazonaws.com/v1/ansible-mso?repo={0}', github.repository) }}
+        responseCode: 200
+        timeout: 1000000
+        interval: 5000
 
     - name: Run integration tests on Python 3.7
       run: ansible-test network-integration --docker -v --color --retry-on-error --python 3.7 --truncate 0 --continue-on-error --coverage
       working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso
-    
+
+    - name: Releasing integration mutex
+      uses: nev7n/wait_for_response@v1
+      with:
+        url: ${{ format('https://8v7s765ibh.execute-api.us-west-1.amazonaws.com/v1/ansible-mso/release?repo={0}', github.repository) }}
+        responseCode: 200
+      
     - name: Generate coverage report
       run: ansible-test coverage xml -v --requirements --group-by command --group-by version
       working-directory: /home/runner/.ansible/collections/ansible_collections/cisco/mso

@@ -177,65 +177,101 @@
 
 
 # CHANGE SITE
-# - name: Change site (check_mode)
-#   mso_site:
-#     <<: *site_present
-#     site_id: '{{ nm_add_site.current.id }}'
-#     site: '{{ mso_site | default("ansible_test") }}_2'
-#   check_mode: yes
-#   register: cm_change_site
+- name: Change site (check_mode)
+  mso_site:
+    <<: *site_present
+    site: '{{ mso_site | default("ansible_test") }}'
+    location:
+      latitude: 51.887318
+      longitude: 5.447084
+    labels:
+    - Charleroi
+    - EMEA
+  check_mode: yes
+  register: cm_change_site
 
-# - name: Verify cm_change_site
-#   assert:
-#     that:
-#     - cm_change_site is changed
-#     - cm_change_site.current.id == nm_add_site.current.id
-#     - cm_change_site.current.name == '{{ mso_site | default("ansible_test") }}_2'
+- name: Verify cm_change_site
+  assert:
+    that:
+    - cm_change_site is changed
+    - cm_change_site.current.id == nm_add_site.current.id
+    - cm_change_site.current.name == '{{ mso_site | default("ansible_test") }}'
+    - cm_change_site.current.location.lat == 51.887318
+    - cm_change_site.current.location.long == 5.447084
+    - cm_change_site.current.labels[0] != nm_add_site.current.labels[0]
+    - cm_change_site.current.labels[1] == nm_add_site.current.labels[1]
 
-# - name: Change site (normal mode)
-#   mso_site:
-#     <<: *site_present
-#     site_id: '{{ nm_add_site.current.id }}'
-#     site: '{{ mso_site | default("ansible_test") }}_2'
-#     output_level: debug
-#   register: nm_change_site
+- name: Change site (normal mode)
+  mso_site:
+    <<: *site_present
+    site: '{{ mso_site | default("ansible_test") }}'
+    location:
+      latitude: 51.887318
+      longitude: 5.447084
+    labels:
+    - Charleroi
+    - EMEA
+    output_level: debug
+  register: nm_change_site
 
-# - name: Verify nm_change_site
-#   assert:
-#     that:
-#     - nm_change_site is changed
-#     - nm_change_site.current.id == nm_add_site.current.id
-#     - nm_change_site.current.name == '{{ mso_site | default("ansible_test") }}_2'
+- name: Verify nm_change_site
+  assert:
+    that:
+    - nm_change_site is changed
+    - nm_change_site.current.id == nm_add_site.current.id
+    - nm_change_site.current.name == '{{ mso_site | default("ansible_test") }}'
+    - nm_change_site.current.location.lat == 51.887318
+    - nm_change_site.current.location.long == 5.447084
+    - nm_change_site.current.labels[0] != nm_add_site.current.labels[0]
+    - nm_change_site.current.labels[1] == nm_add_site.current.labels[1]
 
-# - name: Change site again (check_mode)
-#   mso_site:
-#     <<: *site_present
-#     site_id: '{{ nm_add_site.current.id }}'
-#     site: '{{ mso_site | default("ansible_test") }}_2'
-#   check_mode: yes
-#   register: cm_change_site_again
+- name: Change site again (check_mode)
+  mso_site:
+    <<: *site_present
+    site: '{{ mso_site | default("ansible_test") }}'
+    location:
+      latitude: 51.887318
+      longitude: 5.447084
+    labels:
+    - Charleroi
+    - EMEA
+  check_mode: yes
+  register: cm_change_site_again
 
-# - name: Verify cm_change_site_again
-#   assert:
-#     that:
-#     - cm_change_site_again is not changed
-#     - cm_change_site_again.current.id == nm_add_site.current.id
-#     - cm_change_site_again.current.name == '{{ mso_site | default("ansible_test") }}_2'
+- name: Verify cm_change_site_again
+  assert:
+    that:
+    - cm_change_site_again is not changed
+    - cm_change_site_again.current.id == nm_add_site.current.id
+    - cm_change_site_again.current.name == '{{ mso_site | default("ansible_test") }}'
+    - cm_change_site_again.current.location.lat == 51.887318
+    - cm_change_site_again.current.location.long == 5.447084
+    - cm_change_site_again.current.labels[0] == nm_change_site.current.labels[0]
+    - cm_change_site_again.current.labels[1] == nm_change_site.current.labels[1]
 
-# - name: Change site again (normal mode)
-#   mso_site:
-#     <<: *site_present
-#     site_id: '{{ nm_add_site.current.id }}'
-#     site: '{{ mso_site | default("ansible_test") }}_2'
-#   register: nm_change_site_again
+- name: Change site again (normal mode)
+  mso_site:
+    <<: *site_present
+    site: '{{ mso_site | default("ansible_test") }}'
+    location:
+      latitude: 51.887318
+      longitude: 5.447084
+    labels:
+    - Charleroi
+    - EMEA
+    output_level: debug
+  register: nm_change_site_again
 
-# - name: Verify nm_change_site_again
-#   assert:
-#     that:
-#     - nm_change_site_again is not changed
-#     - nm_change_site_again.current.id == nm_add_site.current.id
-#     - nm_change_site_again.current.name == '{{ mso_site | default("ansible_test") }}_2'
-
+- name: Verify nm_change_site_again
+  assert:
+    that:
+    - nm_change_site_again is not changed
+    - nm_change_site_again.current.id == nm_add_site.current.id
+    - nm_change_site_again.current.name == '{{ mso_site | default("ansible_test") }}'
+    - nm_change_site_again.current.location.lat == 51.887318
+    - nm_change_site_again.current.location.long == 5.447084
+    - nm_change_site_again.current.labels[0] == nm_change_site.current.labels[0]
+    - nm_change_site_again.current.labels[1] == nm_change_site.current.labels[1]
 
 # QUERY ALL SITES
 - name: Query all sites (check_mode)
@@ -355,3 +391,54 @@
     - cm_query_non_site is not changed
     - nm_query_non_site is not changed
     - cm_query_non_site == nm_query_non_site
+
+# USE A NON-EXISTING STATE
+- name: Non-existing state for site (check_mode)
+  mso_site:
+    <<: *site_query
+    state: non-existing-state
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_state
+
+- name: Non-existing state for bd (normal_mode)
+  mso_site:
+    <<: *site_query
+    state: non-existing-state
+  ignore_errors: yes
+  register: nm_non_existing_state
+
+- name: Verify non_existing_state
+  assert:
+    that:
+    - cm_non_existing_state is not changed
+    - nm_non_existing_state is not changed
+    - cm_non_existing_state == nm_non_existing_state
+    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+
+# ADD SITE
+- name: Add site (normal_mode)
+  mso_site:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ apic_username }}'
+    apic_password: '{{ apic_password }}'
+    apic_site_id: 101
+    urls:
+    - https://{{ apic_hostname }}
+    state: present
+  register: nm_add_site_no_location
+
+- name: Verify cm_add_site
+  assert:
+    that:
+    - nm_add_site_no_location is changed
+    - nm_add_site_no_location.previous == {}
+    - nm_add_site_no_location.current.id is defined
+    - nm_add_site_no_location.current.name == mso_site|default("ansible_test")

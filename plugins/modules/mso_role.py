@@ -212,11 +212,11 @@ def main():
         ],
     )
 
-    role = module.params['role']
-    description = module.params['description']
-    read_permissions = module.params['read_permissions']
-    write_permissions = module.params['write_permissions']
-    state = module.params['state']
+    role = module.params.get('role')
+    description = module.params.get('description')
+    read_permissions = module.params.get('read_permissions')
+    write_permissions = module.params.get('write_permissions')
+    state = module.params.get('state')
 
     mso = MSOModule(module)
 
@@ -227,7 +227,7 @@ def main():
     if role:
         mso.existing = mso.get_obj(path, name=role)
         if mso.existing:
-            role_id = mso.existing['id']
+            role_id = mso.existing.get('id')
             # If we found an existing object, continue with it
             path = 'roles/{id}'.format(id=role_id)
     else:

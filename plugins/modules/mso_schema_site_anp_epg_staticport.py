@@ -248,7 +248,7 @@ def main():
         portpath = 'topology/{0}/paths-{1}/pathep-[{2}]'.format(pod, leaf, path)
     elif path_type == 'vpc':
         portpath = 'topology/{0}/protpaths-{1}/pathep-[{2}]'.format(pod, leaf, path)
-        
+
     mso = MSOModule(module)
 
     # Get schema_id

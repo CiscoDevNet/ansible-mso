@@ -80,7 +80,7 @@ EXAMPLES = r'''
     state: absent
   delegate_to: localhost
 
-- name: Query a specific site ANPs
+- name: Query a specific site ANP
   cisco.mso.mso_schema_site_anp:
     host: mso_host
     username: admin
@@ -88,6 +88,7 @@ EXAMPLES = r'''
     schema: Schema1
     site: Site1
     template: Template1
+    anp: ANP1
     state: query
   delegate_to: localhost
   register: query_result

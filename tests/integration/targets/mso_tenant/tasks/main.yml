@@ -156,6 +156,20 @@
     - nm_add_tenant_again.current.name == 'ansible_test'
     - nm_add_tenant_again.current.description == 'Ansible test tenant'
 
+- name: Add tenant 2 (normal mode)
+  mso_tenant:
+    <<: *tenant_present
+    tenant: ansible_test2
+    users: null
+    display_name: null
+  register: nm_add_tenant2
+
+- name: Verify nm_add_tenant2
+  assert:
+    that:
+    - nm_add_tenant2 is changed
+    - nm_add_tenant2.current.userAssociations | length == 1
+
 
 # CHANGE TENANT
 - name: Change tenant (check_mode)

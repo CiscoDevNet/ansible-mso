@@ -44,7 +44,7 @@
     # NOTE: First name, last name, phone and email are mandatory on creation
     first_name: Ansible
     last_name: Test
-    email: msc@cisco.com
+    email: mso@cisco.com
     phone: +32 478 436 299
     account_status: active
     roles:
@@ -62,6 +62,11 @@
     - cm_add_user.previous == {}
     - cm_add_user.current.id is not defined
     - cm_add_user.current.username == 'ansible_test'
+    - cm_add_user.current.lastName == 'Test'
+    - cm_add_user.current.firstName == 'Ansible'
+    - cm_add_user.current.emailAddress == 'mso@cisco.com'
+    - cm_add_user.current.phoneNumber == '+32 478 436 299'
+    - cm_add_user.current.accountStatus == 'active'
 
 - name: Add user (normal mode)
   mso_user: *user_present
@@ -74,6 +79,11 @@
     - nm_add_user.previous == {}
     - nm_add_user.current.id is defined
     - nm_add_user.current.username == 'ansible_test'
+    - nm_add_user.current.lastName == 'Test'
+    - nm_add_user.current.firstName == 'Ansible'
+    - nm_add_user.current.emailAddress == 'mso@cisco.com'
+    - nm_add_user.current.phoneNumber == '+32 478 436 299'
+    - nm_add_user.current.accountStatus == 'active'
 
 - name: Add user again (check_mode)
   mso_user:
@@ -108,43 +118,54 @@
 
 
 # CHANGE USER
-# - name: Change user (check_mode)
-#   mso_user:
-#     <<: *user_present
-#     # FIXME: Add support for name change
-#     #user_id: '{{ nm_add_user.current.id }}'
-#     user: ansible_test2
-#     user_password: null
-#   check_mode: yes
-#   register: cm_change_user
+- name: Change user (check_mode)
+  mso_user: &user_change
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    user: ansible_test
+    roles:
+    - name: powerUser
+      access_type: write
+    domain: Local
+    state: present
+    # FIXME: Add support for name change
+    email: mso2@cisco.com
+    phone: +32 478 436 300
+  check_mode: yes
+  register: cm_change_user
 
-# - name: Verify cm_change_user
-#   assert:
-#     that:
-#     - cm_change_user is changed
-#     - cm_change_user.current.id == nm_add_user.current.id
-#     - cm_change_user.current.user == 'ansible_test2'
+- name: Verify cm_change_user
+  assert:
+    that:
+    - cm_change_user is changed
+    - cm_change_user.current.id == nm_add_user.current.id
+    - cm_change_user.current.username == 'ansible_test'
+    - cm_change_user.current.emailAddress == 'mso2@cisco.com'
+    - cm_change_user.current.phoneNumber == '+32 478 436 300'
 
-# - name: Change user (normal mode)
-#   mso_user:
-#     <<: *user_present
-#     user: ansible_test2
-#     user_password: null
-#     output_level: debug
-#   register: nm_change_user
+- name: Change user (normal mode)
+  mso_user:
+    <<: *user_change
+    output_level: debug
+  register: nm_change_user
 
-# - name: Verify nm_change_user
-#   assert:
-#     that:
-#     - nm_change_user is changed
-#     - nm_change_user.current.id == nm_add_user.current.id
-#     - nm_change_user.current.user == 'ansible_test2'
+- name: Verify nm_change_user
+  assert:
+    that:
+    - nm_change_user is changed
+    - nm_change_user.current.id == nm_add_user.current.id
+    - nm_change_user.current.username == 'ansible_test'
+    - nm_change_user.current.emailAddress == 'mso2@cisco.com'
+    - nm_change_user.current.phoneNumber == '+32 478 436 300'
 
 - name: Change user again (check_mode)
   mso_user:
-    <<: *user_present
-    user: ansible_test
-    user_password: null
+    <<: *user_change
   check_mode: yes
   register: cm_change_user_again
 
@@ -154,12 +175,12 @@
     - cm_change_user_again is not changed
     - cm_change_user_again.current.id == nm_add_user.current.id
     - cm_change_user_again.current.username == 'ansible_test'
+    - cm_change_user_again.current.emailAddress == 'mso2@cisco.com'
+    - cm_change_user_again.current.phoneNumber == '+32 478 436 300'
 
 - name: Change user again (normal mode)
   mso_user:
-    <<: *user_present
-    user: ansible_test
-    user_password: null
+    <<: *user_change
   register: nm_change_user_again
 
 - name: Verify nm_change_user_again
@@ -168,11 +189,16 @@
     - nm_change_user_again is not changed
     - nm_change_user_again.current.id == nm_add_user.current.id
     - nm_change_user_again.current.username == 'ansible_test'
+    - nm_change_user_again.current.emailAddress == 'mso2@cisco.com'
+    - nm_change_user_again.current.phoneNumber == '+32 478 436 300'
 
 - name: Add second user
   mso_user:
-    <<: *user_present
+    <<: *user_change
     user: ansible_test2
+    user_password: 'S0m3!1n1t14l!p455w0rd'
+    first_name: Ansible
+    last_name: Test
     roles:
     - powerUser
     state: present
@@ -180,9 +206,11 @@
 
 - name: Change user 2 again (normal mode)
   mso_user:
-    <<: *user_present
+    <<: *user_change
     user: ansible_test2
     user_password: null
+    first_name: Ansible
+    last_name: Test
   register: nm_change_user_2_again
 
 - name: Verify nm_change_user_2_again
@@ -191,6 +219,8 @@
     - nm_change_user_2_again is not changed
     - nm_change_user_2_again.current.id == nm_add_user_2.current.id
     - nm_change_user_2_again.current.username == 'ansible_test2'
+
+# TODO: Add query with user ansible_test2 to try if user can login.
 
 # QUERY ALL USERS
 - name: Query all users (check_mode)

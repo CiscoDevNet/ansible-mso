@@ -302,7 +302,7 @@ def main():
                 contract_display_name = contract
             if contract_filter_type is None:
                 contract_ftype = 'bothWay'
-            if contract_scope is None:
+            if contract_scope is None or contract_scope == 'vrf':
                 contract_scope = 'context'
 
             payload = {

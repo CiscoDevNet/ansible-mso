@@ -331,6 +331,9 @@ def main():
             # Filter exists, we have to update it
             ops.append(dict(op='replace', path=filter_path, value=mso.sent))
 
+    if 'filterRef' in mso.previous:
+        mso.previous['filterRef'] = mso.dict_from_ref(mso.previous['filterRef'])
+
     if not module.check_mode:
         mso.request(schema_path, method='PATCH', data=ops)
 

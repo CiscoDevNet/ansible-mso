@@ -295,23 +295,24 @@ def main():
 
         mso.sanitize(payload, collate=True)
         mso.existing = mso.sent
-
+        if contract_scope is None or contract_scope == 'vrf':
+            contract_scope = 'context'
+            #mso.stdout += ' contract_scope is ' + contract_scope
+        #mso.stdout = ' contract index is ' + str(contract_idx)
         if contract_idx is None:
             # Contract does not exist, so we have to create it
             if contract_display_name is None:
                 contract_display_name = contract
             if contract_filter_type is None:
                 contract_ftype = 'bothWay'
-            if contract_scope is None or contract_scope == 'vrf':
-                contract_scope = 'context'
-
             payload = {
                 'name': contract,
                 'displayName': contract_display_name,
                 'filterType': contract_ftype,
                 'scope': contract_scope,
             }
-
+            #mso.stdout += 'contract idx is none and payload is ready'
+            #mso.stdout += '/templates/{0}/contracts/-'.format(template)
             ops.append(dict(op='add', path='/templates/{0}/contracts/-'.format(template), value=payload))
         else:
             # Contract exists, but may require an update

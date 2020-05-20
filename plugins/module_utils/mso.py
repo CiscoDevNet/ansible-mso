@@ -458,6 +458,26 @@ class MSOModule(object):
             'templateName': vrf_dict.group(2),
         }
 
+    def dict_from_ref(self, data):
+        ref_regex = re.compile(r'\/schemas\/(.*)\/templates\/(.*)\/(.*)\/(.*)')
+        dic = ref_regex.search(data)
+        schemaId = dic.group(1)
+        templateName = dic.group(2)
+        category = dic.group(3)
+        name = dic.group(4)
+        map = {
+            'vrfs' : ['vrfName','schemaId','templateName'],
+            'filters' : ['filterName','schemaId','templateName'],
+        }
+        result = {
+                map[category][0] : name,
+                map[category][1] : schemaId,
+                map[category][2] : templateName,
+        }
+        return result
+        
+
+
     def make_reference(self, data, reftype, schema_id, template):
         ''' Create a reference from a dictionary '''
         # Removes entry from payload

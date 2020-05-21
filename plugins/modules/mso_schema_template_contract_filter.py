@@ -196,14 +196,15 @@ def main():
     filter_schema = module.params['filter_schema']
     filter_type = module.params['filter_type']
     state = module.params['state']
-
+    mso = MSOModule(module)
     contract_ftype = 'bothWay' if contract_filter_type == 'both-way' else 'oneWay'
 
     if contract_filter_type == 'both-way' and filter_type != 'both-way':
-        module.warn("You are adding 'one-way' filters to a 'both-way' contract")
+        #module.warn("You are adding 'one-way' filters to a 'both-way' contract")
+        mso.fail_json(msg="You are adding 'one-way' filters to a 'both-way' contract")
     elif contract_filter_type != 'both-way' and filter_type == 'both-way':
-        module.warn("You are adding 'both-way' filters to a 'one-way' contract")
-
+        #module.warn("You are adding 'both-way' filters to a 'one-way' contract")
+        mso.fail_json(msg="You are adding 'both-way' filters to a 'one-way' contract")
     if filter_template is None:
         filter_template = template
 
@@ -212,7 +213,7 @@ def main():
 
     filter_key = FILTER_KEYS[filter_type]
 
-    mso = MSOModule(module)
+   
 
     filter_schema_id = mso.lookup_schema(filter_schema)
 

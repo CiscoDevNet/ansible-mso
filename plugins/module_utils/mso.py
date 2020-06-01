@@ -585,8 +585,8 @@ class MSOModule(object):
             # FIXME: Modified header only works for PATCH
             if not self.has_modified and self.previous != self.existing:
                 self.result['changed'] = True
-            if self.stdout:
-                self.result['stdout'] = self.stdout
+        if self.stdout:
+            self.result['stdout'] = self.stdout
 
         # Return the gory details when we need it
         if self.params['output_level'] == 'debug':

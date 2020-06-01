@@ -45,6 +45,7 @@ options:
     description:
     - The type of filters defined in this contract.
     - This defaults to C(both-way) when unset on creation.
+    default: both-way
     type: str
     choices: [ both-way, one-way ]
   contract_scope:
@@ -166,12 +167,12 @@ def main():
         contract=dict(type='str', required=True),
         contract_display_name=dict(type='str'),
         contract_scope=dict(type='str', choices=['application-profile', 'global', 'tenant', 'vrf']),
-        contract_filter_type=dict(type='str', choices=['both-way', 'one-way']),
+        contract_filter_type=dict(type='str', default='both-way', choices=['both-way', 'one-way']),
         filter=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
         filter_directives=dict(type='list', choices=['log', 'none']),
         filter_template=dict(type='str'),
         filter_schema=dict(type='str'),
-        filter_type=dict(type='str', default='both-way', choices=FILTER_KEYS.keys(), aliases=['type']),
+        filter_type=dict(type='str', default='both-way', choices= list(FILTER_KEYS), aliases=['type']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -213,9 +214,6 @@ def main():
 
     filter_key = FILTER_KEYS[filter_type]
 
-   
-
-    filter_schema_id = mso.lookup_schema(filter_schema)
 
     # Get schema object
     schema_obj = mso.get_obj('schemas', displayName=schema)
@@ -232,6 +230,7 @@ def main():
         mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
     template_idx = templates.index(template)
 
+    filter_schema_id = mso.lookup_schema(filter_schema)
     # Get contracts
     mso.existing = {}
     contract_idx = None

@@ -313,7 +313,6 @@ def main():
             # Contract exists, but may require an update
             if contract_display_name is not None:
                 ops.append(dict(op='replace', path=contract_path + '/displayName', value=contract_display_name))
-            #     mso.stdout += 'scope updated ' + str(contract_scope) + '\n'
             ops.append(dict(op='replace', path=contract_path + '/filterType', value=contract_ftype))
             ops.append(dict(op='replace', path=contract_path + '/scope', value=contract_scope))
 

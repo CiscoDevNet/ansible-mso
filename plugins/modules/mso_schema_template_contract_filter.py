@@ -175,7 +175,7 @@ def main():
         filter_type=dict(type='str', default='both-way', choices= list(FILTER_KEYS), aliases=['type']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
-    
+
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,

@@ -62,8 +62,8 @@ options:
     description:
     - Does the static port reside on a fex.
     type: bool
-    choices: [true, false]
-    default: false
+    choices: [True, False]
+    default: False
   fex:
     description:
     - The fex id of the static port.
@@ -216,7 +216,7 @@ def main():
         type=dict(type='str', default='port', choices=['port']),
         pod=dict(type='str'),  # This parameter is not required for querying all objects
         leaf=dict(type='str'),  # This parameter is not required for querying all objects
-        fex_port=dict(type='bool', default='false', choices=['true', 'false']),   # This parameter is not required for querying all objects
+        fex_port=dict(type='bool', default=False, choices=[True, False]),   # This parameter is not required for querying all objects
         fex=dict(type='str'),    # This parameter is not required for querying all objects
         path=dict(type='str'),  # This parameter is not required for querying all objects
         vlan=dict(type='int'),  # This parameter is not required for querying all objects

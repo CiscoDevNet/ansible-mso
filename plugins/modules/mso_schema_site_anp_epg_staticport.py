@@ -60,13 +60,14 @@ options:
     type: str
   fex_port:
     description:
-    - The path of the static port exists on a connected fex.
-    type: str
+    - Does the static port reside on a fex.
+    type: bool
     choices: [true, false]
     default: false
   fex:
     description:
-    - The fex of the static port.
+    - The fex id of the static port.
+    type: str
   path:
     description:
     - The path of the static port.
@@ -215,7 +216,7 @@ def main():
         type=dict(type='str', default='port', choices=['port']),
         pod=dict(type='str'),  # This parameter is not required for querying all objects
         leaf=dict(type='str'),  # This parameter is not required for querying all objects
-        fex_port=dict(type='str', default='false', choices=['true', 'false']),   # This parameter is not required for querying all objects
+        fex_port=dict(type='bool', default='false', choices=['true', 'false']),   # This parameter is not required for querying all objects
         fex=dict(type='str'),    # This parameter is not required for querying all objects
         path=dict(type='str'),  # This parameter is not required for querying all objects
         vlan=dict(type='int'),  # This parameter is not required for querying all objects
@@ -230,7 +231,7 @@ def main():
         required_if=[
             ['state', 'absent', ['type', 'pod', 'leaf', 'path', 'vlan']],
             ['state', 'present', ['type', 'pod', 'leaf', 'path', 'vlan']],
-            ['fex_port', 'true', ['type', 'pod', 'leaf', 'fex', 'path', 'vlan']],        
+            ['fex_port', 'true', ['type', 'pod', 'leaf', 'fex', 'path', 'vlan']],
         ],
     )
 

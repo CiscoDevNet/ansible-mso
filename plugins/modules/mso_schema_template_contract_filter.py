@@ -201,10 +201,8 @@ def main():
     contract_ftype = 'bothWay' if contract_filter_type == 'both-way' else 'oneWay'
 
     if contract_filter_type == 'both-way' and filter_type != 'both-way':
-        #module.warn("You are adding 'one-way' filters to a 'both-way' contract")
         mso.fail_json(msg="You are adding 'one-way' filters to a 'both-way' contract")
     elif contract_filter_type != 'both-way' and filter_type == 'both-way':
-        #module.warn("You are adding 'both-way' filters to a 'one-way' contract")
         mso.fail_json(msg="You are adding 'both-way' filters to a 'one-way' contract")
     if filter_template is None:
         filter_template = template
@@ -213,6 +211,9 @@ def main():
         filter_schema = schema
 
     filter_key = FILTER_KEYS[filter_type]
+
+
+
 
 
     # Get schema object
@@ -301,8 +302,6 @@ def main():
             # Contract does not exist, so we have to create it
             if contract_display_name is None:
                 contract_display_name = contract
-            # if contract_filter_type is None:
-            #     contract_ftype = 'bothWay'
             payload = {
                 'name': contract,
                 'displayName': contract_display_name,
@@ -314,6 +313,7 @@ def main():
             # Contract exists, but may require an update
             if contract_display_name is not None:
                 ops.append(dict(op='replace', path=contract_path + '/displayName', value=contract_display_name))
+            #     mso.stdout += 'scope updated ' + str(contract_scope) + '\n'
             ops.append(dict(op='replace', path=contract_path + '/filterType', value=contract_ftype))
             ops.append(dict(op='replace', path=contract_path + '/scope', value=contract_scope))
 

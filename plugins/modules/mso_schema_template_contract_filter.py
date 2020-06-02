@@ -45,6 +45,7 @@ options:
     description:
     - The type of filters defined in this contract.
     - This defaults to C(both-way) when unset on creation.
+    default: both-way
     type: str
     choices: [ both-way, one-way ]
   contract_scope:
@@ -166,12 +167,12 @@ def main():
         contract=dict(type='str', required=True),
         contract_display_name=dict(type='str'),
         contract_scope=dict(type='str', choices=['application-profile', 'global', 'tenant', 'vrf']),
-        contract_filter_type=dict(type='str', choices=['both-way', 'one-way']),
+        contract_filter_type=dict(type='str', default='both-way', choices=['both-way', 'one-way']),
         filter=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
         filter_directives=dict(type='list', choices=['log', 'none']),
         filter_template=dict(type='str'),
         filter_schema=dict(type='str'),
-        filter_type=dict(type='str', default='both-way', choices=FILTER_KEYS.keys(), aliases=['type']),
+        filter_type=dict(type='str', default='both-way', choices= list(FILTER_KEYS), aliases=['type']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -196,14 +197,13 @@ def main():
     filter_schema = module.params['filter_schema']
     filter_type = module.params['filter_type']
     state = module.params['state']
-
+    mso = MSOModule(module)
     contract_ftype = 'bothWay' if contract_filter_type == 'both-way' else 'oneWay'
 
     if contract_filter_type == 'both-way' and filter_type != 'both-way':
-        module.warn("You are adding 'one-way' filters to a 'both-way' contract")
+        mso.fail_json(msg="You are adding 'one-way' filters to a 'both-way' contract")
     elif contract_filter_type != 'both-way' and filter_type == 'both-way':
-        module.warn("You are adding 'both-way' filters to a 'one-way' contract")
-
+        mso.fail_json(msg="You are adding 'both-way' filters to a 'one-way' contract")
     if filter_template is None:
         filter_template = template
 
@@ -212,9 +212,9 @@ def main():
 
     filter_key = FILTER_KEYS[filter_type]
 
-    mso = MSOModule(module)
 
-    filter_schema_id = mso.lookup_schema(filter_schema)
+
+
 
     # Get schema object
     schema_obj = mso.get_obj('schemas', displayName=schema)
@@ -231,6 +231,7 @@ def main():
         mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
     template_idx = templates.index(template)
 
+    filter_schema_id = mso.lookup_schema(filter_schema)
     # Get contracts
     mso.existing = {}
     contract_idx = None
@@ -295,32 +296,26 @@ def main():
 
         mso.sanitize(payload, collate=True)
         mso.existing = mso.sent
-
+        if contract_scope is None or contract_scope == 'vrf':
+            contract_scope = 'context'
         if contract_idx is None:
             # Contract does not exist, so we have to create it
             if contract_display_name is None:
                 contract_display_name = contract
-            if contract_filter_type is None:
-                contract_ftype = 'bothWay'
-            if contract_scope is None or contract_scope == 'vrf':
-                contract_scope = 'context'
-
             payload = {
                 'name': contract,
                 'displayName': contract_display_name,
                 'filterType': contract_ftype,
                 'scope': contract_scope,
             }
-
             ops.append(dict(op='add', path='/templates/{0}/contracts/-'.format(template), value=payload))
         else:
             # Contract exists, but may require an update
             if contract_display_name is not None:
                 ops.append(dict(op='replace', path=contract_path + '/displayName', value=contract_display_name))
-            if contract_filter_type is not None:
-                ops.append(dict(op='replace', path=contract_path + '/filterType', value=contract_ftype))
-            if contract_scope is not None:
-                ops.append(dict(op='replace', path=contract_path + '/scope', value=contract_scope))
+            #     mso.stdout += 'scope updated ' + str(contract_scope) + '\n'
+            ops.append(dict(op='replace', path=contract_path + '/filterType', value=contract_ftype))
+            ops.append(dict(op='replace', path=contract_path + '/scope', value=contract_scope))
 
         if filter_idx is None:
             # Filter does not exist, so we have to add it
@@ -329,6 +324,9 @@ def main():
         else:
             # Filter exists, we have to update it
             ops.append(dict(op='replace', path=filter_path, value=mso.sent))
+
+    if 'filterRef' in mso.previous:
+        mso.previous['filterRef'] = mso.dict_from_ref(mso.previous['filterRef'])
 
     if not module.check_mode:
         mso.request(schema_path, method='PATCH', data=ops)

@@ -60,10 +60,9 @@ options:
     type: str
   fex_port:
     description:
-    - Does the static port reside on a fex.
+    - Indicate if the static port resides on a fex.
     type: bool
-    choices: [True, False]
-    default: False
+    default: no
   fex:
     description:
     - The fex id of the static port.
@@ -141,7 +140,7 @@ EXAMPLES = r'''
     type: port
     pod: pod-1
     leaf: 101
-    fex_port: true
+    fex_port: yes
     fex: 151
     path: eth1/1
     vlan: 126
@@ -216,7 +215,7 @@ def main():
         type=dict(type='str', default='port', choices=['port']),
         pod=dict(type='str'),  # This parameter is not required for querying all objects
         leaf=dict(type='str'),  # This parameter is not required for querying all objects
-        fex_port=dict(type='bool', default=False, choices=[True, False]),   # This parameter is not required for querying all objects
+        fex_port=dict(type=bool, default=False),   # This parameter is not required for querying all objects
         fex=dict(type='str'),    # This parameter is not required for querying all objects
         path=dict(type='str'),  # This parameter is not required for querying all objects
         vlan=dict(type='int'),  # This parameter is not required for querying all objects
@@ -251,7 +250,7 @@ def main():
     mode = module.params['mode']
     state = module.params['state']
 
-    if path_type == 'port' and fex_port == 'true':
+    if path_type == 'port' and fex_port is True:
         # Select port path for fex if fex_port is true
         portpath = 'topology/{0}/paths-{1}/extpaths-{2}/pathep-[{3}]'.format(pod, leaf, fex, path)
     else:

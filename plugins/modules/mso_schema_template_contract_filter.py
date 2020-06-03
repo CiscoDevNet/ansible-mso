@@ -160,6 +160,7 @@ FILTER_KEYS = {
 
 
 def main():
+
     argument_spec = mso_argument_spec()
     argument_spec.update(
         schema=dict(type='str', required=True),
@@ -172,7 +173,7 @@ def main():
         filter_directives=dict(type='list', choices=['log', 'none']),
         filter_template=dict(type='str'),
         filter_schema=dict(type='str'),
-        filter_type=dict(type='str', default='both-way', choices= list(FILTER_KEYS), aliases=['type']),
+        filter_type=dict(type='str', default='both-way', choices=list(FILTER_KEYS), aliases=['type']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -212,10 +213,6 @@ def main():
 
     filter_key = FILTER_KEYS[filter_type]
 
-
-
-
-
     # Get schema object
     schema_obj = mso.get_obj('schemas', displayName=schema)
     if schema_obj:
@@ -233,6 +230,7 @@ def main():
 
     filter_schema_id = mso.lookup_schema(filter_schema)
     # Get contracts
+
     mso.existing = {}
     contract_idx = None
     filter_idx = None
@@ -261,7 +259,6 @@ def main():
     ops = []
     contract_path = '/templates/{0}/contracts/{1}'.format(template, contract)
     filters_path = '/templates/{0}/contracts/{1}/{2}'.format(template, contract, filter_key)
-
     mso.previous = mso.existing
     if state == 'absent':
         mso.proposed = mso.sent = {}
@@ -323,7 +320,6 @@ def main():
         else:
             # Filter exists, we have to update it
             ops.append(dict(op='replace', path=filter_path, value=mso.sent))
-
     if 'filterRef' in mso.previous:
         mso.previous['filterRef'] = mso.dict_from_ref(mso.previous['filterRef'])
 

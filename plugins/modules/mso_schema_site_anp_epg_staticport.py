@@ -58,11 +58,6 @@ options:
     description:
     - The leaf of the static port.
     type: str
-  fex_port:
-    description:
-    - Indicate if the static port resides on a fex.
-    type: bool
-    default: no
   fex:
     description:
     - The fex id of the static port.
@@ -140,7 +135,6 @@ EXAMPLES = r'''
     type: port
     pod: pod-1
     leaf: 101
-    fex_port: yes
     fex: 151
     path: eth1/1
     vlan: 126
@@ -215,7 +209,6 @@ def main():
         type=dict(type='str', default='port', choices=['port']),
         pod=dict(type='str'),  # This parameter is not required for querying all objects
         leaf=dict(type='str'),  # This parameter is not required for querying all objects
-        fex_port=dict(type=bool, default=False),   # This parameter is not required for querying all objects
         fex=dict(type='str'),    # This parameter is not required for querying all objects
         path=dict(type='str'),  # This parameter is not required for querying all objects
         vlan=dict(type='int'),  # This parameter is not required for querying all objects
@@ -230,7 +223,6 @@ def main():
         required_if=[
             ['state', 'absent', ['type', 'pod', 'leaf', 'path', 'vlan']],
             ['state', 'present', ['type', 'pod', 'leaf', 'path', 'vlan']],
-            ['fex_port', 'true', ['type', 'pod', 'leaf', 'fex', 'path', 'vlan']],
         ],
     )
 
@@ -242,7 +234,6 @@ def main():
     path_type = module.params['type']
     pod = module.params['pod']
     leaf = module.params['leaf']
-    fex_port = module.params['fex_port']
     fex = module.params['fex']
     path = module.params['path']
     vlan = module.params['vlan']
@@ -250,8 +241,8 @@ def main():
     mode = module.params['mode']
     state = module.params['state']
 
-    if path_type == 'port' and fex_port is True:
-        # Select port path for fex if fex_port is true
+    if path_type == 'port' and fex is not None:
+        # Select port path for fex if fex param is used
         portpath = 'topology/{0}/paths-{1}/extpaths-{2}/pathep-[{3}]'.format(pod, leaf, fex, path)
     else:
         portpath = 'topology/{0}/paths-{1}/pathep-[{2}]'.format(pod, leaf, path)

@@ -204,6 +204,9 @@ def main():
             mso.existing = schema_obj.get('templates')[template_idx]['externalEpgs'][epg_idx]['contractRelationships']
         elif not mso.existing:
             mso.fail_json(msg="Contract '{0}' not found".format(contract_ref))
+
+        if 'contractRef' in mso.existing:
+            mso.existing['contractRef'] = mso.dict_from_ref(mso.existing.get('contractRef'))
         mso.exit_json()
 
     contracts_path = '/templates/{0}/externalEpgs/{1}/contractRelationships'.format(template, external_epg)
@@ -234,7 +237,10 @@ def main():
 
         mso.existing = mso.proposed
 
-    if not module.check_mode:
+    if 'contractRef' in mso.previous:
+        mso.previous['contractRef'] = mso.dict_from_ref(mso.previous.get('contractRef'))
+
+    if not module.check_mode and mso.proposed != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)
 
     mso.exit_json()

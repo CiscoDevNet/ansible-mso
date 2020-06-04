@@ -484,6 +484,7 @@ class MSOModule(object):
         map = {
             'vrfs': ['vrfName', 'schemaId', 'templateName'],
             'filters': ['filterName', 'schemaId', 'templateName'],
+            'contracts': ['contractName', 'schemaId', 'templateName'],
         }
         result = {
             map[category][0]: name,

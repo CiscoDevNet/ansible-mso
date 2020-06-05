@@ -134,9 +134,14 @@ options:
     - When not specified, this parameter defaults to C(unenforced).
     type: str
     choices: [ enforced, unenforced ]
-  intersite_multicaste_source:
+  intersite_multicast_source:
     description:
     - Whether intersite multicast source is enabled.
+    - When not specified, this parameter defaults to C(no).
+    type: bool
+  proxy_arp:
+    description:
+    - Whether proxy arp is enabled.
     - When not specified, this parameter defaults to C(no).
     type: bool
   preferred_group:
@@ -260,7 +265,8 @@ def main():
         display_name=dict(type='str'),
         useg_epg=dict(type='bool'),
         intra_epg_isolation=dict(type='str', choices=['enforced', 'unenforced']),
-        intersite_multicaste_source=dict(type='bool'),
+        intersite_multicast_source=dict(type='bool'),
+        proxy_arp=dict(type='bool'),
         subnets=dict(type='list', options=mso_subnet_spec()),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
         preferred_group=dict(type='bool'),
@@ -284,7 +290,8 @@ def main():
     vrf = module.params.get('vrf')
     useg_epg = module.params.get('useg_epg')
     intra_epg_isolation = module.params.get('intra_epg_isolation')
-    intersite_multicaste_source = module.params.get('intersite_multicaste_source')
+    intersite_multicast_source = module.params.get('intersite_multicast_source')
+    proxy_arp = module.params.get('proxy_arp')
     subnets = module.params.get('subnets')
     state = module.params.get('state')
     preferred_group = module.params.get('preferred_group')
@@ -353,7 +360,8 @@ def main():
             displayName=display_name,
             uSegEpg=useg_epg,
             intraEpg=intra_epg_isolation,
-            proxyArp=intersite_multicaste_source,
+            mCastSource=intersite_multicast_source,
+            proxyArp=proxy_arp,
             # FIXME: Missing functionality
             # uSegAttrs=[],
             subnets=subnets,

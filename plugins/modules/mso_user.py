@@ -241,7 +241,7 @@ def main():
         )
 
         mso.sanitize(payload, collate=True)
-        mso.stdout = str(mso.sent)
+
         if mso.sent.get('accountStatus') is None:
             mso.sent['accountStatus'] = 'active'
 

@@ -477,19 +477,20 @@ class MSOModule(object):
     def dict_from_ref(self, data):
         ref_regex = re.compile(r'\/schemas\/(.*)\/templates\/(.*)\/(.*)\/(.*)')
         dic = ref_regex.search(data)
-        schemaId = dic.group(1)
-        templateName = dic.group(2)
+        schema_id = dic.group(1)
+        template_name = dic.group(2)
         category = dic.group(3)
         name = dic.group(4)
-        map = {
+        uri_map = {
             'vrfs': ['vrfName', 'schemaId', 'templateName'],
+            'bds': ['bdName', 'schemaId', 'templateName'],
             'filters': ['filterName', 'schemaId', 'templateName'],
             'contracts': ['contractName', 'schemaId', 'templateName'],
         }
         result = {
-            map[category][0]: name,
-            map[category][1]: schemaId,
-            map[category][2]: templateName,
+            uri_map[category][0]: name,
+            uri_map[category][1]: schema_id,
+            uri_map[category][2]: template_name,
         }
         return result
 

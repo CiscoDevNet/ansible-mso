@@ -189,14 +189,14 @@
     <<: *bd_present
   register: nm_add_bd
 
-- name: nm_Verify add_bd
+- name: Verify nm_add_bd
   assert:
     that:
     - nm_add_bd is changed
     - nm_add_bd.previous == {}
     - nm_add_bd.current.name == "ansible_test_1"
-    - cm_add_bd.current.vrfRef.templateName == "Template 1"
-    - cm_add_bd.current.vrfRef.vrfName == "VRF"
+    - nm_add_bd.current.vrfRef.templateName == "Template 1"
+    - nm_add_bd.current.vrfRef.vrfName == "VRF"
     - cm_add_bd.current.vrfRef.schemaId ==  nm_add_bd.current.vrfRef.schemaId
 
 - name: Add bd again (check_mode)

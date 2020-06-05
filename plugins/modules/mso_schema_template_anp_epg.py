@@ -323,6 +323,11 @@ def main():
             mso.existing = schema_obj.get('templates')[template_idx]['anps'][anp_idx]['epgs']
         elif not mso.existing:
             mso.fail_json(msg="EPG '{epg}' not found".format(epg=epg))
+
+        if 'bdRef' in mso.existing:
+            mso.existing['bdRef'] = mso.dict_from_ref(mso.existing['bdRef'])
+        if 'vrfRef' in mso.existing:
+            mso.existing['vrfRef'] = mso.dict_from_ref(mso.existing['vrfRef'])
         mso.exit_json()
 
     epgs_path = '/templates/{0}/anps/{1}/epgs'.format(template, anp)
@@ -351,7 +356,6 @@ def main():
             proxyArp=intersite_multicaste_source,
             # FIXME: Missing functionality
             # uSegAttrs=[],
-            contractRelationships=[],
             subnets=subnets,
             bdRef=bd_ref,
             preferredGroup=preferred_group,
@@ -367,7 +371,14 @@ def main():
 
         mso.existing = mso.proposed
 
-    if not module.check_mode:
+    if 'epgRef' in mso.previous:
+        del mso.previous['epgRef']
+    if 'bdRef' in mso.previous:
+        mso.previous['bdRef'] = mso.dict_from_ref(mso.previous['bdRef'])
+    if 'vrfRef' in mso.previous:
+        mso.previous['vrfRef'] = mso.dict_from_ref(mso.previous['vrfRef'])
+
+    if not module.check_mode and mso.proposed != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)
 
     mso.exit_json()

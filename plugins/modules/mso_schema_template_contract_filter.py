@@ -299,14 +299,6 @@ def main():
             # Contract does not exist, so we have to create it
             if contract_display_name is None:
                 contract_display_name = contract
-<<<<<<< HEAD
-=======
-            if contract_filter_type is None:
-                contract_ftype = 'bothWay'
-            if contract_scope is None or contract_scope == 'vrf':
-                contract_scope = 'context'
-
->>>>>>> send context instead of vrf
             payload = {
                 'name': contract,
                 'displayName': contract_display_name,

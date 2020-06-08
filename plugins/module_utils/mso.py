@@ -90,6 +90,7 @@ def mso_argument_spec():
         use_proxy=dict(type='bool', default=True),
         use_ssl=dict(type='bool', default=True),
         validate_certs=dict(type='bool', default=True),
+        domain=dict(type='str'),
     )
 
 
@@ -181,12 +182,27 @@ class MSOModule(object):
         else:
             self.module.fail_json(msg="Parameter 'password' is required for authentication")
 
+    def get_domain_id(self, domain):
+        ''' Get a domain and return its id '''
+        if domain is None:
+            return domain
+        d = self.get_obj('auth/login-domains', key='domains', name=domain)
+        if not d:
+            self.module.fail_json(msg="Domain '%s' is not a valid domain name." % domain)
+        if 'id' not in d:
+            self.module.fail_json(msg="Domain lookup failed for domain '%s': %s" % (domain, d))
+        return d['id']
+
     def login(self):
         ''' Log in to MSO '''
 
         # Perform login request
         self.url = urljoin(self.baseuri, 'auth/login')
-        payload = {'username': self.params['username'], 'password': self.params['password']}
+        if (self.params['domain'] is not None) and (self.params['domain'] != 'Local'):
+            domain_id = self.get_domain_id(self.params['domain'])
+            payload = {'username': self.params['username'], 'password': self.params['password'], 'domainId': domain_id}
+        else:
+            payload = {'username': self.params['username'], 'password': self.params['password']}
         resp, auth = fetch_url(self.module,
                                self.url,
                                data=json.dumps(payload),

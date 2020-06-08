@@ -28,6 +28,19 @@
     label: ansible_test2
   register: cm_remove_label
 
+- name: Remove label ansible_test3
+  mso_label: &domain_label_absent
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    state: absent
+    label: ansible_test3
+    domain: Local
+  register: nm_remove_label3
 
 # ADD LABEL
 - name: Add label (check_mode)
@@ -282,3 +295,38 @@
     - cm_query_non_label is not changed
     - nm_query_non_label is not changed
     - cm_query_non_label == nm_query_non_label
+
+- name: Add label local domain(normal mode)
+  mso_label: &domain_label_present
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    state: present
+    label: ansible_test3
+    domain: Local
+  register: label_local_domain
+
+- name: Verify label_local_domain
+  assert:
+    that:
+    - label_local_domain is changed
+    - label_local_domain.current.displayName == 'ansible_test3'
+    - label_local_domain.current.type == 'site'
+
+- name: Add label test domain(normal mode)
+  mso_label: 
+    <<: *domain_label_present
+    label: ansible_test4
+    domain: test
+  register: label_test_domain
+
+- name: Verify label_test_domain
+  assert:
+    that:
+    - label_test_domain is changed
+    - label_test_domain.current.displayName == 'ansible_test4'
+    - label_test_domain.current.type == 'site'

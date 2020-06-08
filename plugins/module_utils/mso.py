@@ -197,12 +197,12 @@ class MSOModule(object):
         ''' Log in to MSO '''
 
         # Perform login request
-        self.url = urljoin(self.baseuri, 'auth/login')
         if (self.params.get('login_domain') is not None) and (self.params.get('login_domain') != 'Local'):
             domain_id = self.get_login_domain_id(self.params.get('login_domain'))
             payload = {'username': self.params.get('username'), 'password': self.params.get('password'), 'domainId': domain_id}
         else:
             payload = {'username': self.params.get('username'), 'password': self.params.get('password')}
+        self.url = urljoin(self.baseuri, 'auth/login')
         resp, auth = fetch_url(self.module,
                                self.url,
                                data=json.dumps(payload),

@@ -90,7 +90,7 @@ def mso_argument_spec():
         use_proxy=dict(type='bool', default=True),
         use_ssl=dict(type='bool', default=True),
         validate_certs=dict(type='bool', default=True),
-        domain=dict(type='str'),
+        login_domain=dict(type='str'),
     )
 
 
@@ -182,15 +182,15 @@ class MSOModule(object):
         else:
             self.module.fail_json(msg="Parameter 'password' is required for authentication")
 
-    def get_domain_id(self, domain):
+    def get_login_domain_id(self, domain):
         ''' Get a domain and return its id '''
         if domain is None:
             return domain
         d = self.get_obj('auth/login-domains', key='domains', name=domain)
         if not d:
-            self.module.fail_json(msg="Domain '%s' is not a valid domain name." % domain)
+            self.module.fail_json(msg="Login domain '%s' is not a valid domain name." % domain)
         if 'id' not in d:
-            self.module.fail_json(msg="Domain lookup failed for domain '%s': %s" % (domain, d))
+            self.module.fail_json(msg="Login domain lookup failed for domain '%s': %s" % (domain, d))
         return d['id']
 
     def login(self):
@@ -198,11 +198,11 @@ class MSOModule(object):
 
         # Perform login request
         self.url = urljoin(self.baseuri, 'auth/login')
-        if (self.params['domain'] is not None) and (self.params['domain'] != 'Local'):
-            domain_id = self.get_domain_id(self.params['domain'])
-            payload = {'username': self.params['username'], 'password': self.params['password'], 'domainId': domain_id}
+        if (self.params.get('login_domain') is not None) and (self.params.get('login_domain') != 'Local'):
+            domain_id = self.get_login_domain_id(self.params.get('login_domain'))
+            payload = {'username': self.params.get('username'), 'password': self.params.get('password'), 'domainId': domain_id}
         else:
-            payload = {'username': self.params['username'], 'password': self.params['password']}
+            payload = {'username': self.params.get('username'), 'password': self.params.get('password')}
         resp, auth = fetch_url(self.module,
                                self.url,
                                data=json.dumps(payload),

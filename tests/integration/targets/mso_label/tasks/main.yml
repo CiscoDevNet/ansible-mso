@@ -39,7 +39,7 @@
     output_level: '{{ mso_output_level | default("info") }}'
     state: absent
     label: ansible_test3
-    domain: Local
+    login_domain: Local
   register: nm_remove_label3
 
 # ADD LABEL
@@ -296,6 +296,7 @@
     - nm_query_non_label is not changed
     - cm_query_non_label == nm_query_non_label
 
+# add label with login domain
 - name: Add label local domain(normal mode)
   mso_label: &domain_label_present
     host: '{{ mso_hostname }}'
@@ -307,7 +308,7 @@
     output_level: '{{ mso_output_level | default("info") }}'
     state: present
     label: ansible_test3
-    domain: Local
+    login_domain: Local
   register: label_local_domain
 
 - name: Verify label_local_domain
@@ -321,7 +322,7 @@
   mso_label: 
     <<: *domain_label_present
     label: ansible_test4
-    domain: test
+    login_domain: test
   register: label_test_domain
 
 - name: Verify label_test_domain

@@ -63,9 +63,9 @@ options:
     - This should only set to C(no) when used on personally controlled sites using self-signed certificates.
     type: bool
     default: yes
-  domain:
+  login_domain:
     description:
-    - The domain name to use for authentication.
+    - The login domain name to use for authentication.
     - The default value is Local.
     type: str
 requirements:

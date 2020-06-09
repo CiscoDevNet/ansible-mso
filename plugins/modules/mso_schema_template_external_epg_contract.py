@@ -196,7 +196,7 @@ def main():
         contract_ref = mso.contract_ref(**contract)
         if (contract_ref, contract.get('type')) in contracts:
             contract_idx = contracts.index((contract_ref, contract.get('type')))
-            contract_path = '/templates/{0}/externalEpgs/{1}/contractRelationships/{2}'.format(template, external_epg, contract)
+            contract_path = '/templates/{0}/externalEpgs/{1}/contractRelationships/{2}'.format(template, external_epg, contract_idx)
             mso.existing = schema_obj.get('templates')[template_idx]['externalEpgs'][epg_idx]['contractRelationships'][contract_idx]
 
     if state == 'query':

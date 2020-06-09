@@ -381,9 +381,9 @@ def main():
 
     if 'epgRef' in mso.previous:
         del mso.previous['epgRef']
-    if 'bdRef' in mso.previous:
+    if 'bdRef' in mso.previous and mso.previous['bdRef'] != '':
         mso.previous['bdRef'] = mso.dict_from_ref(mso.previous['bdRef'])
-    if 'vrfRef' in mso.previous:
+    if 'vrfRef' in mso.previous and mso.previous['bdRef'] != '':
         mso.previous['vrfRef'] = mso.dict_from_ref(mso.previous['vrfRef'])
 
     if not module.check_mode and mso.proposed != mso.previous:

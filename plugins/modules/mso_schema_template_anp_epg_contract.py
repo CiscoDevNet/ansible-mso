@@ -214,7 +214,7 @@ def main():
         contract_ref = mso.contract_ref(**contract)
         if (contract_ref, contract.get('type')) in contracts:
             contract_idx = contracts.index((contract_ref, contract.get('type')))
-            contract_path = '/templates/{0}/anps/{1}/epgs/{2}/contractRelationships/{3}'.format(template, anp, epg, contract)
+            contract_path = '/templates/{0}/anps/{1}/epgs/{2}/contractRelationships/{3}'.format(template, anp, epg, contract_idx)
             mso.existing = schema_obj.get('templates')[template_idx]['anps'][anp_idx]['epgs'][epg_idx]['contractRelationships'][contract_idx]
 
     if state == 'query':
@@ -257,7 +257,6 @@ def main():
 
     if 'contractRef' in mso.previous:
         mso.previous['contractRef'] = mso.dict_from_ref(mso.previous.get('contractRef'))
-
     if not module.check_mode and mso.proposed != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)
 

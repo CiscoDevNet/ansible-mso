@@ -125,7 +125,7 @@ extends_documentation_fragment: cisco.mso.modules
 '''
 
 EXAMPLES = r'''
-- name: Add a new static leaf to a site EPG
+- name: Add a new domain to a site EPG
   cisco.mso.mso_schema_site_anp_epg_domain:
     host: mso_host
     username: admin
@@ -142,7 +142,7 @@ EXAMPLES = r'''
     state: present
   delegate_to: localhost
 
-- name: Remove a static leaf from a site EPG
+- name: Remove a domain from a site EPG
   cisco.mso.mso_schema_site_anp_epg_domain:
     host: mso_host
     username: admin
@@ -159,7 +159,7 @@ EXAMPLES = r'''
     state: absent
   delegate_to: localhost
 
-- name: Query a specific site EPG static leaf
+- name: Query a domain associated with a specific site EPG
   cisco.mso.mso_schema_site_anp_epg_domain:
     host: mso_host
     username: admin
@@ -175,7 +175,7 @@ EXAMPLES = r'''
   delegate_to: localhost
   register: query_result
 
-- name: Query all site EPG static leafs
+- name: Query all domains associated with a site EPG
   cisco.mso.mso_schema_site_anp_epg_domain:
     host: mso_host
     username: admin
@@ -276,20 +276,82 @@ def main():
     # Path-based access uses site_id-template
     site_template = '{0}-{1}'.format(site_id, template)
 
+
+    # Get template
+    templates = [t.get('name') for t in schema_obj['templates']]
+    if template not in templates:
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
+    template_idx = templates.index(template)
+
+    payload = dict()
+    ops = []
+    op_path=""
+
     # Get ANP
     anp_ref = mso.anp_ref(schema_id=schema_id, template=template, anp=anp)
-    anps = [a.get('anpRef') for a in schema_obj.get('sites')[site_idx]['anps']]
-    if anp_ref not in anps:
+    anps = [a.get('anpRef') for a in schema_obj['sites'][site_idx]['anps']]
+    anps_path = '/sites/{0}/anps'.format(site_template)
+    anps_in_temp = [a.get('name') for a in schema_obj['templates'][template_idx]['anps']]
+    if anp not in anps_in_temp:
         mso.fail_json(msg="Provided anp '{0}' does not exist. Existing anps: {1}".format(anp, ', '.join(anps)))
-    anp_idx = anps.index(anp_ref)
+    else:
+      # Update anp index at template level
+        template_anp_idx = anps_in_temp.index(anp)
+
+    # If anp not at site level but exists at template level
+    if anp_ref not in anps:
+        op_path='/sites/{0}/anps/-'.format(site_template)
+        payload.update(
+                anpRef = dict(
+                    schemaId = schema_id,
+                    templateName = template,
+                    anpName = anp,
+                ),
+        )
+
+    else:
+      # Update anp index at site level
+        anp_idx = anps.index(anp_ref)
 
     # Get EPG
     epg_ref = mso.epg_ref(schema_id=schema_id, template=template, anp=anp, epg=epg)
-    print(epg_ref)
-    epgs = [e.get('epgRef') for e in schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs']]
-    if epg_ref not in epgs:
-        mso.fail_json(msg="Provided epg '{0}' does not exist. Existing epgs: {1} epgref {2}".format(epg, str(schema_obj.get('sites')[site_idx]), epg_ref))
-    epg_idx = epgs.index(epg_ref)
+
+    # If anp exists at site level
+    if 'anpRef' not in payload:
+        epgs = [e.get('epgRef') for e in schema_obj['sites'][site_idx]['anps'][anp_idx]['epgs']]
+        epgs_path = '/sites/{0}/anps/{1}/epgs'.format(site_template, anp)
+
+    # If anp already at site level AND if epg not at site level (or) anp not at site level?
+    if ('anpRef' not in payload and epg_ref not in epgs) or 'anpRef' in payload:
+        epgs_in_temp = [e.get('name') for e in schema_obj['templates'][template_idx]['anps'][template_anp_idx]['epgs']]
+
+        # If EPG not at template level - Fail
+        if epg not in epgs_in_temp:
+            mso.fail_json(msg="Provided EPG '{0}' does not exist. Existing EPGs: {1} epgref {2}".format(epg, ', '.join(epgs_in_temp), epg_ref))
+
+        # EPG at template level but not at site level. Create payload at site level for EPG
+        else:
+
+            new_epg = dict(
+                          epgRef = dict(
+                              schemaId = schema_id,
+                              templateName = template,
+                              anpName = anp,
+                              epgName = epg,
+                          )
+            )
+
+            # If anp not in payload then, anp already exists at site level. New payload will only have new EPG payload
+            if 'anpRef' not in payload:
+                op_path = '/sites/{0}/anps/{1}/epgs/-'.format(site_template, anp)
+                payload = new_epg
+            else:
+            # If anp in payload, anp exists at site level. Update payload with EPG payload
+                payload['epgs'] = [new_epg]
+
+    # Update index of EPG at site level
+    else:
+        epg_idx = epgs.index(epg_ref)
 
     if domain_association_type == 'vmmDomain':
         domain_dn = 'uni/vmmp-VMware/dom-{0}'.format(domain_profile)
@@ -305,11 +367,13 @@ def main():
         domain_dn = ''
 
     # Get Domains
-    domains = [dom.get('dn') for dom in schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs'][epg_idx]['domainAssociations']]
-    if domain_dn in domains:
-        domain_idx = domains.index(domain_dn)
-        domain_path = '/sites/{0}/anps/{1}/epgs/{2}/domainAssociations/{3}'.format(site_template, anp, epg, domain_idx)
-        mso.existing = schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs'][epg_idx]['domainAssociations'][domain_idx]
+    # If anp at site level and epg is at site level
+    if 'anpRef' not in payload and 'epgRef' not in payload:
+        domains = [dom.get('dn') for dom in schema_obj['sites'][site_idx]['anps'][anp_idx]['epgs'][epg_idx]['domainAssociations']]
+        if domain_dn in domains:
+            domain_idx = domains.index(domain_dn)
+            domain_path = '/sites/{0}/anps/{1}/epgs/{2}/domainAssociations/{3}'.format(site_template, anp, epg, domain_idx)
+            mso.existing = schema_obj['sites'][site_idx]['anps'][anp_idx]['epgs'][epg_idx]['domainAssociations'][domain_idx]
 
     if state == 'query':
         if domain_association_type is None or domain_profile is None:
@@ -322,6 +386,13 @@ def main():
 
     domains_path = '/sites/{0}/anps/{1}/epgs/{2}/domainAssociations'.format(site_template, anp, epg)
     ops = []
+    new_domain = dict(
+            dn=domain_dn,
+            domainType=domain_association_type,
+            deploymentImmediacy=deployment_immediacy,
+            resolutionImmediacy=resolution_immediacy,
+    )
+
     if domain_association_type == 'vmmDomain':
         vmmDomainProperties = {}
         if micro_seg_vlan_type and micro_seg_vlan:
@@ -359,35 +430,34 @@ def main():
         elif enhanced_lagpolicy_name and not enhanced_lagpolicy_dn:
             mso.fail_json(msg="enhanced_lagpolicy_dn is required when enhanced_lagpolicy_name is provided.")
 
-        payload = dict(
-            dn=domain_dn,
-            domainType=domain_association_type,
-            deploymentImmediacy=deployment_immediacy,
-            resolutionImmediacy=resolution_immediacy,
-        )
-
         if vmmDomainProperties:
-            payload['vmmDomainProperties'] = vmmDomainProperties
+            new_domain['vmmDomainProperties'] = vmmDomainProperties
+
+    # If payload is empty, anp and EPG already exist at site level
+    if not payload :
+        op_path = domains_path+ '/-'
+        payload = new_domain
+
+    # If payload exists
     else:
-        payload = dict(
-            dn=domain_dn,
-            domainType=domain_association_type,
-            deploymentImmediacy=deployment_immediacy,
-            resolutionImmediacy=resolution_immediacy,
-        )
+        # If anp already exists at site level...(AND payload != epg as well?)
+        if 'anpRef' not in payload:
+            payload['domainAssociations'] = [new_domain]
+        else:
+            payload['epgs'][0]['domainAssociations'] = [new_domain]
 
     mso.previous = mso.existing
     if state == 'absent':
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=domains_path))
+            ops.append(dict(op='remove', path=domain_path))
     elif state == 'present':
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
             ops.append(dict(op='replace', path=domain_path, value=mso.sent))
         else:
-            ops.append(dict(op='add', path=domains_path + '/-', value=mso.sent))
+            ops.append(dict(op='add', path=op_path, value=mso.sent))
 
         mso.existing = mso.proposed
 
@@ -395,7 +465,6 @@ def main():
         mso.request(schema_path, method='PATCH', data=ops)
 
     mso.exit_json()
-
 
 if __name__ == "__main__":
     main()

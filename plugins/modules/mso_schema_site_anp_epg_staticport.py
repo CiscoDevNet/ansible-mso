@@ -244,7 +244,7 @@ def main():
     if path_type == 'port' and fex is not None:
         # Select port path for fex if fex param is used
         portpath = 'topology/{0}/paths-{1}/extpaths-{2}/pathep-[{3}]'.format(pod, leaf, fex, path)
-    else:
+    elif path_type == 'port':
         portpath = 'topology/{0}/paths-{1}/pathep-[{2}]'.format(pod, leaf, path)
     elif path_type == 'vpc':
         portpath = 'topology/{0}/protpaths-{1}/pathep-[{2}]'.format(pod, leaf, path)

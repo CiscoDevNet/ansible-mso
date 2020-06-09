@@ -12,22 +12,22 @@
 
 
 # CLEAN ENVIRONMENT
-- name: Ensure site exist
-  mso_site: &site_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ apic_username }}'
-    apic_password: '{{ apic_password }}'
-    apic_site_id: 101
-    urls:
-    - https://{{ apic_hostname }}
-    state: present
+# - name: Ensure site exist
+#   mso_site: &site_present
+#     host: '{{ mso_hostname }}'
+#     username: '{{ mso_username }}'
+#     password: '{{ mso_password }}'
+#     validate_certs: '{{ mso_validate_certs | default(false) }}'
+#     use_ssl: '{{ mso_use_ssl | default(true) }}'
+#     use_proxy: '{{ mso_use_proxy | default(true) }}'
+#     output_level: '{{ mso_output_level | default("info") }}'
+#     site: '{{ mso_site | default("ansible_test") }}'
+#     apic_username: '{{ apic_username }}'
+#     apic_password: '{{ apic_password }}'
+#     apic_site_id: 101
+#     urls:
+#     - https://{{ apic_hostname }}
+#     state: present
 
 - name: Ensure tenant ansible_test exist
   mso_tenant: &tenant_present
@@ -42,9 +42,24 @@
     users:
     - admin
     - '{{ mso_username }}'
-    sites:
-    - '{{ mso_site | default("ansible_test") }}'
+    # sites:
+    # - '{{ mso_site | default("ansible_test") }}'
     state: present
+
+- name: Remove schemas
+  mso_schema:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure schema 1 with Template 1 exist
   mso_schema_template: &schema_present
@@ -129,16 +144,8 @@
     contract: Contract2
     state: present
 
-- name: Ensure Contract3 exist
-  mso_schema_template_contract_filter:
-    <<: *contract_present
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
-    contract: Contract3
-    state: present
-
-- name: Ensure external EPG 1 does not exist (cleaning relationships)
-  mso_schema_template_externalepg: &ext_epg_absent
+- name: Ensure external EPGs exist
+  mso_schema_template_externalepg:
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -146,17 +153,17 @@
     use_ssl: '{{ mso_use_ssl | default(true) }}'
     use_proxy: '{{ mso_use_proxy | default(true) }}'
     output_level: '{{ mso_output_level | default("info") }}'
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    externalepg: ExternalEPG1
+    state: present
+    schema: '{{ item.schema }}'
+    template: '{{ item.template }}'
+    externalepg: '{{ item.externalepg }}'
     vrf: 
       name: VRF
-    state: absent
-
-- name: Ensure external EPG 1 exist
-  mso_schema_template_externalepg:
-    <<: *ext_epg_absent
-    state: present
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+  loop:
+  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', externalepg: 'ansible_test_1' }
+  - { schema: '{{ mso_schema | default("ansible_test") }}_2', template: 'Template 3', externalepg: 'ansible_test_3' }
 
 # ADD Contract to External EPG
 - name: Add Contract1 to External EPG (check_mode)
@@ -170,7 +177,7 @@
     output_level: '{{ mso_output_level | default("info") }}'
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    external_epg: ExternalEPG1
+    external_epg: ansible_test_1
     contract:
       name: Contract1
       type: consumer
@@ -255,13 +262,16 @@
       type: consumer
   register: nm_add_contract2_rel_consumer
 
-- name: Add Contract3 to External EPG - provider (normal mode)
+- name: Add Contract1 to External EPG 3 - provider (normal mode)
   mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: 'Template 3'
+    external_epg: ansible_test_3
     contract:
-      name: Contract3
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template 3
+      name: Contract1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
       type: provider
   register: nm_add_contract3_rel_provider
 
@@ -273,11 +283,11 @@
     - nm_add_contract3_rel_provider is changed
     - nm_add_contract1_rel_provider.current.contractRef.contractName == "Contract1"
     - nm_add_contract2_rel_consumer.current.contractRef.contractName == "Contract2"
-    - nm_add_contract3_rel_provider.current.contractRef.contractName == "Contract3"
+    - nm_add_contract3_rel_provider.current.contractRef.contractName == "Contract1"
     - nm_add_contract1_rel_provider.current.contractRef.templateName == "Template 1"
     - nm_add_contract2_rel_consumer.current.contractRef.templateName == "Template 2"
-    - nm_add_contract3_rel_provider.current.contractRef.templateName == "Template 3"
-    - nm_add_contract1_rel_provider.current.contractRef.schemaId == nm_add_contract2_rel_consumer.current.contractRef.schemaId
+    - nm_add_contract3_rel_provider.current.contractRef.templateName == "Template 1"
+    - nm_add_contract1_rel_provider.current.contractRef.schemaId == nm_add_contract2_rel_consumer.current.contractRef.schemaId == nm_add_contract3_rel_provider.current.contractRef.schemaId
     - nm_add_contract2_rel_consumer.current.relationshipType == "consumer"
     - nm_add_contract1_rel_provider.current.relationshipType == nm_add_contract3_rel_provider.current.relationshipType == "provider"
 
@@ -293,7 +303,7 @@
     output_level: '{{ mso_output_level | default("info") }}'
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    external_epg: ExternalEPG1
+    external_epg: ansible_test_1
     state: query
   check_mode: yes
   register: cm_query_all_contract_rels
@@ -308,7 +318,7 @@
     that:
     - cm_query_all_contract_rels is not changed
     - nm_query_all_contract_rels is not changed
-    - cm_query_all_contract_rels.current | length == nm_query_all_contract_rels.current | length == 4
+    - cm_query_all_contract_rels.current | length == nm_query_all_contract_rels.current | length == 3
 
 
 # QUERY A Contract to External EPG
@@ -349,10 +359,13 @@
 - name: Query Contract1 relationship for External EPG - provider (normal mode)
   mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    external_epg: ansible_test_3
     contract:
-      name: Contract3
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template 3
+      name: Contract1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
       type: provider
   register: nm_query_contract3_provider_rel
 
@@ -367,11 +380,11 @@
     - cm_query_contract1_consumer_rel == nm_query_contract1_consumer_rel
     - cm_query_contract1_consumer_rel.current.contractRef.contractName == nm_query_contract1_consumer_rel.current.contractRef.contractName == nm_query_contract1_provider_rel.current.contractRef.contractName == "Contract1"
     - nm_query_contract2_consumer_rel.current.contractRef.contractName == "Contract2"
-    - nm_query_contract3_provider_rel.current.contractRef.contractName == "Contract3"
+    - nm_query_contract3_provider_rel.current.contractRef.contractName == "Contract1"
     - cm_query_contract1_consumer_rel.current.contractRef.templateName == nm_query_contract1_consumer_rel.current.contractRef.templateName == nm_query_contract1_provider_rel.current.contractRef.templateName == "Template 1"
     - nm_query_contract2_consumer_rel.current.contractRef.templateName == "Template 2"
-    - nm_query_contract3_provider_rel.current.contractRef.templateName == "Template 3"
-    - cm_query_contract1_consumer_rel.current.contractRef.schemaId == nm_query_contract1_consumer_rel.current.contractRef.schemaId == nm_query_contract1_provider_rel.current.contractRef.schemaId == nm_query_contract2_consumer_rel.current.contractRef.schemaId
+    - nm_query_contract3_provider_rel.current.contractRef.templateName == "Template 1"
+    - cm_query_contract1_consumer_rel.current.contractRef.schemaId == nm_query_contract1_consumer_rel.current.contractRef.schemaId == nm_query_contract1_provider_rel.current.contractRef.schemaId == nm_query_contract2_consumer_rel.current.contractRef.schemaId == nm_query_contract3_provider_rel.current.contractRef.schemaId
     - cm_query_contract1_consumer_rel.current.relationshipType == nm_query_contract1_consumer_rel.current.relationshipType == nm_query_contract2_consumer_rel.current.relationshipType == "consumer"
     - nm_query_contract1_provider_rel.current.relationshipType == nm_query_contract3_provider_rel.current.relationshipType == "provider"
     
@@ -456,6 +469,30 @@
     - cm_query_non_contract == nm_query_non_contract
     - cm_query_non_contract.msg is match("Contract '/schemas/[0-9a-zA-Z]*/templates/Template 1/contracts/non_existing_contract' not found")
     - nm_query_non_contract.msg is match("Contract '/schemas/[0-9a-zA-Z]*/templates/Template 1/contracts/non_existing_contract' not found")
+
+# QUERY NON-EXISTING ExtEPG
+- name: Query non-existing ExtEPG (check_mode)
+  mso_schema_template_external_epg_contract:
+    <<: *contract_ext_epg_query
+    external_epg: non_existing_ext_epg
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_ext_epg
+
+- name: Query non-existing ExtEPG (normal mode)
+  mso_schema_template_external_epg_contract:
+    <<: *contract_ext_epg_query
+    external_epg: non_existing_ext_epg
+  ignore_errors: yes
+  register: nm_query_non_ext_epg
+
+- name: Verify query_non_ext_epg
+  assert:
+    that:
+    - cm_query_non_ext_epg is not changed
+    - nm_query_non_ext_epg is not changed
+    - cm_query_non_ext_epg == nm_query_non_ext_epg
+    - cm_query_non_ext_epg.msg == nm_query_non_ext_epg.msg == "Provided epg 'non_existing_ext_epg' does not exist. Existing epgs{{':'}} ansible_test_1"
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for contract relationship (check_mode)

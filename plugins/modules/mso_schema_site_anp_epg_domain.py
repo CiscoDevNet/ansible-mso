@@ -141,7 +141,6 @@ EXAMPLES = r'''
     resolution_immediacy: pre-provision
     state: present
   delegate_to: localhost
-
 - name: Remove a domain from a site EPG
   cisco.mso.mso_schema_site_anp_epg_domain:
     host: mso_host
@@ -158,7 +157,6 @@ EXAMPLES = r'''
     resolution_immediacy: pre-provision
     state: absent
   delegate_to: localhost
-
 - name: Query a domain associated with a specific site EPG
   cisco.mso.mso_schema_site_anp_epg_domain:
     host: mso_host
@@ -174,7 +172,6 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-
 - name: Query all domains associated with a site EPG
   cisco.mso.mso_schema_site_anp_epg_domain:
     host: mso_host
@@ -459,7 +456,7 @@ def main():
         else:
             ops.append(dict(op='add', path=op_path, value=mso.sent))
 
-        mso.existing = mso.proposed
+        mso.existing = new_domain
 
     if not module.check_mode:
         mso.request(schema_path, method='PATCH', data=ops)

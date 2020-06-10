@@ -1,0 +1,391 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+# Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
+# 
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact: 
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Ensure site exists
+  mso_site:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ apic_username }}'
+    apic_password: '{{ apic_password }}'
+    apic_site_id: 101
+    urls:
+    - https://{{ apic_hostname }}
+    state: present
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Remove Schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    state: absent
+      
+- name: Ensure schema 1 with Template 1 exists
+  mso_schema_template: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+
+- name: Add a new site to a schema
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: present
+
+- name: Ensure VRF1 exists
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    state: present
+    
+- name: Add BD1
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: BD1
+    vrf:
+      name: VRF1
+    state: present
+
+- name: Ensure Template 1 with AP1 exists
+  mso_schema_template_anp:
+    <<: *mso_info 
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    state: present
+
+- name: Ensure Template 1 and AP1 with EPG1 exists
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    bd:
+      name: BD1
+    vrf:
+      name: VRF1
+    state: present
+
+- name: Ensure Template 1 and AP1 with EPG3 exists
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG3
+    bd:
+      name: BD1
+    vrf:
+      name: VRF1
+    state: present
+
+- name: Ensure Template 1 with AP2 exists
+  mso_schema_template_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    state: present
+
+- name: Ensure Template 1 and AP2 with EPG2 exists
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG2
+    bd:
+      name: BD1
+    vrf:
+      name: VRF1
+    state: present
+
+- name: Add domain 1 to site EPG1 with AP1 (check mode)
+  mso_schema_site_anp_epg_domain: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    domain_association_type: vmmDomain
+    domain_profile: VMware-VMM
+    deployment_immediacy: lazy
+    resolution_immediacy: pre-provision
+    state: present
+  check_mode: yes
+  register: cm_add_dom1e1
+
+- name: Verify cm_add_dom1e1
+  assert:
+    that:
+    - cm_add_dom1e1 is changed
+    - cm_add_dom1e1.previous == {}
+    - cm_add_dom1e1.current.deploymentImmediacy == 'lazy'
+    - cm_add_dom1e1.current.domainType == 'vmmDomain'
+    - cm_add_dom1e1.current.resolutionImmediacy == 'pre-provision'
+
+- name: Add domain 1 to site EPG1 with AP1 (normal mode)
+  mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    domain_association_type: vmmDomain
+    domain_profile: 'VMware-VMM'
+    deployment_immediacy: lazy
+    resolution_immediacy: pre-provision
+    state: present
+  register: nm_add_dom1e1
+
+- name: Verify nm_add_dom1e1
+  assert:
+    that:
+    - nm_add_dom1e1 is changed
+    - nm_add_dom1e1.previous == {}
+    - nm_add_dom1e1.current.deploymentImmediacy == 'lazy'
+    - nm_add_dom1e1.current.domainType == 'vmmDomain'
+    - nm_add_dom1e1.current.resolutionImmediacy == 'pre-provision'
+
+- name: Add domain 2 to site EPG1 with AP1 (normal mode)
+  mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    domain_association_type: physicalDomain
+    domain_profile: phys
+    deployment_immediacy: lazy
+    resolution_immediacy: pre-provision
+    state: present
+  register: nm_add_dom2e1
+
+- name: Verify nm_add_dom2e1
+  assert:
+    that:
+    - nm_add_dom2e1 is changed
+    - nm_add_dom2e1.previous == {}
+    - nm_add_dom2e1.current.deploymentImmediacy == 'lazy'
+    - nm_add_dom2e1.current.domainType == 'physicalDomain'
+    - nm_add_dom2e1.current.resolutionImmediacy == 'pre-provision'
+
+- name: Add domain 3 to site EPG1 with AP1 (normal mode)
+  mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    domain_association_type: physicalDomain
+    domain_profile: phys
+    deployment_immediacy: lazy
+    resolution_immediacy: lazy
+    state: present
+  register: nm_add_dom3e1
+
+- name: Verify nm_add_dom3e1
+  assert:
+    that:
+    - nm_add_dom3e1 is changed
+    - nm_add_dom3e1.previous != {}
+    - nm_add_dom3e1.current.deploymentImmediacy == 'lazy'
+    - nm_add_dom3e1.current.domainType == 'physicalDomain'
+    - nm_add_dom3e1.current.resolutionImmediacy == 'lazy'
+   
+- name: Add domain1 to site EPG3 with AP1 (normal mode)
+  mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG3
+    domain_association_type: vmmDomain
+    domain_profile: 'VMware-VMM'
+    deployment_immediacy: lazy
+    resolution_immediacy: lazy
+    state: present
+  register: nm_add_dom1e3
+
+- name: Verify nm_add_dom1e2
+  assert:
+    that:
+    - nm_add_dom1e3 is changed
+    - nm_add_dom1e3.previous == {}
+    - nm_add_dom1e3.current.deploymentImmediacy == 'lazy'
+    - nm_add_dom1e3.current.domainType == 'vmmDomain'
+    - nm_add_dom1e3.current.resolutionImmediacy == 'lazy'
+   
+- name: Add domain 2 to EPG2 (check mode)
+  mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG2
+    domain_association_type: physicalDomain
+    domain_profile: phys
+    deployment_immediacy: lazy
+    resolution_immediacy: pre-provision
+    state: present
+  check_mode: yes
+  register: cm_add_dom2e2
+
+- name: Verify cm_add_dom2e2
+  assert:
+    that:
+    - cm_add_dom2e2 is changed
+    - cm_add_dom2e2.previous == {}
+    - cm_add_dom2e2.current.deploymentImmediacy == 'lazy'
+    - cm_add_dom2e2.current.domainType == 'physicalDomain'
+    - cm_add_dom2e2.current.resolutionImmediacy == 'pre-provision'
+
+- name: Add domain 2 to site EPG2 (normal mode)
+  mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG2
+    domain_association_type: physicalDomain
+    domain_profile: phys
+    deployment_immediacy: lazy
+    resolution_immediacy: pre-provision
+    state: present
+  register: nm_add_dom2e2
+
+- name: Verify nm_add_dom2e2
+  assert:
+    that:
+    - nm_add_dom2e2 is changed
+    - nm_add_dom2e2.previous == {}
+    - nm_add_dom2e2.current.deploymentImmediacy == 'lazy'
+    - nm_add_dom2e2.current.domainType == 'physicalDomain'
+    - nm_add_dom2e2.current.resolutionImmediacy == 'pre-provision'
+
+- name: Remove domain2 from EPG2 (normal mode)
+  mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG2
+    domain_association_type: physicalDomain
+    domain_profile: phys
+    deployment_immediacy: lazy
+    resolution_immediacy: pre-provision
+    state: absent
+  register: nm_remove_dom2e2
+
+- name: Verify nm_remove_dom2e2
+  assert:
+    that:
+    - nm_remove_dom2e2 is changed
+
+- name: Query removed domain2 from EPG2 (normal mode)
+  mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG2
+    domain_association_type: physicalDomain
+    domain_profile: phys
+    deployment_immediacy: lazy
+    resolution_immediacy: pre-provision
+    state: query
+  ignore_errors: yes
+  register: nm_non_existent_dom2e2
+
+- name: Verify non_existing_schema
+  assert:
+    that:
+    - nm_non_existent_dom2e2 is not changed
+
+- name: Add domain 1 to site EPG1 again (normal mode)
+  mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    domain_association_type: vmmDomain
+    domain_profile: 'VMware-VMM'
+    deployment_immediacy: lazy
+    resolution_immediacy: pre-provision
+    state: present
+  register: nm_add_dom1e1_2
+
+- name: Verify nm_add_dom1e1_2
+  assert:
+    that:
+    - nm_add_dom1e1_2 is not changed
+
+- name: Add domain 1 to non-existent site EPG5 (normal mode)
+  mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP5
+    epg: EPG5
+    domain_association_type: vmmDomain
+    domain_profile: 'VMware-VMM'
+    deployment_immediacy: lazy
+    resolution_immediacy: pre-provision
+    state: present
+  ignore_errors: yes
+  register: nm_add_dom1e5
+
+- name: Verify nm_add_dom1e5
+  assert:
+    that:
+    - nm_add_dom1e5 is not changed

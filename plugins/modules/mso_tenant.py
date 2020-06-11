@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
+# Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -40,6 +41,7 @@ options:
     description:
     - A list of associated users for this tenant.
     - Using this property will replace any existing associated users.
+    - Admin user is always added to the associated user list irrespective of this parameter being used.
     type: list
   sites:
     description:
@@ -176,10 +178,6 @@ def main():
         # Ensure displayName is not undefined
         if mso.sent.get('displayName') is None:
             mso.sent['displayName'] = tenant
-
-        # Ensure tenant has at least admin user
-        if mso.sent.get('userAssociations') is None:
-            mso.sent['userAssociations'] = [dict(userId="0000ffff0000000000000020")]
 
         if mso.existing:
             if mso.check_changed():

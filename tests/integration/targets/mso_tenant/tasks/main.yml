@@ -1,6 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
-
+# Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
@@ -82,8 +82,13 @@
   mso_tenant:
     <<: *tenant_absent
     tenant: ansible_test2
-  register: cm_remove_tenant
+  register: cm_remove_tenant2
 
+- name: Remove tenant ansible_test3
+  mso_tenant:
+    <<: *tenant_absent
+    tenant: ansible_test3
+  register: cm_remove_tenant3
 
 # ADD TENANT
 - name: Add tenant (check_mode)
@@ -98,9 +103,6 @@
     tenant: ansible_test
     display_name: Ansible test title
     description: Ansible test tenant
-    users:
-    - admin
-    - '{{ mso_username }}'
     state: present
   check_mode: yes
   register: cm_add_tenant
@@ -113,6 +115,7 @@
     - cm_add_tenant.current.id is not defined
     - cm_add_tenant.current.name == 'ansible_test'
     - cm_add_tenant.current.description == 'Ansible test tenant'
+    - cm_add_tenant.current.userAssociations | length == 1
 
 - name: Add tenant (normal mode)
   mso_tenant: *tenant_present
@@ -126,6 +129,7 @@
     - nm_add_tenant.current.id is defined
     - nm_add_tenant.current.name == 'ansible_test'
     - nm_add_tenant.current.description == 'Ansible test tenant'
+    - nm_add_tenant.current.userAssociations | length == 1
 
 - name: Add tenant again (check_mode)
   mso_tenant: *tenant_present
@@ -141,6 +145,7 @@
     - cm_add_tenant_again.current.id == nm_add_tenant.current.id
     - cm_add_tenant_again.current.name == 'ansible_test'
     - cm_add_tenant_again.current.description == 'Ansible test tenant'
+    - cm_add_tenant_again.current.userAssociations == cm_add_tenant_again.previous.userAssociations
 
 - name: Add tenant again (normal mode)
   mso_tenant: *tenant_present
@@ -155,21 +160,92 @@
     - nm_add_tenant_again.current.id == nm_add_tenant.current.id
     - nm_add_tenant_again.current.name == 'ansible_test'
     - nm_add_tenant_again.current.description == 'Ansible test tenant'
+    - nm_add_tenant_again.current.userAssociations == nm_add_tenant_again.previous.userAssociations
 
+# ADD TENANT WITH USERS
 - name: Add tenant 2 (normal mode)
   mso_tenant:
     <<: *tenant_present
     tenant: ansible_test2
-    users: null
+    users:
+    - '{{ mso_username }}'
     display_name: null
+    state: present
   register: nm_add_tenant2
 
 - name: Verify nm_add_tenant2
   assert:
     that:
     - nm_add_tenant2 is changed
-    - nm_add_tenant2.current.userAssociations | length == 1
+    - nm_add_tenant2.current.userAssociations | length == 2
 
+- name: Add tenant 2 again (normal mode)
+  mso_tenant: 
+    <<: *tenant_present
+    tenant: ansible_test2
+    users:
+    - '{{ mso_username }}'
+    display_name: null
+    state: present
+  register: nm_add_tenant2_again
+
+- name: Verify nm_add_tenant2_again
+  assert:
+    that:
+    - nm_add_tenant2_again is not changed
+    - nm_add_tenant2_again.current.userAssociations | length == 2
+
+- name: Add tenant 3 with duplicate admin user (normal mode)
+  mso_tenant: 
+    <<: *tenant_present
+    tenant: ansible_test3
+    users:
+    - admin
+    - admin
+    display_name: null
+    state: present
+  ignore_errors: yes
+  register: nm_add_tenant3_with_duplicate_admin
+
+- name: Verify nm_add_tenant3_with_duplicate_admin
+  assert:
+    that:
+    - nm_add_tenant3_with_duplicate_admin is not changed
+    - nm_add_tenant3_with_duplicate_admin.msg == "User 'admin' is duplicate."
+
+- name: Add tenant 3 with invaild user (normal mode)
+  mso_tenant: 
+    <<: *tenant_present
+    tenant: ansible_test3
+    users:
+    - invaid user
+    display_name: null
+    state: present
+  ignore_errors: yes
+  register: nm_add_tenant3_with_invalid_user
+
+- name: nm_add_tenant3_with_invalid_user
+  assert:
+    that:
+    - nm_add_tenant3_with_invalid_user is not changed
+    - nm_add_tenant3_with_invalid_user.msg == "User 'invaid user' is not a valid user name."
+
+- name: Add tenant 3 (normal mode)
+  mso_tenant: 
+    <<: *tenant_present
+    tenant: ansible_test3
+    users:
+    - admin
+    - '{{ mso_username }}'
+    display_name: null
+    state: present
+  register: nm_add_tenant3
+
+- name: Verify nm_add_tenant3
+  assert:
+    that:
+    - nm_add_tenant3 is changed
+    - nm_add_tenant3.current.userAssociations | length == 2
 
 # CHANGE TENANT
 - name: Change tenant (check_mode)

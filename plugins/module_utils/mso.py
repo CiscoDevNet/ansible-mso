@@ -406,8 +406,9 @@ class MSOModule(object):
 
     def lookup_users(self, users):
         ''' Look up users and return their ids '''
+        # Ensure tenant has at least admin user
         if users is None:
-            return users
+            return [dict(userId="0000ffff0000000000000020")]
 
         ids = []
         for user in users:
@@ -416,7 +417,13 @@ class MSOModule(object):
                 self.module.fail_json(msg="User '%s' is not a valid user name." % user)
             if 'id' not in u:
                 self.module.fail_json(msg="User lookup failed for user '%s': %s" % (user, u))
-            ids.append(dict(userId=u.get('id')))
+            id = dict(userId=u.get('id'))
+            if id in ids:
+                self.module.fail_json(msg="User '%s' is duplicate." % user)
+            ids.append(id)
+
+        if 'admin' not in users:
+            ids.append(dict(userId="0000ffff0000000000000020"))
         return ids
 
     def create_label(self, label, label_type):

@@ -48,7 +48,7 @@ options:
     description:
     - The type of domain to associate.
     type: str
-    choices: [ vmmDomain, l3ExtDomain, l2ExtDomain, physicalDomain, fibreChannel ]
+    choices: [ vmmDomain, l3ExtDomain, l2ExtDomain, physicalDomain, fibreChannelDomain ]
   domain_profile:
     description:
     - The domain profile name.
@@ -69,6 +69,7 @@ options:
   micro_seg_vlan_type:
     description:
     - Virtual LAN type for microsegmentation. This attribute can only be used with vmmDomain domain association.
+    - 'vlan' is currently the only accepted value.
     type: str
   micro_seg_vlan:
     description:
@@ -77,6 +78,7 @@ options:
   port_encap_vlan_type:
     description:
     - Virtual LAN type for port encap. This attribute can only be used with vmmDomain domain association.
+    - 'vlan' is currently the only accepted value.
     type: str
   port_encap_vlan:
     description:
@@ -202,7 +204,7 @@ def main():
         template=dict(type='str', required=True),
         anp=dict(type='str', required=True),
         epg=dict(type='str', required=True),
-        domain_association_type=dict(type='str', choices=['vmmDomain', 'l3ExtDomain', 'l2ExtDomain', 'physicalDomain', 'fibreChannel']),
+        domain_association_type=dict(type='str', choices=['vmmDomain', 'l3ExtDomain', 'l2ExtDomain', 'physicalDomain', 'fibreChannelDomain']),
         domain_profile=dict(type='str'),
         deployment_immediacy=dict(type='str', choices=['immediate', 'lazy']),
         resolution_immediacy=dict(type='str', choices=['immediate', 'lazy', 'pre-provision']),
@@ -256,29 +258,28 @@ def main():
     schema_obj = mso.get_obj('schemas', displayName=schema)
     if not schema_obj:
         mso.fail_json(msg="Provided schema '{0}' does not exist".format(schema))
-
     schema_path = 'schemas/{id}'.format(**schema_obj)
     schema_id = schema_obj.get('id')
-
-    # Get site
-    site_id = mso.lookup_site(site)
-
-    # Get site_idx
-    sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
-    if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, ', '.join(sites)))
-
-    # Schema-access uses indexes
-    site_idx = sites.index((site_id, template))
-    # Path-based access uses site_id-template
-    site_template = '{0}-{1}'.format(site_id, template)
-
 
     # Get template
     templates = [t.get('name') for t in schema_obj['templates']]
     if template not in templates:
         mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
     template_idx = templates.index(template)
+
+    # Get site
+    site_id = mso.lookup_site(site)
+
+    # Get site_idx
+    sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
+    sites_list = [s.get('siteId') + '/' + s.get('templateName') for s in schema_obj.get('sites')]
+    if (site_id, template) not in sites:
+        mso.fail_json(msg="Provided site/siteId/template '{0}/{1}/{2}' does not exist. Existing siteIds/templates: {3}".format(site, site_id, template, ', '.join(sites_list)))
+
+    # Schema-access uses indexes
+    site_idx = sites.index((site_id, template))
+    # Path-based access uses site_id-template
+    site_template = '{0}-{1}'.format(site_id, template)
 
     payload = dict()
     ops = []
@@ -358,7 +359,7 @@ def main():
         domain_dn = 'uni/l2dom-{0}'.format(domain_profile)
     elif domain_association_type == 'physicalDomain':
         domain_dn = 'uni/phys-{0}'.format(domain_profile)
-    elif domain_association_type == 'fibreChannel':
+    elif domain_association_type == 'fibreChannelDomain':
         domain_dn = 'uni/fc-{0}'.format(domain_profile)
     else:
         domain_dn = ''
@@ -400,7 +401,7 @@ def main():
         elif micro_seg_vlan_type and not micro_seg_vlan:
             mso.fail_json(msg="micro_seg_vlan is required when micro_seg_vlan_type is provided.")
 
-        if micro_seg_vlan_type and micro_seg_vlan:
+        if port_encap_vlan_type and port_encap_vlan:
             portEncapVlan = dict(vlanType=port_encap_vlan_type, vlan=port_encap_vlan)
             vmmDomainProperties['portEncapVlan'] = portEncapVlan
         elif not port_encap_vlan_type and port_encap_vlan:

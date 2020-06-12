@@ -1,0 +1,63 @@
+---
+- name: Test1
+  hosts: localhost
+  collections:
+    - cisco.mso
+  tasks:
+      - name: "Add a new site ANP "
+        mso_schema_site_anp:
+          host: "10.23.248.78"
+          username: admin
+          password: ins3965!ins3965!
+          validate_certs: false
+          schema: ansible_test
+          site: ansible_test
+          template: Template1
+          anp: AP1
+          state: present
+        delegate_to: localhost
+        register: query_result1
+
+      - name: "Add a new site EPG"
+        mso_schema_site_anp_epg:
+          host: "10.23.248.78"
+          username: admin
+          password: ins3965!ins3965!
+          validate_certs: false
+          schema: ansible_test
+          site: ansible_test
+          template: Template1
+          anp: AP1
+          epg: EPG1
+          state: present
+        delegate_to: localhost
+        register: query_result2
+
+    
+
+
+      - name: "Bind epg "
+        mso_schema_site_anp_epg_domain:
+          host: "10.23.248.78"
+          username: admin
+          password: ins3965!ins3965!
+          validate_certs: false
+          schema: Test Schema 1
+          site: Site1
+          template: Template1
+          anp: TestAP1
+          epg: TestEPG1
+          domain_association_type: vmmDomain
+          domain_profile: phys
+          deployment_immediacy: "lazy"
+          resolution_immediacy: "lazy"
+          state: absent
+        delegate_to: localhost
+        register: query_result3
+    
+    #- debug: "{{ query_result.stdout }}"
+
+      - name: Write to file
+        copy:
+          content: "{{ query_result1 }}"
+          dest: "test.txt"

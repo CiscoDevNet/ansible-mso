@@ -69,7 +69,7 @@ options:
   micro_seg_vlan_type:
     description:
     - Virtual LAN type for microsegmentation. This attribute can only be used with vmmDomain domain association.
-    - 'vlan' is currently the only accepted value.
+    - vlan is currently the only accepted value.
     type: str
   micro_seg_vlan:
     description:
@@ -78,7 +78,7 @@ options:
   port_encap_vlan_type:
     description:
     - Virtual LAN type for port encap. This attribute can only be used with vmmDomain domain association.
-    - 'vlan' is currently the only accepted value.
+    - vlan is currently the only accepted value.
     type: str
   port_encap_vlan:
     description:
@@ -274,7 +274,8 @@ def main():
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
     sites_list = [s.get('siteId') + '/' + s.get('templateName') for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/siteId/template '{0}/{1}/{2}' does not exist. Existing siteIds/templates: {3}".format(site, site_id, template, ', '.join(sites_list)))
+        mso.fail_json(msg="Provided site/siteId/template '{0}/{1}/{2}' does not exist. "
+                          "Existing siteIds/templates: {3}".format(site, site_id, template, ', '.join(sites_list)))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
@@ -283,7 +284,7 @@ def main():
 
     payload = dict()
     ops = []
-    op_path=""
+    op_path = ''
 
     # Get ANP
     anp_ref = mso.anp_ref(schema_id=schema_id, template=template, anp=anp)
@@ -293,22 +294,22 @@ def main():
     if anp not in anps_in_temp:
         mso.fail_json(msg="Provided anp '{0}' does not exist. Existing anps: {1}".format(anp, ', '.join(anps)))
     else:
-      # Update anp index at template level
+        # Update anp index at template level
         template_anp_idx = anps_in_temp.index(anp)
 
     # If anp not at site level but exists at template level
     if anp_ref not in anps:
-        op_path='/sites/{0}/anps/-'.format(site_template)
+        op_path = '/sites/{0}/anps/-'.format(site_template)
         payload.update(
-                anpRef = dict(
-                    schemaId = schema_id,
-                    templateName = template,
-                    anpName = anp,
-                ),
+            anpRef=dict(
+                schemaId=schema_id,
+                templateName=template,
+                anpName=anp,
+            ),
         )
 
     else:
-      # Update anp index at site level
+        # Update anp index at site level
         anp_idx = anps.index(anp_ref)
 
     # Get EPG
@@ -331,12 +332,12 @@ def main():
         else:
 
             new_epg = dict(
-                          epgRef = dict(
-                              schemaId = schema_id,
-                              templateName = template,
-                              anpName = anp,
-                              epgName = epg,
-                          )
+                epgRef=dict(
+                    schemaId=schema_id,
+                    templateName=template,
+                    anpName=anp,
+                    epgName=epg,
+                )
             )
 
             # If anp not in payload then, anp already exists at site level. New payload will only have new EPG payload
@@ -344,7 +345,7 @@ def main():
                 op_path = '/sites/{0}/anps/{1}/epgs/-'.format(site_template, anp)
                 payload = new_epg
             else:
-            # If anp in payload, anp exists at site level. Update payload with EPG payload
+                # If anp in payload, anp exists at site level. Update payload with EPG payload
                 payload['epgs'] = [new_epg]
 
     # Update index of EPG at site level
@@ -385,10 +386,10 @@ def main():
     domains_path = '/sites/{0}/anps/{1}/epgs/{2}/domainAssociations'.format(site_template, anp, epg)
     ops = []
     new_domain = dict(
-            dn=domain_dn,
-            domainType=domain_association_type,
-            deploymentImmediacy=deployment_immediacy,
-            resolutionImmediacy=resolution_immediacy,
+        dn=domain_dn,
+        domainType=domain_association_type,
+        deploymentImmediacy=deployment_immediacy,
+        resolutionImmediacy=resolution_immediacy,
     )
 
     if domain_association_type == 'vmmDomain':
@@ -432,8 +433,8 @@ def main():
             new_domain['vmmDomainProperties'] = vmmDomainProperties
 
     # If payload is empty, anp and EPG already exist at site level
-    if not payload :
-        op_path = domains_path+ '/-'
+    if not payload:
+        op_path = domains_path + '/-'
         payload = new_domain
 
     # If payload exists
@@ -463,6 +464,7 @@ def main():
         mso.request(schema_path, method='PATCH', data=ops)
 
     mso.exit_json()
+
 
 if __name__ == "__main__":
     main()

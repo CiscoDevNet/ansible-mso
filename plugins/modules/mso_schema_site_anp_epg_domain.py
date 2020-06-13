@@ -143,6 +143,7 @@ EXAMPLES = r'''
     resolution_immediacy: pre-provision
     state: present
   delegate_to: localhost
+
 - name: Remove a domain from a site EPG
   cisco.mso.mso_schema_site_anp_epg_domain:
     host: mso_host
@@ -159,6 +160,7 @@ EXAMPLES = r'''
     resolution_immediacy: pre-provision
     state: absent
   delegate_to: localhost
+
 - name: Query a domain associated with a specific site EPG
   cisco.mso.mso_schema_site_anp_epg_domain:
     host: mso_host
@@ -174,6 +176,7 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
+
 - name: Query all domains associated with a site EPG
   cisco.mso.mso_schema_site_anp_epg_domain:
     host: mso_host
@@ -262,7 +265,7 @@ def main():
     schema_id = schema_obj.get('id')
 
     # Get template
-    templates = [t.get('name') for t in schema_obj['templates']]
+    templates = [t.get('name') for t in schema_obj.get('templates')]
     if template not in templates:
         mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
     template_idx = templates.index(template)

@@ -87,9 +87,9 @@ options:
     type: str
     choices: [ native, regular, untagged ]
     default: untagged
-  micro_segment_vlan:
+  primary_micro_segment_vlan:
     description:
-    - Primary micro-seg VLAN of dpc
+    - Primary micro-seg VLAN of static port.
     type: int
   state:
     description:
@@ -218,7 +218,7 @@ def main():
         fex=dict(type='str'),    # This parameter is not required for querying all objects
         path=dict(type='str'),  # This parameter is not required for querying all objects
         vlan=dict(type='int'),  # This parameter is not required for querying all objects
-        micro_segment_vlan=dict(type='int'),  # This parameter is not required for querying all objects
+        primary_micro_segment_vlan=dict(type='int'),  # This parameter is not required for querying all objects
         deployment_immediacy=dict(type='str', default='lazy', choices=['immediate', 'lazy']),
         mode=dict(type='str', default='untagged', choices=['native', 'regular', 'untagged']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
@@ -244,7 +244,7 @@ def main():
     fex = module.params.get('fex')
     path = module.params.get('path')
     vlan = module.params.get('vlan')
-    micro_segment_vlan = module.params.get('micro_segment_vlan')
+    primary_micro_segment_vlan = module.params.get('primary_micro_segment_vlan')
     deployment_immediacy = module.params.get('deployment_immediacy')
     mode = module.params.get('mode')
     state = module.params.get('state')
@@ -252,11 +252,9 @@ def main():
     if path_type == 'port' and fex is not None:
         # Select port path for fex if fex param is used
         portpath = 'topology/{0}/paths-{1}/extpaths-{2}/pathep-[{3}]'.format(pod, leaf, fex, path)
-    elif path_type == 'port':
-        portpath = 'topology/{0}/paths-{1}/pathep-[{2}]'.format(pod, leaf, path)
     elif path_type == 'vpc':
         portpath = 'topology/{0}/protpaths-{1}/pathep-[{2}]'.format(pod, leaf, path)
-    elif path_type == 'dpc':
+    else:
         portpath = 'topology/{0}/paths-{1}/pathep-[{2}]'.format(pod, leaf, path)
 
     mso = MSOModule(module)
@@ -383,10 +381,8 @@ def main():
         path=portpath,
         portEncapVlan=vlan,
         type=path_type,
+        microSegVlan=primary_micro_segment_vlan,
     )
-
-    if path_type == 'dpc':
-        new_leaf.update(microSegVlan=micro_segment_vlan)
 
     # If payload is empty, anp and EPG already exist at site level
     if not payload:

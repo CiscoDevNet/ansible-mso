@@ -48,7 +48,7 @@ options:
     description:
     - The path type of the static port
     type: str
-    choices: [ port, vpc ]
+    choices: [ port, vpc, dpc ]
     default: port
   pod:
     description:
@@ -77,6 +77,7 @@ options:
     - C(lazy) means B(deploy on demand).
     type: str
     choices: [ immediate, lazy ]
+    default: lazy
   mode:
     description:
     - The mode of the static port.
@@ -85,6 +86,11 @@ options:
     - C(untagged) means B(Access (untagged)).
     type: str
     choices: [ native, regular, untagged ]
+    default: untagged
+  micro_segment_vlan:
+    description:
+    - Primary micro-seg VLAN of dpc
+    type: int
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -206,14 +212,15 @@ def main():
         template=dict(type='str', required=True),
         anp=dict(type='str', required=True),
         epg=dict(type='str', required=True),
-        type=dict(type='str', default='port', choices=['port', 'vpc']),
+        type=dict(type='str', default='port', choices=['port', 'vpc', 'dpc']),
         pod=dict(type='str'),  # This parameter is not required for querying all objects
         leaf=dict(type='str'),  # This parameter is not required for querying all objects
         fex=dict(type='str'),    # This parameter is not required for querying all objects
         path=dict(type='str'),  # This parameter is not required for querying all objects
         vlan=dict(type='int'),  # This parameter is not required for querying all objects
-        deployment_immediacy=dict(type='str', choices=['immediate', 'lazy']),
-        mode=dict(type='str', choices=['native', 'regular', 'untagged']),
+        micro_segment_vlan=dict(type='int'),  # This parameter is not required for querying all objects
+        deployment_immediacy=dict(type='str', default='lazy', choices=['immediate', 'lazy']),
+        mode=dict(type='str', default='untagged', choices=['native', 'regular', 'untagged']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -237,6 +244,7 @@ def main():
     fex = module.params.get('fex')
     path = module.params.get('path')
     vlan = module.params.get('vlan')
+    micro_segment_vlan = module.params.get('micro_segment_vlan')
     deployment_immediacy = module.params.get('deployment_immediacy')
     mode = module.params.get('mode')
     state = module.params.get('state')
@@ -248,6 +256,8 @@ def main():
         portpath = 'topology/{0}/paths-{1}/pathep-[{2}]'.format(pod, leaf, path)
     elif path_type == 'vpc':
         portpath = 'topology/{0}/protpaths-{1}/pathep-[{2}]'.format(pod, leaf, path)
+    elif path_type == 'dpc':
+        portpath = 'topology/{0}/paths-{1}/pathep-[{2}]'.format(pod, leaf, path)
 
     mso = MSOModule(module)
 
@@ -375,6 +385,9 @@ def main():
         type=path_type,
     )
 
+    if path_type == 'dpc':
+        new_leaf.update(microSegVlan=micro_segment_vlan)
+
     # If payload is empty, anp and EPG already exist at site level
     if not payload:
         op_path = ports_path + '/-'
@@ -395,11 +408,6 @@ def main():
             ops.append(dict(op='remove', path=port_path))
 
     elif state == 'present':
-        if not mso.existing:
-            if deployment_immediacy is None:
-                new_leaf.update(deploymentImmediacy='lazy')
-            if mode is None:
-                new_leaf.update(mode='untagged')
 
         mso.sanitize(payload, collate=True)
 

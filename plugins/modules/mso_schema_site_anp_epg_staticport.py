@@ -255,44 +255,108 @@ def main():
     schema_obj = mso.get_obj('schemas', displayName=schema)
     if not schema_obj:
         mso.fail_json(msg="Provided schema '{0}' does not exist".format(schema))
-
     schema_path = 'schemas/{id}'.format(**schema_obj)
     schema_id = schema_obj.get('id')
+
+    # Get template
+    templates = [t.get('name') for t in schema_obj.get('templates')]
+    if template not in templates:
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
+    template_idx = templates.index(template)
 
     # Get site
     site_id = mso.lookup_site(site)
 
     # Get site_idx
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
+    sites_list = [s.get('siteId') + '/' + s.get('templateName') for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, ', '.join(sites)))
+        mso.fail_json(msg="Provided site/siteId/template '{0}/{1}/{2}' does not exist. "
+                          "Existing siteIds/templates: {3}".format(site, site_id, template, ', '.join(sites_list)))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
     # Path-based access uses site_id-template
     site_template = '{0}-{1}'.format(site_id, template)
 
+    payload = dict()
+    ops = []
+    op_path = ''
+
     # Get ANP
     anp_ref = mso.anp_ref(schema_id=schema_id, template=template, anp=anp)
-    anps = [a.get('anpRef') for a in schema_obj.get('sites')[site_idx]['anps']]
-    if anp_ref not in anps:
+    anps = [a.get('anpRef') for a in schema_obj['sites'][site_idx]['anps']]
+    anps_path = '/sites/{0}/anps'.format(site_template)
+    anps_in_temp = [a.get('name') for a in schema_obj['templates'][template_idx]['anps']]
+    if anp not in anps_in_temp:
         mso.fail_json(msg="Provided anp '{0}' does not exist. Existing anps: {1}".format(anp, ', '.join(anps)))
-    anp_idx = anps.index(anp_ref)
+    else:
+        # Update anp index at template level
+        template_anp_idx = anps_in_temp.index(anp)
+
+    # If anp not at site level but exists at template level
+    if anp_ref not in anps:
+        op_path = '/sites/{0}/anps/-'.format(site_template)
+        payload.update(
+            anpRef=dict(
+                schemaId=schema_id,
+                templateName=template,
+                anpName=anp,
+            ),
+        )
+
+    else:
+        # Update anp index at site level
+        anp_idx = anps.index(anp_ref)
 
     # Get EPG
     epg_ref = mso.epg_ref(schema_id=schema_id, template=template, anp=anp, epg=epg)
-    epgs = [e.get('epgRef') for e in schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs']]
-    if epg_ref not in epgs:
-        mso.fail_json(msg="Provided epg '{0}' does not exist. Existing epgs: {1}".format(epg, ', '.join(epgs)))
-    epg_idx = epgs.index(epg_ref)
+
+    # If anp exists at site level
+    if 'anpRef' not in payload:
+        epgs = [e.get('epgRef') for e in schema_obj['sites'][site_idx]['anps'][anp_idx]['epgs']]
+        epgs_path = '/sites/{0}/anps/{1}/epgs'.format(site_template, anp)
+
+    # If anp already at site level AND if epg not at site level (or) anp not at site level
+    if ('anpRef' not in payload and epg_ref not in epgs) or 'anpRef' in payload:
+        epgs_in_temp = [e.get('name') for e in schema_obj['templates'][template_idx]['anps'][template_anp_idx]['epgs']]
+
+        # If EPG not at template level - Fail
+        if epg not in epgs_in_temp:
+            mso.fail_json(msg="Provided EPG '{0}' does not exist. Existing EPGs: {1} epgref {2}".format(epg, ', '.join(epgs_in_temp), epg_ref))
+
+        # EPG at template level but not at site level. Create payload at site level for EPG
+        else:
+
+            new_epg = dict(
+                epgRef=dict(
+                    schemaId=schema_id,
+                    templateName=template,
+                    anpName=anp,
+                    epgName=epg,
+                )
+            )
+
+            # If anp not in payload then, anp already exists at site level. New payload will only have new EPG payload
+            if 'anpRef' not in payload:
+                op_path = '/sites/{0}/anps/{1}/epgs/-'.format(site_template, anp)
+                payload = new_epg
+            else:
+                # If anp in payload, anp exists at site level. Update payload with EPG payload
+                payload['epgs'] = [new_epg]
+
+    # Update index of EPG at site level
+    else:
+        epg_idx = epgs.index(epg_ref)
 
     # Get Leaf
-    portpaths = [p.get('path') for p in schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs'][epg_idx]['staticPorts']]
-    if portpath in portpaths:
-        portpath_idx = portpaths.index(portpath)
-        # FIXME: Changes based on index are DANGEROUS
-        port_path = '/sites/{0}/anps/{1}/epgs/{2}/staticPorts/{3}'.format(site_template, anp, epg, portpath_idx)
-        mso.existing = schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs'][epg_idx]['staticPorts'][portpath_idx]
+    # If anp at site level and epg is at site level
+    if 'anpRef' not in payload and 'epgRef' not in payload:
+        portpaths = [p.get('path') for p in schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs'][epg_idx]['staticPorts']]
+        if portpath in portpaths:
+            portpath_idx = portpaths.index(portpath)
+            port_path = '/sites/{0}/anps/{1}/epgs/{2}/staticPorts/{3}'.format(site_template, anp, epg, portpath_idx)
+            mso.existing = schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs'][epg_idx]['staticPorts'][portpath_idx]
 
     if state == 'query':
         if leaf is None or vlan is None:
@@ -303,6 +367,26 @@ def main():
 
     ports_path = '/sites/{0}/anps/{1}/epgs/{2}/staticPorts'.format(site_template, anp, epg)
     ops = []
+    new_leaf = dict(
+        deploymentImmediacy=deployment_immediacy,
+        mode=mode,
+        path=portpath,
+        portEncapVlan=vlan,
+        type=path_type,
+    )
+
+    # If payload is empty, anp and EPG already exist at site level
+    if not payload:
+        op_path = ports_path + '/-'
+        payload = new_leaf
+
+    # If payload exists
+    else:
+        # If anp already exists at site level
+        if 'anpRef' not in payload:
+            payload['staticPorts'] = [new_leaf]
+        else:
+            payload['epgs'][0]['staticPorts'] = [new_leaf]
 
     mso.previous = mso.existing
     if state == 'absent':
@@ -313,26 +397,18 @@ def main():
     elif state == 'present':
         if not mso.existing:
             if deployment_immediacy is None:
-                deployment_immediacy = 'lazy'
+                new_leaf.update(deploymentImmediacy='lazy')
             if mode is None:
-                mode = 'untagged'
-
-        payload = dict(
-            deploymentImmediacy=deployment_immediacy,
-            mode=mode,
-            path=portpath,
-            portEncapVlan=vlan,
-            type=path_type,
-        )
+                new_leaf.update(mode='untagged')
 
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
             ops.append(dict(op='replace', path=port_path, value=mso.sent))
         else:
-            ops.append(dict(op='add', path=ports_path + '/-', value=mso.sent))
+            ops.append(dict(op='add', path=op_path, value=mso.sent))
 
-        mso.existing = mso.proposed
+        mso.existing = new_leaf
 
     if not module.check_mode:
         mso.request(schema_path, method='PATCH', data=ops)

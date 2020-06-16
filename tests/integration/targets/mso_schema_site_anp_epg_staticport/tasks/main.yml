@@ -172,9 +172,8 @@
       name: VRF1
     state: present
 
-
 # ADD STATIC PORTS
-- name: Add static port 1 to site EPG1 with AP1 (check mode)
+- name: Add static port 1 to site EPG1 of AP1 (check mode)
   mso_schema_site_anp_epg_staticport: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -204,7 +203,7 @@
     - cm_add_stat1e1.current.mode == 'native'
     - cm_add_stat1e1.current.type == 'port'
 
-- name: Add static port 1 to site EPG1 with AP1 (normal mode)
+- name: Add static port 1 to site EPG1 of AP1 (normal mode)
   mso_schema_site_anp_epg_staticport:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -233,7 +232,7 @@
     - nm_add_stat1e1.current.mode == 'native'
     - nm_add_stat1e1.current.type == 'port'
 
-- name: Add static port 2 to site EPG1 with AP1 (normal mode)
+- name: Add static port 2 to site EPG1 of AP1 (normal mode)
   mso_schema_site_anp_epg_staticport:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -263,7 +262,7 @@
     - nm_add_stat2e1.current.type == 'port'
 
 
-- name: Add static port 3 (vpc) to site EPG1 with AP1 (normal mode)
+- name: Add static port 3 (vpc) to site EPG1 of AP1 (normal mode)
   mso_schema_site_anp_epg_staticport:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -292,7 +291,7 @@
     - nm_add_stat3e1.current.mode == 'untagged'
     - nm_add_stat3e1.current.type == 'vpc'
 
-- name: Add static port 1 to site EPG3 with AP1 (normal mode)
+- name: Add static port 1 to site EPG3 of AP1 (normal mode)
   mso_schema_site_anp_epg_staticport:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -321,35 +320,36 @@
     - nm_add_stat1e3.current.mode == 'native'
     - nm_add_stat1e3.current.type == 'port'
    
-- name: Add static port 2 to EPG2 (check mode)
+- name: Add static port 2 (dpc) to EPG6 of AP2 (normal mode)
   mso_schema_site_anp_epg_staticport:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template 1
     anp: AP2
-    epg: EPG2
+    epg: EPG6
     pod: pod-2
     leaf: 102
     path: eth1/2
     vlan: 100
     deployment_immediacy: lazy
     mode: regular
-    type: port
+    type: dpc
+    micro_segment_vlan: 199
     state: present
-  check_mode: yes
-  register: cm_add_stat2e2
+  register: nm_add_stat2e6
 
-- name: Verify cm_add_stat2e2
+- name: Verify nm_add_stat2e6
   assert:
     that:
-    - cm_add_stat2e2 is changed
-    - cm_add_stat2e2.previous == {}
-    - cm_add_stat2e2.current.deploymentImmediacy == 'lazy'
-    - cm_add_stat2e2.current.portEncapVlan == 100
-    - cm_add_stat2e2.current.path == 'topology/pod-2/paths-102/pathep-[eth1/2]'
-    - cm_add_stat2e2.current.mode == 'regular'
-    - cm_add_stat2e2.current.type == 'port'
+    - nm_add_stat2e6 is changed
+    - nm_add_stat2e6.previous == {}
+    - nm_add_stat2e6.current.deploymentImmediacy == 'lazy'
+    - nm_add_stat2e6.current.portEncapVlan == 100
+    - nm_add_stat2e6.current.microSegVlan == 199
+    - nm_add_stat2e6.current.path == 'topology/pod-2/paths-102/pathep-[eth1/2]'
+    - nm_add_stat2e6.current.mode == 'regular'
+    - nm_add_stat2e6.current.type == 'dpc'
 
 # QUERY STATIC PORTS
 - name: Query STATIC PORTS of site EPG1 with AP1 (normal mode)
@@ -596,7 +596,6 @@
     that:
     - nm_add_stat_di.current.deploymentImmediacy == 'lazy'
    
-
 # VERIFY NON EXISTENT MODE
 - name: Add static port 1 to site EPG4 with AP2 with no mode (normal mode)
   mso_schema_site_anp_epg_staticport:
@@ -605,7 +604,7 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template 1
     anp: AP2
-    epg: EPG6
+    epg: EPG4
     pod: pod-4
     leaf: 101
     path: eth1/1

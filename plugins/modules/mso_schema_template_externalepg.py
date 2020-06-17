@@ -60,6 +60,30 @@ options:
         - The template that defines the referenced VRF.
         - If this parameter is unspecified, it defaults to the current template.
         type: str
+  l3out:
+    description:
+    - The L3Out associated to this ANP.
+    type: dict
+    suboptions:
+      name:
+        description:
+        - The name of the L3Out to associate with.
+        required: true
+        type: str
+      schema:
+        description:
+        - The schema that defines the referenced L3Out.
+        - If this parameter is unspecified, it defaults to the current schema.
+        type: str
+      template:
+        description:
+        - The template that defines the referenced L3Out.
+        - If this parameter is unspecified, it defaults to the current template.
+        type: str
+  preferred_group:
+    description:
+    - Preferred Group is enabled for this External EPG or not.
+    type: bool
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -132,6 +156,8 @@ def main():
         externalepg=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
         display_name=dict(type='str'),
         vrf=dict(type='dict', options=mso_reference_spec()),
+        l3out=dict(type='dict', options=mso_reference_spec()),
+        preferred_group=dict(type='bool'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -149,6 +175,8 @@ def main():
     externalepg = module.params.get('externalepg')
     display_name = module.params.get('display_name')
     vrf = module.params.get('vrf')
+    l3out = module.params.get('l3out')
+    preferred_group = module.params.get('preferred_group')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -174,7 +202,12 @@ def main():
     if externalepg is not None and externalepg in externalepgs:
         externalepg_idx = externalepgs.index(externalepg)
         mso.existing = schema_obj.get('templates')[template_idx]['externalEpgs'][externalepg_idx]
-
+        if 'externalEpgRef' in mso.existing:
+            del mso.existing['externalEpgRef']
+        if 'vrfRef' in mso.existing:
+            mso.existing['vrfRef'] = mso.dict_from_ref(mso.existing.get('vrfRef'))
+        if 'l3outRef' in mso.existing:
+            mso.existing['l3outRef'] = mso.dict_from_ref(mso.existing.get('l3outRef'))
     if state == 'query':
         if externalepg is None:
             mso.existing = schema_obj.get('templates')[template_idx]['externalEpgs']
@@ -194,7 +227,7 @@ def main():
 
     elif state == 'present':
         vrf_ref = mso.make_reference(vrf, 'vrf', schema_id, template)
-
+        l3out_ref = mso.make_reference(l3out, 'l3out', schema_id, template)
         if display_name is None and not mso.existing:
             display_name = externalepg
 
@@ -202,9 +235,11 @@ def main():
             name=externalepg,
             displayName=display_name,
             vrfRef=vrf_ref,
+            l3outRef=l3out_ref,
+            preferredGroup=preferred_group,
             # FIXME
-            subnets=[],
-            contractRelationships=[],
+            # subnets=[],
+            # contractRelationships=[],
         )
 
         mso.sanitize(payload, collate=True)

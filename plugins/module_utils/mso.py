@@ -493,6 +493,7 @@ class MSOModule(object):
             'bds': ['bdName', 'schemaId', 'templateName'],
             'filters': ['filterName', 'schemaId', 'templateName'],
             'contracts': ['contractName', 'schemaId', 'templateName'],
+            'l3outs': ['l3outName', 'schemaId', 'templateName']
         }
         result = {
             uri_map[category][0]: name,

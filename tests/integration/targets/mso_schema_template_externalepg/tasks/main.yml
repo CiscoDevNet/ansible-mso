@@ -204,6 +204,7 @@
     externalepg: ansible_test_1
     vrf:
       name: VRF
+    state: present
   check_mode: yes
   register: cm_add_epg
 
@@ -224,6 +225,7 @@
     externalepg: ansible_test_1
     vrf:
       name: VRF
+    state: present
   register: nm_add_epg
 
 - name: Verify nm_add_epg
@@ -246,6 +248,7 @@
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
+    state: present
   check_mode: yes
   register: cm_add_epg_again
 
@@ -272,6 +275,7 @@
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
+    state: present
   register: nm_add_epg_again
 
 - name: Verify nm_add_epg_again
@@ -300,6 +304,7 @@
       name: L3out
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
+    state: present
   register: nm_add_epg_2
 
 - name: Add external EPG 3 (normal mode)
@@ -316,6 +321,7 @@
       name: L3out
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
+    state: present
   register: nm_add_epg_3
 
 - name: Add external EPG 4 (normal mode)
@@ -326,6 +332,7 @@
     externalepg: ansible_test_4
     vrf:
       name: VRF
+    state: present
   register: nm_add_epg_4
 
 - name: Verify nm_add_epg_2 and nm_add_epg_3
@@ -350,6 +357,7 @@
       name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 2
+    state: present
   check_mode: yes
   register: cm_change_epg
 
@@ -372,6 +380,7 @@
       name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 2
+    state: present
   register: nm_change_epg
 
 - name: Verify nm_change_epg
@@ -393,6 +402,7 @@
       name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 2
+    state: present
   check_mode: yes
   register: cm_change_epg_again
 
@@ -415,6 +425,7 @@
       name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 2
+    state: present
   register: nm_change_epg_again
 
 - name: Verify nm_change_epg_again
@@ -436,6 +447,7 @@
       name: VRF4
       schema: '{{ mso_schema | default("ansible_test") }}_2'
       template: Template 3
+    state: present
   register: nm_change_epg_vrf4
 
 - name: Change epg to VRF2 (normal mode)
@@ -446,6 +458,7 @@
     externalepg: ansible_test_1
     vrf:
       name: VRF2
+    state: present
   register: nm_change_epg_vrf2
 
 - name: Verify nm_change_epg_vrf4 and nm_change_epg_vrf2
@@ -472,6 +485,7 @@
       name: L3out4
       schema: '{{ mso_schema | default("ansible_test") }}_2'
       template: Template 3
+    state: present
   register: nm_change_epg_1_l3out
 
 - name: Change epg 1 settings(normal mode)
@@ -486,6 +500,7 @@
       name: L3out
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
+    state: present
   register: nm_change_epg_1_settings
 
 - name: Verify nm_change_epg_1_settings and nm_change_epg_1_l3out
@@ -516,6 +531,7 @@
     vrf:
       name: VRF
     preferred_group: true
+    state: present
   register: nm_change_epg_4_preferred_group
 
 - name: Change epg 4 preferredGroup again(normal mode)
@@ -527,6 +543,7 @@
     vrf:
       name: VRF
     preferred_group: false
+    state: present
   register: nm_change_epg_4_preferred_group_again
 
 - name: Verify nm_change_epg_4_preferred_group and nm_change_epg_4_preferred_group_again
@@ -727,3 +744,69 @@
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
     - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template 1, Template 2"
+
+# Checking if contract are removed after re-applying an EPG. (#13 | #62137)
+- name: Add Contracts to EPG 1
+  mso_schema_template_external_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: ansible_test_1
+    contract:
+      name: '{{ item.name }}'
+      template: '{{ item.template }}'
+      type: '{{ item.type }}'
+    state: present
+  loop:
+  - { name: Contract1, template: Template 1, type: consumer }
+  - { name: Contract1, template: Template 1, type: provider }
+  - { name: Contract2, template: Template 2, type: consumer }
+  - { name: Contract2, template: Template 2, type: provider }
+
+- name: Query contract EPG 1(normal mode)
+  mso_schema_template_externalepg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    externalepg: ansible_test_1
+    state: query
+  register: nm_query_epg1_contract
+
+- name: Verify nm_query_epg1_contract
+  assert:
+    that:
+    - nm_query_epg1_contract.current.contractRelationships | length == 4
+
+- name: Add EPG 1 again (normal_mode)
+  mso_schema_template_externalepg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    externalepg: ansible_test_1
+    vrf:
+      name: VRF
+    l3out:
+      name: L3out
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: present
+  register: nm_add_epg_1_again
+
+- name: Verify that EPG 1 didn't change
+  assert:
+    that:
+    - nm_add_epg_1_again is not changed
+
+- name: Query contract EPG 1 again
+  mso_schema_template_externalepg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    externalepg: ansible_test_1
+    state: query
+  register: nm_query_epg1_contract_again
+
+- name: Verify that 4 contracts are in EPG 1 using nm_query_epg1_contract_again
+  assert:
+    that:
+    - nm_query_epg1_contract_again.current.contractRelationships | length == 4

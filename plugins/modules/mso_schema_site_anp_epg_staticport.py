@@ -47,6 +47,9 @@ options:
   type:
     description:
     - The path type of the static port
+    - vpc is used for a Virtual Port Channel
+    - dpc is used for a Direct Port Channel
+    - port is used for a single interface
     type: str
     choices: [ port, vpc, dpc ]
     default: port

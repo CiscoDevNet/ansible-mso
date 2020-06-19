@@ -44,6 +44,10 @@ options:
     description:
     - Whether to enable L3 multicast.
     type: bool
+  vzany:
+    description:
+    - Whether to enable vzAny.
+    type: bool
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -116,6 +120,7 @@ def main():
         vrf=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
         display_name=dict(type='str'),
         layer3_multicast=dict(type='bool'),
+        vzany=dict(type='bool'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -133,6 +138,7 @@ def main():
     vrf = module.params.get('vrf')
     display_name = module.params.get('display_name')
     layer3_multicast = module.params.get('layer3_multicast')
+    vzany = module.params.get('vzany')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -182,6 +188,7 @@ def main():
             name=vrf,
             displayName=display_name,
             l3MCast=layer3_multicast,
+            vzAnyEnabled = vzany,
             # FIXME
             regions=[],
         )

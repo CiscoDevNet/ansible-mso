@@ -68,13 +68,12 @@ options:
     choices: [ absent, present, query ]
     default: present
 seealso:
-- module: mso_schema_template_externalepg
-- module: mso_schema_template_contract_filter
+- module: mso_schema_template_vrf
 extends_documentation_fragment: cisco.mso.modules
 '''
 
 EXAMPLES = r'''
-- name: Add a contract to an VRF
+- name: Add a contract to a VRF
   cisco.mso.mso_schema_template_vrf_contract:
     host: mso_host
     username: admin
@@ -225,9 +224,9 @@ def main():
         mso.exit_json()
 
     if contract.get('type') == 'provider':
-        contracts_path = '/templates/{0}/vrfs/{1}/vzAnyProviderContracts'.format(template, vrf)
+        contracts_path = '/templates/{0}/vrfs/{1}/vzAnyProviderContracts/-'.format(template, vrf)
     if contract.get('type') == 'consumer':
-        contracts_path = '/templates/{0}/vrfs/{1}/vzAnyConsumerContracts'.format(template, vrf)
+        contracts_path = '/templates/{0}/vrfs/{1}/vzAnyConsumerContracts/-'.format(template, vrf)
     ops = []
 
     mso.previous = mso.existing
@@ -250,7 +249,7 @@ def main():
         if mso.existing:
             ops.append(dict(op='replace', path=contract_path, value=mso.sent))
         else:
-            ops.append(dict(op='add', path=contracts_path + '/-', value=mso.sent))
+            ops.append(dict(op='add', path=contracts_path, value=mso.sent))
 
         mso.existing = mso.proposed
         mso.existing['relationshipType'] = contract.get('type')

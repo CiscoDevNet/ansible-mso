@@ -46,7 +46,7 @@
   mso_label:
     <<: *domain_label_absent
     label: ansible_test4
-    login_domain: test
+    login_domain: '{{ mso_login_domain | default("test") }}'
 
 # ADD LABEL
 - name: Add label (check_mode)
@@ -328,7 +328,7 @@
   mso_label: 
     <<: *domain_label_present
     label: ansible_test4
-    login_domain: test
+    login_domain: '{{ mso_login_domain | default("test") }}'
   register: label_test_domain
 
 - name: Verify label_test_domain

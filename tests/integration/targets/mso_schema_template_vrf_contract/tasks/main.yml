@@ -1,0 +1,859 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+# Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
+# 
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact: 
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# - name: Ensure site exist
+#   mso_site: &site_present
+#     host: '{{ mso_hostname }}'
+#     username: '{{ mso_username }}'
+#     password: '{{ mso_password }}'
+#     validate_certs: '{{ mso_validate_certs | default(false) }}'
+#     use_ssl: '{{ mso_use_ssl | default(true) }}'
+#     use_proxy: '{{ mso_use_proxy | default(true) }}'
+#     output_level: '{{ mso_output_level | default("info") }}'
+#     site: '{{ mso_site | default("ansible_test") }}'
+#     apic_username: '{{ apic_username }}'
+#     apic_password: '{{ apic_password }}'
+#     apic_site_id: 101
+#     urls:
+#     - https://{{ apic_hostname }}
+#     state: present
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    # sites:
+    # - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure schema 1 with Template 1 exist
+  mso_schema_template: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+
+- name: Ensure schema 1 with Template 2 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 2
+    state: present
+
+- name: Ensure schema 2 with Template 3 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    state: present
+
+- name: Ensure VRF exist
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    state: present
+
+- name: Ensure VRF2 exist
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF2
+    vzany: true
+    state: present
+
+- name: Ensure VRF3 exist
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    vrf: VRF3
+    vzany: true
+    state: present
+
+- name: Ensure VRF4 exist
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    vrf: VRF4
+    vzany: true
+    state: present
+
+- name: Ensure Filter 1 exist
+  mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    filter: Filter1
+    entry: Filter1-Entry
+    state: present
+
+- name: Ensure Contract1 exist
+  mso_schema_template_contract_filter: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract1
+    filter: Filter1
+    filter_schema: '{{ mso_schema | default("ansible_test") }}'
+    filter_template: Template 1
+    state: present
+
+- name: Ensure Contract4 exist
+  mso_schema_template_contract_filter: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract4
+    filter: Filter1
+    filter_schema: '{{ mso_schema | default("ansible_test") }}'
+    filter_template: Template 1
+    state: present
+
+- name: Ensure Contract2 exist
+  mso_schema_template_contract_filter: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract2
+    filter: Filter1
+    filter_schema: '{{ mso_schema | default("ansible_test") }}'
+    filter_template: Template 1
+    state: present
+
+- name: Ensure Contract3 exist
+  mso_schema_template_contract_filter: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract3
+    filter: Filter1
+    filter_schema: '{{ mso_schema | default("ansible_test") }}'
+    filter_template: Template 1
+    state: present
+
+# ADD Contract to VRF
+- name: Add Contract1 to VRF with vzany disabled
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: consumer
+    state: present
+  ignore_errors: yes
+  register: add_contract1_vrf_vzany_disabled
+
+- name: Verify add_contract1_vrf_vzany_disabled
+  assert:
+    that:
+    - add_contract1_vrf_vzany_disabled.msg == "vzAny attribute on vrf 'VRF' is disabled."
+
+# Enable vzAny on VRF
+- name: Ensure VRF exist
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    vzany: true
+    state: present
+
+- name: Add Contract1 to VRF with type consumer (check_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: consumer
+    state: present
+  check_mode: yes
+  register: cm_add_contract1_consumer
+
+- name: Verify cm_add_contract1_consumer
+  assert:
+    that:
+    - cm_add_contract1_consumer is changed
+    - cm_add_contract1_consumer.previous == {}
+    - cm_add_contract1_consumer.current.contractRef.templateName == "Template 1"
+    - cm_add_contract1_consumer.current.contractRef.contractName == "Contract1"
+    - cm_add_contract1_consumer.current.relationshipType == "consumer"
+
+- name: Add Contract1 to VRF with type consumer (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: consumer
+    state: present
+  register: nm_add_contract1_consumer
+
+- name: Verify nm_add_contract1_consumer
+  assert:
+    that:
+    - nm_add_contract1_consumer is changed
+    - nm_add_contract1_consumer.previous == {}
+    - nm_add_contract1_consumer.current.contractRef.templateName == "Template 1"
+    - nm_add_contract1_consumer.current.contractRef.contractName == "Contract1"
+    - nm_add_contract1_consumer.current.relationshipType == "consumer"
+    - cm_add_contract1_consumer.current.contractRef.schemaId == nm_add_contract1_consumer.current.contractRef.schemaId
+
+- name: Add Contract1 to VRF with type provider (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: provider
+    state: present
+  register: nm_add_contract1_provider
+
+- name: Verify nm_add_contract1_provider
+  assert:
+    that:
+    - nm_add_contract1_provider is changed
+    - nm_add_contract1_provider.previous == {}
+    - nm_add_contract1_provider.current.contractRef.templateName == "Template 1"
+    - nm_add_contract1_provider.current.contractRef.contractName == "Contract1"
+    - nm_add_contract1_provider.current.relationshipType == "provider"
+
+- name: Add Contract1 to VRF with type consumer again(normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: consumer
+    state: present
+  register: nm_add_contract1_consumer_again
+
+- name: Verify nm_add_contract1_consumer_again
+  assert:
+    that:
+    - nm_add_contract1_consumer_again is not changed
+    - nm_add_contract1_consumer_again.current.contractRef.templateName == "Template 1" == nm_add_contract1_consumer_again.previous.contractRef.templateName
+    - nm_add_contract1_consumer_again.current.contractRef.contractName == "Contract1" == nm_add_contract1_consumer_again.previous.contractRef.contractName
+    - nm_add_contract1_consumer_again.current.relationshipType == "consumer" == nm_add_contract1_consumer_again.previous.relationshipType
+
+- name: Add Contract1 to VRF with type provider again(normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: provider
+    state: present
+  register: nm_add_contract1_provider_again
+
+- name: Verify nm_add_contract1_provider_again
+  assert:
+    that:
+    - nm_add_contract1_provider_again is not changed
+    - nm_add_contract1_provider_again.current.contractRef.templateName == "Template 1" == nm_add_contract1_provider_again.previous.contractRef.templateName
+    - nm_add_contract1_provider_again.current.contractRef.contractName == "Contract1" == nm_add_contract1_provider_again.previous.contractRef.contractName
+    - nm_add_contract1_provider_again.current.relationshipType == "provider" == nm_add_contract1_provider_again.previous.relationshipType
+
+- name: Add Contract4 to VRF2 with type consumer (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF2
+    contract:
+      name: Contract4
+      type: consumer
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: present
+  register: nm_add_vrf2_consumer
+
+- name: Add Contract4 to VRF2 with type provider (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF2
+    contract:
+      name: Contract4
+      type: provider
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: present
+  register: nm_add_vrf2_provider
+
+- name: nm_add_vrf2_consumer and nm_add_vrf2_provider
+  assert:
+    that:
+    - nm_add_vrf2_consumer is changed
+    - nm_add_vrf2_provider is changed
+    - nm_add_vrf2_consumer.previous == {} == nm_add_vrf2_provider.previous
+    - nm_add_vrf2_consumer.current.contractRef.templateName == "Template 1" == nm_add_vrf2_provider.current.contractRef.templateName
+    - nm_add_vrf2_consumer.current.contractRef.contractName == "Contract4" == nm_add_vrf2_provider.current.contractRef.contractName
+    - nm_add_vrf2_consumer.current.relationshipType == "consumer"
+    - nm_add_vrf2_provider.current.relationshipType == "provider"
+
+- name: Add Contract3 to VRF3 with type consumer (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    vrf: VRF3
+    contract:
+      name: Contract3
+      type: consumer
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: present
+  register: nm_add_vrf3_consumer
+
+- name: Add Contract3 to VRF3 with type provider (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    vrf: VRF3
+    contract:
+      name: Contract3
+      type: provider
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: present
+  register: nm_add_vrf3_provider
+
+- name: nm_add_vrf3_consumer and nm_add_vrf3_provider
+  assert:
+    that:
+    - nm_add_vrf3_consumer is changed
+    - nm_add_vrf3_provider is changed
+    - nm_add_vrf3_consumer.previous == {} == nm_add_vrf3_provider.previous
+    - nm_add_vrf3_consumer.current.contractRef.templateName == "Template 1" == nm_add_vrf3_provider.current.contractRef.templateName
+    - nm_add_vrf3_consumer.current.contractRef.contractName == "Contract3" == nm_add_vrf3_provider.current.contractRef.contractName
+    - nm_add_vrf3_consumer.current.relationshipType == "consumer"
+    - nm_add_vrf3_provider.current.relationshipType == "provider"
+
+- name: Add Contract2 to VRF4 with type consumer (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    vrf: VRF4
+    contract:
+      name: Contract2
+      type: consumer
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: present
+  register: nm_add_vrf4_consumer
+
+- name: Add Contract2 to VRF4 with type provider (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    vrf: VRF4
+    contract:
+      name: Contract2
+      type: provider
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: present
+  register: nm_add_vrf4_provider
+
+- name: nm_add_vrf4_consumer and nm_add_vrf4_provider
+  assert:
+    that:
+    - nm_add_vrf4_consumer is changed
+    - nm_add_vrf4_provider is changed
+    - nm_add_vrf4_consumer.previous == {} == nm_add_vrf4_provider.previous
+    - nm_add_vrf4_consumer.current.contractRef.templateName == "Template 1" == nm_add_vrf4_provider.current.contractRef.templateName
+    - nm_add_vrf4_consumer.current.contractRef.contractName == "Contract2" == nm_add_vrf4_provider.current.contractRef.contractName
+    - nm_add_vrf4_consumer.current.relationshipType == "consumer"
+    - nm_add_vrf4_provider.current.relationshipType == "provider"
+
+# REMOVE A Contract to VRF
+- name: Remove contract4 to VRF2 - provider (check_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF2
+    contract:
+      name: Contract4
+      type: provider
+    state: absent
+  check_mode: yes
+  register: cm_remove_contract4_vrf2_provider
+
+- name: Remove contract4 to VRF2 - provider (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF2
+    contract:
+      name: Contract4
+      type: provider
+    state: absent
+  register: nm_remove_contract4_vrf2_provider
+
+- name: Remove contract4 to VRF2 - consumer (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF2
+    contract:
+      name: Contract4
+      type: consumer
+    state: absent
+  register: nm_remove_contract4_vrf2_consumer
+
+- name: Verify cm_remove_contract4_vrf2_provider and cm_remove_contract4_vrf2_provider and nm_remove_contract4_vrf2_consumer
+  assert:
+    that:
+    - cm_remove_contract4_vrf2_provider is changed
+    - nm_remove_contract4_vrf2_provider is changed
+    - cm_remove_contract4_vrf2_provider.current == {}
+    - nm_remove_contract4_vrf2_provider.current == {}
+    - nm_remove_contract4_vrf2_consumer.current == {}
+    - cm_remove_contract4_vrf2_provider.previous.contractRef.contractName == nm_remove_contract4_vrf2_provider.previous.contractRef.contractName == nm_remove_contract4_vrf2_consumer.previous.contractRef.contractName == "Contract4"
+    - cm_remove_contract4_vrf2_provider.previous.contractRef.templateName == nm_remove_contract4_vrf2_provider.previous.contractRef.templateName == nm_remove_contract4_vrf2_consumer.previous.contractRef.templateName == "Template 1"
+    - cm_remove_contract4_vrf2_provider.previous.contractRef.schemaId == nm_remove_contract4_vrf2_provider.previous.contractRef.schemaId == nm_remove_contract4_vrf2_consumer.previous.contractRef.schemaId
+    - cm_remove_contract4_vrf2_provider.previous.relationshipType == "provider"
+    - nm_remove_contract4_vrf2_provider.previous.relationshipType == "provider"
+    - nm_remove_contract4_vrf2_consumer is changed
+    - nm_remove_contract4_vrf2_consumer.previous.relationshipType == "consumer"
+
+- name: Remove contract4 to VRF2 - provider again (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF2
+    contract:
+      name: Contract4
+      type: provider
+    state: absent
+  register: nm_remove_contract4_vrf2_provider_again
+
+- name: Verify nm_remove_contract4_vrf2_provider_again
+  assert:
+    that:
+    - nm_remove_contract4_vrf2_provider_again is not changed
+    - nm_remove_contract4_vrf2_provider_again.previous == {}
+    - nm_remove_contract4_vrf2_provider_again.current == {}
+
+# QUERY A Contract to VRF
+- name: Query Contract1 relationship for VRF - consumer (check_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: consumer
+    state: query
+  check_mode: yes
+  register: cm_query_VRF_contract1_consumer
+
+- name: Query Contract1 relationship for VRF - consumer (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: consumer
+    state: query
+  check_mode: yes
+  register: nm_query_VRF_contract1_consumer
+
+- name: Verify cm_query_VRF_contract1_consumer and nm_query_VRF_contract1_consumer
+  assert:
+    that:
+    - cm_query_VRF_contract1_consumer is not changed
+    - nm_query_VRF_contract1_consumer is not changed
+    - cm_query_VRF_contract1_consumer.current.relationshipType == nm_query_VRF_contract1_consumer.current.relationshipType == "consumer"
+    - cm_query_VRF_contract1_consumer.current.contractRef.contractName == nm_query_VRF_contract1_consumer.current.contractRef.contractName == "Contract1"
+    - cm_query_VRF_contract1_consumer.current.contractRef.schemaId == nm_query_VRF_contract1_consumer.current.contractRef.schemaId
+    - cm_query_VRF_contract1_consumer.current.contractRef.templateName == nm_query_VRF_contract1_consumer.current.contractRef.templateName == "Template 1"
+
+- name: Query Contract1 relationship for VRF - provider (check_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: provider
+    state: query
+  check_mode: yes
+  register: cm_query_VRF_contract1_provider
+
+- name: Query Contract1 relationship for VRF - provider (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: provider
+    state: query
+  check_mode: yes
+  register: nm_query_VRF_contract1_provider
+
+- name: Verify cm_query_VRF_contract1_provider and nm_query_VRF_contract1_provider
+  assert:
+    that:
+    - cm_query_VRF_contract1_provider is not changed
+    - nm_query_VRF_contract1_provider is not changed
+    - cm_query_VRF_contract1_provider.current.relationshipType == nm_query_VRF_contract1_provider.current.relationshipType == "provider"
+    - cm_query_VRF_contract1_provider.current.contractRef.contractName == nm_query_VRF_contract1_provider.current.contractRef.contractName == "Contract1"
+    - cm_query_VRF_contract1_provider.current.contractRef.schemaId == nm_query_VRF_contract1_provider.current.contractRef.schemaId
+    - cm_query_VRF_contract1_provider.current.contractRef.templateName == nm_query_VRF_contract1_provider.current.contractRef.templateName == "Template 1"
+
+# QUERY ALL Contract to VRF
+- name: Query all contracts relationship for VRF (check_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    state: query
+  check_mode: yes
+  register: cm_query_all_contract_vrf
+
+- name: Query all contracts relationship for VRF (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    state: query
+  register: nm_query_all_contract_vrf
+
+- name: Verify cm_query_all_contract_vrf and nm_query_all_contract_vrf
+  assert:
+    that:
+    - nm_query_all_contract_vrf is not changed
+    - cm_query_all_contract_vrf is not changed
+    - cm_query_all_contract_vrf.current | length == nm_query_all_contract_vrf.current | length == 2
+
+# QUERY ALL Contracts to VRF2
+- name: Query all contracts relationship for VRF2 (check_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF2
+    state: query
+  check_mode: yes
+  register: cm_query_all_contract_vrf2
+
+- name: Query all contracts relationship for VRF2 (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF2
+    state: query
+  register: nm_query_all_contract_vrf2
+
+- name: Verify cm_query_all_contract_vrf2 and nm_query_all_contract_vrf2
+  assert:
+    that:
+    - nm_query_all_contract_vrf2 is not changed
+    - cm_query_all_contract_vrf2 is not changed
+    - cm_query_all_contract_vrf2.current == nm_query_all_contract_vrf2.current == []
+
+# QUERY NON-EXISTING Contract to VRF
+- name: Query non-existing contract (check_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: non_existing_contract
+      type: provider
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_existing_contract
+
+- name: Query non-existing contract (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: non_existing_contract
+      type: provider
+    state: query
+  ignore_errors: yes
+  register: nm_query_non_existing_contract
+
+- name: Verify cm_query_non_existing_contract and nm_query_non_existing_contract
+  assert:
+    that:
+    - cm_query_non_existing_contract is not changed
+    - nm_query_non_existing_contract is not changed
+    - cm_query_non_existing_contract == nm_query_non_existing_contract
+    - cm_query_non_existing_contract.msg == "Contract 'non_existing_contract' not found"
+    - nm_query_non_existing_contract.msg == "Contract 'non_existing_contract' not found"
+
+# QUERY NON-EXISTING VRF
+- name: Query non-existing VRF (check_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: non_existing_vrf
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_existing_vrf
+
+- name: Query non-existing VRF (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: non_existing_vrf
+    state: query
+  ignore_errors: yes
+  register: nm_query_non_existing_vrf
+
+- name: Verify cm_query_non_existing_vrf and nm_query_non_existing_vrf
+  assert:
+    that:
+    - cm_query_non_existing_vrf is not changed
+    - nm_query_non_existing_vrf is not changed
+    - cm_query_non_existing_vrf == nm_query_non_existing_vrf
+    - cm_query_non_existing_vrf.msg == "Provided vrf 'non_existing_vrf' does not exist. Existing vrfs{{':'}} VRF, VRF2"
+    - nm_query_non_existing_vrf.msg == "Provided vrf 'non_existing_vrf' does not exist. Existing vrfs{{':'}} VRF, VRF2"
+
+# USE A NON-EXISTING SCHEMA
+- name: Non-existing schema for contract relationship (check_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: non_existing_schema
+    template: Template 1
+    vrf: VRF
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_existing_schema
+
+- name: Non-existing schema for contract relationship (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: non_existing_schema
+    template: Template 1
+    vrf: VRF
+    state: query
+  ignore_errors: yes
+  register: nm_query_non_existing_schema
+
+- name: Verify cm_query_non_existing_schema and nm_query_non_existing_schema
+  assert:
+    that:
+    - cm_query_non_existing_schema is not changed
+    - nm_query_non_existing_schema is not changed
+    - cm_query_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist"
+    - nm_query_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist"
+
+- name: Non-existing contract schema for contract relationship (check_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: provider
+      schema: non_existing_schema
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_existing_contract_schema
+
+- name: Non-existing schema for contract relationship (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: provider
+      schema: non_existing_schema
+    state: query
+  ignore_errors: yes
+  register: nm_query_non_existing_contract_schema
+
+- name: Verify cm_query_non_existing_contract_schema and nm_query_non_existing_contract_schema
+  assert:
+    that:
+    - cm_query_non_existing_contract_schema is not changed
+    - nm_query_non_existing_contract_schema is not changed
+    - cm_query_non_existing_contract_schema.msg == "Schema 'non_existing_schema' is not a valid schema name."
+    - nm_query_non_existing_contract_schema.msg == "Schema 'non_existing_schema' is not a valid schema name."
+
+# USE A NON-EXISTING TEMPLATE
+- name: Non-existing templateName for contract relationship (check_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: non_existing_template
+    vrf: VRF
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_existing_template
+
+- name: Non-existing templateName for contract relationship (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: non_existing_template
+    vrf: VRF
+    state: query
+  ignore_errors: yes
+  register: nm_query_non_existing_template
+
+- name: Verify cm_query_non_existing_template and nm_query_non_existing_template
+  assert:
+    that:
+    - cm_query_non_existing_template is not changed
+    - nm_query_non_existing_template is not changed
+    - cm_query_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template 1, Template 2"
+    - nm_query_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template 1, Template 2"
+
+- name: Non-existing contract templateName for contract relationship (check_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: provider
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: non_existing_template
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_existing_contract_template
+
+- name: Non-existing contract templateName for contract relationship (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: provider
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: non_existing_template
+    state: query
+  ignore_errors: yes
+  register: nm_query_non_existing_contract_template
+
+- name: Verify cm_query_non_existing_contract_template and nm_query_non_existing_contract_template
+  assert:
+    that:
+    - cm_query_non_existing_contract_template is not changed
+    - nm_query_non_existing_contract_template is not changed
+    - cm_query_non_existing_contract_template.msg == "Contract 'Contract1' not found"
+    - nm_query_non_existing_contract_template.msg == "Contract 'Contract1' not found"
+
+# Checking if contract are removed after re-applying an VRF. 
+- name: Add VRF again (normal_mode)
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    vzany: true
+    state: present
+  register: nm_add_VRF_again
+
+- name: Verify that VRF didn't changed
+  assert:
+    that:
+    - nm_add_VRF_again is not changed
+
+- name: Verify contract VRF again
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    state: query
+  register: nm_query_vrf_contract_again
+
+- name: Verify 2 contracts are in VRF
+  assert:
+    that:
+    - nm_query_vrf_contract_again is not changed
+    - nm_query_vrf_contract_again.current | length == 2

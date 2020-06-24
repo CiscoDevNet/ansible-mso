@@ -196,6 +196,11 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
+            # clean contractRef to fix api issue
+            for contract in mso.sent.get('vzAnyConsumerContracts'):
+                contract['contractRef'] = mso.dict_from_ref(contract.get('contractRef'))
+            for contract in mso.sent.get('vzAnyProviderContracts'):
+                contract['contractRef'] = mso.dict_from_ref(contract.get('contractRef'))
             ops.append(dict(op='replace', path=vrf_path, value=mso.sent))
         else:
             ops.append(dict(op='add', path=vrfs_path + '/-', value=mso.sent))

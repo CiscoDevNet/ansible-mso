@@ -12,12 +12,11 @@ ANSIBLE_METADATA = {'metadata_version': '1.1',
 
 DOCUMENTATION = r'''
 ---
-module: mso_schema_template_external_epg_contract
-short_description: Manage Extrnal EPG contracts in schema templates
+module: mso_schema_template_vrf_contract
+short_description: Manage vrf contracts in schema templates
 description:
-- Manage External EPG contracts in schema templates on Cisco ACI Multi-Site.
+- Manage vrf contracts in schema templates on Cisco ACI Multi-Site.
 author:
-- Devarshi Shah (@devarshishah3)
 - Cindy Zhao (@cizhao)
 version_added: '2.10'
 options:
@@ -48,12 +47,12 @@ options:
         type: str
       schema:
         description:
-        - The schema that defines the referenced BD.
+        - The schema that defines the referenced contract.
         - If this parameter is unspecified, it defaults to the current schema.
         type: str
       template:
         description:
-        - The template that defines the referenced BD.
+        - The template that defines the referenced contract.
         type: str
       type:
         description:
@@ -76,7 +75,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a contract to an VRF
-  cisco.mso.mso_schema_vrf_contract:
+  cisco.mso.mso_schema_template_vrf_contract:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -90,7 +89,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a Contract
-  cisco.mso.mso_schema_vrf_contract:
+  cisco.mso.mso_schema_template_vrf_contract:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -99,11 +98,12 @@ EXAMPLES = r'''
     vrf: VRF 1
     contract:
       name: Contract 1
+      type: consumer
     state: absent
   delegate_to: localhost
 
 - name: Query a specific Contract
-  cisco.mso.mso_schema_vrf_contract:
+  cisco.mso.mso_schema_template_vrf_contract:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -112,12 +112,13 @@ EXAMPLES = r'''
     vrf: VRF 1
     contract:
       name: Contract 1
+      type: consumer
     state: query
   delegate_to: localhost
   register: query_result
 
 - name: Query all Contracts
-  cisco.mso.mso_schema_vrf_contract:
+  cisco.mso.mso_schema_template_vrf_contract:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -162,7 +163,6 @@ def main():
     state = module.params.get('state')
 
     mso = MSOModule(module)
-
     if contract:
         if contract.get('schema') is None:
             contract['schema'] = schema
@@ -190,28 +190,38 @@ def main():
     if vrf not in vrfs:
         mso.fail_json(msg="Provided vrf '{vrf}' does not exist. Existing vrfs: {vrfs}".format(vrf=vrf, vrfs=', '.join(vrfs)))
     vrf_idx = vrfs.index(vrf)
+    vrf_obj = schema_obj.get('templates')[template_idx]['vrfs'][vrf_idx]
+
+    if not vrf_obj.get('vzAnyEnabled'):
+        mso.fail_json(msg="vzAny attribute on vrf '{0}' is disabled.".format(vrf))
 
     # Get Contract
-    provider_contracts = [c.get('contractRef') for c in schema_obj.get('templates')[template_idx]['vrfs'][vrf_idx]['vzAnyProviderContracts']]
-    consumer_contracts = [c.get('contractRef') for c in schema_obj.get('templates')[template_idx]['vrfs'][vrf_idx]['vzAnyConsumerContracts']]
     if contract:
+        provider_contracts = [c.get('contractRef') for c in schema_obj.get('templates')[template_idx]['vrfs'][vrf_idx]['vzAnyProviderContracts']]
+        consumer_contracts = [c.get('contractRef') for c in schema_obj.get('templates')[template_idx]['vrfs'][vrf_idx]['vzAnyConsumerContracts']]
         contract_ref = mso.contract_ref(**contract)
         if contract_ref in provider_contracts and contract.get('type') == 'provider':
             contract_idx = provider_contracts.index(contract_ref)
             contract_path = '/templates/{0}/vrfs/{1}/vzAnyProviderContracts/{2}'.format(template, vrf, contract_idx)
             mso.existing = schema_obj.get('templates')[template_idx]['vrfs'][vrf_idx]['vzAnyProviderContracts'][contract_idx]
-        if contract_ref in consumer_contracts and contract_ref.get('type') == 'consumer':
+        if contract_ref in consumer_contracts and contract.get('type') == 'consumer':
             contract_idx = consumer_contracts.index(contract_ref)
             contract_path = '/templates/{0}/vrfs/{1}/vzAnyConsumerContracts/{2}'.format(template, vrf, contract_idx)
             mso.existing = schema_obj.get('templates')[template_idx]['vrfs'][vrf_idx]['vzAnyConsumerContracts'][contract_idx]
+        if mso.existing.get('contractRef'):
+            mso.existing['contractRef'] = mso.dict_from_ref(mso.existing.get('contractRef'))
+            mso.existing['relationshipType'] = contract.get('type')
+
     if state == 'query':
         if not contract:
+            provider_contracts = [dict(contractRef=mso.dict_from_ref(c.get('contractRef')),
+                                  relationshipType='provider') for c in schema_obj.get('templates')[template_idx]['vrfs'][vrf_idx]['vzAnyProviderContracts']]
+            consumer_contracts = [dict(contractRef=mso.dict_from_ref(c.get('contractRef')),
+                                  relationshipType='consumer') for c in schema_obj.get('templates')[template_idx]['vrfs'][vrf_idx]['vzAnyConsumerContracts']]
             mso.existing = provider_contracts + consumer_contracts
         elif not mso.existing:
-            mso.fail_json(msg="Contract '{0}' not found".format(contract_ref))
+            mso.fail_json(msg="Contract '{0}' not found".format(contract.get('name')))
 
-        if 'contractRef' in mso.existing:
-            mso.existing['contractRef'] = mso.dict_from_ref(mso.existing.get('contractRef'))
         mso.exit_json()
 
     if contract.get('type') == 'provider':
@@ -243,9 +253,7 @@ def main():
             ops.append(dict(op='add', path=contracts_path + '/-', value=mso.sent))
 
         mso.existing = mso.proposed
-
-    if 'contractRef' in mso.previous:
-        mso.previous['contractRef'] = mso.dict_from_ref(mso.previous.get('contractRef'))
+        mso.existing['relationshipType'] = contract.get('type')
 
     if not module.check_mode and mso.proposed != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)

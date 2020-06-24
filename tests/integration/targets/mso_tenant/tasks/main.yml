@@ -177,7 +177,18 @@
   assert:
     that:
     - nm_add_tenant2 is changed
+
+- name: Verify nm_add_tenant2 (when mso_username != admin)
+  assert:
+    that:
     - nm_add_tenant2.current.userAssociations | length == 2
+  when: mso_username != 'admin'
+
+- name: Verify nm_add_tenant2 (when mso_username == admin)
+  assert:
+    that:
+    - nm_add_tenant2.current.userAssociations | length == 1
+  when: mso_username == 'admin'
 
 - name: Add tenant 2 again (normal mode)
   mso_tenant: 
@@ -193,7 +204,18 @@
   assert:
     that:
     - nm_add_tenant2_again is not changed
+
+- name: Verify nm_add_tenant2_again (when mso_username != admin)
+  assert:
+    that:
     - nm_add_tenant2_again.current.userAssociations | length == 2
+  when: mso_username != 'admin'
+
+- name: Verify nm_add_tenant2_again (when mso_username == admin)
+  assert:
+    that:
+    - nm_add_tenant2_again.current.userAssociations | length == 1
+  when: mso_username == 'admin'
 
 - name: Add tenant 3 with duplicate admin user (normal mode)
   mso_tenant: 
@@ -244,7 +266,18 @@
   assert:
     that:
     - nm_add_tenant3 is changed
+
+- name: Verify nm_add_tenant3 (when mso_username != admin)
+  assert:
+    that:
     - nm_add_tenant3.current.userAssociations | length == 2
+  when: mso_username != 'admin'
+
+- name: Verify nm_add_tenant3 (when mso_username == admin)
+  assert:
+    that:
+    - nm_add_tenant3.current.userAssociations | length == 1
+  when: mso_username == 'admin'
 
 # CHANGE TENANT
 - name: Change tenant (check_mode)

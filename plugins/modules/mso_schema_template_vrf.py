@@ -188,7 +188,7 @@ def main():
             name=vrf,
             displayName=display_name,
             l3MCast=layer3_multicast,
-            vzAnyEnabled = vzany,
+            vzAnyEnabled=vzany,
             # FIXME
             regions=[],
         )

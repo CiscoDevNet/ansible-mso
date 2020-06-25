@@ -24,27 +24,20 @@ version_added: '2.8'
 options:
   tenant:
     description:
-    - The name of the tenant.
+    - The name of the tenant
     type: str
     required: yes
     aliases: [ name ]
   site:
     description:
     - The name of the site
+    - This can either be cloud site or non-cloud site
     type: str
     aliases: [ name ]
-  sites:
-    description:
-    - List of site Ids.
-    type: list
   cloud_account:
     description:
     - Account id of AWS in the form '000000000000'.
-    - Account id of Azure in the form 'uni/tn-(tenant_name)/act-[(subscriptionId)]-vendor-azure'.
-    type: str
-  vendor:
-    description:
-    - AWS or Azure
+    - Account id of Azure in the form 'uni/tn-(tenant_name)/act-[(subscriptionId)]-azure_vendor-azure'.
     type: str
   security_domains:
     description:
@@ -53,16 +46,19 @@ options:
     default: []
   aws_trusted:
     description:
-    - AWS account's access in trusted mode
+    - AWS account's access in trusted mode. Set to true if no credentials are required.
     type: bool
   azure_access_type:
     description:
     - Managed mode for Azure
     - Credentials mode for Azure
+    - Shared mode if the attribute is not specified
+    choices: [ managed, credentials ]
     type: str
   azure_active_directory_id:
     description:
     - Azure account's active directory id
+    - This attribute is required when azure_access_type is in credentials mode
     type: str
   aws_access_key:
     description:
@@ -75,23 +71,34 @@ options:
   azure_active_directory_name:
     description:
     - Azure account's active directory name
+    - This attribute is required when azure_access_type is in credentials mode
     type: str
   azure_subscription_id:
     description:
     - Azure account's subscription id.
+    - This attribute is required when azure_access_type is in manged mode
+    - This attribute is required when azure_access_type is in credentials mode
     type: str
   azure_application_id:
     description:
-    - Azure account's application id.
+    - Azure account's application id
+    - This attribute is required when azure_access_type is in manged mode
+    - This attribute is required when azure_access_type is in credentials mode
     type: str
   azure_credential_name:
     description:
     - Azure account's credential name
+    - This attribute is required when azure_access_type is in credentials mode
     type: str
   secret_key:
     description:
-    - secret key of AWS for untrusted account
-    - secret key of Azure for unmanaged identity
+    - secret key of AWS for untrusted account. Required in untrusted mode of AWS account.
+    - secret key of Azure for unmanaged identity. Required in unmanged mode of Azure account.
+    type: str
+  azure_vendor:
+    description:
+    - This is an azure attribute
+    default: azure
     type: str
   state:
     description:
@@ -142,8 +149,8 @@ EXAMPLES = r'''
     secret_key: iins
     azure_active_directory_id: 32
     azure_active_directory_name: CiscoINSBUAd
-    vendor: azure
-    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
+    azure_vendor: azure
+    cloud_account: uni/tn-ansible_test/act-[9]-azure_vendor-azure
     azure_access_type: credentials
     state: present
   delegate_to: localhost
@@ -201,12 +208,11 @@ def main():
     argument_spec.update(
         tenant=dict(type='str', aliases=['name'], required=True),
         site=dict(type='str', aliases=['name']),
-        sites=dict(type='list'),
         cloud_account=dict(type='str'),
-        vendor=dict(type='str'),
+        azure_vendor=dict(type='str', default='azure'),
         security_domains=dict(type='list', default=[]),
         aws_trusted=dict(type='bool'),
-        azure_access_type=dict(type='str'),
+        azure_access_type=dict(type='str', choices=['managed', 'credentials']),
         azure_active_directory_id=dict(type='str'),
         aws_access_key=dict(type='str'),
         aws_account_org=dict(type='bool'),
@@ -229,7 +235,7 @@ def main():
 
     state = module.params.get('state')
     security_domains = module.params.get('security_domains')
-    vendor = module.params.get('vendor')
+    azure_vendor = module.params.get('azure_vendor')
     cloud_account = module.params.get('cloud_account')
     azure_access_type = module.params.get('azure_access_type')
     azure_credential_name = module.params.get('azure_credential_name')
@@ -274,7 +280,7 @@ def main():
                 azure_account = dict(
                     accessType=azure_access_type,
                     securityDomains=security_domains,
-                    vendor=vendor,
+                    vendor=azure_vendor,
                 )
 
                 payload['azureAccount'] = [azure_account]
@@ -285,10 +291,26 @@ def main():
                 cloudActiveDirectory = dict(cloudActiveDirectoryId=azure_active_directory_id, cloudActiveDirectoryName=azure_active_directory_name)
 
                 if azure_access_type == 'managed':
+                    if not azure_subscription_id:
+                        mso.fail_json(msg="azure_susbscription_id is required when in managed mode.")
+                    if not azure_application_id:
+                        mso.fail_json(msg="azure_application_id is required when in managed mode.")
                     payload['azureAccount'][0]['cloudApplication'] = []
                     payload['azureAccount'][0]['cloudActiveDirectory'] = []
 
                 if azure_access_type == 'credentials':
+                    if not azure_subscription_id:
+                        mso.fail_json(msg="azure_subscription_id is required when in credentials mode.")
+                    if not azure_application_id:
+                        mso.fail_json(msg="azure_application_id is required when in credentials mode.")
+                    if not secret_key:
+                        mso.fail_json(msg="secret_key is required when in credentials mode.")
+                    if not azure_active_directory_id:
+                        mso.fail_json(msg="azure_active_directory_id is required when in credentials mode.")
+                    if not azure_active_directory_name:
+                        mso.fail_json(msg="azure_active_directory_name is required when in credentials mode.")
+                    if not azure_credential_name:
+                        mso.fail_json(msg="azure_credential_name is required when in credentials mode.")
                     payload['azureAccount'][0]['cloudApplication'] = [cloudApplication]
                     payload['azureAccount'][0]['cloudActiveDirectory'] = [cloudActiveDirectory]
 
@@ -300,7 +322,11 @@ def main():
                 secretKey=secret_key,
                 isAccountInOrg=aws_account_org,
             )
-
+            if not aws_trusted:
+                if not aws_access_key:
+                    mso.fail_json(msg="aws_access_key is a required field in untrusted mode.")
+                if not secret_key:
+                    mso.fail_json(msg="secret_key is a required field in untrusted mode.")
             payload['awsAccount'] = [aws_account]
 
     sites = [(s.get('siteId')) for s in mso.query_objs('tenants')[tenant_idx]['siteAssociations']]

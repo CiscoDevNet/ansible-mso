@@ -26,7 +26,7 @@
 - name: Ensure non-cloud site exists
   mso_site:
     <<: *mso_info
-    site: '{{ mso_site | default("ansible_test_site") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
     apic_password: '{{ apic_password }}'
     apic_site_id: '{{ apic_site_id }}'
@@ -55,7 +55,30 @@
     urls:
     - https://{{ aws_apic_hostname }}
     state: present   
+- name: Dissociate non-cloud site with ansible_test if the association exists
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: ansible_test
+    state: absent
+  ignore_errors: true
+  
+- name: Dissociate aws site with ansible_test if the association exists
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: aws
+    state: absent
+  ignore_errors: true
 
+- name: Dissociate azure site with ansible_test if the association exists
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: azure
+    state: absent
+  ignore_errors: true
+    
 - name: Ensure tenant ansible_test exists
   mso_tenant: 
     <<: *mso_info
@@ -68,7 +91,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: ansible_test_site
+    site: ansible_test
     state: present
   check_mode: yes   
   register: ncs_cm
@@ -82,7 +105,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: ansible_test_site
+    site: ansible_test
     state: present
   register: ncs_nm
 
@@ -95,7 +118,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: ansible_test_site
+    site: ansible_test
     state: present  
   register: ncs_nm_again
 
@@ -169,6 +192,42 @@
     that:
     - aaws_nm_again is not changed
 
+- name: Associate aws site with ansible_test in normal mode when aws_trusted is false and aws_access_key is missing
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: aws
+    cloud_account: "000000000000"
+    aws_trusted: false
+    secret_key: "0"
+    aws_account_org: false
+    state: present
+  ignore_errors: true    
+  register: aaws_nm_ak
+
+- name: Verify aaws_nm_ak
+  assert:
+    that:
+    - aaws_nm_ak.msg is match ("aws_access_key is a required field in untrusted mode.")
+
+- name: Associate aws site with ansible_test in normal mode when aws_trusted is false and secret_key is missing
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: aws
+    cloud_account: "000000000000"
+    aws_trusted: false
+    aws_access_key: "1"
+    aws_account_org: false
+    state: present
+  ignore_errors: true  
+  register: aaws_nm_sk
+
+- name: Verify aaws_nm_sk
+  assert:
+    that:
+    - aaws_nm_sk.msg is match ("secret_key is a required field in untrusted mode.")
+
 - name: Associate azure site with shared mode, with ansible_test in normal mode
   mso_tenant_site:
     <<: *mso_info
@@ -183,6 +242,42 @@
     that:
     - aazure_shared_nm is changed
 
+- name: Associate azure site with managed mode, with ansible_test in normal mode having no application_id
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: azure
+    azure_subscription_id: "9"
+    azure_vendor: azure
+    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
+    azure_access_type: managed
+    state: present 
+  ignore_errors: true
+  register: aazure_managed_nm_app
+
+- name: Verify aazure_managed_nm_app
+  assert:
+    that:
+    - aazure_managed_nm_app.msg is match ("azure_application_id is required when in managed mode.")
+
+- name: Associate azure site with managed mode, with ansible_test in normal mode having no subscription_id
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: azure
+    azure_application_id: "100"
+    azure_vendor: azure
+    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
+    azure_access_type: managed
+    state: present 
+  ignore_errors: true
+  register: aazure_managed_nm_si
+
+- name: Verify aazure_managed_nm_si
+  assert:
+    that:
+    - aazure_managed_nm_si.msg is match ("azure_susbscription_id is required when in managed mode.")
+
 - name: Associate azure site with managed mode, with ansible_test in normal mode
   mso_tenant_site:
     <<: *mso_info
@@ -190,10 +285,11 @@
     site: azure
     azure_subscription_id: "9"
     azure_application_id: "100"
-    vendor: azure
+    azure_vendor: azure
     cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
     azure_access_type: managed
     state: present 
+  ignore_errors: true
   register: aazure_managed_nm
 
 - name: Verify aazure_managed_nm
@@ -205,7 +301,139 @@
     - aazure_managed_nm.current.azureAccount[0].cloudSubscription.cloudSubscriptionId == '9'
     - aazure_managed_nm.current.azureAccount[0].cloudApplication == []
     - aazure_managed_nm.current.azureAccount[0].cloudActiveDirectory == []
-     
+
+- name: Associate azure site with credentials mode, with ansible_test in normal mode having no azure_subscription_id
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: azure
+    azure_application_id: "100"
+    azure_credential_name: cApicApp
+    secret_key: iins
+    azure_active_directory_id: "32"
+    azure_active_directory_name: CiscoINSBUAd
+    azure_vendor: azure
+    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
+    azure_access_type: credentials
+    state: present 
+  ignore_errors: true
+  register: aazure_credentials_nm_si
+
+- name: Verify aazure_credentials_nm_si
+  assert:
+    that:
+    - aazure_credentials_nm_si.msg is match ("azure_subscription_id is required when in credentials mode.")
+
+- name: Associate azure site with credentials mode, with ansible_test in normal mode having no azure_application_id
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: azure
+    azure_subscription_id: "9"
+    azure_credential_name: cApicApp
+    secret_key: iins
+    azure_active_directory_id: "32"
+    azure_active_directory_name: CiscoINSBUAd
+    azure_vendor: azure
+    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
+    azure_access_type: credentials
+    state: present 
+  ignore_errors: true
+  register: aazure_credentials_nm_app
+
+- name: Verify aazure_credentials_nm_app
+  assert:
+    that:
+    - aazure_credentials_nm_app.msg is match ("azure_application_id is required when in credentials mode.")
+
+- name: Associate azure site with credentials mode, with ansible_test in normal mode having no secret_key
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: azure
+    azure_subscription_id: "9"
+    azure_credential_name: cApicApp
+    azure_active_directory_id: "32"
+    azure_active_directory_name: CiscoINSBUAd
+    azure_application_id: "100"
+    azure_vendor: azure
+    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
+    azure_access_type: credentials
+    state: present 
+  ignore_errors: true
+  register: aazure_credentials_nm_secret
+
+- name: Verify aazure_credentials_nm_secret
+  assert:
+    that:
+    - aazure_credentials_nm_secret.msg is match ("secret_key is required when in credentials mode.")
+
+- name: Associate azure site with credentials mode, with ansible_test in normal mode having no azure_active_directory_id
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: azure
+    azure_subscription_id: "9"
+    azure_credential_name: cApicApp
+    azure_active_directory_name: CiscoINSBUAd
+    azure_application_id: "100"
+    secret_key: iins
+    azure_vendor: azure
+    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
+    azure_access_type: credentials
+    state: present 
+  ignore_errors: true
+  register: aazure_credentials_nm_ad
+
+- name: Verify aazure_credentials_nm_ad
+  assert:
+    that:
+    - aazure_credentials_nm_ad.msg is match ("azure_active_directory_id is required when in credentials mode.")
+
+- name: Associate azure site with credentials mode, with ansible_test in normal mode having no azure_active_directory_name
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: azure
+    azure_subscription_id: "9"
+    azure_credential_name: cApicApp
+    secret_key: iins
+    azure_active_directory_id: "32"
+    azure_application_id: "100"
+    azure_vendor: azure
+    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
+    azure_access_type: credentials
+    state: present 
+  ignore_errors: true
+  register: aazure_credentials_nm_adn
+
+- name: Verify aazure_credentials_nm_adn
+  assert:
+    that:
+    - aazure_credentials_nm_adn.msg is match ("azure_active_directory_name is required when in credentials mode.")
+
+- name: Associate azure site with credentials mode, with ansible_test in normal mode having no azure_credential_name
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: azure
+    azure_subscription_id: "9"
+    secret_key: iins
+    azure_active_directory_name: CiscoINSBUAd
+    azure_active_directory_id: "32"
+    azure_application_id: "100"
+    azure_vendor: azure
+    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
+    azure_access_type: credentials
+    state: present
+  ignore_errors: true 
+  register: aazure_credentials_nm_cdn
+
+- name: Verify aazure_credentials_nm_cdn
+  assert:
+    that:
+    - aazure_credentials_nm_cdn.msg is match ("azure_credential_name is required when in credentials mode.")
+  
 - name: Associate azure site with credentials mode, with ansible_test in normal mode
   mso_tenant_site:
     <<: *mso_info
@@ -217,7 +445,7 @@
     secret_key: iins
     azure_active_directory_id: "32"
     azure_active_directory_name: CiscoINSBUAd
-    vendor: azure
+    azure_vendor: azure
     cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
     azure_access_type: credentials
     state: present 
@@ -247,7 +475,7 @@
     secret_key: iins
     azure_active_directory_id: "32"
     azure_active_directory_name: CiscoINSBUAd
-    vendor: azure
+    azure_vendor: azure
     cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
     azure_access_type: credentials
     state: present 
@@ -262,7 +490,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: ansible_test_site
+    site: ansible_test
     state: query 
   register: anc_query
 
@@ -270,7 +498,6 @@
   assert:
     that:
     - anc_query is not changed
-
 
 - name: Query associated azure site of a tenant
   mso_tenant_site:
@@ -283,7 +510,7 @@
     secret_key: iins
     azure_active_directory_id: "32"
     azure_active_directory_name: CiscoINSBUAd
-    vendor: azure
+    azure_vendor: azure
     cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
     azure_access_type: credentials 
     state: query
@@ -323,7 +550,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: ansible_test_site
+    site: ansible_test
     state: absent
   register: dnc
 
@@ -336,7 +563,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: ansible_test_site
+    site: ansible_test
     state: query
   ignore_errors: true
   register: dnc_query

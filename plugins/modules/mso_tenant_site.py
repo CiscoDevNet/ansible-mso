@@ -44,13 +44,13 @@ options:
     type: str
   vendor:
     description:
-     - AWS or Azure
-     type: str
+    - AWS or Azure
+    type: str
   security_domains:
     description:
     - List of security domains for cloud sites
     type: list
-    default: '[]'
+    default: []
   aws_trusted:
     description:
     - AWS account's access in trusted mode
@@ -75,13 +75,13 @@ options:
   azure_active_directory_name:
     description:
     - Azure account's active directory name
-   type: str
+    type: str
   azure_subscription_id:
     description:
     - Azure account's subscription id.
     type: str
   azure_application_id:
-    description: 
+    description:
     - Azure account's application id.
     type: str
   azure_credential_name:
@@ -147,7 +147,7 @@ EXAMPLES = r'''
     azure_access_type: credentials
     state: present
   delegate_to: localhost
-       
+
 - name: Dissociate aws site
   cisco.mso.mso_tenant_site:
     host: mso_host
@@ -158,7 +158,7 @@ EXAMPLES = r'''
     state: absent
   delegate_to: localhost
 
-- name: Dissociate aws site
+- name: Dissociate azure site
   cisco.mso.mso_tenant_site:
     host: mso_host
     username: admin
@@ -226,7 +226,7 @@ def main():
             ['state', 'present', ['tenant', 'site']],
         ],
     )
-    
+
     state = module.params.get('state')
     security_domains = module.params.get('security_domains')
     vendor = module.params.get('vendor')
@@ -249,51 +249,51 @@ def main():
     site_id = mso.lookup_site(module.params.get('site'))
     tenants = [(t.get('id')) for t in mso.query_objs('tenants')]
     tenant_idx = tenants.index((tenant_id))
-   
+
     # set tenent and port paths
     tenant_path = 'tenants/{0}'.format(tenant_id)
-    ops=[]
+    ops = []
     ports_path = '/siteAssociations/-'
     port_path = '/siteAssociations/{0}'.format(site_id)
-    
-    payload=dict(
-          siteId=site_id,
-          securityDomains=security_domains,
-          cloudAccount=cloud_account,
-    
-      )
-    
+
+    payload = dict(
+        siteId=site_id,
+        securityDomains=security_domains,
+        cloudAccount=cloud_account,
+    )
+
     if not cloud_account:
         payload = payload
-    
+
     if cloud_account is not None:
         if 'azure' in cloud_account:
             if azure_access_type is None:
                 payload = payload
-            
-            if azure_access_type is not None:    
-                azure_account=dict( 
+
+            if azure_access_type is not None:
+                azure_account = dict(
                     accessType=azure_access_type,
                     securityDomains=security_domains,
                     vendor=vendor,
                 )
-      
+
                 payload['azureAccount'] = [azure_account]
                 cloudSubscription = dict(cloudSubscriptionId=azure_subscription_id, cloudApplicationId=azure_application_id)
-                payload['azureAccount'][0]['cloudSubscription'] = cloudSubscription   
-                cloudApplication = dict(cloudApplicationId=azure_application_id, cloudCredentialName=azure_credential_name, secretKey=secret_key, cloudActiveDirectoryId=azure_active_directory_id)
+                payload['azureAccount'][0]['cloudSubscription'] = cloudSubscription
+                cloudApplication = dict(cloudApplicationId=azure_application_id, cloudCredentialName=azure_credential_name,
+                                        secretKey=secret_key, cloudActiveDirectoryId=azure_active_directory_id)
                 cloudActiveDirectory = dict(cloudActiveDirectoryId=azure_active_directory_id, cloudActiveDirectoryName=azure_active_directory_name)
-                
+
                 if azure_access_type == 'managed':
                     payload['azureAccount'][0]['cloudApplication'] = []
                     payload['azureAccount'][0]['cloudActiveDirectory'] = []
-                
+
                 if azure_access_type == 'credentials':
                     payload['azureAccount'][0]['cloudApplication'] = [cloudApplication]
                     payload['azureAccount'][0]['cloudActiveDirectory'] = [cloudActiveDirectory]
 
         else:
-            aws_account=dict(
+            aws_account = dict(
                 accountId=cloud_account,
                 isTrusted=aws_trusted,
                 accessKeyId=aws_access_key,
@@ -319,9 +319,9 @@ def main():
         elif site_id not in sites and site_id is not None:
             mso.fail_json(msg="Site Id {0} not associated with tenant Id {1}".format(site_id, tenant_id))
         elif site_id is None:
-            mso.existing = mso.query_objs('tenants')[tenant_idx]['siteAssociations']     
+            mso.existing = mso.query_objs('tenants')[tenant_idx]['siteAssociations']
         mso.exit_json()
-    
+
     mso.previous = mso.existing
 
     if state == 'absent':

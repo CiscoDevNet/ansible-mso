@@ -29,7 +29,7 @@
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
     apic_password: '{{ apic_password }}'
-    apic_site_id: 101
+    apic_site_id: '{{ apic_site_id }}'
     urls:
     - https://{{ apic_hostname }}
     state: present
@@ -38,22 +38,22 @@
   mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("azure") }}'
-    apic_username: '{{ apic_azure_username }}'
-    apic_password: '{{ apic_azure_password }}'
-    apic_site_id: 10
+    apic_username: '{{ azure_apic_username }}'
+    apic_password: '{{ azure_apic_password }}'
+    apic_site_id: '{{ azure_site_id }}'
     urls:
-    - https://{{ apic_azure_hostname }}
+    - https://{{ azure_apic_hostname }}
     state: present
 
 - name: Ensure aws site exists
   mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("aws") }}'
-    apic_username: '{{ apic_aws_username }}'
-    apic_password: '{{ apic_aws_password }}'
-    apic_site_id: 20
+    apic_username: '{{ aws_apic_username }}'
+    apic_password: '{{ aws_apic_password }}'
+    apic_site_id: '{{ aws_site_id }}'
     urls:
-    - https://{{ apic_aws_hostname }}
+    - https://{{ aws_apic_hostname }}
     state: present   
 
 - name: Ensure tenant ansible_test exists

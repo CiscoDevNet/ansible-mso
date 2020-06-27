@@ -352,7 +352,7 @@ def main():
     sites = [(s.get('siteId')) for s in mso.query_objs('tenants')[tenant_idx]['siteAssociations']]
 
     if site_id not in sites:
-        mso.existing = {}
+        pass
     else:
         site_idx = sites.index((site_id))
         mso.existing = mso.query_objs('tenants')[tenant_idx]['siteAssociations'][site_idx]

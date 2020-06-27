@@ -40,8 +40,8 @@
     state: absent
   loop:
   - '{{ mso_site | default("ansible_test") }}'
-  - '{{ mso_site | default("aws_ansible_test") }}'
-  - '{{ mso_site | default("azure_ansible_test") }}'
+  - 'aws_{{ mso_site | default("ansible_test") }}'
+  - 'azure_{{ mso_site | default("ansible_test") }}'
   ignore_errors: true
 
 - name: Remove tenant ansible_test
@@ -66,7 +66,7 @@
 - name: Ensure azure site exists
   mso_site:
     <<: *mso_info
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ azure_apic_username }}'
     apic_password: '{{ azure_apic_password }}'
     apic_site_id: '{{ azure_site_id }}'
@@ -77,7 +77,7 @@
 - name: Ensure aws site exists
   mso_site:
     <<: *mso_info
-    site: '{{ mso_site | default("aws_ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ aws_apic_username }}'
     apic_password: '{{ aws_apic_password }}'
     apic_site_id: '{{ aws_site_id }}'
@@ -97,7 +97,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: ansible_test
+    site: '{{ mso_site | default("ansible_test") }}'
     state: present
   check_mode: yes   
   register: ncs_cm
@@ -111,7 +111,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: ansible_test
+    site: '{{ mso_site | default("ansible_test") }}'
     state: present
   register: ncs_nm
 
@@ -124,7 +124,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: ansible_test
+    site: '{{ mso_site | default("ansible_test") }}'
     state: present  
   register: ncs_nm_again
 
@@ -137,7 +137,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("aws_ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
     cloud_account: "000000000000"
     aws_trusted: false
     aws_access_key: "1"
@@ -159,7 +159,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("aws_ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
     cloud_account: "000000000000"
     aws_trusted: false
     aws_access_key: "1"
@@ -180,7 +180,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("aws_ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
     cloud_account: "000000000000"
     aws_trusted: false
     aws_access_key: "1"
@@ -197,7 +197,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("aws_ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
     cloud_account: "000000000000"
     aws_trusted: false
     secret_key: "0"
@@ -214,7 +214,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("aws_ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
     cloud_account: "000000000000"
     aws_trusted: false
     aws_access_key: "1"
@@ -231,7 +231,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("aws_ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
     aws_account_org: true
     cloud_account: "000000000000"
     secret_key: "0"
@@ -249,7 +249,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     cloud_account: uni/tn-ansible_test/act-[100]-vendor-azure
     state: present 
   register: aazure_shared_nm
@@ -263,7 +263,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     cloud_account: uni/tn-ansible_test/act-[100]-vendor-azure
     azure_access_type: shared
     state: present 
@@ -278,7 +278,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     azure_subscription_id: "9"
     cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
     azure_access_type: managed
@@ -295,7 +295,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     azure_application_id: "100"
     cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
     azure_access_type: managed
@@ -312,7 +312,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     azure_subscription_id: "9"
     azure_application_id: "100"
     cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
@@ -335,7 +335,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     azure_application_id: "100"
     azure_credential_name: cApicApp
     secret_key: iins
@@ -356,7 +356,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     azure_subscription_id: "9"
     azure_credential_name: cApicApp
     secret_key: iins
@@ -377,7 +377,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     azure_subscription_id: "9"
     azure_credential_name: cApicApp
     azure_active_directory_id: "32"
@@ -398,7 +398,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     azure_subscription_id: "9"
     azure_credential_name: cApicApp
     azure_active_directory_name: CiscoINSBUAd
@@ -419,7 +419,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     azure_subscription_id: "9"
     azure_credential_name: cApicApp
     secret_key: iins
@@ -440,7 +440,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     azure_subscription_id: "9"
     secret_key: iins
     azure_active_directory_name: CiscoINSBUAd
@@ -461,7 +461,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     azure_subscription_id: "9"
     azure_application_id: "100"
     azure_credential_name: cApicApp
@@ -490,7 +490,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     azure_subscription_id: "9"
     azure_application_id: "100"
     azure_credential_name: cApicApp
@@ -511,7 +511,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: ansible_test
+    site: '{{ mso_site | default("ansible_test") }}'
     state: query 
   register: anc_query
 
@@ -524,7 +524,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     azure_subscription_id: "9"
     azure_application_id: "100"
     azure_credential_name: cApicApp
@@ -545,7 +545,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("aws_ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
     state: query    
   register: aaws_query
 
@@ -570,7 +570,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: ansible_test
+    site: '{{ mso_site | default("ansible_test") }}'
     state: absent
   register: dnc
 
@@ -583,7 +583,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: ansible_test
+    site: '{{ mso_site | default("ansible_test") }}'
     state: query
   ignore_errors: true
   register: dnc_query
@@ -597,7 +597,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     state: absent
   register: dazure
 
@@ -610,7 +610,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("azure_ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
     state: query 
   ignore_errors: true 
   register: dazure_query
@@ -624,7 +624,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("aws_ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
     state: absent
   register: daaws
 
@@ -637,7 +637,7 @@
   mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ mso_site | default("aws_ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
     state: query 
   ignore_errors: true 
   register: daaws_query

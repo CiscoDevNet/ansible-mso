@@ -136,6 +136,12 @@ def mso_contractref_spec():
         type=dict(type='str', required=True, choices=['consumer', 'provider']),
     )
 
+def mso_expression_spec():
+    return dict(
+        type=dict(type='str', required=True, aliases=['tag']),
+        operator=dict(type='str', choices=['notIn', 'in', 'equals', 'notEquals', 'keyExist', 'keyNotExist'], required=True),
+        value=dict(type='str'),
+    )
 
 class MSOModule(object):
 

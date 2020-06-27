@@ -228,14 +228,17 @@ def main():
         all_expressions = []
         if expressions:
             for expression in expressions:
-                if expression.get('operator') in ["keyExist", "keyNotExist"] and expression.get("value"):
-                    mso.fail_json(msg="attribute 'value' is not supported for operator '{0}' in expression '{1}'".format(expression.get('operator'), expression.get('type')))
-                if expression.get('operator') in ["notIn", "in", "equals", "notEquals"] and not expression.get("value"):
-                    mso.fail_json(msg="attribute 'value' needed for operator '{0}' in expression '{1}'".format(expression.get('operator'), expression.get('type')))
+                operator = expression.get('operator')
+                if operator in ["keyExist", "keyNotExist"] and expression.get("value"):
+                    mso.fail_json(
+                        msg="attribute 'value' is not supported for operator '{0}' in expression '{1}'".format(operator, expression.get('type')))
+                if operator in ["notIn", "in", "equals", "notEquals"] and not expression.get("value"):
+                    mso.fail_json(
+                        msg="attribute 'value' needed for operator '{0}' in expression '{1}'".format(operator, expression.get('type')))
                 all_expressions.append(dict(
-                    key = 'Custom:' + expression.get('type'),
-                    operator = expression.get('operator'),
-                    value = expression.get('value'),
+                    key='Custom:' + expression.get('type'),
+                    operator=operator,
+                    value=expression.get('value'),
                 ))
 
         payload = dict(
@@ -261,4 +264,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

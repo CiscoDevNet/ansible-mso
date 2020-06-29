@@ -19,7 +19,6 @@ description:
 - Manage EPG selector in schema templates on Cisco ACI Multi-Site.
 author:
 - Cindy Zhao (@cizhao)
-version_added: '2.8'
 options:
   schema:
     description:
@@ -47,29 +46,26 @@ options:
     type: str
   expressions:
     description:
-    - A list of expressions associated to this selector.
+    - Expressions associated to this selector.
     type: list
     suboptions:
-      expression:
+      type:
         description:
-        - An expression in expressions list
-        type: dict
-        suboptions:
-          type:
-            description:
-            - The name of the expression.
-            required: true
-            type: str
-          operator:
-            description:
-            - The operator associated to the expression.
-            required: true
-            type: str
-            choices: [notIn, in, equals, notEquals, keyExist, keyNotExist]
-          value:
-            description:
-            - The value associated to the expression.
-            type: str
+        - The name of the expression.
+        required: true
+        type: str
+        aliases: [ tag ]
+      operator:
+        description:
+        - The operator associated to the expression.
+        required: true
+        type: str
+        choices: [ not_in, in, equals, not_equals, has_key, does_not_have_key ]
+      value:
+        description:
+        - The value associated to the expression.
+        - If the operator is in or not_in, the value should be a comma separated str.
+        type: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -92,7 +88,11 @@ EXAMPLES = r'''
     template: Template 1
     anp: ANP 1
     epg: EPG 1
-    selector: selector 1
+    selector: selector_1
+    expressions:
+      - type: expression_1
+        operator: in
+        value: test
     state: present
   delegate_to: localhost
 
@@ -105,7 +105,7 @@ EXAMPLES = r'''
     template: Template 1
     anp: ANP 1
     epg: EPG 1
-    selector: selector 1
+    selector: selector_1
     state: absent
   delegate_to: localhost
 
@@ -118,7 +118,7 @@ EXAMPLES = r'''
     template: Template 1
     anp: ANP 1
     epg: EPG 1
-    selector: selector 1
+    selector: selector_1
     state: query
   delegate_to: localhost
   register: query_result
@@ -143,6 +143,15 @@ RETURN = r'''
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_contractref_spec, issubset, mso_expression_spec
 
+EXPRESSION_KEYS = {
+    'not_in': 'notIn',
+    'not_equals': 'notEquals',
+    'has_key': 'keyExist',
+    'does_not_have_key': 'keyNotExist',
+    'in': 'in',
+    'equals': 'equals',
+}
+
 
 def main():
     argument_spec = mso_argument_spec()
@@ -152,7 +161,7 @@ def main():
         anp=dict(type='str', required=True),
         epg=dict(type='str', required=True),
         selector=dict(type='str'),
-        expressions=dict(type='list', elements='dict', options=mso_expression_spec()),
+        expressions=dict(type='list', options=mso_expression_spec()),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -202,6 +211,8 @@ def main():
     epg_idx = epgs.index(epg)
 
     # Get Selector
+    if selector and " " in selector:
+        mso.fail_json(msg="There should not be any space in selector name.")
     selectors = [s.get('name') for s in schema_obj.get('templates')[template_idx]['anps'][anp_idx]['epgs'][epg_idx]['selectors']]
     if selector in selectors:
         selector_idx = selectors.index(selector)
@@ -228,17 +239,21 @@ def main():
         all_expressions = []
         if expressions:
             for expression in expressions:
+                tag = expression.get('type')
                 operator = expression.get('operator')
-                if operator in ["keyExist", "keyNotExist"] and expression.get("value"):
+                value = expression.get('value')
+                if " " in tag:
+                    mso.fail_json(msg="There should not be any space in 'type' attribute of expression '{0}'".format(tag))
+                if operator in ["has_key", "does_not_have_key"] and value:
                     mso.fail_json(
-                        msg="attribute 'value' is not supported for operator '{0}' in expression '{1}'".format(operator, expression.get('type')))
-                if operator in ["notIn", "in", "equals", "notEquals"] and not expression.get("value"):
+                        msg="Attribute 'value' is not supported for operator '{0}' in expression '{1}'".format(operator, tag))
+                if operator in ["not_in", "in", "equals", "not_equals"] and not value:
                     mso.fail_json(
-                        msg="attribute 'value' needed for operator '{0}' in expression '{1}'".format(operator, expression.get('type')))
+                        msg="Attribute 'value' needed for operator '{0}' in expression '{1}'".format(operator, tag))
                 all_expressions.append(dict(
-                    key='Custom:' + expression.get('type'),
-                    operator=operator,
-                    value=expression.get('value'),
+                    key='Custom:' + tag,
+                    operator=EXPRESSION_KEYS.get(operator),
+                    value=value,
                 ))
 
         payload = dict(
@@ -255,9 +270,8 @@ def main():
 
         mso.existing = mso.proposed
 
-    if not module.check_mode:
+    if not module.check_mode and mso.existing != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)
-        mso.existing = mso.sent
 
     mso.exit_json()
 

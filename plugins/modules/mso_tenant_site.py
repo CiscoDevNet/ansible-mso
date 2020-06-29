@@ -351,17 +351,13 @@ def main():
 
     sites = [(s.get('siteId')) for s in mso.query_objs('tenants')[tenant_idx]['siteAssociations']]
 
-    if site_id not in sites:
-        pass
-    else:
+    if site_id in sites:
         site_idx = sites.index((site_id))
         mso.existing = mso.query_objs('tenants')[tenant_idx]['siteAssociations'][site_idx]
 
     if state == 'query':
         if len(sites) == 0:
             mso.fail_json(msg="No site associated with tenant Id {0}".format(tenant_id))
-        elif site_id in sites:
-            mso.existing = mso.query_objs('tenants')[tenant_idx]['siteAssociations'][site_idx]
         elif site_id not in sites and site_id is not None:
             mso.fail_json(msg="Site Id {0} not associated with tenant Id {1}".format(site_id, tenant_id))
         elif site_id is None:

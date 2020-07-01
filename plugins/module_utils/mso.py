@@ -521,7 +521,7 @@ class MSOModule(object):
                 }
                 return result
             else:
-                self.module.fail_json(msg="There was no group in search: {}".format(data))
+                self.module.fail_json(msg="There was no group in search: {data}".format(data=data))
 
     def make_reference(self, data, reftype, schema_id, template):
         ''' Create a reference from a dictionary '''

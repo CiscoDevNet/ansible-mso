@@ -147,7 +147,7 @@ def mso_expression_spec():
 
 def mso_expression_spec_ext_epg():
     return dict(
-        type=dict(type='str', choices=['IP'], required=True),
+        type=dict(type='str', choices=['ip_address'], required=True),
         operator=dict(type='str', choices=['equals'], required=True),
         value=dict(type='str', required=True),
     )

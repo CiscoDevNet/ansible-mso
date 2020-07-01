@@ -51,7 +51,7 @@ options:
         - The name of the expression which in this case is always IP address.
         required: true
         type: str
-        choices: [ IP ]
+        choices: [ ip_address ]
       operator:
         description:
         - The operator associated with the expression which in this case is always equals.
@@ -60,7 +60,7 @@ options:
         choices: [ equals ]
       value:
         description:
-        - The value of the IP Address associated with the expression.
+        - The value of the IP Address / Subnet associated with the expression.
         required: true
         type: str
   state:
@@ -77,7 +77,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a selector to an External EPG
-  cisco.mso.mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -86,14 +86,14 @@ EXAMPLES = r'''
     external_epg: extEPG 1
     selector: selector_1
     expressions:
-      - type: ipAddress
+      - type: ip_address
         operator: equals
         value: 10.0.0.0
     state: present
   delegate_to: localhost
 
 - name: Remove a Selector
-  cisco.mso.mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -105,7 +105,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific Selector
-  cisco.mso.mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -118,7 +118,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all Selectors
-  cisco.mso.mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -181,11 +181,11 @@ def main():
     template_idx = templates.index(template)
 
     # Get External EPG
-    externalEpgs = [e.get('name') for e in schema_obj.get('templates')[template_idx]['externalEpgs']]
-    if external_epg not in externalEpgs:
-        mso.fail_json(msg="Provided external epg '{externalEpg}' does not exist. Existing epgs: {externalEpgs}"
-                      .format(externalEpg=external_epg, externalEpgs=', '.join(externalEpgs)))
-    external_epg_idx = externalEpgs.index(external_epg)
+    external_epgs = [e.get('name') for e in schema_obj.get('templates')[template_idx]['externalEpgs']]
+    if external_epg not in external_epgs:
+        mso.fail_json(msg="Provided external epg '{external_epg}' does not exist. Existing epgs: {external_epgs}"
+                      .format(external_epg=external_epg, external_epgs=', '.join(external_epgs)))
+    external_epg_idx = external_epgs.index(external_epg)
 
     # Get Selector
     selectors = [s.get('name') for s in schema_obj.get('templates')[template_idx]['externalEpgs'][external_epg_idx]['selectors']]
@@ -206,7 +206,7 @@ def main():
 
     mso.previous = mso.existing
     if state == 'absent':
-        mso.existing = {}
+        mso.sent = mso.existing = {}
         ops.append(dict(op='remove', path=selector_path))
 
     elif state == 'present':
@@ -215,6 +215,8 @@ def main():
         if expressions:
             for expression in expressions:
                 ip_addr = expression.get('type')
+                if ip_addr is not None:
+                    ip_addr = 'ipAddress'
                 operator = expression.get('operator')
                 value = expression.get('value')
                 all_expressions.append(dict(

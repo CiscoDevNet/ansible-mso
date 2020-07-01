@@ -144,12 +144,14 @@ def mso_expression_spec():
         value=dict(type='str'),
     )
 
+
 def mso_expression_spec_ext_epg():
     return dict(
         type=dict(type='str', required=True, aliases=['IP']),
         operator=dict(type='str', required=True),
         value=dict(type='str', required=True),
     )
+
 
 class MSOModule(object):
 
@@ -520,7 +522,6 @@ class MSOModule(object):
                 return result
             else:
                 self.module.fail_json(msg="The was no group in search.")
-
 
     def make_reference(self, data, reftype, schema_id, template):
         ''' Create a reference from a dictionary '''

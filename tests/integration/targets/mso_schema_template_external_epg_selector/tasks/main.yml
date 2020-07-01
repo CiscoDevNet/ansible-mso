@@ -1,0 +1,454 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+# Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
+# 
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact: 
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    # sites:
+    # - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure schema 1 with Template 1 exist
+  mso_schema_template: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+
+- name: Ensure schema 1 with Template 2 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 2
+    state: present
+
+- name: Ensure schema 2 with Template 3 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    state: present
+
+- name: Ensure VRF exists
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    state: present
+
+- name: Ensure VRF2 exists
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF2
+    state: present
+
+- name: Ensure ANP1 exists
+  mso_schema_template_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    state: present
+
+- name: Ensure ANP2 exists
+  mso_schema_template_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP2
+    state: present
+  
+- name: Ensure L3out exist
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    l3out: L3out
+    vrf:
+      name: VRF
+    state: present
+
+- name: Ensure L3out2 exist
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    l3out: L3out2
+    vrf:
+      name: VRF2
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: present
+
+# ADD External EPGs
+- name: Ensure External EPG1 exists
+  mso_schema_template_externalepg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    externalepg: extEPG1
+    vrf:
+      name: VRF
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    l3out:
+      name: L3out
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    anp:
+      name: ANP
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    state: present
+
+- name: Ensure External EPG2 exists
+  mso_schema_template_externalepg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    externalepg: extEPG2
+    vrf:
+      name: VRF2
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    l3out:
+      name: L3out2
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    anp:
+      name: ANP2
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    state: present
+  
+# ADD Selector to EPG
+- name: Add Selector to extEPG1 (check_mode)
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG1
+    selector: selector_1
+    state: present
+  check_mode: yes
+  register: cm_add_selector_1
+
+- name: Verify cm_add_selector_1
+  assert:
+    that:
+    - cm_add_selector_1 is changed
+    - cm_add_selector_1.previous == {}
+    - cm_add_selector_1.current.name == "selector_1"
+    - cm_add_selector_1.current.expressions == []
+
+- name: Add Selector 1 to extEPG1 (normal_mode)
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG1
+    selector: selector_1
+    state: present
+  ignore_errors: yes
+  register: nm_add_selector_1
+
+- name: Verify nm_add_selector_1
+  assert:
+    that:
+    - nm_add_selector_1 is changed
+    - nm_add_selector_1.previous == {}
+    - nm_add_selector_1.current.name == "selector_1"
+    - nm_add_selector_1.current.expressions == []
+
+- name: Add Selector 1 to extEPG1 again(normal_mode)
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG1
+    selector: selector_1
+    state: present
+  ignore_errors: yes
+  register: nm_add_selector_1_again
+
+- name: Verify nm_add_selector_1_again
+  assert:
+    that:
+    - nm_add_selector_1_again is not changed
+
+- name: Add Selector to extEPG1 again (normal_mode)
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG1
+    selector: selector_1
+    state: present
+  register: nm_add_selector_1_again
+
+- name: Verify nm_add_selector_1_again
+  assert:
+    that:
+    - nm_add_selector_1_again is not changed
+    
+- name: Add Selector 2 to extEPG1 (normal_mode)
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG1
+    selector: selector_2
+    expressions:
+      - type: ipAddress
+        operator: equals
+        value: 10.0.0.0
+    state: present
+  register: nm_add_selector_2
+
+- name: Verify nm_add_selector_2
+  assert:
+    that:
+    - nm_add_selector_2 is changed
+    - nm_add_selector_2.previous == {}
+    - nm_add_selector_2.current.name == "selector_2"
+    - nm_add_selector_2.current.expressions[0].key == "ipAddress"
+    - nm_add_selector_2.current.expressions[0].operator == "equals"
+    - nm_add_selector_2.current.expressions[0].value == "10.0.0.0"
+
+- name: Add Selector 3 to extEPG1 (normal_mode)
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG1
+    selector: selector_3
+    expressions:
+      - type: ipAddress
+        operator: equals
+        value: 10.1.1.1
+    state: present
+  register: nm_add_selector_3
+
+- name: Verify nm_add_selector_3
+  assert:
+    that:
+    - nm_add_selector_3 is changed
+    - nm_add_selector_3.previous == {}
+    - nm_add_selector_3.current.name == "selector_3"
+    - nm_add_selector_3.current.expressions[0].value == "10.1.1.1"
+
+- name: Remove slector_1
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG1
+    selector: selector_1
+    state: absent
+  register: nm_remove_selector_1
+
+- name: Verify nm_remove_selector_1
+  assert:
+    that:
+    - nm_remove_selector_1 is changed
+   
+# QUERY selectors
+- name: Query all selectors of extEPG1
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG1
+    state: query
+  register: nm_query_all
+
+- name: Verify nm_query_all
+  assert:
+    that:
+    - nm_query_all is not changed
+
+- name: Query a selector of extEPG1
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG1
+    selector: selector_2
+    state: query
+  register: nm_query_selector_2
+
+- name: Verify nm_query_selector_2
+  assert:
+    that:
+    - nm_query_selector_2 is not changed
+    - nm_query_selector_2.current.expressions[0].value == "10.0.0.0"
+
+- name: Query a removed selector_1 of extEPG1
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG1
+    selector: selector_1
+    state: query
+  ignore_errors: yes
+  register: nm_query_removed
+
+- name: Verify nm_query_removed
+  assert:
+    that:
+    - nm_query_removed.msg == "Selector 'selector_1' not found"
+    
+# QUERY NON-EXISTING External EPG
+- name: Query non-existing EPG (normal mode)
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: non_extEPG1
+    selector: selector_1
+    state: query
+  ignore_errors: yes
+  register: nm_query_non_epg
+
+- name: Verify query_non_epg
+  assert:
+    that:
+    - nm_query_non_epg is not changed
+    - nm_query_non_epg.msg == "Provided external epg 'non_extEPG1' does not exist. Existing epgs{{':'}} extEPG1, extEPG2"
+  
+# USE A NON-EXISTING STATE
+- name: Non-existing state (check_mode)
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG1
+    selector: selector_1
+    state: non-existing-state
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_state
+
+- name: Non-existing state (normal_mode)
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG1
+    selector: selector_1
+    state: non-existing-state
+  ignore_errors: yes
+  register: nm_non_existing_state
+
+- name: Verify non_existing_state
+  assert:
+    that:
+    - cm_non_existing_state is not changed
+    - nm_non_existing_state is not changed
+    - cm_non_existing_state == nm_non_existing_state
+    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+
+# USE A NON-EXISTING TEMPLATE
+- name: Non-existing template (check_mode)
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: non-existing-template
+    external_epg: extEPG1
+    selector: selector_1
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_template
+
+- name: Non-existing template (normal_mode)
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: non-existing-template
+    external_epg: extEPG1
+    selector: selector_1
+    state: query
+  ignore_errors: yes
+  register: nm_non_existing_template
+
+- name: Verify non_existing_template
+  assert:
+    that:
+    - cm_non_existing_template is not changed
+    - nm_non_existing_template is not changed
+    - cm_non_existing_template == nm_non_existing_template
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template 1, Template 2"
+
+# USE A NON-EXISTING SCHEMA
+- name: Non-existing schema (check_mode)
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: non-existing-schema
+    template: Template 1
+    external_epg: extEPG1
+    selector: selector_1
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_schema
+
+- name: Non-existing schema (normal_mode)
+  mso_schema_template_external_epg_selector:
+    <<: *mso_info
+    schema: non-existing-schema
+    template: Template 1
+    external_epg: extEPG1 
+    selector: selector_1
+    state: query
+  ignore_errors: yes
+  register: nm_non_existing_schema
+
+- name: Verify non_existing_schema
+  assert:
+    that:
+    - cm_non_existing_schema is not changed
+    - nm_non_existing_schema is not changed
+    - cm_non_existing_schema == nm_non_existing_schema
+    - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist"

@@ -42,7 +42,7 @@ options:
     type: str
   vrf:
     description:
-    - The VRF associated to this ANP.
+    - The VRF associated with the external epg.
     type: dict
     suboptions:
       name:
@@ -62,7 +62,7 @@ options:
         type: str
   l3out:
     description:
-    - The L3Out associated to this ANP.
+    - The L3Out associated with the external epg.
     type: dict
     suboptions:
       name:
@@ -80,6 +80,26 @@ options:
         - The template that defines the referenced L3Out.
         - If this parameter is unspecified, it defaults to the current template.
         type: str
+  anp:
+     description:
+     - The anp associated with the external epg.
+     type: dict
+     suboptions:
+       name:
+         description:
+         - The name of the anp to associate with.
+         required: true
+         type: str
+       schema:
+         description:
+         - The schema that defines the referenced anp.
+         - If this parameter is unspecified, it defaults to the current schema.
+         type: str
+       template:
+         description:
+         - The template that defines the referenced L3Out.
+         - If this parameter is unspecified, it defaults to the current template.
+         type: str
   preferred_group:
     description:
     - Preferred Group is enabled for this External EPG or not.
@@ -157,6 +177,7 @@ def main():
         display_name=dict(type='str'),
         vrf=dict(type='dict', options=mso_reference_spec()),
         l3out=dict(type='dict', options=mso_reference_spec()),
+        anp=dict(type='dict', options=mso_reference_spec()),
         preferred_group=dict(type='bool'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
@@ -176,6 +197,7 @@ def main():
     display_name = module.params.get('display_name')
     vrf = module.params.get('vrf')
     l3out = module.params.get('l3out')
+    anp = module.params.get('anp')
     preferred_group = module.params.get('preferred_group')
     state = module.params.get('state')
 
@@ -208,6 +230,9 @@ def main():
             mso.existing['vrfRef'] = mso.dict_from_ref(mso.existing.get('vrfRef'))
         if 'l3outRef' in mso.existing:
             mso.existing['l3outRef'] = mso.dict_from_ref(mso.existing.get('l3outRef'))
+        if 'anpRef' in mso.existing:
+            mso.existing['anpRef'] = mso.dict_from_ref(mso.existing.get('anpRef'))
+
     if state == 'query':
         if externalepg is None:
             mso.existing = schema_obj.get('templates')[template_idx]['externalEpgs']
@@ -228,6 +253,7 @@ def main():
     elif state == 'present':
         vrf_ref = mso.make_reference(vrf, 'vrf', schema_id, template)
         l3out_ref = mso.make_reference(l3out, 'l3out', schema_id, template)
+        anp_ref = mso.make_reference(anp, 'anp', schema_id, template)
         if display_name is None and not mso.existing:
             display_name = externalepg
 
@@ -235,6 +261,7 @@ def main():
             name=externalepg,
             displayName=display_name,
             vrfRef=vrf_ref,
+            anpRef=anp_ref,
             l3outRef=l3out_ref,
             preferredGroup=preferred_group,
         )

@@ -97,7 +97,7 @@ options:
          type: str
        template:
          description:
-         - The template that defines the referenced L3Out.
+         - The template that defines the referenced anp.
          - If this parameter is unspecified, it defaults to the current template.
          type: str
   preferred_group:
@@ -261,10 +261,12 @@ def main():
             name=externalepg,
             displayName=display_name,
             vrfRef=vrf_ref,
-            anpRef=anp_ref,
             l3outRef=l3out_ref,
             preferredGroup=preferred_group,
         )
+
+        if anp is not None:
+            payload['anpRef'] = anp_ref
 
         mso.sanitize(payload, collate=True)
 

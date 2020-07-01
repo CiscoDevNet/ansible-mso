@@ -147,8 +147,8 @@ def mso_expression_spec():
 
 def mso_expression_spec_ext_epg():
     return dict(
-        type=dict(type='str', required=True, aliases=['IP']),
-        operator=dict(type='str', required=True),
+        type=dict(type='str', choices=['IP'], required=True),
+        operator=dict(type='str', choices=['equals'], required=True),
         value=dict(type='str', required=True),
     )
 
@@ -498,10 +498,10 @@ class MSOModule(object):
         }
 
     def dict_from_ref(self, data):
-        if data:
+        if data and data != '':
             ref_regex = re.compile(r'\/schemas\/(.*)\/templates\/(.*)\/(.*)\/(.*)')
             dic = ref_regex.search(data)
-            if dic:
+            if dic is not None:
                 schema_id = dic.group(1)
                 template_name = dic.group(2)
                 category = dic.group(3)
@@ -521,7 +521,7 @@ class MSOModule(object):
                 }
                 return result
             else:
-                self.module.fail_json(msg="The was no group in search.")
+                self.module.fail_json(msg="There was no group in search: {}".format(data))
 
     def make_reference(self, data, reftype, schema_id, template):
         ''' Create a reference from a dictionary '''

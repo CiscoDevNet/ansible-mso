@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
 # Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -18,6 +19,7 @@ short_description: Manage External EPG selector in schema templates
 description:
 - Manage External EPG selector in schema templates on Cisco ACI Multi-Site.
 author:
+- Shreyas Srish (@shrsr)
 - Cindy Zhao (@cizhao)
 options:
   schema:
@@ -49,12 +51,13 @@ options:
         - The name of the expression which in this case is always IP address.
         required: true
         type: str
-        aliases: [ IP ]
+        choices: [ IP ]
       operator:
         description:
         - The operator associated with the expression which in this case is always equals.
         required: true
         type: str
+        choices: [ equals ]
       value:
         description:
         - The value of the IP Address associated with the expression.
@@ -211,11 +214,11 @@ def main():
         all_expressions = []
         if expressions:
             for expression in expressions:
-                IP = expression.get('type')
+                ip_addr = expression.get('type')
                 operator = expression.get('operator')
                 value = expression.get('value')
                 all_expressions.append(dict(
-                    key=IP,
+                    key=ip_addr,
                     operator=operator,
                     value=value,
                 ))

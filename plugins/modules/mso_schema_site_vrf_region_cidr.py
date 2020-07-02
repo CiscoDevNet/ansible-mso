@@ -55,6 +55,7 @@ options:
     description:
     - Whether this is the primary CIDR.
     type: bool
+    default: true
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.

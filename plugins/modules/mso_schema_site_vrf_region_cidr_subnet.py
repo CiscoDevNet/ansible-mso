@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Dag Wieers (@dagwieers) <dag@wieers.com>
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -19,6 +20,7 @@ description:
 - Manage site-local VRF regions in schema template on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
+- Lionel Hercot (@lhercot)
 version_added: '2.8'
 options:
   schema:
@@ -56,8 +58,13 @@ options:
   zone:
     description:
     - The name of the zone for the region CIDR subnet.
+    - This argument is required for AWS sites.
     type: str
     aliases: [ name ]
+  vgw:
+    description:
+    - Whether this subnet is used for the Azure Gateway.
+    type: bool
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -77,7 +84,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new site VRF region CIDR subnet
-  mso_schema_template_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -157,6 +164,7 @@ def main():
         cidr=dict(type='str', required=True),
         subnet=dict(type='str', aliases=['ip']),  # This parameter is not required for querying all objects
         zone=dict(type='str', aliases=['name']),
+        vgw=dict(type='bool'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -165,7 +173,7 @@ def main():
         supports_check_mode=True,
         required_if=[
             ['state', 'absent', ['subnet']],
-            ['state', 'present', ['subnet', 'zone']],
+            ['state', 'present', ['subnet']],
         ],
     )
 
@@ -177,6 +185,7 @@ def main():
     cidr = module.params.get('cidr')
     subnet = module.params.get('subnet')
     zone = module.params.get('zone')
+    vgw = module.params.get('vgw')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -189,13 +198,20 @@ def main():
     schema_path = 'schemas/{id}'.format(**schema_obj)
     schema_id = schema_obj.get('id')
 
+    # Get template
+    templates = [t.get('name') for t in schema_obj.get('templates')]
+    if template not in templates:
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
+
     # Get site
     site_id = mso.lookup_site(site)
 
     # Get site_idx
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
+    sites_list = [s.get('siteId') + '/' + s.get('templateName') for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, ', '.join(sites)))
+        mso.fail_json(msg="Provided site/siteId/template '{0}/{1}/{2}' does not exist. "
+                          "Existing siteIds/templates: {3}".format(site, site_id, template, ', '.join(sites_list)))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
@@ -205,20 +221,25 @@ def main():
     # Get VRF
     vrf_ref = mso.vrf_ref(schema_id=schema_id, template=template, vrf=vrf)
     vrfs = [v.get('vrfRef') for v in schema_obj.get('sites')[site_idx]['vrfs']]
+
+    # If vrf not at site level but exists at template level
     if vrf_ref not in vrfs:
-        mso.fail_json(msg="Provided vrf '{0}' does not exist. Existing vrfs: {1}".format(vrf, ', '.join(vrfs)))
+        mso.fail_json(msg="Provided vrf '{0}' does not exist at site level."
+                          " Use mso_schema_site_vrf_region_cidr to create it.".format(vrf))
     vrf_idx = vrfs.index(vrf_ref)
 
     # Get Region
     regions = [r.get('name') for r in schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions']]
     if region not in regions:
-        mso.fail_json(msg="Provided region '{0}' does not exist. Existing regions: {1}".format(region, ', '.join(regions)))
+        mso.fail_json(msg="Provided region '{0}' does not exist. Existing regions: {1}."
+                          " Use mso_schema_site_vrf_region_cidr to create it.".format(region, ', '.join(regions)))
     region_idx = regions.index(region)
 
     # Get CIDR
     cidrs = [c.get('ip') for c in schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions'][region_idx]['cidrs']]
     if cidr not in cidrs:
-        mso.fail_json(msg="Provided CIDR IP '{0}' does not exist. Existing CIDR IPs: {1}".format(cidr, ', '.join(cidrs)))
+        mso.fail_json(msg="Provided CIDR IP '{0}' does not exist. Existing CIDR IPs: {1}."
+                          " Use mso_schema_site_vrf_region_cidr to create it.".format(cidr, ', '.join(cidrs)))
     cidr_idx = cidrs.index(cidr)
 
     # Get Subnet
@@ -246,11 +267,15 @@ def main():
             ops.append(dict(op='remove', path=subnet_path))
 
     elif state == 'present':
-
         payload = dict(
             ip=subnet,
-            zone=zone,
+            zone=""
         )
+
+        if zone is not None:
+            payload['zone'] = zone
+        elif vgw is True:
+            payload['usage'] = 'gateway'
 
         mso.sanitize(payload, collate=True)
 

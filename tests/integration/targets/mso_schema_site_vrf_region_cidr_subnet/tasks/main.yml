@@ -47,6 +47,15 @@
     - https://{{ azure_apic_hostname }}
     state: present
 
+- name: Remove Schemas
+  mso_schema:
+    <<: *mso_info
+    schema: item
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
 - name: Ensure tenant ansible_test exist
   mso_tenant: 
     <<: *mso_info
@@ -73,12 +82,6 @@
     cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
     state: present
 
-- name: Remove Schemas
-  mso_schema:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    state: absent
-      
 - name: Ensure schema 1 with Template 1 exists
   mso_schema_template: 
     <<: *mso_info

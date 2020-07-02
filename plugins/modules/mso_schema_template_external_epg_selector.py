@@ -211,16 +211,15 @@ def main():
 
     elif state == 'present':
         # Get expressions
+        types = dict(ip_address='ipAddress')
         all_expressions = []
         if expressions:
             for expression in expressions:
-                ip_addr = expression.get('type')
-                if ip_addr is not None:
-                    ip_addr = 'ipAddress'
+                type_val = expression.get('type')
                 operator = expression.get('operator')
                 value = expression.get('value')
                 all_expressions.append(dict(
-                    key=ip_addr,
+                    key=types.get(type_val),
                     operator=operator,
                     value=value,
                 ))

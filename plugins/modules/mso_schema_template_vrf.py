@@ -188,9 +188,7 @@ def main():
             name=vrf,
             displayName=display_name,
             l3MCast=layer3_multicast,
-            vzAnyEnabled=vzany,
-            # FIXME
-            regions=[],
+            vzAnyEnabled=vzany
         )
 
         mso.sanitize(payload, collate=True)

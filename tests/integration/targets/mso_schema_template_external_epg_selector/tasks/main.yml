@@ -23,6 +23,15 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
 - name: Ensure tenant ansible_test exist
   mso_tenant: 
     <<: *mso_info
@@ -32,15 +41,6 @@
     # sites:
     # - '{{ mso_site | default("ansible_test") }}'
     state: present
-
-- name: Remove schemas
-  mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure schema 1 with Template 1 exist
   mso_schema_template: 

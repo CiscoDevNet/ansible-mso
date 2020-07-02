@@ -29,6 +29,21 @@
     - https://{{ apic_hostname }}
     state: present
 
+- name: Remove schemas
+  mso_schema:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
 - name: Ensure tenant ansible_test exist
   mso_tenant: &tenant_present
     host: '{{ mso_hostname }}'
@@ -44,21 +59,6 @@
     sites:
     - '{{ mso_site | default("ansible_test") }}'
     state: present
-
-- name: Remove schemas
-  mso_schema:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure schema 1 with Template 1 exist
   mso_schema_template: &schema_present

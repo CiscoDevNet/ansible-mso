@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Dag Wieers (@dagwieers) <dag@wieers.com>
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -19,6 +20,7 @@ description:
 - Manage site-local VRF region CIDRs in schema template on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
+- Lionel Hercot (@lhercot)
 version_added: '2.8'
 options:
   schema:
@@ -73,7 +75,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new site VRF region CIDR
-  mso_schema_template_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -87,7 +89,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a site VRF region CIDR
-  mso_schema_template_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -101,7 +103,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific site VRF region CIDR
-  mso_schema_template_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -116,7 +118,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all site VRF region CIDR
-  mso_schema_template_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -146,7 +148,7 @@ def main():
         vrf=dict(type='str', required=True),
         region=dict(type='str', required=True),
         cidr=dict(type='str', aliases=['ip']),  # This parameter is not required for querying all objects
-        primary=dict(type='bool'),
+        primary=dict(type='bool', default=True),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -178,48 +180,93 @@ def main():
     schema_path = 'schemas/{id}'.format(**schema_obj)
     schema_id = schema_obj.get('id')
 
+    # Get template
+    templates = [t.get('name') for t in schema_obj.get('templates')]
+    if template not in templates:
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
+    template_idx = templates.index(template)
+
     # Get site
     site_id = mso.lookup_site(site)
 
     # Get site_idx
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
+    sites_list = [s.get('siteId') + '/' + s.get('templateName') for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, ', '.join(sites)))
+        mso.fail_json(msg="Provided site/siteId/template '{0}/{1}/{2}' does not exist. "
+                          "Existing siteIds/templates: {3}".format(site, site_id, template, ', '.join(sites_list)))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
     # Path-based access uses site_id-template
     site_template = '{0}-{1}'.format(site_id, template)
 
+    payload = dict()
+    op_path = ''
+    new_cidr = dict(
+        ip=cidr,
+        primary=primary,
+    )
+
     # Get VRF
     vrf_ref = mso.vrf_ref(schema_id=schema_id, template=template, vrf=vrf)
     vrfs = [v.get('vrfRef') for v in schema_obj.get('sites')[site_idx]['vrfs']]
+    template_vrfs = [a.get('name') for a in schema_obj['templates'][template_idx]['vrfs']]
+    if vrf not in template_vrfs:
+        mso.fail_json(msg="Provided vrf '{0}' does not exist. Existing vrfs: {1}".format(vrf, ', '.join(template_vrfs)))
+    else:
+        # Update vrf index at template level
+        template_vrf_idx = template_vrfs.index(vrf)
+
+    # If vrf not at site level but exists at template level
     if vrf_ref not in vrfs:
-        mso.fail_json(msg="Provided vrf '{0}' does not exist. Existing vrfs: {1}".format(vrf, ', '.join(vrfs)))
-    vrf_idx = vrfs.index(vrf_ref)
+        op_path = '/sites/{0}/vrfs/-'.format(site_template)
+        payload.update(
+            vrfRef=dict(
+                schemaId=schema_id,
+                templateName=template,
+                vrfName=vrf,
+            ),
+            regions=[dict(
+                name=region,
+                cidrs=[new_cidr]
+            )]
+        )
+    else:
+        # Update vrf index at site level
+        vrf_idx = vrfs.index(vrf_ref)
 
-    # Get Region
-    regions = [r.get('name') for r in schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions']]
-    if region not in regions:
-        mso.fail_json(msg="Provided region '{0}' does not exist. Existing regions: {1}".format(region, ', '.join(regions)))
-    region_idx = regions.index(region)
+        # Get Region
+        regions = [r.get('name') for r in schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions']]
+        if region not in regions:
+            op_path = '/sites/{0}/vrfs/{1}/regions/-'.format(site_template, vrf)
+            payload.update(
+                name=region,
+                cidrs=[new_cidr]
+            )
+        else:
+            region_idx = regions.index(region)
 
-    # Get CIDR
-    cidrs = [c.get('ip') for c in schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions'][region_idx]['cidrs']]
-    if cidr is not None and cidr in cidrs:
-        cidr_idx = cidrs.index(cidr)
-        # FIXME: Changes based on index are DANGEROUS
-        cidr_path = '/sites/{0}/vrfs/{1}/regions/{2}/cidrs/{3}'.format(site_template, vrf, region, cidr_idx)
-        mso.existing = schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions'][region_idx]['cidrs'][cidr_idx]
+            # Get CIDR
+            cidrs = [c.get('ip') for c in schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions'][region_idx]['cidrs']]
+            if cidr is not None:
+                if cidr in cidrs:
+                    cidr_idx = cidrs.index(cidr)
+                    # FIXME: Changes based on index are DANGEROUS
+                    cidr_path = '/sites/{0}/vrfs/{1}/regions/{2}/cidrs/{3}'.format(site_template, vrf, region, cidr_idx)
+                    mso.existing = schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions'][region_idx]['cidrs'][cidr_idx]
+                op_path = '/sites/{0}/vrfs/{1}/regions/{2}/cidrs/-'.format(site_template, vrf, region)
+                payload = new_cidr
 
     if state == 'query':
-        if cidr is None:
+        if region not in regions:
+            mso.fail_json(msg="Provided region '{0}' does not exist. Existing regions: {1}".format(region, ', '.join(regions)))
+        elif cidr is None and not payload:
             mso.existing = schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions'][region_idx]['cidrs']
         elif not mso.existing:
             mso.fail_json(msg="CIDR IP '{cidr}' not found".format(cidr=cidr))
         mso.exit_json()
 
-    cidrs_path = '/sites/{0}/vrfs/{1}/regions/{2}/cidrs'.format(site_template, vrf, region)
     ops = []
 
     mso.previous = mso.existing
@@ -229,23 +276,14 @@ def main():
             ops.append(dict(op='remove', path=cidr_path))
 
     elif state == 'present':
-        if not mso.existing:
-            if primary is None:
-                primary = False
-
-        payload = dict(
-            ip=cidr,
-            primary=primary,
-        )
-
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
             ops.append(dict(op='replace', path=cidr_path, value=mso.sent))
         else:
-            ops.append(dict(op='add', path=cidrs_path + '/-', value=mso.sent))
+            ops.append(dict(op='add', path=op_path, value=mso.sent))
 
-        mso.existing = mso.proposed
+        mso.existing = new_cidr
 
     if not module.check_mode:
         mso.request(schema_path, method='PATCH', data=ops)

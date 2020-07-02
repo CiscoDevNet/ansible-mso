@@ -1,0 +1,611 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+# Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com> (based on mso_schema_anp_epg_domain)
+# Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
+
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact: 
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+    sites: "[ { 'site': 'aws_{{ mso_site | default(\'ansible_test\') }}', 'region': 'us-west-1', 'cidr': '10.0.0.0/16'}, 
+              { 'site': 'azure_{{ mso_site | default(\'ansible_test\') }}', 'region': 'westus', 'cidr': '10.1.0.0/16'}]"
+
+- name: Ensure site exists
+  mso_site:
+    <<: *mso_info
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ aws_apic_username }}'
+    apic_password: '{{ aws_apic_password }}'
+    apic_site_id: '{{ aws_site_id | default(102) }}'
+    urls:
+    - https://{{ aws_apic_hostname }}
+    state: present
+
+- name: Ensure site exists
+  mso_site:
+    <<: *mso_info
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ azure_apic_username }}'
+    apic_password: '{{ azure_apic_password }}'
+    apic_site_id: '{{ azure_site_id | default(103) }}'
+    urls:
+    - https://{{ azure_apic_hostname }}
+    state: present
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    state: present
+
+- name: Ensure AWS site is present under tenant ansible_test
+  mso_tenant_site: 
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    cloud_account: '000000000000'
+    aws_access_key: 1
+    secret_key: 0
+    state: present
+
+- name: Ensure Azure site is present under tenant ansible_test
+  mso_tenant_site: 
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
+    state: present
+
+- name: Remove Schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    state: absent
+      
+- name: Ensure schema 1 with Template 1 exists
+  mso_schema_template: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+
+- name: Ensure schema 1 with Template 2 exists
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 2
+    state: present
+
+- name: Add a new sites to a Template 1
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ item.site }}'
+    template: Template 1
+    state: present
+  loop: '{{ sites }}'
+
+- name: Ensure VRF1 exists
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    state: present
+
+- name: Ensure VRF1 exists
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF2
+    state: present
+
+- name: Ensure region for VRF1 at site level exists
+  mso_schema_site_vrf_region_cidr:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: '{{ item.site }}'
+    vrf: VRF1
+    region: '{{ item.region }}'
+    cidr: '{{ item.cidr }}'
+    state: present
+  loop: '{{ sites }}'
+
+# ADD SUBNET
+- name: Add a new subnet to AWS CIDR in VRF1 at site level (check mode)
+  mso_schema_site_vrf_region_cidr_subnet: &mso_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    cidr: 10.0.0.0/16
+    subnet: 10.0.0.0/24
+    zone: us-west-1a
+    state: present
+  check_mode: yes
+  register: cm_add_subnet
+
+- name: Verify cm_add_subnet
+  assert:
+    that:
+    - cm_add_subnet is changed
+    - cm_add_subnet.previous == {}
+    - cm_add_subnet.current.ip == '10.0.0.0/24'
+    - cm_add_subnet.current.zone == 'us-west-1a'
+
+- name: Add a new subnet to AWS CIDR in VRF1 at site level (normal mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_present
+  register: nm_add_subnet
+
+- name: Verify nm_add_subnet
+  assert:
+    that:
+    - nm_add_subnet is changed
+    - nm_add_subnet.previous == {}
+    - nm_add_subnet.current.ip == '10.0.0.0/24'
+    - nm_add_subnet.current.zone == 'us-west-1a'
+
+- name: Add same subnet again to AWS CIDR in VRF1 at site level (check mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_present
+  register: cm_add_subnet_again
+
+- name: Verify cm_add_subnet_again
+  assert:
+    that:
+    - cm_add_subnet_again is not changed
+    - cm_add_subnet_again.current.ip == cm_add_subnet_again.previous.ip == '10.0.0.0/24'
+    - cm_add_subnet_again.current.zone == cm_add_subnet_again.previous.zone == 'us-west-1a'
+
+- name: Add same subnet again to AWS CIDR in VRF1 at site level (normal mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_present
+  register: nm_add_subnet_again
+
+- name: Verify nm_add_subnet_again
+  assert:
+    that:
+    - nm_add_subnet_again is not changed
+    - nm_add_subnet_again.current.ip == nm_add_subnet_again.previous.ip == '10.0.0.0/24'
+    - nm_add_subnet_again.current.zone == nm_add_subnet_again.previous.zone == 'us-west-1a'
+
+- name: Add a new subnet to Azure CIDR in VRF1 at site level (check mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_present
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    region: westus
+    cidr: 10.1.0.0/16
+    subnet: 10.1.0.0/24
+    zone: null
+  check_mode: yes
+  register: cm_add_subnet_2
+
+- name: Verify cm_add_subnet_2
+  assert:
+    that:
+    - cm_add_subnet_2 is changed
+    - cm_add_subnet_2.previous == {}
+    - cm_add_subnet_2.current.ip == '10.1.0.0/24'
+    - cm_add_subnet_2.current.zone == ''
+
+- name: Add a new subnet to Azure CIDR in VRF1 at site level (normal mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_present
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    region: westus
+    cidr: 10.1.0.0/16
+    subnet: 10.1.0.0/24
+    zone: null
+  register: nm_add_subnet_2
+
+- name: Verify nm_add_subnet_2
+  assert:
+    that:
+    - nm_add_subnet_2 is changed
+    - nm_add_subnet_2.previous == {}
+    - nm_add_subnet_2.current.ip == '10.1.0.0/24'
+    - nm_add_subnet_2.current.zone == ''
+
+- name: Add a second subnet to Azure CIDR in VRF1 at site level for VGW (check mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_present
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    region: westus
+    cidr: 10.1.0.0/16
+    subnet: 10.1.1.0/24
+    zone: null
+    vgw: true
+  check_mode: yes
+  register: cm_add_subnet_3
+
+- name: Verify cm_add_subnet_3
+  assert:
+    that:
+    - cm_add_subnet_3 is changed
+    - cm_add_subnet_3.previous == {}
+    - cm_add_subnet_3.current.ip == '10.1.1.0/24'
+    - cm_add_subnet_3.current.zone == ''
+    - cm_add_subnet_3.current.usage == 'gateway'
+
+- name: Add a second subnet to Azure CIDR in VRF1 at site level for VGW (normal mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_present
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    region: westus
+    cidr: 10.1.0.0/16
+    subnet: 10.1.1.0/24
+    zone: null
+    vgw: true
+  register: nm_add_subnet_3
+
+- name: Verify nm_add_subnet_3
+  assert:
+    that:
+    - nm_add_subnet_3 is changed
+    - nm_add_subnet_3.previous == {}
+    - nm_add_subnet_3.current.ip == '10.1.1.0/24'
+    - nm_add_subnet_3.current.zone == ''
+    - nm_add_subnet_3.current.usage == 'gateway'
+
+# QUERY SUBNETS
+- name: Query subnet to AWS CIDR in VRF1 at site level (check mode)
+  mso_schema_site_vrf_region_cidr_subnet: &mso_query
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    cidr: 10.0.0.0/16
+    subnet: 10.0.0.0/24
+    state: query
+  check_mode: yes
+  register: cm_query_subnet
+
+- name: Verify cm_query_subnet
+  assert:
+    that:
+    - cm_query_subnet is not changed
+    - cm_query_subnet.current.ip == '10.0.0.0/24'
+    - cm_query_subnet.current.zone == 'us-west-1a'
+
+- name: Query subnet to AWS CIDR in VRF1 at site level (normal mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+  register: nm_query_subnet
+
+- name: Verify nm_query_subnet
+  assert:
+    that:
+    - nm_query_subnet is not changed
+
+# QUERY ALL SUBNETS
+- name: Query all subnets to AWS CIDR in VRF1 at site level (check mode)
+  mso_schema_site_vrf_region_cidr_subnet: &mso_query_all
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    cidr: 10.0.0.0/16
+    state: query
+  check_mode: yes
+  register: cm_query_subnet_all_aws
+
+- name: Query all subnets to Azure CIDR in VRF1 at site level (check mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query_all
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    region: westus
+    cidr: 10.1.0.0/16
+    state: query
+  check_mode: yes
+  register: cm_query_subnet_all_azure
+
+- name: Verify cm_query_subnet_all_aws and cm_query_subnet_all_azure
+  assert:
+    that:
+    - cm_query_subnet_all_aws is not changed
+    - cm_query_subnet_all_aws.current[0].ip == '10.0.0.0/24'
+    - cm_query_subnet_all_aws.current[0].zone == 'us-west-1a'
+    - cm_query_subnet_all_azure is not changed
+    - cm_query_subnet_all_azure.current[0].ip == '10.1.0.0/24'
+    - cm_query_subnet_all_azure.current[0].zone == ''
+    - cm_query_subnet_all_azure.current[1].ip == '10.1.1.0/24'
+    - cm_query_subnet_all_azure.current[1].zone == ''
+
+- name: Query subnet to AWS CIDR in VRF1 at site level (normal mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query_all
+  register: nm_query_subnet_all_aws
+
+- name: Query subnet to AWS CIDR in VRF1 at site level (normal mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query_all
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    region: westus
+    cidr: 10.1.0.0/16
+    state: query
+  register: nm_query_subnet_all_azure
+
+- name: Verify nm_query_subnet_all_aws and nm_query_subnet_all_azure
+  assert:
+    that:
+    - nm_query_subnet_all_aws is not changed
+    - nm_query_subnet_all_aws.current[0].ip == '10.0.0.0/24'
+    - nm_query_subnet_all_aws.current[0].zone == 'us-west-1a'
+    - nm_query_subnet_all_azure is not changed
+    - nm_query_subnet_all_azure.current[0].ip == '10.1.0.0/24'
+    - nm_query_subnet_all_azure.current[0].zone == ''
+    - nm_query_subnet_all_azure.current[1].ip == '10.1.1.0/24'
+    - nm_query_subnet_all_azure.current[1].zone == ''
+
+# REMOVE SUBNETS
+- name: Remove Subnet from CIDR (check_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_present
+    state: absent
+  check_mode: yes
+  register: cm_remove_subnet
+
+- name: Verify cm_remove_subnet
+  assert:
+    that:
+    - cm_remove_subnet is changed
+    - cm_remove_subnet.current == {}
+
+- name: Remove Subnet from CIDR (normal mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_present
+    state: absent
+  register: nm_remove_subnet
+
+- name: Verify nm_remove_subnet
+  assert:
+    that:
+    - nm_remove_subnet is changed
+    - nm_remove_subnet.current == {}
+
+- name: Remove Subnet from CIDR again (check_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_present
+    state: absent
+  check_mode: yes
+  register: cm_remove_subnet_again
+
+- name: Verify cm_remove_subnet_again
+  assert:
+    that:
+    - cm_remove_subnet_again is not changed
+    - cm_remove_subnet_again.current == {}
+
+- name: Remove Subnet from CIDR again (normal mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_present
+    state: absent
+  register: nm_remove_subnet_again
+
+- name: Verify nm_remove_subnet_again
+  assert:
+    that:
+    - nm_remove_subnet_again is not changed
+    - nm_remove_subnet_again.current == {}
+
+# QUERY NON-EXISTING subnet in CIDR
+- name: Query non-existing subnet (check_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    subnet: non_existing_subnet
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_subnet
+
+- name: Query non-existing subnet (normal mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    subnet: non_existing_subnet
+  ignore_errors: yes
+  register: nm_query_non_subnet
+
+- name: Verify query_non_subnet
+  assert:
+    that:
+    - cm_query_non_subnet is not changed
+    - nm_query_non_subnet is not changed
+    - cm_query_non_subnet == nm_query_non_subnet
+    - cm_query_non_subnet.msg is match("Subnet IP 'non_existing_subnet' not found")
+    - nm_query_non_subnet.msg is match("Subnet IP 'non_existing_subnet' not found")
+
+# QUERY NON-EXISTING CIDR
+- name: Query non-existing CIDR (check_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    cidr: non_existing_cidr
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_cidr
+
+- name: Query non-existing CIDR (normal mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    cidr: non_existing_cidr
+  ignore_errors: yes
+  register: nm_query_non_cidr
+
+- name: Verify query_non_cidr
+  assert:
+    that:
+    - cm_query_non_cidr is not changed
+    - nm_query_non_cidr is not changed
+    - cm_query_non_cidr == nm_query_non_cidr
+    - cm_query_non_cidr.msg == nm_query_non_cidr.msg == "Provided CIDR IP 'non_existing_cidr' does not exist. Existing CIDR IPs{{':'}} 10.0.0.0/16. Use mso_schema_site_vrf_region_cidr to create it."
+
+# QUERY NON-EXISTING region
+- name: Query non-existing region (check_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    region: non_existing_region
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_region
+
+- name: Query non-existing region (normal mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    region: non_existing_region
+  ignore_errors: yes
+  register: nm_query_non_region
+
+- name: Verify query_non_region
+  assert:
+    that:
+    - cm_query_non_region is not changed
+    - nm_query_non_region is not changed
+    - cm_query_non_region == nm_query_non_region
+    - cm_query_non_region.msg == nm_query_non_region.msg == "Provided region 'non_existing_region' does not exist. Existing regions{{':'}} us-west-1. Use mso_schema_site_vrf_region_cidr to create it."
+
+# QUERY NON-EXISTING VRF
+- name: Query non-existing VRF (check_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    vrf: non_existing_vrf
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_vrf
+
+- name: Query non-existing VRF (normal mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    vrf: non_existing_vrf
+  ignore_errors: yes
+  register: nm_query_non_vrf
+
+- name: Verify query_non_vrf
+  assert:
+    that:
+    - cm_query_non_vrf is not changed
+    - nm_query_non_vrf is not changed
+    - cm_query_non_vrf == nm_query_non_vrf
+    - cm_query_non_vrf.msg == nm_query_non_vrf.msg == "Provided vrf 'non_existing_vrf' does not exist at site level. Use mso_schema_site_vrf_region_cidr to create it."
+
+# USE A NON-EXISTING STATE
+- name: Non-existing state for site cidr subnet (check_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    state: non-existing-state
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_state
+
+- name: Non-existing state for site cidr subnet (normal_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    state: non-existing-state
+  ignore_errors: yes
+  register: nm_non_existing_state
+
+- name: Verify non_existing_state
+  assert:
+    that:
+    - cm_non_existing_state is not changed
+    - nm_non_existing_state is not changed
+    - cm_non_existing_state == nm_non_existing_state
+    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+
+# USE A NON-EXISTING SCHEMA
+- name: Non-existing schema for site cidr subnet (check_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    schema: non-existing-schema
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_schema
+
+- name: Non-existing schema for site cidr subnet (normal_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    schema: non-existing-schema
+  ignore_errors: yes
+  register: nm_non_existing_schema
+
+- name: Verify non_existing_schema
+  assert:
+    that:
+    - cm_non_existing_schema is not changed
+    - nm_non_existing_schema is not changed
+    - cm_non_existing_schema == nm_non_existing_schema
+    - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist"
+
+# USE A NON-EXISTING TEMPLATE
+- name: Non-existing template for site cidr subnet (check_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    template: non-existing-template
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_template
+
+- name: Non-existing template for site cidr subnet (normal_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    template: non-existing-template
+  ignore_errors: yes
+  register: nm_non_existing_template
+
+- name: Verify non_existing_template
+  assert:
+    that:
+    - cm_non_existing_template is not changed
+    - nm_non_existing_template is not changed
+    - cm_non_existing_template == nm_non_existing_template
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template 1, Template 2"
+
+# USE A NON-ASSOCIATED TEMPLATE
+- name: Non-associated template for site cidr subnet (check_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    template: Template 2
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_associated_template
+
+- name: Non-associated template for site cidr subnet (normal_mode)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_query
+    template: Template 2
+  ignore_errors: yes
+  register: nm_non_associated_template
+
+- name: Verify non_associated_template
+  assert:
+    that:
+    - cm_non_associated_template is not changed
+    - nm_non_associated_template is not changed
+    - cm_non_associated_template == nm_non_associated_template
+    - cm_non_associated_template.msg is match("Provided site/siteId/template 'aws_ansible_test/[0-9a-zA-Z]*/Template 2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template 1")
+    - nm_non_associated_template.msg is match("Provided site/siteId/template 'aws_ansible_test/[0-9a-zA-Z]*/Template 2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template 1")

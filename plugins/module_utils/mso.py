@@ -145,6 +145,14 @@ def mso_expression_spec():
     )
 
 
+def mso_expression_spec_ext_epg():
+    return dict(
+        type=dict(type='str', choices=['ip_address'], required=True),
+        operator=dict(type='str', choices=['equals'], required=True),
+        value=dict(type='str', required=True),
+    )
+
+
 class MSOModule(object):
 
     def __init__(self, module):
@@ -490,25 +498,30 @@ class MSOModule(object):
         }
 
     def dict_from_ref(self, data):
-        ref_regex = re.compile(r'\/schemas\/(.*)\/templates\/(.*)\/(.*)\/(.*)')
-        dic = ref_regex.search(data)
-        schema_id = dic.group(1)
-        template_name = dic.group(2)
-        category = dic.group(3)
-        name = dic.group(4)
-        uri_map = {
-            'vrfs': ['vrfName', 'schemaId', 'templateName'],
-            'bds': ['bdName', 'schemaId', 'templateName'],
-            'filters': ['filterName', 'schemaId', 'templateName'],
-            'contracts': ['contractName', 'schemaId', 'templateName'],
-            'l3outs': ['l3outName', 'schemaId', 'templateName']
-        }
-        result = {
-            uri_map[category][0]: name,
-            uri_map[category][1]: schema_id,
-            uri_map[category][2]: template_name,
-        }
-        return result
+        if data and data != '':
+            ref_regex = re.compile(r'\/schemas\/(.*)\/templates\/(.*)\/(.*)\/(.*)')
+            dic = ref_regex.search(data)
+            if dic is not None:
+                schema_id = dic.group(1)
+                template_name = dic.group(2)
+                category = dic.group(3)
+                name = dic.group(4)
+                uri_map = {
+                    'vrfs': ['vrfName', 'schemaId', 'templateName'],
+                    'bds': ['bdName', 'schemaId', 'templateName'],
+                    'filters': ['filterName', 'schemaId', 'templateName'],
+                    'contracts': ['contractName', 'schemaId', 'templateName'],
+                    'l3outs': ['l3outName', 'schemaId', 'templateName'],
+                    'anps': ['anpName', 'schemaId', 'templateName'],
+                }
+                result = {
+                    uri_map[category][0]: name,
+                    uri_map[category][1]: schema_id,
+                    uri_map[category][2]: template_name,
+                }
+                return result
+            else:
+                self.module.fail_json(msg="There was no group in search: {data}".format(data=data))
 
     def make_reference(self, data, reftype, schema_id, template):
         ''' Create a reference from a dictionary '''

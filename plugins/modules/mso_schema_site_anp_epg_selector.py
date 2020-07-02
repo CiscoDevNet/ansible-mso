@@ -13,10 +13,10 @@ ANSIBLE_METADATA = {'metadata_version': '1.1',
 
 DOCUMENTATION = r'''
 ---
-module: mso_schema_template_anp_epg_selector
-short_description: Manage EPG selector in schema templates
+module: mso_schema_site_anp_epg_selector
+short_description: Manage site-local EPG selector in schema templates
 description:
-- Manage EPG selector in schema templates on Cisco ACI Multi-Site.
+- Manage EPG selector in schema template on Cisco ACI Multi-Site.
 author:
 - Cindy Zhao (@cizhao)
 options:
@@ -25,21 +25,24 @@ options:
     - The name of the schema.
     type: str
     required: yes
+  site:
+    description:
+    - The name of the site.
+    type: str
+    required: yes
   template:
     description:
-    - The name of the template to change.
+    - The name of the template.
     type: str
     required: yes
   anp:
     description:
     - The name of the ANP.
     type: str
-    required: yes
   epg:
     description:
     - The name of the EPG to manage.
     type: str
-    required: yes
   selector:
     description:
     - The name of the selector.
@@ -74,17 +77,18 @@ options:
     choices: [ absent, present, query ]
     default: present
 seealso:
-- module: mso_schema_template_anp_epg
+- module: mso_schema_site_anp_epg
 extends_documentation_fragment: cisco.mso.modules
 '''
 
 EXAMPLES = r'''
-- name: Add a selector to an EPG
-  cisco.mso.mso_schema_template_anp_epg_selector:
+- name: Add a selector to a site EPG
+  cisco.mso.mso_schema_site_anp_epg_selector:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     schema: Schema 1
+    site: Site 1
     template: Template 1
     anp: ANP 1
     epg: EPG 1
@@ -96,12 +100,13 @@ EXAMPLES = r'''
     state: present
   delegate_to: localhost
 
-- name: Remove a Selector
-  cisco.mso.mso_schema_template_anp_epg_selector:
+- name: Remove a Selector from a site EPG
+  cisco.mso.mso_schema_site_anp_epg_selector:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     schema: Schema 1
+    site: Site 1
     template: Template 1
     anp: ANP 1
     epg: EPG 1
@@ -110,11 +115,12 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific Selector
-  cisco.mso.mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_site_anp_epg_selector:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     schema: Schema 1
+    site: Site 1
     template: Template 1
     anp: ANP 1
     epg: EPG 1
@@ -124,11 +130,12 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all Selectors
-  cisco.mso.mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_site_anp_epg_selector:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     schema: Schema 1
+    site: Site 1
     template: Template 1
     anp: ANP 1
     epg: EPG 1
@@ -141,7 +148,7 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_contractref_spec, issubset, mso_expression_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_expression_spec
 
 EXPRESSION_KEYS = {
     'not_in': 'notIn',
@@ -157,6 +164,7 @@ def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
         schema=dict(type='str', required=True),
+        site=dict(type='str', required=True),
         template=dict(type='str', required=True),
         anp=dict(type='str', required=True),
         epg=dict(type='str', required=True),
@@ -175,6 +183,7 @@ def main():
     )
 
     schema = module.params.get('schema')
+    site = module.params.get('site')
     template = module.params.get('template')
     anp = module.params.get('anp')
     epg = module.params.get('epg')
@@ -183,57 +192,132 @@ def main():
     state = module.params.get('state')
 
     mso = MSOModule(module)
-
+    mso.stdout = "start \n"
     # Get schema_id
     schema_obj = mso.get_obj('schemas', displayName=schema)
     if not schema_obj:
         mso.fail_json(msg="Provided schema '{0}' does not exist".format(schema))
-
     schema_path = 'schemas/{id}'.format(**schema_obj)
+    schema_id = schema_obj.get('id')
 
     # Get template
     templates = [t.get('name') for t in schema_obj.get('templates')]
     if template not in templates:
-        mso.fail_json(msg="Provided template '{template}' does not exist. Existing templates: {templates}".format(template=template,
-                                                                                                                  templates=', '.join(templates)))
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
     template_idx = templates.index(template)
 
+    # Get site
+    site_id = mso.lookup_site(site)
+    #mso.stdout += "site id is " + str(site_id) + "\n"
+    # Get site_idx
+    sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
+    if (site_id, template) not in sites:
+        mso.fail_json(msg="Provided site-template association '{0}-{1}' does not exist.".format(site, template))
+
+    # Schema-access uses indexes
+    site_idx = sites.index((site_id, template))
+    # Path-based access uses site_id-template
+    site_template = '{0}-{1}'.format(site_id, template)
+
+    payload = dict()
+    ops = []
+    op_path = ''
+
     # Get ANP
-    anps = [a.get('name') for a in schema_obj.get('templates')[template_idx]['anps']]
-    if anp not in anps:
-        mso.fail_json(msg="Provided anp '{anp}' does not exist. Existing anps: {anps}".format(anp=anp, anps=', '.join(anps)))
-    anp_idx = anps.index(anp)
+    anp_ref = mso.anp_ref(schema_id=schema_id, template=template, anp=anp)
+    anps = [a.get('anpRef') for a in schema_obj['sites'][site_idx]['anps']]
+    mso.stdout += "anps under site " + str(anps) + "\n"
+    anps_path = '/sites/{0}/anps'.format(site_template)
+    anps_in_temp = [a.get('name') for a in schema_obj['templates'][template_idx]['anps']]
+    if anp not in anps_in_temp:
+        mso.fail_json(msg="Provided anp '{0}' does not exist. Existing anps: {1}".format(anp, ', '.join(anps_in_temp)))
+    else:
+        # Get anp index at template level
+        template_anp_idx = anps_in_temp.index(anp)
+
+    # If anp not at site level but exists at template level
+    if anp_ref not in anps:
+        op_path = '/sites/{0}/anps/-'.format(site_template)
+        payload.update(
+            anpRef=dict(
+                schemaId=schema_id,
+                templateName=template,
+                anpName=anp,
+            ),
+        )
+
+    else:
+        # Get anp index at site level
+        anp_idx = anps.index(anp_ref)
 
     # Get EPG
-    epgs = [e.get('name') for e in schema_obj.get('templates')[template_idx]['anps'][anp_idx]['epgs']]
-    if epg not in epgs:
-        mso.fail_json(msg="Provided epg '{epg}' does not exist. Existing epgs: {epgs}".format(epg=epg, epgs=', '.join(epgs)))
-    epg_idx = epgs.index(epg)
+    epg_ref = mso.epg_ref(schema_id=schema_id, template=template, anp=anp, epg=epg)
 
-    # Get Selector
-    if selector and " " in selector:
-        mso.fail_json(msg="There should not be any space in selector name.")
-    selectors = [s.get('name') for s in schema_obj.get('templates')[template_idx]['anps'][anp_idx]['epgs'][epg_idx]['selectors']]
-    if selector in selectors:
-        selector_idx = selectors.index(selector)
-        selector_path = '/templates/{0}/anps/{1}/epgs/{2}/selectors/{3}'.format(template, anp, epg, selector_idx)
-        mso.existing = schema_obj.get('templates')[template_idx]['anps'][anp_idx]['epgs'][epg_idx]['selectors'][selector_idx]
+    # If anp exists at site level
+    if 'anpRef' not in payload:
+        epgs = [e.get('epgRef') for e in schema_obj['sites'][site_idx]['anps'][anp_idx]['epgs']]
+        epgs_path = '/sites/{0}/anps/{1}/epgs'.format(site_template, anp)
+
+    # If anp already at site level AND if epg not at site level (or) anp not at site level?
+    if ('anpRef' not in payload and epg_ref not in epgs) or 'anpRef' in payload:
+        epgs_in_temp = [e.get('name') for e in schema_obj['templates'][template_idx]['anps'][template_anp_idx]['epgs']]
+
+        # If EPG not at template level - Fail
+        if epg not in epgs_in_temp:
+            mso.fail_json(msg="Provided EPG '{0}' does not exist. Existing EPGs: {1}".format(epg, ', '.join(epgs_in_temp)))
+
+        # EPG at template level but not at site level. Create payload at site level for EPG
+        else:
+
+            new_epg = dict(
+                epgRef=dict(
+                    schemaId=schema_id,
+                    templateName=template,
+                    anpName=anp,
+                    epgName=epg,
+                )
+            )
+
+            # If anp not in payload then, anp already exists at site level. New payload will only have new EPG payload
+            if 'anpRef' not in payload:
+                op_path = '/sites/{0}/anps/{1}/epgs/-'.format(site_template, anp)
+                payload = new_epg
+            else:
+                # If anp in payload, anp exists at site level. Update payload with EPG payload
+                payload['epgs'] = [new_epg]
+
+    # Get index of EPG at site level
+    else:
+        epg_idx = epgs.index(epg_ref)
+
+    # Get selectors
+    # If anp at site level and epg is at site level
+    if 'anpRef' not in payload and 'epgRef' not in payload:
+        if selector and " " in selector:
+            mso.fail_json(msg="There should not be any space in selector name.")
+        selectors = [s.get('name') for s in schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs'][epg_idx]['selectors']]
+        if selector in selectors:
+            selector_idx = selectors.index(selector)
+            selector_path = '/sites/{0}/anps/{1}/epgs/{2}/selectors/{3}'.format(site_template, anp, epg, selector_idx)
+            mso.existing = schema_obj['sites'][site_idx]['anps'][anp_idx]['epgs'][epg_idx]['selectors'][selector_idx]
 
     if state == 'query':
+        if 'anpRef' in payload:
+            mso.fail_json(msg="Anp '{anp}' does not exist in site level.".format(anp=anp))
+        if 'epgRef' in payload:
+            mso.fail_json(msg="Epg '{epg}' does not exist in site level.".format(epg=epg))
         if selector is None:
-            mso.existing = schema_obj.get('templates')[template_idx]['anps'][anp_idx]['epgs'][epg_idx]['selectors']
+            mso.existing = schema_obj['sites'][site_idx]['anps'][anp_idx]['epgs'][epg_idx]['selectors']
         elif not mso.existing:
             mso.fail_json(msg="Selector '{selector}' not found".format(selector=selector))
         mso.exit_json()
 
-    selectors_path = '/templates/{0}/anps/{1}/epgs/{2}/selectors/-'.format(template, anp, epg)
-    ops = []
 
     mso.previous = mso.existing
     if state == 'absent':
-        mso.sent = mso.existing = {}
-        ops.append(dict(op='remove', path=selector_path))
-
+        if mso.existing:
+            mso.sent = mso.existing = {}
+            ops.append(dict(op='remove', path=selector_path))
     elif state == 'present':
         # Get expressions
         all_expressions = []
@@ -255,20 +339,33 @@ def main():
                     operator=EXPRESSION_KEYS.get(operator),
                     value=value,
                 ))
-
-        payload = dict(
+        new_selector = dict(
             name=selector,
             expressions=all_expressions,
         )
+
+        selectors_path = '/sites/{0}/anps/{1}/epgs/{2}/selectors/-'.format(site_template, anp, epg)
+
+        # if payload is empty, anp and epg already exist at site level
+        if not payload:
+            op_path = selectors_path
+            payload = new_selector
+        # if payload exist
+        else:
+            # if anp already exists at site level
+            if 'anpRef' not in payload:
+                payload['selectors'] = [new_selector]
+            else:
+                payload['epgs'][0]['selectors'] = [new_selector]
 
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
             ops.append(dict(op='replace', path=selector_path, value=mso.sent))
         else:
-            ops.append(dict(op='add', path=selectors_path, value=mso.sent))
+            ops.append(dict(op='add', path=op_path, value=mso.sent))
 
-        mso.existing = mso.proposed
+        mso.existing = new_selector
 
     if not module.check_mode and mso.existing != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)

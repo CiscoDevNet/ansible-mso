@@ -192,7 +192,7 @@ def main():
     state = module.params.get('state')
 
     mso = MSOModule(module)
-    mso.stdout = "start \n"
+
     # Get schema_id
     schema_obj = mso.get_obj('schemas', displayName=schema)
     if not schema_obj:
@@ -208,7 +208,7 @@ def main():
 
     # Get site
     site_id = mso.lookup_site(site)
-    #mso.stdout += "site id is " + str(site_id) + "\n"
+
     # Get site_idx
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
@@ -226,7 +226,6 @@ def main():
     # Get ANP
     anp_ref = mso.anp_ref(schema_id=schema_id, template=template, anp=anp)
     anps = [a.get('anpRef') for a in schema_obj['sites'][site_idx]['anps']]
-    mso.stdout += "anps under site " + str(anps) + "\n"
     anps_path = '/sites/{0}/anps'.format(site_template)
     anps_in_temp = [a.get('name') for a in schema_obj['templates'][template_idx]['anps']]
     if anp not in anps_in_temp:
@@ -311,7 +310,6 @@ def main():
         elif not mso.existing:
             mso.fail_json(msg="Selector '{selector}' not found".format(selector=selector))
         mso.exit_json()
-
 
     mso.previous = mso.existing
     if state == 'absent':

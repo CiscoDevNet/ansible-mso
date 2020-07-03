@@ -22,111 +22,113 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
-# - name: Remove schemas
-#   mso_schema:
-#     <<: *mso_info
-#     schema: '{{ item }}'
-#     state: absent
-#   loop:
-#   - '{{ mso_schema | default("ansible_test") }}_2'
-#   - '{{ mso_schema | default("ansible_test") }}'
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
 
-# - name: remove anp
-#   mso_schema_template_anp:
-#     <<: *mso_info
-#     schema: '{{ mso_schema | default("ansible_test") }}'
-#     template: '{{ item.template }}'
-#     anp: ANP
-#     state: absent
-#   ignore_errors: yes
-#   loop:
-#   - {template: Template 1}
-#   - {template: Template 2}
-#   - {template: Template 3}
+# # - name: remove anp
+# #   mso_schema_template_anp:
+# #     <<: *mso_info
+# #     schema: '{{ mso_schema | default("ansible_test") }}'
+# #     template: '{{ item.template }}'
+# #     anp: ANP
+# #     state: absent
+# #   ignore_errors: yes
+# #   loop:
+# #   - {template: Template 1}
+# #   - {template: Template 2}
+# #   - {template: Template 3}
 
-# # - name: Remove EPGs
-# - name: Remove EPG (normal mode)
-#   mso_schema_template_anp_epg:
-#     <<: *mso_info
-#     schema: '{{ mso_schema | default("ansible_test") }}'
-#     template: Template 1
-#     anp: ANP
-#     epg: ansible_test_1
-#     state: absent
-#   register: nm_remove_epg
+# # # - name: Remove EPGs
+# # - name: Remove EPG (normal mode)
+# #   mso_schema_template_anp_epg:
+# #     <<: *mso_info
+# #     schema: '{{ mso_schema | default("ansible_test") }}'
+# #     template: Template 1
+# #     anp: ANP
+# #     epg: ansible_test_1
+# #     state: absent
+# #   register: nm_remove_epg
 
-# - name: Remove site EPG (normal mode)
-#   mso_schema_site_anp_epg:
-#     <<: *mso_info
-#     schema: '{{ mso_schema | default("ansible_test") }}'
-#     site: 'aws_{{ mso_site | default("ansible_test") }}'
-#     template: Template 1
-#     anp: ANP
-#     epg: ansible_test_1
-#     state: absent
-#   register: nm_remove_site_epg
+# # - name: Remove site EPG (normal mode)
+# #   mso_schema_site_anp_epg:
+# #     <<: *mso_info
+# #     schema: '{{ mso_schema | default("ansible_test") }}'
+# #     site: 'aws_{{ mso_site | default("ansible_test") }}'
+# #     template: Template 1
+# #     anp: ANP
+# #     epg: ansible_test_1
+# #     state: absent
+# #   register: nm_remove_site_epg
 
-# - name: Dissociate clouds that are associated with ansible_tenant
-#   mso_tenant_site:
-#     <<: *mso_info
-#     tenant: ansible_test
-#     site: '{{ item }}'
-#     state: absent
-#   loop:
-#   - '{{ mso_site | default("ansible_test") }}'
-#   - 'aws_{{ mso_site | default("ansible_test") }}'
-#   - 'azure_{{ mso_site | default("ansible_test") }}'
-#   ignore_errors: true
+# # - name: Dissociate clouds that are associated with ansible_tenant
+# #   mso_tenant_site:
+# #     <<: *mso_info
+# #     tenant: ansible_test
+# #     site: '{{ item }}'
+# #     state: absent
+# #   loop:
+# #   - '{{ mso_site | default("ansible_test") }}'
+# #   - 'aws_{{ mso_site | default("ansible_test") }}'
+# #   - 'azure_{{ mso_site | default("ansible_test") }}'
+# #   ignore_errors: true
 
-# - name: Remove tenant ansible_test
-#   mso_tenant: 
-#     <<: *mso_info
-#     tenant: ansible_test
-#     users:
-#       - '{{ mso_username }}'
-#     state: absent
+# # - name: Remove tenant ansible_test
+# #   mso_tenant: 
+# #     <<: *mso_info
+# #     tenant: ansible_test
+# #     users:
+# #       - '{{ mso_username }}'
+# #     state: absent
 
-# - name: Ensure azure site exists
-#   mso_site:
-#     <<: *mso_info
-#     site: 'azure_{{ mso_site | default("ansible_test") }}'
-#     apic_username: '{{ azure_apic_username }}'
-#     apic_password: '{{ azure_apic_password }}'
-#     apic_site_id: '{{ azure_site_id }}'
-#     urls:
-#     - https://{{ azure_apic_hostname }}
-#     state: present
+- name: Ensure azure site exists
+  mso_site:
+    <<: *mso_info
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ azure_apic_username }}'
+    apic_password: '{{ azure_apic_password }}'
+    apic_site_id: '{{ azure_site_id }}'
+    urls:
+    - https://{{ azure_apic_hostname }}
+    state: present
 
-# - name: Ensure aws site exists
-#   mso_site:
-#     <<: *mso_info
-#     site: 'aws_{{ mso_site | default("ansible_test") }}'
-#     apic_username: '{{ aws_apic_username }}'
-#     apic_password: '{{ aws_apic_password }}'
-#     apic_site_id: '{{ aws_site_id }}'
-#     urls:
-#     - https://{{ aws_apic_hostname }}
-#     state: present
+- name: Ensure aws site exists
+  mso_site:
+    <<: *mso_info
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ aws_apic_username }}'
+    apic_password: '{{ aws_apic_password }}'
+    apic_site_id: '{{ aws_site_id }}'
+    urls:
+    - https://{{ aws_apic_hostname }}
+    state: present
 
-# - name: Ensure tenant ansible_test exists
-#   mso_tenant: 
-#     <<: *mso_info
-#     tenant: ansible_test
-#     users:
-#       - '{{ mso_username }}'
-#     state: present
+- name: Ensure tenant ansible_test exists
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+      - '{{ mso_username }}'
+    # sites:
+    # - '{{ mso_site | default("ansible_test") }}'
+    state: present
 
-# - name: Associate aws site with ansible_test in normal mode
-#   mso_tenant_site:
-#     <<: *mso_info
-#     tenant: ansible_test
-#     site: 'aws_{{ mso_site | default("ansible_test") }}'
-#     cloud_account: "000000000000"
-#     aws_trusted: false
-#     aws_access_key: "1"
-#     secret_key: "0"
-#     state: present 
-#   register: aaws_nm
+- name: Associate aws site with ansible_test in normal mode
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    cloud_account: "000000000000"
+    aws_trusted: false
+    aws_access_key: "1"
+    secret_key: "0"
+    state: present 
+  register: aaws_nm
 
 # - name: Verify aaws_nm
 #   assert:
@@ -137,21 +139,21 @@
 #     - aaws_nm.current.awsAccount[0].secretKey == '0'
 #     - aaws_nm.current.awsAccount[0].accountId == '000000000000'
 
-# - name: Associate azure site with access_type not present, with ansible_test in normal mode
-#   mso_tenant_site:
-#     <<: *mso_info
-#     tenant: ansible_test
-#     site: 'azure_{{ mso_site | default("ansible_test") }}'
-#     cloud_account: uni/tn-ansible_test/act-[100]-vendor-azure
-#     state: present 
-#   register: aazure_shared_nm
+- name: Associate azure site with access_type not present, with ansible_test in normal mode
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    cloud_account: uni/tn-ansible_test/act-[100]-vendor-azure
+    state: present 
+  register: aazure_shared_nm
 
 # - name: Verify aazure_shared_nm
 #   assert:
 #     that:
 #     - aazure_shared_nm is changed
 
-- name: Ensure schema 1 with Template 1 and Template 2 exist
+- name: Ensure schema 1 with Template 1, and Template 2, Template 3 exist
   mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -163,61 +165,63 @@
   - { template: Template 2}
   - { template: Template 3}
 
-# - name: Ensure schema 2 with Template 3 exist
-#   mso_schema_template:
-#     <<: *mso_info
-#     schema: '{{ mso_schema | default("ansible_test") }}_2'
-#     tenant: ansible_test
-#     template: Template 3
-#     state: present
-
-# # - name: Ensure VRF1 exists
-# #   mso_schema_site_vrf: 
+# # - name: Ensure schema 2 with Template 3 exist
+# #   mso_schema_template:
 # #     <<: *mso_info
-# #     schema: '{{ mso_schema | default("ansible_test") }}'
-# #     site: 'aws_{{ mso_site | default("ansible_test") }}'
-# #     template: Template 1
-# #     vrf: VRF1
+# #     schema: '{{ mso_schema | default("ansible_test") }}_2'
+# #     tenant: ansible_test
+# #     template: Template 3
 # #     state: present
 
-# - name: Add a new site to a schema
-#   mso_schema_site:
-#     <<: *mso_info
-#     schema: '{{ mso_schema | default("ansible_test") }}'
-#     site: 'aws_{{ mso_site | default("ansible_test") }}'
-#     template: Template 1
-#     state: present
 
-# - name: Ensure ANP exist
-#   mso_schema_template_anp:
-#     <<: *mso_info
-#     schema: '{{ item.schema }}'
-#     template: '{{ item.template }}'
-#     anp: ANP
-#     state: present
-#   loop:
-#   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1' }
-#   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 2' }
-#   - { schema: '{{ mso_schema | default("ansible_test") }}_2', template: 'Template 3' }
+- name: Add a new site to a schema
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    template: '{{item.template}}'
+    state: present
+  loop:
+  - { template: Template 1}
+  - { template: Template 2}
 
+- name: Ensure VRF1 exists
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    #site: 'aws_{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    state: present
 
+- name: Ensure ANP exist
+  mso_schema_template_anp:
+    <<: *mso_info
+    schema: '{{ item.schema }}'
+    template: '{{ item.template }}'
+    anp: ANP
+    state: present
+  loop:
+  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1' }
+  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 2' }
+  #- { schema: '{{ mso_schema | default("ansible_test") }}_2', template: 'Template 3' }
 
-# # ADD EPGs
-# - name: Ensure EPGs exist
-#   mso_schema_template_anp_epg:
-#     <<: *mso_info
-#     schema: '{{ item.schema }}'
-#     template: '{{ item.template }}'
-#     anp: ANP
-#     epg: '{{ item.epg }}'
-#     vrf:
-#       name: VRF 1
-#       schema: ansible_test
-#       template: Template 1
-#     state: present
-#   loop:
-#   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_1' }
-#   - { schema: '{{ mso_schema | default("ansible_test") }}_2', template: 'Template 3', epg: 'ansible_test_3' }
+# ADD EPGs
+- name: Ensure EPGs exist
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ item.schema }}'
+    template: '{{ item.template }}'
+    anp: ANP
+    epg: '{{ item.epg }}'
+    vrf:
+      name: VRF1
+      schema: ansible_test
+      template: Template 1
+    state: present
+  loop:
+  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_1' }
+  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_2' }
 
 
 # Remove all selector to EPG ansible_test_1 (normal_mode)

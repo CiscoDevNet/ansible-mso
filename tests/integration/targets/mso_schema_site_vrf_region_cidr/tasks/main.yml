@@ -22,8 +22,20 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
-    sites: "[ { 'site': 'aws_{{ mso_site | default(\"ansible_test\") }}', 'region': 'us-west-1', 'cidr': '10.0.0.0/16'}, 
-              { 'site': 'azure_{{ mso_site | default(\"ansible_test\") }}', 'region': 'westus', 'cidr': '10.1.0.0/16'}]"
+    sites: "['aws_{{ mso_site | default(\"ansible_test\") }}', 
+              'azure_{{ mso_site | default(\"ansible_test\") }}',
+              '{{ mso_site | default(\"ansible_test\") }}']"
+
+- name: Ensure site exists
+  mso_site:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ apic_username }}'
+    apic_password: '{{ apic_password }}'
+    apic_site_id: '{{ apic_site_id | default(101) }}'
+    urls:
+    - https://{{ apic_hostname }}
+    state: present
 
 - name: Ensure site exists
   mso_site:
@@ -50,7 +62,7 @@
 - name: Remove Schemas
   mso_schema:
     <<: *mso_info
-    schema: item
+    schema: '{{ item }}'
     state: absent
   loop:
   - '{{ mso_schema | default("ansible_test") }}_2'
@@ -60,6 +72,8 @@
   mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
     users:
     - '{{ mso_username }}'
     state: present
@@ -102,7 +116,7 @@
   mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ item.site }}'
+    site: '{{ item }}'
     template: Template 1
     state: present
   loop: '{{ sites }}'
@@ -115,12 +129,21 @@
     vrf: VRF1
     state: present
 
-- name: Ensure VRF1 exists
+- name: Ensure VRF2 exists
   mso_schema_template_vrf: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     vrf: VRF2
+    state: present
+
+- name: Ensure VRF1 exists at Site level for the physical site
+  mso_schema_site_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: '{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
     state: present
 
 # ADD SUBNET
@@ -403,6 +426,27 @@
     - nm_query_cidr_all_azure.current[0].primary == true
     - nm_query_cidr_all_azure.current[1].ip == '10.3.0.0/16'
     - nm_query_cidr_all_azure.current[1].primary == false
+
+- name: Query CIDR in VRF2 (not present a Site level) for AWS Site (normal mode)
+  mso_schema_site_vrf_region_cidr:
+    <<: *mso_query_all
+    vrf: VRF2
+  ignore_errors: yes
+  register: nm_query_cidr_all_aws_2
+
+- name: Query CIDR in VRF1 (with VRF present a Site level) for Physical Site (normal mode)
+  mso_schema_site_vrf_region_cidr:
+    <<: *mso_query_all
+    site: '{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+  ignore_errors: yes
+  register: nm_query_cidr_all_aws_3
+
+- name: Verify nm_query_cidr_all_aws_2 and nm_query_cidr_all_aws_3
+  assert:
+    that:
+    - nm_query_cidr_all_aws_2.msg == "Provided vrf 'VRF2' does not exist at site level."
+    - nm_query_cidr_all_aws_3.msg == "Provided region 'us-west-1' does not exist. Existing regions{{':'}} "
 
 # REMOVE CIDR
 - name: Remove CIDR (check_mode)

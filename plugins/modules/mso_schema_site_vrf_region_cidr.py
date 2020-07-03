@@ -260,7 +260,9 @@ def main():
                 payload = new_cidr
 
     if state == 'query':
-        if region not in regions:
+        if vrf_ref not in vrfs:
+            mso.fail_json(msg="Provided vrf '{0}' does not exist at site level.".format(vrf))
+        elif not regions or region not in regions:
             mso.fail_json(msg="Provided region '{0}' does not exist. Existing regions: {1}".format(region, ', '.join(regions)))
         elif cidr is None and not payload:
             mso.existing = schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions'][region_idx]['cidrs']

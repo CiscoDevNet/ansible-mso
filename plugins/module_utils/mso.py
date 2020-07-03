@@ -488,6 +488,10 @@ class MSOModule(object):
         ''' Create vrfRef string '''
         return '/schemas/{schema_id}/templates/{template}/vrfs/{vrf}'.format(**data)
 
+    def ext_epg_ref(self, **data):
+        ''' Create extEpgRef string '''
+        return '/schemas/{schema_id}/templates/{template}/externalEpgs/{external_epg}'.format(**data)
+
     def vrf_dict_from_ref(self, data):
         vrf_ref_regex = re.compile(r'\/schemas\/(.*)\/templates\/(.*)\/vrfs\/(.*)')
         vrf_dict = vrf_ref_regex.search(data)

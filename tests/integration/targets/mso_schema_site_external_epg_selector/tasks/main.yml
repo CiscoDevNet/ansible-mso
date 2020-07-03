@@ -1,0 +1,380 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+# Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
+# Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact: 
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Ensure azure site exists
+  mso_site:
+    <<: *mso_info
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ azure_apic_username }}'
+    apic_password: '{{ azure_apic_password }}'
+    apic_site_id: '{{ azure_site_id }}'
+    urls:
+    - https://{{ azure_apic_hostname }}
+    state: present
+
+- name: Ensure aws site exists
+  mso_site:
+    <<: *mso_info
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ aws_apic_username }}'
+    apic_password: '{{ aws_apic_password }}'
+    apic_site_id: '{{ aws_site_id }}'
+    urls:
+    - https://{{ aws_apic_hostname }}
+    state: present
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Associate aws site with ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    cloud_account: "000000000000"
+    aws_trusted: false
+    aws_access_key: "1"
+    secret_key: "0"
+    state: present
+
+- name: Associate azure site with ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    cloud_account: uni/tn-ansible_test/act-[100]-vendor-azure
+    state: present 
+  
+- name: Remove Schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    state: absent
+      
+- name: Ensure schema 1 with Template 1 exists
+  mso_schema_template: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+
+- name: Ensure VRF1 exists
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    state: present
+
+- name: Ensure Template 1 with AP1 exists
+  mso_schema_template_anp:
+    <<: *mso_info 
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    state: present
+
+- name: Ensure L3Out Exists
+  mso_schema_template_l3out:
+    <<: *mso_info 
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf:
+      name: VRF1
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    l3out: L3out1
+    state: present
+
+- name: Ensure External EPG1 exists
+  mso_schema_template_externalepg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    externalepg: extEPG1
+    vrf:
+      name: VRF1
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    l3out:
+      name: L3out1
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    anp:
+      name: AP1
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    state: present
+
+- name: Ensure External EPG2 exists
+  mso_schema_template_externalepg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    externalepg: extEPG2
+    vrf:
+      name: VRF1
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    l3out:
+      name: L3out1
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    anp:
+      name: AP1
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    state: present
+
+- name: Add Azure site to a schema
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: present
+
+- name: Add AWS site to a schema
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: present
+  
+# ADD SELECTORS
+- name: Add a selector to Azure in check mode
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    external_epg: extEPG1
+    selector: e1
+    ip_address: 10.0.0.0
+    state: present
+  check_mode: yes
+  register: cm_azure_e1
+
+- name: Verify cm_azure_e1
+  assert:
+    that:
+    - cm_azure_e1 is changed
+    - cm_azure_e1.previous == {}
+    - cm_azure_e1.current.subnets[0].ip == '10.0.0.0'
+    - cm_azure_e1.current.subnets[0].name == 'e1'
+
+- name: Add a selector to Azure in normal mode
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    external_epg: extEPG1
+    selector: e1
+    ip_address: 10.0.0.0
+    state: present
+  register: nm_azure_e1
+        
+- name: Verify nm_azure_e1
+  assert:
+    that:
+    - nm_azure_e1 is changed
+    - nm_azure_e1.previous == {}
+    - nm_azure_e1.current.subnets[0].ip == '10.0.0.0'
+    - nm_azure_e1.current.subnets[0].name == 'e1'
+    
+- name: Add a selector to AWS in normal mode
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    external_epg: extEPG2
+    selector: e2
+    ip_address: 10.1.1.1
+    state: present
+  register: nm_aws_e2
+        
+- name: Verify nm_aws_e2
+  assert:
+    that:
+    - nm_aws_e2 is changed
+    - nm_aws_e2.previous == {}
+    - nm_aws_e2.current.subnets[0].ip == '10.1.1.1'
+    - nm_aws_e2.current.subnets[0].name == 'e2'
+
+- name: Add a selector to AWS in normal mode again
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    external_epg: extEPG2
+    selector: e2
+    ip_address: 10.1.1.1
+    state: present
+  register: nm_aws_e1_again
+        
+- name: Verify nm_aws_e1_again
+  assert:
+    that:
+    - nm_aws_e1_again is not changed
+
+# QUERY A SELECTOR 
+- name: Query a selector of Azure
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    external_epg: extEPG1
+    selector: e1
+    state: query
+  register: query_azure_e1
+  
+- name: Verify query_azure_e1
+  assert:
+    that:
+    - query_azure_e1 is not changed
+
+# QUERY ALL
+- name: Query all selectors of Azure
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    external_epg: extEPG1
+    state: query
+  register: query_all   
+
+- name: Verify query_all
+  assert:
+    that:
+    - query_all is not changed
+
+# REMOVE A SELECTOR
+- name: Remove a selector of Azure
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    external_epg: extEPG1
+    selector: e1
+    state: absent
+  register: remove_azure_e1
+
+- name: Verify remove_azure_e1
+  assert:
+    that:
+    - remove_azure_e1 is changed
+
+# QUERY REMOVED SELECTOR
+- name: Query a removed selector of Azure
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    external_epg: extEPG1
+    selector: e1
+    state: query
+  ignore_errors: yes
+  register: query_removed_azure_e1
+
+- name: Verify query_removed_azure_e1
+  assert:
+    that:
+    - query_removed_azure_e1 is not changed
+
+# USE A NON-EXISTING SCHEMA
+- name: Non-existing schema for selector (check_mode)
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema: non_existing_schema
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG2
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_schema
+
+- name: Non-existing schema for selector (normal_mode)
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema: non_existing_schema
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    external_epg: extEPG2
+  ignore_errors: yes
+  register: nm_non_existing_schema
+
+- name: Verify non_existing_schema
+  assert:
+    that:
+    - cm_non_existing_schema is not changed
+    - nm_non_existing_schema is not changed
+    - cm_non_existing_schema == nm_non_existing_schema
+    - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist"
+
+# USE A NON-EXISTING TEMPLATE
+- name: Non-existing template for selector (check_mode)
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    template: non_existing_template
+    external_epg: extEPG2
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_template
+
+- name: Non-existing template for selector (normal_mode)
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema:  '{{ mso_schema | default("ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    template: non_existing_template
+    external_epg: extEPG2
+  ignore_errors: yes
+  register: nm_non_existing_template
+
+- name: Verify non_existing_template
+  assert:
+    that:
+    - cm_non_existing_template is not changed
+    - nm_non_existing_template is not changed
+    - cm_non_existing_template == nm_non_existing_template
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template 1"
+

@@ -54,7 +54,9 @@ options:
     suboptions:
       type:
         description:
-        - The name of the expression.
+        - The type of the expression.
+        - The type is customized or in [ region, zone, ip_address ]
+        - The type can be zone only when the site is AWS.
         required: true
         type: str
         aliases: [ tag ]
@@ -151,6 +153,12 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_expression_spec
 
 EXPRESSION_KEYS = {
+    'ip_address': 'ipAddress',
+    'region': 'region',
+    'zone': 'zone',
+}
+
+EXPRESSION_OPERATORS = {
     'not_in': 'notIn',
     'not_equals': 'notEquals',
     'has_key': 'keyExist',
@@ -208,6 +216,9 @@ def main():
 
     # Get site
     site_id = mso.lookup_site(site)
+
+    # Get cloud type
+    site_type = mso.get_obj('sites', name=site).get("cloudProviders")[0]
 
     # Get site_idx
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
@@ -332,9 +343,17 @@ def main():
                 if operator in ["not_in", "in", "equals", "not_equals"] and not value:
                     mso.fail_json(
                         msg="Attribute 'value' needed for operator '{0}' in expression '{1}'".format(operator, tag))
+                if tag in ["region", "zone", "ip_address"]:
+                    if tag == "zone" and site_type != "aws":
+                        mso.fail_json(msg="Type 'zone' is only supported for aws")
+                    if operator in ["has_key", "does_not_have_key"]:
+                        mso.fail_json(msg="Operator '{0}' is not supported when expression type is '{1}'".format(operator, tag))
+                    tag = EXPRESSION_KEYS.get(tag)
+                else:
+                    tag = 'Custom:' + tag
                 all_expressions.append(dict(
-                    key='Custom:' + tag,
-                    operator=EXPRESSION_KEYS.get(operator),
+                    key=tag,
+                    operator=EXPRESSION_OPERATORS.get(operator),
                     value=value,
                 ))
         new_selector = dict(

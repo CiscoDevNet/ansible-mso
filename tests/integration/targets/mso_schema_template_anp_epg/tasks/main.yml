@@ -1123,3 +1123,40 @@
   assert:
     that:
     - nm_query_contract_epg.current.contractRelationships | length == 4
+
+# Checking if issue when querying EPG and VRF is not defined (#66)
+- name: Add new test EPG 3 (normal mode)
+  mso_schema_template_anp_epg: &epg_present_2
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    epg: ansible_test_3
+    bd:
+      name: ansible_test_1
+  register: nm_add_epg_3
+
+- name: Verify nm_add_epg_3
+  assert:
+    that:
+    - nm_add_epg_3 is changed
+    - nm_add_epg_3.current.name == 'ansible_test_3'
+    - "'vrfRef' not in nm_add_epg_3.current"
+
+- name: Query test EPG 3
+  mso_schema_template_anp_epg:
+    <<: *epg_present_2
+  register: nm_query_epg_3
+
+- name: Verify nm_query_epg_3
+  assert:
+    that:
+    - nm_query_epg_3 is not changed
+    - nm_query_epg_3.current.name == 'ansible_test_3'
+    - "'vrfRef' not in nm_query_epg_3.current"

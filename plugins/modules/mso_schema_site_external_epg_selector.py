@@ -43,11 +43,28 @@ options:
     description:
     - The name of the selector.
     type: str
-  ip_address:
+  expressions:
     description:
-    - The value of the IP Address / Subnet associated with the expression.
-    required: true
-    type: str
+    - Expressions associated to this selector.
+    type: list
+    suboptions:
+      type:
+        description:
+        - The name of the expression which in this case is always IP address.
+        required: true
+        type: str
+        choices: [ ip_address ]
+      operator:
+        description:
+        - The operator associated with the expression which in this case is always equals.
+        required: true
+        type: str
+        choices: [ equals ]
+      value:
+        description:
+        - The value of the IP Address / Subnet associated with the expression.
+        required: true
+        type: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -71,7 +88,10 @@ EXAMPLES = r'''
     site: azure_ansible_test
     external_epg: ext1
     selector: test
-    ip_address: 20.0.0.4
+    expressions:
+      - type: ip_address
+        operator: equals
+        value: 10.0.0.0
     state: present
   delegate_to: localhost
 
@@ -131,7 +151,7 @@ def main():
         site=dict(type='str', required=True),
         external_epg=dict(type='str', required=True),
         selector=dict(type='str'),
-        ip_address=dict(type='str'),
+        expressions=dict(type='list', options=mso_expression_spec_ext_epg()),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -145,7 +165,7 @@ def main():
     site = module.params.get('site')
     external_epg = module.params.get('external_epg')
     selector = module.params.get('selector')
-    ip_address = module.params.get('ip_address')
+    expressions = module.params.get('expressions')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -187,19 +207,19 @@ def main():
 
     if ext_epg_ref not in external_epgs:
         op_path = '/sites/{0}/externalEpgs/-'.format(site_template)
-        payload.update(
+        payload = dict(
             externalEpgRef=dict(
                 schemaId=schema_id,
                 templateName=template,
                 externalEpgName=external_epg,
-            )
+            ),
+            l3outDn='',
         )
-        payload.update(l3outDn='')
+
     else:
         external_epg_idx = external_epgs.index(ext_epg_ref)
 
     # Get Selector
-    if not payload:
         selectors = [s.get('name') for s in schema_obj['sites'][site_idx]['externalEpgs'][external_epg_idx]['subnets']]
         if selector in selectors:
             selector_idx = selectors.index(selector)
@@ -208,17 +228,6 @@ def main():
 
     selectors_path = '/sites/{0}/externalEpgs/{1}/subnets/-'.format(site_template, external_epg)
     ops = []
-
-    subnets = dict(
-        name=selector,
-        ip=ip_address,
-    )
-
-    if not external_epgs:
-        payload['subnets'] = [subnets]
-    else:
-        payload = subnets
-        op_path = selectors_path
 
     if state == 'query':
         if selector is None:
@@ -235,6 +244,30 @@ def main():
             ops.append(dict(op='remove', path=selector_path))
 
     elif state == 'present':
+        # Get expressions
+        types = dict(ip_address='ipAddress')
+        all_expressions = []
+        if expressions:
+            for expression in expressions:
+                type_val = expression.get('type')
+                operator = expression.get('operator')
+                value = expression.get('value')
+                all_expressions.append(dict(
+                    key=types.get(type_val),
+                    operator=operator,
+                    value=value,
+                ))
+
+        subnets = dict(
+            name=selector,
+            ip=all_expressions[0]['value']
+        )
+
+        if not external_epgs:
+            payload['subnets'] = [subnets]
+        else:
+            payload = subnets
+            op_path = selectors_path
 
         mso.sanitize(payload, collate=True)
 

@@ -55,7 +55,7 @@ options:
       type:
         description:
         - The type of the expression.
-        - The type is customized or in [ region, zone, ip_address ]
+        - The type is custom or is one of region, zone and ip_address
         - The type can be zone only when the site is AWS.
         required: true
         type: str
@@ -63,13 +63,14 @@ options:
       operator:
         description:
         - The operator associated to the expression.
+        - Operator has_key or does_not_have_key is only available for custom type / tag
         required: true
         type: str
         choices: [ not_in, in, equals, not_equals, has_key, does_not_have_key ]
       value:
         description:
         - The value associated to the expression.
-        - If the operator is in or not_in, the value should be a comma separated str.
+        - If the operator is in or not_in, the value should be a comma separated string.
         type: str
   state:
     description:
@@ -332,27 +333,27 @@ def main():
         all_expressions = []
         if expressions:
             for expression in expressions:
-                tag = expression.get('type')
+                type = expression.get('type')
                 operator = expression.get('operator')
                 value = expression.get('value')
-                if " " in tag:
-                    mso.fail_json(msg="There should not be any space in 'type' attribute of expression '{0}'".format(tag))
+                if " " in type:
+                    mso.fail_json(msg="There should not be any space in 'type' attribute of expression '{0}'".format(type))
                 if operator in ["has_key", "does_not_have_key"] and value:
                     mso.fail_json(
-                        msg="Attribute 'value' is not supported for operator '{0}' in expression '{1}'".format(operator, tag))
+                        msg="Attribute 'value' is not supported for operator '{0}' in expression '{1}'".format(operator, type))
                 if operator in ["not_in", "in", "equals", "not_equals"] and not value:
                     mso.fail_json(
-                        msg="Attribute 'value' needed for operator '{0}' in expression '{1}'".format(operator, tag))
-                if tag in ["region", "zone", "ip_address"]:
-                    if tag == "zone" and site_type != "aws":
+                        msg="Attribute 'value' needed for operator '{0}' in expression '{1}'".format(operator, type))
+                if type in ["region", "zone", "ip_address"]:
+                    if type == "zone" and site_type != "aws":
                         mso.fail_json(msg="Type 'zone' is only supported for aws")
                     if operator in ["has_key", "does_not_have_key"]:
-                        mso.fail_json(msg="Operator '{0}' is not supported when expression type is '{1}'".format(operator, tag))
-                    tag = EXPRESSION_KEYS.get(tag)
+                        mso.fail_json(msg="Operator '{0}' is not supported when expression type is '{1}'".format(operator, type))
+                    type = EXPRESSION_KEYS.get(type)
                 else:
-                    tag = 'Custom:' + tag
+                    type = 'Custom:' + type
                 all_expressions.append(dict(
-                    key=tag,
+                    key=type,
                     operator=EXPRESSION_OPERATORS.get(operator),
                     value=value,
                 ))

@@ -29,22 +29,7 @@
 #     urls:
 #     - https://{{ apic_hostname }}
 #     state: present
-
-- name: Remove schemas
-  mso_schema:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
-
+    
 - name: Ensure tenant ansible_test exist
   mso_tenant: &tenant_present
     host: '{{ mso_hostname }}'
@@ -60,6 +45,25 @@
     # sites:
     # - '{{ mso_site | default("ansible_test") }}'
     state: present
+
+- name: Remove schema 2
+  mso_schema:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    validate_certs: false
+    state: absent
+
+- name: Remove schema 1
+  mso_schema:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    validate_certs: false
+    state: absent
+
 
 - name: Ensure schema 1 with Template 1 exist
   mso_schema_template: &schema_present
@@ -520,6 +524,52 @@
     - nm_change_filter_directives_log_and_none is changed
     - nm_change_filter_directives_log_and_none.previous.directives[0] == "log"
     - nm_change_filter_directives_log_and_none.current.directives == ['log', 'none']
+
+# change contract filter_directives to policy_compression
+- name: change contract filter_directives to policy_compression (check_mode)
+  mso_schema_template_contract_filter: 
+    <<: *contract_present
+    contract: Contract 4
+    filter: Filter 1
+    filter_directives: policy_compression
+    state: present
+  check_mode: yes
+  register: cm_change_filter_directives_pc
+    
+- name: change contract filter_directives to policy_compression (normal_mode)
+  mso_schema_template_contract_filter: 
+    <<: *contract_present
+    contract: Contract 4
+    filter: Filter 1
+    filter_directives: policy_compression
+    state: present
+  register: nm_change_filter_directives_pc
+
+- name: Verify change_contract_filter_directives to pc
+  assert:
+    that:
+    - cm_change_filter_directives_pc is changed
+    - nm_change_filter_directives_pc is changed
+    - cm_change_filter_directives_pc.previous.directives == ['log', 'none']
+    - nm_change_filter_directives_pc.previous.directives == ['log', 'none']
+    - cm_change_filter_directives_pc.current.directives[0] == "no_stats"
+    - nm_change_filter_directives_pc.current.directives[0] == "no_stats"
+
+- name: change contract filter_directives to log, none, policy compression (normal_mode)
+  mso_schema_template_contract_filter: 
+    <<: *contract_present
+    contract: Contract 4
+    filter: Filter 1
+    filter_directives: ['log', 'none', 'policy_compression']
+    state: present
+  register: nm_change_filter_directives_log_and_none_pc
+
+- name: Verify nm_change_filter_directives_log_and_none_pc
+  assert:
+    that:
+    - nm_change_filter_directives_log_and_none_pc is changed
+    - nm_change_filter_directives_log_and_none_pc.previous.directives[0] == "no_stats"
+    - nm_change_filter_directives_log_and_none_pc.current.directives == ["log", "none", "no_stats"]
 
 - name: Change contract 1 scope to global (normal mode)
   mso_schema_template_contract_filter: 

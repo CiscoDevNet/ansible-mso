@@ -78,7 +78,7 @@ options:
     description:
     - A list of filter directives.
     type: list
-    choices: [ log, none ]
+    choices: [ log, none, policy_compression ]
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -170,7 +170,7 @@ def main():
         contract_scope=dict(type='str', choices=['application-profile', 'global', 'tenant', 'vrf']),
         contract_filter_type=dict(type='str', default='both-way', choices=['both-way', 'one-way']),
         filter=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
-        filter_directives=dict(type='list', choices=['log', 'none']),
+        filter_directives=dict(type='list', choices=['log', 'none', 'policy_compression']),
         filter_template=dict(type='str'),
         filter_schema=dict(type='str'),
         filter_type=dict(type='str', default='both-way', choices=list(FILTER_KEYS), aliases=['type']),
@@ -283,6 +283,10 @@ def main():
     elif state == 'present':
         if filter_directives is None:
             filter_directives = ['none']
+
+        if 'policy_compression' in filter_directives:
+            filter_directives.remove('policy_compression')
+            filter_directives.append('no_stats')
 
         payload = dict(
             filterRef=dict(

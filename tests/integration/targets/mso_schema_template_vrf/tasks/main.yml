@@ -1,0 +1,402 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+# Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
+# 
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact: 
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# - name: Ensure site exist
+#   mso_site: &site_present
+#     host: '{{ mso_hostname }}'
+#     username: '{{ mso_username }}'
+#     password: '{{ mso_password }}'
+#     validate_certs: '{{ mso_validate_certs | default(false) }}'
+#     use_ssl: '{{ mso_use_ssl | default(true) }}'
+#     use_proxy: '{{ mso_use_proxy | default(true) }}'
+#     output_level: '{{ mso_output_level | default("info") }}'
+#     site: '{{ mso_site | default("ansible_test") }}'
+#     apic_username: '{{ apic_username }}'
+#     apic_password: '{{ apic_password }}'
+#     apic_site_id: '{{ apic_site_id | default(101) }}'
+#     urls:
+#     - https://{{ apic_hostname }}
+#     state: present
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    # sites:
+    # - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Ensure schema 1 with Template 1 exist
+  mso_schema_template: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+
+- name: Ensure schema 1 with Template 2 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 2
+    state: present
+
+- name: Ensure schema 2 with Template 3 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    state: present
+
+- name: Ensure Filter 1 exist
+  mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    filter: Filter1
+    entry: Filter1-Entry
+    state: present
+
+- name: Ensure Contract1 exist
+  mso_schema_template_contract_filter: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract1
+    filter: Filter1
+    filter_schema: '{{ mso_schema | default("ansible_test") }}'
+    filter_template: Template 1
+    state: present
+
+# ADD VRF1 
+- name: Add a new VRF1 (check mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    state: present
+  check_mode: yes
+  register: vrf1_cm
+
+- name: Verify vrf1_cm
+  assert:
+    that:
+    - vrf1_cm is changed
+    - vrf1_cm.current.name == 'VRF1'
+    - vrf1_cm.current.displayName == 'VRF1'
+
+- name: Add VRF1 (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    state: present
+  register: vrf1_nm
+
+- name: Verify vrf1_nm
+  assert:
+    that:
+    - vrf1_nm is changed
+    - vrf1_nm.current.name == 'VRF1'
+    - vrf1_nm.current.displayName == 'VRF1'
+
+- name: Add VRF2 (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    vrf: VRF2
+    state: present
+  register: vrf2_nm
+
+- name: Verify vrf2_nm
+  assert:
+    that:
+    - vrf2_nm is changed
+    - vrf2_nm.current.name == 'VRF2'
+    - vrf2_nm.current.displayName == 'VRF2'
+
+- name: Add VRF3 (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    vrf: VRF3
+    state: present
+  register: vrf3_nm
+
+- name: Verify vrf3_nm
+  assert:
+    that:
+    - vrf3_nm is changed
+    - vrf3_nm.current.name == 'VRF3'
+    - vrf3_nm.current.displayName == 'VRF3'
+
+# ADD EXISTING VRF
+- name: Add VRF2 again (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    vrf: VRF2
+    state: present
+  register: vrf2_nm_again
+
+- name: Verify vrf2_nm_again
+  assert:
+    that:
+    - vrf2_nm_again is not changed
+
+# ADD VRF4 WITH NO STATE
+- name: Add VRF4 (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    vrf: VRF4
+  ignore_errors: yes
+  register: vrf4_nm_stateless
+
+- name: Verify vrf4_nm_stateless
+  assert:
+    that:
+    - vrf4_nm_stateless is changed
+
+# QUERY A VRF
+- name: Query VRF2 (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    vrf: VRF2
+    state: query
+  register: vrf2_query
+
+- name: Verify vrf2_query
+  assert:
+    that:
+    - vrf2_query is not changed
+
+# QUERY ALL VRFs
+- name: Query all (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    state: query
+  register: vrfs_query
+
+- name: Verify vrfs_query
+  assert:
+    that:
+    - vrfs_query is not changed
+
+# REMOVE A VRF
+- name: Remove VRF3 (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    vrf: VRF3
+    state: absent
+  register: vrf3_remove
+
+- name: Verify vrf3_remove
+  assert:
+    that:
+    - vrf3_remove is changed
+    - vrf3_remove.previous.name == 'VRF3'
+    - vrf3_remove.previous.displayName == 'VRF3'
+
+# QUERY REMOVED VRF
+- name: Query VRF3 (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    vrf: VRF3
+    state: query
+  ignore_errors: yes
+  register: vrf3_query_removed
+
+- name: Verify vrf3_query_removed
+  assert:
+    that:
+    - vrf3_query_removed.msg == "VRF 'VRF3' not found"
+
+# Enable vzAny on VRF
+- name: Ensure VRF exist
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    vzany: true
+    state: present
+
+- name: Add Contract1 to VRF with type consumer (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: consumer
+    state: present
+  register: nm_add_contract1_consumer
+
+- name: Verify nm_add_contract1_consumer
+  assert:
+    that:
+    - nm_add_contract1_consumer is changed
+    - nm_add_contract1_consumer.previous == {}
+    - nm_add_contract1_consumer.current.contractRef.templateName == "Template 1"
+    - nm_add_contract1_consumer.current.contractRef.contractName == "Contract1"
+    - nm_add_contract1_consumer.current.relationshipType == "consumer"
+
+- name: Add Contract1 to VRF with type provider (normal_mode)
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    contract:
+      name: Contract1
+      type: provider
+    state: present
+  register: nm_add_contract1_provider
+
+- name: Verify nm_add_contract1_provider
+  assert:
+    that:
+    - nm_add_contract1_provider is changed
+    - nm_add_contract1_provider.previous == {}
+    - nm_add_contract1_provider.current.contractRef.templateName == "Template 1"
+    - nm_add_contract1_provider.current.contractRef.contractName == "Contract1"
+    - nm_add_contract1_provider.current.relationshipType == "provider"
+
+# USE A NON-EXISTING SCHEMA
+- name: Non-existing schema for VRF (check_mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: non_existing_schema
+    template: Template 1
+    vrf: VRF5
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_schema
+
+- name: Non-existing schema for VRF (normal_mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: non_existing_schema
+    template: Template 1
+    vrf: VRF5
+  ignore_errors: yes
+  register: nm_non_existing_schema
+
+- name: Verify nm_non_existing_schema
+  assert:
+    that:
+    - cm_non_existing_schema is not changed
+    - nm_non_existing_schema is not changed
+    - cm_non_existing_schema == nm_non_existing_schema
+    - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist"
+
+# USE A NON-EXISTING TEMPLATE
+- name: Non-existing template for vrf (check_mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: non_existing_template
+    vrf: VRF5
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_template
+
+- name: Non-existing template for vrf (normal_mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema:  '{{ mso_schema | default("ansible_test") }}'
+    template: non_existing_template
+    vrf: VRF5   
+  ignore_errors: yes
+  register: nm_non_existing_template
+
+- name: Verify non_existing_template
+  assert:
+    that:
+    - cm_non_existing_template is not changed
+    - nm_non_existing_template is not changed
+    - cm_non_existing_template == nm_non_existing_template
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template 1, Template 2"
+
+# Checking if contract are removed after re-applying an VRF. 
+- name: Add VRF again (normal_mode)
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    vzany: true
+    state: present
+  register: nm_add_VRF_again
+
+- name: Verify that VRF didn't changed
+  assert:
+    that:
+    - nm_add_VRF_again is not changed
+
+- name: Verify contract VRF again
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    state: query
+  register: nm_query_vrf_contract_again
+
+- name: Verify 2 contracts are in VRF
+  assert:
+    that:
+    - nm_query_vrf_contract_again is not changed
+    - nm_query_vrf_contract_again.current | length == 2

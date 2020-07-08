@@ -246,6 +246,21 @@
     - vrf3_remove.previous.name == 'VRF3'
     - vrf3_remove.previous.displayName == 'VRF3'
 
+# REMOVE A VRF
+- name: Remove VRF3 again (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    vrf: VRF3
+    state: absent
+  register: vrf3_remove_again
+
+- name: Verify vrf3_remove_again
+  assert:
+    that:
+    - vrf3_remove_again is not changed
+
 # QUERY REMOVED VRF
 - name: Query VRF3 (normal mode)
   mso_schema_template_vrf:

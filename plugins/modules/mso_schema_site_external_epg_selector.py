@@ -257,6 +257,8 @@ def main():
                     operator=operator,
                     value=value,
                 ))
+        else:
+            mso.fail_json(msg="Missing expressions in selector")
 
         subnets = dict(
             name=selector,
@@ -278,7 +280,7 @@ def main():
 
         mso.existing = mso.proposed
 
-    if not module.check_mode:
+    if not module.check_mode and mso.proposed != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)
 
     mso.exit_json()

@@ -340,3 +340,46 @@
     - cm_query_non_user is not changed
     - nm_query_non_user is not changed
     - cm_query_non_user == nm_query_non_user
+
+- name: inactive user (check_mode)
+  mso_user:
+    <<: *user_present
+    account_status: inactive
+  check_mode: yes
+  register: cm_inactive_user
+
+- name: inactive user (normal_mode)
+  mso_user: 
+    <<: *user_present
+    account_status: inactive
+  register: nm_inactive_user
+
+- name: Verify cm_inactive_user and nm_inactive_user
+  assert:
+    that:
+    - cm_inactive_user is changed
+    - nm_inactive_user is changed
+    - cm_inactive_user.current.accountStatus == "inactive"
+    - nm_inactive_user.current.accountStatus == "inactive"
+
+
+- name: active user (check_mode)
+  mso_user:
+    <<: *user_present
+    account_status: active
+  check_mode: yes
+  register: cm_active_user
+
+- name: active user (normal_mode)
+  mso_user: 
+    <<: *user_present
+    account_status: active
+  register: nm_active_user
+
+- name: Verify cm_active_user and nm_active_user
+  assert:
+    that:
+    - cm_active_user is changed
+    - nm_active_user is changed
+    - cm_active_user.previous.accountStatus == nm_active_user.previous.accountStatus == "inactive"
+    - cm_active_user.current.accountStatus == nm_active_user.current.accountStatus == "active"

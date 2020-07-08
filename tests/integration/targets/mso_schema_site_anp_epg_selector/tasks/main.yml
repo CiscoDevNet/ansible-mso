@@ -154,42 +154,6 @@
   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_1' }
   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_2' }
 
-# Remove all selector to EPG ansible_test_1 (normal_mode)
-- name: Remove selectors to EPG (normal_mode)
-  mso_schema_template_anp_epg_selector:
-    <<: *mso_info
-    schema: '{{ item.schema }}'
-    template: '{{ item.template }}'
-    anp: ANP
-    epg: '{{ item.epg }}'
-    selector: '{{ item.selector }}'
-    state: absent
-  ignore_errors: yes
-  loop:
-  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_1', selector: 'selector_1' }
-  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_1', selector: 'selector_2' }
-  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_1', selector: 'selector_3' }
-  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_1', selector: 'selector_4' }
-
-# Remove all selector to site EPG ansible_test_1 (normal_mode)
-- name: Remove site selectors to EPG (normal_mode)
-  mso_schema_site_anp_epg_selector:
-    <<: *mso_info
-    schema: '{{ item.schema }}'
-    site: '{{ item.site }}'
-    template: '{{ item.template }}'
-    anp: ANP
-    epg: '{{ item.epg }}'
-    selector: '{{ item.selector }}'
-    state: absent
-  ignore_errors: yes
-  loop:
-  - { schema: '{{ mso_schema | default("ansible_test") }}', site: 'aws_{{ mso_site | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_1', selector: 'site_selector_1' }
-  - { schema: '{{ mso_schema | default("ansible_test") }}', site: 'aws_{{ mso_site | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_1', selector: 'site_selector_2' }
-  - { schema: '{{ mso_schema | default("ansible_test") }}', site: 'aws_{{ mso_site | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_1', selector: 'site_selector_3' }
-  - { schema: '{{ mso_schema | default("ansible_test") }}', site: 'aws_{{ mso_site | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_1', selector: 'site_selector_4' }
-  - { schema: '{{ mso_schema | default("ansible_test") }}', site: 'azure_{{ mso_site | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_1', selector: 'site_selector_1' }
-
 - name: Add Selector to EPG (normal_mode)
   mso_schema_template_anp_epg_selector:
     <<: *mso_info
@@ -1031,3 +995,23 @@
     that:
     - nm_add_azure_site_selector_1 is not changed
     - nm_add_azure_site_selector_1.msg == "Type 'zone' is only supported for aws"
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Dissociate clouds that are associated with ansible_tenant
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_site | default("ansible_test") }}'
+  - 'aws_{{ mso_site | default("ansible_test") }}'
+  - 'azure_{{ mso_site | default("ansible_test") }}'

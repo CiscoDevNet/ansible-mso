@@ -155,13 +155,18 @@ def main():
     schema_path = 'schemas/{id}'.format(**schema_obj)
     schema_id = schema_obj.get('id')
 
+    # Get template
+    templates = [t.get('name') for t in schema_obj.get('templates')]
+    if template not in templates:
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
+
     # Get site
     site_id = mso.lookup_site(site)
 
     # Get site_idx
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, ', '.join(sites)))
+        mso.fail_json(msg="Provided site-template association '{0}-{1}' does not exist.".format(site, template))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
@@ -175,10 +180,13 @@ def main():
         bd_idx = bds.index(bd_ref)
         bd_path = '/sites/{0}/bds/{1}'.format(site_template, bd)
         mso.existing = schema_obj.get('sites')[site_idx]['bds'][bd_idx]
+        mso.existing['bdRef'] = mso.dict_from_ref(mso.existing.get('bdRef'))
 
     if state == 'query':
         if bd is None:
             mso.existing = schema_obj.get('sites')[site_idx]['bds']
+            for bd in mso.existing:
+                bd['bdRef'] = mso.dict_from_ref(bd.get('bdRef'))
         elif not mso.existing:
             mso.fail_json(msg="BD '{bd}' not found".format(bd=bd))
         mso.exit_json()
@@ -215,7 +223,7 @@ def main():
 
         mso.existing = mso.proposed
 
-    if not module.check_mode:
+    if not module.check_mode and mso.existing != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)
 
     mso.exit_json()

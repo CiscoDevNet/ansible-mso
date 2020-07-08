@@ -55,7 +55,7 @@ options:
     description:
     - The status of the user account.
     type: str
-    choices: [ active ]
+    choices: [ active, inactive ]
   domain:
     description:
     - The domain this user belongs to.
@@ -169,7 +169,7 @@ def main():
         email=dict(type='str'),
         phone=dict(type='str'),
         # TODO: What possible options do we have ?
-        account_status=dict(type='str', choices=['active']),
+        account_status=dict(type='str', choices=['active', 'inactive']),
         domain=dict(type='str'),
         roles=dict(type='list'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),

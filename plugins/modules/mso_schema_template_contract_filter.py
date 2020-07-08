@@ -329,7 +329,7 @@ def main():
     if 'filterRef' in mso.previous:
         mso.previous['filterRef'] = mso.dict_from_ref(mso.previous['filterRef'])
 
-    if not module.check_mode:
+    if not module.check_mode and mso.proposed != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)
 
     mso.exit_json()

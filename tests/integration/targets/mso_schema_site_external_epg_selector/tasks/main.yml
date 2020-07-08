@@ -273,6 +273,24 @@
     that:
     - nm_aws_e1_again is not changed
 
+- name: Add a selector to AWS in normal mode again with no expressions
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    external_epg: extEPG2
+    selector: e2
+    state: present
+  ignore_errors: yes
+  register: nm_aws_e1_again_noexp
+        
+- name: Verify nm_aws_e1_again_noexp
+  assert:
+    that:
+    - nm_aws_e1_again_noexp is not changed
+    - nm_aws_e1_again_noexp.msg == "Missing expressions in selector"
+
 # QUERY A SELECTOR 
 - name: Query a selector of Azure
   mso_schema_site_external_epg_selector:
@@ -322,6 +340,23 @@
   assert:
     that:
     - remove_azure_e1 is changed
+
+- name: Remove a selector of Azure again
+  mso_schema_site_external_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    external_epg: extEPG1
+    selector: e1
+    state: absent
+  ignore_errors: yes
+  register: remove_azure_e1_again
+
+- name: Verify remove_azure_e1_again
+  assert:
+    that:
+    - remove_azure_e1_again is not changed
 
 # QUERY REMOVED SELECTOR
 - name: Query a removed selector of Azure

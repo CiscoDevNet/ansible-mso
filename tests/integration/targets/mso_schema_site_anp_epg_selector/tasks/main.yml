@@ -640,6 +640,24 @@
     - nm_remove_site_selector_3 is changed
     - nm_remove_site_selector_3.current == {}
 
+- name: Remove site selector 3 again (normal_mode)
+  mso_schema_site_anp_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    epg: ansible_test_1
+    selector: site_selector_3
+    state: absent
+  register: nm_remove_site_selector_3_again
+
+- name: Verify nm_remove_site_selector_3_again
+  assert:
+    that:
+    - nm_remove_site_selector_3_again is not changed
+    - nm_remove_site_selector_3_again.current == {}
+
 # QUERY NON-EXISTING Selector to EPG
 - name: Query non-existing selector (check_mode)
   mso_schema_site_anp_epg_selector:

@@ -240,20 +240,33 @@ def main():
 
     if contract in contracts:
         contract_idx = contracts.index(contract)
+        contract_obj = schema_obj.get('templates')[template_idx]['contracts'][contract_idx]
 
         filters = [f.get('filterRef') for f in schema_obj.get('templates')[template_idx]['contracts'][contract_idx][filter_key]]
         filter_ref = mso.filter_ref(schema_id=filter_schema_id, template=filter_template, filter=filter_name)
         if filter_ref in filters:
             filter_idx = filters.index(filter_ref)
             filter_path = '/templates/{0}/contracts/{1}/{2}/{3}'.format(template, contract, filter_key, filter_name)
-            mso.existing = schema_obj.get('templates')[template_idx]['contracts'][contract_idx][filter_key][filter_idx]
+            mso.existing = contract_obj.get(filter_key)[filter_idx]
+            mso.existing['filterRef'] = mso.dict_from_ref(mso.existing.get('filterRef'))
+            mso.existing['displayName'] = contract_obj.get('displayName')
+            mso.existing['filterType'] = filter_type
+            mso.existing['contractScope'] = contract_obj.get('scope')
+            mso.existing['contractFilterType'] = contract_obj.get('filterType')
 
     if state == 'query':
         if contract_idx is None:
             mso.fail_json(msg="Provided contract '{0}' does not exist. Existing contracts: {1}".format(contract, ', '.join(contracts)))
 
         if filter_name is None:
-            mso.existing = schema_obj.get('templates')[template_idx]['contracts'][contract_idx][filter_key]
+            mso.existing = contract_obj.get(filter_key)
+            for filter in mso.existing:
+                filter['filterRef'] = mso.dict_from_ref(filter.get('filterRef'))
+                filter['displayName'] = contract_obj.get('displayName')
+                filter['filterType'] = filter_type
+                filter['contractScope'] = contract_obj.get('scope')
+                filter['contractFilterType'] = contract_obj.get('filterType')
+
         elif not mso.existing:
             mso.fail_json(msg="FilterRef '{filter_ref}' not found".format(filter_ref=filter_ref))
         mso.exit_json()
@@ -262,6 +275,7 @@ def main():
     contract_path = '/templates/{0}/contracts/{1}'.format(template, contract)
     filters_path = '/templates/{0}/contracts/{1}/{2}'.format(template, contract, filter_key)
     mso.previous = mso.existing
+
     if state == 'absent':
         mso.proposed = mso.sent = {}
 
@@ -297,7 +311,7 @@ def main():
             directives=filter_directives,
         )
 
-        mso.sanitize(payload, collate=True)
+        mso.sanitize(payload, collate=True, unwanted=['filterType', 'contractScope', 'contractFilterType'])
         mso.existing = mso.sent
         if contract_scope is None or contract_scope == 'vrf':
             contract_scope = 'context'
@@ -312,12 +326,18 @@ def main():
                 'scope': contract_scope,
             }
             ops.append(dict(op='add', path='/templates/{0}/contracts/-'.format(template), value=payload))
+
         else:
             # Contract exists, but may require an update
             if contract_display_name is not None:
                 ops.append(dict(op='replace', path=contract_path + '/displayName', value=contract_display_name))
             ops.append(dict(op='replace', path=contract_path + '/filterType', value=contract_ftype))
             ops.append(dict(op='replace', path=contract_path + '/scope', value=contract_scope))
+
+        mso.existing['displayName'] = contract_display_name if contract_display_name is not None else contract_obj.get('displayName')
+        mso.existing['filterType'] = filter_type
+        mso.existing['contractScope'] = contract_scope
+        mso.existing['contractFilterType'] = contract_ftype
 
         if filter_idx is None:
             # Filter does not exist, so we have to add it
@@ -326,10 +346,8 @@ def main():
         else:
             # Filter exists, we have to update it
             ops.append(dict(op='replace', path=filter_path, value=mso.sent))
-    if 'filterRef' in mso.previous:
-        mso.previous['filterRef'] = mso.dict_from_ref(mso.previous['filterRef'])
 
-    if not module.check_mode and mso.proposed != mso.previous:
+    if not module.check_mode and mso.existing != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)
 
     mso.exit_json()

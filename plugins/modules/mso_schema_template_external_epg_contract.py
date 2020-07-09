@@ -131,7 +131,7 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_contractref_spec, issubset
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_contractref_spec
 
 
 def main():
@@ -170,9 +170,7 @@ def main():
 
     # Get schema_id
     schema_obj = mso.get_obj('schemas', displayName=schema)
-    if schema_obj:
-        schema_id = schema_obj.get('id')
-    else:
+    if not schema_obj:
         mso.fail_json(msg="Provided schema '{0}' does not exist".format(schema))
 
     schema_path = 'schemas/{id}'.format(**schema_obj)

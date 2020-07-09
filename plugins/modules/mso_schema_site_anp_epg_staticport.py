@@ -297,7 +297,6 @@ def main():
     # Get ANP
     anp_ref = mso.anp_ref(schema_id=schema_id, template=template, anp=anp)
     anps = [a.get('anpRef') for a in schema_obj['sites'][site_idx]['anps']]
-    anps_path = '/sites/{0}/anps'.format(site_template)
     anps_in_temp = [a.get('name') for a in schema_obj['templates'][template_idx]['anps']]
     if anp not in anps_in_temp:
         mso.fail_json(msg="Provided anp '{0}' does not exist. Existing anps: {1}".format(anp, ', '.join(anps)))
@@ -326,7 +325,6 @@ def main():
     # If anp exists at site level
     if 'anpRef' not in payload:
         epgs = [e.get('epgRef') for e in schema_obj['sites'][site_idx]['anps'][anp_idx]['epgs']]
-        epgs_path = '/sites/{0}/anps/{1}/epgs'.format(site_template, anp)
 
     # If anp already at site level AND if epg not at site level (or) anp not at site level
     if ('anpRef' not in payload and epg_ref not in epgs) or 'anpRef' in payload:

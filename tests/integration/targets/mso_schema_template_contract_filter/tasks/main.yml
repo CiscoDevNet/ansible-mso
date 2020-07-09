@@ -110,7 +110,6 @@
     entry: Filter 1 entry
     state: present
 
-
 - name: Ensure Filter 2 exist
   mso_schema_template_filter_entry: 
     <<: *filter_present
@@ -198,6 +197,7 @@
     <<: *contract_present
     contract: Contract 6
     state: absent
+
 # ADD CONTRACT
 - name: Add contract (check_mode)
   mso_schema_template_contract_filter: 
@@ -305,7 +305,6 @@
     state: present
   register: nm_add_contract_2
 
-
 - name: Verify nm_add_contract_2
   assert:
     that:
@@ -350,10 +349,9 @@
     - nm_add_contract_4.current.filterRef.templateName == "Template 1"
     - nm_add_contract_3.current.filterRef.schemaId == nm_add_contract_4.current.filterRef.schemaId == nm_add_contract_2.current.filterRef.schemaId == nm_add_contract.current.filterRef.schemaId
 
-
-# # create CONTRACT FILTER with diff options
+# create CONTRACT FILTER with diff options
 - name: Add Contract filter to both-way(check_mode)
-  mso_schema_template_contract_filter: 
+  mso_schema_template_contract_filter:
     <<: *contract_present
     contract: Contract 1
     contract_filter_type: both-way
@@ -373,7 +371,6 @@
     state: present
   register: nm_add_contract_filter_both_way
 
-
 - name: Verify cm_change_contract_filter_both_way
   assert:
     that:
@@ -386,6 +383,10 @@
     - nm_add_contract_filter_both_way.current.filterRef.filterName == "Filter 4"
     - nm_add_contract_filter_both_way.current.filterRef.templateName == "Template 1"
     - cm_add_contract_filter_both_way.current.filterRef.schemaId == nm_add_contract_filter_both_way.current.filterRef.schemaId
+    - cm_add_contract_filter_both_way.current.contractFilterType == "bothWay"
+    - cm_add_contract_filter_both_way.current.contractScope == "context"
+    - cm_add_contract_filter_both_way.current.displayName == "Contract 1"
+    - cm_add_contract_filter_both_way.current.filterType == "both-way"
 
 - name: Change Contract type both_way Filter type consumer-to-provider(normal_mode)
   mso_schema_template_contract_filter: 
@@ -421,7 +422,6 @@
     - nm_both_way_and_provider_to_consumer is not changed
     - nm_both_way_and_provider_to_consumer.msg == "You are adding 'one-way' filters to a 'both-way' contract"
 
-
 - name: Change Contract type one_way Filter type both way(normal_mode)
   mso_schema_template_contract_filter: 
     <<: *contract_present
@@ -449,6 +449,16 @@
     state: present
   register: nm_one_way_and_consumer_to_provider
 
+- name: Verify nm_one_way_and_consumer_to_provider
+  assert:
+    that:
+    - nm_one_way_and_consumer_to_provider is changed
+    - nm_one_way_and_consumer_to_provider.previous == {}
+    - nm_one_way_and_consumer_to_provider.current.contractFilterType == "oneWay"
+    - nm_one_way_and_consumer_to_provider.current.contractScope == "context"
+    - nm_one_way_and_consumer_to_provider.current.displayName == "Contract 5"
+    - nm_one_way_and_consumer_to_provider.current.filterType == "consumer-to-provider"
+
 - name: Change Contract type one_way Filter type provider-to-consumer(normal_mode)
   mso_schema_template_contract_filter: 
     <<: *contract_present
@@ -462,10 +472,11 @@
 - name: Verify nm create contract filter with different type
   assert:
     that:
-    - nm_one_way_and_consumer_to_provider is changed
-    #- nm_one_way_and_consumer_to_provider.   check filter type
     - nm_one_way_and_provider_to_consumer is changed
-    #- nm_one_way_and_provider_to_consumer.   check filter type
+    - nm_one_way_and_provider_to_consumer.current.contractFilterType == "oneWay"
+    - nm_one_way_and_provider_to_consumer.current.contractScope == "context"
+    - nm_one_way_and_provider_to_consumer.current.displayName == "Contract 6"
+    - nm_one_way_and_provider_to_consumer.current.filterType == "provider-to-consumer"
 
 # change contract display name
 - name: change contract display name
@@ -475,8 +486,14 @@
     filter: Filter 1
     contract_display_name: new display name for contract 4
     state: present
-  register: nm_change_filter_directives_log
+  register: nm_change_display_name
 
+- name: Verify nm_change_display_name
+  assert:
+    that:
+    - nm_change_display_name is changed
+    - nm_change_display_name.current.displayName == "new display name for contract 4"
+    - nm_change_display_name.previous.displayName == "display name name for contract 4"
 
 # change contract filter_directives to log
 - name: change contract filter_directives to log(check_mode)
@@ -488,7 +505,7 @@
     state: present
   check_mode: yes
   register: cm_change_filter_directives_log
-    
+
 - name: change contract filter_directives to log(normal_mode)
   mso_schema_template_contract_filter: 
     <<: *contract_present
@@ -578,6 +595,13 @@
     state: present
   register: nm_change_contract_scope_global
 
+- name: Verify nm_change_contract_scope_global
+  assert:
+    that:
+    - nm_change_contract_scope_global is changed
+    - nm_change_contract_scope_global.current.contractScope == "global"
+    - nm_change_contract_scope_global.previous.contractScope == "context"
+
 - name: Change contract 1 scope to tenant(normal mode)
   mso_schema_template_contract_filter: 
     <<: *contract_present
@@ -585,6 +609,13 @@
     contract_scope: tenant
     state: present
   register: nm_change_contract_scope_tenant
+
+- name: Verify nm_change_contract_scope_tenant
+  assert:
+    that:
+    - nm_change_contract_scope_tenant is changed
+    - nm_change_contract_scope_tenant.previous.contractScope == "global"
+    - nm_change_contract_scope_tenant.current.contractScope == "tenant"
 
 - name: Change contract 1 scope application_profile(normal mode)
   mso_schema_template_contract_filter: 
@@ -594,6 +625,13 @@
     state: present
   register: nm_change_contract_scope_application_profile
 
+- name: Verify nm_change_contract_scope_application_profile
+  assert:
+    that:
+    - nm_change_contract_scope_application_profile is changed
+    - nm_change_contract_scope_application_profile.previous.contractScope == "tenant"
+    - nm_change_contract_scope_application_profile.current.contractScope == "application-profile"
+
 - name: Change contract 1 scope to vrf(normal mode)
   mso_schema_template_contract_filter: 
     <<: *contract_present
@@ -602,6 +640,12 @@
     state: present
   register: nm_change_contract_scope_vrf
 
+- name: Verify nm_change_contract_scope_vrf
+  assert:
+    that:
+    - nm_change_contract_scope_vrf is changed
+    - nm_change_contract_scope_vrf.current.contractScope == "context"
+    - nm_change_contract_scope_vrf.previous.contractScope == "application-profile"
 
 - name: Change contract 1 scope to default(normal mode)
   mso_schema_template_contract_filter: 
@@ -609,12 +653,15 @@
     contract: Contract 1
     state: present
   register: nm_change_contract_scope_default 
-# - name: Verify nm_change_contract_scope
-#   assert:
-#     that:
-#     - 
 
-# # QUERY ALL CONTRACT
+- name: Verify nm_change_contract_scope_default
+  assert:
+    that:
+    - nm_change_contract_scope_default is not changed
+    - nm_change_contract_scope_default.current.contractScope == "context"
+    - nm_change_contract_scope_default.previous.contractScope == "context"
+
+# QUERY ALL CONTRACT
 - name: Query contract 1 filters (check_mode)
   mso_schema_template_contract_filter:  &Contract_query
     host: '{{ mso_hostname }}'
@@ -700,8 +747,7 @@
     - nm_contract5_query_result.current | length == 1
     - nm_contract6_query_result.current | length == 1
 
-
-# # # QUERY A SPECIFIC CONTRACT FILTER
+# QUERY A SPECIFIC CONTRACT FILTER
 - name: Query contract 1 filter 1 (check_mode)
   mso_schema_template_contract_filter: &Contract_filter_query
     host: '{{ mso_hostname }}'
@@ -797,7 +843,6 @@
     - nm_contract4_filter1_query_result is not changed
     - nm_contract5_filter5_query_result is not changed
     - nm_contract6_filter6_query_result is not changed
-
 
 # REMOVE CONTRACT Filter
 - name: Remove contract1 filter1 (check_mode)
@@ -916,9 +961,7 @@
     - cm_query_non_filter is not changed
     - nm_query_non_filter is not changed
 
-
 # # QUERY NON-EXISTING CONTRACT
-# - name: Query non-existing contract (check_mode)
 - name: Query non-existing contract (check_mode)
   mso_schema_template_contract_filter: 
     <<: *Contract_query

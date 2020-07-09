@@ -215,9 +215,6 @@ def main():
     template_vrfs = [a.get('name') for a in schema_obj['templates'][template_idx]['vrfs']]
     if vrf not in template_vrfs:
         mso.fail_json(msg="Provided vrf '{0}' does not exist. Existing vrfs: {1}".format(vrf, ', '.join(template_vrfs)))
-    else:
-        # Update vrf index at template level
-        template_vrf_idx = template_vrfs.index(vrf)
 
     # If vrf not at site level but exists at template level
     if vrf_ref not in vrfs:

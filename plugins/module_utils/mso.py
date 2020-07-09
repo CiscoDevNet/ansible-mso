@@ -8,12 +8,11 @@ __metaclass__ = type
 
 from copy import deepcopy
 import re
-from ansible.module_utils.basic import AnsibleModule, json
+from ansible.module_utils.basic import json
 from ansible.module_utils.six import PY3
 from ansible.module_utils.six.moves import filterfalse
 from ansible.module_utils.six.moves.urllib.parse import urlencode, urljoin
 from ansible.module_utils.urls import fetch_url
-from ansible.module_utils._text import to_bytes, to_native
 
 
 if PY3:
@@ -453,12 +452,12 @@ class MSOModule(object):
 
         ids = []
         for label in labels:
-            l = self.get_obj('labels', displayName=label)
-            if not l:
-                l = self.create_label(label, label_type)
-            if 'id' not in l:
-                self.module.fail_json(msg="Label lookup failed for label '%s': %s" % (label, l))
-            ids.append(l.get('id'))
+            label_obj = self.get_obj('labels', displayName=label)
+            if not label_obj:
+                label_obj = self.create_label(label, label_type)
+            if 'id' not in label_obj:
+                self.module.fail_json(msg="Label lookup failed for label '%s': %s" % (label, label_obj))
+            ids.append(label_obj.get('id'))
         return ids
 
     def anp_ref(self, **data):

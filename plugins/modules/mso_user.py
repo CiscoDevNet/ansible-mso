@@ -248,14 +248,17 @@ def main():
         if mso.existing:
             if not issubset(mso.sent, mso.existing):
                 # NOTE: Since MSO always returns '******' as password, we need to assume a change
-                if 'password' in mso.proposed:
-                    mso.module.warn("A password change is assumed, as the MSO REST API does not return passwords we do not know.")
-                    mso.result['changed'] = True
+                mso.stdout = 'reached pwd' + '\n'
+                mso.module.warn("A password change is assumed, as the MSO REST API does not return passwords we do not know.")
+                mso.result['changed'] = True
 
                 if module.check_mode:
+                    mso.stdout = 'reached check' + '\n'
                     mso.existing = mso.proposed
                 else:
+                    mso.stdout = 'reached put' + '\n'
                     mso.existing = mso.request(path, method='PUT', data=mso.sent)
+
         else:
             if module.check_mode:
                 mso.existing = mso.proposed

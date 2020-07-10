@@ -694,3 +694,16 @@ class MSOModule(object):
         if 'password' in existing:
             existing['password'] = self.sent.get('password')
         return not issubset(self.sent, existing)
+
+    def update_filter_obj(self, contract_obj, filter_obj, filter_type, contract_display_name=None, updateFilterRef=True):
+        ''' update filter with more information '''
+        if updateFilterRef:
+            filter_obj['filterRef'] = self.dict_from_ref(filter_obj.get('filterRef'))
+        if contract_display_name:
+            filter_obj['displayName'] = contract_display_name
+        else:
+            filter_obj['displayName'] = contract_obj.get('displayName')
+        filter_obj['filterType'] = filter_type
+        filter_obj['contractScope'] = contract_obj.get('scope')
+        filter_obj['contractFilterType'] = contract_obj.get('filterType')
+        return filter_obj

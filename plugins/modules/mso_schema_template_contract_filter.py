@@ -247,12 +247,14 @@ def main():
         if filter_ref in filters:
             filter_idx = filters.index(filter_ref)
             filter_path = '/templates/{0}/contracts/{1}/{2}/{3}'.format(template, contract, filter_key, filter_name)
-            mso.existing = contract_obj.get(filter_key)[filter_idx]
-            mso.existing['filterRef'] = mso.dict_from_ref(mso.existing.get('filterRef'))
-            mso.existing['displayName'] = contract_obj.get('displayName')
-            mso.existing['filterType'] = filter_type
-            mso.existing['contractScope'] = contract_obj.get('scope')
-            mso.existing['contractFilterType'] = contract_obj.get('filterType')
+            # mso.existing = contract_obj.get(filter_key)[filter_idx]
+            # mso.existing['filterRef'] = mso.dict_from_ref(mso.existing.get('filterRef'))
+            # mso.existing['displayName'] = contract_obj.get('displayName')
+            # mso.existing['filterType'] = filter_type
+            # mso.existing['contractScope'] = contract_obj.get('scope')
+            # mso.existing['contractFilterType'] = contract_obj.get('filterType')
+            filter = contract_obj.get(filter_key)[filter_idx]
+            mso.existing = mso.update_filter_obj(contract_obj, filter, filter_type)
 
     if state == 'query':
         if contract_idx is None:
@@ -261,11 +263,12 @@ def main():
         if filter_name is None:
             mso.existing = contract_obj.get(filter_key)
             for filter in mso.existing:
-                filter['filterRef'] = mso.dict_from_ref(filter.get('filterRef'))
-                filter['displayName'] = contract_obj.get('displayName')
-                filter['filterType'] = filter_type
-                filter['contractScope'] = contract_obj.get('scope')
-                filter['contractFilterType'] = contract_obj.get('filterType')
+                # filter['filterRef'] = mso.dict_from_ref(filter.get('filterRef'))
+                # filter['displayName'] = contract_obj.get('displayName')
+                # filter['filterType'] = filter_type
+                # filter['contractScope'] = contract_obj.get('scope')
+                # filter['contractFilterType'] = contract_obj.get('filterType')
+                filter = mso.update_filter_obj(contract_obj, filter, filter_type)
 
         elif not mso.existing:
             mso.fail_json(msg="FilterRef '{filter_ref}' not found".format(filter_ref=filter_ref))
@@ -334,10 +337,15 @@ def main():
             ops.append(dict(op='replace', path=contract_path + '/filterType', value=contract_ftype))
             ops.append(dict(op='replace', path=contract_path + '/scope', value=contract_scope))
 
-        mso.existing['displayName'] = contract_display_name if contract_display_name is not None else contract_obj.get('displayName')
+        if contract_display_name:
+            mso.existing['displayName'] = contract_display_name
+        else:
+            mso.existing['displayName'] = contract_obj.get('displayName')
         mso.existing['filterType'] = filter_type
         mso.existing['contractScope'] = contract_scope
         mso.existing['contractFilterType'] = contract_ftype
+
+        # mso.existing = mso.update_filter_obj(contract_obj, sent, filter_type, contract_display_name=contract_display_name, updateFilterRef=False)
 
         if filter_idx is None:
             # Filter does not exist, so we have to add it

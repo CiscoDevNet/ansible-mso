@@ -28,6 +28,18 @@
     user: ansible_test2
   register: cm_remove_user
 
+- name: Remove user ansible_test_read
+  mso_user:
+    <<: *user_absent
+    user: ansible_test_read
+  register: cm_remove_user2
+
+- name: Remove user ansible_test_read
+  mso_user:
+    <<: *user_absent
+    user: ansible_test_read_2
+  register: cm_remove_user3
+
 
 # ADD USER
 - name: Add user (check_mode)
@@ -67,6 +79,7 @@
     - cm_add_user.current.emailAddress == 'mso@cisco.com'
     - cm_add_user.current.phoneNumber == '+32 478 436 299'
     - cm_add_user.current.accountStatus == 'active'
+    - cm_add_user.current.roles[0].accessType == 'readWrite'
 
 - name: Add user (normal mode)
   mso_user: *user_present
@@ -84,6 +97,7 @@
     - nm_add_user.current.emailAddress == 'mso@cisco.com'
     - nm_add_user.current.phoneNumber == '+32 478 436 299'
     - nm_add_user.current.accountStatus == 'active'
+    - nm_add_user.current.roles[0].accessType == 'readWrite'
 
 - name: Add user again (check_mode)
   mso_user:
@@ -116,6 +130,121 @@
     - nm_add_user_again.current.id == nm_add_user.current.id
     - nm_add_user_again.current.username == 'ansible_test'
 
+- name: Add user in read only mode mode (check_mode)
+  mso_user: &user_present2
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    user: ansible_test_read
+    user_password: '#123455#123455Aa'
+    # NOTE: First name, last name, phone and email are mandatory on creation
+    first_name: Ansible2
+    last_name: Test2
+    email: mso3@cisco.com
+    phone: +32 478 436 299
+    account_status: active
+    roles:
+    - name: powerUser
+      access_type: read
+    domain: Local
+    state: present
+  check_mode: yes
+  register: cm_add_user2
+
+- name: Verify cm_add_user2
+  assert:
+    that:
+    - cm_add_user2 is changed
+    - cm_add_user2.previous == {}
+    - cm_add_user2.current.id is not defined
+    - cm_add_user2.current.username == 'ansible_test_read'
+    - cm_add_user2.current.lastName == 'Test2'
+    - cm_add_user2.current.firstName == 'Ansible2'
+    - cm_add_user2.current.emailAddress == 'mso3@cisco.com'
+    - cm_add_user2.current.phoneNumber == '+32 478 436 299'
+    - cm_add_user2.current.accountStatus == 'active'
+    - cm_add_user2.current.roles[0].accessType == 'readOnly'
+
+- name: Add user in read only (normal mode)
+  mso_user: *user_present2
+  register: nm_add_user2
+
+- name: Verify nm_add_user2
+  assert:
+    that:
+    - nm_add_user2 is changed
+    - nm_add_user2.current.id is defined
+    - nm_add_user2.current.username == 'ansible_test_read'
+    - nm_add_user2.current.lastName == 'Test2'
+    - nm_add_user2.current.firstName == 'Ansible2'
+    - nm_add_user2.current.emailAddress == 'mso3@cisco.com'
+    - nm_add_user2.current.phoneNumber == '+32 478 436 299'
+    - nm_add_user2.current.accountStatus == 'active'
+    - nm_add_user2.current.roles[0].accessType == 'readOnly'
+
+- name: Add user in read only again(check mode)
+  mso_user: 
+    <<: *user_present2
+    user_password: '#123455#123455Aa'
+  check_mode: yes  
+  register: cm_add_user2_again
+
+- name: Add user in read only again (normal mode)
+  mso_user: *user_present2
+  register: nm_add_user2
+
+- name: Add user3 in read only mode mode with no password (check_mode)
+  mso_user:  &user_present3
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    user: ansible_test_read_2
+    # NOTE: First name, last name, phone and email are mandatory on creation
+    first_name: Ansible3
+    #user_password: '#123455#123455Aa'
+    last_name: Test3
+    email: mso4@cisco.com
+    phone: +32 478 436 299
+    account_status: active
+    roles:
+    - name: powerUser
+      access_type: read
+    domain: Local
+    state: present
+  ignore_errors: yes
+  register: nm_add_user3
+
+- name: Verify nm_add_user2
+  assert:
+    that:
+    - nm_add_user3.msg == "No password found. Please enter a password to create the user."
+
+- name: Add user3 in read only with password (normal mode)
+  mso_user: 
+    <<: *user_present3
+    user_password: '#123455#123455Aa'
+  register: nm_add_user3_again
+
+- name: Verify nm_add_user3_again
+  assert:
+    that:
+    - nm_add_user3_again is changed
+    - nm_add_user3_again.current.id is defined
+    - nm_add_user3_again.current.username == 'ansible_test_read_2'
+    - nm_add_user3_again.current.lastName == 'Test3'
+    - nm_add_user3_again.current.firstName == 'Ansible3'
+    - nm_add_user3_again.current.emailAddress == 'mso4@cisco.com'
+    - nm_add_user3_again.current.phoneNumber == '+32 478 436 299'
+    - nm_add_user3_again.current.accountStatus == 'active'
+    - nm_add_user3_again.current.roles[0].accessType == 'readOnly'
 
 # CHANGE USER
 - name: Change user (check_mode)
@@ -274,6 +403,17 @@
     - nm_query_user.current.username == 'ansible_test'
     - cm_query_user == nm_query_user
 
+- name: Query our user
+  mso_user:
+    <<: *user_query
+    user: ansible_test_read
+  register: nm_query_user2
+
+- name: Verify query_user2
+  assert:
+    that:
+    - nm_query_user2 is not changed
+    - nm_query_user2.current.roles[0].accessType == 'readOnly'
 
 # REMOVE USER
 - name: Remove user (check_mode)

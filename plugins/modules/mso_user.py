@@ -228,7 +228,6 @@ def main():
         payload = dict(
             id=user_id,
             username=user_name,
-            # password=user_password,
             firstName=first_name,
             lastName=last_name,
             emailAddress=email,
@@ -262,7 +261,7 @@ def main():
 
         else:
             if user_password is None:
-                mso.fail_json("No password found. Please enter a password to create the user.")
+                mso.fail_json("The user {0} does not exist. The 'user_password' attribute is required to create a new user.".format(user_name))
             if module.check_mode:
                 mso.existing = mso.proposed
             else:

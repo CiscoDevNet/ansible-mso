@@ -19,27 +19,13 @@
     use_ssl: '{{ mso_use_ssl | default(true) }}'
     use_proxy: '{{ mso_use_proxy | default(true) }}'
     output_level: '{{ mso_output_level | default("info") }}'
-    user: ansible_test
+    user: '{{ item }}'
     state: absent
-
-- name: Remove user ansible_test2
-  mso_user:
-    <<: *user_absent
-    user: ansible_test2
-  register: cm_remove_user
-
-- name: Remove user ansible_test_read
-  mso_user:
-    <<: *user_absent
-    user: ansible_test_read
-  register: cm_remove_user2
-
-- name: Remove user ansible_test_read
-  mso_user:
-    <<: *user_absent
-    user: ansible_test_read_2
-  register: cm_remove_user3
-
+  loop:
+  - ansible_test
+  - ansible_test2
+  - ansible_test_read
+  - ansible_test_read_2
 
 # ADD USER
 - name: Add user (check_mode)
@@ -130,7 +116,7 @@
     - nm_add_user_again.current.id == nm_add_user.current.id
     - nm_add_user_again.current.username == 'ansible_test'
 
-- name: Add user in read only mode mode (check_mode)
+- name: Add user with read only role (check_mode)
   mso_user: &user_present2
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
@@ -169,7 +155,7 @@
     - cm_add_user2.current.accountStatus == 'active'
     - cm_add_user2.current.roles[0].accessType == 'readOnly'
 
-- name: Add user in read only (normal mode)
+- name: Add user with read only role (normal mode)
   mso_user: *user_present2
   register: nm_add_user2
 
@@ -186,7 +172,7 @@
     - nm_add_user2.current.accountStatus == 'active'
     - nm_add_user2.current.roles[0].accessType == 'readOnly'
 
-- name: Add user in read only again(check mode)
+- name: Add user with read only role again (check mode)
   mso_user: 
     <<: *user_present2
     user_password: '#123455#123455Aa'
@@ -197,7 +183,7 @@
   mso_user: *user_present2
   register: nm_add_user2
 
-- name: Add user3 in read only mode mode with no password (check_mode)
+- name: Add user3 with read only role and no password (check_mode)
   mso_user:  &user_present3
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
@@ -225,9 +211,9 @@
 - name: Verify nm_add_user2
   assert:
     that:
-    - nm_add_user3.msg == "No password found. Please enter a password to create the user."
+    - nm_add_user3.msg ==  "The user ansible_test_read_2 does not exist. The 'user_password' attribute is required to create a new user."
 
-- name: Add user3 in read only with password (normal mode)
+- name: Add user3 with read only role and with password (normal mode)
   mso_user: 
     <<: *user_present3
     user_password: '#123455#123455Aa'
@@ -403,7 +389,7 @@
     - nm_query_user.current.username == 'ansible_test'
     - cm_query_user == nm_query_user
 
-- name: Query our user
+- name: Query our read-only user
   mso_user:
     <<: *user_query
     user: ansible_test_read
@@ -417,7 +403,16 @@
 
 # REMOVE USER
 - name: Remove user (check_mode)
-  mso_user: *user_absent
+  mso_user:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    user: ansible_test
+    state: absent
   check_mode: yes
   register: cm_remove_user
 
@@ -428,7 +423,16 @@
     - cm_remove_user.current == {}
 
 - name: Remove user (normal mode)
-  mso_user: *user_absent
+  mso_user:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    user: ansible_test
+    state: absent
   register: nm_remove_user
 
 - name: Verify nm_remove_user
@@ -438,7 +442,16 @@
     - nm_remove_user.current == {}
 
 - name: Remove user again (check_mode)
-  mso_user: *user_absent
+  mso_user:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}' 
+    user: ansible_test
+    state: absent
   check_mode: yes
   register: cm_remove_user_again
 
@@ -449,7 +462,16 @@
     - cm_remove_user_again.current == {}
 
 - name: Remove user again (normal mode)
-  mso_user: *user_absent
+  mso_user:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    user: ansible_test
+    state: absent
   register: nm_remove_user_again
 
 - name: Verify nm_remove_user_again
@@ -457,7 +479,6 @@
     that:
     - nm_remove_user_again is not changed
     - nm_remove_user_again.current == {}
-
 
 # QUERY NON-EXISTING USER
 - name: Query non-existing user (check_mode)

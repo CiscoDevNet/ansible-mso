@@ -45,6 +45,10 @@ options:
     - The name of the region to manage.
     type: str
     aliases: [ name ]
+  vpn_gateway_router:
+    description:
+    - Whether VPN Gateway Router is enabled or not.
+    type: bool
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -128,6 +132,7 @@ def main():
         template=dict(type='str', required=True),
         vrf=dict(type='str', required=True),
         region=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
+        vpn_gateway_router=dict(type='bool'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -145,6 +150,7 @@ def main():
     template = module.params.get('template')
     vrf = module.params.get('vrf')
     region = module.params.get('region')
+    vpn_gateway_router = module.params.get('vpn_gateway_router')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -204,6 +210,7 @@ def main():
 
         payload = dict(
             name=region,
+            isVpnGatewayRouter=vpn_gateway_router,
         )
 
         mso.sanitize(payload, collate=True)

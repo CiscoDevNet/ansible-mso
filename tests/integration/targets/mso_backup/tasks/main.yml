@@ -22,6 +22,15 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
 - name: Ensure azure site exists
   mso_site:
     <<: *mso_info
@@ -43,15 +52,6 @@
     urls:
     - https://{{ aws_apic_hostname }}
     state: present
-
-- name: Remove schemas
-  mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
   mso_tenant: 

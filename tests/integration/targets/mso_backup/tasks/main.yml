@@ -1,0 +1,298 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+# Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
+# Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact: 
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Ensure azure site exists
+  mso_site:
+    <<: *mso_info
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ azure_apic_username }}'
+    apic_password: '{{ azure_apic_password }}'
+    apic_site_id: '{{ azure_site_id }}'
+    urls:
+    - https://{{ azure_apic_hostname }}
+    state: present
+
+- name: Ensure aws site exists
+  mso_site:
+    <<: *mso_info
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ aws_apic_username }}'
+    apic_password: '{{ aws_apic_password }}'
+    apic_site_id: '{{ aws_site_id }}'
+    urls:
+    - https://{{ aws_apic_hostname }}
+    state: present
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Remove tenant ansible_test
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: absent
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: present
+      
+- name: Ensure schema 1 with Template 1 exists
+  mso_schema_template: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+
+- name: Ensure schema 1 with Template 2 exists
+  mso_schema_template: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 2
+    state: present
+
+- name: Ensure VRF1 exists
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    state: present
+
+- name: Ensure Template 1 with AP1 exists
+  mso_schema_template_anp:
+    <<: *mso_info 
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    state: present
+
+# Create Backup TO DO MSO Error?
+- name: Create Backup1 in check mode
+  mso_backup:
+    <<: *mso_info 
+    backup: Backup1
+    description: via Ansible
+    location_type: local
+    state: present
+  register: b_cm
+  check_mode: yes
+
+- name: Verify b_cm
+  assert:
+    that:
+    - b_cm is changed
+
+- name: Create Backup1 in normal mode
+  mso_backup:
+    <<: *mso_info 
+    backup: Backup1
+    description: via Ansible
+    location_type: local
+    state: present
+  register: b_nm
+
+- name: Verify b_nm
+  assert:
+    that:
+    - b_nm.current.backupEntry.metadata.name is match("Backup1_[0-9a-zA-Z]*")
+
+- name: Create Backup2 in normal mode
+  mso_backup:
+    <<: *mso_info 
+    backup: Backup2
+    description: via Ansible
+    location_type: local
+    state: present
+  register: b2_nm
+
+- name: Verify b2_nm
+  assert:
+    that:
+    - b2_nm.current.backupEntry.metadata.name is match ("Backup2_[0-9a-zA-Z]*")
+
+- name: Create Backup3 in normal mode
+  mso_backup:
+    <<: *mso_info 
+    backup: Backup3
+    description: via Ansible
+    location_type: local
+    state: present
+  register: b3_nm
+
+- name: Verify b3_nm
+  assert:
+    that:
+    - b3_nm.current.backupEntry.metadata.name is match ("Backup3_[0-9a-zA-Z]*")
+
+- name: Create Backup3 in normal mode again
+  mso_backup:
+    <<: *mso_info 
+    backup: Backup3
+    description: via Ansible
+    location_type: local
+    state: present
+  ignore_errors: yes
+  register: b3_nm_again
+
+- name: Verify b3_nm_again
+  assert:
+    that:
+    - b3_nm_again.current.backupEntry.metadata.name is match ("Backup3_[0-9a-zA-Z]*")
+
+# Query a Backup TO DO
+- name: Query Backup3
+  mso_backup:
+    <<: *mso_info 
+    backup: Backup3
+    state: query
+  register: b3_qm
+
+- name: Verify b3_qm
+  assert:
+    that:
+    - b3_qm is not changed
+    - b3_qm.current | length == 2
+
+# Query All
+- name: Query All
+  mso_backup:
+    <<: *mso_info 
+    state: query
+  ignore_errors: yes
+  register: b_qm_all
+
+- name: Verify b_qm_all
+  assert:
+    that:
+    - b_qm_all is not changed
+
+# Remove Backup
+- name: Remove first Backup3 in check mode
+  mso_backup:
+    <<: *mso_info 
+    backup: Backup3
+    state: absent
+  ignore_errors: yes
+  check_mode: yes
+  register: rm_b3_cm
+
+- name: Verify rm_b3_cm
+  assert:
+    that:
+    - rm_b3_cm is changed
+
+- name: Remove first Backup3 in normal mode
+  mso_backup:
+    <<: *mso_info 
+    backup: Backup3
+    state: absent
+  ignore_errors: yes
+  register: rm_b3_nm
+
+- name: Verify rm_b3_nm
+  assert:
+    that:
+    - rm_b3_nm is changed
+
+- name: Remove second Backup3 in normal mode
+  mso_backup:
+    <<: *mso_info 
+    backup: Backup3
+    state: absent
+  ignore_errors: yes
+  register: rm_b3_nm_2
+
+- name: Verify rm_b3_nm_2
+  assert:
+    that:
+    - rm_b3_nm_2 is changed
+
+- name: Remove Backup3 again in normal mode
+  mso_backup:
+    <<: *mso_info 
+    backup: Backup3
+    state: absent
+  ignore_errors: yes
+  register: rm_b3_nm_again
+
+- name: Verify rm_b3_nm_again
+  assert:
+    that:
+    - rm_b3_nm_again is not changed
+
+# Clean Env for next run
+- name: Remove Backup1 
+  mso_backup:
+    <<: *mso_info 
+    backup: Backup1
+    state: absent
+  ignore_errors: yes
+  
+- name: Remove Backup2
+  mso_backup:
+    <<: *mso_info 
+    backup: Backup2
+    state: absent
+  ignore_errors: yes
+
+# Add more data
+- name: Ensure Template 2 with AP1 exists
+  mso_schema_template_anp:
+    <<: *mso_info 
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    anp: AP1
+    state: present
+
+- name: Create Backup5 for new data added
+  mso_backup:
+    <<: *mso_info 
+    backup: Backup5
+    description: via Ansible
+    location_type: local
+    state: present
+  register: b5_new_data
+
+- name: Verify b5_new_data
+  assert:
+    that:
+    - b5_new_data.current.backupEntry.metadata.name is match ("Backup5_[0-9a-zA-Z]*")

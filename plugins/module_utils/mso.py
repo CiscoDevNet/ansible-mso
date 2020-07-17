@@ -326,6 +326,18 @@ class MSOModule(object):
                 found.append(obj)
         return found
 
+    def query_obj(self, path, **kwargs):
+        ''' Query the MSO REST API for the whole object at a path '''
+        obj = self.request(path, method='GET')
+        if obj == {}:
+            return {}
+        for kw_key, kw_value in kwargs.items():
+            if kw_value is None:
+                continue
+            if obj.get(kw_key) != kw_value:
+                return {}
+        return obj
+
     def get_obj(self, path, **kwargs):
         ''' Get a specific object from a set of MSO REST objects '''
         objs = self.query_objs(path, **kwargs)

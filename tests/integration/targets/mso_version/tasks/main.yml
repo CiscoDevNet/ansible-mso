@@ -1,0 +1,77 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  mso_version: &mso_query
+    <<: *mso_info
+    state: query
+  check_mode: yes
+  register: cm_query_version
+
+- name: Verify cm_query_version
+  assert:
+    that:
+    - cm_query_version is not changed
+    - cm_query_version.current.id is defined
+    - cm_query_version.current.version is defined
+    - cm_query_version.current.timestamp is defined
+
+- name: Query MSO version (normal mode)
+  mso_version:
+    <<: *mso_query
+  register: nm_query_version
+
+- name: Verify nm_query_version
+  assert:
+    that:
+    - nm_query_version is not changed
+    - nm_query_version.current.id is defined
+    - nm_query_version.current.version is defined
+    - nm_query_version.current.timestamp is defined
+    - nm_query_version.current.id == cm_query_version.current.id
+    - nm_query_version.current.version == cm_query_version.current.version
+    - nm_query_version.current.timestamp == cm_query_version.current.timestamp
+
+# USE A NON-EXISTING STATE
+- name: Non-existing state for version (check_mode)
+  mso_version:
+    <<: *mso_query
+    state: non-existing-state
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_state
+
+- name: Non-existing state for version (normal_mode)
+  mso_version:
+    <<: *mso_query
+    state: non-existing-state
+  ignore_errors: yes
+  register: nm_non_existing_state
+
+- name: Verify non_existing_state
+  assert:
+    that:
+    - cm_non_existing_state is not changed
+    - nm_non_existing_state is not changed
+    - cm_non_existing_state == nm_non_existing_state
+    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} query, got{{':'}} non-existing-state"

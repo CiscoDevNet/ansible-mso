@@ -203,13 +203,11 @@ def main():
     if all_sites is not None:
         sites = [(s.get('siteId'), s.get('templateName')) for s in all_sites]
 
-
     # Get VRF
     vrf_ref = mso.vrf_ref(schema_id=schema_id, template=template, vrf=vrf)
     template_vrfs = [a.get('name') for a in schema_obj['templates'][template_idx]['vrfs']]
     if vrf not in template_vrfs:
         mso.fail_json(msg="Provided vrf '{0}' does not exist. Existing vrfs: {1}".format(vrf, ', '.join(template_vrfs)))
-
 
     # if site-template does not exist, create it
     if (site_id, template) not in sites:
@@ -235,7 +233,6 @@ def main():
         site_idx = sites.index((site_id, template))
         # Path-based access uses site_id-template
         site_template = '{0}-{1}'.format(site_id, template)
-
 
         # If vrf not at site level but exists at template level
         all_vrfs = schema_obj.get('sites')[site_idx]['vrfs']

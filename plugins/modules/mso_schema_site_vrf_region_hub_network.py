@@ -1,8 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2019, Dag Wieers (@dagwieers) <dag@wieers.com>
-# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -20,8 +18,6 @@ short_description: Manage site-local VRF region hub network in schema template
 description:
 - Manage site-local VRF region hub network in schema template on Cisco ACI Multi-Site.
 author:
-- Dag Wieers (@dagwieers)
-- Lionel Hercot (@lhercot)
 - Cindy Zhao (@cizhao)
 options:
   schema:
@@ -55,13 +51,12 @@ options:
   hub_network_name:
     description:
     - The name of the hub network to manage.
+    - The hub-default is the default created hub network.
     type: str
-    choices: [ hub-default, hub-test ]
   tenant:
     description:
     - The tenant name of the hub network.
     type: str
-    choices: [ infra ]
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -97,7 +92,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a site VRF region hub network
-  cisco.mso.mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -111,7 +106,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query site VRF region hub network
-  cisco.mso.mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -141,9 +136,9 @@ def main():
         vrf=dict(type='str', required=True),
         region=dict(type='str', required=True),
         hub_network=dict(type='bool'),
-        hub_network_name=dict(type='str', choices=['hub-default', 'hub-test']),
-        tenant=dict(type='str', choices=['infra']),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        hub_network_name=dict(type='str'),
+        tenant=dict(type='str'),
+        state=dict(type='str', default='present'),
     )
 
     module = AnsibleModule(

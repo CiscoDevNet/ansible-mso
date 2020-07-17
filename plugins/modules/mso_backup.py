@@ -56,7 +56,6 @@ EXAMPLES = r'''
     location_type: local
     state: present
   delegate_to: localhost
-
 - name: Remove a Backup
   cisco.mso.mso_backup:
     host: mso_host
@@ -65,7 +64,6 @@ EXAMPLES = r'''
     backup: Backup
     state: absent
   delegate_to: localhost
-
 - name: Query a backup
   cisco.mso.mso_backup:
     host: mso_host
@@ -75,7 +73,6 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-
 - name: Query all backups
   cisco.mso.mso_backup:
     host: mso_host
@@ -108,7 +105,6 @@ def main():
     )
 
     description = module.params.get('description')
-    name = module.params.get('name')
     location_type = module.params.get('location_type')
     state = module.params.get('state')
     backup = module.params.get('backup')
@@ -117,36 +113,23 @@ def main():
 
     backup_id = None
     path = 'backups'
-    name = backup
-    counter = 0
+    count_backups = 0
+    mso.existing = mso.query_objs('backups')
     if backup:
-        mso.existing = mso.query_objs(path)
         if mso.existing:
             data = mso.existing
-            for x in data:
-                for k, v in x.items():
-                    if k == 'metadata':
-                        if str(name) in v['name']:
-                            counter += 1
-            if counter >= 1:
-                for i in data:
-                    backup_id = i['id']
-                    for k1, v1 in i.items():
-                        if k1 == 'metadata':
-                            if v1['name'] == name + '_' + backup_id:
-                                path = 'backups/{id}'.format(id=backup_id)
-            else:
+            mso.existing = []
+            for index_of_name in range(0, len(data)):
+                backup_id = data[index_of_name]['id']
+                if (str(backup) + '_' + backup_id == data[index_of_name]['metadata']['name']):
+                    path = 'backups/{id}'.format(id=backup_id)
+                    count_backups += 1
+                    mso.existing.append(data[index_of_name])
+            if count_backups < 1:
                 mso.existing = mso.get_obj(path, name=backup)
 
     if state == 'query':
-        get_backups = mso.query_objs('backups')
-        mso.existing = []
-        if backup:
-            for i in range(0, len(get_backups)):
-                if (str(backup) + '_' + get_backups[i]['id'] == get_backups[i]['metadata']['name']):
-                    mso.existing.append(get_backups[i])
-        else:
-            mso.existing = mso.query_objs(path)
+        pass
         mso.exit_json()
 
     if state == 'absent':

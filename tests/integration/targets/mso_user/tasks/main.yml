@@ -403,14 +403,8 @@
 
 # REMOVE USER
 - name: Remove user (check_mode)
-  mso_user:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+  mso_user: 
+    <<: *user_absent
     user: ansible_test
     state: absent
   check_mode: yes
@@ -424,13 +418,7 @@
 
 - name: Remove user (normal mode)
   mso_user:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *user_absent
     user: ansible_test
     state: absent
   register: nm_remove_user
@@ -443,13 +431,7 @@
 
 - name: Remove user again (check_mode)
   mso_user:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}' 
+    <<: *user_absent
     user: ansible_test
     state: absent
   check_mode: yes
@@ -463,13 +445,7 @@
 
 - name: Remove user again (normal mode)
   mso_user:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *user_absent
     user: ansible_test
     state: absent
   register: nm_remove_user_again

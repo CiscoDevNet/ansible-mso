@@ -151,6 +151,11 @@ def mso_expression_spec_ext_epg():
         value=dict(type='str', required=True),
     )
 
+def mso_hub_network_spec():
+    return dict(
+        name=dict(type='str', required=True),
+        tenant=dict(type='str', required=True),
+    )
 
 class MSOModule(object):
 

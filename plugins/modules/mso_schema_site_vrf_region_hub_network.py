@@ -45,18 +45,18 @@ options:
     type: str
   hub_network:
     description:
-    - Whether hub network is enabled or not in this region.
-    type: bool
-    default: false
-  hub_network_name:
-    description:
-    - The name of the hub network to manage.
-    - The hub-default is the default created hub network.
-    type: str
-  tenant:
-    description:
-    - The tenant name of the hub network.
-    type: str
+    - The hub network to be managed.
+    type: dict
+    suboptions:
+      name:
+        description:
+        - The name of the hub network.
+        - The hub-default is the default created hub network.
+        type: str
+      tenant:
+        description:
+        - The tenant name of the hub network.
+        type: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -85,9 +85,9 @@ EXAMPLES = r'''
     template: Template1
     vrf: VRF1
     region: us-west-1
-    hub_network: true
-    hub_network_name: hub-default
-    tenant: infra
+    hub_network:
+      name: hub-default
+      tenant: infra
     state: present
   delegate_to: localhost
 
@@ -100,8 +100,6 @@ EXAMPLES = r'''
     site: Site1
     template: Template1
     vrf: VRF1
-    region: us-west-1
-    hub_network: false
     state: absent
   delegate_to: localhost
 
@@ -114,7 +112,7 @@ EXAMPLES = r'''
     site: Site1
     template: Template1
     vrf: VRF1
-    region: us-west-1 
+    region: us-west-1
     state: query
   delegate_to: localhost
   register: query_result
@@ -124,7 +122,7 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_hub_network_spec
 
 
 def main():
@@ -135,18 +133,15 @@ def main():
         template=dict(type='str', required=True),
         vrf=dict(type='str', required=True),
         region=dict(type='str', required=True),
-        hub_network=dict(type='bool'),
-        hub_network_name=dict(type='str'),
-        tenant=dict(type='str'),
-        state=dict(type='str', default='present'),
+        hub_network=dict(type='dict', options=mso_hub_network_spec()),
+        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['hub_network']],
-            ['state', 'present', ['hub_network', 'hub_network_name', 'tenant']],
+            ['state', 'present', ['hub_network']],
         ],
     )
 
@@ -156,12 +151,9 @@ def main():
     vrf = module.params.get('vrf')
     region = module.params.get('region')
     hub_network = module.params.get('hub_network')
-    hub_network_name = module.params.get('hub_network_name')
-    tenant = module.params.get('tenant')
     state = module.params.get('state')
 
     mso = MSOModule(module)
-    mso.stdout = 'start \n'
 
     # Get schema_id
     schema_obj = mso.get_obj('schemas', displayName=schema)
@@ -182,7 +174,6 @@ def main():
 
     # Get site_idx
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
-    sites_list = [s.get('siteId') + '/' + s.get('templateName') for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
         mso.fail_json(msg="Provided site-template association '{0}-{1}' does not exist.".format(site, template))
 
@@ -191,25 +182,16 @@ def main():
     # Path-based access uses site_id-template
     site_template = '{0}-{1}'.format(site_id, template)
 
-    payload = dict()
-    new_hub_network = dict(
-        name=hub_network_name,
-        tenantName=tenant,
-    )
-
     # Get VRF
     vrf_ref = mso.vrf_ref(schema_id=schema_id, template=template, vrf=vrf)
     vrfs = [v.get('vrfRef') for v in schema_obj.get('sites')[site_idx]['vrfs']]
     vrfs_name = [mso.dict_from_ref(v).get('vrfName') for v in vrfs]
-    mso.stdout += 'vrfs name are ' + str(vrfs_name) + '\n'
-    # if no vrfs?
     if vrf_ref not in vrfs:
         mso.fail_json(msg="Provided vrf '{0}' does not exist. Existing vrfs: {1}".format(vrf, ', '.join(vrfs_name)))
     vrf_idx = vrfs.index(vrf_ref)
 
     # Get Region
     regions = [r.get('name') for r in schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions']]
-    # if no regions?
     if region not in regions:
         mso.fail_json(msg="Provided region '{0}' does not exist. Existing regions: {1}".format(region, ', '.join(regions)))
     region_idx = regions.index(region)
@@ -231,24 +213,22 @@ def main():
 
     mso.previous = mso.existing
     if state == 'absent':
-        if hub_network:
-            mso.fail_json(msg="Hub network should be disabled")
         if mso.existing:
             mso.sent = mso.existing = {}
             ops.append(dict(op='remove', path=region_path + '/cloudRsCtxProfileToGatewayRouterP'))
             ops.append(dict(op='replace', path=region_path + '/isTGWAttachment', value=False))
 
-
     elif state == 'present':
-        if not hub_network:
-            mso.fail_json(msg="Hub network is disabled")
+        new_hub_network = dict(
+            name=hub_network.get('name'),
+            tenantName=hub_network.get('tenant'),
+        )
         payload = region_obj
         payload.update(
             cloudRsCtxProfileToGatewayRouterP=new_hub_network,
             isTGWAttachment=True,
         )
-        mso.stdout += 'payload is ' + str(payload) + '\n'
-        mso.stdout += 'region_obj is ' + str(region_obj) + '\n'
+
         mso.sanitize(payload, collate=True)
 
         ops.append(dict(op='replace', path=region_path, value=mso.sent))

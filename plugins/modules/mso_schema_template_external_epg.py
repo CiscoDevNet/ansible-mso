@@ -13,7 +13,7 @@ ANSIBLE_METADATA = {'metadata_version': '1.1',
 
 DOCUMENTATION = r'''
 ---
-module: mso_schema_template_externalepg
+module: mso_schema_template_external_epg
 short_description: Manage external EPGs in schema templates
 description:
 - Manage external EPGs in schema templates on Cisco ACI Multi-Site.
@@ -31,11 +31,11 @@ options:
     - The name of the template.
     type: str
     required: yes
-  externalepg:
+  external_epg:
     description:
     - The name of the external EPG to manage.
     type: str
-    aliases: [ name ]
+    aliases: [ name, externalepg ]
   display_name:
     description:
     - The name as displayed on the MSO web interface.
@@ -116,41 +116,41 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new external EPG
-  cisco.mso.mso_schema_template_externalepg:
+  cisco.mso.mso_schema_template_external_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     schema: Schema 1
     template: Template 1
-    externalepg: External EPG 1
+    external_epg: External EPG 1
     state: present
   delegate_to: localhost
 
 - name: Remove an external EPG
-  cisco.mso.mso_schema_template_externalepg:
+  cisco.mso.mso_schema_template_external_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     schema: Schema 1
     template: Template 1
-    externalepg: external EPG1
+    external_epg: external EPG1
     state: absent
   delegate_to: localhost
 
 - name: Query a specific external EPGs
-  cisco.mso.mso_schema_template_externalepg:
+  cisco.mso.mso_schema_template_external_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     schema: Schema 1
     template: Template 1
-    externalepg: external EPG1
+    external_epg: external EPG1
     state: query
   delegate_to: localhost
   register: query_result
 
 - name: Query all external EPGs
-  cisco.mso.mso_schema_template_externalepg:
+  cisco.mso.mso_schema_template_external_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -173,7 +173,7 @@ def main():
     argument_spec.update(
         schema=dict(type='str', required=True),
         template=dict(type='str', required=True),
-        externalepg=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
+        external_epg=dict(type='str', aliases=['name', 'externalepg']),  # This parameter is not required for querying all objects
         display_name=dict(type='str'),
         vrf=dict(type='dict', options=mso_reference_spec()),
         l3out=dict(type='dict', options=mso_reference_spec()),
@@ -186,14 +186,14 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['externalepg']],
-            ['state', 'present', ['externalepg', 'vrf']],
+            ['state', 'absent', ['external_epg']],
+            ['state', 'present', ['external_epg', 'vrf']],
         ],
     )
 
     schema = module.params.get('schema')
     template = module.params.get('template')
-    externalepg = module.params.get('externalepg')
+    external_epg = module.params.get('external_epg')
     display_name = module.params.get('display_name')
     vrf = module.params.get('vrf')
     l3out = module.params.get('l3out')
@@ -219,11 +219,11 @@ def main():
     template_idx = templates.index(template)
 
     # Get external EPGs
-    externalepgs = [e.get('name') for e in schema_obj.get('templates')[template_idx]['externalEpgs']]
+    external_epgs = [e.get('name') for e in schema_obj.get('templates')[template_idx]['externalEpgs']]
 
-    if externalepg is not None and externalepg in externalepgs:
-        externalepg_idx = externalepgs.index(externalepg)
-        mso.existing = schema_obj.get('templates')[template_idx]['externalEpgs'][externalepg_idx]
+    if external_epg is not None and external_epg in external_epgs:
+        external_epg_idx = external_epgs.index(external_epg)
+        mso.existing = schema_obj.get('templates')[template_idx]['externalEpgs'][external_epg_idx]
         if 'externalEpgRef' in mso.existing:
             del mso.existing['externalEpgRef']
         if 'vrfRef' in mso.existing:
@@ -234,14 +234,14 @@ def main():
             mso.existing['anpRef'] = mso.dict_from_ref(mso.existing.get('anpRef'))
 
     if state == 'query':
-        if externalepg is None:
+        if external_epg is None:
             mso.existing = schema_obj.get('templates')[template_idx]['externalEpgs']
         elif not mso.existing:
-            mso.fail_json(msg="External EPG '{externalepg}' not found".format(externalepg=externalepg))
+            mso.fail_json(msg="External EPG '{external_epg}' not found".format(external_epg=external_epg))
         mso.exit_json()
 
     eepgs_path = '/templates/{0}/externalEpgs'.format(template)
-    eepg_path = '/templates/{0}/externalEpgs/{1}'.format(template, externalepg)
+    eepg_path = '/templates/{0}/externalEpgs/{1}'.format(template, external_epg)
     ops = []
 
     mso.previous = mso.existing
@@ -255,10 +255,10 @@ def main():
         l3out_ref = mso.make_reference(l3out, 'l3out', schema_id, template)
         anp_ref = mso.make_reference(anp, 'anp', schema_id, template)
         if display_name is None and not mso.existing:
-            display_name = externalepg
+            display_name = external_epg
 
         payload = dict(
-            name=externalepg,
+            name=external_epg,
             displayName=display_name,
             vrfRef=vrf_ref,
             l3outRef=l3out_ref,

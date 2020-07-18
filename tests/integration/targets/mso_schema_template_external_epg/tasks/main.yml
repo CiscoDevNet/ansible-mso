@@ -196,44 +196,44 @@
     state: present
 
 - name: Ensure ansible_test_1 external EPG does not exist
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     state: absent
 
 - name: Ensure ansible_test_2 external EPG does not exist
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
-    externalepg: ansible_test_2
+    external_epg: ansible_test_2
     state: absent
 
 - name: Ensure ansible_test_3 external EPG does not exist
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
-    externalepg: ansible_test_3
+    external_epg: ansible_test_3
     state: absent
 
 - name: Ensure ansible_test_4 external EPG does not exist
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_4
+    external_epg: ansible_test_4
     state: absent
 
 # ADD external EPG
 - name: Add external EPG (check_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     vrf:
       name: VRF
     state: present
@@ -250,11 +250,11 @@
     - cm_add_epg.current.vrfRef.vrfName == "VRF"
 
 - name: Add external EPG (normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     vrf:
       name: VRF
     state: present
@@ -271,11 +271,11 @@
     - cm_add_epg.current.vrfRef.schemaId ==  nm_add_epg.current.vrfRef.schemaId
 
 - name: Add external EPG again (check_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -298,11 +298,11 @@
 
 
 - name: Add epg again (normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -323,11 +323,11 @@
     - nm_add_epg_again.previous.vrfRef.schemaId ==  nm_add_epg_again.current.vrfRef.schemaId
 
 - name: Add external EPG 2 (normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
-    externalepg: ansible_test_2
+    external_epg: ansible_test_2
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -340,11 +340,11 @@
   register: nm_add_epg_2
 
 - name: Add external EPG 3 (normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
-    externalepg: ansible_test_3
+    external_epg: ansible_test_3
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -357,11 +357,11 @@
   register: nm_add_epg_3
 
 - name: Add external EPG 4 (normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_4
+    external_epg: ansible_test_4
     vrf:
       name: VRF
     state: present
@@ -379,11 +379,11 @@
     - nm_add_epg_2.current.vrfRef.schemaId ==  nm_add_epg_3.current.vrfRef.schemaId == nm_add_epg.current.vrfRef.schemaId
 
 - name: Add external EPG 5 (normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
-    externalepg: ansible_test_5
+    external_epg: ansible_test_5
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -402,11 +402,11 @@
     - nm_add_epg_5.current.name == "ansible_test_5"
 
 - name: Add external EPG 5 again with L3Out (normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
-    externalepg: ansible_test_5
+    external_epg: ansible_test_5
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -430,11 +430,11 @@
 
 # CHANGE external EPG
 - name: Change epg (check_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     vrf:
       name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -453,11 +453,11 @@
     - cm_change_epg.current.vrfRef.schemaId == cm_change_epg.previous.vrfRef.schemaId
 
 - name: Change epg (normal_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     vrf:
       name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -475,11 +475,11 @@
     - nm_change_epg.current.vrfRef.schemaId == nm_change_epg.previous.vrfRef.schemaId
 
 - name: Change epg again (check_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     vrf:
       name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -498,11 +498,11 @@
     - cm_change_epg_again.current.vrfRef.schemaId == cm_change_epg_again.previous.vrfRef.schemaId
 
 - name: Change epg again (normal_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     vrf:
       name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -520,11 +520,11 @@
     - nm_change_epg_again.current.vrfRef.schemaId == nm_change_epg_again.previous.vrfRef.schemaId
 
 - name: Change epg to VRF4 (normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     vrf:
       name: VRF4
       schema: '{{ mso_schema | default("ansible_test") }}_2'
@@ -533,11 +533,11 @@
   register: nm_change_epg_vrf4
 
 - name: Change epg to VRF2 (normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     vrf:
       name: VRF2
     state: present
@@ -556,11 +556,11 @@
     - nm_change_epg_vrf4.current.vrfRef.schemaId != nm_change_epg_vrf2.current.vrfRef.schemaId
 
 - name: Change epg 1 l3out(normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     vrf:
       name: VRF
     l3out:
@@ -571,11 +571,11 @@
   register: nm_change_epg_1_l3out
 
 - name: Change epg 1 settings(normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     vrf:
       name: VRF
     l3out:
@@ -605,11 +605,11 @@
     - nm_change_epg_1_l3out.current.l3outRef.templateName == 'Template 3'
 
 - name: Change epg 4 preferredGroup(normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_4
+    external_epg: ansible_test_4
     vrf:
       name: VRF
     preferred_group: true
@@ -617,11 +617,11 @@
   register: nm_change_epg_4_preferred_group
 
 - name: Change epg 4 preferredGroup again(normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_4
+    external_epg: ansible_test_4
     vrf:
       name: VRF
     preferred_group: false
@@ -638,7 +638,7 @@
 
 # QUERY ALL EPG 
 - name: Query all EPG (check_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -647,7 +647,7 @@
   register: cm_query_all_epgs
 
 - name: Query all EPG (normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -663,21 +663,21 @@
 
 # QUERY AN EPG
 - name: Query epg 1(check_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     state: query
   check_mode: yes
   register: cm_query_epg_1
 
 - name: Query epg 1(normal_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     state: query
   register: nm_query_epg_1
 
@@ -695,11 +695,11 @@
     - nm_query_epg_1.current.l3outRef.schemaId == nm_query_epg_1.current.vrfRef.schemaId
 
 - name: Query epg 5(normal_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
-    externalepg: ansible_test_5
+    external_epg: ansible_test_5
     state: query
   register: nm_query_epg_5
 
@@ -711,11 +711,11 @@
 
 # REMOVE EPG
 - name: Remove EPG 4 (check_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_4
+    external_epg: ansible_test_4
     state: absent
   check_mode: yes
   register: cm_remove_epg_4
@@ -727,11 +727,11 @@
     - cm_remove_epg_4.current == {}
 
 - name: Remove EPG 4 (normal_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_4
+    external_epg: ansible_test_4
     state: absent
   register: nm_remove_epg_4
 
@@ -742,11 +742,11 @@
     - nm_remove_epg_4.current == {}
 
 - name: Remove EPG 4 again (normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_4
+    external_epg: ansible_test_4
     state: absent
   register: nm_remove_epg_4_again
 
@@ -758,22 +758,22 @@
 
 # QUERY NON-EXISTING EPG
 - name: Query non-existing EPG (check_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: non-existing-epg
+    external_epg: non-existing-epg
     state: query
   ignore_errors: yes
   check_mode: yes
   register: cm_query_non_existing_epg
 
 - name: Query non-existing EPG (normal_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: non-existing-epg
+    external_epg: non-existing-epg
     state: query
   ignore_errors: yes
   register: nm_query_non_existing_epg
@@ -788,7 +788,7 @@
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for epg (check_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: non-existing-schema
     template: Template 1
@@ -798,7 +798,7 @@
   register: cm_non_existing_schema
 
 - name: Non-existing schema for epg (normal_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: non-existing-schema
     template: Template 1
@@ -816,7 +816,7 @@
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template for epg (check_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
@@ -826,7 +826,7 @@
   register: cm_non_existing_template
 
 - name: Non-existing template for epg (normal_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
@@ -861,11 +861,11 @@
   - { name: Contract2, template: Template 2, type: provider }
 
 - name: Query contract EPG 1(normal mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     state: query
   register: nm_query_epg1_contract
 
@@ -875,11 +875,11 @@
     - nm_query_epg1_contract.current.contractRelationships | length == 4
 
 - name: Add EPG 1 again (normal_mode)
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     vrf:
       name: VRF
     l3out:
@@ -895,11 +895,11 @@
     - nm_add_epg_1_again is not changed
 
 - name: Query contract EPG 1 again
-  mso_schema_template_externalepg:
+  mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    externalepg: ansible_test_1
+    external_epg: ansible_test_1
     state: query
   register: nm_query_epg1_contract_again
 

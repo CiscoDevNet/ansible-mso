@@ -69,10 +69,6 @@ options:
     description:
     - A list of URLs to reference the APICs.
     type: list
-  maintenance_mode:
-    description:
-    - If C(yes), the site will be placed in maintenance mode.
-    type: bool
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -159,7 +155,6 @@ def main():
         labels=dict(type='list'),
         location=dict(type='dict', options=location_arg_spec),
         site=dict(type='str', aliases=['name']),
-        maintenance_mode=dict(type='bool'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
         urls=dict(type='list'),
     )
@@ -183,7 +178,6 @@ def main():
         longitude = module.params.get('location')['longitude']
     state = module.params.get('state')
     urls = module.params.get('urls')
-    maintenance_mode = module.params.get('maintenance_mode')
     apic_login_domain = module.params.get('apic_login_domain')
 
     mso = MSOModule(module)
@@ -233,9 +227,6 @@ def main():
                 lat=latitude,
                 long=longitude,
             )
-
-        if maintenance_mode:
-            payload['maintenanceMode'] = True
 
         if apic_login_domain is not None and apic_login_domain not in ['', 'local', 'Local']:
             payload['username'] = 'apic#{0}\\{1}'.format(apic_login_domain, apic_username)

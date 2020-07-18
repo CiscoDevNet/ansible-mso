@@ -235,10 +235,7 @@ def main():
         site_template = '{0}-{1}'.format(site_id, template)
 
         # If vrf not at site level but exists at template level
-        all_vrfs = schema_obj.get('sites')[site_idx]['vrfs']
-        vrfs = []
-        if all_vrfs is not None:
-            vrfs = [v.get('vrfRef') for v in all_vrfs]
+        vrfs = [v.get('vrfRef') for v in schema_obj.get('sites')[site_idx]['vrfs']]
         if vrf_ref not in vrfs:
             op_path = '/sites/{0}/vrfs/-'.format(site_template)
             payload.update(
@@ -281,7 +278,7 @@ def main():
     if state == 'query':
         if (site_id, template) not in sites:
             mso.fail_json(msg="Provided site-template association '{0}-{1}' does not exist.".format(site, template))
-        if vrf_ref not in vrfs:
+        elif vrf_ref not in vrfs:
             mso.fail_json(msg="Provided vrf '{0}' does not exist at site level.".format(vrf))
         elif not regions or region not in regions:
             mso.fail_json(msg="Provided region '{0}' does not exist. Existing regions: {1}".format(region, ', '.join(regions)))

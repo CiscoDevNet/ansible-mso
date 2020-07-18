@@ -1,0 +1,666 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+# Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact: 
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+    sites: "['aws_{{ mso_site | default(\"ansible_test\") }}', 
+              'azure_{{ mso_site | default(\"ansible_test\") }}',
+              '{{ mso_site | default(\"ansible_test\") }}']"
+
+- name: Ensure site exists
+  mso_site:
+    <<: *mso_info
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ aws_apic_username }}'
+    apic_password: '{{ aws_apic_password }}'
+    apic_site_id: '{{ aws_site_id | default(102) }}'
+    urls:
+    - https://{{ aws_apic_hostname }}
+    state: present
+
+- name: Ensure site exists
+  mso_site:
+    <<: *mso_info
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ azure_apic_username }}'
+    apic_password: '{{ azure_apic_password }}'
+    apic_site_id: '{{ azure_site_id | default(103) }}'
+    urls:
+    - https://{{ azure_apic_hostname }}
+    state: present
+
+- name: Remove Schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    # sites:
+    # - '{{ mso_site | default("ansible_test") }}'
+    users:
+    - '{{ mso_username }}'
+    state: present
+
+- name: Ensure AWS site is present under tenant ansible_test
+  mso_tenant_site: 
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    cloud_account: '000000000000'
+    aws_access_key: 1
+    secret_key: 0
+    state: present
+
+- name: Ensure Azure site is present under tenant ansible_test
+  mso_tenant_site: 
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
+    state: present
+
+- name: Ensure schema 1 with Template 1 exists
+  mso_schema_template: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+
+- name: Ensure schema 1 with Template 2 exists
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 2
+    state: present
+
+- name: Ensure VRF1 exists
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    state: present
+
+- name: Add a new CIDR in VRF1 at AWS site level (check mode)
+  mso_schema_site_vrf_region_cidr: &mso_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    cidr: 10.0.0.0/16
+    primary: true
+    state: present
+  check_mode: yes
+  register: cm_add_cidr
+
+- name: Verify cm_add_cidr
+  assert:
+    that:
+    - cm_add_cidr is changed
+    - cm_add_cidr.previous == {}
+    - cm_add_cidr.current.ip == '10.0.0.0/16'
+    - cm_add_cidr.current.primary == true
+
+- name: Add a new CIDR in VRF1 at AWS site level (normal mode)
+  mso_schema_site_vrf_region_cidr:
+    <<: *mso_present
+  register: nm_add_cidr
+
+- name: Verify nm_add_cidr
+  assert:
+    that:
+    - nm_add_cidr is changed
+    - nm_add_cidr.previous == {}
+    - nm_add_cidr.current.ip == '10.0.0.0/16'
+    - nm_add_cidr.current.primary == true
+
+# ADD Hub Network
+- name: Add hub network in VRF1 region us-west-1 at AWS site level (check mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    hub_network:
+      name: hub-test
+      tenant: infra
+    state: present
+  check_mode: yes
+  register: cm_add_hub_network
+
+- name: Add hub network in VRF1 region us-west-1 at AWS site level (normal mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    hub_network:
+        name: hub-test
+        tenant: infra
+    state: present
+  register: nm_add_hub_network
+
+- name: Verify cm_add_hub_network and nm_add_hub_network
+  assert:
+    that:
+    - cm_add_hub_network is changed
+    - nm_add_hub_network is changed
+    - cm_add_hub_network.previous == {}
+    - nm_add_hub_network.previous == {}
+    - cm_add_hub_network.current.name == "hub-test"
+    - cm_add_hub_network.current.tenantName == "infra"
+    - nm_add_hub_network.current.name == "hub-test"
+    - nm_add_hub_network.current.tenantName == "infra"
+
+# Add hub network again
+- name: Add hub network again in VRF1 region us-west-1 at AWS site level (normal mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    hub_network:
+        name: hub-test
+        tenant: infra
+    state: present
+  register: nm_add_hub_network_again
+
+- name: Verify nm_add_hub_network_again
+  assert:
+    that:
+    - nm_add_hub_network_again is not changed
+    - nm_add_hub_network_again.previous.name == nm_add_hub_network_again.current.name == "hub-test"
+    - nm_add_hub_network_again.previous.tenantName == nm_add_hub_network_again.current.tenantName == "infra"
+
+# Update hub network
+- name: Update hub network in VRF1 region us-west-1 at AWS site level (check_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    hub_network:
+        name: hub-default
+        tenant: infra
+    state: present
+  check_mode: yes
+  register: cm_update_hub_network
+
+- name: Update hub network in VRF1 region us-west-1 at AWS site level (normal_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    hub_network:
+        name: hub-default
+        tenant: infra
+    state: present
+  register: nm_update_hub_network
+
+- name: Verify cm_update_hub_network and nm_update_hub_network
+  assert:
+    that:
+    - cm_update_hub_network is changed
+    - nm_update_hub_network is changed
+    - cm_update_hub_network.previous.name == "hub-test"
+    - cm_update_hub_network.previous.tenantName == "infra"
+    - cm_update_hub_network.current.name == "hub-default"
+    - cm_update_hub_network.current.tenantName == "infra"
+    - nm_update_hub_network.previous.name == "hub-test"
+    - nm_update_hub_network.previous.tenantName == "infra"
+    - nm_update_hub_network.current.name == "hub-default"
+    - nm_update_hub_network.current.tenantName == "infra"
+
+# Query Hub Network
+- name: Query hub network in VRF1 region us-west-1 at AWS site level
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  check_mode: yes
+  register: cm_query_hub_network
+
+- name: Verify cm_query_hub_network
+  assert:
+    that:
+    - cm_query_hub_network is not changed
+    - cm_query_hub_network.current.name == "hub-default"
+    - cm_query_hub_network.current.tenantName == "infra"
+
+# Remove Hub Network
+- name: Remove hub network in VRF1 region us-west-1 at AWS site level (check_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: absent
+  check_mode: yes
+  register: cm_remove_hub_network
+
+- name: Remove hub network in VRF1 region us-west-1 at AWS site level (normal mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: absent
+  register: nm_remove_hub_network
+
+- name: Verify cm_remove_hub_network and nm_remove_hub_network
+  assert:
+    that:
+    - cm_remove_hub_network is changed
+    - cm_remove_hub_network.current == {}
+    - cm_remove_hub_network.previous.name == "hub-default"
+    - cm_remove_hub_network.previous.tenantName == "infra"
+    - nm_remove_hub_network is changed
+    - nm_remove_hub_network.current == {}
+    - nm_remove_hub_network.previous.name == "hub-default"
+    - nm_remove_hub_network.previous.tenantName == "infra"
+
+# Remove Hub Network again
+- name: Remove again hub network in VRF1 region us-west-1 at AWS site level (check_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: absent
+  check_mode: yes
+  register: cm_remove_hub_network_again
+
+- name: Remove again hub network in VRF1 region us-west-1 at AWS site level (normal_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: absent
+  register: nm_remove_hub_network_again
+
+- name: Verify cm_remove_hub_network_again and nm_remove_hub_network_again
+  assert:
+    that:
+    - cm_remove_hub_network_again is not changed
+    - nm_remove_hub_network_again is not changed
+    - cm_remove_hub_network_again.previous == cm_remove_hub_network_again.current == {}
+    - nm_remove_hub_network_again.previous == nm_remove_hub_network_again.current == {}
+
+# query when hub network does not exist
+- name: Query non_existing_hub_network
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  ignore_errors: yes
+  register: query_non_existing_hub_network
+
+- name: Verify query_non_existing_hub_network
+  assert:
+    that:
+    - query_non_existing_hub_network.msg == "Hub network not found"
+
+# Re-Add hub network
+- name: Re-Add hub network in VRF1 region us-west-1 at AWS site level (normal mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    hub_network:
+        name: hub-test
+        tenant: infra
+    state: present
+  register: re_add_hub_network
+
+- name: Verify re_add_hub_network
+  assert:
+    that:
+    - re_add_hub_network is changed
+    - re_add_hub_network.previous == {}
+    - re_add_hub_network.current.name == "hub-test"
+    - re_add_hub_network.current.tenantName == "infra"
+
+# QUERY NON-EXISTING region
+- name: Query non-existing region (check_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: non_existing_region
+    state: query
+  ignore_errors: yes
+  check_mode: yes
+  register: cm_query_non_region
+
+- name: Query non-existing region (normal mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: non_existing_region
+    state: query
+  ignore_errors: yes
+  register: nm_query_non_region
+
+- name: Verify query_non_region
+  assert:
+    that:
+    - cm_query_non_region is not changed
+    - nm_query_non_region is not changed
+    - cm_query_non_region == nm_query_non_region
+    - cm_query_non_region.msg == nm_query_non_region.msg == "Provided region 'non_existing_region' does not exist. Existing regions{{':'}} us-west-1"
+
+# QUERY NON-EXISTING VRF
+- name: Query non-existing VRF (check_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: non_existing_vrf
+    region: us-west-1
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_vrf
+
+- name: Query non-existing VRF (normal mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: non_existing_vrf
+    region: us-west-1
+    state: query
+  ignore_errors: yes
+  register: nm_query_non_vrf
+
+- name: Verify query_non_vrf
+  assert:
+    that:
+    - cm_query_non_vrf is not changed
+    - nm_query_non_vrf is not changed
+    - cm_query_non_vrf == nm_query_non_vrf
+    - cm_query_non_vrf.msg == nm_query_non_vrf.msg == "Provided vrf 'non_existing_vrf' does not exist. Existing vrfs{{':'}} VRF1"
+
+# USE A NON-EXISTING STATE
+- name: Non-existing state for site hub network (check_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: non-existing-state
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_state
+
+- name: Non-existing state for hub network (normal_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: non-existing-state
+  ignore_errors: yes
+  register: nm_non_existing_state
+
+- name: Verify non_existing_state
+  assert:
+    that:
+    - cm_non_existing_state is not changed
+    - nm_non_existing_state is not changed
+    - cm_non_existing_state == nm_non_existing_state
+    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+
+# USE A NON-EXISTING SCHEMA
+- name: Non-existing schema for site hub network (check_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: non-existing-schema
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_schema
+
+- name: Non-existing schema for site hub network (normal_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: non-existing-schema
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  ignore_errors: yes
+  register: nm_non_existing_schema
+
+- name: Verify non_existing_schema
+  assert:
+    that:
+    - cm_non_existing_schema is not changed
+    - nm_non_existing_schema is not changed
+    - cm_non_existing_schema == nm_non_existing_schema
+    - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist"
+
+# USE A NON-EXISTING TEMPLATE
+- name: Non-existing template for site hub network (check_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: non-existing-template
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_template
+
+- name: Non-existing template for site hub network (normal_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: non-existing-template
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  ignore_errors: yes
+  register: nm_non_existing_template
+
+- name: Verify non_existing_template
+  assert:
+    that:
+    - cm_non_existing_template is not changed
+    - nm_non_existing_template is not changed
+    - cm_non_existing_template == nm_non_existing_template
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template 1, Template 2"
+
+# USE A NON_EXISTING_SITE_TEMPLATE
+- name: non_existing_site_template (check_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_site_template
+
+- name: non_existing_site_template (normal_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  ignore_errors: yes
+  register: nm_non_existing_site_template
+
+- name: Verify cm_non_existing_site_template and nm_non_existing_site_template
+  assert:
+    that:
+    - cm_non_existing_site_template is not changed
+    - nm_non_existing_site_template is not changed
+    - cm_non_existing_site_template.msg == nm_non_existing_site_template.msg == "Provided site-template association 'aws_ansible_test-Template 2' does not exist."
+
+# USE A NON_EXISTING_SITE
+- name: non_existing_site (check_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: non_existing_site
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_site
+
+- name: non_existing_site (normal_mode)
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: non_existing_site
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  ignore_errors: yes
+  register: nm_non_existing_site
+
+- name: Verify cm_non_existing_site and nm_non_existing_site
+  assert:
+    that:
+    - cm_non_existing_site is not changed
+    - nm_non_existing_site is not changed
+    - cm_non_existing_site.msg == nm_non_existing_site.msg == "Site 'non_existing_site' is not a valid site name."
+
+# use mso_schema_site_vrf_region_cidr_subnet module to update region
+- name: Add a new CIDR in VRF1 at AWS site level (check mode)
+  mso_schema_site_vrf_region_cidr: &cidr_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    cidr: 10.1.0.0/16
+    primary: false
+    state: present
+  check_mode: yes
+  register: cm_add_cidr
+
+- name: Verify cm_add_cidr
+  assert:
+    that:
+    - cm_add_cidr is changed
+    - cm_add_cidr.previous == {}
+    - cm_add_cidr.current.ip == '10.1.0.0/16'
+    - cm_add_cidr.current.primary == false
+
+- name: Add a new CIDR in VRF1 at AWS site level (normal mode)
+  mso_schema_site_vrf_region_cidr:
+    <<: *cidr_present
+  register: nm_add_cidr
+
+- name: Verify nm_add_cidr
+  assert:
+    that:
+    - nm_add_cidr is changed
+    - nm_add_cidr.previous == {}
+    - nm_add_cidr.current.ip == '10.1.0.0/16'
+    - nm_add_cidr.current.primary == false
+
+# query hub network after using mso_schema_site_vrf_region_cidr_subnet module to update region
+- name: Query hub_network after region updated
+  mso_schema_site_vrf_region_hub_network:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  register: query_after_region_update
+
+- name: Verify query_after_region_update
+  assert:
+    that:
+    - query_after_region_update is not changed
+    - query_after_region_update.current.name == "hub-test"
+    - query_after_region_update.current.tenantName == "infra"

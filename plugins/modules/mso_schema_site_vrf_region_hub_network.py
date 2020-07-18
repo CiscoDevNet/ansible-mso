@@ -17,6 +17,7 @@ module: mso_schema_site_vrf_region_hub_network
 short_description: Manage site-local VRF region hub network in schema template
 description:
 - Manage site-local VRF region hub network in schema template on Cisco ACI Multi-Site.
+- The 'Hub Network' feature was introduced in Multi-Site Orchestrator (MSO) version 3.0(1) for AWS and version 3.0(2) for Azure.
 author:
 - Cindy Zhao (@cizhao)
 options:

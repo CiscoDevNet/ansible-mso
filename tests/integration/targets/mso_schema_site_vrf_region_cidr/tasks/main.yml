@@ -26,6 +26,12 @@
               'azure_{{ mso_site | default(\"ansible_test\") }}',
               '{{ mso_site | default(\"ansible_test\") }}']"
 
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
 - name: Ensure site exists
   mso_site:
     <<: *mso_info
@@ -112,14 +118,13 @@
     template: Template 2
     state: present
 
-- name: Add a new sites to a Template 1
+- name: Add physical site to Template 1
   mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ item }}'
+    site: '{{ mso_site | default("ansible_test") }}'
     template: Template 1
     state: present
-  loop: '{{ sites }}'
 
 - name: Ensure VRF1 exists
   mso_schema_template_vrf: 
@@ -136,6 +141,7 @@
     template: Template 1
     vrf: VRF2
     state: present
+  when: version.current.version[0] | int < 3
 
 - name: Ensure VRF1 exists at Site level for the physical site
   mso_schema_site_vrf:
@@ -447,6 +453,7 @@
     that:
     - nm_query_cidr_all_aws_2.msg == "Provided vrf 'VRF2' does not exist at site level."
     - nm_query_cidr_all_aws_3.msg == "Provided region 'us-west-1' does not exist. Existing regions{{':'}} "
+  when: version.current.version[0] | int < 3
 
 # REMOVE CIDR
 - name: Remove CIDR (check_mode)
@@ -569,7 +576,12 @@
     - cm_query_non_vrf is not changed
     - nm_query_non_vrf is not changed
     - cm_query_non_vrf == nm_query_non_vrf
+
+- name: Verify query_non_vrf (version < 3.0)
+  assert:
+    that:
     - cm_query_non_vrf.msg == nm_query_non_vrf.msg == "Provided vrf 'non_existing_vrf' does not exist. Existing vrfs{{':'}} VRF1, VRF2"
+  when: version.current.version[0] | int < 3
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for site cidr (check_mode)
@@ -665,5 +677,5 @@
     - cm_non_associated_template is not changed
     - nm_non_associated_template is not changed
     - cm_non_associated_template == nm_non_associated_template
-    - cm_non_associated_template.msg is match("Provided site/siteId/template 'aws_ansible_test/[0-9a-zA-Z]*/Template 2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template 1")
-    - nm_non_associated_template.msg is match("Provided site/siteId/template 'aws_ansible_test/[0-9a-zA-Z]*/Template 2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template 1")
+    - cm_non_associated_template.msg is match("Provided vrf 'VRF1' does not exist. Existing vrfs{{':'}} ")
+    - nm_non_associated_template.msg is match("Provided vrf 'VRF1' does not exist. Existing vrfs{{':'}} ")

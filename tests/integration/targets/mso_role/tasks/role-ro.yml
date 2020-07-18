@@ -1,0 +1,88 @@
+# Test code for the MSO modules
+# Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+
+# QUERY ALL ROLES
+- name: Query all roles (check_mode)
+  mso_role: &role_query
+    <<: *mso_info
+    state: query
+  check_mode: yes
+  register: cm_query_all_roles
+
+- name: Query all roles (normal mode)
+  mso_role: *role_query
+  register: nm_query_all_roles
+
+- name: Verify query_all_roles
+  assert:
+    that:
+    - cm_query_all_roles is not changed
+    - nm_query_all_roles is not changed
+    # NOTE: Order of roles is not stable between calls
+    #- cm_query_all_roles == nm_query_all_roles
+
+
+# QUERY A ROLE
+- name: Query our role
+  mso_role:
+    <<: *role_query
+    role: powerUser
+  check_mode: yes
+  register: cm_query_role
+
+- name: Query our role
+  mso_role:
+    <<: *role_query
+    role: powerUser
+  register: nm_query_role
+
+- name: Verify query_role
+  assert:
+    that:
+    - cm_query_role is not changed
+    - cm_query_role.current.description == 'Elevates this user to \"admin\"'
+    - cm_query_role.current.displayName == 'Power User'
+    - nm_query_role is not changed
+    - nm_query_role.current.description == 'Elevates this user to \"admin\"'
+    - nm_query_role.current.displayName == 'Power User'
+    - cm_query_role == nm_query_role
+
+
+# QUERY NON-EXISTING ROLE
+- name: Query non-existing role (check_mode)
+  mso_role:
+    <<: *role_query
+    role: non-existing-role
+  check_mode: yes
+  register: cm_query_non_role
+
+- name: Query non-existing role (normal mode)
+  mso_role:
+    <<: *role_query
+    role: non-existing-role
+  register: nm_query_non_role
+
+# TODO: Implement more tests
+- name: Verify query_non_role
+  assert:
+    that:
+    - cm_query_non_role is not changed
+    - nm_query_non_role is not changed
+    - cm_query_non_role == nm_query_non_role

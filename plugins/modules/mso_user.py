@@ -228,7 +228,6 @@ def main():
         payload = dict(
             id=user_id,
             username=user_name,
-            password=user_password,
             firstName=first_name,
             lastName=last_name,
             emailAddress=email,
@@ -239,6 +238,9 @@ def main():
             # active=True,
             # remote=True,
         )
+
+        if user_password is not None:
+            payload.update(password=user_password)
 
         mso.sanitize(payload, collate=True)
 
@@ -256,7 +258,10 @@ def main():
                     mso.existing = mso.proposed
                 else:
                     mso.existing = mso.request(path, method='PUT', data=mso.sent)
+
         else:
+            if user_password is None:
+                mso.fail_json("The user {0} does not exist. The 'user_password' attribute is required to create a new user.".format(user_name))
             if module.check_mode:
                 mso.existing = mso.proposed
             else:

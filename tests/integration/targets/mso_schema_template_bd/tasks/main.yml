@@ -12,15 +12,31 @@
 
 
 # CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Set version vars
+  set_fact:
+    mso_l3mcast: false
+  when: version.current.version[:5] == '2.2.4'
+
 - name: Ensure site exist
   mso_site: &site_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
     apic_password: '{{ apic_password }}'
@@ -31,13 +47,7 @@
 
 - name: Remove schemas
   mso_schema:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ item }}'
     state: absent
   loop:
@@ -46,13 +56,7 @@
 
 - name: Ensure tenant ansible_test exist
   mso_tenant: &tenant_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     tenant: ansible_test
     users:
     - '{{ mso_username }}'
@@ -62,13 +66,7 @@
 
 - name: Ensure schema 1 with Template 1 exist
   mso_schema_template: &schema_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
     template: Template 1
@@ -92,13 +90,7 @@
 
 - name: Ensure VRF exist
   mso_schema_template_vrf: &vrf_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     vrf: VRF
@@ -174,13 +166,7 @@
 # ADD BD
 - name: Add bd (check_mode)
   mso_schema_template_bd: &bd_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     bd: ansible_test_1
@@ -457,7 +443,7 @@
     optimize_wan_bandwidth: true
     layer2_stretch: true
     layer2_unknown_unicast: flood
-    layer3_multicast: true
+    layer3_multicast: '{{ mso_l3mcast | default(true) }}'
     subnets:
     - subnet: 10.1.0.128/24
     - subnet: 10.1.1.254/24
@@ -489,7 +475,7 @@
     optimize_wan_bandwidth: true
     layer2_stretch: true
     layer2_unknown_unicast: flood
-    layer3_multicast: true
+    layer3_multicast: '{{ mso_l3mcast | default(true) }}'
     subnets:
     - subnet: 10.1.0.127/24
     - subnet: 172.17.0.1/24
@@ -521,7 +507,6 @@
     - nm_change_bd_1_settings.current.optimizeWanBandwidth == true
     - nm_change_bd_1_settings.current.l2Stretch == true
     - nm_change_bd_1_settings.current.l2UnknownUnicast == "flood"
-    - nm_change_bd_1_settings.current.l3MCast == true
     - nm_change_bd_1_settings.current.subnets[0].description == "10.1.0.128/24"
     - nm_change_bd_1_settings.current.subnets[0].ip == "10.1.0.128/24"
     - nm_change_bd_1_settings.current.subnets[0].noDefaultGateway == false
@@ -555,7 +540,6 @@
     - nm_change_bd_1_subnets.current.optimizeWanBandwidth == true
     - nm_change_bd_1_subnets.current.l2Stretch == true
     - nm_change_bd_1_subnets.current.l2UnknownUnicast == "flood"
-    - nm_change_bd_1_subnets.current.l3MCast == true
     - nm_change_bd_1_subnets.current.subnets[0].description == "10.1.0.127/24"
     - nm_change_bd_1_subnets.current.subnets[0].ip == "10.1.0.127/24"
     - nm_change_bd_1_subnets.current.subnets[0].noDefaultGateway == false
@@ -575,18 +559,26 @@
     - nm_change_bd_1_subnets.current.subnets[2].shared == false
     - nm_change_bd_1_subnets.current.subnets[2].querier == true
 
+- name: Verify l3MCast nm_change_bd_1_subnets (version == 2.2.4)
+  assert:
+    that:
+    - nm_change_bd_1_settings.current.l3MCast == false
+    - nm_change_bd_1_subnets.current.l3MCast == false
+  when: version.current.version[:5] == '2.2.4'
+
+- name: Verify l3MCast nm_change_bd_1_subnets (version != 2.2.4)
+  assert:
+    that:
+    - nm_change_bd_1_settings.current.l3MCast == true
+    - nm_change_bd_1_subnets.current.l3MCast == true
+  when: version.current.version[:5] != '2.2.4'
+
 # FIXME: Add missing DHCP Policy changes and checks (missing DHCP Policy module to make sure it is there.)
 
 # QUERY ALL BD
 - name: Query all bd (check_mode)
   mso_schema_template_bd: &bd_query
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     state: query
@@ -674,13 +666,7 @@
 # REMOVE BD
 - name: Remove bd (check_mode)
   mso_schema_template_bd: &bd_absent
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     bd: ansible_test_1

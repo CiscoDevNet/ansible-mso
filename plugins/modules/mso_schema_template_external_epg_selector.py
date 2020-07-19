@@ -71,7 +71,7 @@ options:
     choices: [ absent, present, query ]
     default: present
 seealso:
-- module: mso_schema_template_externalepg
+- module: mso_schema_template_external_epg
 extends_documentation_fragment: cisco.mso.modules
 '''
 

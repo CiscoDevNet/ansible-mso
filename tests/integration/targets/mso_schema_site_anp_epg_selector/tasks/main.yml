@@ -102,6 +102,14 @@
   - { template: Template 2}
   - { template: Template 3}
 
+- name: Ensure schema 2 with Template 3 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    state: present
+
 - name: Add aws site to a schema
   mso_schema_site:
     <<: *mso_info
@@ -144,6 +152,21 @@
   loop:
   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1' }
   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 2' }
+
+- name: Add a new CIDR in VRF1 at site level
+  mso_schema_site_vrf_region_cidr: &mso_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: '{{ item }}'
+    vrf: VRF1
+    region: us-west-1
+    cidr: 10.0.0.0/16
+    primary: true
+    state: present
+  loop:
+  - 'aws_{{ mso_site | default("ansible_test") }}'
+  - 'azure_{{ mso_site | default("ansible_test") }}'
 
 # ADD EPGs
 - name: Ensure EPGs exist
@@ -1022,22 +1045,45 @@
     - nm_add_azure_site_selector_1 is not changed
     - nm_add_azure_site_selector_1.msg == "Type 'zone' is only supported for aws"
 
-- name: Remove schemas
-  mso_schema:
+# USE A TEMPLATE WITHOUT ANY SITE
+- name: Add site EPG selector to Schema 2 Template 3 without any site associated (check mode)
+  mso_schema_site_anp_epg_selector:
     <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    template: Template 3
+    anp: ANP
+    epg: ansible_test_1
+    selector: site_selector_1
+    expressions:
+      - type: zone
+        operator: in
+        value: test
+    state: present
+  ignore_errors: yes
+  check_mode: yes
+  register: cm_no_site_associated
 
-- name: Dissociate clouds that are associated with ansible_tenant
-  mso_tenant_site:
+- name: Add site EPG selector to Template 3 without any site associated (normal mode)
+  mso_schema_site_anp_epg_selector:
     <<: *mso_info
-    tenant: ansible_test
-    site: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_site | default("ansible_test") }}'
-  - 'aws_{{ mso_site | default("ansible_test") }}'
-  - 'azure_{{ mso_site | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    template: Template 3
+    anp: ANP
+    epg: ansible_test_1
+    selector: site_selector_1
+    expressions:
+      - type: zone
+        operator: in
+        value: test
+    state: present
+  ignore_errors: yes
+  register: nm_no_site_associated
+
+- name: Verify cm_no_site_associated and nm_no_site_associated
+  assert:
+    that:
+    - cm_no_site_associated is not changed
+    - nm_no_site_associated is not changed
+    - cm_no_site_associated.msg == nm_no_site_associated.msg == "No site associated with template 'Template 3'. Associate the site with the template using mso_schema_site."

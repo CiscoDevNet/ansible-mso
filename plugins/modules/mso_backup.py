@@ -14,7 +14,7 @@ ANSIBLE_METADATA = {'metadata_version': '1.1',
 DOCUMENTATION = r'''
 ---
 module: mso_backup
-short_description: Manage backups
+short_description: Manages backups
 description:
 - Manage backups on Cisco ACI Multi-Site.
 author:
@@ -36,7 +36,7 @@ options:
     - The remote location's name for the backup to be stored
     type: str
   backup_remote_path:
-    description:
+   description:
     - The sub directory for the backup to be stored
    type: str
   description:

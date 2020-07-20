@@ -442,7 +442,7 @@ class MSOModule(object):
         ''' Look up a remote location and return its path and id '''
         if remote_location_name is None:
             return None
-    
+
         remote_info = []
         remotes = self.query_objs('platform/remote-locations', key='remoteLocations', name=remote_location_name)
         for remote in remotes:
@@ -451,7 +451,7 @@ class MSOModule(object):
                 remote_path = remote.get('credential')['remotePath']
                 remote_info.append(remote_path)
             else:
-                self.module.fail_json(msg="Remote location lookup failed for remote '%s'" % (remote_location_name))  
+                self.module.fail_json(msg="Remote location lookup failed for remote '%s'" % (remote_location_name))
         return remote_info
 
     def lookup_users(self, users):

@@ -279,6 +279,8 @@ def main():
     site_id = mso.lookup_site(site)
 
     # Get site_idx
+    if 'sites' not in schema_obj:
+        mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
     sites_list = [s.get('siteId') + '/' + s.get('templateName') for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:

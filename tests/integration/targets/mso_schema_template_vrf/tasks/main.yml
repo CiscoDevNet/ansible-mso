@@ -144,6 +144,8 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
     vrf: VRF2
+    layer3_multicast: true
+    vzany: true
     state: present
   register: vrf2_nm
 
@@ -153,6 +155,8 @@
     - vrf2_nm is changed
     - vrf2_nm.current.name == 'VRF2'
     - vrf2_nm.current.displayName == 'VRF2'
+    - vrf2_nm.current.vzAnyEnabled == True
+    - vrf2_nm.current.l3MCast == True
 
 - name: Add VRF3 (normal mode)
   mso_schema_template_vrf:
@@ -177,6 +181,8 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
     vrf: VRF2
+    layer3_multicast: true
+    vzany: true
     state: present
   register: vrf2_nm_again
 
@@ -199,6 +205,67 @@
   assert:
     that:
     - vrf4_nm_stateless is changed
+
+# CHANGE VRF SETTINGS
+- name: Change VRF1 settings (check mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    layer3_multicast: true
+    vzany: true
+    state: present
+  check_mode: yes
+  register: vrf1_change_cm
+
+- name: Change VRF1 settings (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    layer3_multicast: true
+    vzany: true
+    state: present
+  register: vrf1_change_nm
+
+- name: Change VRF2 settings (check mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    vrf: VRF2
+    layer3_multicast: false
+    vzany: false
+    state: present
+  check_mode: yes
+  register: vrf2_change_cm
+
+- name: Change VRF2 settings (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    vrf: VRF2
+    layer3_multicast: false
+    vzany: false
+    state: present
+  register: vrf2_change_nm
+
+- name: Verify vrf2_nm
+  assert:
+    that:
+    - vrf1_change_cm is changed
+    - vrf1_change_nm is changed
+    - vrf2_change_cm is changed
+    - vrf2_change_nm is changed
+    - vrf1_change_cm.current.name == vrf1_change_nm.current.name == 'VRF1'
+    - vrf2_change_cm.current.name == vrf2_change_nm.current.name == 'VRF2'
+    - vrf1_change_cm.current.vzAnyEnabled == vrf1_change_nm.current.vzAnyEnabled == True
+    - vrf1_change_cm.current.vzAnyEnabled == vrf1_change_nm.current.l3MCast == True
+    - vrf2_change_cm.current.vzAnyEnabled == vrf2_change_nm.current.vzAnyEnabled == False
+    - vrf2_change_cm.current.vzAnyEnabled == vrf2_change_nm.current.l3MCast == False
 
 # QUERY A VRF
 - name: Query VRF2 (normal mode)

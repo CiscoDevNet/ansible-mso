@@ -373,6 +373,9 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
+            # Clean contractRef to fix api issue
+            for contract in mso.sent.get('contractRelationships'):
+                contract['contractRef'] = mso.dict_from_ref(contract.get('contractRef'))
             ops.append(dict(op='replace', path=epg_path, value=mso.sent))
         else:
             ops.append(dict(op='add', path=epgs_path + '/-', value=mso.sent))

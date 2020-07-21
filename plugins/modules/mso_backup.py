@@ -31,17 +31,18 @@ options:
     - The name given to the backup
     type: str
     aliases: [ name ]
-  remote_location_name:
+  remote_location:
     description:
     - The remote location's name for the backup to be stored
     type: str
-  backup_remote_path:
+  remote_path:
    description:
-    - The sub directory for the backup to be stored
+    - This path is relative to the remote location.
+    - There's no need to specify '/' for this path.
    type: str
   description:
     description:
-    - Brief information about the backup
+    - Brief information about the backup.
     type: str
   state:
     description:
@@ -54,7 +55,7 @@ extends_documentation_fragment: cisco.mso.modules
 '''
 
 EXAMPLES = r'''
-- name: Create a new backup in a local location
+- name: Create a new local backup
   cisco.mso.mso_backup:
     host: mso_host
     username: admin
@@ -65,7 +66,7 @@ EXAMPLES = r'''
     state: present
   delegate_to: localhost
 
-- name: Create a new backup in a remote location
+- name: Create a new remote backup
   cisco.mso.mso_backup:
     host: mso_host
     username: admin
@@ -73,7 +74,7 @@ EXAMPLES = r'''
     backup: Backup
     description: via Ansible
     location_type: remote
-    remote_location_name: ansible_test
+    remote_location: ansible_test
     state: present
   delegate_to: localhost
 
@@ -119,61 +120,56 @@ def main():
         location_type=dict(type='str', default='local', choices=['local', 'remote']),
         description=dict(type='str'),
         backup=dict(type='str', aliases=['name']),
-        remote_location_name=dict(type='str'),
-        backup_remote_path=dict(type='str'),
+        remote_location=dict(type='str'),
+        remote_path=dict(type='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
+        required_if=[
+            ['location_type', 'remote', ['remote_location']],
+            ['state', 'absent', ['backup']],
+            ['state', 'present', ['backup']]
+        ]
     )
 
     description = module.params.get('description')
     location_type = module.params.get('location_type')
     state = module.params.get('state')
     backup = module.params.get('backup')
-    remote_location_name = module.params.get('remote_location_name')
-    backup_remote_path = module.params.get('backup_remote_path')
+    remote_location = module.params.get('remote_location')
+    remote_path = module.params.get('remote_path')
 
     mso = MSOModule(module)
 
-    if remote_location_name:
-        remote_location_id = (mso.lookup_remote_location(remote_location_name))[0]
-        remote_path = (mso.lookup_remote_location(remote_location_name))[1]
-
-    if backup_remote_path:
-        remote_path += '/' + backup_remote_path
-
-    backup_id = None
-    path = 'backups'
+    backup_names = []
     mso.existing = mso.query_objs('backups/backupRecords', key='backupRecords')
     if backup:
         if mso.existing:
             data = mso.existing
             mso.existing = []
             for backup_info in data:
-                backup_id = backup_info.get('id')
-                if backup == backup_info.get('name').split('_')[0]:
-                    path = 'backups/backupRecords/{id}'.format(id=backup_id)
+                if backup == backup_info.get('name').split('_')[0] or backup == backup_info.get('name'):
                     mso.existing.append(backup_info)
-            if len(mso.existing) < 1:
-                mso.existing = mso.get_obj(path, name=backup)
+                    backup_names.append(backup_info.get('name'))
 
     if state == 'query':
         mso.exit_json()
 
     if state == 'absent':
         mso.previous = mso.existing
-        if mso.existing:
+        if len(mso.existing) > 1:
+            mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(', '.join(backup_names)))
+        elif len(mso.existing) == 1:
             if module.check_mode:
                 mso.existing = {}
             else:
-                mso.existing = mso.request(path, method='DELETE')
+                mso.existing = mso.request('backups/backupRecords/{id}'.format(id=mso.existing[0].get('id')), method='DELETE')
         mso.exit_json()
 
     path = 'backups'
-    mso.existing = mso.get_obj(path, name=backup)
 
     if state == 'present':
         mso.previous = mso.existing
@@ -183,15 +179,20 @@ def main():
             description=description,
             locationType=location_type
         )
-        if location_type == 'remote':
-            payload.update(remoteLocationId=remote_location_id, remotePath=remote_path)
 
-        mso.sanitize(payload, collate=True)
+        if location_type == 'remote':
+            remote_location_info = mso.lookup_remote_location(remote_location)
+            payload.update(remoteLocationId=remote_location_info.get('id'))
+            if remote_path:
+                remote_path = '{0}/{1}'.format(remote_location_info.get('path'), remote_path)
+                payload.update(remotePath=remote_path)
+
+        mso.proposed = payload
 
         if module.check_mode:
             mso.existing = mso.proposed
         else:
-            mso.existing = mso.request(path, method='POST', data=mso.sent)
+            mso.existing = mso.request(path, method='POST', data=payload)
 
     mso.exit_json()
 

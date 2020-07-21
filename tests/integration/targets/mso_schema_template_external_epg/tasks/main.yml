@@ -907,3 +907,39 @@
   assert:
     that:
     - nm_query_epg1_contract_again.current.contractRelationships | length == 4
+
+# Checking if modifying an external EPG with existing contracts throw an MSO error. (#82)
+- name: Change external EPG 1 VRF (normal_mode)
+  mso_schema_template_external_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: ansible_test_1
+    vrf:
+      name: VRF2
+    l3out:
+      name: L3out2
+    state: present
+  register: nm_change_ext_epg_1_vrf
+
+- name: Verify that external EPG 1 did change
+  assert:
+    that:
+    - nm_change_ext_epg_1_vrf is changed
+    - nm_change_ext_epg_1_vrf.current.vrfRef.templateName == "Template 1"
+    - nm_change_ext_epg_1_vrf.current.vrfRef.vrfName == "VRF2"
+    - nm_change_ext_epg_1_vrf.current.l3outRef.l3outName == "L3out2"
+
+- name: Query EPG 1
+  mso_schema_template_external_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: ansible_test_1
+    state: query
+  register: nm_query_contract_ext_epg_1
+
+- name: Verify that 4 contracts are in external EPG 1 using nm_query_contract_ext_epg_1
+  assert:
+    that:
+    - nm_query_contract_ext_epg_1.current.contractRelationships | length == 4

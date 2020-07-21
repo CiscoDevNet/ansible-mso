@@ -415,3 +415,37 @@
     that:
     - nm_query_vrf_contract_again is not changed
     - nm_query_vrf_contract_again.current | length == 2
+
+# Checking if modifying VRF with existing contracts throw an MSO error. (#82)
+- name: Change VRF (normal_mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    vzany: true
+    layer3_multicast: true
+    state: present
+  register: nm_change_vrf
+
+- name: Verify that VRF did change
+  assert:
+    that:
+    - nm_change_vrf is changed
+    - nm_change_vrf.current.name == "VRF"
+    - nm_change_vrf.current.l3MCast == True
+
+- name: Verify contract VRF again
+  mso_schema_template_vrf_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    state: query
+  register: nm_query_change_vrf_contract_again
+
+- name: Verify 2 contracts are in VRF
+  assert:
+    that:
+    - nm_query_change_vrf_contract_again is not changed
+    - nm_query_change_vrf_contract_again.current | length == 2

@@ -1160,3 +1160,33 @@
     - nm_query_epg_3 is not changed
     - nm_query_epg_3.current.name == 'ansible_test_3'
     - "'vrfRef' not in nm_query_epg_3.current"
+
+# Checking if modifying an EPG with existing contracts throw an MSO error. (#82)
+- name: Change EPG 2 to add VRF (normal_mode)
+  mso_schema_template_anp_epg:
+    <<: *epg_present
+    epg: ansible_test_2
+    vrf:
+      name: VRF2
+    bd:
+      name: ansible_test_2
+  register: nm_change_epg_2_vrf
+
+- name: Verify that EPG 2 did change
+  assert:
+    that:
+    - nm_change_epg_2_vrf is changed
+    - nm_change_epg_2_vrf.current.vrfRef.templateName == "Template 1"
+    - nm_change_epg_2_vrf.current.vrfRef.vrfName == "VRF2"
+    - nm_change_epg_2_vrf.current.bdRef.bdName == "ansible_test_2"
+
+- name: Query EPG 2
+  mso_schema_template_anp_epg:
+    <<: *epg_query
+    epg: ansible_test_2
+  register: nm_query_contract_epg_2
+
+- name: Verify that 4 contracts are in EPG 2 using nm_query_contract_epg_2
+  assert:
+    that:
+    - nm_query_contract_epg_2.current.contractRelationships | length == 4

@@ -438,6 +438,17 @@ class MSOModule(object):
             self.module.fail_json(msg="Tenant lookup failed for tenant '%s': %s" % (tenant, t))
         return t.get('id')
 
+    def lookup_remote_location(self, remote_location):
+        ''' Look up a remote location and return its path and id '''
+        if remote_location is None:
+            return None
+
+        remote = self.get_obj('platform/remote-locations', key='remoteLocations', name=remote_location)
+        if 'id' not in remote:
+            self.module.fail_json(msg="No remote location found for remote '%s'" % (remote_location))
+        remote_info = dict(id=remote.get('id'), path=remote.get('credential')['remotePath'])
+        return remote_info
+
     def lookup_users(self, users):
         ''' Look up users and return their ids '''
         # Ensure tenant has at least admin user

@@ -38,7 +38,8 @@ options:
   remote_path:
    description:
     - This path is relative to the remote location.
-    - There's no need to specify '/' for this path.
+    - A '/' is automatically added between the remote location folder and this path.
+    - This folder structure should already exist on the remote location.
    type: str
   description:
     description:
@@ -93,6 +94,16 @@ EXAMPLES = r'''
     username: admin
     password: SomeSecretPassword
     backup: Backup
+    state: query
+  delegate_to: localhost
+  register: query_result
+
+- name: Query a backup with its complete name
+  cisco.mso.mso_backup:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    backup: Backup_20200721220043
     state: query
   delegate_to: localhost
   register: query_result

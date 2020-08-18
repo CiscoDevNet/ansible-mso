@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
+# Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -19,6 +20,10 @@ description:
 - Manage sites on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
+<<<<<<< HEAD
+=======
+- Shreyas Srish (@shrsr)
+>>>>>>> added delete capability
 options:
   schema:
     description:
@@ -54,7 +59,7 @@ EXAMPLES = r'''
     username: admin
     password: SomeSecretPassword
     schema: Schema 1
-    site: bdsol-pod51
+    site: Site1
     template: Template 1
     state: present
   delegate_to: localhost
@@ -65,7 +70,7 @@ EXAMPLES = r'''
     username: admin
     password: SomeSecretPassword
     schema: Schema 1
-    site: bdsol-pod51
+    site: Site1
     template: Template 1
     state: absent
   delegate_to: localhost
@@ -76,7 +81,7 @@ EXAMPLES = r'''
     username: admin
     password: SomeSecretPassword
     schema: Schema 1
-    site: bdsol-pod51
+    site: Site1
     template: Template 1
     state: query
   delegate_to: localhost
@@ -88,7 +93,6 @@ EXAMPLES = r'''
     username: admin
     password: SomeSecretPassword
     schema: Schema 1
-    site: bdsol-pod51
     state: query
   delegate_to: localhost
   register: query_result
@@ -143,6 +147,7 @@ def main():
         if template:
             if (site_id, template) in sites:
                 site_idx = sites.index((site_id, template))
+                site_path = '/sites/{0}'.format(site_idx)
                 mso.existing = schema_obj.get('sites')[site_idx]
         else:
             mso.existing = schema_obj.get('sites')
@@ -156,7 +161,6 @@ def main():
         mso.exit_json()
 
     sites_path = '/sites'
-    site_path = '/sites/{0}'.format(site)
     ops = []
 
     mso.previous = mso.existing

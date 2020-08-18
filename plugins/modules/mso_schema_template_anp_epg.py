@@ -159,10 +159,10 @@ options:
     choices: [ absent, present, query ]
     default: present
 seealso:
-- module: mso_schema_template_anp
-- module: mso_schema_template_anp_epg_subnet
-- module: mso_schema_template_bd
-- module: mso_schema_template_contract_filter
+- module: cisco.mso.mso_schema_template_anp
+- module: cisco.mso.mso_schema_template_anp_epg_subnet
+- module: cisco.mso.mso_schema_template_bd
+- module: cisco.mso.mso_schema_template_contract_filter
 extends_documentation_fragment: cisco.mso.modules
 '''
 

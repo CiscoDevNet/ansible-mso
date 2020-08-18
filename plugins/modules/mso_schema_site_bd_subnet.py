@@ -80,8 +80,8 @@ notes:
   This can cause silent corruption on concurrent access when changing/removing on object as
   the wrong object may be referenced. This module is affected by this deficiency.
 seealso:
-- module: mso_schema_site_bd
-- module: mso_schema_template_bd
+- module: cisco.mso.mso_schema_site_bd
+- module: cisco.mso.mso_schema_template_bd
 extends_documentation_fragment: cisco.mso.modules
 '''
 

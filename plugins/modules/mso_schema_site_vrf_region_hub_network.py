@@ -74,8 +74,8 @@ notes:
   This can cause silent corruption on concurrent access when changing/removing on object as
   the wrong object may be referenced. This module is affected by this deficiency.
 seealso:
-- module: mso_schema_site_vrf_region
-- module: mso_schema_template_vrf
+- module: cisco.mso.mso_schema_site_vrf_region
+- module: cisco.mso.mso_schema_template_vrf
 extends_documentation_fragment: cisco.mso.modules
 '''
 

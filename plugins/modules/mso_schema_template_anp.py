@@ -48,8 +48,8 @@ options:
     choices: [ absent, present, query ]
     default: present
 seealso:
-- module: mso_schema_template
-- module: mso_schema_template_anp_epg
+- module: cisco.mso.mso_schema_template
+- module: cisco.mso.mso_schema_template_anp_epg
 extends_documentation_fragment: cisco.mso.modules
 '''
 

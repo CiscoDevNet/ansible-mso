@@ -49,9 +49,9 @@ options:
     choices: [ absent, present, query ]
     default: present
 seealso:
-- module: mso_schema_site
-- module: mso_schema_site_anp_epg
-- module: mso_schema_template_anp
+- module: cisco.mso.mso_schema_site
+- module: cisco.mso.mso_schema_site_anp_epg
+- module: cisco.mso.mso_schema_template_anp
 extends_documentation_fragment: cisco.mso.modules
 '''
 

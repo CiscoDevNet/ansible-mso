@@ -50,8 +50,8 @@ options:
 notes:
 - Due to restrictions of the MSO REST API this module creates schemas when needed, and removes them when the last template has been removed.
 seealso:
-- module: mso_schema
-- module: mso_schema_site
+- module: cisco.mso.mso_schema
+- module: cisco.mso.mso_schema_site
 extends_documentation_fragment: cisco.mso.modules
 '''
 

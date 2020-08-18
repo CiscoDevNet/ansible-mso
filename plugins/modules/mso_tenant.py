@@ -20,19 +20,17 @@ description:
 - Manage tenants on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   tenant:
     description:
     - The name of the tenant.
     type: str
-    required: yes
     aliases: [ name ]
   display_name:
     description:
     - The name of the tenant to be displayed in the web UI.
     type: str
-    required: yes
   description:
     description:
     - The description for this tenant.
@@ -43,11 +41,13 @@ options:
     - Using this property will replace any existing associated users.
     - Admin user is always added to the associated user list irrespective of this parameter being used.
     type: list
+    elements: str
   sites:
     description:
     - A list of associated sites for this tenant.
     - Using this property will replace any existing associated sites.
     type: list
+    elements: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -112,8 +112,8 @@ def main():
         description=dict(type='str'),
         display_name=dict(type='str'),
         tenant=dict(type='str', aliases=['name']),
-        users=dict(type='list'),
-        sites=dict(type='list'),
+        users=dict(type='list', elements='str'),
+        sites=dict(type='list', elements='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 

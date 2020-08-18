@@ -18,7 +18,7 @@ description:
 - Manage External EPG contracts in schema templates on Cisco ACI Multi-Site.
 author:
 - Devarshi Shah (@devarshishah3)
-version_added: '2.10'
+version_added: '0.0.8'
 options:
   schema:
     description:

@@ -19,13 +19,12 @@ description:
 - Manage roles on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   role:
     description:
     - The name of the role.
     type: str
-    required: yes
     aliases: [ name ]
   display_name:
     description:
@@ -39,6 +38,7 @@ options:
     description:
     - A list of read permissions tied to this role.
     type: list
+    elements: str
     choices:
     - backup-db
     - manage-audit-records
@@ -62,6 +62,7 @@ options:
     description:
     - A list of write permissions tied to this role.
     type: list
+    elements: str
     aliases: [ permissions ]
     choices:
     - backup-db
@@ -160,7 +161,7 @@ def main():
         role=dict(type='str', aliases=['name']),
         display_name=dict(type='str'),
         description=dict(type='str'),
-        read_permissions=dict(type='list', choices=[
+        read_permissions=dict(type='list', elements='str', choices=[
             'backup-db',
             'manage-audit-records',
             'manage-labels',
@@ -180,7 +181,7 @@ def main():
             'view-tenant-schemas',
             'view-users',
         ]),
-        write_permissions=dict(type='list', aliases=['permissions'], choices=[
+        write_permissions=dict(type='list', elements='str', aliases=['permissions'], choices=[
             'backup-db',
             'manage-audit-records',
             'manage-labels',

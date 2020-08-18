@@ -19,7 +19,7 @@ description:
 - Manage sites on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   schema:
     description:
@@ -30,12 +30,10 @@ options:
     description:
     - The name of the site to manage.
     type: str
-    required: yes
   template:
     description:
     - The name of the template.
     type: str
-    required: yes
     aliases: [ name ]
   state:
     description:

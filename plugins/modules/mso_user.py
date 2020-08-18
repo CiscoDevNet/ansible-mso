@@ -19,13 +19,12 @@ description:
 - Manage users on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   user:
     description:
     - The name of the user.
     type: str
-    required: yes
     aliases: [ name ]
   user_password:
     description:
@@ -66,6 +65,7 @@ options:
     - The roles for this user and their access types (read or write).
     - Access type defaults to C(write).
     type: list
+    elements: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -171,7 +171,7 @@ def main():
         # TODO: What possible options do we have ?
         account_status=dict(type='str', choices=['active', 'inactive']),
         domain=dict(type='str'),
-        roles=dict(type='list'),
+        roles=dict(type='list', elements='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 

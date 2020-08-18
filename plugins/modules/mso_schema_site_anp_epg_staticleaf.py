@@ -19,7 +19,7 @@ description:
 - Manage site-local EPG static leafs in schema template on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   schema:
     description:
@@ -40,10 +40,12 @@ options:
     description:
     - The name of the ANP.
     type: str
+    required: yes
   epg:
     description:
     - The name of the EPG.
     type: str
+    required: yes
   pod:
     description:
     - The pod of the static leaf.

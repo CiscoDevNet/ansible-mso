@@ -19,7 +19,7 @@ description:
 - Manage site-local EPG domains in schema template on Cisco ACI Multi-Site.
 author:
 - Nirav Katarmal (@nkatarmal-crest)
-version_added: '2.9'
+version_added: '0.0.1'
 options:
   schema:
     description:
@@ -40,10 +40,12 @@ options:
     description:
     - The name of the ANP.
     type: str
+    required: yes
   epg:
     description:
     - The name of the EPG.
     type: str
+    required: yes
   domain_association_type:
     description:
     - The type of domain to associate.

@@ -39,10 +39,12 @@ options:
     description:
     - The name of the ANP.
     type: str
+    required: yes
   epg:
     description:
     - The name of the EPG to manage.
     type: str
+    required: yes
   selector:
     description:
     - The name of the selector.
@@ -51,6 +53,7 @@ options:
     description:
     - Expressions associated to this selector.
     type: list
+    elements: dict
     suboptions:
       type:
         description:
@@ -178,7 +181,7 @@ def main():
         anp=dict(type='str', required=True),
         epg=dict(type='str', required=True),
         selector=dict(type='str'),
-        expressions=dict(type='list', options=mso_expression_spec()),
+        expressions=dict(type='list', elements='dict', options=mso_expression_spec()),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 

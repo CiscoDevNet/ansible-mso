@@ -19,7 +19,7 @@ description:
 - Manage site-local VRFs in schema template on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   schema:
     description:

@@ -19,7 +19,7 @@ description:
 - Manage EPGs in schema templates on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   schema:
     description:
@@ -69,7 +69,7 @@ options:
         - The template that defines the referenced BD.
         type: str
   vrf:
-    version_added: '2.9'
+    version_added: '0.0.1'
     description:
     - The VRF associated to this ANP.
     type: dict
@@ -92,6 +92,7 @@ options:
     description:
     - The subnets associated to this ANP.
     type: list
+    elements: dict
     suboptions:
       subnet:
         description:
@@ -149,7 +150,7 @@ options:
     - Whether this EPG is added to preferred group or not.
     - When not specified, this parameter defaults to C(no).
     type: bool
-    version_added: 2.9
+    version_added: 0.0.1
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -267,7 +268,7 @@ def main():
         intra_epg_isolation=dict(type='str', choices=['enforced', 'unenforced']),
         intersite_multicast_source=dict(type='bool'),
         proxy_arp=dict(type='bool'),
-        subnets=dict(type='list', options=mso_subnet_spec()),
+        subnets=dict(type='list', elements='dict', options=mso_subnet_spec()),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
         preferred_group=dict(type='bool'),
     )

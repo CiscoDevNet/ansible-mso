@@ -19,7 +19,6 @@ description:
 - Manage EPGs in schema templates on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '0.0.1'
 options:
   schema:
     description:
@@ -69,7 +68,6 @@ options:
         - The template that defines the referenced BD.
         type: str
   vrf:
-    version_added: '0.0.1'
     description:
     - The VRF associated to this ANP.
     type: dict
@@ -108,6 +106,7 @@ options:
         description:
         - The scope of the subnet.
         type: str
+        default: private
         choices: [ private, public ]
       shared:
         description:
@@ -150,7 +149,6 @@ options:
     - Whether this EPG is added to preferred group or not.
     - When not specified, this parameter defaults to C(no).
     type: bool
-    version_added: 0.0.1
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -351,6 +349,7 @@ def main():
     elif state == 'present':
         bd_ref = mso.make_reference(bd, 'bd', schema_id, template)
         vrf_ref = mso.make_reference(vrf, 'vrf', schema_id, template)
+        mso.stdout = str(subnets)
         subnets = mso.make_subnets(subnets)
 
         if display_name is None and not mso.existing:

@@ -19,7 +19,6 @@ description:
 - Manage site-local EPG domains in schema template on Cisco ACI Multi-Site.
 author:
 - Nirav Katarmal (@nkatarmal-crest)
-version_added: '0.0.1'
 options:
   schema:
     description:

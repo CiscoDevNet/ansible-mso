@@ -20,7 +20,6 @@ description:
 - Manage tenants on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '0.0.1'
 options:
   tenant:
     description:

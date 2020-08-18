@@ -19,7 +19,6 @@ description:
 - Manage site-local EPG subnets in schema template on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '0.0.1'
 options:
   schema:
     description:
@@ -60,6 +59,7 @@ options:
     description:
     - The scope of the subnet.
     type: str
+    default: private
     choices: [ private, public ]
   shared:
     description:

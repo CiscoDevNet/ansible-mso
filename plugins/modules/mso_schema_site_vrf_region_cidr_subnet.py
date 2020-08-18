@@ -21,7 +21,6 @@ description:
 author:
 - Dag Wieers (@dagwieers)
 - Lionel Hercot (@lhercot)
-version_added: '0.0.1'
 options:
   schema:
     description:

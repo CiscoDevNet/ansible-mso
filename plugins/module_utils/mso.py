@@ -105,10 +105,10 @@ def mso_subnet_spec():
     return dict(
         subnet=dict(type='str', required=True, aliases=['ip']),
         description=dict(type='str'),
-        scope=dict(type='str', choices=['private', 'public']),
-        shared=dict(type='bool'),
-        no_default_gateway=dict(type='bool'),
-        querier=dict(type='bool'),
+        scope=dict(type='str', default='private', choices=['private', 'public']),
+        shared=dict(type='bool', default=False),
+        no_default_gateway=dict(type='bool', default=False),
+        querier=dict(type='bool', default=False),
     )
 
 
@@ -588,13 +588,15 @@ class MSOModule(object):
         for subnet in data:
             if 'subnet' in subnet:
                 subnet['ip'] = subnet.get('subnet')
+            if subnet.get('description') is None:
+                subnet['description'] = subnet.get('subnet')
             subnets.append(dict(
                 ip=subnet.get('ip'),
-                description=str(subnet.get('description', subnet.get('ip'))),
-                scope=subnet.get('scope', 'private'),
-                shared=subnet.get('shared', False),
-                noDefaultGateway=subnet.get('no_default_gateway', False),
-                querier=subnet.get('querier', False),
+                description=str(subnet.get('description')),
+                scope=subnet.get('scope'),
+                shared=subnet.get('shared'),
+                noDefaultGateway=subnet.get('no_default_gateway'),
+                querier=subnet.get('querier'),
             ))
 
         return subnets

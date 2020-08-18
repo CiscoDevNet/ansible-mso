@@ -1,0 +1,179 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# - name: Add physical site to a schema
+#   mso_schema_site:
+#     <<: *mso_info
+#     schema: '{{ mso_schema | default("ansible_test") }}'
+#     site: '{{ mso_site | default("ansible_test") }}'
+#     template: '{{item.template}}'
+#     state: present
+#   loop:
+#   - { template: Template 1}
+#   - { template: Template 2}
+#   - { template: Template 3}
+
+# - name: Undeploy a schema 1 template 1
+#   mso_schema_template_deploy: &schema_undeploy
+#     <<: *mso_info
+#     schema: ansible_test
+#     template: Template 1
+#     site: '{{ item }}'
+#     state: undeploy
+#   ignore_errors: yes
+#   loop:
+#   - '{{ mso_site | default("ansible_test") }}'
+#   - '{{ mso_site | default("ansible_test") }}_2'
+
+# - name: Undeploy a schema 1 template 2
+#   mso_schema_template_deploy:
+#     <<: *schema_undeploy
+#     schema: ansible_test
+#     template: Template 2
+#     site: '{{ item }}'
+#     state: undeploy
+#   ignore_errors: yes
+#   loop:
+#   - '{{ mso_site | default("ansible_test") }}'
+#   - '{{ mso_site | default("ansible_test") }}_2'
+
+# - name: Undeploy a schema 1 template 3
+#   mso_schema_template_deploy:
+#     <<: *schema_undeploy
+#     schema: ansible_test
+#     template: Template 3
+#     site: '{{ item }}'
+#     state: undeploy
+#   ignore_errors: yes
+#   loop:
+#   - '{{ mso_site | default("ansible_test") }}'
+#   - '{{ mso_site | default("ansible_test") }}_2'
+
+# - name: Ensure site exists
+#   mso_site:
+#     <<: *mso_info
+#     site: '{{ mso_site | default("ansible_test") }}'
+#     apic_username: '{{ apic_username }}'
+#     apic_password: '{{ apic_password }}'
+#     apic_site_id: '{{ apic_site_id | default(101) }}'
+#     urls:
+#     - https://{{ apic_hostname }}
+#     state: present
+#   ignore_errors: yes
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure tenant ansible_test exists
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+      - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Ensure schema 1 with Template 1, and Template 2
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: '{{item.template}}'
+    state: present
+  loop:
+  - { template: Template 1}
+  - { template: Template 2}
+
+- name: Ensure schema 2 with Template 3 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    state: present
+
+- name: Add physical site to a schema
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: '{{item.template}}'
+    state: present
+  loop:
+  - { template: Template 1}
+  - { template: Template 2}
+
+- name: Ensure VRF1 exists
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    layer3_multicast: true
+    state: present
+
+- name: Add template BD 
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    vrf:
+      name: VRF1
+    state: present
+  register: nm_add_bd
+
+# - name: Add a subnet to a BD
+#   cisco.mso.mso_schema_template_bd_subnet:
+#     <<: *mso_info
+#     schema: '{{ mso_schema | default("ansible_test") }}'
+#     template: Template 1
+#     bd: ansible_test_1
+#     subnet: 10.1.0.1/24
+#     state: present
+
+- name: Add site BD
+  mso_schema_site_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    state: present
+  register: nm_add_site_bd
+
+- name: Add site BD subnet
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    subnet: 10.1.0.1/16
+    state: present
+  register: nm_add_site_bd_subnet

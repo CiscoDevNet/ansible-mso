@@ -68,7 +68,7 @@ options:
     choices: [ absent, present, query ]
     default: present
 seealso:
-- module: mso_schema_template_vrf
+- module: cisco.mso.mso_schema_template_vrf
 extends_documentation_fragment: cisco.mso.modules
 '''
 

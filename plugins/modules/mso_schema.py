@@ -45,10 +45,10 @@ options:
     default: present
 notes:
 - Due to restrictions of the MSO REST API this module cannot create empty schemas (i.e. schemas without templates).
-  Use the M(mso_schema_template) to automatically create schemas with templates.
+  Use the M(cisco.mso.mso_schema_template) to automatically create schemas with templates.
 seealso:
-- module: mso_schema_site
-- module: mso_schema_template
+- module: cisco.mso.mso_schema_site
+- module: cisco.mso.mso_schema_template
 extends_documentation_fragment: cisco.mso.modules
 '''
 

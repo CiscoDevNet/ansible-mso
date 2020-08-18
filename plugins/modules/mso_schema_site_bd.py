@@ -53,10 +53,10 @@ options:
     choices: [ absent, present, query ]
     default: present
 seealso:
-- module: mso_schema_site
-- module: mso_schema_site_bd_l3out
-- module: mso_schema_site_bd_subnet
-- module: mso_schema_template_bd
+- module: cisco.mso.mso_schema_site
+- module: cisco.mso.mso_schema_site_bd_l3out
+- module: cisco.mso.mso_schema_site_bd_subnet
+- module: cisco.mso.mso_schema_template_bd
 extends_documentation_fragment: cisco.mso.modules
 '''
 

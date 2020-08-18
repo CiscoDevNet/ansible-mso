@@ -108,8 +108,8 @@ notes:
   This can cause silent corruption on concurrent access when changing/removing an object as
   the wrong object may be referenced. This module is affected by this deficiency.
 seealso:
-- module: mso_schema_site_anp_epg
-- module: mso_schema_template_anp_epg
+- module: cisco.mso.mso_schema_site_anp_epg
+- module: cisco.mso.mso_schema_template_anp_epg
 extends_documentation_fragment: cisco.mso.modules
 '''
 

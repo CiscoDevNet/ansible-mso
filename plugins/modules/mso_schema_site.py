@@ -43,8 +43,8 @@ options:
     choices: [ absent, present, query ]
     default: present
 seealso:
-- module: mso_schema_template
-- module: mso_site
+- module: cisco.mso.mso_schema_template
+- module: cisco.mso.mso_site
 extends_documentation_fragment: cisco.mso.modules
 '''
 

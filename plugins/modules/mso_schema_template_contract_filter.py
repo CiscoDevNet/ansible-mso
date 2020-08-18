@@ -88,7 +88,7 @@ options:
     choices: [ absent, present, query ]
     default: present
 seealso:
-- module: mso_schema_template_filter_entry
+- module: cisco.mso.mso_schema_template_filter_entry
 notes:
 - Due to restrictions of the MSO REST API this module creates contracts when needed, and removes them when the last filter has been removed.
 - Due to restrictions of the MSO REST API concurrent modifications to contract filters can be dangerous and corrupt data.

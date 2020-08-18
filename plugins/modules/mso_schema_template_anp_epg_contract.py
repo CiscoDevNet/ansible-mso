@@ -74,8 +74,8 @@ options:
     choices: [ absent, present, query ]
     default: present
 seealso:
-- module: mso_schema_template_anp_epg
-- module: mso_schema_template_contract_filter
+- module: cisco.mso.mso_schema_template_anp_epg
+- module: cisco.mso.mso_schema_template_contract_filter
 extends_documentation_fragment: cisco.mso.modules
 '''
 

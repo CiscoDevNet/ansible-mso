@@ -110,7 +110,7 @@ options:
     choices: [ absent, present, query ]
     default: present
 seealso:
-- module: mso_schema_template_contract_filter
+- module: cisco.mso.mso_schema_template_contract_filter
 notes:
 - Due to restrictions of the MSO REST API this module creates filters when needed, and removes them when the last entry has been removed.
 extends_documentation_fragment: cisco.mso.modules

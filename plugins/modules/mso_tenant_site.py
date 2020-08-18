@@ -43,6 +43,7 @@ options:
     description:
     - List of security domains for cloud sites.
     type: list
+    elements: str
     default: []
   aws_account_org:
     description:
@@ -219,7 +220,7 @@ def main():
         tenant=dict(type='str', aliases=['name'], required=True),
         site=dict(type='str', aliases=['name']),
         cloud_account=dict(type='str'),
-        security_domains=dict(type='list', default=[]),
+        security_domains=dict(type='list', elements='str', default=[]),
         aws_trusted=dict(type='bool'),
         azure_access_type=dict(type='str', default='shared', choices=['managed', 'unmanaged', 'shared']),
         azure_active_directory_id=dict(type='str'),

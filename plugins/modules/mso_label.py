@@ -19,13 +19,12 @@ description:
 - Manage labels on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   label:
     description:
     - The name of the label.
     type: str
-    required: yes
     aliases: [ name ]
   type:
     description:

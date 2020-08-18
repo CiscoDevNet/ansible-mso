@@ -19,7 +19,7 @@ description:
 - Deploy schema templates to sites.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   schema:
     description:
@@ -30,6 +30,7 @@ options:
     description:
     - The name of the template.
     type: str
+    required: yes
     aliases: [ name ]
   site:
     description:

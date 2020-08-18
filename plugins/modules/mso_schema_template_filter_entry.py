@@ -19,7 +19,7 @@ description:
 - Manage filter entries in schema templates on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   schema:
     description:
@@ -69,6 +69,7 @@ options:
     description:
     - A list of TCP session rules.
     type: list
+    elements: str
     choices: [ acknowledgement, established, finish, synchronize, reset, unspecified ]
   source_from:
     description:
@@ -181,7 +182,7 @@ def main():
         display_name=dict(type='str', aliases=['entry_display_name']),
         ethertype=dict(type='str', choices=['arp', 'fcoe', 'ip', 'ipv4', 'ipv6', 'mac-security', 'mpls-unicast', 'trill', 'unspecified']),
         ip_protocol=dict(type='str', choices=['eigrp', 'egp', 'icmp', 'icmpv6', 'igmp', 'igp', 'l2tp', 'ospfigp', 'pim', 'tcp', 'udp', 'unspecified']),
-        tcp_session_rules=dict(type='list', choices=['acknowledgement', 'established', 'finish', 'synchronize', 'reset', 'unspecified']),
+        tcp_session_rules=dict(type='list', elements='str', choices=['acknowledgement', 'established', 'finish', 'synchronize', 'reset', 'unspecified']),
         source_from=dict(type='str'),
         source_to=dict(type='str'),
         destination_from=dict(type='str'),

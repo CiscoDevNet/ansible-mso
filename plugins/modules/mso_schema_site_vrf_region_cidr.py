@@ -21,7 +21,7 @@ description:
 author:
 - Dag Wieers (@dagwieers)
 - Lionel Hercot (@lhercot)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   schema:
     description:
@@ -42,10 +42,12 @@ options:
     description:
     - The name of the VRF.
     type: str
+    required: yes
   region:
     description:
     - The name of the region.
     type: str
+    required: yes
   cidr:
     description:
     - The name of the region CIDR to manage.

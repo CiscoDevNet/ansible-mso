@@ -19,7 +19,7 @@ description:
 - Manage BDs in schema templates on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   schema:
     description:
@@ -69,10 +69,12 @@ options:
         description:
         - The name of the DHCP Relay Policy
         type: str
+        required: yes
       version:
         description:
         - The version of DHCP Relay Policy
         type: int
+        required: yes
       dhcp_option_policy:
         description:
         - The DHCP Option Policy
@@ -90,6 +92,7 @@ options:
     description:
     - The subnets associated to this BD.
     type: list
+    elements: dict
     suboptions:
       subnet:
         description:
@@ -234,7 +237,7 @@ def main():
         layer3_multicast=dict(type='bool'),
         vrf=dict(type='dict', options=mso_reference_spec()),
         dhcp_policy=dict(type='dict', options=mso_dhcp_spec()),
-        subnets=dict(type='list', options=mso_subnet_spec()),
+        subnets=dict(type='list', elements='dict', options=mso_subnet_spec()),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 

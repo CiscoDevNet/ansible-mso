@@ -19,7 +19,7 @@ description:
 - Manage site-local VRF regions in schema template on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   schema:
     description:
@@ -40,6 +40,7 @@ options:
     description:
     - The name of the VRF.
     type: str
+    required: yes
   region:
     description:
     - The name of the region to manage.

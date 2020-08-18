@@ -19,7 +19,7 @@ description:
 - Manage contract filters in schema templates on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   schema:
     description:
@@ -78,6 +78,7 @@ options:
     description:
     - A list of filter directives.
     type: list
+    elements: str
     choices: [ log, none, policy_compression ]
   state:
     description:
@@ -170,7 +171,7 @@ def main():
         contract_scope=dict(type='str', choices=['application-profile', 'global', 'tenant', 'vrf']),
         contract_filter_type=dict(type='str', default='both-way', choices=['both-way', 'one-way']),
         filter=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
-        filter_directives=dict(type='list', choices=['log', 'none', 'policy_compression']),
+        filter_directives=dict(type='list', elements='str', choices=['log', 'none', 'policy_compression']),
         filter_template=dict(type='str'),
         filter_schema=dict(type='str'),
         filter_type=dict(type='str', default='both-way', choices=list(FILTER_KEYS), aliases=['type']),

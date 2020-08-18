@@ -40,10 +40,12 @@ options:
     description:
     - The name of the VRF.
     type: str
+    required: yes
   region:
     description:
     - The name of the region.
     type: str
+    required: yes
   hub_network:
     description:
     - The hub network to be managed.
@@ -54,10 +56,12 @@ options:
         - The name of the hub network.
         - The hub-default is the default created hub network.
         type: str
+        required: yes
       tenant:
         description:
         - The tenant name of the hub network.
         type: str
+        required: yes
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.

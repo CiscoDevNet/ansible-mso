@@ -19,23 +19,20 @@ description:
 - Manage sites on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   apic_password:
     description:
     - The password for the APICs.
     type: str
-    required: yes
   apic_site_id:
     description:
     - The site ID of the APICs.
     type: str
-    required: yes
   apic_username:
     description:
     - The username for the APICs.
     type: str
-    required: yes
     default: admin
   apic_login_domain:
     description:
@@ -45,13 +42,13 @@ options:
     description:
     - The name of the site.
     type: str
-    required: yes
     aliases: [ name ]
   labels:
     description:
     - The labels for this site.
     - Labels that do not already exist will be automatically created.
     type: list
+    elements: str
   location:
     description:
     - Location of the site.
@@ -69,6 +66,7 @@ options:
     description:
     - A list of URLs to reference the APICs.
     type: list
+    elements: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -152,11 +150,11 @@ def main():
         apic_site_id=dict(type='str'),
         apic_username=dict(type='str', default='admin'),
         apic_login_domain=dict(type='str'),
-        labels=dict(type='list'),
+        labels=dict(type='list', elements='str'),
         location=dict(type='dict', options=location_arg_spec),
         site=dict(type='str', aliases=['name']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
-        urls=dict(type='list'),
+        urls=dict(type='list', elements='str'),
     )
 
     module = AnsibleModule(

@@ -45,6 +45,7 @@ options:
     description:
     - Expressions associated to this selector.
     type: list
+    elements: dict
     suboptions:
       type:
         description:
@@ -144,7 +145,7 @@ def main():
         template=dict(type='str', required=True),
         external_epg=dict(type='str', required=True),
         selector=dict(type='str'),
-        expressions=dict(type='list', options=mso_expression_spec_ext_epg()),
+        expressions=dict(type='list', elements='dict', options=mso_expression_spec_ext_epg()),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 

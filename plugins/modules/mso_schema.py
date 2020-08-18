@@ -19,22 +19,23 @@ description:
 - Manage schemas on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-version_added: '2.8'
+version_added: '0.0.1'
 options:
   schema:
     description:
     - The name of the schema.
     type: str
-    required: yes
     aliases: [ name ]
   templates:
     description:
     - A list of templates for this schema.
     type: list
+    elements: str
   sites:
     description:
     - A list of sites mapped to templates in this schema.
     type: list
+    elements: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -112,8 +113,8 @@ def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
         schema=dict(type='str', aliases=['name']),
-        templates=dict(type='list'),
-        sites=dict(type='list'),
+        templates=dict(type='list', elements='str'),
+        sites=dict(type='list', elements='str'),
         # messages=dict(type='dict'),
         # associations=dict(type='list'),
         # health_faults=dict(type='list'),

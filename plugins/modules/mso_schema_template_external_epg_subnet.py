@@ -18,7 +18,7 @@ description:
 - Manage External EPG subnets in schema templates on Cisco ACI Multi-Site.
 author:
 - Devarshi Shah (@devarshishah3)
-version_added: '2.10'
+version_added: '0.0.8'
 options:
   schema:
     description:
@@ -44,10 +44,12 @@ options:
     description:
     - The scope of the subnet.
     type: list
+    elements: str
   aggregate:
     description:
     - The aggregate option for the subnet.
     type: list
+    elements: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -125,8 +127,8 @@ def main():
         external_epg=dict(type='str', required=True),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
         subnet=dict(type='str', required=True),
-        scope=dict(type='list', default=[]),
-        aggregate=dict(type='list', default=[]),
+        scope=dict(type='list', elements='str', default=[]),
+        aggregate=dict(type='list', elements='str', default=[]),
     )
 
     module = AnsibleModule(

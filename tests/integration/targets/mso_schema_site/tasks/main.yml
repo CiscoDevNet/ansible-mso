@@ -1,0 +1,246 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Ensure site exists
+  mso_site:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ apic_username }}'
+    apic_password: '{{ apic_password }}'
+    apic_site_id: '{{ apic_site_id | default(101) }}'
+    urls:
+    - https://{{ apic_hostname }}
+    state: present
+  ignore_errors: yes
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure tenant ansible_test exists
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+      - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Ensure schema 1 with Template 1 and Template 2 exists
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: '{{item.template}}'
+    state: present
+  loop:
+  - { template: Template 1}
+  - { template: Template 2}
+
+- name: Add a new site to a schema with Template 1 in check mode
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: present
+  check_mode: yes
+  register: add_site_cm
+
+- name: Verify add_site_cm
+  assert:
+    that:
+    - add_site_cm.current.siteId is match ("[0-9a-zA-Z]*")
+    - add_site_cm.current.templateName == "Template 1"
+
+- name: Add a new site to a schema with Template 1 in normal mode
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: present
+  register: add_site_nm
+
+- name: Verify add_site_nm
+  assert:
+    that:
+    - add_site_nm.current.siteId is match ("[0-9a-zA-Z]*")
+    - add_site_nm.current.templateName == "Template 1"
+
+- name: Add a new site to a schema in normal mode again
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: present
+  register: add_site_nm_again
+
+- name: Add a new site to a schema with Template 2 in normal mode
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 2
+    state: present
+  register: add_site_temp2_nm
+
+- name: Verify add_site_temp2_nm
+  assert:
+    that:
+    - add_site_temp2_nm.current.siteId is match ("[0-9a-zA-Z]*")
+    - add_site_temp2_nm.current.templateName == "Template 2"
+
+- name: Query a schema site
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: query
+  register: query_site
+
+- name: Query all schema sites
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    state: query
+  register: query_all_sites
+
+- name: Verify query_site and query_all_sites
+  assert:
+    that:
+    - query_site is not changed
+    - query_all_sites is not changed
+    - query_all_sites.current | length == 2
+
+- name: Remove a site from a schema with Template1
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: absent
+  register: rm_site_temp1
+
+- name: Remove a site from a schema with Template2
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 2
+    state: absent
+  register: rm_site_temp2
+
+- name: Verify rm_site_temp1 and rm_site_temp2
+  assert:
+    that:
+    - rm_site_temp1 is changed
+    - rm_site_temp1.current == {}
+    - rm_site_temp2 is changed
+    - rm_site_temp2.current == {}
+  
+- name: Remove a site from a schema with Template2 again
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 2
+    state: absent
+  register: rm_site_again
+
+- name: Verify rm_site_again
+  assert:
+    that:
+    - rm_site_again is not changed
+  
+# USE NON-EXISTING STATE
+- name: non_existing_state state
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: non_existing_state
+  ignore_errors: yes
+  register: non_existing_state
+
+- name: Verify non_existing_state
+  assert:
+    that:
+    - non_existing_state is not changed
+    - non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non_existing_state"
+
+# USE A NON_EXISTING_SCHEMA
+- name: non_existing_schema
+  mso_schema_site:
+    <<: *mso_info
+    schema: non_existing_schema
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: query
+  ignore_errors: yes
+  register: non_existing_schema
+
+- name: Verify non_existing_schema
+  assert:
+    that:
+    - non_existing_schema is not changed
+    - non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist"
+
+# USE A NON_EXISTING_TEMPLATE
+- name: non_existing_template
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: non_existing_template
+    state: query
+  ignore_errors: yes
+  register: non_existing_template
+
+- name: Verify non_existing_template
+  assert:
+    that:
+    - non_existing_template is not changed
+    - non_existing_template.msg == "Template 'non_existing_template' not found"
+
+- name: Template attribute absent in task
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: query
+  ignore_errors: yes
+  register: absent_template
+
+- name: Verify absent_template
+  assert:
+    that:
+    - absent_template is not changed

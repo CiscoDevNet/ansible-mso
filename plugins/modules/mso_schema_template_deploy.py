@@ -117,6 +117,8 @@ def main():
     # Get schema
     schema_id = mso.lookup_schema(schema)
 
+    template = template.replace(' ', '%20')
+
     payload = dict(
         schemaId=schema_id,
         templateName=template,
@@ -134,8 +136,9 @@ def main():
 
     if not module.check_mode:
         status = mso.request(path, method='GET', data=payload, qs=qs)
-
-    mso.exit_json(**status)
+        mso.exit_json(**status)
+    else:
+        mso.exit_json()
 
 
 if __name__ == "__main__":

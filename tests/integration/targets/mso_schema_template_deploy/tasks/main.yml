@@ -10,7 +10,6 @@
 
 
 # CLEAN ENVIRONMENT
-# CLEAN ENVIRONMENT
 - name: Set vars
   set_fact:
     mso_info: &mso_info
@@ -37,18 +36,18 @@
   mso_schema_template_deploy:
     <<: *mso_info
     schema: ansible_test
-    template: "{{ item.template }}"
+    template: "{{ item }}"
     site: '{{ mso_site | default("ansible_test") }}'
     state: undeploy
   ignore_errors: yes
   loop:
-    - { template: Template 1}
-    - { template: Template 2}
-    - { template: Template 3}
-    - { template: Template 4}
-    - { template: Template_5}
-    - { template: Template 5}
-    - { template: Template5}
+    - Template 1
+    - Template 2
+    - Template 3
+    - Template 4
+    - Template_5
+    - Template 5
+    - Template5
 
 - name: Remove schemas
   mso_schema:
@@ -74,44 +73,44 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
-    template: '{{item.template}}'
+    template: '{{ item }}'
     state: present
   loop:
-  - { template: Template 1}
-  - { template: Template 2}
-  - { template: Template 3}
-  - { template: Template 4}
-  - { template: Template_5}
+  - Template 1
+  - Template 2
+  - Template 3
+  - Template 4
+  - Template_5
 
 - name: Add physical site to a schema
   mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
-    template: '{{item.template}}'
+    template: '{{ item }}'
     state: present
   loop:
-  - { template: Template 1}
-  - { template: Template 2}
-  - { template: Template 3}
-  - { template: Template 4}
-  - { template: Template_5}
+  - Template 1
+  - Template 2
+  - Template 3
+  - Template 4
+  - Template_5
 
 - name: Deploy templates (check_mode)
   mso_schema_template_deploy: &schema_deploy
     <<: *mso_info
     schema: ansible_test
-    template: "{{ item.template }}"
+    template: "{{ item }}"
     site: '{{ mso_site | default("ansible_test") }}'
     state: deploy
   check_mode: yes
   register: cm_deploy_template
   loop:
-  - { template: Template 1}
-  - { template: Template 2}
-  - { template: Template 3}
-  - { template: Template 4}
-  - { template: Template_5}
+  - Template 1
+  - Template 2
+  - Template 3
+  - Template 4
+  - Template_5
 
 - name: Verify cm_deploy_template
   assert:
@@ -123,16 +122,16 @@
   mso_schema_template_deploy:
     <<: *schema_deploy
     schema: ansible_test
-    template: "{{ item.template }}"
+    template: "{{ item }}"
     site: '{{ mso_site | default("ansible_test") }}'
     state: deploy
   register: nm_deploy_template
   loop:
-  - { template: Template 1}
-  - { template: Template 2}
-  - { template: Template 3}
-  - { template: Template 4}
-  - { template: Template_5}
+  - Template 1
+  - Template 2
+  - Template 3
+  - Template 4
+  - Template_5
 
 - name: Verify nm_deploy_template
   assert:
@@ -145,15 +144,15 @@
   mso_schema_template_deploy: 
     <<: *schema_deploy
     schema: ansible_test
-    template: "{{ item.template }}"
+    template: "{{ item }}"
     state: status
   register: query_deploy_status
   loop:
-  - { template: Template 1}
-  - { template: Template 2}
-  - { template: Template 3}
-  - { template: Template 4}
-  - { template: Template_5}
+  - Template 1
+  - Template 2
+  - Template 3
+  - Template 4
+  - Template_5
 
 - name: Verify query_deploy_status
   assert:
@@ -166,16 +165,16 @@
   mso_schema_template_deploy:
     <<: *schema_deploy
     schema: ansible_test
-    template: '{{ item.template }}'
+    template: '{{ item }}'
     site: '{{ mso_site | default("ansible_test") }}'
     state: undeploy
   register: undeploy_template
   loop:
-    - { template: Template 1}
-    - { template: Template 2}
-    - { template: Template 3}
-    - { template: Template 4}
-    - { template: Template_5}
+    - Template 1
+    - Template 2
+    - Template 3
+    - Template 4
+    - Template_5
 
 - name: Verify undeploy_template
   assert:

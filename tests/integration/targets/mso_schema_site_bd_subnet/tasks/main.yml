@@ -20,73 +20,25 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
-# - name: Add physical site to a schema
-#   mso_schema_site:
-#     <<: *mso_info
-#     schema: '{{ mso_schema | default("ansible_test") }}'
-#     site: '{{ mso_site | default("ansible_test") }}'
-#     template: '{{item.template}}'
-#     state: present
-#   loop:
-#   - { template: Template 1}
-#   - { template: Template 2}
-#   - { template: Template 3}
-
-# - name: Undeploy a schema 1 template 1
-#   mso_schema_template_deploy: &schema_undeploy
-#     <<: *mso_info
-#     schema: ansible_test
-#     template: Template 1
-#     site: '{{ item }}'
-#     state: undeploy
-#   ignore_errors: yes
-#   loop:
-#   - '{{ mso_site | default("ansible_test") }}'
-#   - '{{ mso_site | default("ansible_test") }}_2'
-
-# - name: Undeploy a schema 1 template 2
-#   mso_schema_template_deploy:
-#     <<: *schema_undeploy
-#     schema: ansible_test
-#     template: Template 2
-#     site: '{{ item }}'
-#     state: undeploy
-#   ignore_errors: yes
-#   loop:
-#   - '{{ mso_site | default("ansible_test") }}'
-#   - '{{ mso_site | default("ansible_test") }}_2'
-
-# - name: Undeploy a schema 1 template 3
-#   mso_schema_template_deploy:
-#     <<: *schema_undeploy
-#     schema: ansible_test
-#     template: Template 3
-#     site: '{{ item }}'
-#     state: undeploy
-#   ignore_errors: yes
-#   loop:
-#   - '{{ mso_site | default("ansible_test") }}'
-#   - '{{ mso_site | default("ansible_test") }}_2'
-
-# - name: Ensure site exists
-#   mso_site:
-#     <<: *mso_info
-#     site: '{{ mso_site | default("ansible_test") }}'
-#     apic_username: '{{ apic_username }}'
-#     apic_password: '{{ apic_password }}'
-#     apic_site_id: '{{ apic_site_id | default(101) }}'
-#     urls:
-#     - https://{{ apic_hostname }}
-#     state: present
-#   ignore_errors: yes
-
 - name: Remove schemas
   mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
   loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure site exists
+  mso_site:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ apic_username }}'
+    apic_password: '{{ apic_password }}'
+    apic_site_id: '{{ apic_site_id | default(101) }}'
+    urls:
+    - https://{{ apic_hostname }}
+    state: present
 
 - name: Ensure tenant ansible_test exists
   mso_tenant: 
@@ -137,7 +89,7 @@
     layer3_multicast: true
     state: present
 
-- name: Add template BD 
+- name: Add template BD without disabling layer2_stretch
   mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -147,15 +99,6 @@
       name: VRF1
     state: present
   register: nm_add_bd
-
-# - name: Add a subnet to a BD
-#   cisco.mso.mso_schema_template_bd_subnet:
-#     <<: *mso_info
-#     schema: '{{ mso_schema | default("ansible_test") }}'
-#     template: Template 1
-#     bd: ansible_test_1
-#     subnet: 10.1.0.1/24
-#     state: present
 
 - name: Add site BD
   mso_schema_site_bd:
@@ -167,7 +110,60 @@
     state: present
   register: nm_add_site_bd
 
-- name: Add site BD subnet
+- name: Add site BD subnet with layer2_stretch enabled
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    subnet: 10.1.0.1/16
+    state: present
+  ignore_errors: yes
+  register: add_site_bd_subnet_with_l2Stretch_enabled
+
+- name: Verify add_site_bd_subnet_with_l2Stretch_enabled
+  assert:
+    that:
+    - add_site_bd_subnet_with_l2Stretch_enabled.msg == "The l2Stretch of template bd should be false in order to create a site bd subnet. Set l2Stretch as false using mso_schema_template_bd"
+
+- name: Disable layer2_stretch in template BD
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    layer2_stretch: false
+    vrf:
+      name: VRF1
+    state: present
+  register: nm_add_bd
+
+- name: Add site BD subnet with layer2_stretch disabled (check_mode)
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    subnet: 10.1.0.1/16
+    state: present
+  check_mode: yes
+  register: cm_add_site_bd_subnet
+
+- name: Verify cm_add_site_bd_subnet
+  assert:
+    that:
+    - cm_add_site_bd_subnet is changed
+    - cm_add_site_bd_subnet.previous == {}
+    - cm_add_site_bd_subnet.current.ip == "10.1.0.1/16"
+    - cm_add_site_bd_subnet.current.scope == "private"
+    - cm_add_site_bd_subnet.current.description == "10.1.0.1/16"
+    - cm_add_site_bd_subnet.current.shared == False
+    - cm_add_site_bd_subnet.current.noDefaultGateway == False
+    - cm_add_site_bd_subnet.current.querier == False
+
+- name: Add site BD subnet with layer2_stretch disabled (normal_mode)
   mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -177,3 +173,74 @@
     subnet: 10.1.0.1/16
     state: present
   register: nm_add_site_bd_subnet
+
+- name: Verify nm_add_site_bd_subnet
+  assert:
+    that:
+    - nm_add_site_bd_subnet is changed
+    - nm_add_site_bd_subnet.previous == {}
+    - nm_add_site_bd_subnet.current.ip == "10.1.0.1/16"
+    - nm_add_site_bd_subnet.current.scope == "private"
+    - nm_add_site_bd_subnet.current.description == "10.1.0.1/16"
+    - nm_add_site_bd_subnet.current.shared == False
+    - nm_add_site_bd_subnet.current.noDefaultGateway == False
+    - nm_add_site_bd_subnet.current.querier == False
+
+- name: Add site BD subnet again
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    subnet: 10.1.0.1/16
+    state: present
+  register: nm_add_site_bd_subnet_again
+
+- name: Verify nm_add_site_bd_subnet_again
+  assert:
+    that:
+    - nm_add_site_bd_subnet_again is not changed
+
+- name: Add another site BD subnet
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    subnet: 10.10.10.1/16
+    description: another subnet
+    scope: public
+    shared: true
+    no_default_gateway: true
+    querier: true
+    state: present
+  register: nm_add_another_site_bd_subnet
+
+- name: Verify nm_add_another_site_bd_subnet
+  assert:
+    that:
+    - nm_add_another_site_bd_subnet is changed
+    - nm_add_another_site_bd_subnet.previous == {}
+    - nm_add_another_site_bd_subnet.current.description == "another subnet"
+    - nm_add_another_site_bd_subnet.current.scope == "public"
+    - nm_add_another_site_bd_subnet.current.shared == true
+    - nm_add_another_site_bd_subnet.current.noDefaultGateway == true
+    - nm_add_another_site_bd_subnet.current.querier == true
+
+- name: Query all subnets
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    state: query
+  register: query_all
+
+- name: Verify query_all
+  assert:
+    that:
+    - query_all is not changed
+    - query_all.current | length == 2

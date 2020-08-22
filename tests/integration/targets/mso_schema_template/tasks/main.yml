@@ -1,0 +1,268 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Ensure site exists
+  mso_site:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ apic_username }}'
+    apic_password: '{{ apic_password }}'
+    apic_site_id: '{{ apic_site_id | default(101) }}'
+    urls:
+    - https://{{ apic_hostname }}
+    state: present
+  ignore_errors: yes
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure tenant ansible_test exists
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+      - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Ensure schema 1 with Template 1 exists in check mode
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+  check_mode: yes
+  register: add_template1_schema1_cm
+
+- name: Ensure schema 1 with Template 1 exists
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+  register: add_template1_schema1
+
+- name: Ensure schema 1 with Template 2 exists
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 2
+    state: present
+  register: add_template2_schema1
+
+- name: Ensure schema 2 with Template 3 exists
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    state: present
+  register: add_template3_schema2
+
+- name: Ensure schema 2 with Template 3 exists again
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    state: present
+  register: add_template3_schema2_again
+
+- name: Update display name of Template 3 in schema 2
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    display_name: Temp 3
+    state: present
+  register: update_template3_schema2
+
+- name: Verify add
+  assert:
+    that:
+    - add_template1_schema1_cm is changed
+    - add_template1_schema1_cm.current.name == 'Template 1'
+    - add_template1_schema1 is changed
+    - add_template1_schema1.current.name == 'Template 1'
+    - add_template2_schema1 is changed
+    - add_template2_schema1.current.name == 'Template 2'
+    - add_template3_schema2 is changed
+    - add_template3_schema2.current.name == 'Template 3'
+    - update_template3_schema2 is changed
+    - add_template3_schema2_again is not changed
+    - update_template3_schema2.current.displayName == 'Temp 3'
+
+- name: Query Template 1 in Schema 1
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: query
+  register: query_template1_schema1
+
+- name: Query all Templates in Schema 1
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    state: query
+  register: query_all_templates_schema1
+
+- name: Verify query
+  assert:
+    that:
+    - query_template1_schema1 is not changed
+    - query_template1_schema1.current.name == 'Template 1'
+    - query_all_templates_schema1 is not changed
+    - query_all_templates_schema1.current | length == 2
+
+- name: Remove Template 1 of Schema 1
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: absent
+  ignore_errors: yes
+  register: remove_template1_schema1
+
+- name: Remove Template 2 of Schema 1
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 2
+    state: absent
+  register: remove_template2_schema1
+
+- name: Remove Template 3 in schema 2 in check mode
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    state: absent
+  check_mode: yes
+  register: remove_template3_schema2_cm
+
+- name: Remove Template 3 in schema 2 in normal mode
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    state: absent
+  register: remove_template3_schema2_nm
+
+- name: Remove Template 3 in schema 2 again
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    state: absent
+  register: remove_template3_schema2_nm_again
+
+- name: non_existing_schema
+  mso_schema_template:
+    <<: *mso_info
+    schema: non_schema
+    tenant: ansible_test
+    template: Template 4
+    state: absent
+  ignore_errors: yes
+  register: remove_template_non_existing_schema
+
+- name: Verify remove
+  assert:
+    that:
+    - remove_template1_schema1.current == {}
+    - remove_template1_schema1.previous.name == 'Template 1'
+    - remove_template2_schema1.current == {}
+    - remove_template2_schema1.previous.name == 'Template 2'
+    - remove_template3_schema2_cm.current == {}
+    - remove_template3_schema2_cm.previous.name == 'Template 3'
+    - remove_template3_schema2_nm.current == {}
+    - remove_template3_schema2_nm.previous.name == 'Template 3'
+    - remove_template3_schema2_nm_again is not changed
+    - remove_template_non_existing_schema is not changed
+
+# USE NON-EXISTING STATE
+- name: non_existing_state state
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 2
+    state: non_existing_state
+  ignore_errors: yes
+  register: non_existing_state
+
+- name: Verify non_existing_state
+  assert:
+    that:
+    - non_existing_state is not changed
+    - non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non_existing_state"
+
+# USE A NON_EXISTING_TEMPLATE
+- name: non_existing_template
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: non_existing_template
+    state: query
+  ignore_errors: yes
+  register: non_existing_template
+
+- name: Verify non_existing_template
+  assert:
+    that:
+    - non_existing_template is not changed
+    - non_existing_template.msg == "Template 'non_existing_template' not found"
+
+- name: Template attribute absent in task
+  mso_schema_template:
+    <<: *mso_info
+    schema: non_schema
+    tenant: ansible_test
+    state: query
+  ignore_errors: yes
+  register: absent_template
+
+- name: Verify absent_template
+  assert:
+    that:
+    - absent_template is not changed
+    - absent_template.current == []

@@ -55,11 +55,11 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
-    template: '{{item.template}}'
+    template: '{{ item }}'
     state: present
   loop:
-  - { template: Template 1}
-  - { template: Template 2}
+  - Template 1
+  - Template 2
 
 - name: Ensure schema 2 with Template 3 exist
   mso_schema_template:
@@ -69,16 +69,16 @@
     template: Template 3
     state: present
 
-- name: Add physical site to a schema
+- name: Add physical site to templates
   mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
-    template: '{{item.template}}'
+    template: '{{ item }}'
     state: present
   loop:
-  - { template: Template 1}
-  - { template: Template 2}
+  - Template 1
+  - Template 2
 
 - name: Ensure VRF1 exists
   mso_schema_template_vrf: 
@@ -89,7 +89,33 @@
     layer3_multicast: true
     state: present
 
-- name: Add template BD without disabling layer2_stretch
+- name: Add template BD to Template 3
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    bd: ansible_test_3
+    vrf:
+      name: VRF1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: present
+  register: nm_add_bd_template_3
+
+- name: Add template BD to Template 2
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    bd: ansible_test_2
+    vrf:
+      name: VRF1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: present
+  register: nm_add_bd_template_2
+
+- name: Add template BD to Template 1 without disabling layer2_stretch
   mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -244,3 +270,158 @@
     that:
     - query_all is not changed
     - query_all.current | length == 2
+    - query_all.current.0.ip == "10.1.0.1/16"
+    - query_all.current.1.ip == "10.10.10.1/16"
+
+- name: Query a specific site BD subnet
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    subnet: 10.1.0.1/16
+    state: query
+  register: query_subnet
+
+- name: Verify query_subnet
+  assert:
+    that:
+    - query_subnet is not changed
+    - query_subnet.current.ip == "10.1.0.1/16"
+
+- name: Remove a site BD subnet
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    subnet: 10.1.0.1/16
+    state: absent
+  register: rm_subnet
+
+- name: Verify rm_subnet
+  assert:
+    that:
+    - rm_subnet is changed
+    - rm_subnet.current == {}
+    - rm_subnet.previous.ip == "10.1.0.1/16"
+
+- name: Remove the site BD subnet again
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    subnet: 10.1.0.1/16
+    state: absent
+  register: rm_subnet_again
+
+- name: Verify rm_subnet_again
+  assert:
+    that:
+    - rm_subnet_again is not changed
+    - rm_subnet_again.previous == rm_subnet_again.current == {}
+
+# Use non_existing_schema
+- name: Query subnet by non_existing_schema
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: non_existing_schema
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    subnet: 10.1.0.1/16
+    state: query
+  ignore_errors: yes
+  register: non_existing_schema
+
+- name: Verify non_existing_schema
+  assert:
+    that:
+    - non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist"
+
+# Use non_existing_template
+- name: Query subnet by non_existing_template
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: non_existing_template
+    bd: ansible_test_1
+    subnet: 10.1.0.1/16
+    state: query
+  ignore_errors: yes
+  register: non_existing_template
+
+- name: Verify non_existing_template
+  assert:
+    that:
+    - non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template 1, Template 2"
+
+# Use non_existing_template_bd
+- name: Query subnet by non_existing_template_bd
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: non_existing_template_bd
+    subnet: 10.1.0.1/16
+    state: query
+  ignore_errors: yes
+  register: non_existing_template_bd
+
+- name: Verify non_existing_template_bd
+  assert:
+    that:
+    - non_existing_template_bd.msg == "Provided BD 'non_existing_template_bd' does not exist. Existing template BDs{{':'}} ansible_test_1"
+
+# Use template without site associated
+- name: Query with no site associated to template
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 3
+    bd: ansible_test_3
+    subnet: 10.1.0.1/16
+    state: query
+  ignore_errors: yes
+  register: template_without_sites
+
+- name: Verify template_without_sites
+  assert:
+    that:
+    - template_without_sites.msg == "No site associated with template 'Template 3'. Associate the site with the template using mso_schema_site."
+
+# Use non_existing_subnet
+- name: Query with non_existing_site
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    subnet: non_existing_subnet
+    state: query
+  ignore_errors: yes
+  register: non_existing_subnet
+
+- name: Verify non_existing_subnet
+  assert:
+    that:
+    - non_existing_subnet.msg == "Subnet IP 'non_existing_subnet' not found"
+
+# Use BD in template but not in site
+- name: Query with non_existing_site_bd
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_2
+    subnet: 10.1.0.1/16
+    state: query

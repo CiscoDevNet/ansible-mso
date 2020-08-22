@@ -102,6 +102,12 @@
     state: present
   register: add_site_nm_again
 
+- name: Verify add_site_nm_again
+  assert:
+    that:
+    - add_site_nm_again is not changed
+    - add_site_nm_again.current.siteId is match ("[0-9a-zA-Z]*")
+
 - name: Add a new site to a schema with Template 2 in normal mode
   mso_schema_site:
     <<: *mso_info
@@ -244,3 +250,4 @@
   assert:
     that:
     - absent_template is not changed
+    - absent_template.current == []

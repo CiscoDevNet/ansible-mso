@@ -207,7 +207,7 @@ def main():
 
     # Get template BD
     if bd not in template_bds:
-        mso.fail_json(msg="Provided BD '{0}' does not exist. Existing BDs: {1}".format(bd, ', '.join(template_bds)))
+        mso.fail_json(msg="Provided BD '{0}' does not exist. Existing template BDs: {1}".format(bd, ', '.join(template_bds)))
     template_bd_idx = template_bds.index(bd)
     template_bd = schema_obj.get('templates')[template_idx]['bds'][template_bd_idx]
     mso.stdout += 'lsStretch is ' + str(template_bd.get('l2Stretch')) + '\n'

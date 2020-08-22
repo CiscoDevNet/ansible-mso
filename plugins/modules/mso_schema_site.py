@@ -20,10 +20,7 @@ description:
 - Manage sites on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
-<<<<<<< HEAD
-=======
 - Shreyas Srish (@shrsr)
->>>>>>> added delete capability
 options:
   schema:
     description:

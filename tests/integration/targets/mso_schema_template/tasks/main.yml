@@ -166,6 +166,17 @@
     state: absent
   register: remove_template2_schema1
 
+
+- name: Remove non_existing_template
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: non_existing_template
+    state: absent
+  ignore_errors: yes
+  register: remove_template_non_existing_template
+
 - name: Remove Template 3 in schema 2 in check mode
   mso_schema_template:
     <<: *mso_info
@@ -217,6 +228,7 @@
     - remove_template3_schema2_nm.previous.name == 'Template 3'
     - remove_template3_schema2_nm_again is not changed
     - remove_template_non_existing_schema is not changed
+    - remove_template_non_existing_template is not changed
 
 # USE NON-EXISTING STATE
 - name: non_existing_state state

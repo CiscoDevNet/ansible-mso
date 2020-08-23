@@ -168,11 +168,10 @@ def main():
     mso.previous = mso.existing
     if state == 'absent':
         mso.proposed = mso.sent = {}
-
         if not schema_obj:
             # There was no schema to begin with
             pass
-        elif len(templates) == 1:
+        elif len(templates) == 1 and mso.existing:
             # There is only one tenant, remove schema
             mso.existing = {}
             if not module.check_mode:
@@ -181,9 +180,6 @@ def main():
             # Remove existing template
             mso.existing = {}
             ops.append(dict(op='remove', path=template_path))
-        else:
-            # There was no template to begin with
-            pass
 
     elif state == 'present':
         tenant_id = mso.lookup_tenant(tenant)

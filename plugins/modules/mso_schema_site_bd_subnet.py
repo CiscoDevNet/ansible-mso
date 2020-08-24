@@ -39,12 +39,12 @@ options:
     description:
     - The name of the BD.
     type: str
+    required: true
     aliases: [ name ]
   subnet:
     description:
     - The IP range in CIDR notation.
     type: str
-    required: true
     aliases: [ ip ]
   description:
     description:
@@ -154,18 +154,17 @@ def main():
         schema=dict(type='str', required=True),
         site=dict(type='str', required=True),
         template=dict(type='str', required=True),
-        bd=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
+        bd=dict(type='str', aliases=['name'], required=True),
         subnet=dict(type='str', aliases=['ip']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
-    
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['bd']],
-            ['state', 'present', ['bd']],
+            ['state', 'absent', ['subnet']],
+            ['state', 'present', ['subnet']],
         ],
     )
 
@@ -182,8 +181,6 @@ def main():
     state = module.params.get('state')
 
     mso = MSOModule(module)
-
-    mso.stdout = 'start\n'
 
     # Get schema_id
     schema_obj = mso.get_obj('schemas', displayName=schema)
@@ -202,18 +199,15 @@ def main():
     # Get template BDs
     template_bds = [b.get('name') for b in schema_obj.get('templates')[template_idx]['bds']]
 
-    mso.stdout += 'bd is ' + str(bd) + '\n'
-    mso.stdout += 'template bds are ' + str(template_bds) + '\n'
-
     # Get template BD
     if bd not in template_bds:
         mso.fail_json(msg="Provided BD '{0}' does not exist. Existing template BDs: {1}".format(bd, ', '.join(template_bds)))
     template_bd_idx = template_bds.index(bd)
     template_bd = schema_obj.get('templates')[template_idx]['bds'][template_bd_idx]
-    mso.stdout += 'lsStretch is ' + str(template_bd.get('l2Stretch')) + '\n'
-    mso.stdout += 'state is ' + str(state) + '\n'
     if template_bd.get('l2Stretch') is not False and state == 'present':
-        mso.fail_json(msg="The l2Stretch of template bd should be false in order to create a site bd subnet. Set l2Stretch as false using mso_schema_template_bd")
+        mso.fail_json(
+            msg="The l2Stretch of template bd should be false in order to create a site bd subnet. Set l2Stretch as false using mso_schema_template_bd"
+        )
 
     # Get site
     site_id = mso.lookup_site(site)
@@ -223,7 +217,7 @@ def main():
         mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, ', '.join(sites)))
+        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist.".format(site, template))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
@@ -234,7 +228,7 @@ def main():
     bd_ref = mso.bd_ref(schema_id=schema_id, template=template, bd=bd)
     bds = [v.get('bdRef') for v in schema_obj.get('sites')[site_idx]['bds']]
     if bd_ref not in bds:
-        mso.fail_json(msg="Provided BD '{0}' does not exist. Existing BDs: {1}".format(bd, ', '.join(bds)))
+        mso.fail_json(msg="Provided BD '{0}' does not exist. Existing site BDs: {1}".format(bd, ', '.join(bds)))
     bd_idx = bds.index(bd_ref)
 
     # Get Subnet

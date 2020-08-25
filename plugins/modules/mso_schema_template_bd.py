@@ -133,6 +133,7 @@ options:
     description:
     - Whether to enable L2 stretch.
     type: bool
+    default: true
   layer2_unknown_unicast:
     description:
     - Layer2 unknown unicast.
@@ -232,7 +233,7 @@ def main():
         display_name=dict(type='str'),
         intersite_bum_traffic=dict(type='bool'),
         optimize_wan_bandwidth=dict(type='bool'),
-        layer2_stretch=dict(type='bool'),
+        layer2_stretch=dict(type='bool', default='true'),
         layer2_unknown_unicast=dict(type='str', choices=['flood', 'proxy']),
         layer3_multicast=dict(type='bool'),
         vrf=dict(type='dict', options=mso_reference_spec()),

@@ -204,7 +204,7 @@ def main():
         mso.fail_json(msg="Provided BD '{0}' does not exist. Existing template BDs: {1}".format(bd, ', '.join(template_bds)))
     template_bd_idx = template_bds.index(bd)
     template_bd = schema_obj.get('templates')[template_idx]['bds'][template_bd_idx]
-    if template_bd.get('l2Stretch') is not False and state == 'present':
+    if template_bd.get('l2Stretch') is True and state == 'present':
         mso.fail_json(
             msg="The l2Stretch of template bd should be false in order to create a site bd subnet. Set l2Stretch as false using mso_schema_template_bd"
         )

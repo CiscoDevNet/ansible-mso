@@ -259,14 +259,6 @@ def main():
         if not mso.existing:
             if description is None:
                 description = subnet
-            if scope is None:
-                scope = 'private'
-            if shared is None:
-                shared = False
-            if no_default_gateway is None:
-                no_default_gateway = False
-            if querier is None:
-                querier = False
 
         payload = dict(
             ip=subnet,

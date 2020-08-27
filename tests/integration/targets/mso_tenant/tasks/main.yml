@@ -10,15 +10,38 @@
 
 
 # CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+    apic_hostname_2: 173.36.219.123
+    apic_username_2: admin
+    apic_password_2: ins3965!
+    apic_site_id_2: 102
+
+- name: Ensure sites exists
+  mso_site:
+    <<: *mso_info
+    site: '{{ item.site }}'
+    apic_username: '{{ item.username }}'
+    apic_password: '{{ item.password }}'
+    apic_site_id: '{{ item.id }}'
+    urls:
+    - https://{{ item.urls }}
+    state: present
+  loop:
+  - { site: '{{ mso_site | default("ansible_test") }}', username: '{{ apic_username }}', password: '{{ apic_password }}', id: '{{ apic_site_id | default(101) }}', urls: '{{ apic_hostname }}' }
+  - { site: '{{ mso_site | default("ansible_test") }}_2', username: '{{ apic_username_2 }}', password: '{{ apic_password_2 }}', id: '{{ apic_site_id_2 | default(101) }}', urls: '{{ apic_hostname_2 }}' }
+
 - name: Undeploy a schema 1 template 1
   mso_schema_template_deploy: &schema_undeploy
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: ansible_test
     template: Template 1
     site: '{{ item }}'
@@ -464,3 +487,55 @@
     - cm_query_non_tenant is not changed
     - nm_query_non_tenant is not changed
     - cm_query_non_tenant == nm_query_non_tenant
+
+- name: Add common tenant
+  mso_tenant:
+    <<: *tenant_present
+    tenant: common
+    display_name: common
+    sites: [ansible_test, ansible_test_2]
+  register: nm_add_common_tenant
+
+- name: Verify nm_add_common_tenant
+  assert:
+    that:
+    - nm_add_common_tenant is changed
+    - nm_add_common_tenant.current.name == "common"
+
+- name: Add tenant with site
+  mso_tenant:
+    <<: *tenant_present
+    tenant: tenant_with_site
+    display_name: tenant_with_site
+    sites: ansible_test
+  register: nm_add_tenant_with_site
+
+- name: Verify nm_add_tenant_with_site
+  assert:
+    that:
+    - nm_add_tenant_with_site is changed
+    - nm_add_tenant_with_site.current.name == "tenant_with_site"
+
+- name: Remove common tenant
+  mso_tenant:
+    <<: *tenant_absent
+    tenant: common
+  ignore_errors: yes
+  register: rm_common
+
+- name: Verify rm_common
+  assert:
+    that:
+    - rm_common.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Common Tenant cannot be deleted."
+
+- name: Remove tenant_with_site
+  mso_tenant:
+    <<: *tenant_absent
+    tenant: tenant_with_site
+  register: rm_tenant_with_site
+
+- name: Verify rm_tenant_with_site
+  assert:
+    that:
+    - rm_tenant_with_site is changed
+    - rm_tenant_with_site.current == {}

@@ -82,9 +82,10 @@ EXAMPLES = r'''
   cisco.mso.mso_user:
     host: mso_host
     username: admin
-    password: we1come!
-    user_name: admin
-    user_password: SomeSecretPassword
+    password: initialPassword
+    validate_certs: false
+    user: admin
+    user_password: newPassword
     state: present
   delegate_to: localhost
 
@@ -93,8 +94,9 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    user_name: dag
-    description: Test user
+    validate_certs: false
+    user: dag
+    user_password: userPassword
     first_name: Dag
     last_name: Wieers
     email: dag@wieers.com
@@ -112,8 +114,8 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    user_name: dag
-    description: Test user
+    validate_certs: false
+    user: dag
     first_name: Dag
     last_name: Wieers
     email: dag@wieers.com
@@ -127,7 +129,8 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    user_name: dag
+    validate_certs: false
+    user: dag
     state: absent
   delegate_to: localhost
 
@@ -136,7 +139,8 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    user_name: dag
+    validate_certs: false
+    user: dag
     state: query
   delegate_to: localhost
   register: query_result
@@ -146,6 +150,7 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
+    validate_certs: false
     state: query
   delegate_to: localhost
   register: query_result

@@ -75,9 +75,14 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
+    validate_certs: false
     schema: Schema 1
     template: Template 1
     l3out: L3out 1
+    vrf:
+        name: vrfName
+        schema: vrfSchema
+        template: vrfTemplate
     state: present
   delegate_to: localhost
 
@@ -97,6 +102,7 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
+    validate_certs: false
     schema: Schema 1
     template: Template 1
     l3out: L3out 1
@@ -109,6 +115,7 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
+    validate_certs: false
     schema: Schema 1
     template: Template 1
     state: query

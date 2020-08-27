@@ -41,6 +41,30 @@ Once the collection is installed, you can use it in a playbook by specifying the
       state: present
     delegate_to: localhost
 ```
+## Update
+Getting the latest build for mso
+
+### First Approach
+1. Go to: https://github.com/CiscoDevNet/ansible-mso/actions
+2. Select the latest CI build
+3. Under Artifacts download collections and unzip it on Terminal
+4. Get the tar.gz file
+5. Install using ```ansible-galaxy collection install ```
+6. Example: 
+```
+ansible-galaxy collection install cisco-mso-1.0.0.tar.gz —-force
+```
+
+### Second Approach
+1. Clone the ansible-mso repository. Example: ```git clone https://github.com/CiscoDevNet/ansible-mso.git```
+2. Go to the ansible-mso directory: ```cd ansible-mso```
+3. Pull the latest master on your mso: ```git pull origin master```
+4. Run the following commands:
+```
+ansible-galaxy collection build --force
+ansible-galaxy collection install cisco-mso-* --force
+```
+
 ### See Also:
 
 * [Ansible Using collections](https://docs.ansible.com/ansible/latest/user_guide/collections_using.html) for more details.

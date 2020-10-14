@@ -13,7 +13,7 @@ from ansible.module_utils.basic import env_fallback
 from ansible.module_utils.six import PY3
 from ansible.module_utils.six.moves import filterfalse
 from ansible.module_utils.six.moves.urllib.parse import urlencode, urljoin
-from ansible.module_utils.urls import fetch_url
+from ansible.module_utils.urls import fetch_url, prepare_multipart
 
 
 if PY3:
@@ -285,10 +285,16 @@ class MSOModule(object):
         if qs is not None:
             self.url = self.url + update_qs(qs)
 
+        if method == 'POST' and 'filename' in data['name']:
+            content_type, data = prepare_multipart(data)
+            self.headers['Content-Type'] = content_type
+        else:
+            data = json.dumps(data)
+
         resp, info = fetch_url(self.module,
                                self.url,
                                headers=self.headers,
-                               data=json.dumps(data),
+                               data=data,
                                method=self.method,
                                timeout=self.params.get('timeout'),
                                use_proxy=self.params.get('use_proxy'),

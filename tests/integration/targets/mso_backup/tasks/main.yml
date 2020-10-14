@@ -141,6 +141,41 @@
     that:
     - nm_add_ansibleBackupRemote2_known_path.current.backupEntry.metadata.name is match ("ansibleBackupRemote2_[0-9a-zA-Z]*")
 
+# Upload File
+- name: Upload a backup from local location
+  mso_backup:
+    <<: *mso_info 
+    upload: yes
+    file_path_name: /Users/ssrish/Downloads/msc-backup-20201008221800.tar.gz
+    state: present
+  register: upload_backup
+
+# Need to implement
+- name: Upload a backup from local location again
+  mso_backup:
+    <<: *mso_info 
+    upload: yes
+    file_path_name: /Users/ssrish/Downloads/msc-backup-20201008221800.tar.gz
+    state: present
+  ignore_errors: yes
+  register: upload_backup_again
+
+# Need to implement
+- name: Upload a non existent backup from local location
+  mso_backup:
+    <<: *mso_info 
+    upload: yes
+    file_path_name: /Users/ssrish/Downloads/non-existent-backup-20201008221800.tar.gz
+    state: present
+  ignore_errors: yes
+  register: upload_backup_non_existent
+
+- name: Verify upload of backup
+  assert:
+    that:
+    - upload_backup is not changed
+    - upload_backup.current.backupEntry.id == "20201008221800"
+
 # Query a Backup
 - name: Query ansibleBackup3
   mso_backup:

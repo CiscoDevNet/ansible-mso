@@ -70,9 +70,12 @@ ansible-galaxy collection install cisco-mso-* --force
 
 ### Second Approach
 Go to: https://github.com/CiscoDevNet/ansible-mso/actions
+
 Select the latest CI build
-Under Artifacts download collection and unzip it using Terminal or Console. 
-*Note: The collection file is a zip file containing a tar.gz file. We recommend using CLI because some GUI-based unarchiver might unarchive both nested archives in one go.
+
+Under Artifacts download collection and unzip it using Terminal or Console.
+
+*Note: The collection file is a zip file containing a tar.gz file. We recommend using CLI because some GUI-based unarchiver might unarchive both nested archives in one go.*
 
 Install the unarchived tar.gz file
 ```

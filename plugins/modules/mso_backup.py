@@ -45,20 +45,13 @@ options:
     description:
     - Brief information about the backup.
     type: str
-  file_path_name:
-    description:
-    - This includes the path to the file and its name.
-    type: str
-  upload:
-    description:
-    - A 'yes' will upload the file specified in file_path_name.
-    type: bool
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
     - Use C(query) for listing an object or multiple objects.
+    - Use C(upload) for uploading backup.
     type: str
-    choices: [ absent, present, query ]
+    choices: [ absent, present, query, upload ]
     default: present
 extends_documentation_fragment: cisco.mso.modules
 '''
@@ -92,9 +85,8 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    upload: yes
-    file_path_name: /Users/user/Downloads/backup.tar.gz
-    state: present
+    backup: /Users/user/Downloads/backup.tar.gz
+    state: upload
   delegate_to: localhost
 
 - name: Remove a Backup
@@ -151,9 +143,7 @@ def main():
         backup=dict(type='str', aliases=['name']),
         remote_location=dict(type='str'),
         remote_path=dict(type='str'),
-        upload=dict(type='bool'),
-        file_path_name=dict(type='str'),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        state=dict(type='str', default='present', choices=['absent', 'present', 'query', 'upload']),
     )
 
     module = AnsibleModule(
@@ -162,7 +152,8 @@ def main():
         required_if=[
             ['location_type', 'remote', ['remote_location']],
             ['state', 'absent', ['backup']],
-            # ['state', 'present', ['backup']]
+            ['state', 'present', ['backup']],
+            ['state', 'upload', ['backup']]
         ]
     )
 
@@ -172,8 +163,6 @@ def main():
     backup = module.params.get('backup')
     remote_location = module.params.get('remote_location')
     remote_path = module.params.get('remote_path')
-    upload = module.params.get('upload')
-    file_path_name = module.params.get('file_path_name')
 
     mso = MSOModule(module)
 
@@ -202,32 +191,34 @@ def main():
                 mso.existing = mso.request('backups/backupRecords/{id}'.format(id=mso.existing[0].get('id')), method='DELETE')
         mso.exit_json()
 
-    if state == 'present':
-
-        mso.previous = mso.existing
-
-        if upload:
-            path = 'backups/upload'
-            payload = dict(
-                name=dict(filename=file_path_name)
-            )
+    if state == 'upload':
+        path = 'backups/upload'
+        payload = dict(name=dict(filename=backup))
+        if module.check_mode:
+            mso.existing = mso.proposed
         else:
-            path = 'backups'
-            payload = dict(
-                name=backup,
-                description=description,
-                locationType=location_type
-            )
+          try:
+              mso.existing = mso.request(path, method='POST', data=payload)
+          except FileNotFoundError:
+              mso.module.fail_json(msg="Backup: {0}, not found".format(', '.join(backup.split('/')[-1:])))  
+        mso.exit_json()
 
-            if location_type == 'remote':
-                remote_location_info = mso.lookup_remote_location(remote_location)
-                payload.update(remoteLocationId=remote_location_info.get('id'))
-                if remote_path:
-                    remote_path = '{0}/{1}'.format(remote_location_info.get('path'), remote_path)
-                    payload.update(remotePath=remote_path)
+    if state == 'present':
+        mso.previous = mso.existing
+        path = 'backups'
+        payload = dict(
+            name=backup,
+            description=description,
+            locationType=location_type
+        )
 
+        if location_type == 'remote':
+            remote_location_info = mso.lookup_remote_location(remote_location)
+            payload.update(remoteLocationId=remote_location_info.get('id'))
+            if remote_path:
+                remote_path = '{0}/{1}'.format(remote_location_info.get('path'), remote_path)
+                payload.update(remotePath=remote_path)
         mso.proposed = payload
-
         if module.check_mode:
             mso.existing = mso.proposed
         else:

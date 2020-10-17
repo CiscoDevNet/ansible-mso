@@ -698,7 +698,7 @@ class MSOModule(object):
     def exit_json(self, **kwargs):
         ''' Custom written method to exit from module. '''
 
-        if self.params.get('state') in ('absent', 'present'):
+        if self.params.get('state') in ('absent', 'present', 'upload'):
             if self.params.get('output_level') in ('debug', 'info'):
                 self.result['previous'] = self.previous
             # FIXME: Modified header only works for PATCH

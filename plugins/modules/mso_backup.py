@@ -143,7 +143,8 @@ def main():
         backup=dict(type='str', aliases=['name']),
         remote_location=dict(type='str'),
         remote_path=dict(type='str'),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query', 'upload']),
+        state=dict(type='str', default='present', choices=['absent', 'present', 'query', 'upload', 'restore', 'download']),
+        destination=dict(type='str', required='true')
     )
 
     module = AnsibleModule(
@@ -153,7 +154,10 @@ def main():
             ['location_type', 'remote', ['remote_location']],
             ['state', 'absent', ['backup']],
             ['state', 'present', ['backup']],
-            ['state', 'upload', ['backup']]
+            ['state', 'upload', ['backup']],
+            ['state', 'restore', ['backup']],
+            ['state', 'download', ['backup']]
+
         ]
     )
 
@@ -163,6 +167,7 @@ def main():
     backup = module.params.get('backup')
     remote_location = module.params.get('remote_location')
     remote_path = module.params.get('remote_path')
+    destination = module.params.get('destination')
 
     mso = MSOModule(module)
 
@@ -191,14 +196,34 @@ def main():
                 mso.existing = mso.request('backups/backupRecords/{id}'.format(id=mso.existing[0].get('id')), method='DELETE')
         mso.exit_json()
 
+    if state == 'restore':
+        mso.previous = mso.existing
+        if len(mso.existing) > 1:
+            mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(', '.join(backup_names)))
+        if module.check_mode:
+            mso.existing = mso.proposed
+        else:
+            mso.existing = mso.request('backups/{id}/restore'.format(id=mso.existing[0].get('id')), method='PUT')
+        mso.exit_json()
+
+    if state == 'download':
+        mso.previous = mso.existing
+        payload = dict(destination=destination)
+        if len(mso.existing) > 1:
+            mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(', '.join(backup_names)))
+        if module.check_mode:
+            mso.existing = mso.proposed
+        else:
+            mso.existing = mso.request('backups/{id}/download'.format(id=mso.existing[0].get('id')), method='GET', data=payload)
+        mso.exit_json()
+        
     if state == 'upload':
-        path = 'backups/upload'
         payload = dict(name=dict(filename=backup))
         if module.check_mode:
             mso.existing = mso.proposed
         else:
           try:
-              mso.existing = mso.request(path, method='POST', data=payload)
+              mso.existing = mso.request('backups/upload', method='POST', data=payload)
           except FileNotFoundError:
               mso.module.fail_json(msg="Backup: {0}, not found".format(', '.join(backup.split('/')[-1:])))  
         mso.exit_json()

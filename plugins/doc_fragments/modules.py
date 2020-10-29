@@ -27,13 +27,13 @@ options:
   username:
     description:
     - The username to use for authentication.
-    - If the value is not specified in the task, the value of environment variable C(MSO_USERNAME) will be used instead.
+    - If the value is not specified in the task, the value of environment variables C(MSO_USERNAME) or C(ANSIBLE_NET_USERNAME) will be used instead.
     type: str
     default: admin
   password:
     description:
     - The password to use for authentication.
-    - If the value is not specified in the task, the value of environment variable C(MSO_PASSWORD) will be used instead.
+    - If the value is not specified in the task, the value of environment variables C(MSO_PASSWORD) or C(ANSIBLE_NET_PASSWORD) will be used instead.
     type: str
     required: yes
   output_level:

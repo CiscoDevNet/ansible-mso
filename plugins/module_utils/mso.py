@@ -83,8 +83,8 @@ def mso_argument_spec():
     return dict(
         host=dict(type='str', required=True, aliases=['hostname'], fallback=(env_fallback, ['MSO_HOST'])),
         port=dict(type='int', required=False, fallback=(env_fallback, ['MSO_PORT'])),
-        username=dict(type='str', default='admin', fallback=(env_fallback, ['MSO_USERNAME'])),
-        password=dict(type='str', required=True, no_log=True, fallback=(env_fallback, ['MSO_PASSWORD'])),
+        username=dict(type='str', default='admin', fallback=(env_fallback, ['MSO_USERNAME', 'ANSIBLE_NET_USERNAME'])),
+        password=dict(type='str', required=True, no_log=True, fallback=(env_fallback, ['MSO_PASSWORD', 'ANSIBLE_NET_PASSWORD'])),
         output_level=dict(type='str', default='normal', choices=['debug', 'info', 'normal'], fallback=(env_fallback, ['MSO_OUTPUT_LEVEL'])),
         timeout=dict(type='int', default=30, fallback=(env_fallback, ['MSO_TIMEOUT'])),
         use_proxy=dict(type='bool', default=True, fallback=(env_fallback, ['MSO_USE_PROXY'])),

@@ -152,6 +152,26 @@ EXAMPLES = r'''
     state: present
   delegate_to: localhost
 
+- name: Add a new static VPC to a site EPG
+  mso_schema_site_anp_epg_staticport:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema1
+    site: Site1
+    template: Template1
+    anp: ANP1
+    epg: EPG1
+    pod: pod-1
+    leaf: 101-102
+    path: ansible_polgrp
+    vlan: 127
+    type: vpc
+    mode: untagged
+    deployment_immediacy: lazy
+    state: present
+  delegate_to: localhost
+
 - name: Remove a static port from a site EPG
   cisco.mso.mso_schema_site_anp_epg_staticport:
     host: mso_host

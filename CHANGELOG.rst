@@ -6,6 +6,37 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v1.0.1
+======
+
+Release Summary
+---------------
+
+Release v1.0.1 of the ``cisco.mso`` collection on 2020-10-28.
+This changelog describes all changes made to the modules and plugins included in this collection since v1.0.0.
+
+
+Minor Changes
+-------------
+
+- Add delete capability to mso_schema_site
+- Add env_fallback for mso_argument_spec params
+- Add non existing template deletion test
+- Add test file for mso_schema_template
+- Add test file for site_bd_subnet
+- Bump module to v1.0.1
+- Extent mso_tenant test case coverage
+
+Bugfixes
+--------
+
+- Fix default value for l2Stretch in mso_schema_template_bd module
+- Fix deletion of schema when wrong template is provided in single template schema
+- Fix examples in documentation for mso_schema_template_l3out and mso_user
+- Fix naming issue in deploy module
+- Remove author emails due to length restriction
+- Remove dead code branch in mso_schema_template
+
 v1.0.0
 ======
 

@@ -12,7 +12,7 @@ v1.0.1
 Release Summary
 ---------------
 
-Release v1.0.1 of the ``cisco.mso`` collection on 2020-10-28.
+Release v1.0.1 of the ``cisco.mso`` collection on 2020-10-30.
 This changelog describes all changes made to the modules and plugins included in this collection since v1.0.0.
 
 

@@ -45,13 +45,17 @@ options:
     description:
     - Brief information about the backup.
     type: str
+  destination:
+    description:
+    - Location for backup to be downloaded
+    type: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
     - Use C(query) for listing an object or multiple objects.
     - Use C(upload) for uploading backup.
     type: str
-    choices: [ absent, present, query, upload ]
+    choices: [ absent, present, query, upload, restore, download ]
     default: present
 extends_documentation_fragment: cisco.mso.modules
 '''
@@ -80,13 +84,32 @@ EXAMPLES = r'''
     state: present
   delegate_to: localhost
 
+- name: Download a backup
+  cisco.mso.mso_backup:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    backup: Backup
+    destination: ./
+    state: download
+  delegate_to: localhost
+
 - name: Upload a backup
   cisco.mso.mso_backup:
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    backup: /Users/user/Downloads/backup.tar.gz
+    backup: ./Backup
     state: upload
+  delegate_to: localhost
+
+- name: Upload a backup
+  cisco.mso.mso_backup:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    backup: Backup
+    state: restore
   delegate_to: localhost
 
 - name: Remove a Backup
@@ -144,7 +167,7 @@ def main():
         remote_location=dict(type='str'),
         remote_path=dict(type='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query', 'upload', 'restore', 'download']),
-        destination=dict(type='str', required='true')
+        destination=dict(type='str')
     )
 
     module = AnsibleModule(
@@ -156,7 +179,7 @@ def main():
             ['state', 'present', ['backup']],
             ['state', 'upload', ['backup']],
             ['state', 'restore', ['backup']],
-            ['state', 'download', ['backup']]
+            ['state', 'download', ['backup', 'destination']]
 
         ]
     )
@@ -185,7 +208,7 @@ def main():
     if state == 'query':
         mso.exit_json()
 
-    if state == 'absent':
+    elif state == 'absent':
         mso.previous = mso.existing
         if len(mso.existing) > 1:
             mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(', '.join(backup_names)))
@@ -194,41 +217,42 @@ def main():
                 mso.existing = {}
             else:
                 mso.existing = mso.request('backups/backupRecords/{id}'.format(id=mso.existing[0].get('id')), method='DELETE')
-        mso.exit_json()
 
-    if state == 'restore':
+    elif state == 'restore':
         mso.previous = mso.existing
-        if len(mso.existing) > 1:
+        if len(mso.existing) == 0:
+            mso.module.fail_json(msg="Backup: {0} does not exist".format(backup))
+        elif len(mso.existing) > 1:
             mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(', '.join(backup_names)))
         if module.check_mode:
             mso.existing = mso.proposed
         else:
             mso.existing = mso.request('backups/{id}/restore'.format(id=mso.existing[0].get('id')), method='PUT')
-        mso.exit_json()
 
-    if state == 'download':
+    elif state == 'download':
         mso.previous = mso.existing
         payload = dict(destination=destination)
-        if len(mso.existing) > 1:
+        if len(mso.existing) == 0:
+            mso.module.fail_json(msg="Backup: {0} does not exist".format(backup))
+        elif len(mso.existing) > 1:
             mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(', '.join(backup_names)))
         if module.check_mode:
             mso.existing = mso.proposed
         else:
-            mso.existing = mso.request('backups/{id}/download'.format(id=mso.existing[0].get('id')), method='GET', data=payload)
-        mso.exit_json()
-        
-    if state == 'upload':
+            mso.existing = mso.request_download('backups/{id}/download'.format(id=mso.existing[0].get('id')), method='GET', data=payload)
+
+    elif state == 'upload':
+        mso.previous = mso.existing
         payload = dict(name=dict(filename=backup))
         if module.check_mode:
             mso.existing = mso.proposed
         else:
-          try:
-              mso.existing = mso.request('backups/upload', method='POST', data=payload)
-          except FileNotFoundError:
-              mso.module.fail_json(msg="Backup: {0}, not found".format(', '.join(backup.split('/')[-1:])))  
-        mso.exit_json()
+            try:
+                mso.existing = mso.request('backups/upload', method='POST', data=payload)
+            except FileNotFoundError:
+                mso.module.fail_json(msg="Backup: {0}, not found".format(', '.join(backup.split('/')[-1:])))
 
-    if state == 'present':
+    elif state == 'present':
         mso.previous = mso.existing
         path = 'backups'
         payload = dict(

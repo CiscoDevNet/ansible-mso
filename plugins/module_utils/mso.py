@@ -173,8 +173,7 @@ def mso_object_migrate_spec():
 
 
 def format_message(err, resp):
-    msg = resp.pop('msg')
-    return err + (' %s' % msg if msg else '')
+    return err
 
 
 def write_file(module, url, dest, content, resp):
@@ -186,7 +185,7 @@ def write_file(module, url, dest, content, resp):
     except Exception as e:
         os.remove(tmpsrc)
         msg = format_message("Failed to create temporary content file: %s" % to_native(e), resp)
-        module.fail_json(msg=msg, **resp)
+        module.fail_json(msg=msg)
     f.close()
 
     checksum_src = None
@@ -196,11 +195,11 @@ def write_file(module, url, dest, content, resp):
     if not os.path.exists(tmpsrc):
         os.remove(tmpsrc)
         msg = format_message("Source '%s' does not exist" % tmpsrc, resp)
-        module.fail_json(msg=msg, **resp)
+        module.fail_json(msg=msg)
     if not os.access(tmpsrc, os.R_OK):
         os.remove(tmpsrc)
         msg = format_message("Source '%s' not readable" % tmpsrc, resp)
-        module.fail_json(msg=msg, **resp)
+        module.fail_json(msg=msg)
     checksum_src = module.sha1(tmpsrc)
 
     # check if there is no dest file
@@ -209,17 +208,17 @@ def write_file(module, url, dest, content, resp):
         if not os.access(dest, os.W_OK):
             os.remove(tmpsrc)
             msg = format_message("Destination '%s' not writable" % dest, resp)
-            module.fail_json(msg=msg, **resp)
+            module.fail_json(msg=msg)
         if not os.access(dest, os.R_OK):
             os.remove(tmpsrc)
             msg = format_message("Destination '%s' not readable" % dest, resp)
-            module.fail_json(msg=msg, **resp)
+            module.fail_json(msg=msg)
         checksum_dest = module.sha1(dest)
     else:
         if not os.access(os.path.dirname(dest), os.W_OK):
             os.remove(tmpsrc)
             msg = format_message("Destination dir '%s' not writable" % os.path.dirname(dest), resp)
-            module.fail_json(msg=msg, **resp)
+            module.fail_json(msg=msg)
 
     if checksum_src != checksum_dest:
         try:
@@ -227,7 +226,7 @@ def write_file(module, url, dest, content, resp):
         except Exception as e:
             os.remove(tmpsrc)
             msg = format_message("failed to copy %s to %s: %s" % (tmpsrc, dest, to_native(e)), resp)
-            module.fail_json(msg=msg, **resp)
+            module.fail_json(msg=msg)
 
     os.remove(tmpsrc)
 
@@ -320,94 +319,79 @@ class MSOModule(object):
 
         self.headers['Authorization'] = 'Bearer {token}'.format(**payload)
 
-    def response_json(self, rawoutput):
-        ''' Handle MSO JSON response output '''
+    def request_download(self, path, method=None, data=None, qs=None):
+        self.url = urljoin(self.baseuri, path)
+        redirected = False
+        redir_info = {}
+        r = {}
+
+        src = self.params.get('src')
+        if src:
+            try:
+                self.headers.update({
+                    'Content-Length': os.stat(src).st_size
+                })
+                data = open(src, 'rb')
+            except OSError:
+                self.module.fail_json(msg='Unable to open source file %s' % src, elapsed=0)
+        else:
+            pass
+
+        dest = data['destination']
+        data = None
+
+        kwargs = {}
+        if dest is not None:
+            # Stash follow_redirects, in this block we don't want to follow
+            # we'll reset back to the supplied value soon
+            follow_redirects = self.params.get('follow_redirects')
+            #self.params.get('follow_redirects') = False
+            if os.path.isdir(dest):
+                # first check if we are redirected to a file download
+                _, redir_info = fetch_url(self.module, self.url,
+                                        headers=self.headers,
+                                        method=method,
+                                        timeout=self.params.get('timeout'))
+                # if we are redirected, update the url with the location header,
+                # and update dest with the new url filename
+                if redir_info['status'] in (301, 302, 303, 307):
+                    self.url = redir_info['location']
+                    redirected = True
+                dest = os.path.join(dest, _.headers["Content-Disposition"].split("filename=")[1])
+            # if destination file already exist, only download if file newer
+            if os.path.exists(dest):
+                kwargs['last_mod_time'] = datetime.datetime.utcfromtimestamp(os.path.getmtime(dest))
+
+            # Reset follow_redirects back to the stashed value
+            #self.params.get('follow_redirects') = follow_redirects
+
+        resp, info = fetch_url(self.module, self.url, data=data, headers=self.headers,
+                            method=method, timeout=self.params.get('timeout'), unix_socket=self.params.get('unix_socket'),
+                            **kwargs)
+
         try:
-            self.jsondata = json.loads(rawoutput)
-        except Exception as e:
-            # Expose RAW output for troubleshooting
-            self.error = dict(code=-1, message="Unable to parse output as JSON, see 'raw' output. %s" % e)
-            self.result['raw'] = rawoutput
-            return
+            content = resp.read()
+        except AttributeError:
+            # there was no content, but the error read()
+            # may have been stored in the info as 'body'
+            content = info.pop('body', '')
 
-        # Handle possible MSO error information
-        if self.status not in [200, 201, 202, 204]:
-            self.error = self.jsondata
-
-    def request(self, path, method=None, data=None, qs=None):
-        
-        if 'download' in path:
-            self.url = urljoin(self.baseuri, path)
-            redirected = False
-            redir_info = {}
-            r = {}
-
-            src = self.params.get('src')
-            if src:
-                try:
-                    self.headers.update({
-                        'Content-Length': os.stat(src).st_size
-                    })
-                    data = open(src, 'rb')
-                except OSError:
-                    self.module.fail_json(msg='Unable to open source file %s' % src, elapsed=0)
-            else:
+        if src:
+            # Try to close the open file handle
+            try:
+                data.close()
+            except Exception:
                 pass
 
-            dest = data['destination']
-            data = None
+        r['redirected'] = redirected or info['url'] != self.url
+        r.update(redir_info)
+        r.update(info)
 
-            kwargs = {}
-            if dest is not None:
-                # Stash follow_redirects, in this block we don't want to follow
-                # we'll reset back to the supplied value soon
-                follow_redirects = self.params.get('follow_redirects')
-                #self.params.get('follow_redirects') = False
-                if os.path.isdir(dest):
-                    # first check if we are redirected to a file download
-                    _, redir_info = fetch_url(self.module, self.url,
-                                            headers=self.headers,
-                                            method=method,
-                                            timeout=self.params.get('timeout'))
-                    # if we are redirected, update the url with the location header,
-                    # and update dest with the new url filename
-                    if redir_info['status'] in (301, 302, 303, 307):
-                        self.url = redir_info['location']
-                        redirected = True
-                    dest = os.path.join(dest, _.headers["Content-Disposition"].split("filename=")[1])
-                # if destination file already exist, only download if file newer
-                if os.path.exists(dest):
-                    kwargs['last_mod_time'] = datetime.datetime.utcfromtimestamp(os.path.getmtime(dest))
+        write_file(self.module, self.url, dest, content, r)
 
-                # Reset follow_redirects back to the stashed value
-                #self.params.get('follow_redirects') = follow_redirects
+        return r, dest
 
-            resp, info = fetch_url(self.module, self.url, data=data, headers=self.headers,
-                                method=method, timeout=self.params.get('timeout'), unix_socket=self.params.get('unix_socket'),
-                                **kwargs)
-
-            try:
-                content = resp.read()
-            except AttributeError:
-                # there was no content, but the error read()
-                # may have been stored in the info as 'body'
-                content = info.pop('body', '')
-
-            if src:
-                # Try to close the open file handle
-                try:
-                    data.close()
-                except Exception:
-                    pass
-
-            r['redirected'] = redirected or info['url'] != self.url
-            r.update(redir_info)
-            r.update(info)
-
-            write_file(self.module, self.url, dest, content, resp)
-
-            return r, content, dest
-        
+    def request(self, path, method=None, data=None, qs=None):
         ''' Generic HTTP method for MSO requests. '''
         self.path = path
 

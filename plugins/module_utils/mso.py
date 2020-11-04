@@ -160,6 +160,13 @@ def mso_hub_network_spec():
     )
 
 
+def mso_object_migrate_spec():
+    return dict(
+        epg=dict(type='str', required=True),
+        anp=dict(type='str', required=True),
+    )
+
+
 class MSOModule(object):
 
     def __init__(self, module):

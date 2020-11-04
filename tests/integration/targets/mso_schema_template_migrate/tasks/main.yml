@@ -1,0 +1,296 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# 
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+# CLEAN ENVIRONMENT
+- name: Ensure site exist
+  mso_site: &site_present
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ apic_username }}'
+    apic_password: '{{ apic_password }}'
+    apic_site_id: '{{ apic_site_id | default(102) }}'
+    urls:
+    - https://{{ apic_hostname }}
+    state: present
+
+- name: Remove Template 1 and Template 2 of Schema 1
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: '{{ item }}'
+    state: absent
+  ignore_errors: yes
+  loop:
+  - '{{ mso_template1 | default("Template 1") }}'
+  - '{{ mso_template2 | default("Template 2") }}'
+  register: remove_templates_schema1
+
+- name: Remove Template 1 of Schema 2
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: absent
+  ignore_errors: yes
+  register: remove_template1_schema2
+
+- name: Remove schemas
+  mso_schema:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant: &tenant_present
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Ensure schemas with Template 1 exist
+  mso_schema_template: &schema_present
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ item }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+  loop:
+    - '{{ mso_schema | default("ansible_test") }}'
+    - '{{ mso_schema | default("ansible_test") }}_2'
+
+- name: Ensure schema 2 with Template 2 exist
+  mso_schema_template:
+    <<: *schema_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 2
+    state: present
+  register: schema2_template2
+
+- name: Add a new site to a schema 1 with Template 1 in normal mode
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: present
+  register: add_site_nm1
+
+- name: Add a new site to a schema 2 with Template 2 in normal mode
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 2
+    state: present
+  register: add_site_nm2
+
+- name: Ensure VRF exist
+  mso_schema_template_vrf: &vrf_present
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    layer3_multicast: true
+    state: present
+
+- name: Ensure ANP exist
+  mso_schema_template_anp:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    anp: ANP
+    state: present
+
+- name: Ensure ANP2 exist
+  mso_schema_template_anp:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    anp: ANP2
+    state: present
+
+- name: Ensure ansible_test_1 BD exist
+  mso_schema_template_bd:
+    <<: *vrf_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    bd: '{{ item }}'
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: present
+  when: version.current.version is version('2.2.4e', '!=')
+  loop:
+    - '{{ BD_1 | default("ansible_test") }}_1'
+    - '{{ BD_2 | default("ansible_test") }}_2'
+
+- name: Ensure EPG exist
+  mso_schema_template_anp_epg: &epg_present
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    anp: ANP
+    epg: ansible_test_1
+    bd:
+      name: ansible_test_1
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: present
+  register: cm_add_epg
+
+- name: Add EPG 2 (normal mode)
+  mso_schema_template_anp_epg:
+    <<: *epg_present
+    anp: ANP2
+    epg: '{{ item }}'
+  loop:
+    - '{{ EPG_2 | default("ansible_test") }}_2'
+    - '{{ EPG_3 | default("ansible_test") }}_3'
+    - '{{ EPG_4 | default("ansible_test") }}_4'
+
+- name: Migration of objects between templates
+  mso_schema_template_migrate:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    target_schema: '{{ mso_schema | default("ansible_test") }}'
+    target_template: Template 1
+    bds:
+    - ansible_test_1
+    epgs:
+    - epg: ansible_test_1
+      anp: ANP
+    - epg: ansible_test_2
+      anp: ANP2
+    state: present
+  when: version.current.version is version('2.2.4e', '!=')
+  register: object_migrate
+
+- name: Verify object_migrate
+  assert:
+    that:
+    - object_migrate is changed
+
+- name: Migration of BD objects between templates
+  mso_schema_template_migrate:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    target_schema: '{{ mso_schema | default("ansible_test") }}_2'
+    target_template: Template 2
+    bds:
+    - ansible_test_2
+    state: present
+  when: version.current.version is version('2.2.4e', '!=')
+  register: bd_migrate
+
+- name: Verify bd_migrate
+  assert:
+    that:
+    - bd_migrate is changed
+
+- name: Migration of EPG objects between templates
+  mso_schema_template_migrate:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    target_schema: '{{ mso_schema | default("ansible_test") }}_2'
+    target_template: Template 2
+    epgs:
+    - epg: ansible_test_3
+      anp: ANP2
+    - epg: ansible_test_4
+      anp: ANP2
+    state: present
+  when: version.current.version is version('2.2.4e', '!=')
+  register: epg_migrate
+
+- name: Verify schema2_template2
+  assert:
+    that:
+    - schema2_template2 is changed

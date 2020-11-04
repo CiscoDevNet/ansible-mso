@@ -194,6 +194,9 @@ def main():
 
         mso.existing = mso.proposed
 
+    if 'anpRef' in mso.previous:
+        del mso.previous['anpRef']
+
     if not module.check_mode:
         mso.request(schema_path, method='PATCH', data=ops)
 

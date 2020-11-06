@@ -401,7 +401,7 @@ class MSOModule(object):
 
         content_type, data = prepare_multipart(data)
         self.headers['Content-Type'] = content_type
-        
+
         resp, info = fetch_url(self.module,
                                self.url,
                                headers=self.headers,

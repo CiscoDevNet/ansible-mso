@@ -345,29 +345,28 @@ class MSOModule(object):
             # Stash follow_redirects, in this block we don't want to follow
             # we'll reset back to the supplied value soon
             follow_redirects = self.params.get('follow_redirects')
-            #self.params.get('follow_redirects') = False
+            # self.params.get('follow_redirects') = False
             if os.path.isdir(dest):
                 # first check if we are redirected to a file download
-                _, redir_info = fetch_url(self.module, self.url,
-                                        headers=self.headers,
-                                        method=method,
-                                        timeout=self.params.get('timeout'))
+                check, redir_info = fetch_url(self.module, self.url,
+                                              headers=self.headers,
+                                              method=method,
+                                              timeout=self.params.get('timeout'))
                 # if we are redirected, update the url with the location header,
                 # and update dest with the new url filename
                 if redir_info['status'] in (301, 302, 303, 307):
                     self.url = redir_info['location']
                     redirected = True
-                dest = os.path.join(dest, _.headers["Content-Disposition"].split("filename=")[1])
+                dest = os.path.join(dest, check.headers["Content-Disposition"].split("filename=")[1])
             # if destination file already exist, only download if file newer
             if os.path.exists(dest):
                 kwargs['last_mod_time'] = datetime.datetime.utcfromtimestamp(os.path.getmtime(dest))
 
             # Reset follow_redirects back to the stashed value
-            #self.params.get('follow_redirects') = follow_redirects
+            # self.params.get('follow_redirects') = follow_redirects
 
         resp, info = fetch_url(self.module, self.url, data=data, headers=self.headers,
-                            method=method, timeout=self.params.get('timeout'), unix_socket=self.params.get('unix_socket'),
-                            **kwargs)
+                               method=method, timeout=self.params.get('timeout'), unix_socket=self.params.get('unix_socket'), **kwargs)
 
         try:
             content = resp.read()
@@ -391,6 +390,64 @@ class MSOModule(object):
 
         return r, dest
 
+    def request_upload(self, path, method=None, data=None, qs=None):
+        ''' Generic HTTP method for MSO requests. '''
+        self.path = path
+
+        self.url = urljoin(self.baseuri, path)
+
+        if qs is not None:
+            self.url = self.url + update_qs(qs)
+
+        content_type, data = prepare_multipart(data)
+        self.headers['Content-Type'] = content_type
+        
+        resp, info = fetch_url(self.module,
+                               self.url,
+                               headers=self.headers,
+                               data=data,
+                               method='POST',
+                               timeout=self.params.get('timeout'),
+                               use_proxy=self.params.get('use_proxy'))
+
+        self.response = info.get('msg')
+        self.status = info.get('status')
+
+        # self.result['info'] = info
+
+        # Get change status from HTTP headers
+        if 'modified' in info:
+            self.has_modified = True
+            if info.get('modified') == 'false':
+                self.result['changed'] = False
+            elif info.get('modified') == 'true':
+                self.result['changed'] = True
+
+        # 200: OK, 201: Created, 202: Accepted, 204: No Content
+        if self.status in (200, 201, 202, 204):
+            output = resp.read()
+            if output:
+                return json.loads(output)
+
+        # 400: Bad Request, 401: Unauthorized, 403: Forbidden,
+        # 405: Method Not Allowed, 406: Not Acceptable
+        # 500: Internal Server Error, 501: Not Implemented
+        elif self.status >= 400:
+            try:
+                output = resp.read()
+                payload = json.loads(output)
+            except (ValueError, AttributeError):
+                try:
+                    payload = json.loads(info.get('body'))
+                except Exception:
+                    self.fail_json(msg='MSO Error:', data=data, info=info)
+            if 'code' in payload:
+                self.fail_json(msg='MSO Error {code}: {message}'.format(**payload), data=data, info=info, payload=payload)
+            else:
+                self.fail_json(msg='MSO Error:'.format(**payload), data=data, info=info, payload=payload)
+
+        return {}
+
     def request(self, path, method=None, data=None, qs=None):
         ''' Generic HTTP method for MSO requests. '''
         self.path = path
@@ -407,20 +464,14 @@ class MSOModule(object):
         if qs is not None:
             self.url = self.url + update_qs(qs)
 
-        if method == 'POST' and 'filename' in data['name']:
-            content_type, data = prepare_multipart(data)
-            self.headers['Content-Type'] = content_type
-        else:
-            data = json.dumps(data)
-
         resp, info = fetch_url(self.module,
-                            self.url,
-                            headers=self.headers,
-                            data=data,
-                            method=self.method,
-                            timeout=self.params.get('timeout'),
-                            use_proxy=self.params.get('use_proxy'),
-                            )
+                               self.url,
+                               headers=self.headers,
+                               data=json.dumps(data),
+                               method=self.method,
+                               timeout=self.params.get('timeout'),
+                               use_proxy=self.params.get('use_proxy'))
+
         self.response = info.get('msg')
         self.status = info.get('status')
 

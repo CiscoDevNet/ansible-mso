@@ -54,6 +54,8 @@ options:
     - Use C(present) or C(absent) for adding or removing.
     - Use C(query) for listing an object or multiple objects.
     - Use C(upload) for uploading backup.
+    - Use C(restore) for restoring backup.
+    - Use C(download) for downloading backup.
     type: str
     choices: [ absent, present, query, upload, restore, download ]
     default: present
@@ -103,7 +105,7 @@ EXAMPLES = r'''
     state: upload
   delegate_to: localhost
 
-- name: Upload a backup
+- name: Restore a backup
   cisco.mso.mso_backup:
     host: mso_host
     username: admin
@@ -180,7 +182,6 @@ def main():
             ['state', 'upload', ['backup']],
             ['state', 'restore', ['backup']],
             ['state', 'download', ['backup', 'destination']]
-
         ]
     )
 
@@ -248,7 +249,7 @@ def main():
             mso.existing = mso.proposed
         else:
             try:
-                mso.existing = mso.request('backups/upload', method='POST', data=payload)
+                mso.existing = mso.request_upload('backups/upload', method='POST', data=payload)
             except FileNotFoundError:
                 mso.module.fail_json(msg="Backup: {0}, not found".format(', '.join(backup.split('/')[-1:])))
 

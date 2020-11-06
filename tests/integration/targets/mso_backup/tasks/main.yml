@@ -20,6 +20,19 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Clear tenant
+  mso_tenant:
+    <<: *mso_info 
+    tenant: Tenant1
+    display_name: Test_Tenant
+    state: absent
+
 - name: Query all backups 
   mso_backup:
     <<: *mso_info 
@@ -244,6 +257,7 @@
     backup: non_existent_backup
     state: restore
   ignore_errors: yes
+  when: version.current.version is version('2.2.4e', '!=')
   register: restore_non_existent_backup
 
 - name: Restore backup ansibleBackup3
@@ -252,6 +266,7 @@
     backup: ansibleBackup3
     state: restore
   ignore_errors: yes
+  when: version.current.version is version('2.2.4e', '!=')
   register: restore_ansibleBackup3
 
 - name: Verify restore of backup
@@ -259,6 +274,7 @@
     that:
     - restore_non_existent_backup.msg is match ("Backup{{':'}} non_existent_backup does not exist")
     - restore_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
+  when: version.current.version is version('2.2.4e', '!=')
 
 - name: Add a new tenant
   mso_tenant:
@@ -266,6 +282,7 @@
     tenant: Tenant1
     display_name: Test_Tenant
     state: present
+  when: version.current.version is version('2.2.4e', '!=')
 
 - name: Restore backup in check mode
   mso_backup:
@@ -273,18 +290,21 @@
     backup: ansibleBackup1
     state: restore
   check_mode: yes
+  when: version.current.version is version('2.2.4e', '!=')
   register: restore_cm
 
 - name: Verify retore in check mode
   assert:
     that:
     - restore_cm is changed
+  when: version.current.version is version('2.2.4e', '!=')
 
 - name: Restore backup
   mso_backup:
     <<: *mso_info 
     backup: ansibleBackup1
     state: restore
+  when: version.current.version is version('2.2.4e', '!=')
 
 - name: Pause for 6 minutes after restore
   pause:
@@ -296,6 +316,7 @@
     tenant: Tenant1
     state: query
   ignore_errors: yes
+  when: version.current.version is version('2.2.4e', '!=')
   register: query_non_existent_tenant
 
 - name: Verify non existent Tenant
@@ -303,6 +324,7 @@
     that:
     - query_non_existent_tenant is not changed
     - query_non_existent_tenant.current == {}
+  when: version.current.version is version('2.2.4e', '!=')
 
 # Query a Backup
 - name: Query ansibleBackup3

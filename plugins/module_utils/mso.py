@@ -17,7 +17,7 @@ from ansible.module_utils.basic import env_fallback
 from ansible.module_utils.six import PY3
 from ansible.module_utils.six.moves import filterfalse
 from ansible.module_utils.six.moves.urllib.parse import urlencode, urljoin, urlsplit
-from ansible.module_utils.urls import fetch_url, prepare_multipart
+from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_native
 
 
@@ -176,6 +176,7 @@ def format_message(err, resp):
     return err
 
 
+# Copied from ansible's module uri.py
 def write_file(module, url, dest, content, resp):
     # create a tempfile with some test content
     fd, tmpsrc = tempfile.mkstemp(dir=module.tmpdir)
@@ -323,7 +324,7 @@ class MSOModule(object):
         self.url = urljoin(self.baseuri, path)
         redirected = False
         redir_info = {}
-        r = {}
+        redirect = {}
 
         src = self.params.get('src')
         if src:
@@ -355,9 +356,9 @@ class MSOModule(object):
                 # if we are redirected, update the url with the location header,
                 # and update dest with the new url filename
                 if redir_info['status'] in (301, 302, 303, 307):
-                    self.url = redir_info['location']
+                    self.url = redir_info.get('location')
                     redirected = True
-                dest = os.path.join(dest, check.headers["Content-Disposition"].split("filename=")[1])
+                dest = os.path.join(dest, check.headers.get("Content-Disposition").split("filename=")[1])
             # if destination file already exist, only download if file newer
             if os.path.exists(dest):
                 kwargs['last_mod_time'] = datetime.datetime.utcfromtimestamp(os.path.getmtime(dest))
@@ -382,15 +383,20 @@ class MSOModule(object):
             except Exception:
                 pass
 
-        r['redirected'] = redirected or info['url'] != self.url
-        r.update(redir_info)
-        r.update(info)
+        redirect['redirected'] = redirected or info.get('url') != self.url
+        redirect.update(redir_info)
+        redirect.update(info)
 
-        write_file(self.module, self.url, dest, content, r)
+        write_file(self.module, self.url, dest, content, redirect)
 
-        return r, dest
+        return redirect, dest
 
     def request_upload(self, path, method=None, data=None, qs=None):
+        try:
+            from ansible.module_utils.urls import prepare_multipart
+        except ImportError:
+            self.fail_json("Upload function is not supported on ansible having a version below 2.10")
+
         ''' Generic HTTP method for MSO requests. '''
         self.path = path
 
@@ -871,7 +877,7 @@ class MSOModule(object):
     def exit_json(self, **kwargs):
         ''' Custom written method to exit from module. '''
 
-        if self.params.get('state') in ('absent', 'present', 'upload', 'restore', 'download'):
+        if self.params.get('state') in ('absent', 'present', 'upload', 'restore', 'download', 'move'):
             if self.params.get('output_level') in ('debug', 'info'):
                 self.result['previous'] = self.previous
             # FIXME: Modified header only works for PATCH

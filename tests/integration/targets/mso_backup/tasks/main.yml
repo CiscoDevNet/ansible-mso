@@ -162,6 +162,58 @@
     that:
     - nm_add_ansibleBackupRemote2_known_path.current.backupEntry.metadata.name is match ("ansibleBackupRemote2_[0-9a-zA-Z]*")
 
+- name: Create ansibleBackupMove in normal mode
+  mso_backup:
+    <<: *mso_info 
+    backup: ansibleBackupMove
+    location_type: local
+    state: present
+  
+# Move Backup
+- name: Move backup from local to remote location in check mode
+  mso_backup:
+    <<: *mso_info
+    remote_location: ansible_test
+    remote_path: test
+    backup: ansibleBackupMove
+    state: move
+  check_mode: yes 
+  ignore_errors: true
+  register: move_backup_cm
+
+- name: Move backup from local to remote location in normal mode
+  mso_backup:
+    <<: *mso_info
+    remote_location: ansible_test
+    remote_path: test
+    backup: ansibleBackupMove
+    state: move
+  register: move_backup_nm
+
+- name: Move a non existent backup from local location to remote
+  mso_backup:
+    <<: *mso_info
+    backup: non_existent_backup
+    state: move
+  register: move_non_existent_backup
+  ignore_errors: yes
+
+- name: Move a ansibleBackup3 from local location to remote
+  mso_backup:
+    <<: *mso_info
+    backup: ansibleBackup3
+    state: move
+  register: move_ansibleBackup3
+  ignore_errors: yes
+
+- name: Verify move function of backup
+  assert:
+    that:
+    - move_backup_cm is changed
+    - move_backup_nm is changed
+    - move_non_existent_backup.msg is match ("Backup{{':'}} non_existent_backup does not exist")
+    - move_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
+
 # Download Backup
 - name: Download backup in check mode
   mso_backup:
@@ -227,6 +279,7 @@
     state: upload
   register: upload_backup_cm
   check_mode: yes
+  ignore_errors: yes
 
 - name: Upload a backup from local location
   mso_backup:
@@ -234,6 +287,7 @@
     backup: "{{ backup_match.files[0].path }}"
     state: upload
   register: upload_backup
+  ignore_errors: yes
 
 - name: Upload a non existent backup from local location
   mso_backup:
@@ -249,6 +303,12 @@
     - upload_backup is changed
     - upload_backup_cm is changed
     - upload_non_existent_backup.msg is match ("Backup{{':'}} non_existent_backup, not found")
+
+- name: Verify outcome of upload when ansible version is not 2.10
+  assert:
+    that:
+    - upload_backup.msg is match ("Upload function is not supported on ansible having a version below 2.10")
+  when: ansible_version.full < "2.10"
 
 # Restore Backup
 - name: Restore non existent backup
@@ -352,7 +412,7 @@
   assert:
     that:
     - query_all_backups is not changed
-    - query_all_backups.current | selectattr("name", "match", "^ansibleBackup.*") | list | length == 5
+    - query_all_backups.current | selectattr("name", "match", "^ansibleBackup.*") | list | length == 6
 
 # Remove Backup
 - name: Remove ansibleBackup1 in check mode

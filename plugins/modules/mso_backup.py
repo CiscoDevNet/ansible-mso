@@ -92,7 +92,7 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    backup: Backup
+    backup: Backup0
     remote_location: ansible_test
     remote_path: test
     state: move

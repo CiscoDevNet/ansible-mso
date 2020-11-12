@@ -25,22 +25,12 @@ options:
     - The name of the schema.
     type: str
     aliases: [ name ]
-  templates:
-    description:
-    - A list of templates for this schema.
-    type: list
-    elements: str
-  sites:
-    description:
-    - A list of sites mapped to templates in this schema.
-    type: list
-    elements: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
     - Use C(query) for listing an object or multiple objects.
     type: str
-    choices: [ absent, present, query ]
+    choices: [ absent, query ]
     default: present
 notes:
 - Due to restrictions of the MSO REST API this module cannot create empty schemas (i.e. schemas without templates).
@@ -52,28 +42,8 @@ extends_documentation_fragment: cisco.mso.modules
 '''
 
 EXAMPLES = r'''
-- name: Add a new schema
-  cisco.mso.mso_schema:
-    host: mso_host
-    username: admin
-    password: SomeSecretPassword
-    schema: Schema 1
-    state: present
-    templates:
-    - name: Template1
-      displayName: Template 1
-      tenantId: north_europe
-      anps:
-        <...>
-    - name: Template2
-      displayName: Template 2
-      tenantId: nort_europe
-      anps:
-        <...>
-  delegate_to: localhost
-
 - name: Remove schemas
-  cisco.mso.mso_schema:
+  cisco.mso.mso_schema:v 
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -112,13 +82,6 @@ def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
         schema=dict(type='str', aliases=['name']),
-        templates=dict(type='list', elements='str'),
-        sites=dict(type='list', elements='str'),
-        # messages=dict(type='dict'),
-        # associations=dict(type='list'),
-        # health_faults=dict(type='list'),
-        # references=dict(type='dict'),
-        # policy_states=dict(type='list'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -127,7 +90,6 @@ def main():
         supports_check_mode=True,
         required_if=[
             ['state', 'absent', ['schema']],
-            ['state', 'present', ['schema', 'templates']],
         ],
     )
 
@@ -167,8 +129,6 @@ def main():
         payload = dict(
             id=schema_id,
             displayName=schema,
-            templates=templates,
-            sites=sites,
         )
 
         mso.sanitize(payload, collate=True)

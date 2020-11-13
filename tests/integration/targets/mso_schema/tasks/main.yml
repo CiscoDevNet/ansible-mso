@@ -1,0 +1,77 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure tenant ansible_test exists
+  cisco.mso.mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+      - '{{ mso_username }}'
+    state: present
+
+- name: Create schema 1 with Template 1, and Template 2, Template 3 exist
+  cisco.mso.mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: '{{item.template}}'
+    state: present
+  loop:
+  - { template: Template 1}
+  - { template: Template 2}
+  - { template: Template 3}
+
+- name: Create schema 2 with Template 4
+  cisco.mso.mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 4
+    state: present
+
+- name: Query for all schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    state: query
+  register: query_all
+
+- name: Query a schema
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: ansible_test
+    state: query
+  register: query_one
+
+- name: Verify query_all and query_one
+  assert:
+    that:
+    - query_all is not changed
+    - query_one is not changed

@@ -75,3 +75,43 @@
     that:
     - query_all is not changed
     - query_one is not changed
+    - query_all.current | length >= 2
+    - query_one.current.displayName == "ansible_test"
+
+- name: Remove schema (check_mode)
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: ansible_test
+    state: absent
+  check_mode: yes
+  register: cm_rm_schema
+
+- name: Remove schema (normal_mode)
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: ansible_test
+    state: absent
+  register: nm_rm_schema
+
+- name: Verify rm_schema
+  assert:
+    that:
+    - cm_rm_schema is changed
+    - cm_rm_schema.previous.displayName == "ansible_test"
+    - cm_rm_schema.current == {}
+    - nm_rm_schema is changed
+    - nm_rm_schema.current == {}
+    - nm_rm_schema.previous.displayName == "ansible_test"
+
+- name: Query non_existing schema
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: non_existing
+    state: query
+  register: query_non_existing
+
+- name: Verify query_non_existing
+  assert:
+    that:
+    - query_non_existing is not changed
+    - query_non_existing.current == {}

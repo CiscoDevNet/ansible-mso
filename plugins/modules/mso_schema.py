@@ -43,7 +43,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Remove schemas
-  cisco.mso.mso_schema:v 
+  cisco.mso.mso_schema:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -82,6 +82,11 @@ def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
         schema=dict(type='str', aliases=['name']),
+        # messages=dict(type='dict'),
+        # associations=dict(type='list'),
+        # health_faults=dict(type='list'),
+        # references=dict(type='dict'),
+        # policy_states=dict(type='list'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -94,8 +99,6 @@ def main():
     )
 
     schema = module.params.get('schema')
-    templates = module.params.get('templates')
-    sites = module.params.get('sites')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -122,28 +125,6 @@ def main():
                 mso.existing = {}
             else:
                 mso.existing = mso.request(path, method='DELETE')
-
-    elif state == 'present':
-        mso.previous = mso.existing
-
-        payload = dict(
-            id=schema_id,
-            displayName=schema,
-        )
-
-        mso.sanitize(payload, collate=True)
-
-        if mso.existing:
-            if mso.check_changed():
-                if module.check_mode:
-                    mso.existing = mso.proposed
-                else:
-                    mso.existing = mso.request(path, method='PUT', data=mso.sent)
-        else:
-            if module.check_mode:
-                mso.existing = mso.proposed
-            else:
-                mso.existing = mso.request(path, method='POST', data=mso.sent)
 
     mso.exit_json()
 

@@ -31,7 +31,7 @@ options:
     - Use C(query) for listing an object or multiple objects.
     type: str
     choices: [ absent, query ]
-    default: present
+    default: query
 notes:
 - Due to restrictions of the MSO REST API this module cannot create empty schemas (i.e. schemas without templates).
   Use the M(cisco.mso.mso_schema_template) to automatically create schemas with templates.
@@ -87,7 +87,7 @@ def main():
         # health_faults=dict(type='list'),
         # references=dict(type='dict'),
         # policy_states=dict(type='list'),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        state=dict(type='str', default='query', choices=['absent', 'query']),
     )
 
     module = AnsibleModule(

@@ -1,6 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2020, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
-# 
+#
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -44,28 +44,43 @@
     - https://{{ apic_hostname }}
     state: present
 
-- name: Remove Template 1 and Template 2 of Schema 1
-  mso_schema_template:
+- name: Undeploy a schema 2 template 2
+  mso_schema_template_deploy:
     <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    tenant: ansible_test
-    template: '{{ item }}'
-    state: absent
+    template: Template 2
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: undeploy
   ignore_errors: yes
-  loop:
-  - '{{ mso_template1 | default("Template 1") }}'
-  - '{{ mso_template2 | default("Template 2") }}'
-  register: remove_templates_schema1
+  register: undeploy_template2
 
-- name: Remove Template 1 of Schema 2
-  mso_schema_template:
+- name: Undeploy a schema 1 template 1
+  mso_schema_template_deploy:
+    <<: *mso_info
+    template: Template 1
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: undeploy
+  ignore_errors: yes
+  register: undeploy_template1
+
+- name: Remove a site from a schema 1 with Template 1
+  mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    tenant: ansible_test
+    site: '{{ mso_site | default("ansible_test") }}'
     template: Template 1
     state: absent
-  ignore_errors: yes
-  register: remove_template1_schema2
+  register: rm_site_temp1
+
+- name: Remove a site from a schema 2 with Template 2
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 2
+    state: absent
+  register: rm_site_temp2
 
 - name: Remove schemas
   mso_schema:
@@ -251,11 +266,6 @@
   when: version.current.version is version('2.2.4e', '!=')
   register: object_migrate
 
-- name: Verify object_migrate
-  assert:
-    that:
-    - object_migrate is changed
-
 - name: Migration of BD objects between templates
   mso_schema_template_migrate:
     <<: *mso_info
@@ -268,11 +278,6 @@
     state: present
   when: version.current.version is version('2.2.4e', '!=')
   register: bd_migrate
-
-- name: Verify bd_migrate
-  assert:
-    that:
-    - bd_migrate is changed
 
 - name: Migration of EPG objects between templates
   mso_schema_template_migrate:
@@ -290,7 +295,40 @@
   when: version.current.version is version('2.2.4e', '!=')
   register: epg_migrate
 
-- name: Verify schema2_template2
-  assert:
-    that:
-    - schema2_template2 is changed
+- name: Undeploy a schema 2 template 2
+  mso_schema_template_deploy:
+    <<: *mso_info
+    template: Template 2
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: undeploy
+  ignore_errors: yes
+  register: undeploy_template2
+
+- name: Undeploy a schema 1 template 1
+  mso_schema_template_deploy:
+    <<: *mso_info
+    template: Template 1
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: undeploy
+  ignore_errors: yes
+  register: undeploy_template1
+
+- name: Remove a site from a schema 1 with Template 1
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: absent
+  register: rm_site_temp1
+
+- name: Remove a site from a schema 2 with Template 2
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 2
+    state: absent
+  register: rm_site_temp2

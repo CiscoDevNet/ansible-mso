@@ -194,6 +194,8 @@
   mso_backup:
     <<: *mso_info
     backup: non_existent_backup
+    remote_location: ansible_test
+    remote_path: test
     state: move
   register: move_non_existent_backup
   ignore_errors: yes
@@ -202,6 +204,8 @@
   mso_backup:
     <<: *mso_info
     backup: ansibleBackup3
+    remote_location: ansible_test
+    remote_path: test
     state: move
   register: move_ansibleBackup3
   ignore_errors: yes
@@ -303,12 +307,6 @@
     - upload_backup is changed
     - upload_backup_cm is changed
     - upload_non_existent_backup.msg is match ("Backup{{':'}} non_existent_backup, not found")
-
-- name: Verify outcome of upload when ansible version is not 2.10
-  assert:
-    that:
-    - upload_backup.msg is match ("Upload function is not supported on ansible having a version below 2.10")
-  when: ansible_version.full < "2.10"
 
 # Restore Backup
 - name: Restore non existent backup

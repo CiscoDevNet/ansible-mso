@@ -12,12 +12,21 @@ import os
 import datetime
 import shutil
 import tempfile
+import email.mime.multipart
+import email.mime.nonmultipart
+import email.mime.application
+import email.parser
+import email.utils
+import mimetypes
 from ansible.module_utils.basic import json
 from ansible.module_utils.six import PY3
 from ansible.module_utils.six.moves import filterfalse
 from ansible.module_utils.six.moves.urllib.parse import urlencode, urljoin, urlsplit
 from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_native
+from ansible.module_utils.common.collections import Mapping
+from ansible.module_utils.six import PY3, string_types
+from ansible.module_utils._text import to_bytes, to_native, to_text
 
 
 if PY3:
@@ -175,7 +184,7 @@ def format_message(err, resp):
     return err
 
 
-# Copied from ansible's module uri.py
+# Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp):
     # create a tempfile with some test content
     fd, tmpsrc = tempfile.mkstemp(dir=module.tmpdir)
@@ -229,6 +238,117 @@ def write_file(module, url, dest, content, resp):
             module.fail_json(msg=msg)
 
     os.remove(tmpsrc)
+
+
+# Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/module_utils/urls.py
+def prepare_multipart(fields):
+    """Takes a mapping, and prepares a multipart/form-data body
+    :arg fields: Mapping
+    :returns: tuple of (content_type, body) where ``content_type`` is
+        the ``multipart/form-data`` ``Content-Type`` header including
+        ``boundary`` and ``body`` is the prepared bytestring body
+    Payload content from a file will be base64 encoded and will include
+    the appropriate ``Content-Transfer-Encoding`` and ``Content-Type``
+    headers.
+    Example:
+        {
+            "file1": {
+                "filename": "/bin/true",
+                "mime_type": "application/octet-stream"
+            },
+            "file2": {
+                "content": "text based file content",
+                "filename": "fake.txt",
+                "mime_type": "text/plain",
+            },
+            "text_form_field": "value"
+        }
+    """
+
+    if not isinstance(fields, Mapping):
+        raise TypeError(
+            'Mapping is required, cannot be type %s' % fields.__class__.__name__
+        )
+
+    m = email.mime.multipart.MIMEMultipart('form-data')
+    for field, value in sorted(fields.items()):
+        if isinstance(value, string_types):
+            main_type = 'text'
+            sub_type = 'plain'
+            content = value
+            filename = None
+        elif isinstance(value, Mapping):
+            filename = value.get('filename')
+            content = value.get('content')
+            if not any((filename, content)):
+                raise ValueError('at least one of filename or content must be provided')
+
+            mime = value.get('mime_type')
+            if not mime:
+                try:
+                    mime = mimetypes.guess_type(filename or '', strict=False)[0] or 'application/octet-stream'
+                except Exception:
+                    mime = 'application/octet-stream'
+            main_type, sep, sub_type = mime.partition('/')
+        else:
+            raise TypeError(
+                'value must be a string, or mapping, cannot be type %s' % value.__class__.__name__
+            )
+
+        if not content and filename:
+            with open(to_bytes(filename, errors='surrogate_or_strict'), 'rb') as f:
+                part = email.mime.application.MIMEApplication(f.read(), _subtype=sub_type, _encoder=email.encoders.encode_noop)
+                del part['Content-Type']
+                part.add_header('Content-Type', '%s/%s' % (main_type, sub_type))
+        else:
+            part = email.mime.nonmultipart.MIMENonMultipart(main_type, sub_type)
+            part.set_payload(to_bytes(content))
+
+        part.add_header('Content-Disposition', 'form-data')
+        del part['MIME-Version']
+        part.set_param(
+            'name',
+            field,
+            header='Content-Disposition'
+        )
+        if filename:
+            part.set_param(
+                'filename',
+                to_native(os.path.basename(filename)),
+                header='Content-Disposition'
+            )
+
+        m.attach(part)
+
+    if PY3:
+        # Ensure headers are not split over multiple lines
+        # The HTTP policy also uses CRLF by default
+        b_data = m.as_bytes(policy=email.policy.HTTP)
+    else:
+        # Py2
+        # We cannot just call ``as_string`` since it provides no way
+        # to specify ``maxheaderlen``
+        fp = cStringIO()  # cStringIO seems to be required here
+        # Ensure headers are not split over multiple lines
+        g = email.generator.Generator(fp, maxheaderlen=0)
+        g.flatten(m)
+        # ``fix_eols`` switches from ``\n`` to ``\r\n``
+        b_data = email.utils.fix_eols(fp.getvalue())
+    del m
+
+    headers, sep, b_content = b_data.partition(b'\r\n\r\n')
+    del b_data
+
+    if PY3:
+        parser = email.parser.BytesHeaderParser().parsebytes
+    else:
+        # Py2
+        parser = email.parser.HeaderParser().parsestr
+
+    return (
+        parser(headers)['Content-Type'],  # Message converts to native strings
+        b_content
+    )
 
 
 class MSOModule(object):
@@ -337,7 +457,7 @@ class MSOModule(object):
         else:
             pass
 
-        dest = data['destination']
+        dest = data.get('destination')
         data = None
 
         kwargs = {}
@@ -391,11 +511,6 @@ class MSOModule(object):
         return redirect, dest
 
     def request_upload(self, path, method=None, data=None, qs=None):
-        try:
-            from ansible.module_utils.urls import prepare_multipart
-        except ImportError:
-            self.fail_json("Upload function is not supported on ansible having a version below 2.10")
-
         ''' Generic HTTP method for MSO requests. '''
         self.path = path
 
@@ -417,8 +532,6 @@ class MSOModule(object):
 
         self.response = info.get('msg')
         self.status = info.get('status')
-
-        # self.result['info'] = info
 
         # Get change status from HTTP headers
         if 'modified' in info:

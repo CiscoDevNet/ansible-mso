@@ -47,7 +47,7 @@ options:
     type: str
   destination:
     description:
-    - Location for backup to be downloaded
+    - Location where to download the backup to
     type: str
   state:
     description:
@@ -194,7 +194,7 @@ def main():
             ['state', 'upload', ['backup']],
             ['state', 'restore', ['backup']],
             ['state', 'download', ['backup', 'destination']],
-            ['state', 'move', ['backup']]
+            ['state', 'move', ['backup', 'remote_location', 'remote_path']]
         ]
     )
 
@@ -231,62 +231,10 @@ def main():
                 mso.existing = {}
             else:
                 mso.existing = mso.request('backups/backupRecords/{id}'.format(id=mso.existing[0].get('id')), method='DELETE')
-
-    elif state == 'restore':
-        mso.previous = mso.existing
-        if len(mso.existing) == 0:
-            mso.module.fail_json(msg="Backup: {0} does not exist".format(backup))
-        elif len(mso.existing) > 1:
-            mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(', '.join(backup_names)))
-        if module.check_mode:
-            mso.existing = mso.proposed
-        else:
-            mso.existing = mso.request('backups/{id}/restore'.format(id=mso.existing[0].get('id')), method='PUT')
-
-    elif state == 'download':
-        mso.previous = mso.existing
-        payload = dict(destination=destination)
-        if len(mso.existing) == 0:
-            mso.module.fail_json(msg="Backup: {0} does not exist".format(backup))
-        elif len(mso.existing) > 1:
-            mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(', '.join(backup_names)))
-        if module.check_mode:
-            mso.existing = mso.proposed
-        else:
-            mso.existing = mso.request_download('backups/{id}/download'.format(id=mso.existing[0].get('id')), method='GET', data=payload)
-
-    elif state == 'upload':
-        mso.previous = mso.existing
-        payload = dict(name=dict(filename=backup))
-        if module.check_mode:
-            mso.existing = mso.proposed
-        else:
-            try:
-                mso.existing = mso.request_upload('backups/upload', method='POST', data=payload)
-            except FileNotFoundError:
-                mso.module.fail_json(msg="Backup: {0}, not found".format(', '.join(backup.split('/')[-1:])))
-
-    elif state == 'move':
-        mso.previous = mso.existing
-        if len(mso.existing) == 0:
-            mso.module.fail_json(msg="Backup: {0} does not exist".format(backup))
-        elif len(mso.existing) > 1:
-            mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(', '.join(backup_names)))
-        remote_location_info = mso.lookup_remote_location(remote_location)
-        remote_path = '{0}/{1}'.format(remote_location_info.get('path'), remote_path)
-        payload = dict(
-            remoteLocationId=remote_location_info.get('id'),
-            remotePath=remote_path,
-            backupRecordId=mso.existing[0].get('id')
-        )
-        if module.check_mode:
-            mso.existing = mso.proposed
-        else:
-            mso.existing = mso.request('backups/remote-location', method='POST', data=payload)
+        mso.exit_json()
 
     elif state == 'present':
         mso.previous = mso.existing
-        path = 'backups'
         payload = dict(
             name=backup,
             description=description,
@@ -303,7 +251,54 @@ def main():
         if module.check_mode:
             mso.existing = mso.proposed
         else:
-            mso.existing = mso.request(path, method='POST', data=payload)
+            mso.existing = mso.request('backups', method='POST', data=payload)
+        mso.exit_json()
+
+    elif state == 'upload':
+        mso.previous = mso.existing
+        payload = dict(name=dict(filename=backup, mime_type='application/x-gzip'))
+        if module.check_mode:
+            mso.existing = mso.proposed
+        else:
+            try:
+                mso.existing = mso.request_upload('backups/upload', method='POST', data=payload)
+            except FileNotFoundError:
+                mso.module.fail_json(msg="Backup: {0}, not found".format(', '.join(backup.split('/')[-1:])))
+        mso.exit_json()
+
+    if len(mso.existing) == 0:
+        mso.module.fail_json(msg="Backup: {0} does not exist".format(backup))
+    elif len(mso.existing) > 1:
+        mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(', '.join(backup_names)))
+
+    elif state == 'restore':
+        mso.previous = mso.existing
+        if module.check_mode:
+            mso.existing = mso.proposed
+        else:
+            mso.existing = mso.request('backups/{id}/restore'.format(id=mso.existing[0].get('id')), method='PUT')
+
+    elif state == 'download':
+        mso.previous = mso.existing
+        payload = dict(destination=destination)
+        if module.check_mode:
+            mso.existing = mso.proposed
+        else:
+            mso.existing = mso.request_download('backups/{id}/download'.format(id=mso.existing[0].get('id')), method='GET', data=payload)
+
+    elif state == 'move':
+        mso.previous = mso.existing
+        remote_location_info = mso.lookup_remote_location(remote_location)
+        remote_path = '{0}/{1}'.format(remote_location_info.get('path'), remote_path)
+        payload = dict(
+            remoteLocationId=remote_location_info.get('id'),
+            remotePath=remote_path,
+            backupRecordId=mso.existing[0].get('id')
+        )
+        if module.check_mode:
+            mso.existing = mso.proposed
+        else:
+            mso.existing = mso.request('backups/remote-location', method='POST', data=payload)
 
     mso.exit_json()
 

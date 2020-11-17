@@ -172,7 +172,6 @@ def main():
     templates = [t.get('name') for t in schema_obj.get('templates')]
     if template not in templates:
         mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
-    template_idx = templates.index(template)
 
     # Get site
     site_id = mso.lookup_site(site)

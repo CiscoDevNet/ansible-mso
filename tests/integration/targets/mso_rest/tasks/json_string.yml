@@ -1,0 +1,24 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+#
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+# QUERY ALL sites
+- name: Query all sites (normal mode)
+  mso_rest:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("debug") }}'
+    path: /api/v1/sites
+    method: get
+  register: nm_query_all_sites
+
+- name: Verify query_all_sites
+  assert:
+    that:
+    - nm_query_all_sites is not changed

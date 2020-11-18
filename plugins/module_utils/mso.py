@@ -178,6 +178,9 @@ class MSOModule(object):
         # normal output
         self.existing = dict()
 
+        # mso_rest output
+        self.jsondata = None
+
         # info output
         self.previous = dict()
         self.proposed = dict()
@@ -250,6 +253,16 @@ class MSOModule(object):
         payload = json.loads(resp.read())
 
         self.headers['Authorization'] = 'Bearer {token}'.format(**payload)
+
+    def response_json(self, rawoutput):
+        ''' Handle MSO JSON response output '''
+        try:
+            self.jsondata = json.loads(rawoutput)
+        except Exception as e:
+            # Expose RAW output for troubleshooting
+            self.error = dict(code=-1, text="Unable to parse output as JSON, see 'raw' output. %s" % e)
+            self.result['raw'] = rawoutput
+            return
 
     def request(self, path, method=None, data=None, qs=None):
         ''' Generic HTTP method for MSO requests. '''

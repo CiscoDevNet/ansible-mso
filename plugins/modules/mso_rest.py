@@ -61,7 +61,6 @@ class MSORESTModule(MSOModule):
     def response_type(self, rawoutput, rest_type='json'):
         ''' Handle APIC response output '''
 
-        # self.stdout = str(rawoutput)
         if rest_type == 'json':
             self.response_json(rawoutput)
 
@@ -70,40 +69,27 @@ def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
         path=dict(type='str', required=True, aliases=['uri']),
-        method=dict(type='str', default='get', aliases=['action']),
-        # method=dict(type='str', default='get', choices=['delete', 'get', 'post'], aliases=['action']),
-        src=dict(type='path', aliases=['config_file']),
+        method=dict(type='str', default='get', choices=['delete', 'get', 'post', 'put', 'patch'], aliases=['action']),
         content=dict(type='raw'),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
-        mutually_exclusive=[['content', 'src']],
     )
 
     content = module.params.get('content')
     path = module.params.get('path')
-    src = module.params.get('src')
-
-    # Report missing file
-    file_exists = False
-    if src:
-        if os.path.isfile(src):
-            file_exists = True
-        else:
-            module.fail_json(msg="Cannot find/access src '%s'" % src)
 
     rest_type = 'json'
 
     mso = MSORESTModule(module)
     mso.result['status'] = -1  # Ensure we always return a status
 
-    # We include the payload as it may be templated
-    payload = content
-    if file_exists:
-        with open(src, 'r') as config_object:
-            # TODO: Would be nice to template this, requires action-plugin
-            payload = config_object.read()
+    # Validate content/payload
+    if rest_type == 'json':
+        if content and (isinstance(content, dict) or isinstance(content, list)):
+            # Validate inline YAML/JSON
+            content = json.dumps(content)
 
     # Perform actual request using auth cookie (Same as mso.request(), but also supports XML)
     if 'port' in mso.params and mso.params.get('port') is not None:
@@ -111,11 +97,12 @@ def main():
     else:
         mso.url = '%(protocol)s://%(host)s/' % mso.params + path.lstrip('/')
 
+
     mso.method = mso.params.get('method').upper()
 
     # Perform request
     resp, info = fetch_url(module, mso.url,
-                           data=payload,
+                           data=content,
                            headers=mso.headers,
                            method=mso.method,
                            timeout=mso.params.get('timeout'),
@@ -125,16 +112,19 @@ def main():
     mso.status = info.get('status')
 
     # Report failure
-    if info.get('status') != 200:
+    if info.get('status') not in [200, 201, 202, 204]:
         try:
-            # APIC error
-            mso.response_type(info.get('body'), rest_type)
-            mso.fail_json(msg='APIC Error %(code)s: %(text)s' % mso.error)
+            # MSO error
+            mso.response_type(info['body'], rest_type)
+            mso.fail_json(msg='MSO Error %(code)s: %(message)s' % mso.error)
         except KeyError:
             # Connection error
             mso.fail_json(msg='Connection failed for %(url)s. %(msg)s' % info)
 
     mso.response_type(resp.read(), rest_type)
+
+    if mso.method != 'GET':
+        mso.result['changed'] = True
 
     mso.result['jsondata'] = mso.jsondata
 

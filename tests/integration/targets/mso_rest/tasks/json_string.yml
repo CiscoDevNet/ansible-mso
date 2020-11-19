@@ -1,24 +1,62 @@
-# Test code for the MSO modules
-# Copyright: (c) 2020, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
-#
+# # Test code for the MSO modules
+# # Copyright: (c) 2020, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# #
 
-# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+# # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
-# QUERY ALL sites
-- name: Query all sites (normal mode)
-  mso_rest:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("debug") }}'
-    path: /api/v1/sites
-    method: get
-  register: nm_query_all_sites
+# # QUERY ALL sites
+# - name: Query all sites (normal mode)
+#   mso_rest:
+#     host: '{{ mso_hostname }}'
+#     username: '{{ mso_username }}'
+#     password: '{{ mso_password }}'
+#     validate_certs: '{{ mso_validate_certs | default(false) }}'
+#     use_ssl: '{{ mso_use_ssl | default(true) }}'
+#     use_proxy: '{{ mso_use_proxy | default(true) }}'
+#     output_level: '{{ mso_output_level | default("debug") }}'
+#     path: /api/v1/sites
+#     method: get
+#   register: nm_query_all_sites
 
-- name: Verify query_all_sites
-  assert:
-    that:
-    - nm_query_all_sites is not changed
+# - name: Verify query_all_sites
+#   assert:
+#     that:
+#     - nm_query_all_sites is not changed
+
+# # ADD SITE
+# - name: Add site (check_mode)
+#   mso_rest: &site_present
+#     host: '{{ mso_hostname }}'
+#     username: '{{ mso_username }}'
+#     password: '{{ mso_password }}'
+#     validate_certs: '{{ mso_validate_certs | default(false) }}'
+#     use_ssl: '{{ mso_use_ssl | default(true) }}'
+#     use_proxy: '{{ mso_use_proxy | default(true) }}'
+#     output_level: '{{ mso_output_level | default("debug") }}'
+#     path: /api/v1/sites
+#     method: post
+#     content: |
+#       {
+#           "domain":"",
+#           "urls":["https://173.36.219.136"],
+#           "apicSiteId":"200",
+#           "name":"mso-test",
+#           "_updateVersion":0,
+#           "username":"admin",
+#           "maintenanceMode":false,
+#           "password":"ins3965!",
+#           "hasDomain":false,
+#           "regions":[],
+#           "labels":[]
+#       }
+#   delegate_to: localhost
+#   register: add_site_again
+
+# - name: debug stdout
+#   debug: 
+#     msg: "{{ add_site.jsondata }}"
+
+# - name: Verify add_site_again
+#   assert:
+#     that:
+#     - add_site_again is changed

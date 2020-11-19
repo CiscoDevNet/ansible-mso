@@ -181,6 +181,9 @@ class MSOModule(object):
         # mso_rest output
         self.jsondata = None
 
+        # mso_rest_error output
+        self.error = dict(code=None, text=None)
+
         # info output
         self.previous = dict()
         self.proposed = dict()
@@ -260,9 +263,19 @@ class MSOModule(object):
             self.jsondata = json.loads(rawoutput)
         except Exception as e:
             # Expose RAW output for troubleshooting
-            self.error = dict(code=-1, text="Unable to parse output as JSON, see 'raw' output. %s" % e)
+            self.error = dict(code=-1, message="Unable to parse output as JSON, see 'raw' output. %s" % e)
             self.result['raw'] = rawoutput
             return
+
+        # Handle possible MSO error information
+        self.response_error()
+
+    def response_error(self):
+        ''' Set error information when found '''
+
+        # Handle possible MSO error information
+        if self.status not in [200, 201]:
+            self.error = self.jsondata
 
     def request(self, path, method=None, data=None, qs=None):
         ''' Generic HTTP method for MSO requests. '''
@@ -720,8 +733,8 @@ class MSOModule(object):
             # FIXME: Modified header only works for PATCH
             if not self.has_modified and self.previous != self.existing:
                 self.result['changed'] = True
-            if self.stdout:
-                self.result['stdout'] = self.stdout
+        if self.stdout:
+            self.result['stdout'] = self.stdout
 
         # Return the gory details when we need it
         if self.params.get('output_level') == 'debug':

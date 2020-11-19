@@ -4,9 +4,9 @@
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
-# QUERY ALL sites
-- name: Query all sites (normal mode)
-  mso_rest:
+# QUERY SITES
+- name: Query sites
+  mso_rest: &query_sites
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -17,9 +17,129 @@
     path: /api/v1/sites
     method: get
   delegate_to: localhost
-  register: nm_query_all_sites
+  register: query_all_sites
 
 - name: Verify query_all_sites
   assert:
     that:
-    - nm_query_all_sites is not changed
+    - query_all_sites is not changed
+
+# ADD SITE
+- name: Add site (check_mode)
+  mso_rest:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("debug") }}'
+    path: /api/v1/sites
+    method: post
+    content:
+      {
+          "domain":"",
+          "urls":["https://173.36.219.136"],
+          "apicSiteId":"200",
+          "name":"mso-test",
+          "_updateVersion":0,
+          "username":"admin",
+          "maintenanceMode":false,
+          "password":"ins3965!",
+          "hasDomain":false,
+          "regions":[],
+          "labels":[]
+      }
+  delegate_to: localhost
+  register: add_site
+
+- name: Verify add_site
+  assert:
+    that:
+    - add_site is changed
+
+# - name: debug fact
+#   debug:
+#     msg: "{{ add_site.jsondata.id }}"
+
+# PUT SITE
+- name: Put site (check_mode)
+  mso_rest:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("debug") }}'
+    path: "/api/v1/sites/{{ add_site.jsondata.id }}"
+    method: put
+    content:
+      {
+          "domain":"",
+          "urls":["https://173.36.219.136"],
+          "apicSiteId":"200",
+          "name":"mso-test1",
+          "_updateVersion":0,
+          "username":"admin",
+          "maintenanceMode":false,
+          "password":"ins3965!",
+          "hasDomain":false,
+          "regions":[],
+          "labels":[]
+      }
+  delegate_to: localhost
+  register: put_site
+
+- name: Verify put_site
+  assert:
+    that:
+    - put_site is changed
+
+# # PATCH SITE
+# - name: Patch Site
+#   mso_rest:
+#     host: '{{ mso_hostname }}'
+#     username: '{{ mso_username }}'
+#     password: '{{ mso_password }}'
+#     validate_certs: '{{ mso_validate_certs | default(false) }}'
+#     use_ssl: '{{ mso_use_ssl | default(true) }}'
+#     use_proxy: '{{ mso_use_proxy | default(true) }}'
+#     output_level: '{{ mso_output_level | default("debug") }}'
+#     path: "/api/v1/sites/{{ add_site.jsondata.id }}"
+#     method: patch
+#     content:
+#       [
+#           {
+#               "op": "add",
+#               "path": "/labels/-",
+#               "value": "5f9209d52700003803a3a839"
+#           }
+#       ]
+#   delegate_to: localhost
+#   register: patch_site
+
+# - name: Verify patch_site
+#   assert:
+#     that:
+#     - patch_site is changed
+
+# DELETE the sites
+- name: Delete the sites
+  mso_rest:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    path: "/api/v1/sites/{{ add_site.jsondata.id }}"
+    method: delete
+  delegate_to: localhost
+  register: delete_site
+
+- name: Verify delete_site
+  assert:
+    that:
+    - delete_site is changed

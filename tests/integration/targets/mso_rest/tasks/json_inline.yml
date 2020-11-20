@@ -4,142 +4,180 @@
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
-# QUERY SITES
-- name: Query sites
-  mso_rest: &query_sites
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
-    path: /api/v1/sites
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY SCHEMAS
+- name: Query schema
+  mso_rest:
+    <<: *mso_info
+    path: /api/v1/schemas
     method: get
   delegate_to: localhost
-  register: query_all_sites
+  register: query_all_schema
 
-- name: Verify query_all_sites
+- name: Verify query_all_schema
   assert:
     that:
-    - query_all_sites is not changed
+    - query_all_schema is not changed
 
-# ADD SITE
-- name: Add site (check_mode)
+# ADD tenant
+- name: Add tenant
   mso_rest:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("debug") }}'
-    path: /api/v1/sites
+    <<: *mso_info
+    path: /api/v1/tenants
     method: post
     content:
       {
-          "domain":"",
-          "urls":["https://173.36.219.136"],
-          "apicSiteId":"200",
-          "name":"mso-test",
-          "_updateVersion":0,
-          "username":"admin",
-          "maintenanceMode":false,
-          "password":"ins3965!",
-          "hasDomain":false,
-          "regions":[],
-          "labels":[]
+          "displayName": "mso_tenant",
+          "name": "mso_tenant",
+          "description": "",
+          "siteAssociations": [],
+          "userAssociations": [],
+          "_updateVersion": 0
       }
   delegate_to: localhost
-  register: add_site
+  register: add_tenant
 
-- name: Verify add_site
+- name: Verify add_tenant
   assert:
     that:
-    - add_site is changed
+    - add_tenant is changed
 
-# - name: debug fact
-#   debug:
-#     msg: "{{ add_site.jsondata.id }}"
+- name: debug fact
+  debug:
+    msg: "{{ add_tenant.jsondata.id }}"
 
-# PUT SITE
-- name: Put site (check_mode)
+# ADD schema
+- name: Add schema
   mso_rest:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("debug") }}'
-    path: "/api/v1/sites/{{ add_site.jsondata.id }}"
+    <<: *mso_info
+    path: /api/v1/schemas
+    method: post
+    content:
+      {
+          "displayName": "mso_schema",
+          "templates": [{
+              "name": "Template_1",
+              "tenantId": "{{ add_tenant.jsondata.id }}",
+              "displayName": "Template_1",
+              "templateSubType": [],
+              "templateType": "stretched-template",
+              "anps": [],
+              "contracts": [],
+              "vrfs": [],
+              "bds": [],
+              "filters": [],
+              "externalEpgs": [],
+              "serviceGraphs": [],
+              "intersiteL3outs": []
+          }],
+          "sites": [],
+          "_updateVersion": 0
+      }
+  delegate_to: localhost
+  register: add_schema
+
+- name: Verify add_schema
+  assert:
+    that:
+    - add_schema is changed
+
+- name: debug fact
+  debug:
+    msg: "{{ add_schema.jsondata.id }}"
+
+# PUT schema
+- name: Put schema
+  mso_rest:
+    <<: *mso_info
+    path: "/api/v1/schemas/{{ add_schema.jsondata.id }}"
     method: put
     content:
       {
-          "domain":"",
-          "urls":["https://173.36.219.136"],
-          "apicSiteId":"200",
-          "name":"mso-test1",
-          "_updateVersion":0,
-          "username":"admin",
-          "maintenanceMode":false,
-          "password":"ins3965!",
-          "hasDomain":false,
-          "regions":[],
-          "labels":[]
+          "displayName": "mso_schema_1",
+          "templates": [{
+              "name": "Template_1",
+              "tenantId": "{{ add_tenant.jsondata.id }}",
+              "displayName": "Template_1",
+              "templateSubType": [],
+              "templateType": "stretched-template",
+              "anps": [],
+              "contracts": [],
+              "vrfs": [],
+              "bds": [],
+              "filters": [],
+              "externalEpgs": [],
+              "serviceGraphs": [],
+              "intersiteL3outs": []
+          }],
+          "sites": [],
+          "_updateVersion": 0
       }
   delegate_to: localhost
-  register: put_site
+  register: put_schema
 
-- name: Verify put_site
+- name: Verify put_schema
   assert:
     that:
-    - put_site is changed
+    - put_schema is changed
 
-# # PATCH SITE
-# - name: Patch Site
-#   mso_rest:
-#     host: '{{ mso_hostname }}'
-#     username: '{{ mso_username }}'
-#     password: '{{ mso_password }}'
-#     validate_certs: '{{ mso_validate_certs | default(false) }}'
-#     use_ssl: '{{ mso_use_ssl | default(true) }}'
-#     use_proxy: '{{ mso_use_proxy | default(true) }}'
-#     output_level: '{{ mso_output_level | default("debug") }}'
-#     path: "/api/v1/sites/{{ add_site.jsondata.id }}"
-#     method: patch
-#     content:
-#       [
-#           {
-#               "op": "add",
-#               "path": "/labels/-",
-#               "value": "5f9209d52700003803a3a839"
-#           }
-#       ]
-#   delegate_to: localhost
-#   register: patch_site
 
-# - name: Verify patch_site
-#   assert:
-#     that:
-#     - patch_site is changed
-
-# DELETE the sites
-- name: Delete the sites
+# PATCH schema
+- name: Patch schema
   mso_rest:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
-    path: "/api/v1/sites/{{ add_site.jsondata.id }}"
+    <<: *mso_info
+    path: "/api/v1/schemas/{{ add_schema.jsondata.id }}"
+    method: patch
+    content:
+      [
+          {
+              "op": "add",
+              "path": "/templates/Template_1/anps/-",
+              "value": { "name": "AP2", "displayName": "AP2", "epgs": [] },
+              "_updateVersion": 0
+          }
+      ]
+  delegate_to: localhost
+  register: patch_schema
+
+- name: Verify patch_schema
+  assert:
+    that:
+    - patch_schema is changed
+
+# DELETE the schema
+- name: Delete the schema
+  mso_rest:
+    <<: *mso_info
+    path: "/api/v1/schemas/{{ add_schema.jsondata.id }}"
     method: delete
   delegate_to: localhost
-  register: delete_site
+  register: delete_schema
 
-- name: Verify delete_site
+- name: Verify delete_schema
   assert:
     that:
-    - delete_site is changed
+    - delete_schema is changed
+
+# DELETE TENANT
+- name: Delete the tenant
+  mso_rest:
+    <<: *mso_info
+    path: "/api/v1/tenants/{{ add_tenant.jsondata.id }}"
+    method: delete
+  delegate_to: localhost
+  register: delete_tenant
+
+- name: Verify delete_tenant
+  assert:
+    that:
+    - delete_tenant is changed

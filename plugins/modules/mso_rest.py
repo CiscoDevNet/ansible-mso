@@ -11,6 +11,115 @@ ANSIBLE_METADATA = {'metadata_version': '1.1',
                     'status': ['preview'],
                     'supported_by': 'community'}
 
+DOCUMENTATION = r'''
+---
+module: mso_rest
+short_description: Direct access to the Cisco MSO REST API
+description:
+- Enables the management of the Cisco MSO fabric through direct access to the Cisco MSO REST API.
+- This module is not idempotent and does not report changes.
+options:
+  method:
+    description:
+    - The HTTP method of the request.
+    - Using C(delete) is typically used for deleting objects.
+    - Using C(get) is typically used for querying objects.
+    - Using C(post) is typically used for modifying objects.
+    - Using C(put) is typically used for modifying existing objects.
+    - Using C(patch) is typically also used for modifying existing objects.
+    type: str
+    choices: [ delete, get, post, put, patch ]
+    default: get
+    aliases: [ action ]
+  path:
+    description:
+    - URI being used to execute API calls.
+    type: str
+    required: yes
+    aliases: [ uri ]
+  content:
+    description:
+    - When used instead of C(src), sets the payload of the API request directly.
+    - This may be convenient to template simple requests.
+    - For anything complex use the C(template) lookup plugin (see examples)
+      or the M(template) module with parameter C(src).
+    type: raw
+extends_documentation_fragment:
+- cisco.mso.modules
+
+notes:
+- Certain payloads are known not to be idempotent, so be careful when constructing payloads.
+- For JSON payloads nothing special is needed.
+- If you do not have any attributes, it may be necessary to add the "attributes" key with an empty dictionnary "{}" for value
+  as the MSO does expect the entry to precede any children.
+seealso:
+- module: cisco.mso.mso_tenant
+author:
+- Anvitha Jain (@anvitha-jain)
+'''
+
+EXAMPLES = r'''
+- name: Add tenant
+  cisco.mso.mso_rest:
+    host: mso
+    username: admin
+    password: SomeSecretPassword
+    path: /api/v1/tenants
+    method: post
+    content:
+      {
+          "displayName": "mso_tenant",
+          "name": "mso_tenant",
+          "description": "",
+          "siteAssociations": [],
+          "userAssociations": [],
+          "_updateVersion": 0
+      }
+  delegate_to: localhost
+
+- name: Add schema (check_mode)
+  cisco.mso.mso_rest:
+    host: mso
+    username: admin
+    password: SomeSecretPassword
+    path: /api/v1/schemas
+    method: post
+    content:
+      {
+          "displayName": "mso_schema",
+          "templates": [{
+              "name": "Template_1",
+              "tenantId": "{{ add_tenant.jsondata.id }}",
+              "displayName": "Template_1",
+              "templateSubType": [],
+              "templateType": "stretched-template",
+              "anps": [],
+              "contracts": [],
+              "vrfs": [],
+              "bds": [],
+              "filters": [],
+              "externalEpgs": [],
+              "serviceGraphs": [],
+              "intersiteL3outs": []
+          }],
+          "sites": [],
+          "_updateVersion": 0
+      }
+  delegate_to: localhost
+
+- name: Query schema
+  cisco.mso.mso_rest:
+    host: mso
+    username: admin
+    password: SomeSecretPassword
+    path: /api/v1/schemas
+    method: get
+  delegate_to: localhost
+'''
+
+RETURN = r'''
+'''
+
 import json
 import os
 
@@ -24,6 +133,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_text
+
 
 def update_qsl(url, params):
     ''' Add or update a URL query string '''
@@ -59,7 +169,7 @@ class MSORESTModule(MSOModule):
         return False
 
     def response_type(self, rawoutput, rest_type='json'):
-        ''' Handle APIC response output '''
+        ''' Handle MSO response output '''
 
         if rest_type == 'json':
             self.response_json(rawoutput)
@@ -96,7 +206,6 @@ def main():
         mso.url = '%(protocol)s://%(host)s:%(port)s/' % mso.params + path.lstrip('/')
     else:
         mso.url = '%(protocol)s://%(host)s/' % mso.params + path.lstrip('/')
-
 
     mso.method = mso.params.get('method').upper()
 

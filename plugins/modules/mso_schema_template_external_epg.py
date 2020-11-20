@@ -35,10 +35,11 @@ options:
     - The name of the external EPG to manage.
     type: str
     aliases: [ name, externalepg ]
-  external_epg_type:
+  type:
     description:
     - The type of external epg.
     - anp needs to be associated with external epg when the type is cloud.
+    - l3out can be associated with external epg when the type is on-premise.
     type: str
     choices: [ on-premise, cloud ]
     default: on-premise
@@ -144,7 +145,7 @@ EXAMPLES = r'''
     schema: Schema 1
     template: Template 1
     external_epg: External EPG 1
-    external_epg_type: cloud
+    type: cloud
     vrf:
       name: VRF
       schema: Schema 1
@@ -209,7 +210,7 @@ def main():
         l3out=dict(type='dict', options=mso_reference_spec()),
         anp=dict(type='dict', options=mso_reference_spec()),
         preferred_group=dict(type='bool'),
-        external_epg_type=dict(type='str', default='on-premise', choices=['on-premise', 'cloud']),
+        type=dict(type='str', default='on-premise', choices=['on-premise', 'cloud']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -219,7 +220,7 @@ def main():
         required_if=[
             ['state', 'absent', ['external_epg']],
             ['state', 'present', ['external_epg', 'vrf']],
-            ['external_epg_type', 'cloud', ['anp']],
+            ['type', 'cloud', ['anp']],
         ],
     )
 
@@ -231,7 +232,7 @@ def main():
     l3out = module.params.get('l3out')
     anp = module.params.get('anp')
     preferred_group = module.params.get('preferred_group')
-    external_epg_type = module.params.get('external_epg_type')
+    type_ext_epg = module.params.get('type')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -294,14 +295,14 @@ def main():
             name=external_epg,
             displayName=display_name,
             vrfRef=vrf_ref,
-            extEpgType=external_epg_type,
-            l3outRef=l3out_ref,
             preferredGroup=preferred_group,
         )
 
-        if external_epg_type == 'cloud':
-            del payload['l3outRef']
+        if type_ext_epg == 'cloud':
+            payload['extEpgType'] = 'cloud'
             payload['anpRef'] = anp_ref
+        else:
+            payload['l3outRef'] = l3out_ref
 
         mso.sanitize(payload, collate=True)
 

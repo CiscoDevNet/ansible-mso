@@ -64,7 +64,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new site VRF region
-  mso_schema_template_vrf_region:
+  mso_schema_site_vrf_region:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -77,7 +77,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a site VRF region
-  mso_schema_template_vrf_region:
+  mso_schema_site_vrf_region:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -90,7 +90,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific site VRF region
-  mso_schema_template_vrf_region:
+  mso_schema_site_vrf_region:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -104,7 +104,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all site VRF regions
-  mso_schema_template_vrf_region:
+  mso_schema_site_vrf_region:
     host: mso_host
     username: admin
     password: SomeSecretPassword

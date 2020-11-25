@@ -43,14 +43,12 @@
     path: /mso/api/v1/tenants
     method: post
     content:
-      {
-          "displayName": "mso_tenant",
-          "name": "mso_tenant",
-          "description": "",
-          "siteAssociations": [],
-          "userAssociations": [],
-          "_updateVersion": 0
-      }
+      displayName: mso_tenant
+      name: mso_tenant
+      description: MSO tenant
+      siteAssociations: []
+      userAssociations: []
+      _updateVersion: 0    
   delegate_to: localhost
   register: add_tenant
 
@@ -67,26 +65,23 @@
     path: /mso/api/v1/schemas
     method: post
     content:
-      {
-          "displayName": "mso_schema",
-          "templates": [{
-              "name": "Template_1",
-              "tenantId": "{{ add_tenant.jsondata.id }}",
-              "displayName": "Template_1",
-              "templateSubType": [],
-              "templateType": "stretched-template",
-              "anps": [],
-              "contracts": [],
-              "vrfs": [],
-              "bds": [],
-              "filters": [],
-              "externalEpgs": [],
-              "serviceGraphs": [],
-              "intersiteL3outs": []
-          }],
-          "sites": [],
-          "_updateVersion": 0
-      }
+      displayName: mso_schema
+      templates:
+        - name: Template_1
+          tenantId: '{{ add_tenant.jsondata.id }}'
+          displayName: Template_1
+          templateSubType: []
+          templateType: stretched-template
+          anps: []
+          contracts: []
+          vrfs: []
+          bds: []
+          filters: []
+          externalEpgs: []
+          serviceGraphs: []
+          intersiteL3outs: []
+      sites: []
+      _updateVersion: 0
   delegate_to: localhost
   register: add_schema
 
@@ -100,30 +95,26 @@
 - name: Put schema
   mso_rest:
     <<: *mso_info
-    port: 443
     path: "/mso/api/v1/schemas/{{ add_schema.jsondata.id }}"
     method: put
     content:
-      {
-          "displayName": "mso_schema_1",
-          "templates": [{
-              "name": "Template_1",
-              "tenantId": "{{ add_tenant.jsondata.id }}",
-              "displayName": "Template_1",
-              "templateSubType": [],
-              "templateType": "stretched-template",
-              "anps": [],
-              "contracts": [],
-              "vrfs": [],
-              "bds": [],
-              "filters": [],
-              "externalEpgs": [],
-              "serviceGraphs": [],
-              "intersiteL3outs": []
-          }],
-          "sites": [],
-          "_updateVersion": 0
-      }
+      displayName: mso_schema_1
+      templates:
+      - name: Template_1
+        tenantId: '{{ add_tenant.jsondata.id }}'
+        displayName: Template_1
+        templateSubType: []
+        templateType: stretched-template
+        anps: []
+        contracts: []
+        vrfs: []
+        bds: []
+        filters: []
+        externalEpgs: []
+        serviceGraphs: []
+        intersiteL3outs: []
+      sites: []
+      _updateVersion: 0
   delegate_to: localhost
   register: put_schema
 
@@ -140,14 +131,13 @@
     path: "/mso/api/v1/schemas/{{ add_schema.jsondata.id }}"
     method: patch
     content:
-      [
-          {
-              "op": "add",
-              "path": "/templates/Template_1/anps/-",
-              "value": { "name": "AP2", "displayName": "AP2", "epgs": [] },
-              "_updateVersion": 0
-          }
-      ]
+      - op: add
+        path: /templates/Template_1/anps/-
+        value:
+          name: AP2
+          displayName: AP2
+          epgs: []
+        _updateVersion: 0
   delegate_to: localhost
   register: patch_schema
 

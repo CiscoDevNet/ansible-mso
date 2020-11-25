@@ -4,6 +4,13 @@
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
 - name: Set vars
   set_fact:
     mso_info: &mso_info
@@ -19,7 +26,7 @@
 - name: Query schema
   mso_rest:
     <<: *mso_info
-    path: /api/v1/schemas
+    path: /mso/api/v1/schemas
     method: get
   register: query_all_schema
 
@@ -32,7 +39,7 @@
 - name: Add tenant
   mso_rest:
     <<: *mso_info
-    path: /api/v1/tenants
+    path: /mso/api/v1/tenants
     method: post
     content: |
       {
@@ -58,7 +65,7 @@
 - name: Add schema
   mso_rest:
     <<: *mso_info
-    path: /api/v1/schemas
+    path: /mso/api/v1/schemas
     method: post
     content: |
       {
@@ -96,7 +103,7 @@
 - name: Put schema
   mso_rest:
     <<: *mso_info
-    path: "/api/v1/schemas/{{ add_schema.jsondata.id }}"
+    path: "/mso/api/v1/schemas/{{ add_schema.jsondata.id }}"
     method: put
     content: |
       {
@@ -131,7 +138,7 @@
 - name: Patch schema
   mso_rest:
     <<: *mso_info
-    path: "/api/v1/schemas/{{ add_schema.jsondata.id }}"
+    path: "/mso/api/v1/schemas/{{ add_schema.jsondata.id }}"
     method: patch
     content: |
       [
@@ -153,7 +160,7 @@
 - name: Delete the schema
   mso_rest:
     <<: *mso_info
-    path: "/api/v1/schemas/{{ add_schema.jsondata.id }}"
+    path: "/mso/api/v1/schemas/{{ add_schema.jsondata.id }}"
     method: delete
   register: delete_schema
 
@@ -166,7 +173,7 @@
 - name: Delete the tenant
   mso_rest:
     <<: *mso_info
-    path: "/api/v1/tenants/{{ add_tenant.jsondata.id }}"
+    path: "/mso/api/v1/tenants/{{ add_tenant.jsondata.id }}"
     method: delete
   register: delete_tenant
 

@@ -180,8 +180,6 @@ class MSOModule(object):
 
         # mso_rest output
         self.jsondata = None
-
-        # mso_rest_error output
         self.error = dict(code=None, text=None)
 
         # info output
@@ -268,13 +266,7 @@ class MSOModule(object):
             return
 
         # Handle possible MSO error information
-        self.response_error()
-
-    def response_error(self):
-        ''' Set error information when found '''
-
-        # Handle possible MSO error information
-        if self.status not in [200, 201]:
+        if self.status not in [200, 201, 202, 204]:
             self.error = self.jsondata
 
     def request(self, path, method=None, data=None, qs=None):

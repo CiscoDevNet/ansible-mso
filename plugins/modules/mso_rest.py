@@ -44,14 +44,12 @@ options:
     - For anything complex use the C(template) lookup plugin (see examples)
       or the M(template) module with parameter C(src).
     type: raw
+    aliases: [ payload ]
 extends_documentation_fragment:
 - cisco.mso.modules
 
 notes:
-- Certain payloads are known not to be idempotent, so be careful when constructing payloads.
-- For JSON payloads nothing special is needed.
-- If you do not have any attributes, it may be necessary to add the "attributes" key with an empty dictionnary "{}" for value
-  as the MSO does expect the entry to precede any children.
+- Most payloads are known not to be idempotent, so be careful when constructing payloads.
 seealso:
 - module: cisco.mso.mso_tenant
 author:
@@ -59,30 +57,12 @@ author:
 '''
 
 EXAMPLES = r'''
-- name: Add tenant
+- name: Add schema (JSON)
   cisco.mso.mso_rest:
     host: mso
     username: admin
     password: SomeSecretPassword
-    path: /api/v1/tenants
-    method: post
-    content:
-      {
-          "displayName": "mso_tenant",
-          "name": "mso_tenant",
-          "description": "",
-          "siteAssociations": [],
-          "userAssociations": [],
-          "_updateVersion": 0
-      }
-  delegate_to: localhost
-
-- name: Add schema (check_mode)
-  cisco.mso.mso_rest:
-    host: mso
-    username: admin
-    password: SomeSecretPassword
-    path: /api/v1/schemas
+    path: /mso/api/v1/schemas
     method: post
     content:
       {
@@ -112,8 +92,25 @@ EXAMPLES = r'''
     host: mso
     username: admin
     password: SomeSecretPassword
-    path: /api/v1/schemas
+    path: /mso/api/v1/schemas
     method: get
+  delegate_to: localhost
+
+- name: Patch schema (YAML)
+  cisco.mso.mso_rest:
+    host: mso
+    username: admin
+    password: SomeSecretPassword
+    path: "/mso/api/v1/schemas/{{ add_schema.jsondata.id }}"
+    method: patch
+    content:
+      - op: add
+        path: /templates/Template_1/anps/-
+        value:
+          name: AP2
+          displayName: AP2
+          epgs: []
+        _updateVersion: 0
   delegate_to: localhost
 '''
 
@@ -129,50 +126,17 @@ try:
 except Exception:
     HAS_URLPARSE = False
 
+# Optional, only used for YAML validation
+try:
+    import yaml
+    HAS_YAML = True
+except Exception:
+    HAS_YAML = False
+
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_text
-
-
-def update_qsl(url, params):
-    ''' Add or update a URL query string '''
-
-    if HAS_URLPARSE:
-        url_parts = list(urlparse(url))
-        query = dict(parse_qsl(url_parts[4]))
-        query.update(params)
-        url_parts[4] = urlencode(query)
-        return urlunparse(url_parts)
-    elif '?' in url:
-        return '?' + urlencode(params)
-    else:
-        return url + '?' + '&'.join(['%s=%s' % (k, v) for k, v in params.items()])
-
-
-class MSORESTModule(MSOModule):
-
-    def changed(self, d):
-        ''' Check MSO response for changes '''
-
-        if isinstance(d, dict):
-            for k, v in d.items():
-                if k == 'status' and v in ('created', 'modified', 'deleted'):
-                    return True
-                elif self.changed(v) is True:
-                    return True
-        elif isinstance(d, list):
-            for i in d:
-                if self.changed(i) is True:
-                    return True
-
-        return False
-
-    def response_type(self, rawoutput, rest_type='json'):
-        ''' Handle MSO response output '''
-
-        if rest_type == 'json':
-            self.response_json(rawoutput)
 
 
 def main():
@@ -180,7 +144,7 @@ def main():
     argument_spec.update(
         path=dict(type='str', required=True, aliases=['uri']),
         method=dict(type='str', default='get', choices=['delete', 'get', 'post', 'put', 'patch'], aliases=['action']),
-        content=dict(type='raw'),
+        content=dict(type='raw', aliases=['payload']),
     )
 
     module = AnsibleModule(
@@ -190,18 +154,21 @@ def main():
     content = module.params.get('content')
     path = module.params.get('path')
 
-    rest_type = 'json'
-
-    mso = MSORESTModule(module)
+    mso = MSOModule(module)
     mso.result['status'] = -1  # Ensure we always return a status
 
     # Validate content/payload
-    if rest_type == 'json':
-        if content and (isinstance(content, dict) or isinstance(content, list)):
-            # Validate inline YAML/JSON
-            content = json.dumps(content)
+    if content and (isinstance(content, dict) or isinstance(content, list)):
+        # Validate inline YAML/JSON
+        content = json.dumps(content)
+    elif content and isinstance(content, str) and HAS_YAML:
+        try:
+            # Validate YAML/JSON string
+            content = json.dumps(yaml.safe_load(content))
+        except Exception as e:
+            module.fail_json(msg='Failed to parse provided JSON/YAML payload: %s' % to_text(e), exception=to_text(e), payload=content)
 
-    # Perform actual request using auth cookie (Same as mso.request(), but also supports XML)
+    # Perform actual request using auth cookie (Same as mso.request())
     if 'port' in mso.params and mso.params.get('port') is not None:
         mso.url = '%(protocol)s://%(host)s:%(port)s/' % mso.params + path.lstrip('/')
     else:
@@ -224,13 +191,13 @@ def main():
     if info.get('status') not in [200, 201, 202, 204]:
         try:
             # MSO error
-            mso.response_type(info['body'], rest_type)
+            mso.response_json(info['body'])
             mso.fail_json(msg='MSO Error %(code)s: %(message)s' % mso.error)
         except KeyError:
             # Connection error
             mso.fail_json(msg='Connection failed for %(url)s. %(msg)s' % info)
 
-    mso.response_type(resp.read(), rest_type)
+    mso.response_json(resp.read())
 
     if mso.method != 'GET':
         mso.result['changed'] = True

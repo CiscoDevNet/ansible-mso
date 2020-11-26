@@ -1,0 +1,125 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+#
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# SET VARs
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# PROVOKE ERRORS
+- name: Error when required parameter is missing
+  cisco.mso.mso_rest:
+    <<: *mso_info
+    output_level: debug
+    method: post
+    content:
+      displayName: mso_tenant
+      name: mso_tenant
+      description: MSO tenant
+      siteAssociations: []
+      userAssociations: []
+      _updateVersion: 0
+  ignore_errors: yes
+  register: error_on_missing_required_param
+
+- name: Verify error_on_missing_required_param
+  assert:
+    that:
+    - error_on_missing_required_param is failed
+    - 'error_on_missing_required_param.msg == "missing required arguments: path"'
+
+- name: Error on name resolution
+  cisco.mso.mso_rest:
+    host: foo.bar.cisco.com
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    path: /mso/api/v1/tenants
+    method: post
+    content:
+      fvFoobar:
+      displayName: mso_tenant
+      name: mso_tenant
+      description: This is description
+      siteAssociations: []
+      userAssociations: []
+      _updateVersion: 0
+  ignore_errors: yes
+  register: error_on_name_resolution
+
+- name: Verify error_on_name_resolution
+  assert:
+    that:
+    - error_on_name_resolution is failed
+    - error_on_name_resolution.msg.startswith("Authentication failed{{':'}} Request failed:")
+
+- name: Error on invalid payload
+  cisco.mso.mso_rest:
+    <<: *mso_info
+    path: /mso/api/v1/tenants
+    method: post
+    content:
+      <name="ansible_test"/>
+  ignore_errors: yes
+  register: error_on_invalid_payload
+
+- name: Verify error_on_invalid_payload
+  assert:
+    that:
+    - error_on_invalid_payload is failed
+
+- name: Error on invalid path
+  mso_rest:
+    <<: *mso_info
+    path: /mso/api/v1/tenant
+    method: post
+    content:
+      displayName: mso_tenant
+      name: mso_tenant
+      description: MSO tenant
+      siteAssociations: []
+      userAssociations: []
+      _updateVersion: 0
+  ignore_errors: yes
+  register: error_on_invalid_path
+
+- name: Verify error_on_invalid_path
+  assert:
+    that:
+    - error_on_invalid_path is failed
+
+- name: Error when attributes are missing
+  cisco.mso.mso_rest:
+    <<: *mso_info
+    path: /mso/api/v1/tenants
+    method: post
+    content:
+      children:
+  ignore_errors: yes
+  register: error_on_missing_attributes
+
+- name: Verify error_on_missing_attributes
+  assert:
+    that:
+    - error_on_missing_attributes is failed
+    - error_on_missing_attributes.msg == "MSO Error 125{{':'}} Malformed body"
+    - error_on_missing_attributes.status == -1

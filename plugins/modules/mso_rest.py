@@ -120,12 +120,6 @@ RETURN = r'''
 import json
 import os
 
-try:
-    from ansible.module_utils.six.moves.urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
-    HAS_URLPARSE = True
-except Exception:
-    HAS_URLPARSE = False
-
 # Optional, only used for YAML validation
 try:
     import yaml

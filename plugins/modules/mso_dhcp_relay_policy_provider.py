@@ -4,11 +4,14 @@
 # Copyright: (c) 2020, Jorge Gomez Velasquez <jgomezve@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {
+    "metadata_version": "1.1",
+    "status": ["preview"],
+    "supported_by": "community",
+}
 
 DOCUMENTATION = r"""
 ---
@@ -73,53 +76,61 @@ RETURN = r"""
 
 """
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import (
+    MSOModule,
+    mso_argument_spec,
+)
+
 
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        name=dict(type='str', required=True),
-        ip=dict(type='str', required=True),
-        tenant=dict(type='str', required=True),
-        schema=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        application_profile=dict(type='str'),
-        endpoint_group=dict(type='str'),
-        external_endpoint_group=dict(type='str'),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        name=dict(type="str", required=True),
+        ip=dict(type="str", required=True),
+        tenant=dict(type="str", required=True),
+        schema=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        application_profile=dict(type="str"),
+        endpoint_group=dict(type="str"),
+        external_endpoint_group=dict(type="str"),
+        state=dict(
+            type="str", default="present", choices=["absent", "present", "query"]
+        ),
     )
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
-                required_if=[
-            ['state', 'absent', ['endpoint_group', 'external_endpoint_group']],
+        required_if=[
+            ["state", "absent", ["endpoint_group", "external_endpoint_group"]],
         ],
     )
 
-    name = module.params.get('name')
-    ip = module.params.get('ip')
-    tenant = module.params.get('tenant')
-    schema = module.params.get('schema')
-    template = module.params.get('template')
-    application_profile = module.params.get('application_profile')
-    endpoint_group = module.params.get('endpoint_group')
-    external_endpoint_group = module.params.get('external_endpoint_group')
-    state = module.params.get('state')
+    name = module.params.get("name")
+    ip = module.params.get("ip")
+    tenant = module.params.get("tenant")
+    schema = module.params.get("schema")
+    template = module.params.get("template")
+    application_profile = module.params.get("application_profile")
+    endpoint_group = module.params.get("endpoint_group")
+    external_endpoint_group = module.params.get("external_endpoint_group")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
-    path = 'policies/dhcp/relay'
+    path = "policies/dhcp/relay"
 
     if name:
-        mso.existing = mso.get_obj(path, name=name, key='DhcpRelayPolicies')
+        mso.existing = mso.get_obj(path, name=name, key="DhcpRelayPolicies")
         if mso.existing:
-            policy_id = mso.existing.get('id')
+            policy_id = mso.existing.get("id")
             path = path + "/" + policy_id
         else:
-            mso.fail_json(msg="Error DHCP Policy Relay {name} does not exist".format(name=name))
+            mso.fail_json(
+                msg="Error DHCP Policy Relay {name} does not exist".format(name=name)
+            )
     else:
         # For Querying purposes. Not supported
-        mso.existing = mso.query_objs(path, key='DhcpRelayPolicies')
+        mso.existing = mso.query_objs(path, key="DhcpRelayPolicies")
 
     payload = mso.existing
     tenant_id = mso.lookup_tenant(tenant)
@@ -127,37 +138,38 @@ def main():
     ext_epg_type = True
 
     if endpoint_group != "":
-        epgRef = '/schemas/{schemaId}/templates/{templateName}/anps/{app}/epgs/{epg}'.format(schemaId=schema_id,
-                                                                                             templateName=template,
-                                                                                             app=application_profile,
-                                                                                             epg=endpoint_group)
+        epgRef = (
+            "/schemas/{schemaId}/templates/{templateName}/anps/{app}/epgs/{epg}".format(
+                schemaId=schema_id,
+                templateName=template,
+                app=application_profile,
+                epg=endpoint_group,
+            )
+        )
         provider = dict(
-            addr=ip,
-            epgRef=epgRef,
-            externalEpgRef="",
-            l3Ref="",
-            tenantId=tenant_id
+            addr=ip, epgRef=epgRef, externalEpgRef="", l3Ref="", tenantId=tenant_id
         )
         ext_epg_type = False
     elif external_endpoint_group != "":
-        externalEpgRef = '/schemas/{schemaId}/templates/{templateName}/externalEpgs/{ext_epg}'.format(
-            schemaId=schema_id, templateName=template, ext_epg=external_endpoint_group)
+        externalEpgRef = "/schemas/{schemaId}/templates/{templateName}/externalEpgs/{ext_epg}".format(
+            schemaId=schema_id, templateName=template, ext_epg=external_endpoint_group
+        )
         provider = dict(
             addr=ip,
             externalEpgRef=externalEpgRef,
             epgRef="",
             l3Ref="",
-            tenantId=tenant_id
+            tenantId=tenant_id,
         )
     else:
         mso.fail_json(msg="Invalid provider type")
 
-    if 'provider' in payload:
-        providers = payload['provider']
+    if "provider" in payload:
+        providers = payload["provider"]
     else:
         providers = []
 
-    if state == 'absent':
+    if state == "absent":
 
         changed_object = False
 
@@ -167,7 +179,7 @@ def main():
                 providers.remove(provider)
                 changed_object = True
 
-    elif state == 'present':
+    elif state == "present":
 
         mso.previous = mso.existing
 
@@ -177,19 +189,21 @@ def main():
             providers.append(provider)
             changed_object = True
 
-    payload['provider'] = providers
+    payload["provider"] = providers
     response = {}
     changed = False
 
     mso.sanitize(payload, collate=True)
 
-    if mso.check_changed() or changed_object:  # mso.previous != mso.existing (Check why it does not work)
-        mso.existing = mso.request(path, method='PUT', data=mso.sent)
+    if (
+        mso.check_changed() or changed_object
+    ):  # mso.previous != mso.existing (Check why it does not work)
+        mso.existing = mso.request(path, method="PUT", data=mso.sent)
         changed = True
-        response['msg'] = "Provider modified"
-        response['tenant'] = mso.existing['provider']
+        response["msg"] = "Provider modified"
+        response["tenant"] = mso.existing["provider"]
     elif not changed_object:
-        response['msg'] = "Provider already exists / Provider does not exits"
+        response["msg"] = "Provider already exists / Provider does not exits"
 
     mso.exit_json(changed=changed, meta=response)
 
@@ -198,12 +212,18 @@ def check_new_provider(provider_list, provider_to_add, ext_epg_type):
     found = False
     for provider in provider_list:
         if not ext_epg_type:
-            if provider['addr'] == provider_to_add['addr'] and provider['epgRef'] == provider_to_add['epgRef'] and \
-                    provider['tenantId'] == provider_to_add['tenantId']:
+            if (
+                provider["addr"] == provider_to_add["addr"]
+                and provider["epgRef"] == provider_to_add["epgRef"]
+                and provider["tenantId"] == provider_to_add["tenantId"]
+            ):
                 found = True
         else:
-            if provider['addr'] == provider_to_add['addr'] and provider['externalEpgRef'] == provider_to_add[
-                'externalEpgRef'] and provider['tenantId'] == provider_to_add['tenantId']:
+            if (
+                provider["addr"] == provider_to_add["addr"]
+                and provider["externalEpgRef"] == provider_to_add["externalEpgRef"]
+                and provider["tenantId"] == provider_to_add["tenantId"]
+            ):
                 found = True
     return found
 

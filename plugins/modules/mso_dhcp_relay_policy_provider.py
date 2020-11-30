@@ -1,11 +1,14 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 # Copyright: (c) 2020, Jorge Gomez Velasquez <jgomezve@cisco.com>
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import absolute_import, division, print_function
-
 __metaclass__ = type
 
-ANSIBLE_METADATA = {"metadata_version": "0.1", "status": ["preview"]}
+ANSIBLE_METADATA = {'metadata_version': '1.1',
+                    'status': ['preview'],
+                    'supported_by': 'community'}
 
 DOCUMENTATION = r"""
 ---
@@ -13,7 +16,8 @@ module: mso_dhcp_relay_policy_provider
 short_description: Configure DHCP providers in a DHCP Relay policy.
 description:
 - Configure DHCP providers in a DHCP Relay policy.
-version_added: '2.10'
+author:
+- Jorge Gomez (@jorgegome2307)
 options:
   name:
     description:
@@ -44,24 +48,21 @@ options:
     description:
     - Application Profile where the DHCP provider is configured
     type: str
-    required: no
   endpoint_group:
     description:
     - EPG where the DHCP provider is configured
     type: str
-    required: no
   external_endpoint_group:
     description:
     - External EPG where the DHCP provider is configured
     type: str
-    required: no
   state:
     description:
     - State of the DHCP Relay provider
     type: str
-    required: yes
-author:
-- Jorge Gomez Velasquez
+    choices: [ absent, present, query ]
+    default: present
+extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
@@ -77,11 +78,11 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        name=dict(type='str'),
-        ip=dict(type='str'),
-        tenant=dict(type='str'),
-        schema=dict(type='str'),
-        template=dict(type='str'),
+        name=dict(type='str', required=True),
+        ip=dict(type='str', required=True),
+        tenant=dict(type='str', required=True),
+        schema=dict(type='str', required=True),
+        template=dict(type='str', required=True),
         application_profile=dict(type='str'),
         endpoint_group=dict(type='str'),
         external_endpoint_group=dict(type='str'),
@@ -90,6 +91,9 @@ def main():
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
+                required_if=[
+            ['state', 'absent', ['endpoint_group', 'external_endpoint_group']],
+        ],
     )
 
     name = module.params.get('name')

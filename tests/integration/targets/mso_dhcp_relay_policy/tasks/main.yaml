@@ -1,0 +1,242 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Jorge Gomez (@jgomezve) <jgomezve@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+#CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant:
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    state: present
+
+- name: Ensure schema 1 with Template 1 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+
+- name: Ensure schema 1 with Template 2 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 2
+    state: present
+
+- name: Ensure schema 2 with Template 3 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    state: present
+
+# ADD DHCP Policy
+- name: Add a new DHCP Relay Policy 1 (check mode)
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    name: DHCP_REL_POL_1
+    description: "My Test DHCP Policy 1"
+    tenant: ansible_test
+    state: present
+  check_mode: yes
+  register: dhcp_pol1_cm
+
+- name: Verify dhcp_pol1_cm
+  assert:
+    that:
+    - dhcp_pol1_cm is changed
+    - dhcp_pol1_cm.current.name == 'DHCP_REL_POL_1'
+    - dhcp_pol1_cm.current.desc == 'My Test DHCP Policy 1'
+    #- dhcp_pol1_cm.current.tenant == 'ansible_test'   # TODO: Tenant IDs look-up
+
+#TODO: Difference Normal Mode and Check Mode
+
+- name: Add a new DHCP Relay Policy 2 (normal mode)
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    name: DHCP_REL_POL_2
+    description: "My Test DHCP Policy 2"
+    tenant: ansible_test
+    state: present
+  register: dhcp_pol2_nm
+
+- name: Verify dhcp_pol2_nm
+  assert:
+    that:
+    - dhcp_pol2_nm is changed
+    - dhcp_pol2_nm.current.name == 'DHCP_REL_POL_2'
+    - dhcp_pol2_nm.current.desc == 'My Test DHCP Policy 2'
+    - dhcp_pol2_nm.current.policySubtype == 'relay'
+    - dhcp_pol2_nm.current.policyType == 'dhcp'
+    #- dhcp_pol1_nm.current.tenant == 'ansible_test'  
+
+# ADD EXISTING DHCP POLICY
+- name: Add a new DHCP Relay Policy 2  again (normal mode)
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    name: DHCP_REL_POL_2
+    description: "My Test DHCP Policy 2"
+    tenant: ansible_test
+    state: present
+  register: dhcp_pol2_nm_again
+
+- name: Verify dhcp_pol2_nm_again
+  assert:
+    that:
+    - dhcp_pol2_nm_again is not changed
+
+# ADD EXISTING DHCP POLICY WITH NO STATE
+- name: Add a new DHCP Relay Policy 3  again (normal mode)
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    name: DHCP_REL_POL_3
+    description: "My Test DHCP Policy 3"
+    tenant: ansible_test
+  register: dhcp_pol3_stateless
+
+- name: Verify dhcp_pol3_stateless
+  assert:
+    that:
+    - dhcp_pol3_stateless is changed
+
+# QUERY A DHCP RELAY POLICY
+- name: Query  DHCP Relay Policy 2  (normal mode)
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    name: DHCP_REL_POL_2
+    state: query
+  register: dhcp_pol2_query
+
+- name: Verify dhcp_pol2_query
+  assert:
+    that:
+    - dhcp_pol2_query is not changed
+
+# QUERY A NON-EXISTING DHCP RELAY POLICY
+- name: Query non-existing  DHCP Relay Policy 5  (normal mode)
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    name: DHCP_REL_POL_5
+    state: query
+  register: quey_non_dhcp_pol
+
+- name: Verify quey_non_dhcp_pol
+  assert:
+    that:
+    - quey_non_dhcp_pol is not changed
+
+# QUERY ALL DHCP RELAY POLICIES
+- name: Query all DHCP Relay Policies  (normal mode)
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    state: query
+  register: dhcp_policies_query
+
+- debug:
+    msg: "{{ dhcp_policies_query }}"
+
+- name: Verify dhcp_policies_query
+  assert:
+    that:
+    - dhcp_policies_query is not changed
+
+
+# REMOVE DHCP POLICY
+
+- name: Remove DHCP Relay Policy 1  (normal mode)
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    name: DHCP_REL_POL_1
+    description: "My Test DHCP Policy 1"
+    tenant: ansible_test
+    state: absent
+
+- name: Remove DHCP Relay Policy 2  (normal mode)
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    name: DHCP_REL_POL_2
+    description: "My Test DHCP Policy 2"
+    tenant: ansible_test
+    state: absent
+
+- name: Remove DHCP Relay Policy 3  (normal mode)
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    name: DHCP_REL_POL_3
+    description: "My Test DHCP Policy 3"
+    tenant: ansible_test
+    state: absent
+  register: dhcp_pol3_removed
+
+- name: Verify dhcp_pol3_removed
+  assert:
+    that:
+    - dhcp_pol3_removed is  changed
+    - dhcp_pol3_removed.previous.name == 'DHCP_REL_POL_3'
+    - dhcp_pol3_removed.previous.desc == 'My Test DHCP Policy 3'
+
+# REMOVE DHCP POLICY AGAIN
+- name: Remove DHCP Relay Policy 3 again (normal mode)
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    name: DHCP_REL_POL_3
+    description: "My Test DHCP Policy 3"
+    tenant: ansible_test
+    state: absent
+  register: dhcp_pol3_removed_again
+
+- name: Verify dhcp_pol3_removed_again
+  assert:
+    that:
+    - dhcp_pol3_removed_again is not changed
+
+# USE A NON-EXISTING TENNAT
+- name: Non Existing Tenant for DHCP Relay Policy 5  (normal mode)
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    name: DHCP_REL_POL_5
+    description: "My Test DHCP Policy 5"
+    tenant: ansible_test_dummy
+    state: present
+  ignore_errors: yes
+  register: nm_non_existing_tenant
+
+- debug:
+    msg: "{{ nm_non_existing_tenant }}"
+
+- name: Verify nm_non_existing_schema
+  assert:
+    that:
+    - nm_non_existing_tenant is not changed
+    - nm_non_existing_tenant.msg == "Tenant 'ansible_test_dummy' is not valid tenant name."

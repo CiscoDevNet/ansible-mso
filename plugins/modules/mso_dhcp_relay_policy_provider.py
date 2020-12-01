@@ -100,9 +100,10 @@ def main():
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
-        required_if=[
-            ["state", "absent", ["endpoint_group", "external_endpoint_group"]],
-        ],
+        # required_if=[
+        #     ["state", "absent", ["external_endpoint_group"]],
+        #     ["state", "absent", ["endpoint_group"]],
+        # ],  TODO: Required_if with 'OR'
     )
 
     name = module.params.get("name")
@@ -129,7 +130,6 @@ def main():
                 msg="Error DHCP Policy Relay {name} does not exist".format(name=name)
             )
     else:
-        # For Querying purposes. Not supported
         mso.existing = mso.query_objs(path, key="DhcpRelayPolicies")
 
     payload = mso.existing
@@ -137,7 +137,7 @@ def main():
     schema_id = mso.lookup_schema(schema)
     ext_epg_type = True
 
-    if endpoint_group != "":
+    if endpoint_group is not None:
         epgRef = (
             "/schemas/{schemaId}/templates/{templateName}/anps/{app}/epgs/{epg}".format(
                 schemaId=schema_id,
@@ -150,7 +150,7 @@ def main():
             addr=ip, epgRef=epgRef, externalEpgRef="", l3Ref="", tenantId=tenant_id
         )
         ext_epg_type = False
-    elif external_endpoint_group != "":
+    elif external_endpoint_group is not None:
         externalEpgRef = "/schemas/{schemaId}/templates/{templateName}/externalEpgs/{ext_epg}".format(
             schemaId=schema_id, templateName=template, ext_epg=external_endpoint_group
         )
@@ -169,8 +169,11 @@ def main():
     else:
         providers = []
 
-    if state == "absent":
+    if state == "query":
+        pass  # TODO: Not supported ??  MSO  Model does not allow to query a provider but the whole DHCP Policy
 
+    elif state == "absent":
+        mso.previous = mso.existing
         changed_object = False
 
         if mso.existing:
@@ -182,7 +185,6 @@ def main():
     elif state == "present":
 
         mso.previous = mso.existing
-
         changed_object = False
 
         if not check_new_provider(providers, provider, ext_epg_type):

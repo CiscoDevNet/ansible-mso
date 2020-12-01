@@ -179,14 +179,15 @@ def main():
                            use_proxy=mso.params.get('use_proxy'))
 
     mso.response = info.get('msg')
-    mso.status = info.get('status')
+    mso.status = info.get('status', -1)
+    mso.result['status'] = info.get('status', -1)
 
     # Report failure
     if info.get('status') not in [200, 201, 202, 204]:
         try:
             # MSO error
             mso.response_json(info['body'])
-            mso.fail_json(msg='MSO Error %(code)s: %(message)s' % mso.error)
+            mso.fail_json(msg='MSO Error %(code)s: %(message)s - %(info)s' % mso.error)
         except KeyError:
             # Connection error
             mso.fail_json(msg='Connection failed for %(url)s. %(msg)s' % info)

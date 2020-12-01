@@ -72,21 +72,6 @@
     - error_on_name_resolution is failed
     - error_on_name_resolution.msg.startswith("Authentication failed{{':'}} Request failed:")
 
-- name: Error on invalid payload
-  cisco.mso.mso_rest:
-    <<: *mso_info
-    path: /mso/api/v1/tenants
-    method: post
-    content:
-      <name="ansible_test"/>
-  ignore_errors: yes
-  register: error_on_invalid_payload
-
-- name: Verify error_on_invalid_payload
-  assert:
-    that:
-    - error_on_invalid_payload is failed
-
 - name: Error on invalid path
   mso_rest:
     <<: *mso_info
@@ -106,6 +91,7 @@
   assert:
     that:
     - error_on_invalid_path is failed
+    - error_on_invalid_path.status == 405
 
 - name: Error when attributes are missing
   cisco.mso.mso_rest:
@@ -121,5 +107,25 @@
   assert:
     that:
     - error_on_missing_attributes is failed
-    - error_on_missing_attributes.msg == "MSO Error 125{{':'}} Malformed body"
-    - error_on_missing_attributes.status == -1
+    - error_on_missing_attributes.status == 400
+
+- name: Error when input does not validate
+  cisco.mso.mso_rest:
+    <<: *mso_info
+    path: /mso/api/v1/tenants
+    method: post
+    content:
+      displayName: 0
+      name: 0
+      descr: This is an [invalid] description
+      siteAssociations: []
+      userAssociations: []
+      _updateVersion: 0
+  ignore_errors: yes
+  register: error_on_input_validation
+
+- name: Verify error_on_input_validation
+  assert:
+    that:
+    - error_on_input_validation is failed
+    - error_on_input_validation.status == 400

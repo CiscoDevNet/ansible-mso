@@ -186,6 +186,7 @@ def main():
     if info.get('status') not in [200, 201, 202, 204]:
         try:
             # MSO error
+            mso.stdout = str(info['body'])
             mso.response_json(info['body'])
             mso.fail_json(msg='MSO Error %(code)s: %(message)s - %(info)s' % mso.error)
         except KeyError:

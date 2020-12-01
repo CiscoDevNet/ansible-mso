@@ -26,7 +26,6 @@ options:
     description:
     - Name of the DHCP Relay Policy
     type: str
-    required: yes
   description:
     description:
     - Description of the DHCP Relay Policy
@@ -35,7 +34,6 @@ options:
     description:
     - Tenant where the DHCP Relay Policy is located.
     type: str
-    required: yes
   state:
     description:
     - State of the DHCP Relay Policy
@@ -63,9 +61,9 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import (
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        name=dict(type="str", required=True),
+        name=dict(type="str"),
         description=dict(type="str"),
-        tenant=dict(type="str", required=True),
+        tenant=dict(type="str"),
         state=dict(
             type="str", default="present", choices=["absent", "present", "query"]
         ),
@@ -110,10 +108,14 @@ def main():
     response = {}
     changed = False
 
-    if state == "absent":
+    if state == "query":
+        pass
+
+    elif state == "absent":
         if mso.existing:
             mso.existing = mso.request(path, method="DELETE", data=mso.sent)
             changed = True
+
     elif state == "present":
 
         mso.sanitize(payload, collate=True)

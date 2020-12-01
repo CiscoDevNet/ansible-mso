@@ -22,6 +22,12 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
 # PROVOKE ERRORS
 - name: Error when required parameter is missing
   cisco.mso.mso_rest:
@@ -91,7 +97,15 @@
   assert:
     that:
     - error_on_invalid_path is failed
+    - error_on_invalid_path.status == 404
+  when: version.current.version is version('3.0.0a', '<')
+
+- name: Verify error_on_invalid_path
+  assert:
+    that:
+    - error_on_invalid_path is failed
     - error_on_invalid_path.status == 405
+  when: version.current.version is version('3.0.0a', '>=')
 
 - name: Error when attributes are missing
   cisco.mso.mso_rest:

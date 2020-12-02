@@ -180,7 +180,7 @@ class MSOModule(object):
 
         # mso_rest output
         self.jsondata = None
-        self.error = dict(code=None, text=None)
+        self.error = dict(code=None, message=None, info=None)
 
         # info output
         self.previous = dict()

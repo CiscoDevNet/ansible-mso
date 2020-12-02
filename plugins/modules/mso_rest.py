@@ -39,10 +39,8 @@ options:
     aliases: [ uri ]
   content:
     description:
-    - When used instead of C(src), sets the payload of the API request directly.
+    - Sets the payload of the API request directly.
     - This may be convenient to template simple requests.
-    - For anything complex use the C(template) lookup plugin (see examples)
-      or the M(template) module with parameter C(src).
     type: raw
     aliases: [ payload ]
 extends_documentation_fragment:
@@ -161,6 +159,8 @@ def main():
             content = json.dumps(yaml.safe_load(content))
         except Exception as e:
             module.fail_json(msg='Failed to parse provided JSON/YAML payload: %s' % to_text(e), exception=to_text(e), payload=content)
+    else:
+        mso.fail_json(msg='Failed to validate payload/contentas JSON/YAML. %(code)s: %(message)s - %(info)s' % mso.error)
 
     # Perform actual request using auth cookie (Same as mso.request())
     if 'port' in mso.params and mso.params.get('port') is not None:

@@ -22,6 +22,21 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Remove tenant ansible_test
+  mso_tenant:
+    <<: *mso_info
+    tenant: ansible_test
+    state: absent
+
 # QUERY SCHEMAS
 - name: Query schema
   mso_rest:
@@ -59,8 +74,8 @@
     method: post
     content:
       {
-          "displayName": "mso_tenant",
-          "name": "mso_tenant",
+          "displayName": "ansible_test",
+          "name": "ansible_test",
           "description": "",
           "siteAssociations": [],
           "userAssociations": [{
@@ -75,7 +90,7 @@
   assert:
     that:
     - add_tenant is changed
-    - add_tenant.jsondata.displayName == 'mso_tenant'
+    - add_tenant.jsondata.displayName == 'ansible_test'
 
 # ADD schema
 - name: Add schema
@@ -85,7 +100,7 @@
     method: post
     content:
       {
-          "displayName": "mso_schema",
+          "displayName": "{{ mso_schema | default('ansible_test') }}",
           "templates": [{
               "name": "Template_1",
               "tenantId": "{{ add_tenant.jsondata.id }}",
@@ -111,7 +126,7 @@
   assert:
     that:
     - add_schema is changed
-    - add_schema.jsondata.displayName == 'mso_schema'
+    - add_schema.jsondata.displayName == 'ansible_test'
 
 # PUT schema
 - name: Put schema
@@ -122,7 +137,7 @@
     method: put
     content:
       {
-          "displayName": "mso_schema_1",
+          "displayName": "ansible_test_2",
           "templates": [{
               "name": "Template_1",
               "tenantId": "{{ add_tenant.jsondata.id }}",
@@ -148,7 +163,7 @@
   assert:
     that:
     - put_schema is changed
-    - put_schema.jsondata.displayName == 'mso_schema_1'
+    - put_schema.jsondata.displayName == 'ansible_test_2'
 
 # PATCH schema
 - name: Patch schema
@@ -172,6 +187,7 @@
   assert:
     that:
     - patch_schema is changed
+    - patch_schema.jsondata.templates[0].anps[0].displayName == 'AP2'
 
 # DELETE the schema
 - name: Delete the schema

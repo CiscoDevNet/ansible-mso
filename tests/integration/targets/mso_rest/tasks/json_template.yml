@@ -1,0 +1,67 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+#
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_1'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Remove tenant ansible_test
+  mso_tenant:
+    <<: *mso_info
+    tenant: ansible_test
+    state: absent
+
+# QUERY A USER
+- name: Query our user
+  mso_user:
+    <<: *mso_info
+    state: query
+    user: ansible_github_ci
+  check_mode: yes
+  register: query_user_id
+
+- name: Verify query_user_id
+  assert:
+    that:
+    - query_user_id is not changed
+    - query_user_id.current.username == 'ansible_github_ci'
+
+- name: Add a tenant from a templated payload file from templates
+  mso_rest:
+    <<: *mso_info
+    path: /api/v1/tenants
+    method: post
+    content: "{{ lookup('template', 'tenant.json.j2') }}"
+  register: add_tenant
+
+- name: Verify add_tenant in json_string
+  assert:
+    that:
+    - add_tenant is changed
+    - add_tenant.jsondata.displayName == 'ansible_test'

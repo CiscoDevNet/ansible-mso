@@ -41,6 +41,7 @@ options:
     description:
     - Sets the payload of the API request directly.
     - This may be convenient to template simple requests.
+    - For anything complex use the C(template) lookup plugin (see examples).
     type: raw
     aliases: [ payload ]
 extends_documentation_fragment:
@@ -64,7 +65,7 @@ EXAMPLES = r'''
     method: post
     content:
       {
-          "displayName": "mso_schema",
+          "displayName": "{{ mso_schema | default('ansible_test') }}",
           "templates": [{
               "name": "Template_1",
               "tenantId": "{{ add_tenant.jsondata.id }}",
@@ -109,6 +110,16 @@ EXAMPLES = r'''
           displayName: AP2
           epgs: []
         _updateVersion: 0
+  delegate_to: localhost
+
+- name: Add a tenant from a templated payload file from templates
+  cisco.mso.mso_rest:
+    host: mso
+    username: admin
+    password: SomeSecretPassword
+    method: post
+    path: /api/v1/tenants
+    content: "{{ lookup('template', 'mso/tenant.json.j2') }}"
   delegate_to: localhost
 '''
 
@@ -159,8 +170,6 @@ def main():
             content = json.dumps(yaml.safe_load(content))
         except Exception as e:
             module.fail_json(msg='Failed to parse provided JSON/YAML payload: %s' % to_text(e), exception=to_text(e), payload=content)
-    else:
-        mso.fail_json(msg='Failed to validate payload/contentas JSON/YAML. %(code)s: %(message)s - %(info)s' % mso.error)
 
     # Perform actual request using auth cookie (Same as mso.request())
     if 'port' in mso.params and mso.params.get('port') is not None:
@@ -186,7 +195,6 @@ def main():
     if info.get('status') not in [200, 201, 202, 204]:
         try:
             # MSO error
-            mso.stdout = str(info['body'])
             mso.response_json(info['body'])
             mso.fail_json(msg='MSO Error %(code)s: %(message)s - %(info)s' % mso.error)
         except KeyError:

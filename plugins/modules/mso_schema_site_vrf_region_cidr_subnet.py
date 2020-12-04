@@ -65,8 +65,10 @@ options:
     aliases: [ name ]
   vgw:
     description:
-    - Whether this subnet is used for the Azure Gateway.
+    - Whether this subnet is used for the Azure Gateway in Azure.
+    - Whether this subnet is used for the Transit Gateway Attachment in AWS.
     type: bool
+    aliases: [ hub_network ]
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -166,7 +168,7 @@ def main():
         cidr=dict(type='str', required=True),
         subnet=dict(type='str', aliases=['ip']),  # This parameter is not required for querying all objects
         zone=dict(type='str', aliases=['name']),
-        vgw=dict(type='bool'),
+        vgw=dict(type='bool', aliases=['hub_network']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -278,7 +280,7 @@ def main():
 
         if zone is not None:
             payload['zone'] = zone
-        elif vgw is True:
+        if vgw is True:
             payload['usage'] = 'gateway'
 
         mso.sanitize(payload, collate=True)

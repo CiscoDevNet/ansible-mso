@@ -1,0 +1,433 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact: 
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+    sites: "['aws_{{ mso_site | default(\"ansible_test\") }}', 
+              'azure_{{ mso_site | default(\"ansible_test\") }}',
+              '{{ mso_site | default(\"ansible_test\") }}']"
+
+- name: Ensure aws site exists
+  mso_site:
+    <<: *mso_info
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ aws_apic_username }}'
+    apic_password: '{{ aws_apic_password }}'
+    apic_site_id: '{{ aws_site_id | default(102) }}'
+    urls:
+    - https://{{ aws_apic_hostname }}
+    state: present
+
+- name: Ensure azure site exists
+  mso_site:
+    <<: *mso_info
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ azure_apic_username }}'
+    apic_password: '{{ azure_apic_password }}'
+    apic_site_id: '{{ azure_site_id | default(103) }}'
+    urls:
+    - https://{{ azure_apic_hostname }}
+    state: present
+
+- name: Remove Schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    state: present
+
+- name: Ensure AWS site is present under tenant ansible_test
+  mso_tenant_site: 
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    cloud_account: '000000000000'
+    aws_access_key: 1
+    secret_key: 0
+    state: present
+
+- name: Ensure Azure site is present under tenant ansible_test
+  mso_tenant_site: 
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
+    state: present
+
+- name: Ensure schema 1 with Template 1 and 2 exists
+  mso_schema_template: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: '{{ item }}'
+    state: present
+  loop:
+  - Template 1
+  - Template 2
+
+- name: Ensure schema 2 with Template 3 exists
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 3
+    state: present
+
+- name: Ensure VRF1 exists
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    state: present
+
+- name: Add region and cidr in VRF1 at AWS site level
+  mso_schema_site_vrf_region_cidr:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    cidr: 10.0.0.0/16
+    primary: true
+    state: present
+  register: aws_add_region_cidr
+
+- name: Add region and cidr in VRF1 at Azure site level
+  mso_schema_site_vrf_region_cidr:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    cidr: 10.0.0.0/16
+    primary: true
+    state: present
+  register: azure_add_region_cidr
+
+- name: Add another region and cidr in VRF1 at AWS site level
+  mso_schema_site_vrf_region_cidr:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-east-1
+    cidr: 10.10.0.0/16
+    primary: true
+    state: present
+  register: aws_add_another_region_cidr
+
+- name: Add another region and cidr in VRF1 at Azure site level
+  mso_schema_site_vrf_region_cidr:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-east-1
+    cidr: 10.10.0.0/16
+    primary: true
+    state: present
+  register: azure_add_another_region_cidr
+
+- name: Query all aws regions
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    state: query
+  register: aws_query_all
+
+- name: Query all azure regions
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    state: query
+  register: azure_query_all
+
+- name: Query specific aws region
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  register: aws_query_region
+
+- name: Query specific azure region
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  register: azure_query_region
+
+- name: Verify query
+  assert:
+    that:
+    - aws_query_all is not changed
+    - azure_query_all is not changed
+    - aws_query_region is not changed
+    - azure_query_region is not changed
+    - aws_query_all.current | length == 2
+    - azure_query_all.current | length == 2
+    - aws_query_region.current.name == "us-west-1"
+    - aws_query_region.current.cidrs.0.ip == "10.0.0.0/16"
+    - aws_query_region.current.cidrs.0.primary == true
+    - aws_query_region.current.cidrs.0.subnets == []
+    - azure_query_region.current.name == "us-west-1"
+    - azure_query_region.current.cidrs.0.ip == "10.0.0.0/16"
+    - azure_query_region.current.cidrs.0.primary == true
+    - azure_query_region.current.cidrs.0.subnets == []
+
+- name: Remove aws VRF region (check mode)
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: absent
+  check_mode: yes
+  register: cm_rm_aws_region
+
+- name: Remove aws VRF region (normal mode)
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: absent
+  register: nm_rm_aws_region
+
+- name: Remove azure VRF region (check mode)
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: absent
+  check_mode: yes
+  register: cm_rm_azure_region
+
+- name: Remove azure VRF region (normal mode)
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: absent
+  register: nm_rm_azure_region
+
+- name: Verify deletion
+  assert:
+    that:
+    - cm_rm_aws_region is changed
+    - nm_rm_aws_region is changed
+    - cm_rm_azure_region is changed
+    - nm_rm_azure_region is changed
+    - cm_rm_aws_region == nm_rm_aws_region
+    - cm_rm_azure_region == nm_rm_azure_region
+    - cm_rm_aws_region.current == nm_rm_aws_region.current == {}
+    - cm_rm_azure_region.current == nm_rm_azure_region.current == {}
+    - cm_rm_aws_region.previous.name == nm_rm_aws_region.previous.name == "us-west-1"
+    - cm_rm_azure_region.previous.name == nm_rm_azure_region.previous.name == "us-west-1"
+
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Remove VPN Gateway Router at Region for AWS (check mode)
+  cisco.mso.mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-east-1
+    vpn_gateway_router: false
+    state: present
+  check_mode: yes
+  when: version.current.version is version('3.0.0a', '>=')
+  register: cm_rm_vpn_gateway_router_aws
+
+- name: Remove VPN Gateway Router at Region for AWS (normal mode)
+  cisco.mso.mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-east-1
+    vpn_gateway_router: false
+    state: present
+  when: version.current.version is version('3.0.0a', '>=')
+  register: nm_rm_vpn_gateway_router_aws
+
+- name: Remove VPN Gateway Router at Region for Azure (check mode)
+  cisco.mso.mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-east-1
+    vpn_gateway_router: false
+    state: present
+  check_mode: yes
+  when: version.current.version is version('3.0.0a', '>=')
+  register: cm_rm_vpn_gateway_router_azure
+
+- name: Remove VPN Gateway Router at Region for Azure (normal mode)
+  cisco.mso.mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-east-1
+    vpn_gateway_router: false
+    state: present
+  when: version.current.version is version('3.0.0a', '>=')
+  register: nm_rm_vpn_gateway_router_azure
+
+- name: Verify removing VPN Gateway Router
+  assert:
+    that:
+    - cm_rm_vpn_gateway_router_aws is changed
+    - nm_rm_vpn_gateway_router_aws is changed
+    - cm_rm_vpn_gateway_router_azure is changed
+    - nm_rm_vpn_gateway_router_azure is changed
+    - cm_rm_vpn_gateway_router_aws.previous.isVpnGatewayRouter == nm_rm_vpn_gateway_router_aws.previous.isVpnGatewayRouter == true
+    - cm_rm_vpn_gateway_router_azure.previous.isVpnGatewayRouter == nm_rm_vpn_gateway_router_azure.previous.isVpnGatewayRouter == true
+    - cm_rm_vpn_gateway_router_aws.current.isVpnGatewayRouter == nm_rm_vpn_gateway_router_aws.current.isVpnGatewayRouter == false
+    - cm_rm_vpn_gateway_router_azure.current.isVpnGatewayRouter == nm_rm_vpn_gateway_router_azure.current.isVpnGatewayRouter == false
+  when: version.current.version is version('3.0.0a', '>=')
+
+- name: Use non_existing schema
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: non_existing
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  register: non_existing_schema
+  ignore_errors: yes
+
+- name: Use non_existing site
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: non_existing
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  register: non_existing_site
+  ignore_errors: yes
+
+- name: Use non_existing site/template association
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-west-1
+    state: query
+  register: non_existing_site_template
+  ignore_errors: yes
+
+- name: Use non_existing VRF
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: non_existing
+    region: us-west-1
+    state: query
+  register: non_existing_vrf
+  ignore_errors: yes
+
+- name: Use non_existing region
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: non_existing
+    state: query
+  register: non_existing_region
+  ignore_errors: yes
+
+- name: Verify non_existing
+  assert:
+    that:
+    - non_existing_schema.msg == "Provided schema 'non_existing' does not exist"
+    - non_existing_site.msg == "Site 'non_existing' is not a valid site name."
+    - non_existing_site_template.msg == "Provided site-template association 'aws_ansible_test-Template 2' does not exist."
+    - non_existing_vrf.msg == "Provided vrf 'non_existing' does not exist. Existing vrfs{{':'}} VRF1"
+    - non_existing_region.msg == "Region 'non_existing' not found"
+
+- name: Delete non_existing region
+  mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: non_existing
+    state: absent
+  register: rm_non_existing_region
+
+- name: Verify rm_non_existing_region
+  assert:
+    that:
+    - rm_non_existing_region is not changed
+    - rm_non_existing_region.previous == rm_non_existing_region.current == {}

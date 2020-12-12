@@ -63,8 +63,8 @@ extends_documentation_fragment: cisco.mso.modules
 '''
 
 EXAMPLES = r'''
-- name: Add a new site VRF region
-  mso_schema_site_vrf_region:
+- name: Remove VPN Gateway Router at Region for AWS
+  cisco.mso.mso_schema_site_vrf_region:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -73,11 +73,12 @@ EXAMPLES = r'''
     template: Template1
     vrf: VRF1
     region: us-west-1
+    vpn_gateway_router: false
     state: present
   delegate_to: localhost
 
 - name: Remove a site VRF region
-  mso_schema_site_vrf_region:
+  cisco.mso.mso_schema_site_vrf_region:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -90,7 +91,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific site VRF region
-  mso_schema_site_vrf_region:
+  cisco.mso.mso_schema_site_vrf_region:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -104,7 +105,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all site VRF regions
-  mso_schema_site_vrf_region:
+  cisco.mso.mso_schema_site_vrf_region:
     host: mso_host
     username: admin
     password: SomeSecretPassword

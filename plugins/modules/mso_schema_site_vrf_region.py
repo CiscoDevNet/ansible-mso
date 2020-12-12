@@ -172,7 +172,7 @@ def main():
         mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, ', '.join(sites)))
+        mso.fail_json(msg="Provided site-template association '{0}-{1}' does not exist.".format(site, template))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
@@ -182,8 +182,9 @@ def main():
     # Get VRF
     vrf_ref = mso.vrf_ref(schema_id=schema_id, template=template, vrf=vrf)
     vrfs = [v.get('vrfRef') for v in schema_obj.get('sites')[site_idx]['vrfs']]
+    vrfs_name = [mso.dict_from_ref(v).get('vrfName') for v in vrfs]
     if vrf_ref not in vrfs:
-        mso.fail_json(msg="Provided vrf '{0}' does not exist. Existing vrfs: {1}".format(vrf, ', '.join(vrfs)))
+        mso.fail_json(msg="Provided vrf '{0}' does not exist. Existing vrfs: {1}".format(vrf, ', '.join(vrfs_name)))
     vrf_idx = vrfs.index(vrf_ref)
 
     # Get Region

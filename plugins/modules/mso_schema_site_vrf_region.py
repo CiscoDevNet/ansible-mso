@@ -56,6 +56,9 @@ options:
     type: str
     choices: [ absent, present, query ]
     default: present
+notes:
+- Due to restrictions of the MSO REST API, this module cannot create empty region (i.e. regions without cidrs)
+  Use the M(cisco.mso.mso_schema_site_vrf_region_cidr) to automatically create regions with cidrs.
 seealso:
 - module: cisco.mso.mso_schema_site_vrf
 - module: cisco.mso.mso_schema_template_vrf
@@ -63,7 +66,7 @@ extends_documentation_fragment: cisco.mso.modules
 '''
 
 EXAMPLES = r'''
-- name: Remove VPN Gateway Router at Region for AWS
+- name: Remove VPN Gateway Router at site VRF Region
   cisco.mso.mso_schema_site_vrf_region:
     host: mso_host
     username: admin

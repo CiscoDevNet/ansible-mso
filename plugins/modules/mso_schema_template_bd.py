@@ -329,12 +329,11 @@ def main():
             dhcpLabel=dhcp_label,
         )
 
-        mso.sanitize(payload, collate=True)
+        mso.sanitize(payload, collate=True, required=['dhcpLabel'])
         if mso.existing:
             ops.append(dict(op='replace', path=bd_path, value=mso.sent))
         else:
             ops.append(dict(op='add', path=bds_path + '/-', value=mso.sent))
-
         mso.existing = mso.proposed
 
     if 'bdRef' in mso.previous:

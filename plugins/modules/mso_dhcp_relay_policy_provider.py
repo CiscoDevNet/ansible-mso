@@ -32,22 +32,18 @@ options:
     description:
     - IP address of the DHCP Server
     type: str
-    required: yes
   tenant:
     description:
     - Tenant where the DHCP provider is located.
     type: str
-    required: yes
   schema:
     description:
     - Schema where the DHCP provider is configured
     type: str
-    required: yes
   template:
     description:
     - template where the DHCP provider is configured
     type: str
-    required: yes
   application_profile:
     description:
     - Application Profile where the DHCP provider is configured
@@ -114,7 +110,7 @@ EXAMPLES = r"""
     application_profile: ansible_test
     endpoint_group: ansible_test
     state: query
-   delegate_to: localhost
+  delegate_to: localhost
 
 - name: Query all provider of a DHCP Relay Policy
   cisco.mso.mso_dhcp_relay_policy_provider:
@@ -145,7 +141,7 @@ def main():
         template=dict(type="str"),
         application_profile=dict(type="str", aliases=['anp']),
         endpoint_group=dict(type="str", aliases=['epg']),
-        external_endpoint_group=dict(type="str", aliases=['ext_epg, external_epg']),
+        external_endpoint_group=dict(type="str", aliases=['ext_epg', 'external_epg']),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
     module = AnsibleModule(

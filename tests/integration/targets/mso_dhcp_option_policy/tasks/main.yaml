@@ -1,5 +1,6 @@
 # Test code for the MSO modules
-# Copyright: (c) 2020, Jorge Gomez (@jgomezve) <jgomezve@cisco.com>
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+# Copyright: (c) 2020, Jorge Gomez (@jgomezve) <jgomezve@cisco.com> (based on mso_dhcp_relay_policy test case)
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -29,28 +30,28 @@
     state: present
   register: ansible_tenant
 
-- name: Remove DHCP Relay Policy 1
-  mso_dhcp_relay_policy:
+- name: Remove DHCP Option Policies
+  mso_dhcp_option_policy:
     <<: *mso_info
-    dhcp_relay_policy: '{{ item }}'
+    dhcp_option_policy: '{{ item }}'
     state: absent
   loop:
-  - ansible_dhcp_relay_1
-  - ansible_dhcp_relay_2
+  - ansible_dhcp_option_1
+  - ansible_dhcp_option_2
 
 # ADD DHCP Policy
-- name: Add a new DHCP Relay Policy 1 (check mode)
-  mso_dhcp_relay_policy: &create_dhcp
+- name: Add a new DHCP Option Policy 1 (check mode)
+  mso_dhcp_option_policy: &create_dhcp
     <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
+    dhcp_option_policy: ansible_dhcp_option_1
     description: "My Test DHCP Policy 1"
     tenant: ansible_test
     state: present
   check_mode: yes
   register: dhcp_pol1_cm
 
-- name: Add a new DHCP Relay Policy 1 (normal mode)
-  mso_dhcp_relay_policy:
+- name: Add a new DHCP Option Policy 1 (normal mode)
+  mso_dhcp_option_policy:
     <<: *create_dhcp
   register: dhcp_pol1_nm
 
@@ -59,20 +60,20 @@
     that:
     - dhcp_pol1_cm is changed
     - dhcp_pol1_nm is changed
-    - dhcp_pol1_cm.current.name == dhcp_pol1_nm.current.name == 'ansible_dhcp_relay_1'
+    - dhcp_pol1_cm.current.name == dhcp_pol1_nm.current.name == 'ansible_dhcp_option_1'
     - dhcp_pol1_cm.current.desc == dhcp_pol1_nm.current.desc == 'My Test DHCP Policy 1'
-    - dhcp_pol1_cm.current.policySubtype == dhcp_pol1_nm.current.policySubtype == 'relay'
+    - dhcp_pol1_cm.current.policySubtype == dhcp_pol1_nm.current.policySubtype == 'option'
     - dhcp_pol1_cm.current.policyType == dhcp_pol1_nm.current.policyType == 'dhcp'
     - dhcp_pol1_cm.current.tenantId == dhcp_pol1_nm.current.tenantId == ansible_tenant.current.id
 
-- name: Add a new DHCP Relay Policy 1 again (check mode)
-  mso_dhcp_relay_policy:
+- name: Add a new DHCP Option Policy 1 again (check mode)
+  mso_dhcp_option_policy:
     <<: *create_dhcp
   check_mode: yes
   register: dhcp_pol1_again_cm
 
-- name: Add a new DHCP Relay Policy 1 again (normal mode)
-  mso_dhcp_relay_policy:
+- name: Add a new DHCP Option Policy 1 again (normal mode)
+  mso_dhcp_option_policy:
     <<: *create_dhcp
   register: dhcp_pol1_again_nm
 
@@ -81,26 +82,26 @@
     that:
     - dhcp_pol1_again_cm is not changed
     - dhcp_pol1_again_nm is not changed
-    - dhcp_pol1_again_cm.current.name == dhcp_pol1_again_nm.current.name == 'ansible_dhcp_relay_1'
+    - dhcp_pol1_again_cm.current.name == dhcp_pol1_again_nm.current.name == 'ansible_dhcp_option_1'
     - dhcp_pol1_again_cm.current.desc == dhcp_pol1_again_nm.current.desc == 'My Test DHCP Policy 1'
-    - dhcp_pol1_again_cm.current.policySubtype == dhcp_pol1_again_nm.current.policySubtype == 'relay'
+    - dhcp_pol1_again_cm.current.policySubtype == dhcp_pol1_again_nm.current.policySubtype == 'option'
     - dhcp_pol1_again_cm.current.policyType == dhcp_pol1_again_nm.current.policyType == 'dhcp'
     - dhcp_pol1_again_cm.current.tenantId == dhcp_pol1_again_nm.current.tenantId == ansible_tenant.current.id
 
-- name: Add a new DHCP Relay Policy 2 (normal mode)
-  mso_dhcp_relay_policy:
+- name: Add a new DHCP Option Policy 2 (normal mode)
+  mso_dhcp_option_policy:
     <<: *create_dhcp
-    dhcp_relay_policy: ansible_dhcp_relay_2
+    dhcp_option_policy: ansible_dhcp_option_2
 
-- name: Change DHCP Relay Policy 1 description (check mode)
-  mso_dhcp_relay_policy:
+- name: Change DHCP Option Policy 1 description (check mode)
+  mso_dhcp_option_policy:
     <<: *create_dhcp
     description: "My Changed Test DHCP Policy 1"
   check_mode: yes
   register: change_dhcp_pol1_cm
 
-- name: Change DHCP Relay Policy 1 description (normal mode)
-  mso_dhcp_relay_policy:
+- name: Change DHCP Option Policy 1 description (normal mode)
+  mso_dhcp_option_policy:
     <<: *create_dhcp
     description: "My Changed Test DHCP Policy 1"
   register: change_dhcp_pol1_nm
@@ -110,23 +111,23 @@
     that:
     - change_dhcp_pol1_cm is changed
     - change_dhcp_pol1_nm is changed
-    - change_dhcp_pol1_cm.current.name == change_dhcp_pol1_nm.current.name == 'ansible_dhcp_relay_1'
+    - change_dhcp_pol1_cm.current.name == change_dhcp_pol1_nm.current.name == 'ansible_dhcp_option_1'
     - change_dhcp_pol1_cm.current.desc == change_dhcp_pol1_nm.current.desc == 'My Changed Test DHCP Policy 1'
-    - change_dhcp_pol1_cm.current.policySubtype == change_dhcp_pol1_nm.current.policySubtype == 'relay'
+    - change_dhcp_pol1_cm.current.policySubtype == change_dhcp_pol1_nm.current.policySubtype == 'option'
     - change_dhcp_pol1_cm.current.policyType == change_dhcp_pol1_nm.current.policyType == 'dhcp'
     - change_dhcp_pol1_cm.current.tenantId == change_dhcp_pol1_nm.current.tenantId == ansible_tenant.current.id
 
-# QUERY A DHCP RELAY POLICY
-- name: Query DHCP Relay Policy 1 (check mode)
-  mso_dhcp_relay_policy: &query_dhcp
+# QUERY A DHCP OPTION POLICY
+- name: Query DHCP Option Policy 1 (check mode)
+  mso_dhcp_option_policy: &query_dhcp
     <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
+    dhcp_option_policy: ansible_dhcp_option_1
     state: query
   check_mode: yes
   register: dhcp_pol1_query_cm
 
-- name: Query DHCP Relay Policy 1 (normal mode)
-  mso_dhcp_relay_policy:
+- name: Query DHCP Option Policy 1 (normal mode)
+  mso_dhcp_option_policy:
     <<: *query_dhcp
   register: dhcp_pol1_query_nm
 
@@ -135,16 +136,16 @@
     that:
     - dhcp_pol1_query_cm is not changed
     - dhcp_pol1_query_nm is not changed
-    - dhcp_pol1_query_cm.current.name == dhcp_pol1_query_nm.current.name == 'ansible_dhcp_relay_1'
+    - dhcp_pol1_query_cm.current.name == dhcp_pol1_query_nm.current.name == 'ansible_dhcp_option_1'
     - dhcp_pol1_query_cm.current.desc == dhcp_pol1_query_nm.current.desc == 'My Changed Test DHCP Policy 1'
-    - dhcp_pol1_query_cm.current.policySubtype == dhcp_pol1_query_nm.current.policySubtype == 'relay'
+    - dhcp_pol1_query_cm.current.policySubtype == dhcp_pol1_query_nm.current.policySubtype == 'option'
     - dhcp_pol1_query_cm.current.policyType == dhcp_pol1_query_nm.current.policyType == 'dhcp'
 
-# QUERY A NON-EXISTING DHCP RELAY POLICY
-- name: Query non-existing  DHCP Relay Policy  (normal mode)
-  mso_dhcp_relay_policy:
+# QUERY A NON-EXISTING DHCP OPTION POLICY
+- name: Query non-existing  DHCP Option Policy  (normal mode)
+  mso_dhcp_option_policy:
     <<: *mso_info
-    dhcp_relay_policy: non_existing
+    dhcp_option_policy: non_existing
     state: query
   register: quey_non_dhcp_pol
 
@@ -153,9 +154,9 @@
     that:
     - quey_non_dhcp_pol is not changed
 
-# QUERY ALL DHCP RELAY POLICIES
-- name: Query all DHCP Relay Policies (normal mode)
-  mso_dhcp_relay_policy:
+# QUERY ALL DHCP OPTION POLICIES
+- name: Query all DHCP Option Policies (normal mode)
+  mso_dhcp_option_policy:
     <<: *mso_info
     state: query
   register: dhcp_policies_query
@@ -167,16 +168,16 @@
     - dhcp_policies_query.current | length == 2
 
 # REMOVE DHCP POLICY
-- name: Remove DHCP Relay Policy 1 (check mode)
-  mso_dhcp_relay_policy: &remove_dhcp
+- name: Remove DHCP Option Policy 1 (check mode)
+  mso_dhcp_option_policy: &remove_dhcp
     <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
+    dhcp_option_policy: ansible_dhcp_option_1
     state: absent
   check_mode: yes
   register: dhcp_pol1_removed_cm
 
-- name: Remove DHCP Relay Policy 1 (normal mode)
-  mso_dhcp_relay_policy:
+- name: Remove DHCP Option Policy 1 (normal mode)
+  mso_dhcp_option_policy:
     <<: *remove_dhcp
   register: dhcp_pol1_removed_nm
 
@@ -188,14 +189,14 @@
     - dhcp_pol1_removed_cm.current == dhcp_pol1_removed_nm.current == {}
 
 # REMOVE DHCP POLICY AGAIN
-- name: Remove DHCP Relay Policy 1 again (check mode)
-  mso_dhcp_relay_policy:
+- name: Remove DHCP Option Policy 1 again (check mode)
+  mso_dhcp_option_policy:
     <<: *remove_dhcp
   check_mode: yes
   register: dhcp_pol1_removed_again_cm
 
-- name: Remove DHCP Relay Policy 1 again (normal mode)
-  mso_dhcp_relay_policy:
+- name: Remove DHCP Option Policy 1 again (normal mode)
+  mso_dhcp_option_policy:
     <<: *remove_dhcp
   register: dhcp_pol1_removed_again_nm
 
@@ -209,10 +210,10 @@
 
 
 # USE A NON-EXISTING TENANT
-- name: Non Existing Tenant for DHCP Relay Policy 3 (normal mode)
-  mso_dhcp_relay_policy:
+- name: Non Existing Tenant for DHCP Option Policy 3 (normal mode)
+  mso_dhcp_option_policy:
     <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_3
+    dhcp_option_policy: ansible_dhcp_option_3
     description: "My Test DHCP Policy 3"
     tenant: non_existing
     state: present

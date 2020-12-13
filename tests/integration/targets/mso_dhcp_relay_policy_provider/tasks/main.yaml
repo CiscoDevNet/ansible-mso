@@ -29,6 +29,7 @@
     template: Template 1
     external_endpoint_group: "{{ item }}"
     state: absent
+  ignore_errors: yes
   loop:
   - EXT_EPG_1
   - EXT_EPG_2
@@ -43,6 +44,7 @@
     endpoint_group: "{{ item }}"
     application_profile: "ANP_1"
     state: absent
+  ignore_errors: yes
   loop:
   - EPG_1
   - EPG_2
@@ -56,12 +58,17 @@
     vrf:
       name: VRF_1
     state: present
+  ignore_errors: yes
 
-- name: Remove DHCP Relay Policy 1
+- name: Remove DHCP Relay Policies
   mso_dhcp_relay_policy:
     <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
+    dhcp_relay_policy: '{{ item }}'
     state: absent
+  ignore_errors: yes
+  loop:
+  - ansible_dhcp_relay_1
+  - ansible_dhcp_relay_2
 
 - name: Undeploy sites in schema 1 template 1
   mso_schema_template_deploy:
@@ -74,6 +81,8 @@
   loop:
   - '{{ mso_site | default("ansible_test") }}'
   - '{{ mso_site | default("ansible_test") }}_2'
+  - 'aws_{{ mso_site | default("ansible_test") }}'
+  - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Undeploy sites in schema 1 template 2
   mso_schema_template_deploy:
@@ -86,6 +95,8 @@
   loop:
   - '{{ mso_site | default("ansible_test") }}'
   - '{{ mso_site | default("ansible_test") }}_2'
+  - 'aws_{{ mso_site | default("ansible_test") }}'
+  - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Remove schemas
   mso_schema:
@@ -549,6 +560,7 @@
   mso_dhcp_relay_policy:
     <<: *mso_info
     dhcp_relay_policy: ansible_dhcp_relay_1
+    state: query
   register: dhcp_relay_policy_version
 
 - name: Consume DHCP Policy

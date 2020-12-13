@@ -22,6 +22,52 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Remove EXT_EPGs Providers from DHCP Relay Policy
+  mso_dhcp_relay_policy_provider:
+    <<: *mso_info
+    dhcp_relay_policy: ansible_dhcp_relay_1
+    tenant: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_endpoint_group: "{{ item }}"
+    state: absent
+  loop:
+  - EXT_EPG_1
+  - EXT_EPG_2
+
+- name: Remove EXT_EPGs Providers from DHCP Relay Policy
+  mso_dhcp_relay_policy_provider:
+    <<: *mso_info
+    dhcp_relay_policy: ansible_dhcp_relay_1
+    tenant: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    endpoint_group: "{{ item }}"
+    application_profile: "ANP_1"
+    state: absent
+  loop:
+  - EPG_1
+  - EPG_2
+
+- name: Stop consuming DHCP Policy
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: CLIENT_BD
+    vrf:
+      name: VRF_1
+    state: present
+
+- name: Remove DHCP Relay Policies
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    dhcp_relay_policy: '{{ item }}'
+    state: absent
+  loop:
+  - ansible_dhcp_relay_1
+  - ansible_dhcp_relay_2
+
 - name: Remove schemas
   cisco.mso.mso_schema:
     <<: *mso_info

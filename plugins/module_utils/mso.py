@@ -631,8 +631,13 @@ class MSOModule(object):
         ''' Create a DHCP policy from input '''
         if data is None:
             return None
+        if 'version' in data:
+            data['version'] = int(data.get('version'))
         if data and 'dhcp_option_policy' in data:
-            data['dhcpOptionLabel'] = data.get('dhcp_option_policy')
+            dhcp_option_policy = data.get('dhcp_option_policy')
+            if dhcp_option_policy is not None and 'version' in dhcp_option_policy:
+                dhcp_option_policy['version'] = int(dhcp_option_policy.get('version'))
+            data['dhcpOptionLabel'] = dhcp_option_policy
             del data['dhcp_option_policy']
         return data
 
@@ -662,7 +667,8 @@ class MSOModule(object):
         for key in updates:
             # Always retain 'id'
             if key in required:
-                self.sent[key] = updates.get(key)
+                if key in self.existing or updates.get(key) is not None:
+                    self.sent[key] = updates.get(key)
                 continue
 
             # Remove unspecified values

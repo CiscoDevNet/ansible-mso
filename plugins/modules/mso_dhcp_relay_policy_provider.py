@@ -16,17 +16,18 @@ ANSIBLE_METADATA = {
 DOCUMENTATION = r"""
 ---
 module: mso_dhcp_relay_policy_provider
-short_description: Configure DHCP providers in a DHCP Relay policy.
+short_description: Manage DHCP providers in a DHCP Relay policy.
 description:
-- Configure DHCP providers in a DHCP Relay policy.
+- Manage DHCP providers in a DHCP Relay policy on Cisco Multi-Site Orchestrator.
 author:
 - Jorge Gomez (@jorgegome2307)
 options:
-  name:
+  dhcp_relay_policy:
     description:
     - Name of the DHCP Relay Policy
     type: str
     required: yes
+    aliases: [ name ]
   ip:
     description:
     - IP address of the DHCP Server
@@ -51,17 +52,21 @@ options:
     description:
     - Application Profile where the DHCP provider is configured
     type: str
+    aliases: [ anp ]
   endpoint_group:
     description:
     - EPG where the DHCP provider is configured
     type: str
+    aliases: [ epg ]
   external_endpoint_group:
     description:
     - External EPG where the DHCP provider is configured
     type: str
+    aliases: [ ext_epg, external_epg ]
   state:
     description:
-    - State of the DHCP Relay provider
+    - Use C(present) or C(absent) for adding or removing.
+    - Use C(query) for listing an object or multiple objects.
     type: str
     choices: [ absent, present, query ]
     default: present
@@ -69,11 +74,59 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
+- name: Add a new provider to a DHCP Relay Policy
+  cisco.mso.mso_dhcp_relay_policy_provider:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    dhcp_relay_policy: my_test_dhcp_policy
+    tenant: ansible_test
+    schema: ansible_test
+    template: Template 1
+    application_profile: ansible_test
+    endpoint_group: ansible_test
+    state: present
+  delegate_to: localhost
 
+- name: Remove a provider to a DHCP Relay Policy
+  cisco.mso.mso_dhcp_relay_policy_provider:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    dhcp_relay_policy: my_test_dhcp_policy
+    tenant: ansible_test
+    schema: ansible_test
+    template: Template 1
+    application_profile: ansible_test
+    endpoint_group: ansible_test
+    state: absent
+  delegate_to: localhost
+
+- name: Query a provider to a DHCP Relay Policy
+  cisco.mso.mso_dhcp_relay_policy_provider:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    dhcp_relay_policy: my_test_dhcp_policy
+    tenant: ansible_test
+    schema: ansible_test
+    template: Template 1
+    application_profile: ansible_test
+    endpoint_group: ansible_test
+    state: query
+   delegate_to: localhost
+
+- name: Query all provider of a DHCP Relay Policy
+  cisco.mso.mso_dhcp_relay_policy_provider:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    dhcp_relay_policy: my_test_dhcp_policy
+    state: query
+  delegate_to: localhost
 """
 
 RETURN = r"""
-
 """
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import (
@@ -85,28 +138,26 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import (
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        name=dict(type="str", required=True),
-        ip=dict(type="str", required=True),
-        tenant=dict(type="str", required=True),
-        schema=dict(type="str", required=True),
-        template=dict(type="str", required=True),
-        application_profile=dict(type="str"),
-        endpoint_group=dict(type="str"),
-        external_endpoint_group=dict(type="str"),
-        state=dict(
-            type="str", default="present", choices=["absent", "present", "query"]
-        ),
+        dhcp_relay_policy=dict(type="str", required=True, aliases=['name']),
+        ip=dict(type="str"),
+        tenant=dict(type="str"),
+        schema=dict(type="str"),
+        template=dict(type="str"),
+        application_profile=dict(type="str", aliases=['anp']),
+        endpoint_group=dict(type="str", aliases=['epg']),
+        external_endpoint_group=dict(type="str", aliases=['ext_epg, external_epg']),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
-        # required_if=[
-        #     ["state", "absent", ["external_endpoint_group"]],
-        #     ["state", "absent", ["endpoint_group"]],
-        # ],  TODO: Required_if with 'OR'
+        required_if=[
+            ["state", "present", ["ip", "tenant", "schema", "template"]],
+            ["state", "absent", ["tenant", "schema", "template"]],
+        ],
     )
 
-    name = module.params.get("name")
+    dhcp_relay_policy = module.params.get("dhcp_relay_policy")
     ip = module.params.get("ip")
     tenant = module.params.get("tenant")
     schema = module.params.get("schema")
@@ -120,114 +171,85 @@ def main():
 
     path = "policies/dhcp/relay"
 
-    if name:
-        mso.existing = mso.get_obj(path, name=name, key="DhcpRelayPolicies")
-        if mso.existing:
-            policy_id = mso.existing.get("id")
-            path = path + "/" + policy_id
-        else:
-            mso.fail_json(
-                msg="Error DHCP Policy Relay {name} does not exist".format(name=name)
-            )
-    else:
-        mso.existing = mso.query_objs(path, key="DhcpRelayPolicies")
-
-    payload = mso.existing
     tenant_id = mso.lookup_tenant(tenant)
     schema_id = mso.lookup_schema(schema)
-    ext_epg_type = True
 
-    if endpoint_group is not None:
-        epgRef = (
-            "/schemas/{schemaId}/templates/{templateName}/anps/{app}/epgs/{epg}".format(
-                schemaId=schema_id,
-                templateName=template,
-                app=application_profile,
-                epg=endpoint_group,
-            )
+    provider = dict(
+        addr=ip,
+        externalEpgRef='',
+        epgRef='',
+        l3Ref='',
+        tenantId=tenant_id,
+    )
+    provider_index = None
+    previous_provider = {}
+
+    if application_profile is not None and endpoint_group is not None:
+        provider['epgRef'] = '/schemas/{schemaId}/templates/{templateName}/anps/{app}/epgs/{epg}'.format(
+            schemaId=schema_id, templateName=template, app=application_profile, epg=endpoint_group,
         )
-        provider = dict(
-            addr=ip, epgRef=epgRef, externalEpgRef="", l3Ref="", tenantId=tenant_id
-        )
-        ext_epg_type = False
     elif external_endpoint_group is not None:
-        externalEpgRef = "/schemas/{schemaId}/templates/{templateName}/externalEpgs/{ext_epg}".format(
+        provider['externalEpgRef'] = '/schemas/{schemaId}/templates/{templateName}/externalEpgs/{ext_epg}'.format(
             schemaId=schema_id, templateName=template, ext_epg=external_endpoint_group
         )
-        provider = dict(
-            addr=ip,
-            externalEpgRef=externalEpgRef,
-            epgRef="",
-            l3Ref="",
-            tenantId=tenant_id,
-        )
-    else:
-        mso.fail_json(msg="Invalid provider type")
 
-    if "provider" in payload:
-        providers = payload["provider"]
-    else:
-        providers = []
+    # Query for existing object(s)
+    dhcp_relay_obj = mso.get_obj(path, name=dhcp_relay_policy, key="DhcpRelayPolicies")
+    if 'id' not in dhcp_relay_obj:
+        mso.fail_json(msg="DHCP Relay Policy '{0}' is not a valid DHCP Relay Policy name.".format(dhcp_relay_policy))
+    policy_id = dhcp_relay_obj.get("id")
+    providers = []
+    if "provider" in dhcp_relay_obj:
+        providers = dhcp_relay_obj.get('provider')
+        for index, prov in enumerate(providers):
+            if (
+                (provider.get('epgRef') != '' and prov.get('epgRef') == provider.get('epgRef'))
+                or (provider.get('externalEpgRef') != '' and prov.get('externalEpgRef') == provider.get('externalEpgRef'))
+            ):
+                previous_provider = prov
+                provider_index = index
+
+    # If we found an existing object, continue with it
+    path = '{0}/{1}'.format(path, policy_id)
 
     if state == "query":
-        pass  # TODO: Not supported ??  MSO  Model does not allow to query a provider but the whole DHCP Policy
+        mso.existing = providers
+        if endpoint_group is not None or external_endpoint_group is not None:
+            mso.existing = previous_provider
+        mso.exit_json()
 
-    elif state == "absent":
-        mso.previous = mso.existing
-        changed_object = False
+    if endpoint_group is None and external_endpoint_group is None:
+        mso.fail_json(msg="Missing either endpoint_group or external_endpoint_group required attribute.")
 
-        if mso.existing:
-            payload = mso.existing
-            if check_new_provider(providers, provider, ext_epg_type):
-                providers.remove(provider)
-                changed_object = True
+    mso.previous = previous_provider
+    if state == "absent":
+        provider = {}
+        if previous_provider:
+            if provider_index is not None:
+                providers.pop(provider_index)
 
     elif state == "present":
-
-        mso.previous = mso.existing
-        changed_object = False
-
-        if not check_new_provider(providers, provider, ext_epg_type):
-            providers.append(provider)
-            changed_object = True
-
-    payload["provider"] = providers
-    response = {}
-    changed = False
-
-    mso.sanitize(payload, collate=True)
-
-    if (
-        mso.check_changed() or changed_object
-    ):  # mso.previous != mso.existing (Check why it does not work)
-        mso.existing = mso.request(path, method="PUT", data=mso.sent)
-        changed = True
-        response["msg"] = "Provider modified"
-        response["tenant"] = mso.existing["provider"]
-    elif not changed_object:
-        response["msg"] = "Provider already exists / Provider does not exits"
-
-    mso.exit_json(changed=changed, meta=response)
-
-
-def check_new_provider(provider_list, provider_to_add, ext_epg_type):
-    found = False
-    for provider in provider_list:
-        if not ext_epg_type:
-            if (
-                provider["addr"] == provider_to_add["addr"]
-                and provider["epgRef"] == provider_to_add["epgRef"]
-                and provider["tenantId"] == provider_to_add["tenantId"]
-            ):
-                found = True
+        if provider_index is not None:
+            providers[provider_index] = provider
         else:
+            providers.append(provider)
+
+    if module.check_mode:
+        mso.existing = provider
+    else:
+        mso.existing = dhcp_relay_obj
+        dhcp_relay_obj["provider"] = providers
+        mso.sanitize(dhcp_relay_obj, collate=True)
+        new_dhcp_relay_obj = mso.request(path, method="PUT", data=mso.sent)
+        mso.existing = {}
+        for index, prov in enumerate(new_dhcp_relay_obj.get('provider')):
             if (
-                provider["addr"] == provider_to_add["addr"]
-                and provider["externalEpgRef"] == provider_to_add["externalEpgRef"]
-                and provider["tenantId"] == provider_to_add["tenantId"]
+                (provider.get('epgRef') != '' and prov.get('epgRef') == provider.get('epgRef'))
+                or (provider.get('externalEpgRef') != '' and prov.get('externalEpgRef') == provider.get('externalEpgRef'))
             ):
-                found = True
-    return found
+                mso.existing = prov
+
+    mso.exit_json()
 
 
 if __name__ == "__main__":

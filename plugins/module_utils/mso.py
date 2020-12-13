@@ -662,7 +662,8 @@ class MSOModule(object):
         for key in updates:
             # Always retain 'id'
             if key in required:
-                pass
+                self.sent[key] = updates.get(key)
+                continue
 
             # Remove unspecified values
             elif not collate and updates.get(key) is None:

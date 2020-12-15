@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
+# Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -19,6 +20,7 @@ description:
 - Manage BDs in schema templates on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
+- Shreyas Srish (@shrsr)
 options:
   schema:
     description:
@@ -28,6 +30,8 @@ options:
   template:
     description:
     - The name of the template.
+    - Display Name of template for operations can only be used in some versions of mso.
+    - Use the name of template instead of Display Name to avoid discrepency.
     type: str
     required: yes
   bd:
@@ -143,6 +147,29 @@ options:
     description:
     - Whether to enable L3 multicast.
     type: bool
+  unknown_multicast_flooding:
+    description:
+    - Unknown Multicast Flooding can either be Flood or Optimized Flooding
+    type: str
+    choices: [ flood, opt-flood ]
+  multi_destination_flooding:
+    description:
+    - Multi-Destination Flooding can either be Flood in BD or just Drop
+    type: str
+    choices: [ bd-flood, drop ]
+  ipv6_unknown_multicast_flooding:
+    description:
+    - IPv6 Unknown Multicast Flooding can either be Flood or Optimized Flooding
+    type: str
+    choices: [ flood, opt-flood ]
+  arp_flooding:
+    description:
+    - ARP Flooding
+    type: bool
+  virtual_mac_address:
+    description:
+    - Virtual MAC Address
+    type: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -181,6 +208,44 @@ EXAMPLES = r'''
       template: Template Origin
     state: present
   delegate_to: localhost
+
+- name: Add bd with options available on version 3.1
+  mso_schema_template_bd:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema 1
+    template: Template 1
+    bd: BD 1
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: false
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: false
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: drop
+    ipv6_unknown_multicast_flooding: flood
+    arp_flooding: false
+    virtual_mac_address: 00:00:5E:00:01:3C
+    subnets:
+    - subnet: 10.0.0.128/24
+    - subnet: 10.0.1.254/24
+      description: 1234567890
+    - ip: 192.168.0.254/24
+      description: "My description for a subnet"
+      scope: private
+      shared: false
+      no_default_gateway: true
+    vrf:
+      name: vrf1
+      schema: Test
+      template: Template1
+    dhcp_policy:
+      name: ansible_test
+      version: 1
+      dhcp_option_policy:
+        name: ansible_test_option
+        version: 1
 
 - name: Remove an BD
   cisco.mso.mso_schema_template_bd:
@@ -239,6 +304,11 @@ def main():
         vrf=dict(type='dict', options=mso_reference_spec()),
         dhcp_policy=dict(type='dict', options=mso_dhcp_spec()),
         subnets=dict(type='list', elements='dict', options=mso_subnet_spec()),
+        unknown_multicast_flooding=dict(type='str', choices=['opt-flood', 'flood']),
+        multi_destination_flooding=dict(type='str', choices=['bd-flood', 'drop']),
+        ipv6_unknown_multicast_flooding=dict(type='str', choices=['opt-flood', 'flood']),
+        arp_flooding=dict(type='bool'),
+        virtual_mac_address=dict(type='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -263,6 +333,11 @@ def main():
     vrf = module.params.get('vrf')
     dhcp_policy = module.params.get('dhcp_policy')
     subnets = module.params.get('subnets')
+    unknown_multicast_flooding = module.params.get('unknown_multicast_flooding')
+    multi_destination_flooding = module.params.get('multi_destination_flooding')
+    ipv6_unknown_multicast_flooding = module.params.get('ipv6_unknown_multicast_flooding')
+    arp_flooding = module.params.get('arp_flooding')
+    virtual_mac_address = module.params.get('virtual_mac_address')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -327,6 +402,11 @@ def main():
             subnets=subnets,
             vrfRef=vrf_ref,
             dhcpLabel=dhcp_label,
+            unkMcastAct=unknown_multicast_flooding,
+            multiDstPktAct=multi_destination_flooding,
+            v6unkMcastAct=ipv6_unknown_multicast_flooding,
+            vmac=virtual_mac_address,
+            arpFlood=arp_flooding,
         )
 
         mso.sanitize(payload, collate=True, required=['dhcpLabel'])

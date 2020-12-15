@@ -51,8 +51,8 @@
     schema: '{{ item }}'
     state: absent
   loop:
-  - '{{ mso_schema | default("ansible_test") }}'
   - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
   mso_tenant: &tenant_present
@@ -456,7 +456,7 @@
     - nm_add_again_bd_5 is not changed
   when: version.current.version is version('3.1.1g', '==')
 
-- name: Add bd 5 with different vmac (normal mode)
+- name: Add bd 5 with different values for new options (normal mode)
   mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
@@ -467,9 +467,9 @@
     layer2_stretch: true
     layer2_unknown_unicast: flood
     layer3_multicast: false
-    unknown_multicast_flooding: flood
-    multi_destination_flooding: drop
-    ipv6_unknown_multicast_flooding: flood
+    unknown_multicast_flooding: optimized_flooding
+    multi_destination_flooding: flood_in_bd
+    ipv6_unknown_multicast_flooding: optimized_flooding
     arp_flooding: true
     virtual_mac_address: 00:00:5E:00:02:3C
     vrf:
@@ -482,19 +482,22 @@
       dhcp_option_policy:
         name: ansible_test_option
         version: 1
-  register: nm_bd_5_vmac
+  register: nm_bd_5_options
 
-- name: Verify nm_bd_5_vmac for a version that's not 3.1
+- name: Verify nm_bd_5_options for a version that's not 3.1
   assert:
     that:
-    - nm_bd_5_vmac is not changed
+    - nm_bd_5_options is not changed
   when: version.current.version is version('3.1.1g', '!=')
 
-- name: Verify nm_bd_5_vmac for a version that's 3.1
+- name: Verify nm_bd_5_options for a version that's 3.1
   assert:
     that:
-    - nm_bd_5_vmac is changed
-    - nm_bd_5_vmac.current.vmac == "00:00:5E:00:02:3C"
+    - nm_bd_5_options is changed
+    - nm_bd_5_options.current.unkMcastAct == "opt-flood"
+    - nm_bd_5_options.current.v6unkMcastAct == "opt-flood"
+    - nm_bd_5_options.current.multiDstPktAct == "bd-flood"
+    - nm_bd_5_options.current.vmac == "00:00:5E:00:02:3C"
   when: version.current.version is version('3.1.1g', '==')
 
 - name: Change bd 5_1 (normal mode)

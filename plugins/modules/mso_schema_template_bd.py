@@ -151,17 +151,17 @@ options:
     description:
     - Unknown Multicast Flooding can either be Flood or Optimized Flooding
     type: str
-    choices: [ flood, opt-flood ]
+    choices: [ flood, optimized_flooding ]
   multi_destination_flooding:
     description:
     - Multi-Destination Flooding can either be Flood in BD or just Drop
     type: str
-    choices: [ bd-flood, drop ]
+    choices: [ flood_in_bd, drop ]
   ipv6_unknown_multicast_flooding:
     description:
     - IPv6 Unknown Multicast Flooding can either be Flood or Optimized Flooding
     type: str
-    choices: [ flood, opt-flood ]
+    choices: [ flood, optimized_flooding ]
   arp_flooding:
     description:
     - ARP Flooding
@@ -304,9 +304,9 @@ def main():
         vrf=dict(type='dict', options=mso_reference_spec()),
         dhcp_policy=dict(type='dict', options=mso_dhcp_spec()),
         subnets=dict(type='list', elements='dict', options=mso_subnet_spec()),
-        unknown_multicast_flooding=dict(type='str', choices=['opt-flood', 'flood']),
-        multi_destination_flooding=dict(type='str', choices=['bd-flood', 'drop']),
-        ipv6_unknown_multicast_flooding=dict(type='str', choices=['opt-flood', 'flood']),
+        unknown_multicast_flooding=dict(type='str', choices=['optimized_flooding', 'flood']),
+        multi_destination_flooding=dict(type='str', choices=['flood_in_bd', 'drop']),
+        ipv6_unknown_multicast_flooding=dict(type='str', choices=['optimized_flooding', 'flood']),
         arp_flooding=dict(type='bool'),
         virtual_mac_address=dict(type='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
@@ -341,6 +341,14 @@ def main():
     state = module.params.get('state')
 
     mso = MSOModule(module)
+
+    # Map choices
+    if unknown_multicast_flooding == 'optimized_flooding':
+        unknown_multicast_flooding = 'opt-flood'
+    if ipv6_unknown_multicast_flooding == 'optimized_flooding':
+        ipv6_unknown_multicast_flooding = 'opt-flood'
+    if multi_destination_flooding == 'flood_in_bd':
+        multi_destination_flooding = 'bd-flood'
 
     # Get schema_id
     schema_obj = mso.get_obj('schemas', displayName=schema)

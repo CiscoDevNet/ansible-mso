@@ -51,8 +51,8 @@
     schema: '{{ item }}'
     state: absent
   loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
+  - '{{ mso_schema | default("ansible_test") }}_2'
 
 - name: Ensure tenant ansible_test exist
   mso_tenant: &tenant_present
@@ -64,35 +64,43 @@
     - '{{ mso_site | default("ansible_test") }}'
     state: present
 
-- name: Ensure schema 1 with Template 1 exist
+- name: Ensure schema 1 with  exist
   mso_schema_template: &schema_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
-    template: Template 1
+    template: Template1
     state: present
 
-- name: Ensure schema 1 with Template 2 exist
+- name: Ensure schema 1 with Template2 exist
   mso_schema_template:
     <<: *schema_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
-    template: Template 2
+    template: Template2
     state: present
 
-- name: Ensure schema 2 with Template 3 exist
+- name: Ensure schema 2 withTemplate3 exist
   mso_schema_template:
     <<: *schema_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
-    template: Template 3
+    template: Template3
+    state: present
+
+- name: Ensure schema 2 with Template5 exists
+  mso_schema_template:
+    <<: *schema_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template5
     state: present
 
 - name: Ensure VRF exist
   mso_schema_template_vrf: &vrf_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     vrf: VRF
     layer3_multicast: true
     state: present
@@ -106,7 +114,7 @@
 - name: Ensure VRF3 exist
   mso_schema_template_vrf:
     <<: *vrf_present
-    template: Template 2
+    template: Template2
     vrf: VRF3
     state: present
 
@@ -114,16 +122,23 @@
   mso_schema_template_vrf:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
+    template: Template3
     vrf: VRF4
     state: present
 
+- name: Ensure VRF5 exists
+  mso_schema_template_vrf:
+    <<: *vrf_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template5
+    vrf: VRF5
+    state: present
 
 - name: Ensure ansible_test_1 BD does not exist
   mso_schema_template_bd:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     bd: ansible_test_1
     vrf:
       name: VRF
@@ -133,7 +148,7 @@
   mso_schema_template_bd:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 2
+    template: Template2
     bd: ansible_test_2
     vrf:
       name: VRF
@@ -143,24 +158,24 @@
   mso_schema_template_bd:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
+    template: Template3
     bd: ansible_test_3
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      template: Template1
     state: absent
 
 - name: Ensure ansible_test_4 BD does not exist
   mso_schema_template_bd:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     bd: ansible_test_4
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      template: Template1
     state: absent
 
 # ADD BD
@@ -168,7 +183,7 @@
   mso_schema_template_bd: &bd_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     bd: ansible_test_1
     vrf:
       name: VRF
@@ -182,7 +197,7 @@
     - cm_add_bd is changed
     - cm_add_bd.previous == {}
     - cm_add_bd.current.name == "ansible_test_1"
-    - cm_add_bd.current.vrfRef.templateName == "Template 1"
+    - cm_add_bd.current.vrfRef.templateName == "Template1"
     - cm_add_bd.current.vrfRef.vrfName == "VRF"
 
 - name: Add bd (normal mode)
@@ -196,7 +211,7 @@
     - nm_add_bd is changed
     - nm_add_bd.previous == {}
     - nm_add_bd.current.name == "ansible_test_1"
-    - nm_add_bd.current.vrfRef.templateName == "Template 1"
+    - nm_add_bd.current.vrfRef.templateName == "Template1"
     - nm_add_bd.current.vrfRef.vrfName == "VRF"
     - cm_add_bd.current.vrfRef.schemaId ==  nm_add_bd.current.vrfRef.schemaId
 
@@ -212,8 +227,8 @@
     - cm_add_bd_again is not changed
     - cm_add_bd_again.previous.name == "ansible_test_1"
     - cm_add_bd_again.current.name == "ansible_test_1"
-    - cm_add_bd_again.previous.vrfRef.templateName == "Template 1"
-    - cm_add_bd_again.current.vrfRef.templateName == "Template 1"
+    - cm_add_bd_again.previous.vrfRef.templateName == "Template1"
+    - cm_add_bd_again.current.vrfRef.templateName == "Template1"
     - cm_add_bd_again.previous.vrfRef.vrfName == "VRF"
     - cm_add_bd_again.current.vrfRef.vrfName == "VRF"
     - cm_add_bd_again.previous.vrfRef.schemaId ==  cm_add_bd_again.current.vrfRef.schemaId
@@ -230,8 +245,8 @@
     - nm_add_bd_again is not changed
     - nm_add_bd_again.previous.name == "ansible_test_1"
     - nm_add_bd_again.current.name == "ansible_test_1"
-    - nm_add_bd_again.previous.vrfRef.templateName == "Template 1"
-    - nm_add_bd_again.current.vrfRef.templateName == "Template 1"
+    - nm_add_bd_again.previous.vrfRef.templateName == "Template1"
+    - nm_add_bd_again.current.vrfRef.templateName == "Template1"
     - nm_add_bd_again.previous.vrfRef.vrfName == "VRF"
     - nm_add_bd_again.current.vrfRef.vrfName == "VRF"
     - nm_add_bd_again.previous.vrfRef.schemaId ==  nm_add_bd_again.current.vrfRef.schemaId
@@ -240,7 +255,7 @@
   mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 2
+    template: Template2
     bd: ansible_test_2
     intersite_bum_traffic: true
     optimize_wan_bandwidth: true
@@ -265,7 +280,7 @@
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      template: Template1
     dhcp_policy:
       name: ansible_test
       version: 1
@@ -278,24 +293,24 @@
   mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
+    template: Template3
     bd: ansible_test_3
     vrf:
-      name: VRF
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      name: VRF4
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template3
   register: nm_add_bd_3
 
 - name: Add bd 4 (normal mode)
   mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     bd: ansible_test_4
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      template: Template1
   register: nm_add_bd_4
 
 - name: Verify nm_add_bd_2 and nm_add_bd_3
@@ -305,9 +320,11 @@
     - nm_add_bd_3 is changed
     - nm_add_bd_2.current.name == "ansible_test_2" 
     - nm_add_bd_3.current.name == "ansible_test_3"
-    - nm_add_bd_2.current.vrfRef.templateName == nm_add_bd_3.current.vrfRef.templateName == "Template 1"
-    - nm_add_bd_2.current.vrfRef.vrfName == nm_add_bd_3.current.vrfRef.vrfName == "VRF"
-    - nm_add_bd_2.current.vrfRef.schemaId ==  nm_add_bd_3.current.vrfRef.schemaId == nm_add_bd.current.vrfRef.schemaId
+    - nm_add_bd_2.current.vrfRef.templateName == "Template1"
+    - nm_add_bd_3.current.vrfRef.templateName == "Template3"
+    - nm_add_bd_2.current.vrfRef.vrfName == "VRF"
+    - nm_add_bd_3.current.vrfRef.vrfName == "VRF4"
+    - nm_add_bd_2.current.vrfRef.schemaId == nm_add_bd.current.vrfRef.schemaId
     - nm_add_bd_2.current.intersiteBumTrafficAllow == true
     - nm_add_bd_2.current.optimizeWanBandwidth == true
     - nm_add_bd_2.current.l2Stretch == true
@@ -338,6 +355,302 @@
     - nm_add_bd_2.current.subnets[3].shared == false
     - nm_add_bd_2.current.subnets[3].querier == false
 
+- name: Add bd 5 (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template5
+    bd: ansible_test_5
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: true
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: false
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: drop
+    ipv6_unknown_multicast_flooding: flood
+    arp_flooding: true
+    virtual_mac_address: 00:00:5E:00:01:3C
+    vrf:
+      name: VRF5
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template5
+    dhcp_policy:
+      name: ansible_test
+      version: 1
+      dhcp_option_policy:
+        name: ansible_test_option
+        version: 1
+  register: nm_add_bd_5
+
+- name: Verify nm_add_bd_5 for a version that's not 3.1
+  assert:
+    that:
+    - nm_add_bd_5 is changed
+    - nm_add_bd_5.current.name == "ansible_test_5" 
+    - nm_add_bd_5.current.vrfRef.templateName == "Template5"
+    - nm_add_bd_5.current.vrfRef.vrfName == "VRF5"
+    - nm_add_bd_5.current.intersiteBumTrafficAllow == true
+    - nm_add_bd_5.current.optimizeWanBandwidth == true
+    - nm_add_bd_5.current.l2Stretch == true
+    - nm_add_bd_5.current.l2UnknownUnicast == "flood"
+    - nm_add_bd_5.current.l3MCast == false
+  when: version.current.version is version('3.1.1g', '!=')
+
+- name: Verify nm_add_bd_5 for a version that's 3.1
+  assert:
+    that:
+    - nm_add_bd_5 is changed
+    - nm_add_bd_5.current.name == "ansible_test_5" 
+    - nm_add_bd_5.current.vrfRef.templateName == "Template5"
+    - nm_add_bd_5.current.vrfRef.vrfName == "VRF5"
+    - nm_add_bd_5.current.intersiteBumTrafficAllow == true
+    - nm_add_bd_5.current.optimizeWanBandwidth == true
+    - nm_add_bd_5.current.l2Stretch == true
+    - nm_add_bd_5.current.l2UnknownUnicast == "flood"
+    - nm_add_bd_5.current.l3MCast == false
+    - nm_add_bd_5.current.unkMcastAct == "flood"
+    - nm_add_bd_5.current.v6unkMcastAct == "flood"
+    - nm_add_bd_5.current.vmac == "00:00:5E:00:01:3C"
+    - nm_add_bd_5.current.multiDstPktAct == "drop"
+    - nm_add_bd_5.current.arpFlood == true
+  when: version.current.version is version('3.1.1g', '==')
+
+- name: Add bd 5 again (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template5
+    bd: ansible_test_5
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: true
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: false
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: drop
+    ipv6_unknown_multicast_flooding: flood
+    arp_flooding: true
+    virtual_mac_address: 00:00:5E:00:01:3C
+    vrf:
+      name: VRF5
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template5
+    dhcp_policy:
+      name: ansible_test
+      version: 1
+      dhcp_option_policy:
+        name: ansible_test_option
+        version: 1
+  register: nm_add_again_bd_5
+
+- name: Verify nm_add_again_bd_5 for a version that's not 3.1
+  assert:
+    that:
+    - nm_add_again_bd_5 is not changed
+  when: version.current.version is version('3.1.1g', '!=')
+
+- name: Verify nm_add_again_bd_5 for a version that's 3.1
+  assert:
+    that:
+    - nm_add_again_bd_5 is not changed
+  when: version.current.version is version('3.1.1g', '==')
+
+- name: Add bd 5 with different vmac (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template5
+    bd: ansible_test_5
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: true
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: false
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: drop
+    ipv6_unknown_multicast_flooding: flood
+    arp_flooding: true
+    virtual_mac_address: 00:00:5E:00:02:3C
+    vrf:
+      name: VRF5
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template5
+    dhcp_policy:
+      name: ansible_test
+      version: 1
+      dhcp_option_policy:
+        name: ansible_test_option
+        version: 1
+  register: nm_bd_5_vmac
+
+- name: Verify nm_bd_5_vmac for a version that's not 3.1
+  assert:
+    that:
+    - nm_bd_5_vmac is not changed
+  when: version.current.version is version('3.1.1g', '!=')
+
+- name: Verify nm_bd_5_vmac for a version that's 3.1
+  assert:
+    that:
+    - nm_bd_5_vmac is changed
+    - nm_bd_5_vmac.current.vmac == "00:00:5E:00:02:3C"
+  when: version.current.version is version('3.1.1g', '==')
+
+- name: Change bd 5_1 (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template5
+    bd: ansible_test_5
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: true
+    layer2_stretch: true
+    layer2_unknown_unicast: proxy
+    layer3_multicast: false
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: drop
+    ipv6_unknown_multicast_flooding: flood
+    arp_flooding: true
+    virtual_mac_address: 00:00:5E:00:01:3C
+    vrf:
+      name: VRF5
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template5
+    dhcp_policy:
+      name: ansible_test
+      version: 1
+      dhcp_option_policy:
+        name: ansible_test_option
+        version: 1
+  register: nm_change_bd_5_1
+
+- name: Verify nm_change_bd_5_1 for a version that's not 3.1
+  assert:
+    that:
+    - nm_change_bd_5_1 is changed
+  when: version.current.version is version('3.1.1g', '!=')
+
+- name: Verify nm_change_bd_5_1 for a version that's 3.1
+  assert:
+    that:
+    - nm_change_bd_5_1 is changed
+    - nm_change_bd_5_1.current.arpFlood == true
+  when: version.current.version is version('3.1.1g', '==')
+
+- name: Change bd 5_2 (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template5
+    bd: ansible_test_5
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: true
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: false
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: drop
+    ipv6_unknown_multicast_flooding: flood
+    arp_flooding: false
+    virtual_mac_address: 00:00:5E:00:01:3C
+    vrf:
+      name: VRF5
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template5
+    dhcp_policy:
+      name: ansible_test
+      version: 1
+      dhcp_option_policy:
+        name: ansible_test_option
+        version: 1
+  ignore_errors: yes
+  register: nm_change_bd_5_2
+
+- name: Verify nm_change_bd_5_2 for a version that's not 3.1
+  assert:
+    that:
+    - nm_change_bd_5_2 is changed
+    - nm_change_bd_5_2.current.l2UnknownUnicast == "flood"
+  when: version.current.version is version('3.1.1g', '!=')
+
+- name: Verify nm_change_bd_5_2 for a version that's 3.1
+  assert:
+    that:
+    - nm_change_bd_5_2 is changed
+    - nm_change_bd_5_2.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template5', BD 'ansible_test_5' {{':'}} ARP Flooding has to be enabled if L2 Stretch enabled, BUM traffic allowed and L2 Unknown Unicast is Flood exception while trying to update schema")
+  when: version.current.version is version('3.1.1g', '==')
+
+- name: Change bd 5_3 (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template5
+    bd: ansible_test_5
+    intersite_bum_traffic: false
+    optimize_wan_bandwidth: true
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: false
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: drop
+    ipv6_unknown_multicast_flooding: flood
+    arp_flooding: false
+    virtual_mac_address: 00:00:5E:00:01:3C
+    vrf:
+      name: VRF5
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template5
+    dhcp_policy:
+      name: ansible_test
+      version: 1
+      dhcp_option_policy:
+        name: ansible_test_option
+        version: 1
+  ignore_errors: yes
+  register: nm_change_bd_5_3
+
+- name: Verify nm_change_bd_5_3 for a version that's not 3.1
+  assert:
+    that:
+    - nm_change_bd_5_3 is changed
+    - nm_change_bd_5_3.msg is match ("MSO Error 143{{':'}} Invalid Field{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
+  when: version.current.version is version('3.1.1g', '!=')
+
+- name: Verify nm_change_bd_5_3 for a version that's 3.1
+  assert:
+    that:
+    - nm_change_bd_5_3 is changed
+    - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off exception while trying to update schema")
+  when: version.current.version is version('3.1.1g', '==')
+
+- name: Change bd 5 for query (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_present
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template5
+    bd: ansible_test_5
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: true
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: false
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: drop
+    ipv6_unknown_multicast_flooding: flood
+    arp_flooding: true
+    virtual_mac_address: 00:00:5E:00:01:3C
+    vrf:
+      name: VRF5
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template5
+    dhcp_policy:
+      name: ansible_test
+      version: 1
+      dhcp_option_policy:
+        name: ansible_test_option
+        version: 1
+
 # CHANGE BD
 - name: Change bd (check_mode)
   mso_schema_template_bd:
@@ -353,7 +666,7 @@
     - cm_change_bd is changed
     - cm_change_bd.current.name == 'ansible_test_1'
     - cm_change_bd.current.vrfRef.vrfName == 'VRF2'
-    - cm_change_bd.current.vrfRef.templateName == "Template 1"
+    - cm_change_bd.current.vrfRef.templateName == "Template1"
     - cm_change_bd.current.vrfRef.schemaId == cm_change_bd.previous.vrfRef.schemaId
 
 - name: Change bd (normal mode)
@@ -370,7 +683,7 @@
     - nm_change_bd is changed
     - nm_change_bd.current.name == 'ansible_test_1'
     - nm_change_bd.current.vrfRef.vrfName == 'VRF2'
-    - nm_change_bd.current.vrfRef.templateName == "Template 1"
+    - nm_change_bd.current.vrfRef.templateName == "Template1"
     - nm_change_bd.current.vrfRef.schemaId == nm_change_bd.previous.vrfRef.schemaId
 
 - name: Change bd again (check_mode)
@@ -387,7 +700,7 @@
     - cm_change_bd_again is not changed
     - cm_change_bd_again.current.name == 'ansible_test_1'
     - cm_change_bd_again.current.vrfRef.vrfName == 'VRF2'
-    - cm_change_bd_again.current.vrfRef.templateName == "Template 1"
+    - cm_change_bd_again.current.vrfRef.templateName == "Template1"
     - cm_change_bd_again.current.vrfRef.schemaId == cm_change_bd_again.previous.vrfRef.schemaId
 
 - name: Change bd again (normal mode)
@@ -403,7 +716,7 @@
     - nm_change_bd_again is not changed
     - nm_change_bd_again.current.name == 'ansible_test_1'
     - nm_change_bd_again.current.vrfRef.vrfName == 'VRF2'
-    - nm_change_bd_again.current.vrfRef.templateName == "Template 1"
+    - nm_change_bd_again.current.vrfRef.templateName == "Template1"
     - nm_change_bd_again.current.vrfRef.schemaId == nm_change_bd_again.previous.vrfRef.schemaId
 
 - name: Change bd to VRF3 (normal mode)
@@ -411,7 +724,7 @@
     <<: *bd_present
     vrf:
       name: VRF3
-      template: Template 2
+      template: Template2
   register: nm_change_bd_vrf3
 
 - name: Change bd to VRF4 (normal mode)
@@ -420,7 +733,7 @@
     vrf:
       name: VRF4
       schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template 3
+      template: Template3
   register: nm_change_bd_vrf4
 
 - name: Verify nm_change_bd_vrf3 and nm_change_bd_vrf4
@@ -429,15 +742,15 @@
     - nm_change_bd_vrf3 is changed
     - nm_change_bd_vrf3.current.name == nm_change_bd_vrf4.current.name == 'ansible_test_1'
     - nm_change_bd_vrf3.current.vrfRef.vrfName == 'VRF3'
-    - nm_change_bd_vrf3.current.vrfRef.templateName == "Template 2"
+    - nm_change_bd_vrf3.current.vrfRef.templateName == "Template2"
     - nm_change_bd_vrf4.current.vrfRef.vrfName == 'VRF4'
-    - nm_change_bd_vrf4.current.vrfRef.templateName == "Template 3"
+    - nm_change_bd_vrf4.current.vrfRef.templateName == "Template3"
 
 - name: Change bd 1 settings(normal mode)
   mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     bd: ansible_test_1
     intersite_bum_traffic: true
     optimize_wan_bandwidth: true
@@ -460,16 +773,17 @@
       shared: false
       no_default_gateway: true
     vrf:
-      name: VRF4
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template 3
+      name: VRF3
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template2
+    arp_flooding: true # arp_flooding is set to null(false) when it's not set in a task. Check what to do?
   register: nm_change_bd_1_settings
 
 - name: Change bd 1 subnets (normal mode)
   mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     bd: ansible_test_1
     intersite_bum_traffic: true
     optimize_wan_bandwidth: true
@@ -491,9 +805,10 @@
       no_default_gateway: false
       querier: true
     vrf:
-      name: VRF4
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template 3
+      name: VRF3
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template2
+    arp_flooding: true # arp_flooding is set to null(false) when it's not set in a task. Check what to do?
   register: nm_change_bd_1_subnets
 
 - name: Verify nm_change_bd_1_subnets
@@ -501,8 +816,8 @@
     that:
     - nm_change_bd_1_settings is changed
     - nm_change_bd_1_settings.current.name == "ansible_test_1"
-    - nm_change_bd_1_settings.current.vrfRef.templateName ==  "Template 3"
-    - nm_change_bd_1_settings.current.vrfRef.vrfName == "VRF4"
+    - nm_change_bd_1_settings.current.vrfRef.templateName == "Template2"
+    - nm_change_bd_1_settings.current.vrfRef.vrfName == "VRF3"
     - nm_change_bd_1_settings.current.intersiteBumTrafficAllow == true
     - nm_change_bd_1_settings.current.optimizeWanBandwidth == true
     - nm_change_bd_1_settings.current.l2Stretch == true
@@ -534,8 +849,8 @@
     - nm_change_bd_1_settings is changed
     - nm_change_bd_1_subnets.current.subnets | length == 3
     - nm_change_bd_1_subnets.current.name == "ansible_test_1"
-    - nm_change_bd_1_subnets.current.vrfRef.templateName == "Template 3"
-    - nm_change_bd_1_subnets.current.vrfRef.vrfName == "VRF4"
+    - nm_change_bd_1_subnets.current.vrfRef.templateName == "Template2"
+    - nm_change_bd_1_subnets.current.vrfRef.vrfName == "VRF3"
     - nm_change_bd_1_subnets.current.intersiteBumTrafficAllow == true
     - nm_change_bd_1_subnets.current.optimizeWanBandwidth == true
     - nm_change_bd_1_subnets.current.l2Stretch == true
@@ -580,7 +895,7 @@
   mso_schema_template_bd: &bd_query
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     state: query
   check_mode: yes
   register: cm_query_all_bds
@@ -615,7 +930,7 @@
 - name: Query bd 2
   mso_schema_template_bd:
     <<: *bd_query
-    template: Template 2
+    template: Template2
     bd: ansible_test_2
   register: nm_query_bd_2
 
@@ -623,9 +938,17 @@
   mso_schema_template_bd:
     <<: *bd_query
     schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
+    template: Template3
     bd: ansible_test_3
   register: nm_query_bd_3
+
+- name: Query bd 5
+  mso_schema_template_bd:
+    <<: *bd_query
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template5
+    bd: ansible_test_5
+  register: nm_query_bd_5
 
 - name: Verify query_bd
   assert:
@@ -661,14 +984,42 @@
     - nm_query_bd_2.current.subnets[3].noDefaultGateway == true
     - nm_query_bd_2.current.subnets[3].scope == "private"
     - nm_query_bd_2.current.subnets[3].shared == false
-    
+
+- name: Verify nm_query_bd_5 for a version that's not 3.1
+  assert:
+    that:
+    - nm_query_bd_5 is not changed
+    - nm_query_bd_5.current.name == "ansible_test_5"
+    - nm_query_bd_5.current.intersiteBumTrafficAllow == true
+    - nm_query_bd_5.current.optimizeWanBandwidth == true
+    - nm_query_bd_5.current.l2Stretch == true
+    - nm_query_bd_5.current.l2UnknownUnicast == "flood"
+    - nm_query_bd_5.current.l3MCast == false
+  when: version.current.version is version('3.1.1g', '!=')
+
+- name: Verify nm_query_bd_5 for a version that's 3.1
+  assert:
+    that:
+    - nm_query_bd_5 is not changed
+    - nm_query_bd_5.current.name == "ansible_test_5" 
+    - nm_query_bd_5.current.intersiteBumTrafficAllow == true
+    - nm_query_bd_5.current.optimizeWanBandwidth == true
+    - nm_query_bd_5.current.l2Stretch == true
+    - nm_query_bd_5.current.l2UnknownUnicast == "flood"
+    - nm_query_bd_5.current.l3MCast == false
+    - nm_query_bd_5.current.unkMcastAct == "flood"
+    - nm_query_bd_5.current.v6unkMcastAct == "flood"
+    - nm_query_bd_5.current.vmac == "00:00:5E:00:01:3C"
+    - nm_query_bd_5.current.multiDstPktAct == "drop"
+    - nm_query_bd_5.current.arpFlood == true
+  when: version.current.version is version('3.1.1g', '==')
 
 # REMOVE BD
 - name: Remove bd (check_mode)
   mso_schema_template_bd: &bd_absent
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     bd: ansible_test_1
     state: absent
   check_mode: yes
@@ -713,6 +1064,20 @@
     that:
     - nm_remove_bd_again is not changed
     - nm_remove_bd_again.current == {}
+
+- name: Remove bd 5 (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_absent
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template5
+    bd: ansible_test_5
+  register: nm_remove_bd_5
+
+- name: Verify nm_remove_bd_5
+  assert:
+    that:
+    - nm_remove_bd_5 is changed
+    - nm_remove_bd_5.current == {}
 
 # QUERY NON-EXISTING BD
 - name: Query non-existing bd (check_mode)
@@ -809,4 +1174,5 @@
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template 1, Template 2"
+    - cm_non_existing_template.msg is match ("Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2")
+    - nm_non_existing_template.msg is match ("Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2")

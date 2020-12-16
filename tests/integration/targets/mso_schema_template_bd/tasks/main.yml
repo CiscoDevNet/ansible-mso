@@ -72,21 +72,19 @@
     template: Template1
     state: present
 
-- name: Ensure schema 1 with Template2 exist
+- name: Ensure schema 1 with Template2 exists
   mso_schema_template:
     <<: *schema_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
     template: Template2
-    state: present
 
-- name: Ensure schema 2 withTemplate3 exist
+- name: Ensure schema 2 with Template3 exists
   mso_schema_template:
     <<: *schema_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
     template: Template3
-    state: present
 
 - name: Ensure schema 2 with Template5 exists
   mso_schema_template:
@@ -94,7 +92,6 @@
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
     template: Template5
-    state: present
 
 - name: Ensure VRF exist
   mso_schema_template_vrf: &vrf_present
@@ -109,14 +106,12 @@
   mso_schema_template_vrf: 
     <<: *vrf_present
     vrf: VRF2
-    state: present
 
 - name: Ensure VRF3 exist
   mso_schema_template_vrf:
     <<: *vrf_present
     template: Template2
     vrf: VRF3
-    state: present
 
 - name: Ensure VRF4 exist
   mso_schema_template_vrf:
@@ -124,7 +119,6 @@
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template3
     vrf: VRF4
-    state: present
 
 - name: Ensure VRF5 exists
   mso_schema_template_vrf:
@@ -132,7 +126,6 @@
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template5
     vrf: VRF5
-    state: present
 
 - name: Ensure ansible_test_1 BD does not exist
   mso_schema_template_bd:
@@ -581,7 +574,7 @@
   assert:
     that:
     - nm_change_bd_5_2 is changed
-    - nm_change_bd_5_2.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template5', BD 'ansible_test_5' {{':'}} ARP Flooding has to be enabled if L2 Stretch enabled, BUM traffic allowed and L2 Unknown Unicast is Flood exception while trying to update schema")
+    - nm_change_bd_5_2.current.arpFlood == true
   when: version.current.version is version('3.1.1g', '==')
 
 - name: Change bd 5_3 (normal mode)
@@ -779,7 +772,6 @@
       name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template2
-    arp_flooding: true # arp_flooding is set to null(false) when it's not set in a task. Check what to do?
   register: nm_change_bd_1_settings
 
 - name: Change bd 1 subnets (normal mode)
@@ -811,7 +803,6 @@
       name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template2
-    arp_flooding: true # arp_flooding is set to null(false) when it's not set in a task. Check what to do?
   register: nm_change_bd_1_subnets
 
 - name: Verify nm_change_bd_1_subnets

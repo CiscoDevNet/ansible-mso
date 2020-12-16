@@ -39,13 +39,12 @@ options:
     description:
     - The IP range in CIDR notation.
     type: str
-    required: true
     aliases: [ ip ]
   description:
     description:
     - The description of this subnet.
     type: str
-  virtual_ip:
+  is_virtual_ip:
     description:
     - Treat as Virtual IP Address
     type: bool
@@ -144,9 +143,15 @@ def main():
         schema=dict(type='str', required=True),
         template=dict(type='str', required=True),
         bd=dict(type='str', required=True),
+        subnet=dict(type='str', aliases=['ip']),
+        description=dict(type='str'),
+        is_virtual_ip=dict(type='bool', default=False),
+        scope=dict(type='str', default='private', choices=['private', 'public']),
+        shared=dict(type='bool', default=False),
+        no_default_gateway=dict(type='bool', default=False),
+        querier=dict(type='bool', default=False),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
-    argument_spec.update(mso_subnet_spec())
 
     module = AnsibleModule(
         argument_spec=argument_spec,

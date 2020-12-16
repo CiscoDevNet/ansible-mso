@@ -104,9 +104,8 @@ def mso_reference_spec():
 
 def mso_subnet_spec():
     return dict(
-        subnet=dict(type='str', aliases=['ip']),
+        subnet=dict(type='str', required=True, aliases=['ip']),
         description=dict(type='str'),
-        is_virtual_ip=dict(type='bool', default=False),
         scope=dict(type='str', default='private', choices=['private', 'public']),
         shared=dict(type='bool', default=False),
         no_default_gateway=dict(type='bool', default=False),

@@ -170,6 +170,7 @@ RETURN = r'''
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+import os
 
 
 def main():
@@ -235,6 +236,7 @@ def main():
 
     elif state == 'present':
         mso.previous = mso.existing
+
         payload = dict(
             name=backup,
             description=description,
@@ -247,7 +249,9 @@ def main():
             if remote_path:
                 remote_path = '{0}/{1}'.format(remote_location_info.get('path'), remote_path)
                 payload.update(remotePath=remote_path)
+
         mso.proposed = payload
+
         if module.check_mode:
             mso.existing = mso.proposed
         else:
@@ -256,18 +260,19 @@ def main():
 
     elif state == 'upload':
         mso.previous = mso.existing
-        payload = dict(name=dict(filename=backup, mime_type='application/x-gzip'))
+
         if module.check_mode:
             mso.existing = mso.proposed
         else:
             try:
-                mso.existing = mso.request_upload('backups/upload', method='POST', data=payload)
-            except FileNotFoundError:
-                mso.module.fail_json(msg="Backup: {0}, not found".format(', '.join(backup.split('/')[-1:])))
+                payload = dict(name=(os.path.basename(backup), open(backup, 'rb'), 'application/x-gzip'))
+                mso.existing = mso.request_upload('backups/upload', fields=payload)
+            except Exception:
+                mso.module.fail_json(msg="Backup file '{0}' not found!".format(', '.join(backup.split('/')[-1:])))
         mso.exit_json()
 
     if len(mso.existing) == 0:
-        mso.module.fail_json(msg="Backup: {0} does not exist".format(backup))
+        mso.module.fail_json(msg="Backup '{0}' does not exist".format(backup))
     elif len(mso.existing) > 1:
         mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(', '.join(backup_names)))
 
@@ -280,11 +285,10 @@ def main():
 
     elif state == 'download':
         mso.previous = mso.existing
-        payload = dict(destination=destination)
         if module.check_mode:
             mso.existing = mso.proposed
         else:
-            mso.existing = mso.request_download('backups/{id}/download'.format(id=mso.existing[0].get('id')), method='GET', data=payload)
+            mso.existing = mso.request_download('backups/{id}/download'.format(id=mso.existing[0].get('id')), destination=destination)
 
     elif state == 'move':
         mso.previous = mso.existing

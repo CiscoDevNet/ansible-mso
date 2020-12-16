@@ -382,7 +382,7 @@
     - nm_query_subnet2.current.virtual == false
   when: version.current.version is version('3.1.1g', '==')
 
-# REMOVE BD
+# REMOVE Subnet
 - name: Remove subnet
   mso_schema_template_bd_subnet: &subnet_absent
     <<: *mso_info
@@ -426,7 +426,7 @@
     - nm_query_non_subnet.msg is match ("Subnet IP '172.16.0.3/24' not found")
 
 # USE A NON-EXISTING STATE
-- name: Non-existing state for subnet (check_mode)
+- name: Non-existing state for subnet
   mso_schema_template_bd_subnet:
     <<: *subnet_query
     state: non-existing-state
@@ -496,3 +496,12 @@
     that:
     - nm_non_existing_bd is not changed
     - nm_non_existing_bd.msg is match ("Provided BD 'non-existing-bd' does not exist. Existing BDs{{':'}} ansible_test_1")
+
+- name: Remove schemas for next ci test
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'

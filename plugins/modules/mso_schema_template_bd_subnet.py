@@ -45,6 +45,11 @@ options:
     description:
     - The description of this subnet.
     type: str
+  virtual_ip:
+    description:
+    - Treat as Virtual IP Address
+    type: bool
+    default: false
   scope:
     description:
     - The scope of the subnet.
@@ -157,6 +162,7 @@ def main():
     bd = module.params.get('bd')
     subnet = module.params.get('subnet')
     description = module.params.get('description')
+    is_virtual_ip = module.params.get('is_virtual_ip')
     scope = module.params.get('scope')
     shared = module.params.get('shared')
     no_default_gateway = module.params.get('no_default_gateway')
@@ -212,18 +218,11 @@ def main():
         if not mso.existing:
             if description is None:
                 description = subnet
-            if scope is None:
-                scope = 'private'
-            if shared is None:
-                shared = False
-            if no_default_gateway is None:
-                no_default_gateway = False
-            if querier is None:
-                querier = False
 
         payload = dict(
             ip=subnet,
             description=description,
+            virtual=is_virtual_ip,
             scope=scope,
             shared=shared,
             noDefaultGateway=no_default_gateway,

@@ -350,6 +350,9 @@ def main():
     if multi_destination_flooding == 'flood_in_bd':
         multi_destination_flooding = 'bd-flood'
 
+    if layer2_unknown_unicast == 'flood':
+        arp_flooding = True
+
     # Get schema_id
     schema_obj = mso.get_obj('schemas', displayName=schema)
     if schema_obj:

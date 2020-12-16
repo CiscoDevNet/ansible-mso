@@ -46,13 +46,6 @@
     state: absent
   loop: '{{ query_ansibleBackup_for_delete.current | selectattr("name", "match", "^ansibleBackup.*") | list  }}'
 
-- name: Remove backups whose name are numbers
-  mso_backup:
-    <<: *mso_info 
-    backup:  '{{ item.name }}'
-    state: absent
-  loop: '{{ query_ansibleBackup_for_delete.current | selectattr("name", "match", "[0-9]") }}'
-
 # Create Backups
 - name: Create ansibleBackup1 in check mode
   mso_backup:
@@ -154,7 +147,6 @@
     remote_location: ansible_test
     remote_path: test
     state: present
-  ignore_errors: yes
   register: nm_add_ansibleBackupRemote2_known_path
 
 - name: Verify nm_add_ansibleBackupRemote2_known_path
@@ -166,6 +158,7 @@
   mso_backup:
     <<: *mso_info 
     backup: ansibleBackupMove
+    description: Local to Remote via Ansible
     location_type: local
     state: present
   
@@ -176,9 +169,9 @@
     remote_location: ansible_test
     remote_path: test
     backup: ansibleBackupMove
+    description: Local to Remote via Ansible
     state: move
   check_mode: yes 
-  ignore_errors: true
   register: move_backup_cm
 
 - name: Move backup from local to remote location in normal mode
@@ -187,6 +180,7 @@
     remote_location: ansible_test
     remote_path: test
     backup: ansibleBackupMove
+    description: Local to Remote via Ansible
     state: move
   register: move_backup_nm
 
@@ -215,7 +209,7 @@
     that:
     - move_backup_cm is changed
     - move_backup_nm is changed
-    - move_non_existent_backup.msg is match ("Backup{{':'}} non_existent_backup does not exist")
+    - move_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
     - move_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
 
 # Download Backup
@@ -259,7 +253,7 @@
     that:
     - download_ansibleBackup2_cm is changed
     - download_ansibleBackup2 is changed
-    - download_non_existent_backup.msg is match ("Backup{{':'}} non_existent_backup does not exist")
+    - download_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
     - download_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
 
 - name: Remove backup ansibleBackup2 for testing purpose
@@ -283,7 +277,6 @@
     state: upload
   register: upload_backup_cm
   check_mode: yes
-  ignore_errors: yes
 
 - name: Upload a backup from local location
   mso_backup:
@@ -291,7 +284,6 @@
     backup: "{{ backup_match.files[0].path }}"
     state: upload
   register: upload_backup
-  ignore_errors: yes
 
 - name: Upload a non existent backup from local location
   mso_backup:
@@ -306,7 +298,7 @@
     that:
     - upload_backup is changed
     - upload_backup_cm is changed
-    - upload_non_existent_backup.msg is match ("Backup{{':'}} non_existent_backup, not found")
+    - upload_non_existent_backup.msg is match ("Backup file 'non_existent_backup' not found!")
 
 # Restore Backup
 - name: Restore non existent backup
@@ -330,7 +322,7 @@
 - name: Verify restore of backup
   assert:
     that:
-    - restore_non_existent_backup.msg is match ("Backup{{':'}} non_existent_backup does not exist")
+    - restore_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
     - restore_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
   when: version.current.version is version('2.2.4e', '!=')
 
@@ -373,7 +365,6 @@
     <<: *mso_info 
     tenant: Tenant1
     state: query
-  ignore_errors: yes
   when: version.current.version is version('2.2.4e', '!=')
   register: query_non_existent_tenant
 
@@ -403,14 +394,13 @@
   mso_backup:
     <<: *mso_info 
     state: query
-  ignore_errors: yes
   register: query_all_backups
 
 - name: Verify query_all_backups
   assert:
     that:
     - query_all_backups is not changed
-    - query_all_backups.current | selectattr("name", "match", "^ansibleBackup.*") | list | length == 6
+    - query_all_backups.current | selectattr("name", "match", "^ansibleBackup.*") | list | length == 7
 
 # Remove Backup
 - name: Remove ansibleBackup1 in check mode

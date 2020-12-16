@@ -12,21 +12,18 @@ import os
 import datetime
 import shutil
 import tempfile
-import email.mime.multipart
-import email.mime.nonmultipart
-import email.mime.application
-import email.parser
-import email.utils
-import mimetypes
 from ansible.module_utils.basic import json
+from ansible.module_utils.basic import env_fallback
 from ansible.module_utils.six import PY3
 from ansible.module_utils.six.moves import filterfalse
-from ansible.module_utils.six.moves.urllib.parse import urlencode, urljoin, urlsplit
+from ansible.module_utils.six.moves.urllib.parse import urlencode, urljoin
 from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_native
-from ansible.module_utils.common.collections import Mapping
-from ansible.module_utils.six import PY3, string_types
-from ansible.module_utils._text import to_bytes, to_native, to_text
+try:
+    from requests_toolbelt.multipart.encoder import MultipartEncoder
+    HAS_MULTIPART_ENCODER = True
+except ImportError:
+    HAS_MULTIPART_ENCODER = False
 
 
 if PY3:
@@ -94,16 +91,16 @@ def update_qs(params):
 
 def mso_argument_spec():
     return dict(
-        host=dict(type='str', required=True, aliases=['hostname']),
-        port=dict(type='int', required=False),
-        username=dict(type='str', default='admin'),
-        password=dict(type='str', required=True, no_log=True),
-        output_level=dict(type='str', default='normal', choices=['debug', 'info', 'normal']),
-        timeout=dict(type='int', default=30),
-        use_proxy=dict(type='bool', default=True),
-        use_ssl=dict(type='bool', default=True),
-        validate_certs=dict(type='bool', default=True),
-        login_domain=dict(type='str'),
+        host=dict(type='str', required=True, aliases=['hostname'], fallback=(env_fallback, ['MSO_HOST'])),
+        port=dict(type='int', required=False, fallback=(env_fallback, ['MSO_PORT'])),
+        username=dict(type='str', default='admin', fallback=(env_fallback, ['MSO_USERNAME', 'ANSIBLE_NET_USERNAME'])),
+        password=dict(type='str', required=True, no_log=True, fallback=(env_fallback, ['MSO_PASSWORD', 'ANSIBLE_NET_PASSWORD'])),
+        output_level=dict(type='str', default='normal', choices=['debug', 'info', 'normal'], fallback=(env_fallback, ['MSO_OUTPUT_LEVEL'])),
+        timeout=dict(type='int', default=30, fallback=(env_fallback, ['MSO_TIMEOUT'])),
+        use_proxy=dict(type='bool', default=True, fallback=(env_fallback, ['MSO_USE_PROXY'])),
+        use_ssl=dict(type='bool', default=True, fallback=(env_fallback, ['MSO_USE_SSL'])),
+        validate_certs=dict(type='bool', default=True, fallback=(env_fallback, ['MSO_VALIDATE_CERTS'])),
+        login_domain=dict(type='str', fallback=(env_fallback, ['MSO_LOGIN_DOMAIN'])),
     )
 
 
@@ -180,10 +177,6 @@ def mso_object_migrate_spec():
     )
 
 
-def format_message(err, resp):
-    return err
-
-
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp):
     # create a tempfile with some test content
@@ -193,8 +186,7 @@ def write_file(module, url, dest, content, resp):
         f.write(content)
     except Exception as e:
         os.remove(tmpsrc)
-        msg = format_message("Failed to create temporary content file: %s" % to_native(e), resp)
-        module.fail_json(msg=msg)
+        module.fail_json(msg="Failed to create temporary content file: {0}".format(to_native(e)))
     f.close()
 
     checksum_src = None
@@ -203,12 +195,10 @@ def write_file(module, url, dest, content, resp):
     # raise an error if there is no tmpsrc file
     if not os.path.exists(tmpsrc):
         os.remove(tmpsrc)
-        msg = format_message("Source '%s' does not exist" % tmpsrc, resp)
-        module.fail_json(msg=msg)
+        module.fail_json(msg="Source '{0}' does not exist".format(tmpsrc))
     if not os.access(tmpsrc, os.R_OK):
         os.remove(tmpsrc)
-        msg = format_message("Source '%s' not readable" % tmpsrc, resp)
-        module.fail_json(msg=msg)
+        module.fail_json(msg="Source '{0}' is not readable".format(tmpsrc))
     checksum_src = module.sha1(tmpsrc)
 
     # check if there is no dest file
@@ -216,139 +206,24 @@ def write_file(module, url, dest, content, resp):
         # raise an error if copy has no permission on dest
         if not os.access(dest, os.W_OK):
             os.remove(tmpsrc)
-            msg = format_message("Destination '%s' not writable" % dest, resp)
-            module.fail_json(msg=msg)
+            module.fail_json(msg="Destination '{0}' not writable".format(dest))
         if not os.access(dest, os.R_OK):
             os.remove(tmpsrc)
-            msg = format_message("Destination '%s' not readable" % dest, resp)
-            module.fail_json(msg=msg)
+            module.fail_json(msg="Destination '{0}' not readable".format(dest))
         checksum_dest = module.sha1(dest)
     else:
         if not os.access(os.path.dirname(dest), os.W_OK):
             os.remove(tmpsrc)
-            msg = format_message("Destination dir '%s' not writable" % os.path.dirname(dest), resp)
-            module.fail_json(msg=msg)
+            module.fail_json(msg="Destination dir '{0}' not writable".format(os.path.dirname(dest)))
 
     if checksum_src != checksum_dest:
         try:
             shutil.copyfile(tmpsrc, dest)
         except Exception as e:
             os.remove(tmpsrc)
-            msg = format_message("failed to copy %s to %s: %s" % (tmpsrc, dest, to_native(e)), resp)
-            module.fail_json(msg=msg)
+            module.fail_json(msg="failed to copy {0} to {1}: {2}".format(tmpsrc, dest, to_native(e)))
 
     os.remove(tmpsrc)
-
-
-# Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/module_utils/urls.py
-def prepare_multipart(fields):
-    """Takes a mapping, and prepares a multipart/form-data body
-    :arg fields: Mapping
-    :returns: tuple of (content_type, body) where ``content_type`` is
-        the ``multipart/form-data`` ``Content-Type`` header including
-        ``boundary`` and ``body`` is the prepared bytestring body
-    Payload content from a file will be base64 encoded and will include
-    the appropriate ``Content-Transfer-Encoding`` and ``Content-Type``
-    headers.
-    Example:
-        {
-            "file1": {
-                "filename": "/bin/true",
-                "mime_type": "application/octet-stream"
-            },
-            "file2": {
-                "content": "text based file content",
-                "filename": "fake.txt",
-                "mime_type": "text/plain",
-            },
-            "text_form_field": "value"
-        }
-    """
-
-    if not isinstance(fields, Mapping):
-        raise TypeError(
-            'Mapping is required, cannot be type %s' % fields.__class__.__name__
-        )
-
-    m = email.mime.multipart.MIMEMultipart('form-data')
-    for field, value in sorted(fields.items()):
-        if isinstance(value, string_types):
-            main_type = 'text'
-            sub_type = 'plain'
-            content = value
-            filename = None
-        elif isinstance(value, Mapping):
-            filename = value.get('filename')
-            content = value.get('content')
-            if not any((filename, content)):
-                raise ValueError('at least one of filename or content must be provided')
-
-            mime = value.get('mime_type')
-            if not mime:
-                try:
-                    mime = mimetypes.guess_type(filename or '', strict=False)[0] or 'application/octet-stream'
-                except Exception:
-                    mime = 'application/octet-stream'
-            main_type, sep, sub_type = mime.partition('/')
-        else:
-            raise TypeError(
-                'value must be a string, or mapping, cannot be type %s' % value.__class__.__name__
-            )
-
-        if not content and filename:
-            with open(to_bytes(filename, errors='surrogate_or_strict'), 'rb') as f:
-                part = email.mime.application.MIMEApplication(f.read(), _subtype=sub_type, _encoder=email.encoders.encode_noop)
-                del part['Content-Type']
-                part.add_header('Content-Type', '%s/%s' % (main_type, sub_type))
-        else:
-            part = email.mime.nonmultipart.MIMENonMultipart(main_type, sub_type)
-            part.set_payload(to_bytes(content))
-
-        part.add_header('Content-Disposition', 'form-data')
-        del part['MIME-Version']
-        part.set_param(
-            'name',
-            field,
-            header='Content-Disposition'
-        )
-        if filename:
-            part.set_param(
-                'filename',
-                to_native(os.path.basename(filename)),
-                header='Content-Disposition'
-            )
-
-        m.attach(part)
-
-    if PY3:
-        # Ensure headers are not split over multiple lines
-        # The HTTP policy also uses CRLF by default
-        b_data = m.as_bytes(policy=email.policy.HTTP)
-    else:
-        # Py2
-        # We cannot just call ``as_string`` since it provides no way
-        # to specify ``maxheaderlen``
-        fp = cStringIO()  # cStringIO seems to be required here
-        # Ensure headers are not split over multiple lines
-        g = email.generator.Generator(fp, maxheaderlen=0)
-        g.flatten(m)
-        # ``fix_eols`` switches from ``\n`` to ``\r\n``
-        b_data = email.utils.fix_eols(fp.getvalue())
-    del m
-
-    headers, sep, b_content = b_data.partition(b'\r\n\r\n')
-    del b_data
-
-    if PY3:
-        parser = email.parser.BytesHeaderParser().parsebytes
-    else:
-        # Py2
-        parser = email.parser.HeaderParser().parsestr
-
-    return (
-        parser(headers)['Content-Type'],  # Message converts to native strings
-        b_content
-    )
 
 
 class MSOModule(object):
@@ -439,7 +314,21 @@ class MSOModule(object):
 
         self.headers['Authorization'] = 'Bearer {token}'.format(**payload)
 
-    def request_download(self, path, method=None, data=None, qs=None):
+    def response_json(self, rawoutput):
+        ''' Handle MSO JSON response output '''
+        try:
+            self.jsondata = json.loads(rawoutput)
+        except Exception as e:
+            # Expose RAW output for troubleshooting
+            self.error = dict(code=-1, message="Unable to parse output as JSON, see 'raw' output. %s" % e)
+            self.result['raw'] = rawoutput
+            return
+
+        # Handle possible MSO error information
+        if self.status not in [200, 201, 202, 204]:
+            self.error = self.jsondata
+
+    def request_download(self, path, destination=None):
         self.url = urljoin(self.baseuri, path)
         redirected = False
         redir_info = {}
@@ -457,42 +346,33 @@ class MSOModule(object):
         else:
             pass
 
-        dest = data.get('destination')
         data = None
 
         kwargs = {}
-        if dest is not None:
-            # Stash follow_redirects, in this block we don't want to follow
-            # we'll reset back to the supplied value soon
-            follow_redirects = self.params.get('follow_redirects')
-            # self.params.get('follow_redirects') = False
-            if os.path.isdir(dest):
+        if destination is not None:
+            if os.path.isdir(destination):
                 # first check if we are redirected to a file download
                 check, redir_info = fetch_url(self.module, self.url,
                                               headers=self.headers,
-                                              method=method,
+                                              method='GET',
                                               timeout=self.params.get('timeout'))
                 # if we are redirected, update the url with the location header,
                 # and update dest with the new url filename
                 if redir_info['status'] in (301, 302, 303, 307):
                     self.url = redir_info.get('location')
                     redirected = True
-                dest = os.path.join(dest, check.headers.get("Content-Disposition").split("filename=")[1])
+                destination = os.path.join(destination, check.headers.get("Content-Disposition").split("filename=")[1])
             # if destination file already exist, only download if file newer
-            if os.path.exists(dest):
-                kwargs['last_mod_time'] = datetime.datetime.utcfromtimestamp(os.path.getmtime(dest))
-
-            # Reset follow_redirects back to the stashed value
-            # self.params.get('follow_redirects') = follow_redirects
+            if os.path.exists(destination):
+                kwargs['last_mod_time'] = datetime.datetime.utcfromtimestamp(os.path.getmtime(destination))
 
         resp, info = fetch_url(self.module, self.url, data=data, headers=self.headers,
-                               method=method, timeout=self.params.get('timeout'), unix_socket=self.params.get('unix_socket'), **kwargs)
+                               method='GET', timeout=self.params.get('timeout'), unix_socket=self.params.get('unix_socket'), **kwargs)
 
         try:
             content = resp.read()
         except AttributeError:
-            # there was no content, but the error read()
-            # may have been stored in the info as 'body'
+            # there was no content, but the error read() may have been stored in the info as 'body'
             content = info.pop('body', '')
 
         if src:
@@ -506,26 +386,26 @@ class MSOModule(object):
         redirect.update(redir_info)
         redirect.update(info)
 
-        write_file(self.module, self.url, dest, content, redirect)
+        write_file(self.module, self.url, destination, content, redirect)
 
-        return redirect, dest
+        return redirect, destination
 
-    def request_upload(self, path, method=None, data=None, qs=None):
-        ''' Generic HTTP method for MSO requests. '''
+    def request_upload(self, path, fields=None):
+        ''' Generic HTTP MultiPart POST method for MSO uploads. '''
         self.path = path
-
         self.url = urljoin(self.baseuri, path)
 
-        if qs is not None:
-            self.url = self.url + update_qs(qs)
+        if not HAS_MULTIPART_ENCODER:
+            self.fail_json(msg='requests-toolbelt is required for the upload state of this module')
 
-        content_type, data = prepare_multipart(data)
-        self.headers['Content-Type'] = content_type
+        mp_encoder = MultipartEncoder(fields=fields)
+        self.headers['Content-Type'] = mp_encoder.content_type
+        self.headers['Accept-Encoding'] = "gzip, deflate, br"
 
         resp, info = fetch_url(self.module,
                                self.url,
                                headers=self.headers,
-                               data=data,
+                               data=mp_encoder,
                                method='POST',
                                timeout=self.params.get('timeout'),
                                use_proxy=self.params.get('use_proxy'))
@@ -552,17 +432,16 @@ class MSOModule(object):
         # 500: Internal Server Error, 501: Not Implemented
         elif self.status >= 400:
             try:
-                output = resp.read()
-                payload = json.loads(output)
+                payload = json.loads(resp.read())
             except (ValueError, AttributeError):
                 try:
                     payload = json.loads(info.get('body'))
                 except Exception:
-                    self.fail_json(msg='MSO Error:', data=data, info=info)
+                    self.fail_json(msg='MSO Error:', info=info)
             if 'code' in payload:
-                self.fail_json(msg='MSO Error {code}: {message}'.format(**payload), data=data, info=info, payload=payload)
+                self.fail_json(msg='MSO Error {code}: {message}'.format(**payload), info=info, payload=payload)
             else:
-                self.fail_json(msg='MSO Error:'.format(**payload), data=data, info=info, payload=payload)
+                self.fail_json(msg='MSO Error:'.format(**payload), info=info, payload=payload)
 
         return {}
 

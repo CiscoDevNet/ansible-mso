@@ -125,6 +125,7 @@ def main():
         template=dict(type='str', required=True),
         bd=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
         host_route=dict(type='bool'),
+        svi_mac=dict(type='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -142,6 +143,7 @@ def main():
     template = module.params.get('template')
     bd = module.params.get('bd')
     host_route = module.params.get('host_route')
+    svi_mac = module.params.get('svi_mac')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -214,6 +216,8 @@ def main():
             ),
             hostBasedRouting=host_route,
         )
+        if svi_mac is not None:
+            payload.update(mac=svi_mac)
 
         mso.sanitize(payload, collate=True)
 

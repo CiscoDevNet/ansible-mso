@@ -117,7 +117,7 @@ def main():
     # Get schema
     schema_id = mso.lookup_schema(schema)
 
-    template = template.replace(' ', '%20')
+    template = template.replace(' ', '')
 
     payload = dict(
         schemaId=schema_id,

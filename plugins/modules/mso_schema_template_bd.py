@@ -322,7 +322,7 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     bd = module.params.get('bd')
     display_name = module.params.get('display_name')
     intersite_bum_traffic = module.params.get('intersite_bum_traffic')
@@ -331,6 +331,8 @@ def main():
     layer2_unknown_unicast = module.params.get('layer2_unknown_unicast')
     layer3_multicast = module.params.get('layer3_multicast')
     vrf = module.params.get('vrf')
+    if vrf.get('template') is not None:
+        vrf['template'] = vrf.get('template').replace(' ', '')
     dhcp_policy = module.params.get('dhcp_policy')
     subnets = module.params.get('subnets')
     unknown_multicast_flooding = module.params.get('unknown_multicast_flooding')

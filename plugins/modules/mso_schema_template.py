@@ -129,7 +129,7 @@ def main():
 
     tenant = module.params.get('tenant')
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     display_name = module.params.get('display_name')
     state = module.params.get('state')
 

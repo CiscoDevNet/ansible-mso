@@ -122,7 +122,7 @@ def main():
 
     schema = module.params.get('schema')
     site = module.params.get('site')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     state = module.params.get('state')
 
     mso = MSOModule(module)

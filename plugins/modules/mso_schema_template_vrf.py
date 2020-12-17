@@ -133,7 +133,7 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     vrf = module.params.get('vrf')
     display_name = module.params.get('display_name')
     layer3_multicast = module.params.get('layer3_multicast')

@@ -166,6 +166,27 @@
     - nm_add_bd_3.current.vrfRef.templateName == "Template 1"
     - nm_add_bd_3.current.vrfRef.vrfName == "VRF1"
 
+- name: Add template BD 4
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_4
+    vrf:
+      name: VRF1
+      template: Template 1
+    state: present
+  register: nm_add_bd_4
+
+- name: Verify nm_add_bd_4
+  assert:
+    that:
+    - nm_add_bd_4 is changed
+    - nm_add_bd_4.previous == {}
+    - nm_add_bd_4.current.name == "ansible_test_4"
+    - nm_add_bd_4.current.vrfRef.templateName == "Template1"
+    - nm_add_bd_4.current.vrfRef.vrfName == "VRF1"
+
 - name: Add site BD (check_mode)
   mso_schema_site_bd:
     <<: *mso_info
@@ -320,7 +341,25 @@
     - nm_add_site_bd_3.previous == {}
     - nm_add_site_bd_3.current.hostBasedRouting == true
     - nm_add_site_bd_3.current.bdRef.bdName == "ansible_test_3"
-    - nm_add_site_bd_3.current.bdRef.templateName == "Template 1"
+- name: Add site BD 4 (normal_mode)
+  mso_schema_site_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_4
+    svi_mac: 00:22:23:F1:21:F9
+    state: present
+  register: nm_add_site_bd_4
+
+- name: Verify nm_add_site_bd_4
+  assert:
+    that:
+    - nm_add_site_bd_4 is changed
+    - nm_add_site_bd_4.previous == {}
+    - nm_add_site_bd_4.current.mac == "00:22:23:F1:21:F9"
+    - nm_add_site_bd_4.current.bdRef.bdName == "ansible_test_4"
+    - nm_add_site_bd_4.current.bdRef.templateName == "Template1"
 
 - name: Query a specific BD (check_mode)
   mso_schema_site_bd:

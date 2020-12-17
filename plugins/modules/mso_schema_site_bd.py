@@ -44,6 +44,10 @@ options:
     description:
     - Whether host-based routing is enabled.
     type: bool
+  svi_mac:
+    description:
+    - SVI MAC Address
+    type: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.

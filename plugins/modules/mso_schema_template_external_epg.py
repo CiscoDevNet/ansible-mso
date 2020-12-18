@@ -225,12 +225,18 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     external_epg = module.params.get('external_epg')
     display_name = module.params.get('display_name')
     vrf = module.params.get('vrf')
+    if vrf is not None and vrf.get('template') is not None:
+        vrf['template'] = vrf.get('template').replace(' ', '')
     l3out = module.params.get('l3out')
+    if l3out is not None and l3out.get('template') is not None:
+        l3out['template'] = l3out.get('template').replace(' ', '')
     anp = module.params.get('anp')
+    if anp is not None and anp.get('template') is not None:
+        anp['template'] = anp.get('template').replace(' ', '')
     preferred_group = module.params.get('preferred_group')
     type_ext_epg = module.params.get('type')
     state = module.params.get('state')

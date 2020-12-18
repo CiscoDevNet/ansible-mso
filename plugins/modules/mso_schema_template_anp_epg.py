@@ -281,12 +281,16 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     anp = module.params.get('anp')
     epg = module.params.get('epg')
     display_name = module.params.get('display_name')
     bd = module.params.get('bd')
+    if bd is not None and bd.get('template') is not None:
+        bd['template'] = bd.get('template').replace(' ', '')
     vrf = module.params.get('vrf')
+    if vrf is not None and vrf.get('template') is not None:
+        vrf['template'] = vrf.get('template').replace(' ', '')
     useg_epg = module.params.get('useg_epg')
     intra_epg_isolation = module.params.get('intra_epg_isolation')
     intersite_multicast_source = module.params.get('intersite_multicast_source')

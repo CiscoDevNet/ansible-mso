@@ -151,10 +151,12 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     l3out = module.params.get('l3out')
     display_name = module.params.get('display_name')
     vrf = module.params.get('vrf')
+    if vrf is not None and vrf.get('template') is not None:
+        vrf['template'] = vrf.get('template').replace(' ', '')
     state = module.params.get('state')
 
     mso = MSOModule(module)

@@ -158,6 +158,8 @@ def main():
     tenant = module.params.get("tenant")
     schema = module.params.get("schema")
     template = module.params.get("template")
+    if template is not None:
+        template = template.replace(' ', '')
     application_profile = module.params.get("application_profile")
     endpoint_group = module.params.get("endpoint_group")
     external_endpoint_group = module.params.get("external_endpoint_group")

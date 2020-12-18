@@ -108,7 +108,7 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     site = module.params.get('site')
     state = module.params.get('state')
 
@@ -116,8 +116,6 @@ def main():
 
     # Get schema
     schema_id = mso.lookup_schema(schema)
-
-    template = template.replace(' ', '')
 
     payload = dict(
         schemaId=schema_id,

@@ -146,7 +146,7 @@ def main():
 
     schema = module.params.get('schema')
     site = module.params.get('site')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     bd = module.params.get('bd')
     l3out = module.params.get('l3out')
     state = module.params.get('state')

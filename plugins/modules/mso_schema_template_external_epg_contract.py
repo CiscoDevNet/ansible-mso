@@ -154,9 +154,11 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     external_epg = module.params.get('external_epg')
     contract = module.params.get('contract')
+    if contract is not None and contract.get('template') is not None:
+        contract['template'] = contract.get('template').replace(' ', '')
     state = module.params.get('state')
 
     mso = MSOModule(module)

@@ -133,7 +133,7 @@ def main():
 
     schema = module.params.get('schema')
     site = module.params.get('site')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     anp = module.params.get('anp')
     state = module.params.get('state')
 

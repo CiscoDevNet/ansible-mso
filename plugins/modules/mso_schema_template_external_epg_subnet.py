@@ -141,7 +141,7 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     external_epg = module.params.get('external_epg')
     subnet = module.params.get('subnet')
     scope = module.params.get('scope')

@@ -331,7 +331,7 @@ def main():
     layer2_unknown_unicast = module.params.get('layer2_unknown_unicast')
     layer3_multicast = module.params.get('layer3_multicast')
     vrf = module.params.get('vrf')
-    if vrf.get('template') is not None:
+    if vrf is not None and vrf.get('template') is not None:
         vrf['template'] = vrf.get('template').replace(' ', '')
     dhcp_policy = module.params.get('dhcp_policy')
     subnets = module.params.get('subnets')

@@ -194,9 +194,9 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     target_schema = module.params.get('target_schema')
-    target_template = module.params.get('target_template')
+    target_template = module.params.get('target_template').replace(' ', '')
     bds = module.params.get('bds')
     epgs = module.params.get('epgs')
     state = module.params.get('state')

@@ -163,7 +163,7 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     bd = module.params.get('bd')
     subnet = module.params.get('subnet')
     description = module.params.get('description')

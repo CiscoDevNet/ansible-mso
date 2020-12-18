@@ -187,7 +187,7 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     contract = module.params.get('contract')
     contract_display_name = module.params.get('contract_display_name')
     contract_filter_type = module.params.get('contract_filter_type')
@@ -195,6 +195,8 @@ def main():
     filter_name = module.params.get('filter')
     filter_directives = module.params.get('filter_directives')
     filter_template = module.params.get('filter_template')
+    if filter_template is not None:
+        filter_template = filter_template.replace(' ', '')
     filter_schema = module.params.get('filter_schema')
     filter_type = module.params.get('filter_type')
     state = module.params.get('state')

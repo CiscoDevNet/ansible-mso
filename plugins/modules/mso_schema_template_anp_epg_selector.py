@@ -176,7 +176,7 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     anp = module.params.get('anp')
     epg = module.params.get('epg')
     selector = module.params.get('selector')

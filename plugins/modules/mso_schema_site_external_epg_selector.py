@@ -163,7 +163,7 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     site = module.params.get('site')
     external_epg = module.params.get('external_epg')
     selector = module.params.get('selector')

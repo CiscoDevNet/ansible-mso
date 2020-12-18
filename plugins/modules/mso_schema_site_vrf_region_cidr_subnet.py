@@ -183,7 +183,7 @@ def main():
 
     schema = module.params.get('schema')
     site = module.params.get('site')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     vrf = module.params.get('vrf')
     region = module.params.get('region')
     cidr = module.params.get('cidr')

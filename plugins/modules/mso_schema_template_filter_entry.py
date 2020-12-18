@@ -202,7 +202,7 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     filter_name = module.params.get('filter')
     filter_display_name = module.params.get('filter_display_name')
     entry = module.params.get('entry')

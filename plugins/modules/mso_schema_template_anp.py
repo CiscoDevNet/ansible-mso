@@ -125,7 +125,7 @@ def main():
     )
 
     schema = module.params.get('schema')
-    template = module.params.get('template')
+    template = module.params.get('template').replace(' ', '')
     anp = module.params.get('anp')
     display_name = module.params.get('display_name')
     state = module.params.get('state')

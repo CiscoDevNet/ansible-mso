@@ -68,6 +68,11 @@ options:
     description:
     - Whether this subnet is an IGMP querier.
     type: bool
+  is_virtual_ip:
+    description:
+    - Treat as Virtual IP Address
+    type: bool
+    default: false
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -156,6 +161,12 @@ def main():
         template=dict(type='str', required=True),
         bd=dict(type='str', aliases=['name'], required=True),
         subnet=dict(type='str', aliases=['ip']),
+        description=dict(type='str'),
+        scope=dict(type='str', default='private', choices=['private', 'public']),
+        shared=dict(type='bool', default=False),
+        no_default_gateway=dict(type='bool', default=False),
+        querier=dict(type='bool', default=False),
+        is_virtual_ip=dict(type='bool', default=False),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -178,6 +189,7 @@ def main():
     shared = module.params.get('shared')
     no_default_gateway = module.params.get('no_default_gateway')
     querier = module.params.get('querier')
+    is_virtual_ip = module.params.get('is_virtual_ip')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -266,6 +278,7 @@ def main():
             scope=scope,
             shared=shared,
             noDefaultGateway=no_default_gateway,
+            virtual=is_virtual_ip,
             querier=querier,
         )
 

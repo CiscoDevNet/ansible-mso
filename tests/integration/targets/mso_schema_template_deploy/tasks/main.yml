@@ -21,6 +21,12 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
 - name: Ensure site exist
   mso_site: &site_present
     <<: *mso_info
@@ -180,5 +186,6 @@
   assert:
     that:
     - item is not changed
-    - item.msg == "Successfully deployed"
+    - item.msg == "Successfully Un-deployed"
   loop: "{{ undeploy_template.results }}"
+  when: version.current.version is version('3.1', '>=')

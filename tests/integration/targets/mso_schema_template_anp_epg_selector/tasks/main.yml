@@ -357,9 +357,6 @@
       - type: expression_1
         operator: in
         value: test
-      - type: expression_1
-        operator: in
-        value: test
       - type: expression_2
         operator: not_in
         value: test
@@ -382,7 +379,7 @@
     that:
     - nm_change_selector_2 is changed
     - nm_change_selector_2.current.name == "selector_2"
-    - nm_change_selector_2.current.expressions | length == 7
+    - nm_change_selector_2.current.expressions | length == 6
 
 - name: Change Selector 2 expressions again (normal_mode)
   mso_schema_template_anp_epg_selector:
@@ -393,9 +390,6 @@
     epg: ansible_test_1
     selector: selector_2
     expressions:
-      - type: expression_1
-        operator: in
-        value: test
       - type: expression_1
         operator: in
         value: test
@@ -421,7 +415,7 @@
     that:
     - nm_change_selector_2_again is not changed
     - nm_change_selector_2_again.current.name == "selector_2"
-    - nm_change_selector_2_again.current.expressions | length == 7
+    - nm_change_selector_2_again.current.expressions | length == 6
 
 - name: Query all selectors (check_mode)
   mso_schema_template_anp_epg_selector:
@@ -442,7 +436,7 @@
     - cm_query_all_selectors.current[0].name == "selector_1"
     - cm_query_all_selectors.current[1].name == "selector_2"
     - cm_query_all_selectors.current[0].expressions == []
-    - cm_query_all_selectors.current[1].expressions | length == 7
+    - cm_query_all_selectors.current[1].expressions | length == 6
 
 - name: Query all selectors (normal_mode)
   mso_schema_template_anp_epg_selector:
@@ -462,7 +456,7 @@
     - nm_query_all_selectors.current[0].name == "selector_1"
     - nm_query_all_selectors.current[1].name == "selector_2"
     - nm_query_all_selectors.current[0].expressions == []
-    - nm_query_all_selectors.current[1].expressions | length == 7
+    - nm_query_all_selectors.current[1].expressions | length == 6
 
 - name: Query specific selector (check_mode)
   mso_schema_template_anp_epg_selector:
@@ -517,27 +511,24 @@
     that:
     - nm_query_selector2 is not changed
     - nm_query_selector2.current.name == "selector_2"
-    - nm_query_selector2.current.expressions | length == 7
+    - nm_query_selector2.current.expressions | length == 6
     - nm_query_selector2.current.expressions[0].key == "Custom:expression_1"
     - nm_query_selector2.current.expressions[0].operator == "in"
     - nm_query_selector2.current.expressions[0].value == "test"
-    - nm_query_selector2.current.expressions[1].key == "Custom:expression_1"
-    - nm_query_selector2.current.expressions[1].operator == "in"
+    - nm_query_selector2.current.expressions[1].key == "Custom:expression_2"
+    - nm_query_selector2.current.expressions[1].operator == "notIn"
     - nm_query_selector2.current.expressions[1].value == "test"
-    - nm_query_selector2.current.expressions[2].key == "Custom:expression_2"
-    - nm_query_selector2.current.expressions[2].operator == "notIn"
+    - nm_query_selector2.current.expressions[2].key == "Custom:expression_3"
+    - nm_query_selector2.current.expressions[2].operator == "equals"
     - nm_query_selector2.current.expressions[2].value == "test"
-    - nm_query_selector2.current.expressions[3].key == "Custom:expression_3"
-    - nm_query_selector2.current.expressions[3].operator == "equals"
+    - nm_query_selector2.current.expressions[3].key == "Custom:expression_4"
+    - nm_query_selector2.current.expressions[3].operator == "notEquals"
     - nm_query_selector2.current.expressions[3].value == "test"
-    - nm_query_selector2.current.expressions[4].key == "Custom:expression_4"
-    - nm_query_selector2.current.expressions[4].operator == "notEquals"
-    - nm_query_selector2.current.expressions[4].value == "test"
-    - nm_query_selector2.current.expressions[5].key == "Custom:expression_5"
-    - nm_query_selector2.current.expressions[5].operator == "keyExist"
-    - nm_query_selector2.current.expressions[5].value == ""
-    - nm_query_selector2.current.expressions[6].key == "Custom:expression_6"
-    - nm_query_selector2.current.expressions[6].operator == "keyNotExist"
+    - nm_query_selector2.current.expressions[4].key == "Custom:expression_5"
+    - nm_query_selector2.current.expressions[4].operator == "keyExist"
+    - nm_query_selector2.current.expressions[4].value == ""
+    - nm_query_selector2.current.expressions[5].key == "Custom:expression_6"
+    - nm_query_selector2.current.expressions[5].operator == "keyNotExist"
     - nm_query_selector2.current.expressions[5].value == ""
 
 # - name: Remove selector 1 (check_mode)

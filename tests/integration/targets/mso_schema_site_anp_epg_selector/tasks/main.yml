@@ -213,7 +213,7 @@
     epg: ansible_test_1
     selector: selector_2
     expressions:
-      - type: expression_1
+      - type: expression_2_template
         operator: in
         value: test
     state: present
@@ -225,7 +225,7 @@
     - nm_add_selector_2 is changed
     - nm_add_selector_2.previous == {}
     - nm_add_selector_2.current.name == "selector_2"
-    - nm_add_selector_2.current.expressions[0].key == "Custom:expression_1"
+    - nm_add_selector_2.current.expressions[0].key == "Custom:expression_2_template"
     - nm_add_selector_2.current.expressions[0].operator == "in"
     - nm_add_selector_2.current.expressions[0].value == "test"
 
@@ -320,7 +320,7 @@
     epg: ansible_test_1
     selector: selector_2
     expressions:
-      - type: expression 1
+      - type: expression 2
         operator: in
         value: test
     state: present
@@ -331,7 +331,7 @@
   assert:
     that:
     - nm_add_selector2_with_space_in_expression_type is not changed
-    - nm_add_selector2_with_space_in_expression_type.msg == "There should not be any space in 'type' attribute of expression 'expression 1'"
+    - nm_add_selector2_with_space_in_expression_type.msg == "There should not be any space in 'type' attribute of expression 'expression 2'"
 
 - name: Add Selector 2 to site EPG (check_mode)
   mso_schema_site_anp_epg_selector:
@@ -343,7 +343,7 @@
     epg: ansible_test_1
     selector: site_selector_2
     expressions:
-      - type: expression_1
+      - type: expression_2
         operator: in
         value: test
     state: present
@@ -356,7 +356,7 @@
     - cm_add_site_selector_2 is changed
     - cm_add_site_selector_2.previous == {}
     - cm_add_site_selector_2.current.name == "site_selector_2"
-    - cm_add_site_selector_2.current.expressions[0].key == "Custom:expression_1"
+    - cm_add_site_selector_2.current.expressions[0].key == "Custom:expression_2"
     - cm_add_site_selector_2.current.expressions[0].operator == "in"
     - cm_add_site_selector_2.current.expressions[0].value == "test"
 
@@ -370,7 +370,7 @@
     epg: ansible_test_1
     selector: site_selector_2
     expressions:
-      - type: expression_1
+      - type: expression_2
         operator: in
         value: test
     state: present
@@ -382,7 +382,7 @@
     - nm_add_site_selector_2 is changed
     - nm_add_site_selector_2.previous == {}
     - nm_add_site_selector_2.current.name == "site_selector_2"
-    - nm_add_site_selector_2.current.expressions[0].key == "Custom:expression_1"
+    - nm_add_site_selector_2.current.expressions[0].key == "Custom:expression_2"
     - nm_add_site_selector_2.current.expressions[0].operator == "in"
     - nm_add_site_selector_2.current.expressions[0].value == "test"
 
@@ -510,7 +510,7 @@
     epg: ansible_test_1
     selector: site_selector_3
     expressions:
-        - type: expression_1
+        - type: expression_3
           operator: in
           value: test
     state: present
@@ -522,7 +522,7 @@
     - nm_add_site_selector_3_without_anp is changed
     - nm_add_site_selector_3_without_anp.previous == {}
     - nm_add_site_selector_3_without_anp.current.name == "site_selector_3"
-    - nm_add_site_selector_3_without_anp.current.expressions[0].key == "Custom:expression_1"
+    - nm_add_site_selector_3_without_anp.current.expressions[0].key == "Custom:expression_3"
     - nm_add_site_selector_3_without_anp.current.expressions[0].operator == "in"
     - nm_add_site_selector_3_without_anp.current.expressions[0].value == "test"
 
@@ -586,14 +586,14 @@
     epg: ansible_test_1
     selector: '{{ item.selector }}'
     expressions:
-      - type: expression_1
+      - type: '{{ item.type }}'
         operator: in
         value: test
     state: present
   loop:
-  - {selector: 'site_selector_1'}
-  - {selector: 'site_selector_2'}
-  - {selector: 'site_selector_3'}
+  - {selector: 'site_selector_1', type: 'expression_1'}
+  - {selector: 'site_selector_2', type: 'expression_2'}
+  - {selector: 'site_selector_3', type: 'expression_3'}
   register: nm_add_site_selectors_again
 
 - name: Verify nm_add_site_selectors_again
@@ -623,11 +623,11 @@
     - query_all_site_selectors.current[0].expressions[0].operator == "in"
     - query_all_site_selectors.current[0].expressions[0].value == "test"
     - query_all_site_selectors.current[1].name == "site_selector_2"
-    - query_all_site_selectors.current[1].expressions[0].key == "Custom:expression_1"
+    - query_all_site_selectors.current[1].expressions[0].key == "Custom:expression_2"
     - query_all_site_selectors.current[1].expressions[0].operator == "in"
     - query_all_site_selectors.current[1].expressions[0].value == "test"
     - query_all_site_selectors.current[2].name == "site_selector_3"
-    - query_all_site_selectors.current[2].expressions[0].key == "Custom:expression_1"
+    - query_all_site_selectors.current[2].expressions[0].key == "Custom:expression_3"
     - query_all_site_selectors.current[2].expressions[0].operator == "in"
     - query_all_site_selectors.current[2].expressions[0].value == "test"
 
@@ -976,7 +976,7 @@
     - cm_non_existing_site_template is not changed
     - nm_non_existing_site_template is not changed
     - cm_non_existing_site_template == nm_non_existing_site_template
-    - cm_non_existing_site_template.msg == nm_non_existing_site_template.msg == "Provided site-template association 'aws_{{ mso_site | default("ansible_test") }}-Template 3' does not exist."
+    - cm_non_existing_site_template.msg == nm_non_existing_site_template.msg == "Provided site-template association 'aws_{{ mso_site | default("ansible_test") }}-Template3' does not exist."
 
 - name: Add Selector_4 to site EPG (normal_mode)
   mso_schema_site_anp_epg_selector:
@@ -1086,4 +1086,4 @@
     that:
     - cm_no_site_associated is not changed
     - nm_no_site_associated is not changed
-    - cm_no_site_associated.msg == nm_no_site_associated.msg == "No site associated with template 'Template 3'. Associate the site with the template using mso_schema_site."
+    - cm_no_site_associated.msg == nm_no_site_associated.msg == "No site associated with template 'Template3'. Associate the site with the template using mso_schema_site."

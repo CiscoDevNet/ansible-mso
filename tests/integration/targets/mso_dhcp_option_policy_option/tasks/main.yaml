@@ -43,6 +43,15 @@
     state: present
   ignore_errors: yes
 
+- name: Remove DHCP Relay Policy 1
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    dhcp_relay_policy: '{{ item }}'
+    state: absent
+  loop:
+  - ansible_dhcp_relay_1
+  - ansible_dhcp_relay_2
+
 - name: Remove DHCP Option Policies
   mso_dhcp_option_policy:
     <<: *mso_info

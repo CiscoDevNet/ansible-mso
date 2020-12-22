@@ -189,3 +189,11 @@
     - item.msg == "Successfully Un-deployed"
   loop: "{{ undeploy_template.results }}"
   when: version.current.version is version('3.1', '>=')
+
+- name: Verify undeploy_template
+  assert:
+    that:
+    - item is not changed
+    - item.msg == "Successfully deployed"
+  loop: "{{ undeploy_template.results }}"
+  when: version.current.version is version('3.1', '<')

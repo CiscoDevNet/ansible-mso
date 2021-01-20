@@ -216,7 +216,7 @@ def main():
     epg_idx = epgs.index(epg_ref)
 
     # Get Leaf
-    leafs = [(l.get('path'), l.get('portEncapVlan')) for l in schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs'][epg_idx]['staticLeafs']]
+    leafs = [(leaf.get('path'), leaf.get('portEncapVlan')) for leaf in schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs'][epg_idx]['staticLeafs']]
     if (leafpath, vlan) in leafs:
         leaf_idx = leafs.index((leafpath, vlan))
         # FIXME: Changes based on index are DANGEROUS

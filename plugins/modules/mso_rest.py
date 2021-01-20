@@ -127,7 +127,6 @@ RETURN = r'''
 '''
 
 import json
-import os
 
 # Optional, only used for YAML validation
 try:

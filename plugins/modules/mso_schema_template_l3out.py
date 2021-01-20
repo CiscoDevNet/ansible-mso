@@ -177,7 +177,7 @@ def main():
     template_idx = templates.index(template)
 
     # Get L3out
-    l3outs = [l.get('name') for l in schema_obj.get('templates')[template_idx]['intersiteL3outs']]
+    l3outs = [l3.get('name') for l3 in schema_obj.get('templates')[template_idx]['intersiteL3outs']]
 
     if l3out is not None and l3out in l3outs:
         l3out_idx = l3outs.index(l3out)

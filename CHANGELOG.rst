@@ -6,6 +6,81 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v1.1.0
+======
+
+Release Summary
+---------------
+
+Release v1.1.0 of the ``cisco.mso`` collection on 2021-01-20.
+This changelog describes all changes made to the modules and plugins included in this collection since v1.0.1.
+
+
+Minor Changes
+-------------
+
+- Add DHCP Policy Operations
+- Add SVI MAC Addreess option in mso_schema_site_bd
+- Add additional test file to add tenant from templated payload file
+- Add attribute virtual_ip to mso_schema_site_bd_subnet
+- Add capability for restore and download backup
+- Add capability to upload backup
+- Add check for undeploy under MSO version
+- Add error handeling test file
+- Add error message to display when yaml has failed to load
+- Add galaxy-importer check
+- Add galaxy-importer config
+- Add mso_dhcp_option_policy and mso_dhcp_option_policy_option and test files
+- Add new module mso_rest and test case files to support GET api method
+- Add new options to template bd and updated test file
+- Add notes to use region_cidr module to create region
+- Add task to undeploy the template from the site
+- Add tasks in test file to remove templates for mso_schema_template_migrate
+- Add test case for schema removing
+- Add test cases to verify GET, PUT, POST and DELETE API methods for sites in mso_rest.py
+- Add test file for mso_schema
+- Add test file for mso_schema_template_anp
+- Add test file for region module
+- Add test files yaml_inline and yaml_string to support YAML
+- Add userAssociations to tenants to resolve CI issues
+- Addition of cloud setting for ext epg
+- Changes made to payload of mso_schema_template_external_epg
+- Changes to options in template bd
+- Check warning
+- Documentation Corrected
+- Force arp flood to be true when l2unkwunicast is flood
+- Make changes to display correct status code
+- Modify mso library and updated test file
+- Modify mso_rest test files to make PATCH available, and test other methods against schemas
+- Move options for subnet from mso to the template_bd_subnet module
+- Python lint corrected
+- Redirect log to both stdout and log.txt file & Check warnings and errors
+- Remove creation example in document of mso_schema_site_vrf_region
+- Remove present state from mso_schema module
+- Removed unused variable in mso_schema_site_vrf_region_hub_network
+- Test DHCP Policy Provider added
+- Test file for mso_dhcp_relay_policy added
+- Test file for template_bd_subnet and new option foe module
+
+Bugfixes
+--------
+
+- Fix anp idempotency issue
+- Fix crash issue when using irrelevant site-template
+- Fix default value for mso_schema state parameter
+- Fix examples for mso_schema
+- Fix galaxy-importer check warnings
+- Fix issue on mso_schema_site_vrf_region_cidr_subnet to allow an AWS subnet to be used for a TGW Attachment (Hub Network)
+- Fix module name in example of mso_schema_site_vrf_region
+- Fix mso_backup upload issue
+- Fix sanity test error mso_schema_site_bd
+- Fix some coding standard and improvements to contributed mso_dhcp_relay modules and test files
+- Fix space in asssertion
+- Fix space in site_anp_epg_domain
+- Fix space in test file
+- Remove space from template name in all modules
+- Remove space in template name
+
 v1.0.1
 ======
 

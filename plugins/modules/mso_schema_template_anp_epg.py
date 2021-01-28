@@ -301,14 +301,17 @@ def main():
 
     mso = MSOModule(module)
 
-    # Get schema_id
-    schema_obj = mso.get_obj('schemas', displayName=schema)
-    if schema_obj:
-        schema_id = schema_obj.get('id')
-    else:
-        mso.fail_json(msg="Provided schema '{0}' does not exist".format(schema))
+    # # Get schema_id
+    # schema_obj = mso.get_obj('schemas', displayName=schema)
+    # if schema_obj:
+    #     schema_id = schema_obj.get('id')
+    # else:
+    #     mso.fail_json(msg="Provided schema '{0}' does not exist".format(schema))
 
-    schema_path = 'schemas/{id}'.format(**schema_obj)
+    # schema_path = 'schemas/{id}'.format(**schema_obj)
+    # Get schema_id, path and obj
+    schema_id = mso.lookup_schema(schema)
+    schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
     templates = [t.get('name') for t in schema_obj.get('templates')]

@@ -110,7 +110,8 @@ def main():
     if schema:
         mso.existing = mso.get_obj(path, displayName=schema)
         if mso.existing:
-            schema_id = mso.existing.get('id')
+            # Get schema_id
+            schema_id = mso.lookup_schema(schema)
             path = 'schemas/{id}'.format(id=schema_id)
     else:
         mso.existing = mso.query_objs(path)

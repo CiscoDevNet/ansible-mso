@@ -217,12 +217,14 @@ def main():
 
     filter_key = FILTER_KEYS.get(filter_type)
 
-    # Get schema object
-    schema_obj = mso.get_obj('schemas', displayName=schema)
-    if not schema_obj:
-        mso.fail_json(msg="Provided schema '{0}' does not exist".format(schema))
+    # # Get schema object
+    # schema_obj = mso.get_obj('schemas', displayName=schema)
+    # if not schema_obj:
+    #     mso.fail_json(msg="Provided schema '{0}' does not exist".format(schema))
 
-    schema_path = 'schemas/{id}'.format(**schema_obj)
+    # schema_path = 'schemas/{id}'.format(**schema_obj)
+    # Get schema
+    schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
     templates = [t.get('name') for t in schema_obj.get('templates')]

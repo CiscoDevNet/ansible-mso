@@ -203,9 +203,9 @@ def main():
 
     mso = MSOModule(module)
 
-    schema_id = mso.get_obj('schemas', displayName=schema).get('id')
-
-    target_schema_id = mso.get_obj('schemas', displayName=target_schema).get('id')
+    # Get schema_id
+    schema_id = mso.lookup_schema(schema)
+    target_schema_id = mso.lookup_schema(target_schema)
 
     if state == 'present':
         if schema_id is not None:

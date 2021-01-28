@@ -137,13 +137,13 @@ def main():
 
     mso = MSOModule(module)
 
-    # Get schema
-    schema_obj = mso.get_obj('schemas', displayName=schema)
+    # Get schema obj
+    schema_path, schema_obj = mso.query_schema(schema)
 
     mso.existing = {}
     if schema_obj:
         # Schema exists
-        schema_path = 'schemas/{id}'.format(**schema_obj)
+        schema_path = schema_path
 
         # Get template
         templates = [t.get('name') for t in schema_obj.get('templates')]

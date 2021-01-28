@@ -170,6 +170,7 @@ def main():
     path = "policies/dhcp/relay"
 
     tenant_id = mso.lookup_tenant(tenant)
+    # Get schema_id
     schema_id = mso.lookup_schema(schema)
 
     provider = dict(

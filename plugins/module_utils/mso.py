@@ -561,12 +561,13 @@ class MSOModule(object):
         if schema is None:
             return schema
 
-        s = self.get_obj('schemas', displayName=schema)
-        if not s:
-            self.module.fail_json(msg="Schema '%s' is not a valid schema name." % schema)
-        if 'id' not in s:
-            self.module.fail_json(msg="Schema lookup failed for schema '%s': %s" % (schema, s))
-        return s.get('id')
+        schema_summary = self.query_objs('schemas/list-identity', key='schemas', displayName=schema)
+        if not schema_summary:
+            self.module.fail_json(msg="Provided schema '{0}' does not exist.".format(schema))
+        schema_id = schema_summary[0].get('id')
+        if not schema_id:
+            self.module.fail_json(msg="Schema lookup failed for schema '{0}': '{1}'".format(schema, schema_id))
+        return schema_id
 
     def lookup_domain(self, domain):
         ''' Look up a domain and return its id '''
@@ -947,3 +948,11 @@ class MSOModule(object):
         filter_obj['contractScope'] = contract_obj.get('scope')
         filter_obj['contractFilterType'] = contract_obj.get('filterType')
         return filter_obj
+
+    def query_schema(self, schema):
+        schema_id = self.lookup_schema(schema)
+        schema_path = "schemas/{0}".format(schema_id)
+        schema_obj = self.query_obj(schema_path, displayName=schema)
+        if not schema_obj:
+            self.module.fail_json(msg="Schema '{0}' is not a valid schema name.".format(schema))
+        return schema_path, schema_obj

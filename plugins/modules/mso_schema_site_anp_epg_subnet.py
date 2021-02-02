@@ -191,13 +191,9 @@ def main():
 
     mso = MSOModule(module)
 
-    # Get schema_id
-    schema_obj = mso.get_obj('schemas', displayName=schema)
-    if not schema_obj:
-        mso.fail_json(msg="Provided schema '{0}' does not exist".format(schema))
-
-    schema_path = 'schemas/{id}'.format(**schema_obj)
-    schema_id = schema_obj.get('id')
+    # Get schema objects
+    schema_id = mso.lookup_schema(schema)
+    schema_path, schema_obj = mso.query_schema(schema)
 
     # Get site
     site_id = mso.lookup_site(site)

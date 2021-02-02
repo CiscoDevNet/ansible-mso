@@ -302,8 +302,7 @@ def main():
     mso = MSOModule(module)
 
     # Get schema objects
-    schema_id = mso.lookup_schema(schema)
-    schema_path, schema_obj = mso.query_schema(schema)
+    schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
     templates = [t.get('name') for t in schema_obj.get('templates')]

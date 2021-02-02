@@ -955,4 +955,4 @@ class MSOModule(object):
         schema_obj = self.query_obj(schema_path, displayName=schema)
         if not schema_obj:
             self.module.fail_json(msg="Schema '{0}' is not a valid schema name.".format(schema))
-        return schema_path, schema_obj
+        return schema_id, schema_path, schema_obj

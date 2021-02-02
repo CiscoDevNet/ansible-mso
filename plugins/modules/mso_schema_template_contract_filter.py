@@ -218,7 +218,7 @@ def main():
     filter_key = FILTER_KEYS.get(filter_type)
 
     # Get schema
-    schema_path, schema_obj = mso.query_schema(schema)
+    schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
     templates = [t.get('name') for t in schema_obj.get('templates')]

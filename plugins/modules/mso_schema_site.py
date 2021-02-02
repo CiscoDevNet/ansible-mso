@@ -130,7 +130,7 @@ def main():
     mso = MSOModule(module)
 
     # Get schema
-    schema_path, schema_obj = mso.query_schema(schema)
+    schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get site
     site_id = mso.lookup_site(site)

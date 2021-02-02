@@ -114,7 +114,7 @@ def main():
 
     mso = MSOModule(module)
 
-    # Get schema
+    # Get schema id
     schema_id = mso.lookup_schema(schema)
 
     payload = dict(

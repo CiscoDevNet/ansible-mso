@@ -71,6 +71,16 @@
   - ansible_dhcp_relay_1
   - ansible_dhcp_relay_2
 
+- name: Remove DHCP Option Policies
+  mso_dhcp_option_policy:
+    <<: *mso_info
+    dhcp_option_policy: '{{ item }}'
+    state: absent
+  ignore_errors: yes
+  loop:
+  - ansible_dhcp_option_1
+  - ansible_dhcp_option_2
+
 - name: Remove schemas
   cisco.mso.mso_schema:
     <<: *mso_info

@@ -138,7 +138,7 @@ def main():
     mso = MSOModule(module)
 
     # Get schema
-    schema_id, schema_path, schema_obj = mso.query_schema(schema)
+    schema_obj = mso.get_obj('schemas', displayName=schema)
 
     mso.existing = {}
     if schema_obj:

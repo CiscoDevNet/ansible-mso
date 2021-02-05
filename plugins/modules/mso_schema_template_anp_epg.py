@@ -112,14 +112,17 @@ options:
         description:
         - Whether this subnet is shared between VRFs.
         type: bool
+        default: false
       no_default_gateway:
         description:
         - Whether this subnet has a default gateway.
         type: bool
+        default: false
       querier:
         description:
         - Whether this subnet is an IGMP querier.
         type: bool
+        default: false
   useg_epg:
     description:
     - Whether this is a USEG EPG.

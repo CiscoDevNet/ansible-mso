@@ -95,12 +95,10 @@ options:
     description:
     - Whether this filter entry is stateful.
     type: bool
-    default: no
   fragments_only:
     description:
     - Whether this filter entry only matches fragments.
     type: bool
-    default: no
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.

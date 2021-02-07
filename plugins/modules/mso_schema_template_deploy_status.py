@@ -103,16 +103,17 @@ def main():
     else:
         mso.fail_json(msg="Schema '{0}' not found.".format(schema))
 
-    mso.existing = mso.request(path, method='GET')
-    if template:
-        for objects in mso.existing.get('policyStates'):
-            if objects.get('templateName') == template:
-                mso.existing = objects
-                break
-            else:
-                mso.existing = {}
-        if not mso.existing:
-            mso.fail_json(msg="Template '{0}' not found.".format(template))
+    if state == 'status':
+        mso.existing = mso.request(path, method='GET')
+        if template:
+            for objects in mso.existing.get('policyStates'):
+                if objects.get('templateName') == template:
+                    mso.existing = objects
+                    break
+                else:
+                    mso.existing = {}
+            if not mso.existing:
+                mso.fail_json(msg="Template '{0}' not found.".format(template))
 
     mso.exit_json()
 

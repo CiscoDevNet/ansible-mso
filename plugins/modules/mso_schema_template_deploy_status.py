@@ -66,7 +66,7 @@ EXAMPLES = r'''
   delegate_to: localhost
   register: query_result
 
-- name: Query status of objects in a template asscociated with a site
+- name: Query status of objects in a template associated with a site
   cisco.mso.mso_schema_template_deploy_status:
     host: mso_host
     username: admin

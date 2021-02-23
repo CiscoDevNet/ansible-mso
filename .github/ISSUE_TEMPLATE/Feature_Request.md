@@ -2,7 +2,6 @@
 name: 🚀 Feature Request
 about: I have a suggestion (might want to implement it myself 🙂)!
 labels: enhancement
-additional label: new_module/new_plugin/documentation/feature
 ---
 
 <!--- Please keep this note for the community --->
@@ -16,6 +15,9 @@ additional label: new_module/new_plugin/documentation/feature
 <!--- Thank you for keeping this note for the community --->
 
 ### Description
+<!--- Please specify additional labels in the labels section if applicable to the issue.
+Possible additional labels: new_module/new_plugin/documentation/feature --->
+
 
 <!--- Please leave a helpful description of the feature request here. --->
 
@@ -25,13 +27,18 @@ additional label: new_module/new_plugin/documentation/feature
 
 <!--- Please list the new or affected module(s). --->
 
-* mso_XXXXX + fv:XXXX
+* mso_XXXXX
 
 ### MSO version and MSO Platform
 
+* V x.x.x and Docker Swarm OVA-based/SE-based/ND-based/all.
+
+
+### APIC version and APIC Platform for Site Level Resources
+
 * V x.x.x and on-prem/cloud-aws/cloud-azure/all.
 
-### cisco.mso collection
+### Collection versions
 
 * cisco.mso x.x.x
 

@@ -1,7 +1,7 @@
 ---
 name: 🐛 Bug Report
 about: If something isn't working as expected 🤔.
-labels: bug/documentation/question
+labels: bug
 ---
 
 <!--- Please keep this note for the community --->
@@ -14,6 +14,14 @@ labels: bug/documentation/question
 
 <!--- Thank you for keeping this note for the community --->
 
+### Description
+<!--- Please specify additional labels in the labels section if applicable to the issue.
+Possible additional labels: documentation/question --->
+
+<!--- Please leave a helpful description of the feature request here. --->
+
+* xxxx
+
 ### Affected Module Name(s):
 
 <!--- Please list the affected module name(s). --->
@@ -22,9 +30,15 @@ labels: bug/documentation/question
 
 ### MSO version and MSO Platform
 
+* V x.x.x and Docker Swarm OVA-based/SE-based/ND-based/all.
+
+
+### APIC version and APIC Platform for Site Level Resources
+
 * V x.x.x and on-prem/cloud-aws/cloud-azure/all.
 
-### cisco.mso collection
+
+### Collection versions
 
 * cisco.mso x.x.x
 

@@ -305,7 +305,7 @@ class MSOModule(object):
                                use_proxy=self.params.get('use_proxy'))
 
         # Handle MSO response
-        if auth.get('status') != 201:
+        if auth.get('status') not in [200, 201]:
             self.response = auth.get('msg')
             self.status = auth.get('status')
             self.fail_json(msg='Authentication failed: {msg}'.format(**auth))

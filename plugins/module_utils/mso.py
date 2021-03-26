@@ -668,18 +668,21 @@ class MSOModule(object):
 
         allowed_domain = self.get_obj('tenants/allowed-users/domains', key='domains', id=domain_id)
         if allowed_domain == {}:
-            self.module.fail_json(msg="There is no valid domain for allowed users")
+            self.module.fail_json(msg="Domain '%s' is not a valid domain." % domain_id)
         return allowed_domain
 
-    def check_domain(self, user):
-        allowed_users = self.lookup_allowed_users()
-        for allowed_user in allowed_users:
-            if allowed_user.get('username') == user.get('name'):
-                domain_id = allowed_user.get('domainId')
-                allowed_domain = self.lookup_allowed_domain(domain_id)
-                if user.get('domain') == allowed_domain.get('name'):
-                    return True
-        return False
+    def check_domain(self, user, domain_name):
+        found = []
+        for u in user:
+            if 'domainId' not in u:
+                self.module.fail_json(msg="User '%s' does not have valid domain." % u.get('username'))
+            domain_id = u.get('domainId')
+            allowed_domain = self.lookup_allowed_domain(domain_id)
+            if allowed_domain.get('name') == domain_name:
+                found.append(u)
+        if found == []:
+            self.module.fail_json(msg="Domain '%s' is not correct" % (domain_name))
+        return found[0]
 
     def lookup_users(self, users):
         ''' Look up users and return their ids '''
@@ -690,17 +693,16 @@ class MSOModule(object):
         ids = []
         names = []
         for user in users:
-            u = self.get_obj('tenants/allowed-users', key='users', username=user.get('name'))
-            if not u:
+            u = self.query_objs('tenants/allowed-users', key='users', username=user.get('name'))
+            if u == []:
                 self.module.fail_json(msg="User '%s' is not a valid user name." % user.get('name'))
-            if 'id' not in u or 'username' not in u:
-                self.module.fail_json(msg="User lookup failed for user '%s': %s" % (user.get('name'), u))
-            id = dict(userId=u.get('id'))
-            name = u.get('username')
+            found_user = self.check_domain(u, user.get('domain'))
+            if 'id' not in found_user or 'username' not in found_user:
+                self.module.fail_json(msg="User lookup failed for user '%s': %s" % (user.get('name'), found_user))
+            id = dict(userId=found_user.get('id'))
+            name = found_user.get('username')
             if id in ids:
                 self.module.fail_json(msg="User '%s' is duplicate." % user.get('name'))
-            if not self.check_domain(user):
-                self.module.fail_json(msg="Domain '%s' for user '%s' is not correct" % (user.get('domain'), user.get('name')))
             ids.append(id)
             names.append(name)
 

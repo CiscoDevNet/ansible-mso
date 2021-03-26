@@ -176,6 +176,12 @@ def mso_object_migrate_spec():
         anp=dict(type='str', required=True),
     )
 
+def mso_user_spec():
+    return dict(
+        name=dict(type='str', required=True),
+        domain=dict(type='str', required=True)
+    )
+
 
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp):
@@ -651,6 +657,30 @@ class MSOModule(object):
         remote_info = dict(id=remote.get('id'), path=remote.get('credential')['remotePath'])
         return remote_info
 
+    def lookup_allowed_users(self):
+        ''' Look up allowed users in tenant '''
+
+        allowed_users = self.query_objs('tenants/allowed-users', key='users')
+        return allowed_users
+
+    def lookup_allowed_domain(self, domain_id):
+        ''' Look up domain of allowed users '''
+
+        allowed_domain = self.get_obj('tenants/allowed-users/domains', key='domains', id=domain_id)
+        if allowed_domain == {}:
+            self.module.fail_json(msg="There is no valid domain for allowed users")
+        return allowed_domain
+
+    def check_domain(self, user):
+        allowed_users = self.lookup_allowed_users()
+        for allowed_user in allowed_users:
+            if allowed_user.get('username') == user.get('name'):
+                domain_id = allowed_user.get('domainId')
+                allowed_domain = self.lookup_allowed_domain(domain_id)
+                if user.get('domain') == allowed_domain.get('name'):
+                    return True
+        return False
+
     def lookup_users(self, users):
         ''' Look up users and return their ids '''
         # Ensure tenant has at least admin user
@@ -658,18 +688,23 @@ class MSOModule(object):
             return [dict(userId="0000ffff0000000000000020")]
 
         ids = []
+        names = []
         for user in users:
-            u = self.get_obj('users', username=user)
+            u = self.get_obj('tenants/allowed-users', key='users', username=user.get('name'))
             if not u:
-                self.module.fail_json(msg="User '%s' is not a valid user name." % user)
-            if 'id' not in u:
-                self.module.fail_json(msg="User lookup failed for user '%s': %s" % (user, u))
+                self.module.fail_json(msg="User '%s' is not a valid user name." % user.get('name'))
+            if 'id' not in u or 'username' not in u:
+                self.module.fail_json(msg="User lookup failed for user '%s': %s" % (user.get('name'), u))
             id = dict(userId=u.get('id'))
+            name = u.get('username')
             if id in ids:
-                self.module.fail_json(msg="User '%s' is duplicate." % user)
+                self.module.fail_json(msg="User '%s' is duplicate." % user.get('name'))
+            if not self.check_domain(user):
+                self.module.fail_json(msg="Domain '%s' for user '%s' is not correct" % (user.get('domain'), user.get('name')))
             ids.append(id)
+            names.append(name)
 
-        if 'admin' not in users:
+        if 'admin' not in names:
             ids.append(dict(userId="0000ffff0000000000000020"))
         return ids
 

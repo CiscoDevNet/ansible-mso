@@ -40,7 +40,19 @@ options:
     - Using this property will replace any existing associated users.
     - Admin user is always added to the associated user list irrespective of this parameter being used.
     type: list
-    elements: str
+    elements: dict
+    suboptions:
+      name:
+        description:
+        - The name of the associated user for this tenant.
+        required: true
+        type: str
+        aliases: [ user_name]
+      domain:
+        description:
+        - Domain name of the associated user for this tenant.
+        required: true
+        type: str
   sites:
     description:
     - A list of associated sites for this tenant.
@@ -102,7 +114,7 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_user_spec
 
 
 def main():
@@ -111,7 +123,7 @@ def main():
         description=dict(type='str'),
         display_name=dict(type='str'),
         tenant=dict(type='str', aliases=['name']),
-        users=dict(type='list', elements='str'),
+        users=dict(type='list', elements='dict', options=mso_user_spec()),
         sites=dict(type='list', elements='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )

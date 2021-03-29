@@ -47,7 +47,6 @@ options:
         - The name of the associated user for this tenant.
         required: true
         type: str
-        aliases: [ user_name]
       domain:
         description:
         - Domain name of the associated user for this tenant.

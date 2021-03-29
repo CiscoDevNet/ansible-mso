@@ -24,6 +24,8 @@
     apic_username_2: admin
     apic_password_2: ins3965!
     apic_site_id_2: 102
+    remote_user: ansible_github_ci
+    remote_domain: test
 
 - name: Ensure sites exists
   mso_site:
@@ -37,7 +39,7 @@
     state: present
   loop:
   - { site: '{{ mso_site | default("ansible_test") }}', username: '{{ apic_username }}', password: '{{ apic_password }}', id: '{{ apic_site_id | default(101) }}', urls: '{{ apic_hostname }}' }
-  #- { site: '{{ mso_site | default("ansible_test") }}_2', username: '{{ apic_username_2 }}', password: '{{ apic_password_2 }}', id: '{{ apic_site_id_2 | default(101) }}', urls: '{{ apic_hostname_2 }}' }
+  - { site: '{{ mso_site | default("ansible_test") }}_2', username: '{{ apic_username_2 }}', password: '{{ apic_password_2 }}', id: '{{ apic_site_id_2 | default(101) }}', urls: '{{ apic_hostname_2 }}' }
 
 - name: Undeploy a schema 1 template 1
   mso_schema_template_deploy: &schema_undeploy
@@ -49,7 +51,7 @@
   ignore_errors: yes
   loop:
   - '{{ mso_site | default("ansible_test") }}'
-  #- '{{ mso_site | default("ansible_test") }}_2'
+  - '{{ mso_site | default("ansible_test") }}_2'
 
 - name: Undeploy a schema 1 template 2
   mso_schema_template_deploy:
@@ -60,7 +62,7 @@
   ignore_errors: yes
   loop:
   - '{{ mso_site | default("ansible_test") }}'
-  #- '{{ mso_site | default("ansible_test") }}_2'
+  - '{{ mso_site | default("ansible_test") }}_2'
 
 - name: Undeploy a schema 2 template 3
   mso_schema_template_deploy:
@@ -72,7 +74,7 @@
   ignore_errors: yes
   loop:
   - '{{ mso_site | default("ansible_test") }}'
-  #- '{{ mso_site | default("ansible_test") }}_2'
+  - '{{ mso_site | default("ansible_test") }}_2'
 
 - name: Remove schemas
   mso_schema:
@@ -105,13 +107,19 @@
   mso_tenant:
     <<: *tenant_absent
     tenant: ansible_test2
-  register: cm_remove_tenant2
+  register: remove_tenant2
 
 - name: Remove tenant ansible_test3
   mso_tenant:
     <<: *tenant_absent
     tenant: ansible_test3
-  register: cm_remove_tenant3
+  register: remove_tenant3
+
+- name: Remove tenant ansible_test4
+  mso_tenant:
+    <<: *tenant_absent
+    tenant: ansible_test4
+  register: remove_tenant4
 
 # ADD TENANT
 - name: Add tenant (check_mode)
@@ -192,9 +200,7 @@
     tenant: ansible_test2
     users:
     - name: '{{ mso_username }}'
-      domain: Local
-    # - name: ansible_github_ci
-    #   domain: remote
+      domain: '{{ mso_domain | default("Local") }}'
     display_name: null
     state: present
   register: nm_add_tenant2
@@ -222,7 +228,7 @@
     tenant: ansible_test2
     users:
     - name: '{{ mso_username }}'
-      domain: Local
+      domain: '{{ mso_domain | default("Local") }}'
     display_name: null
     state: present
   register: nm_add_tenant2_again
@@ -288,7 +294,7 @@
     tenant: ansible_test3
     users:
     - name: '{{ mso_username }}'
-      domain: Local
+      domain: '{{ mso_domain | default("Local") }}'
     display_name: null
     state: present
   register: nm_add_tenant3
@@ -308,6 +314,32 @@
   assert:
     that:
     - nm_add_tenant3.current.userAssociations | length == 1
+  when: mso_username == 'admin'
+
+# Add tenant with both remote and local user
+- name: Add tenant 4 (normal mode)
+  mso_tenant: 
+    <<: *tenant_present
+    tenant: ansible_test4
+    users:
+    - name: '{{ mso_username }}'
+      domain: '{{ mso_domain | default("Local") }}'
+    - name: '{{ remote_user }}'
+      domain: '{{ remote_domain }}'
+    display_name: null
+    state: present
+  register: nm_add_tenant4
+
+- name: Verify nm_add_tenant4
+  assert:
+    that:
+    - nm_add_tenant4.current.userAssociations | length == 3
+  when: mso_username != 'admin'
+
+- name: Verify nm_add_tenant4
+  assert:
+    that:
+    - nm_add_tenant4.current.userAssociations | length == 2
   when: mso_username == 'admin'
 
 # CHANGE TENANT

@@ -176,6 +176,7 @@ def mso_object_migrate_spec():
         anp=dict(type='str', required=True),
     )
 
+
 def mso_user_spec():
     return dict(
         name=dict(type='str', required=True),
@@ -656,12 +657,6 @@ class MSOModule(object):
             self.module.fail_json(msg="No remote location found for remote '%s'" % (remote_location))
         remote_info = dict(id=remote.get('id'), path=remote.get('credential')['remotePath'])
         return remote_info
-
-    def lookup_allowed_users(self):
-        ''' Look up allowed users in tenant '''
-
-        allowed_users = self.query_objs('tenants/allowed-users', key='users')
-        return allowed_users
 
     def lookup_allowed_domain(self, domain_id):
         ''' Look up domain of allowed users '''

@@ -41,6 +41,18 @@
 #     - https://{{ apic_hostname }}
 #     state: present
 
+- name: Undeploy templates if deployed from previous test case
+  mso_schema_template_deploy:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "{{ item }}"
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: undeploy
+  ignore_errors: yes
+  loop:
+  - Template 1
+  - Template 2
+
 - name: Remove schemas
   mso_schema:
     <<: *mso_info

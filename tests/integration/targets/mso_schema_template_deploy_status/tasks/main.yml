@@ -1,0 +1,490 @@
+# Test code for the MSO modules
+# Copyright: (c) 2021, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3[0].txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Ensure site exist
+  mso_site: &site_present
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ apic_username }}'
+    apic_password: '{{ apic_password }}'
+    apic_site_id: '{{ apic_site_id | default(101) }}'
+    urls:
+    - https://{{ apic_hostname }}
+    state: present
+
+- name: Ensure aws site exists
+  mso_site:
+    <<: *mso_info
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ aws_apic_username }}'
+    apic_password: '{{ aws_apic_password }}'
+    apic_site_id: '{{ aws_site_id }}'
+    urls:
+    - https://{{ aws_apic_hostname }}
+    state: present
+
+- name: Undeploy templates if deployed to clean the environment
+  mso_schema_template_deploy:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "{{ item }}"
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: undeploy
+  ignore_errors: yes
+  loop:
+  - Template 1
+  - Template 2
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    state: absent
+
+- name: Ensure tenant ansible_test exists
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+      - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Ensure schema 1 with Template 1, Template 2
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: '{{ item }}'
+    state: present
+  loop:
+  - Template 1
+  - Template 2
+
+- name: Add a new site to a schema with Template 1, Template 2
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: '{{ item }}'
+    state: present
+  loop:
+  - Template 1
+  - Template 2
+
+- name: Ensure VRF1 exists on Template1
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    state: present
+
+- name: Ensure VRF2 exists on Template2
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    vrf: VRF2
+    state: present
+      
+- name: Ensure ANP exists
+  mso_schema_template_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    state: present
+
+- name: Ensure ANP2 exists
+  mso_schema_template_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    anp: ANP2
+    state: present
+
+- name: Check deployment status of Template 1
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    state: query
+  register: status1_temp1
+
+- name: Check deployment status of Template 2
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    state: query
+  register: status1_temp2
+
+- name: Verify status after adding VRFs and ANPs
+  assert:
+    that:
+    - status1_temp1.current[0].anps[0].state == 'created'
+    - status1_temp1.current[0].vrfs[0].state == 'created'
+    - status1_temp2.current[0].anps[0].state == 'created'
+    - status1_temp2.current[0].vrfs[0].state == 'created'
+
+- name: Check deployment status by querying site
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: query
+  register: status_site
+
+- name: Check deployment status by querying site and Template1
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: query
+  register: status_site_temp1
+
+- name: Check deployment status by querying site and Template2
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template2
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: query
+  register: status_site_temp2
+
+- name: Verify status after querying site before deployment
+  assert:
+    that:
+    - status_site.current | length == 2
+    - status_site_temp1.current.anps[0].state == 'created'
+    - status_site_temp1.current.vrfs[0].state == 'created'
+    - status_site_temp2.current.anps[0].state == 'created'
+    - status_site_temp2.current.vrfs[0].state == 'created'
+
+
+- name: Ensure ansible_test_1 BD exists
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    vrf:
+      name: VRF1
+      template: Template 1
+    state: present
+
+- name: Ensure ansible_test_2 BD exists
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    bd: ansible_test_2
+    vrf:
+      name: VRF2
+      template: Template 2
+    state: present
+
+- name: Add EPG to Template 1
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    epg: ansible_test_1
+    bd:
+      name: ansible_test_1
+    vrf:
+      name: VRF1
+    state: present
+
+- name: Add EPG to Template 2
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    anp: ANP2
+    epg: ansible_test_2
+    bd:
+      name: ansible_test_2
+    vrf:
+      name: VRF2
+    state: present
+
+- name: Check deployment status of Template 1
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    state: query
+  register: status2_temp1
+
+- name: Check deployment status of Template 2
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    state: query
+  register: status2_temp2
+
+- name: Verify status after adding BDs and EPGs
+  assert:
+    that:
+    - status2_temp1.current[0].bds[0].state == 'created'
+    - status2_temp1.current[0].anps[0].epgs[0].state == 'created'
+    - status2_temp2.current[0].bds[0].state == 'created'
+    - status2_temp2.current[0].anps[0].epgs[0].state == 'created'
+
+- name: Add VRF3 exists to Template1
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF3
+    state: present
+
+- name: Add ansible_test_3 BD
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_3
+    vrf:
+      name: VRF3
+      template: Template 1
+    state: present
+
+- name: Check deployment status of Template 1
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    state: query
+  register: status3_temp1
+
+- name: Verify status after adding new BD and VRF and changing EPG1
+  assert:
+    that:
+    - status3_temp1.current[0].bds[0].state == 'created'
+    - status3_temp1.current[0].vrfs[0].state == 'created'
+
+- name: Deploy templates
+  mso_schema_template_deploy:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "{{ item }}"
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: deploy
+  register: cm_deploy_template
+  loop:
+  - Template 1
+  - Template 2
+
+- name: Change EPG
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    epg: ansible_test_1
+    bd:
+      name: ansible_test_3
+    vrf:
+      name: VRF3
+    state: present
+
+- name: Check deployment status of Template 1
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    state: query
+  register: status_change_temp1
+
+- name: Verify status after changing EPG
+  assert:
+    that:
+    - status_change_temp1.current[0].anps[0].epgs[0].state == 'modified'
+
+- name: Delete ansible_test_1 BD
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: ansible_test_1
+    vrf:
+      name: VRF1
+      template: Template 1
+    state: absent
+
+- name: Delete VRF1
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    state: absent
+
+- name: Check deployment status of Template 1
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    state: query
+  register: status4_temp1
+
+- name: Verify status after deleting VRF1
+  assert:
+    that:
+    - status4_temp1.current[0].bds[0].state == 'deleted'
+    - status4_temp1.current[0].vrfs[0].state == 'deleted'
+
+- name: Deploy templates
+  mso_schema_template_deploy:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "{{ item }}"
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: deploy
+  loop:
+  - Template 1
+  - Template 2
+
+- name: Check deployment status of Template 1
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}' 
+    template: Template 1
+    state: query
+  register: status5_temp1
+
+- name: Check deployment status of Template 2
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    state: query
+  register: status5_temp2
+    
+- name: Verify status after deploying Templates to site
+  assert:
+    that:
+    - status5_temp1.current[0].anps == []
+    - status5_temp1.current[0].bds == []
+    - status5_temp1.current[0].vrfs == []
+    - status5_temp2.current[0].anps == []
+    - status5_temp2.current[0].bds == []
+    - status5_temp2.current[0].vrfs == []
+
+- name: Check status of all templates
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    state: query
+  register: all_templates
+
+- name: Verify all
+  assert:
+    that:
+    - all_templates.current.policyStates | length == 2
+
+- name: Check deployment status by querying site
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: query
+  register: status2_site
+
+- name: Check deployment status by querying site and Template1
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: query
+  register: status2_site_temp1
+
+- name: Check deployment status by querying site and Template2
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template2
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: query
+  register: status2_site_temp2
+
+- name: Verify status after querying site post deployment
+  assert:
+    that:
+    - status2_site.current | length == 2
+    - status2_site_temp1.current.anps == []
+    - status2_site_temp1.current.bds == []
+    - status2_site_temp1.current.vrfs == []
+    - status2_site_temp2.current.anps == []
+    - status2_site_temp2.current.bds == []
+    - status2_site_temp2.current.vrfs == []
+
+- name: Check deployment status by querying site and non associated Template 1
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    state: query
+  ignore_errors: yes
+  register: status_site_temp3
+
+- name: Verify status after querying site with non associated Template 1
+  assert:
+    that:
+    - status_site_temp3.msg == "Provided Template 'Template1' not associated with Site 'aws_ansible_test'."
+
+- name: Check Non-existing schema
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: non-existing-schema
+    state: query
+  ignore_errors: yes
+  register: non_schema
+
+- name: Verify non_existing_schema
+  assert:
+    that:
+    - non_schema.msg == "Schema 'non-existing-schema' not found."
+
+- name: Check deployment status of non-existing-template
+  mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: non-existing-template
+    state: query
+  ignore_errors: yes
+  register: non_temp
+
+- name: Verify non_existing_template
+  assert:
+    that:
+    - non_temp.msg == "Template 'non-existing-template' not found."

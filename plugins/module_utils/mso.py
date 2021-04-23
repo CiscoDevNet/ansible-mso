@@ -291,9 +291,9 @@ class MSOModule(object):
             return domain
         d = self.get_obj('auth/login-domains', key='domains', name=domain)
         if not d:
-            self.module.fail_json(msg="Login domain '%s' is not a valid domain name." % domain)
+            self.fail_json(msg="Login domain '%s' is not a valid domain name." % domain)
         if 'id' not in d:
-            self.module.fail_json(msg="Login domain lookup failed for domain '%s': %s" % (domain, d))
+            self.fail_json(msg="Login domain lookup failed for domain '%s': %s" % (domain, d))
         return d['id']
 
     def login(self):
@@ -352,7 +352,7 @@ class MSOModule(object):
                 })
                 data = open(src, 'rb')
             except OSError:
-                self.module.fail_json(msg='Unable to open source file %s' % src, elapsed=0)
+                self.fail_json(msg='Unable to open source file %s' % src, elapsed=0)
         else:
             pass
 
@@ -634,10 +634,10 @@ class MSOModule(object):
 
         schema_summary = self.query_objs('schemas/list-identity', key='schemas', displayName=schema)
         if not schema_summary:
-            self.module.fail_json(msg="Provided schema '{0}' does not exist.".format(schema))
+            self.fail_json(msg="Provided schema '{0}' does not exist.".format(schema))
         schema_id = schema_summary[0].get('id')
         if not schema_id:
-            self.module.fail_json(msg="Schema lookup failed for schema '{0}': '{1}'".format(schema, schema_id))
+            self.fail_json(msg="Schema lookup failed for schema '{0}': '{1}'".format(schema, schema_id))
         return schema_id
 
     def lookup_domain(self, domain):
@@ -647,9 +647,9 @@ class MSOModule(object):
 
         d = self.get_obj('auth/domains', key='domains', name=domain)
         if not d:
-            self.module.fail_json(msg="Domain '%s' is not a valid domain name." % domain)
+            self.fail_json(msg="Domain '%s' is not a valid domain name." % domain)
         if 'id' not in d:
-            self.module.fail_json(msg="Domain lookup failed for domain '%s': %s" % (domain, d))
+            self.fail_json(msg="Domain lookup failed for domain '%s': %s" % (domain, d))
         return d.get('id')
 
     def lookup_roles(self, roles):
@@ -667,9 +667,9 @@ class MSOModule(object):
                     access_type = 'readOnly'
             r = self.get_obj('roles', name=name)
             if not r:
-                self.module.fail_json(msg="Role '%s' is not a valid role name." % name)
+                self.fail_json(msg="Role '%s' is not a valid role name." % name)
             if 'id' not in r:
-                self.module.fail_json(msg="Role lookup failed for role '%s': %s" % (name, r))
+                self.fail_json(msg="Role lookup failed for role '%s': %s" % (name, r))
             ids.append(dict(roleId=r.get('id'), accessType=access_type))
         return ids
 
@@ -680,9 +680,9 @@ class MSOModule(object):
 
         s = self.get_obj('sites', name=site)
         if not s:
-            self.module.fail_json(msg="Site '%s' is not a valid site name." % site)
+            self.fail_json(msg="Site '%s' is not a valid site name." % site)
         if 'id' not in s:
-            self.module.fail_json(msg="Site lookup failed for site '%s': %s" % (site, s))
+            self.fail_json(msg="Site lookup failed for site '%s': %s" % (site, s))
         return s.get('id')
 
     def lookup_sites(self, sites):
@@ -694,9 +694,9 @@ class MSOModule(object):
         for site in sites:
             s = self.get_obj('sites', name=site)
             if not s:
-                self.module.fail_json(msg="Site '%s' is not a valid site name." % site)
+                self.fail_json(msg="Site '%s' is not a valid site name." % site)
             if 'id' not in s:
-                self.module.fail_json(msg="Site lookup failed for site '%s': %s" % (site, s))
+                self.fail_json(msg="Site lookup failed for site '%s': %s" % (site, s))
             ids.append(dict(siteId=s.get('id'), securityDomains=[]))
         return ids
 
@@ -707,9 +707,9 @@ class MSOModule(object):
 
         t = self.get_obj('tenants', key='tenants', name=tenant)
         if not t:
-            self.module.fail_json(msg="Tenant '%s' is not valid tenant name." % tenant)
+            self.fail_json(msg="Tenant '%s' is not valid tenant name." % tenant)
         if 'id' not in t:
-            self.module.fail_json(msg="Tenant lookup failed for tenant '%s': %s" % (tenant, t))
+            self.fail_json(msg="Tenant lookup failed for tenant '%s': %s" % (tenant, t))
         return t.get('id')
 
     def lookup_remote_location(self, remote_location):
@@ -719,7 +719,7 @@ class MSOModule(object):
 
         remote = self.get_obj('platform/remote-locations', key='remoteLocations', name=remote_location)
         if 'id' not in remote:
-            self.module.fail_json(msg="No remote location found for remote '%s'" % (remote_location))
+            self.fail_json(msg="No remote location found for remote '%s'" % (remote_location))
         remote_info = dict(id=remote.get('id'), path=remote.get('credential')['remotePath'])
         return remote_info
 
@@ -733,12 +733,12 @@ class MSOModule(object):
         for user in users:
             u = self.get_obj('users', username=user)
             if not u:
-                self.module.fail_json(msg="User '%s' is not a valid user name." % user)
+                self.fail_json(msg="User '%s' is not a valid user name." % user)
             if 'id' not in u:
                 self.module.fail_json(msg="User lookup failed for user '%s': %s" % (user, u))
             id = dict(userId=u.get('id'))
             if id in ids:
-                self.module.fail_json(msg="User '%s' is duplicate." % user)
+                self.fail_json(msg="User '%s' is duplicate." % user)
             ids.append(id)
 
         if 'admin' not in users:
@@ -760,7 +760,7 @@ class MSOModule(object):
             if not label_obj:
                 label_obj = self.create_label(label, label_type)
             if 'id' not in label_obj:
-                self.module.fail_json(msg="Label lookup failed for label '%s': %s" % (label, label_obj))
+                self.fail_json(msg="Label lookup failed for label '%s': %s" % (label, label_obj))
             ids.append(label_obj.get('id'))
         return ids
 
@@ -828,7 +828,7 @@ class MSOModule(object):
                 }
                 return result
             else:
-                self.module.fail_json(msg="There was no group in search: {data}".format(data=data))
+                self.fail_json(msg="There was no group in search: {data}".format(data=data))
 
     def make_reference(self, data, reftype, schema_id, template):
         ''' Create a reference from a dictionary '''

@@ -98,14 +98,16 @@
     that:
     - error_on_invalid_path is failed
     - error_on_invalid_path.status == 404
-  when: version.current.version is version('3.0.0a', '<')
+  when: version.current.version is version('3.0.0a', '<') or version.current.version is version('3.2', '>=')
 
 - name: Verify error_on_invalid_path
   assert:
     that:
     - error_on_invalid_path is failed
     - error_on_invalid_path.status == 405
-  when: version.current.version is version('3.0.0a', '>=')
+  when:
+  - version.current.version is version('3.0.0a', '>=')
+  - version.current.version is version('3.2', '<')
 
 - name: Error when attributes are missing
   cisco.mso.mso_rest:

@@ -58,7 +58,7 @@
     template: Template 1
     bd: CLIENT_BD
     vrf:
-      name: VRF_1
+      name: VRF1
     state: present
   ignore_errors: yes
 
@@ -67,6 +67,7 @@
     <<: *mso_info
     dhcp_relay_policy: '{{ item }}'
     state: absent
+  ignore_errors: yes
   loop:
   - ansible_dhcp_relay_1
   - ansible_dhcp_relay_2
@@ -86,6 +87,7 @@
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
+  ignore_errors: yes
   loop:
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
@@ -95,6 +97,7 @@
     <<: *mso_info
     tenant: ansible_test
     state: absent
+  ignore_errors: yes
 
 # QUERY SCHEMAS
 - name: Query schema
@@ -102,7 +105,6 @@
     <<: *mso_info
     path: /mso/api/v1/schemas
     method: get
-  delegate_to: localhost
   register: query_all_schema
 
 - name: Verify query_all_schema in json_inline
@@ -115,7 +117,7 @@
   mso_user:
     <<: *mso_info
     state: query
-    user: ansible_github_ci
+    user: '{{ mso_username }}'
   check_mode: yes
   register: query_user_id
 
@@ -123,7 +125,7 @@
   assert:
     that:
     - query_user_id is not changed
-    - query_user_id.current.username == 'ansible_github_ci'
+    - query_user_id.current.username == '{{ mso_username }}'
 
 # ADD tenant
 - name: Add tenant
@@ -142,7 +144,6 @@
           }],
           "_updateVersion": 0,
       }
-  delegate_to: localhost
   register: add_tenant
 
 - name: Verify add_tenant in json_inline
@@ -178,7 +179,6 @@
           "sites": [],
           "_updateVersion": 0
       }
-  delegate_to: localhost
   register: add_schema
 
 - name: Verify add_schema in json_inline
@@ -215,7 +215,6 @@
           "sites": [],
           "_updateVersion": 0
       }
-  delegate_to: localhost
   register: put_schema
 
 - name: Verify put_schema in json_inline
@@ -239,7 +238,6 @@
               "_updateVersion": 0
           }
       ]
-  delegate_to: localhost
   register: patch_schema
 
 - name: Verify patch_schema in json_inline
@@ -254,7 +252,6 @@
     <<: *mso_info
     path: "/mso/api/v1/schemas/{{ add_schema.jsondata.id }}"
     method: delete
-  delegate_to: localhost
   register: delete_schema
 
 - name: Verify delete_schema in json_inline
@@ -269,7 +266,6 @@
     <<: *mso_info
     path: "/mso/api/v1/tenants/{{ add_tenant.jsondata.id }}"
     method: delete
-  delegate_to: localhost
   register: delete_tenant
 
 - name: Verify delete_tenant in json_inline

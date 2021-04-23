@@ -8,345 +8,328 @@
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
 
-# CLEAN ENVIRONMENT
-- name: Remove user ansible_test
-  mso_user: &user_absent
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
-    user: '{{ item }}'
-    state: absent
-  loop:
-  - ansible_test
-  - ansible_test2
-  - ansible_test_read
-  - ansible_test_read_2
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
 
-# ADD USER
-- name: Add user (check_mode)
-  mso_user: &user_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
-    user: ansible_test
-    user_password: 'S0m3!1n1t14l!p455w0rd'
-    # NOTE: First name, last name, phone and email are mandatory on creation
-    first_name: Ansible
-    last_name: Test
-    email: mso@cisco.com
-    phone: +32 478 436 299
-    account_status: active
-    roles:
-    - name: powerUser
-      access_type: write
-    domain: Local
-    state: present
-  check_mode: yes
-  register: cm_add_user
+- name: Execute tasks only for MSO version < 3.2
+  when: version.current.version is version('3.2', '<')
+  block:
+  # CLEAN ENVIRONMENT
+  - name: Remove user ansible_test
+    mso_user: &user_absent
+      <<: *mso_info
+      user: '{{ item }}'
+      state: absent
+    loop:
+    - ansible_test
+    - ansible_test2
+    - ansible_test_read
+    - ansible_test_read_2
 
-- name: Verify cm_add_user
-  assert:
-    that:
-    - cm_add_user is changed
-    - cm_add_user.previous == {}
-    - cm_add_user.current.id is not defined
-    - cm_add_user.current.username == 'ansible_test'
-    - cm_add_user.current.lastName == 'Test'
-    - cm_add_user.current.firstName == 'Ansible'
-    - cm_add_user.current.emailAddress == 'mso@cisco.com'
-    - cm_add_user.current.phoneNumber == '+32 478 436 299'
-    - cm_add_user.current.accountStatus == 'active'
-    - cm_add_user.current.roles[0].accessType == 'readWrite'
+  # ADD USER
+  - name: Add user (check_mode)
+    mso_user: &user_present
+      <<: *mso_info
+      user: ansible_test
+      user_password: 'S0m3!1n1t14l!p455w0rd'
+      # NOTE: First name, last name, phone and email are mandatory on creation
+      first_name: Ansible
+      last_name: Test
+      email: mso@cisco.com
+      phone: +32 478 436 299
+      account_status: active
+      roles:
+      - name: powerUser
+        access_type: write
+      domain: Local
+      state: present
+    check_mode: yes
+    register: cm_add_user
 
-- name: Add user (normal mode)
-  mso_user: *user_present
-  register: nm_add_user
+  - name: Verify cm_add_user
+    assert:
+      that:
+      - cm_add_user is changed
+      - cm_add_user.previous == {}
+      - cm_add_user.current.id is not defined
+      - cm_add_user.current.username == 'ansible_test'
+      - cm_add_user.current.lastName == 'Test'
+      - cm_add_user.current.firstName == 'Ansible'
+      - cm_add_user.current.emailAddress == 'mso@cisco.com'
+      - cm_add_user.current.phoneNumber == '+32 478 436 299'
+      - cm_add_user.current.accountStatus == 'active'
+      - cm_add_user.current.roles[0].accessType == 'readWrite'
 
-- name: Verify nm_add_user
-  assert:
-    that:
-    - nm_add_user is changed
-    - nm_add_user.previous == {}
-    - nm_add_user.current.id is defined
-    - nm_add_user.current.username == 'ansible_test'
-    - nm_add_user.current.lastName == 'Test'
-    - nm_add_user.current.firstName == 'Ansible'
-    - nm_add_user.current.emailAddress == 'mso@cisco.com'
-    - nm_add_user.current.phoneNumber == '+32 478 436 299'
-    - nm_add_user.current.accountStatus == 'active'
-    - nm_add_user.current.roles[0].accessType == 'readWrite'
+  - name: Add user (normal mode)
+    mso_user: *user_present
+    register: nm_add_user
 
-- name: Add user again (check_mode)
-  mso_user:
-    <<: *user_present
-    # NOTE: We need to modify the password for a new user
-    user_password: 'S0m3!n3w!p455w0rd'
-  check_mode: yes
-  register: cm_add_user_again
+  - name: Verify nm_add_user
+    assert:
+      that:
+      - nm_add_user is changed
+      - nm_add_user.previous == {}
+      - nm_add_user.current.id is defined
+      - nm_add_user.current.username == 'ansible_test'
+      - nm_add_user.current.lastName == 'Test'
+      - nm_add_user.current.firstName == 'Ansible'
+      - nm_add_user.current.emailAddress == 'mso@cisco.com'
+      - nm_add_user.current.phoneNumber == '+32 478 436 299'
+      - nm_add_user.current.accountStatus == 'active'
+      - nm_add_user.current.roles[0].accessType == 'readWrite'
 
-- name: Verify cm_add_user_again
-  assert:
-    that:
-    - cm_add_user_again is changed
-    - cm_add_user_again.previous.username == 'ansible_test'
-    - cm_add_user_again.current.id == nm_add_user.current.id
-    - cm_add_user_again.current.username == 'ansible_test'
+  - name: Add user again (check_mode)
+    mso_user:
+      <<: *user_present
+      # NOTE: We need to modify the password for a new user
+      user_password: 'S0m3!n3w!p455w0rd'
+    check_mode: yes
+    register: cm_add_user_again
 
-- name: Add user again (normal mode)
-  mso_user:
-    <<: *user_present
-    # NOTE: We need to modify the password for a new user
-    user_password: 'S0m3!n3w!p455w0rd'
-  register: nm_add_user_again
+  - name: Verify cm_add_user_again
+    assert:
+      that:
+      - cm_add_user_again is changed
+      - cm_add_user_again.previous.username == 'ansible_test'
+      - cm_add_user_again.current.id == nm_add_user.current.id
+      - cm_add_user_again.current.username == 'ansible_test'
 
-- name: Verify nm_add_user_again
-  assert:
-    that:
-    - nm_add_user_again is changed
-    - nm_add_user_again.previous.username == 'ansible_test'
-    - nm_add_user_again.current.id == nm_add_user.current.id
-    - nm_add_user_again.current.username == 'ansible_test'
+  - name: Add user again (normal mode)
+    mso_user:
+      <<: *user_present
+      # NOTE: We need to modify the password for a new user
+      user_password: 'S0m3!n3w!p455w0rd'
+    register: nm_add_user_again
 
-- name: Add user with read only role (check_mode)
-  mso_user: &user_present2
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
-    user: ansible_test_read
-    user_password: '#123455#123455Aa'
-    # NOTE: First name, last name, phone and email are mandatory on creation
-    first_name: Ansible2
-    last_name: Test2
-    email: mso3@cisco.com
-    phone: +32 478 436 299
-    account_status: active
-    roles:
-    - name: powerUser
-      access_type: read
-    domain: Local
-    state: present
-  check_mode: yes
-  register: cm_add_user2
+  - name: Verify nm_add_user_again
+    assert:
+      that:
+      - nm_add_user_again is changed
+      - nm_add_user_again.previous.username == 'ansible_test'
+      - nm_add_user_again.current.id == nm_add_user.current.id
+      - nm_add_user_again.current.username == 'ansible_test'
 
-- name: Verify cm_add_user2
-  assert:
-    that:
-    - cm_add_user2 is changed
-    - cm_add_user2.previous == {}
-    - cm_add_user2.current.id is not defined
-    - cm_add_user2.current.username == 'ansible_test_read'
-    - cm_add_user2.current.lastName == 'Test2'
-    - cm_add_user2.current.firstName == 'Ansible2'
-    - cm_add_user2.current.emailAddress == 'mso3@cisco.com'
-    - cm_add_user2.current.phoneNumber == '+32 478 436 299'
-    - cm_add_user2.current.accountStatus == 'active'
-    - cm_add_user2.current.roles[0].accessType == 'readOnly'
+  - name: Add user with read only role (check_mode)
+    mso_user: &user_present2
+      <<: *mso_info
+      user: ansible_test_read
+      user_password: '#123455#123455Aa'
+      # NOTE: First name, last name, phone and email are mandatory on creation
+      first_name: Ansible2
+      last_name: Test2
+      email: mso3@cisco.com
+      phone: +32 478 436 299
+      account_status: active
+      roles:
+      - name: powerUser
+        access_type: read
+      domain: Local
+      state: present
+    check_mode: yes
+    register: cm_add_user2
 
-- name: Add user with read only role (normal mode)
-  mso_user: *user_present2
-  register: nm_add_user2
+  - name: Verify cm_add_user2
+    assert:
+      that:
+      - cm_add_user2 is changed
+      - cm_add_user2.previous == {}
+      - cm_add_user2.current.id is not defined
+      - cm_add_user2.current.username == 'ansible_test_read'
+      - cm_add_user2.current.lastName == 'Test2'
+      - cm_add_user2.current.firstName == 'Ansible2'
+      - cm_add_user2.current.emailAddress == 'mso3@cisco.com'
+      - cm_add_user2.current.phoneNumber == '+32 478 436 299'
+      - cm_add_user2.current.accountStatus == 'active'
+      - cm_add_user2.current.roles[0].accessType == 'readOnly'
 
-- name: Verify nm_add_user2
-  assert:
-    that:
-    - nm_add_user2 is changed
-    - nm_add_user2.current.id is defined
-    - nm_add_user2.current.username == 'ansible_test_read'
-    - nm_add_user2.current.lastName == 'Test2'
-    - nm_add_user2.current.firstName == 'Ansible2'
-    - nm_add_user2.current.emailAddress == 'mso3@cisco.com'
-    - nm_add_user2.current.phoneNumber == '+32 478 436 299'
-    - nm_add_user2.current.accountStatus == 'active'
-    - nm_add_user2.current.roles[0].accessType == 'readOnly'
+  - name: Add user with read only role (normal mode)
+    mso_user: *user_present2
+    register: nm_add_user2
 
-- name: Add user with read only role again (check mode)
-  mso_user: 
-    <<: *user_present2
-    user_password: '#123455#123455Aa'
-  check_mode: yes  
-  register: cm_add_user2_again
+  - name: Verify nm_add_user2
+    assert:
+      that:
+      - nm_add_user2 is changed
+      - nm_add_user2.current.id is defined
+      - nm_add_user2.current.username == 'ansible_test_read'
+      - nm_add_user2.current.lastName == 'Test2'
+      - nm_add_user2.current.firstName == 'Ansible2'
+      - nm_add_user2.current.emailAddress == 'mso3@cisco.com'
+      - nm_add_user2.current.phoneNumber == '+32 478 436 299'
+      - nm_add_user2.current.accountStatus == 'active'
+      - nm_add_user2.current.roles[0].accessType == 'readOnly'
 
-- name: Add user with read only role again (normal mode)
-  mso_user: *user_present2
-  register: nm_add_user2
+  - name: Add user with read only role again (check mode)
+    mso_user:
+      <<: *user_present2
+      user_password: '#123455#123455Aa'
+    check_mode: yes
+    register: cm_add_user2_again
 
-- name: Add user3 with read only role and no password (check_mode)
-  mso_user:  &user_present3
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
-    user: ansible_test_read_2
-    # NOTE: First name, last name, phone and email are mandatory on creation
-    first_name: Ansible3
-    #user_password: '#123455#123455Aa'
-    last_name: Test3
-    email: mso4@cisco.com
-    phone: +32 478 436 299
-    account_status: active
-    roles:
-    - name: powerUser
-      access_type: read
-    domain: Local
-    state: present
-  ignore_errors: yes
-  register: nm_add_user3
+  - name: Add user with read only role again (normal mode)
+    mso_user: *user_present2
+    register: nm_add_user2
 
-- name: Verify nm_add_user2
-  assert:
-    that:
-    - nm_add_user3.msg ==  "The user ansible_test_read_2 does not exist. The 'user_password' attribute is required to create a new user."
+  - name: Add user3 with read only role and no password (check_mode)
+    mso_user:  &user_present3
+      <<: *mso_info
+      user: ansible_test_read_2
+      # NOTE: First name, last name, phone and email are mandatory on creation
+      first_name: Ansible3
+      #user_password: '#123455#123455Aa'
+      last_name: Test3
+      email: mso4@cisco.com
+      phone: +32 478 436 299
+      account_status: active
+      roles:
+      - name: powerUser
+        access_type: read
+      domain: Local
+      state: present
+    ignore_errors: yes
+    register: nm_add_user3
 
-- name: Add user3 with read only role and with password (normal mode)
-  mso_user: 
-    <<: *user_present3
-    user_password: '#123455#123455Aa'
-  register: nm_add_user3_again
+  - name: Verify nm_add_user2
+    assert:
+      that:
+      - nm_add_user3.msg ==  "The user ansible_test_read_2 does not exist. The 'user_password' attribute is required to create a new user."
 
-- name: Verify nm_add_user3_again
-  assert:
-    that:
-    - nm_add_user3_again is changed
-    - nm_add_user3_again.current.id is defined
-    - nm_add_user3_again.current.username == 'ansible_test_read_2'
-    - nm_add_user3_again.current.lastName == 'Test3'
-    - nm_add_user3_again.current.firstName == 'Ansible3'
-    - nm_add_user3_again.current.emailAddress == 'mso4@cisco.com'
-    - nm_add_user3_again.current.phoneNumber == '+32 478 436 299'
-    - nm_add_user3_again.current.accountStatus == 'active'
-    - nm_add_user3_again.current.roles[0].accessType == 'readOnly'
+  - name: Add user3 with read only role and with password (normal mode)
+    mso_user:
+      <<: *user_present3
+      user_password: '#123455#123455Aa'
+    register: nm_add_user3_again
 
-# CHANGE USER
-- name: Change user (check_mode)
-  mso_user: &user_change
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
-    user: ansible_test
-    roles:
-    - name: powerUser
-      access_type: write
-    domain: Local
-    state: present
-    # FIXME: Add support for name change
-    email: mso2@cisco.com
-    phone: +32 478 436 300
-  check_mode: yes
-  register: cm_change_user
+  - name: Verify nm_add_user3_again
+    assert:
+      that:
+      - nm_add_user3_again is changed
+      - nm_add_user3_again.current.id is defined
+      - nm_add_user3_again.current.username == 'ansible_test_read_2'
+      - nm_add_user3_again.current.lastName == 'Test3'
+      - nm_add_user3_again.current.firstName == 'Ansible3'
+      - nm_add_user3_again.current.emailAddress == 'mso4@cisco.com'
+      - nm_add_user3_again.current.phoneNumber == '+32 478 436 299'
+      - nm_add_user3_again.current.accountStatus == 'active'
+      - nm_add_user3_again.current.roles[0].accessType == 'readOnly'
 
-- name: Verify cm_change_user
-  assert:
-    that:
-    - cm_change_user is changed
-    - cm_change_user.current.id == nm_add_user.current.id
-    - cm_change_user.current.username == 'ansible_test'
-    - cm_change_user.current.emailAddress == 'mso2@cisco.com'
-    - cm_change_user.current.phoneNumber == '+32 478 436 300'
+  # CHANGE USER
+  - name: Change user (check_mode)
+    mso_user: &user_change
+      <<: *mso_info
+      user: ansible_test
+      roles:
+      - name: powerUser
+        access_type: write
+      domain: Local
+      state: present
+      # FIXME: Add support for name change
+      email: mso2@cisco.com
+      phone: +32 478 436 300
+    check_mode: yes
+    register: cm_change_user
 
-- name: Change user (normal mode)
-  mso_user:
-    <<: *user_change
-    output_level: debug
-  register: nm_change_user
+  - name: Verify cm_change_user
+    assert:
+      that:
+      - cm_change_user is changed
+      - cm_change_user.current.id == nm_add_user.current.id
+      - cm_change_user.current.username == 'ansible_test'
+      - cm_change_user.current.emailAddress == 'mso2@cisco.com'
+      - cm_change_user.current.phoneNumber == '+32 478 436 300'
 
-- name: Verify nm_change_user
-  assert:
-    that:
-    - nm_change_user is changed
-    - nm_change_user.current.id == nm_add_user.current.id
-    - nm_change_user.current.username == 'ansible_test'
-    - nm_change_user.current.emailAddress == 'mso2@cisco.com'
-    - nm_change_user.current.phoneNumber == '+32 478 436 300'
+  - name: Change user (normal mode)
+    mso_user:
+      <<: *user_change
+      output_level: debug
+    register: nm_change_user
 
-- name: Change user again (check_mode)
-  mso_user:
-    <<: *user_change
-  check_mode: yes
-  register: cm_change_user_again
+  - name: Verify nm_change_user
+    assert:
+      that:
+      - nm_change_user is changed
+      - nm_change_user.current.id == nm_add_user.current.id
+      - nm_change_user.current.username == 'ansible_test'
+      - nm_change_user.current.emailAddress == 'mso2@cisco.com'
+      - nm_change_user.current.phoneNumber == '+32 478 436 300'
 
-- name: Verify cm_change_user_again
-  assert:
-    that:
-    - cm_change_user_again is not changed
-    - cm_change_user_again.current.id == nm_add_user.current.id
-    - cm_change_user_again.current.username == 'ansible_test'
-    - cm_change_user_again.current.emailAddress == 'mso2@cisco.com'
-    - cm_change_user_again.current.phoneNumber == '+32 478 436 300'
+  - name: Change user again (check_mode)
+    mso_user:
+      <<: *user_change
+    check_mode: yes
+    register: cm_change_user_again
 
-- name: Change user again (normal mode)
-  mso_user:
-    <<: *user_change
-  register: nm_change_user_again
+  - name: Verify cm_change_user_again
+    assert:
+      that:
+      - cm_change_user_again is not changed
+      - cm_change_user_again.current.id == nm_add_user.current.id
+      - cm_change_user_again.current.username == 'ansible_test'
+      - cm_change_user_again.current.emailAddress == 'mso2@cisco.com'
+      - cm_change_user_again.current.phoneNumber == '+32 478 436 300'
 
-- name: Verify nm_change_user_again
-  assert:
-    that:
-    - nm_change_user_again is not changed
-    - nm_change_user_again.current.id == nm_add_user.current.id
-    - nm_change_user_again.current.username == 'ansible_test'
-    - nm_change_user_again.current.emailAddress == 'mso2@cisco.com'
-    - nm_change_user_again.current.phoneNumber == '+32 478 436 300'
+  - name: Change user again (normal mode)
+    mso_user:
+      <<: *user_change
+    register: nm_change_user_again
 
-- name: Add second user
-  mso_user:
-    <<: *user_change
-    user: ansible_test2
-    user_password: 'S0m3!1n1t14l!p455w0rd'
-    first_name: Ansible
-    last_name: Test
-    roles:
-    - powerUser
-    state: present
-  register: nm_add_user_2
+  - name: Verify nm_change_user_again
+    assert:
+      that:
+      - nm_change_user_again is not changed
+      - nm_change_user_again.current.id == nm_add_user.current.id
+      - nm_change_user_again.current.username == 'ansible_test'
+      - nm_change_user_again.current.emailAddress == 'mso2@cisco.com'
+      - nm_change_user_again.current.phoneNumber == '+32 478 436 300'
 
-- name: Change user 2 again (normal mode)
-  mso_user:
-    <<: *user_change
-    user: ansible_test2
-    user_password: null
-    first_name: Ansible
-    last_name: Test
-  register: nm_change_user_2_again
+  - name: Add second user
+    mso_user:
+      <<: *user_change
+      user: ansible_test2
+      user_password: 'S0m3!1n1t14l!p455w0rd'
+      first_name: Ansible
+      last_name: Test
+      roles:
+      - powerUser
+      state: present
+    register: nm_add_user_2
 
-- name: Verify nm_change_user_2_again
-  assert:
-    that:
-    - nm_change_user_2_again is not changed
-    - nm_change_user_2_again.current.id == nm_add_user_2.current.id
-    - nm_change_user_2_again.current.username == 'ansible_test2'
+  - name: Change user 2 again (normal mode)
+    mso_user:
+      <<: *user_change
+      user: ansible_test2
+      user_password: null
+      first_name: Ansible
+      last_name: Test
+    register: nm_change_user_2_again
 
-# TODO: Add query with user ansible_test2 to try if user can login.
+  - name: Verify nm_change_user_2_again
+    assert:
+      that:
+      - nm_change_user_2_again is not changed
+      - nm_change_user_2_again.current.id == nm_add_user_2.current.id
+      - nm_change_user_2_again.current.username == 'ansible_test2'
+
+  # TODO: Add query with user ansible_test2 to try if user can login.
 
 # QUERY ALL USERS
 - name: Query all users (check_mode)
   mso_user: &user_query
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     state: query
   check_mode: yes
   register: cm_query_all_users
@@ -368,93 +351,102 @@
 - name: Query our user
   mso_user:
     <<: *user_query
-    user: ansible_test
+    user: '{{ mso_username }}'
   check_mode: yes
   register: cm_query_user
 
 - name: Query our user
   mso_user:
     <<: *user_query
-    user: ansible_test
+    user: '{{ mso_username }}'
   register: nm_query_user
 
 - name: Verify query_user
   assert:
     that:
     - cm_query_user is not changed
-    - cm_query_user.current.id == nm_add_user.current.id
-    - cm_query_user.current.username == 'ansible_test'
+    - cm_query_user.current.id is defined
+    - cm_query_user.current.username == '{{ mso_username }}'
     - nm_query_user is not changed
-    - nm_query_user.current.id == nm_add_user.current.id
-    - nm_query_user.current.username == 'ansible_test'
+    - nm_query_user.current.id is defined
+    - nm_query_user.current.username == '{{ mso_username }}'
     - cm_query_user == nm_query_user
 
-- name: Query our read-only user
-  mso_user:
-    <<: *user_query
-    user: ansible_test_read
-  register: nm_query_user2
+- name: Execute tasks only for MSO version < 3.2
+  when: version.current.version is version('3.2', '<')
+  block:
+  - name: Verify query_user and add_user have same id
+    assert:
+      that:
+      - cm_query_user.current.id == nm_add_user.current.id
+      - nm_query_user.current.id == nm_add_user.current.id
 
-- name: Verify query_user2
-  assert:
-    that:
-    - nm_query_user2 is not changed
-    - nm_query_user2.current.roles[0].accessType == 'readOnly'
+  - name: Query our read-only user
+    mso_user:
+      <<: *user_query
+      user: ansible_test_read
+    register: nm_query_user2
 
-# REMOVE USER
-- name: Remove user (check_mode)
-  mso_user: 
-    <<: *user_absent
-    user: ansible_test
-    state: absent
-  check_mode: yes
-  register: cm_remove_user
+  - name: Verify query_user2
+    assert:
+      that:
+      - nm_query_user2 is not changed
+      - nm_query_user2.current.roles[0].accessType == 'readOnly'
 
-- name: Verify cm_remove_user
-  assert:
-    that:
-    - cm_remove_user is changed
-    - cm_remove_user.current == {}
+  # REMOVE USER
+  - name: Remove user (check_mode)
+    mso_user:
+      <<: *user_absent
+      user: ansible_test
+      state: absent
+    check_mode: yes
+    register: cm_remove_user
 
-- name: Remove user (normal mode)
-  mso_user:
-    <<: *user_absent
-    user: ansible_test
-    state: absent
-  register: nm_remove_user
+  - name: Verify cm_remove_user
+    assert:
+      that:
+      - cm_remove_user is changed
+      - cm_remove_user.current == {}
 
-- name: Verify nm_remove_user
-  assert:
-    that:
-    - nm_remove_user is changed
-    - nm_remove_user.current == {}
+  - name: Remove user (normal mode)
+    mso_user:
+      <<: *user_absent
+      user: ansible_test
+      state: absent
+    register: nm_remove_user
 
-- name: Remove user again (check_mode)
-  mso_user:
-    <<: *user_absent
-    user: ansible_test
-    state: absent
-  check_mode: yes
-  register: cm_remove_user_again
+  - name: Verify nm_remove_user
+    assert:
+      that:
+      - nm_remove_user is changed
+      - nm_remove_user.current == {}
 
-- name: Verify cm_remove_user_again
-  assert:
-    that:
-    - cm_remove_user_again is not changed
-    - cm_remove_user_again.current == {}
+  - name: Remove user again (check_mode)
+    mso_user:
+      <<: *user_absent
+      user: ansible_test
+      state: absent
+    check_mode: yes
+    register: cm_remove_user_again
 
-- name: Remove user again (normal mode)
-  mso_user:
-    <<: *user_absent
-    user: ansible_test
-    state: absent
-  register: nm_remove_user_again
+  - name: Verify cm_remove_user_again
+    assert:
+      that:
+      - cm_remove_user_again is not changed
+      - cm_remove_user_again.current == {}
 
-- name: Verify nm_remove_user_again
-  assert:
-    that:
-    - nm_remove_user_again is not changed
-    - nm_remove_user_again.current == {}
+  - name: Remove user again (normal mode)
+    mso_user:
+      <<: *user_absent
+      user: ansible_test
+      state: absent
+    register: nm_remove_user_again
+
+  - name: Verify nm_remove_user_again
+    assert:
+      that:
+      - nm_remove_user_again is not changed
+      - nm_remove_user_again.current == {}
 
 # QUERY NON-EXISTING USER
 - name: Query non-existing user (check_mode)
@@ -478,45 +470,48 @@
     - nm_query_non_user is not changed
     - cm_query_non_user == nm_query_non_user
 
-- name: inactive user (check_mode)
-  mso_user:
-    <<: *user_present
-    account_status: inactive
-  check_mode: yes
-  register: cm_inactive_user
+- name: Execute tasks only for MSO version < 3.2
+  when: version.current.version is version('3.2', '<')
+  block:
+  - name: inactive user (check_mode)
+    mso_user:
+      <<: *user_present
+      account_status: inactive
+    check_mode: yes
+    register: cm_inactive_user
 
-- name: inactive user (normal_mode)
-  mso_user: 
-    <<: *user_present
-    account_status: inactive
-  register: nm_inactive_user
+  - name: inactive user (normal_mode)
+    mso_user:
+      <<: *user_present
+      account_status: inactive
+    register: nm_inactive_user
 
-- name: Verify cm_inactive_user and nm_inactive_user
-  assert:
-    that:
-    - cm_inactive_user is changed
-    - nm_inactive_user is changed
-    - cm_inactive_user.current.accountStatus == "inactive"
-    - nm_inactive_user.current.accountStatus == "inactive"
+  - name: Verify cm_inactive_user and nm_inactive_user
+    assert:
+      that:
+      - cm_inactive_user is changed
+      - nm_inactive_user is changed
+      - cm_inactive_user.current.accountStatus == "inactive"
+      - nm_inactive_user.current.accountStatus == "inactive"
 
 
-- name: active user (check_mode)
-  mso_user:
-    <<: *user_present
-    account_status: active
-  check_mode: yes
-  register: cm_active_user
+  - name: active user (check_mode)
+    mso_user:
+      <<: *user_present
+      account_status: active
+    check_mode: yes
+    register: cm_active_user
 
-- name: active user (normal_mode)
-  mso_user: 
-    <<: *user_present
-    account_status: active
-  register: nm_active_user
+  - name: active user (normal_mode)
+    mso_user:
+      <<: *user_present
+      account_status: active
+    register: nm_active_user
 
-- name: Verify cm_active_user and nm_active_user
-  assert:
-    that:
-    - cm_active_user is changed
-    - nm_active_user is changed
-    - cm_active_user.previous.accountStatus == nm_active_user.previous.accountStatus == "inactive"
-    - cm_active_user.current.accountStatus == nm_active_user.current.accountStatus == "active"
+  - name: Verify cm_active_user and nm_active_user
+    assert:
+      that:
+      - cm_active_user is changed
+      - nm_active_user is changed
+      - cm_active_user.previous.accountStatus == nm_active_user.previous.accountStatus == "inactive"
+      - cm_active_user.current.accountStatus == nm_active_user.current.accountStatus == "active"

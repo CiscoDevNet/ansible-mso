@@ -36,7 +36,7 @@ options:
     type: str
   output_level:
     description:
-    - Influence the output of this ACI module.
+    - Influence the output of this MSO module.
     - C(normal) means the standard output, incl. C(current) dict
     - C(info) adds informational output, incl. C(previous), C(proposed) and C(sent) dicts
     - C(debug) adds debugging output, incl. C(filter_string), C(method), C(response), C(status) and C(url) information
@@ -78,6 +78,6 @@ options:
 requirements:
 - Multi Site Orchestrator v2.1 or newer
 notes:
-- Please read the :ref:`aci_guide` for more detailed information on how to manage your ACI infrastructure using Ansible.
-- This module was written to support ACI Multi Site Orchestrator v2.1 or newer. Some or all functionality may not work on earlier versions.
+- Please read the :ref:`aci_guide` for more detailed information on how to manage your MSO infrastructure using Ansible.
+- This module was written to support Multi Site Orchestrator v2.1 or newer. Some or all functionality may not work on earlier versions.
 '''

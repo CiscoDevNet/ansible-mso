@@ -350,7 +350,6 @@ def main():
     elif state == 'present':
         bd_ref = mso.make_reference(bd, 'bd', schema_id, template)
         vrf_ref = mso.make_reference(vrf, 'vrf', schema_id, template)
-        mso.stdout = str(subnets)
         subnets = mso.make_subnets(subnets)
 
         if display_name is None and not mso.existing:

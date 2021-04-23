@@ -31,8 +31,8 @@
   set_fact:
     mso_rw: true
   when:
-  - version.current.version[0] | int <= 2
-  - version.current.version[:5] != '2.2.4'
+  - version.current.version is version('3', '<')
+  - version.current.version is version('2.2.4', '!=')
 
 - name: Import tasks if RW of role in this MSO version
   import_tasks: role-rw.yml
@@ -40,4 +40,6 @@
 
 - name: Import tasks if RO of role in this MSO version
   import_tasks: role-ro.yml
-  when: mso_rw is not defined
+  when:
+  - mso_rw is not defined
+  - version.current.version is version('3.2', '<')

@@ -89,7 +89,7 @@
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
-- name: Remove tenant ansible_test
+- name: Remove tenants
   mso_tenant: &tenant_absent
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
@@ -98,21 +98,14 @@
     use_ssl: '{{ mso_use_ssl | default(true) }}'
     use_proxy: '{{ mso_use_proxy | default(true) }}'
     output_level: '{{ mso_output_level | default("info") }}'
-    tenant: ansible_test
+    tenant: '{{ item }}'
     state: absent
-
-- name: Remove tenant ansible_test2
-  mso_tenant:
-    <<: *tenant_absent
-    tenant: ansible_test2
-  register: cm_remove_tenant2
-
-- name: Remove tenant ansible_test3
-  mso_tenant:
-    <<: *tenant_absent
-    tenant: ansible_test3
-  register: cm_remove_tenant3
-
+  loop:
+  - ansible_test
+  - ansible_test2
+  - ansible_test3
+  - tenant_with_site
+  
 # ADD TENANT
 - name: Add tenant (check_mode)
   mso_tenant: &tenant_present
@@ -419,12 +412,14 @@
     - nm_query_tenant.current.id == nm_add_tenant.current.id
     - nm_query_tenant.current.name == 'ansible_test'
     - nm_query_tenant.current.description == 'Ansible test tenant 2'
-    - cm_query_tenant == nm_query_tenant
+    - cm_query_tenant.current == nm_query_tenant.current
 
 
 # REMOVE TENANT
 - name: Remove tenant (check_mode)
-  mso_tenant: *tenant_absent
+  mso_tenant: 
+    <<: *tenant_absent
+    tenant: ansible_test
   check_mode: yes
   register: cm_remove_tenant
 
@@ -435,7 +430,9 @@
     - cm_remove_tenant.current == {}
 
 - name: Remove tenant (normal mode)
-  mso_tenant: *tenant_absent
+  mso_tenant: 
+    <<: *tenant_absent
+    tenant: ansible_test
   register: nm_remove_tenant
 
 - name: Verify nm_remove_tenant
@@ -445,7 +442,9 @@
     - nm_remove_tenant.current == {}
 
 - name: Remove tenant again (check_mode)
-  mso_tenant: *tenant_absent
+  mso_tenant: 
+    <<: *tenant_absent
+    tenant: ansible_test
   check_mode: yes
   register: cm_remove_tenant_again
 
@@ -456,7 +455,9 @@
     - cm_remove_tenant_again.current == {}
 
 - name: Remove tenant again (normal mode)
-  mso_tenant: *tenant_absent
+  mso_tenant: 
+    <<: *tenant_absent
+    tenant: ansible_test
   register: nm_remove_tenant_again
 
 - name: Verify nm_remove_tenant_again
@@ -486,7 +487,7 @@
     that:
     - cm_query_non_tenant is not changed
     - nm_query_non_tenant is not changed
-    - cm_query_non_tenant == nm_query_non_tenant
+    - cm_query_non_tenant.current == nm_query_non_tenant.current
 
 - name: Add common tenant
   mso_tenant:

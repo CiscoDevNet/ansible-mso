@@ -28,8 +28,8 @@
     name: "{{ item }}"
     state: absent
   loop:
-  - ansible_test
-  - ansible_test_2
+  - ansibletest
+  - ansibletest2
   ignore_errors: yes
 
 - name: Stop consuming DHCP Policy
@@ -39,7 +39,7 @@
     template: Template 1
     bd: CLIENT_BD
     vrf:
-      name: VRF_1
+      name: VRF1
     state: present
   ignore_errors: yes
 
@@ -121,7 +121,7 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    vrf: VRF_1
+    vrf: VRF1
     state: present
 
 - name: Add BD
@@ -131,7 +131,7 @@
     template: Template 1
     bd: CLIENT_BD
     vrf:
-      name: VRF_1
+      name: VRF1
     state: present
 
 # ADD DHCP RELAY AND OPTION POLICY
@@ -156,7 +156,7 @@
   mso_dhcp_option_policy_option: &create_option
     <<: *mso_info
     dhcp_option_policy: ansible_dhcp_option_1
-    name: ansible_test
+    name: ansibletest
     id: 1
     data: DHCP Data
     state: present
@@ -173,7 +173,7 @@
     that:
     - dhcp_pol1_opt1_cm is changed
     - dhcp_pol1_opt1_nm is changed
-    - dhcp_pol1_opt1_cm.current.name == dhcp_pol1_opt1_nm.current.name == 'ansible_test'
+    - dhcp_pol1_opt1_cm.current.name == dhcp_pol1_opt1_nm.current.name == 'ansibletest'
     - dhcp_pol1_opt1_cm.current.id == dhcp_pol1_opt1_nm.current.id == '1'
     - dhcp_pol1_opt1_cm.current.data == dhcp_pol1_opt1_nm.current.data == 'DHCP Data'
 
@@ -193,7 +193,7 @@
     that:
     - dhcp_pol1_opt1_again_cm is not changed
     - dhcp_pol1_opt1_again_nm is not changed
-    - dhcp_pol1_opt1_again_cm.current.name == dhcp_pol1_opt1_again_nm.current.name == 'ansible_test'
+    - dhcp_pol1_opt1_again_cm.current.name == dhcp_pol1_opt1_again_nm.current.name == 'ansibletest'
     - dhcp_pol1_opt1_again_cm.current.id == dhcp_pol1_opt1_again_nm.current.id == '1'
     - dhcp_pol1_opt1_again_cm.current.data == dhcp_pol1_opt1_again_nm.current.data == 'DHCP Data'
 
@@ -215,21 +215,21 @@
     that:
     - dhcp_pol1_opt1_change_cm is changed
     - dhcp_pol1_opt1_change_nm is changed
-    - dhcp_pol1_opt1_change_cm.current.name == dhcp_pol1_opt1_change_nm.current.name == 'ansible_test'
+    - dhcp_pol1_opt1_change_cm.current.name == dhcp_pol1_opt1_change_nm.current.name == 'ansibletest'
     - dhcp_pol1_opt1_change_cm.current.id == dhcp_pol1_opt1_change_nm.current.id == '1'
     - dhcp_pol1_opt1_change_cm.current.data == dhcp_pol1_opt1_change_nm.current.data == 'Changed DHCP Data'
 
 - name: Add 2nd Option to DHCP Option Policy (check mode)
   mso_dhcp_option_policy_option:
     <<: *create_option
-    name: ansible_test_2
+    name: ansibletest2
   check_mode: yes
   register: dhcp_pol1_opt2_cm
 
 - name: Add 2nd Option to DHCP Option Policy (normal mode)
   mso_dhcp_option_policy_option:
     <<: *create_option
-    name: ansible_test_2
+    name: ansibletest2
   register: dhcp_pol1_opt2_nm
 
 - name: Verify dhcp_pol1_opt2
@@ -237,7 +237,7 @@
     that:
     - dhcp_pol1_opt2_cm is changed
     - dhcp_pol1_opt2_nm is changed
-    - dhcp_pol1_opt2_cm.current.name == dhcp_pol1_opt2_nm.current.name == 'ansible_test_2'
+    - dhcp_pol1_opt2_cm.current.name == dhcp_pol1_opt2_nm.current.name == 'ansibletest2'
     - dhcp_pol1_opt2_cm.current.id == dhcp_pol1_opt2_nm.current.id == '1'
     - dhcp_pol1_opt2_cm.current.data == dhcp_pol1_opt2_nm.current.data == 'DHCP Data'
 
@@ -246,7 +246,7 @@
   mso_dhcp_option_policy_option: &query_option
     <<: *mso_info
     dhcp_option_policy: ansible_dhcp_option_1
-    name: ansible_test
+    name: ansibletest
     state: query
   register: dhcp_pol1_opt1_query_cm
 
@@ -255,10 +255,10 @@
     <<: *query_option
   register: dhcp_pol1_opt1_query_nm
 
-- name: Query non_existing Option from DHCP Option Policy
+- name: Query nonexisting Option from DHCP Option Policy
   mso_dhcp_option_policy_option:
     <<: *query_option
-    name: non_existing
+    name: nonexisting
     state: query
   register: dhcp_pol1_opt1_query_non_existing
 
@@ -276,7 +276,7 @@
     - dhcp_pol1_opt1_query_nm is not changed
     - dhcp_pol1_opt1_query_non_existing is not changed
     - dhcp_pol1_query_all is not changed
-    - dhcp_pol1_opt1_query_cm.current.name == dhcp_pol1_opt1_query_nm.current.name == 'ansible_test'
+    - dhcp_pol1_opt1_query_cm.current.name == dhcp_pol1_opt1_query_nm.current.name == 'ansibletest'
     - dhcp_pol1_opt1_query_cm.current.id == dhcp_pol1_opt1_query_nm.current.id == '1'
     - dhcp_pol1_opt1_query_cm.current.data == dhcp_pol1_opt1_query_nm.current.data == 'Changed DHCP Data'
     - dhcp_pol1_opt1_query_non_existing.current == {}
@@ -287,7 +287,7 @@
   mso_dhcp_option_policy_option: &delete_option
     <<: *mso_info
     dhcp_option_policy: ansible_dhcp_option_1
-    name: ansible_test
+    name: ansibletest
     state: absent
   check_mode: yes
   register: dhcp_pol1_opt1_del_cm
@@ -325,7 +325,7 @@
 - name: Remove Non-Existing Option
   mso_dhcp_option_policy_option:
     <<: *delete_option
-    name: non_existing
+    name: nonexisting
   register: dhcp_pol1_opt1_del_nm_non_existing
 
 - name: Verify dhcp_pol1_opt1_del_nm_non_existing
@@ -356,7 +356,7 @@
     template: Template 1
     bd: CLIENT_BD
     vrf:
-      name: VRF_1
+      name: VRF1
     dhcp_policy:
       name: "{{ dhcp_relay_policy_version.current.name }}"
       version: "{{ dhcp_relay_policy_version.current.version | int }}"
@@ -373,7 +373,7 @@
     template: Template 1
     bd: CLIENT_BD
     vrf:
-      name: VRF_1
+      name: VRF1
     state: present
   register: bd_dhcp_policy
 
@@ -381,7 +381,7 @@
 - name: Query Option from DHCP Option Policy (check mode)
   mso_dhcp_option_policy_option:
     <<: *mso_info
-    dhcp_option_policy: non_existing
+    dhcp_option_policy: nonexisting
     state: query
   ignore_errors: yes
   register: dhcp_non_existing
@@ -390,4 +390,4 @@
   assert:
     that:
     - dhcp_non_existing is not changed
-    - dhcp_non_existing.msg == "DHCP Option Policy 'non_existing' is not a valid DHCP Option Policy name."
+    - dhcp_non_existing.msg == "DHCP Option Policy 'nonexisting' is not a valid DHCP Option Policy name."

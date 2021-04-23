@@ -731,12 +731,18 @@ class MSOModule(object):
 
         ids = []
         for user in users:
-            u = self.get_obj('users', username=user)
+            if self.platform == "nd":
+                u = self.get_obj('users', loginID=user)
+            else:
+                u = self.get_obj('users', username=user)
             if not u:
                 self.fail_json(msg="User '%s' is not a valid user name." % user)
             if 'id' not in u:
-                self.module.fail_json(msg="User lookup failed for user '%s': %s" % (user, u))
-            id = dict(userId=u.get('id'))
+                if 'userID' not in u:
+                    self.fail_json(msg="User lookup failed for user '%s': %s" % (user, u))
+                id = dict(userId=u.get('userID'))
+            else:
+                id = dict(userId=u.get('id'))
             if id in ids:
                 self.fail_json(msg="User '%s' is duplicate." % user)
             ids.append(id)

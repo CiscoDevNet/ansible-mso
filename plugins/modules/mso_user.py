@@ -206,7 +206,13 @@ def main():
 
     # Query for existing object(s)
     if user_name:
-        mso.existing = mso.get_obj(path, username=user_name)
+        if mso.module._socket_path and mso.connection.get_platform() == "cisco.nd":
+            mso.existing = mso.get_obj(path, loginID=user_name)
+            if mso.existing:
+                mso.existing['id'] = mso.existing.get('userID')
+                mso.existing['username'] = mso.existing.get('loginID')
+        else:
+            mso.existing = mso.get_obj(path, username=user_name)
         if mso.existing:
             user_id = mso.existing.get('id')
             # If we found an existing object, continue with it

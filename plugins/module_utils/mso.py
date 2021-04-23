@@ -12,13 +12,15 @@ import os
 import datetime
 import shutil
 import tempfile
+import traceback
 from ansible.module_utils.basic import json
 from ansible.module_utils.basic import env_fallback
 from ansible.module_utils.six import PY3
 from ansible.module_utils.six.moves import filterfalse
 from ansible.module_utils.six.moves.urllib.parse import urlencode, urljoin
 from ansible.module_utils.urls import fetch_url
-from ansible.module_utils._text import to_native
+from ansible.module_utils._text import to_native, to_text
+from ansible.module_utils.connection import Connection
 try:
     from requests_toolbelt.multipart.encoder import MultipartEncoder
     HAS_MULTIPART_ENCODER = True
@@ -91,10 +93,10 @@ def update_qs(params):
 
 def mso_argument_spec():
     return dict(
-        host=dict(type='str', required=True, aliases=['hostname'], fallback=(env_fallback, ['MSO_HOST'])),
+        host=dict(type='str', required=False, aliases=['hostname'], fallback=(env_fallback, ['MSO_HOST'])),
         port=dict(type='int', required=False, fallback=(env_fallback, ['MSO_PORT'])),
         username=dict(type='str', default='admin', fallback=(env_fallback, ['MSO_USERNAME', 'ANSIBLE_NET_USERNAME'])),
-        password=dict(type='str', required=True, no_log=True, fallback=(env_fallback, ['MSO_PASSWORD', 'ANSIBLE_NET_PASSWORD'])),
+        password=dict(type='str', required=False, no_log=True, fallback=(env_fallback, ['MSO_PASSWORD', 'ANSIBLE_NET_PASSWORD'])),
         output_level=dict(type='str', default='normal', choices=['debug', 'info', 'normal'], fallback=(env_fallback, ['MSO_OUTPUT_LEVEL'])),
         timeout=dict(type='int', default=30, fallback=(env_fallback, ['MSO_TIMEOUT'])),
         use_proxy=dict(type='bool', default=True, fallback=(env_fallback, ['MSO_USE_PROXY'])),
@@ -233,6 +235,7 @@ class MSOModule(object):
         self.params = module.params
         self.result = dict(changed=False)
         self.headers = {'Content-Type': 'text/json'}
+        self.platform = "mso"
 
         # normal output
         self.existing = dict()
@@ -256,24 +259,31 @@ class MSOModule(object):
         self.status = None
         self.url = None
 
-        # Ensure protocol is set
-        self.params['protocol'] = 'https' if self.params.get('use_ssl', True) else 'http'
-
-        # Set base_uri
-        if self.params.get('port') is not None:
-            self.baseuri = '{protocol}://{host}:{port}/api/v1/'.format(**self.params)
-        else:
-            self.baseuri = '{protocol}://{host}/api/v1/'.format(**self.params)
-
         if self.module._debug:
             self.module.warn('Enable debug output because ANSIBLE_DEBUG was set.')
             self.params['output_level'] = 'debug'
 
-        if self.params.get('password'):
-            # Perform password-based authentication, log on using password
-            self.login()
+        if self.module._socket_path is None:
+            # Ensure protocol is set
+            self.params['protocol'] = 'https' if self.params.get('use_ssl', True) else 'http'
+
+            # Set base_uri
+            if self.params.get('port') is not None:
+                self.base_only_uri = '{protocol}://{host}:{port}/'.format(**self.params)
+                self.baseuri = '{0}api/v1/'.format(self.base_only_uri)
+            else:
+                self.base_only_uri = '{protocol}://{host}/'.format(**self.params)
+                self.baseuri = '{0}api/v1/'.format(self.base_only_uri)
+
+            if self.params.get('password'):
+                # Perform password-based authentication, log on using password
+                self.login()
+            else:
+                self.fail_json(msg="Parameter 'password' is required for authentication")
         else:
-            self.module.fail_json(msg="Parameter 'password' is required for authentication")
+            self.connection = Connection(self.module._socket_path)
+            if self.connection.get_platform() == "cisco.nd":
+                self.platform = "nd"
 
     def get_login_domain_id(self, domain):
         ''' Get a domain and return its id '''
@@ -445,7 +455,7 @@ class MSOModule(object):
 
         return {}
 
-    def request(self, path, method=None, data=None, qs=None):
+    def request(self, path, method=None, data=None, qs=None, api_version="v1"):
         ''' Generic HTTP method for MSO requests. '''
         self.path = path
 
@@ -456,23 +466,45 @@ class MSOModule(object):
         if method == 'PATCH' and not data:
             return {}
 
-        self.url = urljoin(self.baseuri, path)
+        resp = None
+        if self.module._socket_path:
+            self.connection.set_params(self.params)
+            if api_version is not None:
+                uri = '/mso/api/{0}/{1}'.format(api_version, self.path)
+            else:
+                uri = self.path
+            if qs is not None:
+                uri = uri + update_qs(qs)
+            try:
+                info = self.connection.send_request(method, uri, json.dumps(data))
+                self.url = info.get('url')
+                info.pop('date')
+            except Exception as e:
+                try:
+                    error_obj = json.loads(to_text(e))
+                except Exception:
+                    error_obj = dict(error=dict(code=-1, message="Unable to parse error output as JSON. Raw error message: {0}".format(e), exception=to_text(e)))
+                    pass
+                self.fail_json(msg=error_obj['error']['message'])
 
-        if qs is not None:
-            self.url = self.url + update_qs(qs)
+        else:
+            if api_version is not None:
+                self.url = '{0}api/{1}/{2}'.format(self.base_only_uri, api_version, self.path.lstrip('/'))
+            else:
+                self.url = '{0}{1}'.format(self.base_only_uri, self.path.lstrip('/'))
 
-        resp, info = fetch_url(self.module,
-                               self.url,
-                               headers=self.headers,
-                               data=json.dumps(data),
-                               method=self.method,
-                               timeout=self.params.get('timeout'),
-                               use_proxy=self.params.get('use_proxy'))
+            if qs is not None:
+                self.url = self.url + update_qs(qs)
+            resp, info = fetch_url(self.module,
+                                   self.url,
+                                   headers=self.headers,
+                                   data=json.dumps(data),
+                                   method=self.method,
+                                   timeout=self.params.get('timeout'),
+                                   use_proxy=self.params.get('use_proxy'))
 
         self.response = info.get('msg')
-        self.status = info.get('status')
-
-        # self.result['info'] = info
+        self.status = info.get('status', -1)
 
         # Get change status from HTTP headers
         if 'modified' in info:
@@ -484,9 +516,17 @@ class MSOModule(object):
 
         # 200: OK, 201: Created, 202: Accepted, 204: No Content
         if self.status in (200, 201, 202, 204):
-            output = resp.read()
-            if output:
-                return json.loads(output)
+            try:
+                output = resp.read()
+                if output:
+                    try:
+                        return json.loads(output)
+                    except Exception:
+                        self.error = dict(code=-1, message="Unable to parse output as JSON, see 'raw' output. %s" % e)
+                        self.result['raw'] = output
+                        return
+            except AttributeError:
+                return info.get('body')
 
         # 404: Not Found
         elif self.method == 'DELETE' and self.status == 404:
@@ -496,60 +536,91 @@ class MSOModule(object):
         # 405: Method Not Allowed, 406: Not Acceptable
         # 500: Internal Server Error, 501: Not Implemented
         elif self.status >= 400:
-            try:
-                output = resp.read()
-                payload = json.loads(output)
-            except (ValueError, AttributeError):
+            self.result['status'] = self.status
+            body = info.get('body')
+            if body is not None:
                 try:
-                    payload = json.loads(info.get('body'))
-                except Exception:
+                    if isinstance(body, dict):
+                        payload = body
+                    else:
+                        payload = json.loads(body)
+                except Exception as e:
+                    self.error = dict(code=-1, message="Unable to parse output as JSON, see 'raw' output. %s" % e)
+                    self.result['raw'] = body
                     self.fail_json(msg='MSO Error:', data=data, info=info)
-            if 'code' in payload:
-                self.fail_json(msg='MSO Error {code}: {message}'.format(**payload), data=data, info=info, payload=payload)
+                self.error = payload
+                if 'code' in payload:
+                    self.fail_json(msg='MSO Error {code}: {message}'.format(**payload), data=data, info=info, payload=payload)
+                else:
+                    self.fail_json(msg='MSO Error:'.format(**payload), data=data, info=info, payload=payload)
             else:
-                self.fail_json(msg='MSO Error:'.format(**payload), data=data, info=info, payload=payload)
+                # Connection error
+                msg = 'Connection failed for {0}. {1}'.format(info.get('url'), info.get('msg'))
+                self.error = msg
+                self.fail_json(msg=msg)
+            return {}
 
-        return {}
-
-    def query_objs(self, path, key=None, **kwargs):
+    def query_objs(self, path, key=None, api_version='v1', **kwargs):
         ''' Query the MSO REST API for objects in a path '''
         found = []
-        objs = self.request(path, method='GET')
+        objs = self.request(path, api_version=api_version, method='GET')
 
-        if objs == {}:
+        if objs == {} or objs == []:
             return found
 
         if key is None:
             key = path
 
-        if key not in objs:
-            self.fail_json(msg="Key '%s' missing from data", data=objs)
-
-        for obj in objs.get(key):
+        if isinstance(objs, dict):
+            if key not in objs:
+                self.fail_json(msg="Key '{0}' missing from data".format(key), data=objs)
+            objs_list = objs.get(key)
+        else:
+            objs_list = objs
+        for obj in objs_list:
             for kw_key, kw_value in kwargs.items():
                 if kw_value is None:
                     continue
-                if obj.get(kw_key) != kw_value:
+                if isinstance(kw_value, dict):
+                    obj_value = obj.get(kw_key)
+                    if obj_value is not None and isinstance(obj_value, dict):
+                        breakout = False
+                        for kw_key_lvl2, kw_value_lvl2 in kw_value.items():
+                            if obj_value.get(kw_key_lvl2) != kw_value_lvl2:
+                                breakout = True
+                                break
+                        if breakout:
+                            break
+                    else:
+                        break
+                elif obj.get(kw_key) != kw_value:
                     break
             else:
                 found.append(obj)
+
         return found
 
-    def query_obj(self, path, **kwargs):
+    def query_obj(self, path, api_version='v1', **kwargs):
         ''' Query the MSO REST API for the whole object at a path '''
-        obj = self.request(path, method='GET')
+        obj = self.request(path, api_version=api_version, method='GET')
         if obj == {}:
             return {}
         for kw_key, kw_value in kwargs.items():
             if kw_value is None:
                 continue
-            if obj.get(kw_key) != kw_value:
+            if isinstance(kw_value, dict):
+                obj_value = obj.get(kw_key)
+                if obj_value is not None and isinstance(obj_value, dict):
+                    for kw_key_lvl2, kw_value_lvl2 in kw_value.items():
+                        if obj_value.get(kw_key_lvl2) != kw_value_lvl2:
+                            return {}
+            elif obj.get(kw_key) != kw_value:
                 return {}
         return obj
 
-    def get_obj(self, path, **kwargs):
+    def get_obj(self, path, api_version='v1', **kwargs):
         ''' Get a specific object from a set of MSO REST objects '''
-        objs = self.query_objs(path, **kwargs)
+        objs = self.query_objs(path, api_version=api_version, **kwargs)
         if len(objs) == 0:
             return {}
         if len(objs) > 1:
@@ -884,6 +955,7 @@ class MSOModule(object):
             self.result['response'] = self.response
             self.result['status'] = self.status
             self.result['url'] = self.url
+            self.result['socket'] = self.module._socket_path
 
             if self.params.get('state') in ('absent', 'present'):
                 self.result['sent'] = self.sent
@@ -919,6 +991,7 @@ class MSOModule(object):
                 self.result['response'] = self.response
                 self.result['status'] = self.status
                 self.result['url'] = self.url
+                self.result['socket'] = self.module._socket_path
 
             if self.params.get('state') in ('absent', 'present'):
                 self.result['sent'] = self.sent

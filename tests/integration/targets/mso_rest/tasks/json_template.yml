@@ -42,7 +42,7 @@
   mso_user:
     <<: *mso_info
     state: query
-    user: ansible_github_ci
+    user: '{{ mso_username }}'
   check_mode: yes
   register: query_user_id
 
@@ -50,7 +50,7 @@
   assert:
     that:
     - query_user_id is not changed
-    - query_user_id.current.username == 'ansible_github_ci'
+    - query_user_id.current.username == '{{ mso_username }}'
 
 - name: Add a tenant from a templated payload file from templates
   mso_rest:

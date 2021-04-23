@@ -43,7 +43,6 @@
     <<: *mso_info
     path: /mso/api/v1/schemas
     method: get
-  delegate_to: localhost
   register: query_all_schema
 
 - name: Verify query_all_schema
@@ -56,7 +55,7 @@
   mso_user:
     <<: *mso_info
     state: query
-    user: ansible_github_ci
+    user: '{{ mso_username }}'
   check_mode: yes
   register: query_user_id
 
@@ -64,7 +63,7 @@
   assert:
     that:
     - query_user_id is not changed
-    - query_user_id.current.username == 'ansible_github_ci'
+    - query_user_id.current.username == '{{ mso_username }}'
 
 # ADD tenant
 - name: Add tenant
@@ -80,7 +79,6 @@
       userAssociations:
       - userId: '{{ query_user_id.current.id }}'
       _updateVersion: 0
-  delegate_to: localhost
   register: add_tenant
 
 - name: Verify add_tenant in yaml_string
@@ -113,7 +111,6 @@
           intersiteL3outs: []
       sites: []
       _updateVersion: 0
-  delegate_to: localhost
   register: add_schema
 
 - name: Verify add_schema in yaml_string
@@ -146,7 +143,6 @@
         intersiteL3outs: []
       sites: []
       _updateVersion: 0
-  delegate_to: localhost
   register: put_schema
 
 - name: Verify put_schema in yaml_string
@@ -169,7 +165,6 @@
           displayName: AP2
           epgs: []
         _updateVersion: 0
-  delegate_to: localhost
   register: patch_schema
 
 - name: Verify patch_schema in yaml_string
@@ -184,7 +179,6 @@
     <<: *mso_info
     path: "/mso/api/v1/schemas/{{ add_schema.jsondata.id }}"
     method: delete
-  delegate_to: localhost
   register: delete_schema
 
 - name: Verify delete_schema in yaml_string
@@ -199,7 +193,6 @@
     <<: *mso_info
     path: "/mso/api/v1/tenants/{{ add_tenant.jsondata.id }}"
     method: delete
-  delegate_to: localhost
   register: delete_tenant
 
 - name: Verify delete_tenant in yaml_string

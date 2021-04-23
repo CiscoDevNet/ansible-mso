@@ -157,55 +157,29 @@ def main():
     path = module.params.get('path')
 
     mso = MSOModule(module)
-    mso.result['status'] = -1  # Ensure we always return a status
 
     # Validate content/payload
-    if content and (isinstance(content, dict) or isinstance(content, list)):
-        # Validate inline YAML/JSON
-        content = json.dumps(content)
-    elif content and isinstance(content, str) and HAS_YAML:
+    if content and isinstance(content, str) and HAS_YAML:
         try:
             # Validate YAML/JSON string
-            content = json.dumps(yaml.safe_load(content))
+            content = yaml.safe_load(content)
         except Exception as e:
             module.fail_json(msg='Failed to parse provided JSON/YAML payload: %s' % to_text(e), exception=to_text(e), payload=content)
-
-    # Perform actual request using auth cookie (Same as mso.request())
-    if 'port' in mso.params and mso.params.get('port') is not None:
-        mso.url = '%(protocol)s://%(host)s:%(port)s/' % mso.params + path.lstrip('/')
-    else:
-        mso.url = '%(protocol)s://%(host)s/' % mso.params + path.lstrip('/')
 
     mso.method = mso.params.get('method').upper()
 
     # Perform request
-    resp, info = fetch_url(module, mso.url,
-                           data=content,
-                           headers=mso.headers,
-                           method=mso.method,
-                           timeout=mso.params.get('timeout'),
-                           use_proxy=mso.params.get('use_proxy'))
+    if module.check_mode:
+        mso.result['jsondata'] = content
+    else:
+        mso.result['jsondata'] = mso.request(path, method=mso.method, data=content, api_version=None)
 
-    mso.response = info.get('msg')
-    mso.status = info.get('status', -1)
-    mso.result['status'] = info.get('status', -1)
-
-    # Report failure
-    if info.get('status') not in [200, 201, 202, 204]:
-        try:
-            # MSO error
-            mso.response_json(info['body'])
-            mso.fail_json(msg='MSO Error %(code)s: %(message)s - %(info)s' % mso.error)
-        except KeyError:
-            # Connection error
-            mso.fail_json(msg='Connection failed for %(url)s. %(msg)s' % info)
-
-    mso.response_json(resp.read())
+    mso.result['status'] = mso.status
 
     if mso.method != 'GET':
         mso.result['changed'] = True
-
-    mso.result['jsondata'] = mso.jsondata
+        if mso.method == 'DELETE':
+            mso.result['jsondata'] = None
 
     # Report success
     mso.exit_json(**mso.result)

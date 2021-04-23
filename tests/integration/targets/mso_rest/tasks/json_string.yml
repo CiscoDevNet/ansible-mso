@@ -55,7 +55,7 @@
   mso_user:
     <<: *mso_info
     state: query
-    user: ansible_github_ci
+    user: '{{ mso_username }}'
   check_mode: yes
   register: query_user_id
 
@@ -63,7 +63,7 @@
   assert:
     that:
     - query_user_id is not changed
-    - query_user_id.current.username == 'ansible_github_ci'
+    - query_user_id.current.username == '{{ mso_username }}'
 
 # ADD tenant
 - name: Add tenant
@@ -82,7 +82,6 @@
           }],
           "_updateVersion": 0,
       }
-  delegate_to: localhost
   register: add_tenant
 
 - name: Verify add_tenant in json_string

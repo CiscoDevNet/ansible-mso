@@ -16,7 +16,6 @@ options:
     - IP Address or hostname of the ACI Multi Site Orchestrator host.
     - If the value is not specified in the task, the value of environment variable C(MSO_HOST) will be used instead.
     type: str
-    required: yes
     aliases: [ hostname ]
   port:
     description:
@@ -35,7 +34,6 @@ options:
     - The password to use for authentication.
     - If the value is not specified in the task, the value of environment variables C(MSO_PASSWORD) or C(ANSIBLE_NET_PASSWORD) will be used instead.
     type: str
-    required: yes
   output_level:
     description:
     - Influence the output of this ACI module.

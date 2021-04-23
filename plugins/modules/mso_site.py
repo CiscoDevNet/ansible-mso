@@ -23,6 +23,8 @@ options:
   apic_password:
     description:
     - The password for the APICs.
+    - The apic_password attribute is not supported when using with ND platform.
+    - See the ND collection for complete site management.
     type: str
   apic_site_id:
     description:
@@ -31,11 +33,15 @@ options:
   apic_username:
     description:
     - The username for the APICs.
+    - The apic_username attribute is not supported when using with ND platform.
+    - See the ND collection for complete site management.
     type: str
     default: admin
   apic_login_domain:
     description:
     - The AAA login domain for the username for the APICs.
+    - The apic_login_domain attribute is not supported when using with ND platform.
+    - See the ND collection for complete site management.
     type: str
   site:
     description:
@@ -46,11 +52,15 @@ options:
     description:
     - The labels for this site.
     - Labels that do not already exist will be automatically created.
+    - The labels attribute is not supported when using with ND platform.
+    - See the ND collection for complete site management.
     type: list
     elements: str
   location:
     description:
     - Location of the site.
+    - The location attribute is not supported when using with ND platform.
+    - See the ND collection for complete site management.
     type: dict
     suboptions:
       latitude:
@@ -64,6 +74,8 @@ options:
   urls:
     description:
     - A list of URLs to reference the APICs.
+    - The urls attribute is not supported when using with ND platform.
+    - See the ND collection for complete site management.
     type: list
     elements: str
   state:
@@ -181,19 +193,34 @@ def main():
 
     site_id = None
     path = 'sites'
+    api_version = 'v1'
+    if mso.platform == 'nd':
+        api_version = 'v2'
 
     # Convert labels
     labels = mso.lookup_labels(module.params.get('labels'), 'site')
 
     # Query for mso.existing object(s)
     if site:
-        mso.existing = mso.get_obj(path, name=site)
-        if mso.existing:
-            site_id = mso.existing.get('id')
-            # If we found an existing object, continue with it
-            path = 'sites/{id}'.format(id=site_id)
+        if mso.platform == 'nd':
+            site_info = mso.get_obj(path, api_version=api_version, common=dict(name=site))
+            if site_info:
+                # If we found an existing object, continue with it
+                site_id = site_info.get('id')
+                path = 'sites/manage'
+                if site_id is not None and site_id != '':
+                    # Checking if site is managed by MSO
+                    mso.existing = site_info
+                    path = 'sites/manage/{id}'.format(id=site_id)
+        else:
+            mso.existing = mso.get_obj(path, name=site)
+            if mso.existing:
+                # If we found an existing object, continue with it
+                site_id = mso.existing.get('id')
+                path = 'sites/{id}'.format(id=site_id)
+
     else:
-        mso.existing = mso.query_objs(path)
+        mso.existing = mso.query_objs(path, api_version=api_version)
 
     if state == 'query':
         pass
@@ -204,29 +231,41 @@ def main():
             if module.check_mode:
                 mso.existing = {}
             else:
-                mso.existing = mso.request(path, method='DELETE', qs=dict(force='true'))
+                mso.request(path, method='DELETE', qs=dict(force='true'), api_version=api_version)
+                mso.existing = {}
 
     elif state == 'present':
         mso.previous = mso.existing
 
-        payload = dict(
-            apicSiteId=apic_site_id,
-            id=site_id,
-            name=site,
-            urls=urls,
-            labels=labels,
-            username=apic_username,
-            password=apic_password,
-        )
+        if mso.platform == 'nd':
+            if mso.existing:
+                payload = mso.existing
+            else:
+                if site_info:
+                    payload = site_info
+                    payload['common']['siteId'] = apic_site_id
+                else:
+                    mso.fail_json(msg="Site '{0}' is not a valid Site configured at ND-level. Add Site to ND first.".format(site))
 
-        if location is not None:
-            payload['location'] = dict(
-                lat=latitude,
-                long=longitude,
+        else:
+            payload = dict(
+                apicSiteId=apic_site_id,
+                id=site_id,
+                name=site,
+                urls=urls,
+                labels=labels,
+                username=apic_username,
+                password=apic_password,
             )
 
-        if apic_login_domain is not None and apic_login_domain not in ['', 'local', 'Local']:
-            payload['username'] = 'apic#{0}\\{1}'.format(apic_login_domain, apic_username)
+            if location is not None:
+                payload['location'] = dict(
+                    lat=latitude,
+                    long=longitude,
+                )
+
+            if apic_login_domain is not None and apic_login_domain not in ['', 'local', 'Local']:
+                payload['username'] = 'apic#{0}\\{1}'.format(apic_login_domain, apic_username)
 
         mso.sanitize(payload, collate=True)
 
@@ -235,12 +274,12 @@ def main():
                 if module.check_mode:
                     mso.existing = mso.proposed
                 else:
-                    mso.existing = mso.request(path, method='PUT', data=mso.sent)
+                    mso.existing = mso.request(path, method='PUT', data=mso.sent, api_version=api_version)
         else:
             if module.check_mode:
                 mso.existing = mso.proposed
             else:
-                mso.existing = mso.request(path, method='POST', data=mso.sent)
+                mso.existing = mso.request(path, method='POST', data=mso.sent, api_version=api_version)
 
     if 'password' in mso.existing:
         mso.existing['password'] = '******'

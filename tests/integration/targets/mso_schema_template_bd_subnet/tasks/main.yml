@@ -32,7 +32,7 @@
 - name: Set version vars
   set_fact:
     mso_l3mcast: false
-  when: version.current.version[:5] == '2.2.4'
+  when: version.current.version is version('2.2.4', '=')
 
 - name: Ensure site exist
   mso_site: &site_present
@@ -228,7 +228,7 @@
     is_virtual_ip: true
   register: nm_add_subnet_2
 
-- name: Verify nm_bd_2 for a version that's not 3.1
+- name: Verify nm_bd_2 for a version that's < 3.1
   assert:
     that:
     - nm_add_subnet_2.current.ip == "10.1.1.1/24"
@@ -236,9 +236,9 @@
     - nm_add_subnet_2.current.scope == "public"
     - nm_add_subnet_2.current.shared == true
     - nm_add_subnet_2.current.querier == true
-  when: version.current.version is version('3.1.1g', '!=')
+  when: version.current.version is version('3.1.1g', '<')
 
-- name: Verify nm_bd_2 for a version that's 3.1
+- name: Verify nm_bd_2 for a version that's >= 3.1
   assert:
     that:
     - nm_add_subnet_2.current.ip == "10.1.1.1/24"
@@ -247,7 +247,7 @@
     - nm_add_subnet_2.current.shared == true
     - nm_add_subnet_2.current.querier == true
     - nm_add_subnet_2.current.virtual == true
-  when: version.current.version is version('3.1.1g', '==')
+  when: version.current.version is version('3.1.1g', '>=')
 
 # CHANGE Subnet
 - name: Change subnet 2 (normal mode)
@@ -265,7 +265,7 @@
     is_virtual_ip: false
   register: nm_change_subnet2
 
-- name: Verify nm_change_subnet2 for a version that's not 3.1
+- name: Verify nm_change_subnet2 for a version < 3.1
   assert:
     that:
     - nm_change_subnet2 is not changed
@@ -274,9 +274,9 @@
     - nm_change_subnet2.current.scope == "public"
     - nm_change_subnet2.current.shared == true
     - nm_change_subnet2.current.querier == true
-  when: version.current.version is version('3.1.1g', '!=')
+  when: version.current.version is version('3.1.1g', '<')
 
-- name: Verify nm_change_subnet2 for a version that's 3.1
+- name: Verify nm_change_subnet2 for a version >= 3.1
   assert:
     that:
     - nm_change_subnet2 is changed
@@ -286,7 +286,7 @@
     - nm_change_subnet2.current.shared == true
     - nm_change_subnet2.current.querier == true
     - nm_change_subnet2.current.virtual == false
-  when: version.current.version is version('3.1.1g', '==')
+  when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change subnet2 again (normal mode)
   mso_schema_template_bd_subnet:
@@ -303,7 +303,7 @@
     is_virtual_ip: false
   register: nm_change_subnet2_again
 
-- name: Verify nm_change_subnet2_again for a version that's not 3.1
+- name: Verify nm_change_subnet2_again for a version that's < 3.1
   assert:
     that:
     - nm_change_subnet2_again is not changed
@@ -312,9 +312,9 @@
     - nm_change_subnet2_again.current.scope == "public"
     - nm_change_subnet2_again.current.shared == true
     - nm_change_subnet2_again.current.querier == true
-  when: version.current.version is version('3.1.1g', '!=')
+  when: version.current.version is version('3.1.1g', '<')
 
-- name: Verify cm_change_subnet2 for a version that's 3.1
+- name: Verify cm_change_subnet2 for a version that's >= 3.1
   assert:
     that:
     - nm_change_subnet2_again is not changed
@@ -324,7 +324,7 @@
     - nm_change_subnet2_again.current.shared == true
     - nm_change_subnet2_again.current.querier == true
     - nm_change_subnet2_again.current.virtual == false
-  when: version.current.version is version('3.1.1g', '==')
+  when: version.current.version is version('3.1.1g', '>=')
 
 # QUERY ALL Subnets
 - name: Query all subnet (check_mode)
@@ -359,7 +359,7 @@
     subnet: 10.1.1.1/24
   register: nm_query_subnet2
 
-- name: Verify nm_query_subnet2 for a version that's not 3.1
+- name: Verify nm_query_subnet2 for a version that's < 3.1
   assert:
     that:
     - nm_query_subnet2 is not changed
@@ -368,9 +368,9 @@
     - nm_query_subnet2.current.scope == "public"
     - nm_query_subnet2.current.shared == true
     - nm_query_subnet2.current.querier == true
-  when: version.current.version is version('3.1.1g', '!=')
+  when: version.current.version is version('3.1.1g', '<')
 
-- name: Verify nm_query_subnet2 for a version that's 3.1
+- name: Verify nm_query_subnet2 for a version that's >= 3.1
   assert:
     that:
     - nm_query_subnet2 is not changed
@@ -380,7 +380,7 @@
     - nm_query_subnet2.current.shared == true
     - nm_query_subnet2.current.querier == true
     - nm_query_subnet2.current.virtual == false
-  when: version.current.version is version('3.1.1g', '==')
+  when: version.current.version is version('3.1.1g', '>=')
 
 # REMOVE Subnet
 - name: Remove subnet

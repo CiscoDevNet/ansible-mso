@@ -148,7 +148,7 @@
     template: Template 1
     vrf: VRF2
     state: present
-  when: version.current.version[0] | int < 3
+  when: version.current.version is version('3', '<')
 
 - name: Ensure VRF1 exists at Site level for the physical site
   mso_schema_site_vrf:
@@ -460,7 +460,7 @@
     that:
     - nm_query_cidr_all_aws_2.msg == "Provided vrf 'VRF2' does not exist at site level."
     - nm_query_cidr_all_aws_3.msg == "Provided region 'us-west-1' does not exist. Existing regions{{':'}} "
-  when: version.current.version[0] | int < 3
+  when: version.current.version is version('3', '<')
 
 # REMOVE CIDR
 - name: Remove CIDR (check_mode)
@@ -588,7 +588,7 @@
   assert:
     that:
     - cm_query_non_vrf.msg == nm_query_non_vrf.msg == "Provided vrf 'non_existing_vrf' does not exist. Existing vrfs{{':'}} VRF1, VRF2"
-  when: version.current.version[0] | int < 3
+  when: version.current.version is version('3', '<')
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for site cidr (check_mode)

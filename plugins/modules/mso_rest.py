@@ -126,8 +126,6 @@ EXAMPLES = r'''
 RETURN = r'''
 '''
 
-import json
-
 # Optional, only used for YAML validation
 try:
     import yaml
@@ -137,7 +135,6 @@ except Exception:
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
-from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_text
 
 

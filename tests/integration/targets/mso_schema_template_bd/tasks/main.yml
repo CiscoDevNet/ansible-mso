@@ -32,7 +32,7 @@
 - name: Set version vars
   set_fact:
     mso_l3mcast: false
-  when: version.current.version[:5] == '2.2.4'
+  when: version.current.version is version('2.2.4', '=')
 
 - name: Ensure site exist
   mso_site: &site_present
@@ -376,7 +376,7 @@
         version: 1
   register: nm_add_bd_5
 
-- name: Verify nm_add_bd_5 for a version that's not 3.1
+- name: Verify nm_add_bd_5 for a version that's before 3.1
   assert:
     that:
     - nm_add_bd_5 is changed
@@ -388,7 +388,7 @@
     - nm_add_bd_5.current.l2Stretch == true
     - nm_add_bd_5.current.l2UnknownUnicast == "flood"
     - nm_add_bd_5.current.l3MCast == false
-  when: version.current.version is version('3.1.1g', '!=')
+  when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_add_bd_5 for a version that's 3.1
   assert:
@@ -407,7 +407,7 @@
     - nm_add_bd_5.current.vmac == "00:00:5E:00:01:3C"
     - nm_add_bd_5.current.multiDstPktAct == "drop"
     - nm_add_bd_5.current.arpFlood == true
-  when: version.current.version is version('3.1.1g', '==')
+  when: version.current.version is version('3.1.1g', '>=')
 
 - name: Add bd 5 again (normal mode)
   mso_schema_template_bd:
@@ -437,17 +437,17 @@
         version: 1
   register: nm_add_again_bd_5
 
-- name: Verify nm_add_again_bd_5 for a version that's not 3.1
+- name: Verify nm_add_again_bd_5 for a version that's before 3.1
   assert:
     that:
     - nm_add_again_bd_5 is not changed
-  when: version.current.version is version('3.1.1g', '!=')
+  when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_add_again_bd_5 for a version that's 3.1
   assert:
     that:
     - nm_add_again_bd_5 is not changed
-  when: version.current.version is version('3.1.1g', '==')
+  when: version.current.version is version('3.1.1g', '>=')
 
 - name: Add bd 5 with different values for new options (normal mode)
   mso_schema_template_bd:
@@ -477,11 +477,11 @@
         version: 1
   register: nm_bd_5_options
 
-- name: Verify nm_bd_5_options for a version that's not 3.1
+- name: Verify nm_bd_5_options for a version that's before 3.1
   assert:
     that:
     - nm_bd_5_options is not changed
-  when: version.current.version is version('3.1.1g', '!=')
+  when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_bd_5_options for a version that's 3.1
   assert:
@@ -491,7 +491,7 @@
     - nm_bd_5_options.current.v6unkMcastAct == "opt-flood"
     - nm_bd_5_options.current.multiDstPktAct == "bd-flood"
     - nm_bd_5_options.current.vmac == "00:00:5E:00:02:3C"
-  when: version.current.version is version('3.1.1g', '==')
+  when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd 5_1 (normal mode)
   mso_schema_template_bd:
@@ -521,18 +521,18 @@
         version: 1
   register: nm_change_bd_5_1
 
-- name: Verify nm_change_bd_5_1 for a version that's not 3.1
+- name: Verify nm_change_bd_5_1 for a version that's before 3.1
   assert:
     that:
     - nm_change_bd_5_1 is changed
-  when: version.current.version is version('3.1.1g', '!=')
+  when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_change_bd_5_1 for a version that's 3.1
   assert:
     that:
     - nm_change_bd_5_1 is changed
     - nm_change_bd_5_1.current.arpFlood == true
-  when: version.current.version is version('3.1.1g', '==')
+  when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd 5_2 (normal mode)
   mso_schema_template_bd:
@@ -563,19 +563,19 @@
   ignore_errors: yes
   register: nm_change_bd_5_2
 
-- name: Verify nm_change_bd_5_2 for a version that's not 3.1
+- name: Verify nm_change_bd_5_2 for a version that's before 3.1
   assert:
     that:
     - nm_change_bd_5_2 is changed
     - nm_change_bd_5_2.current.l2UnknownUnicast == "flood"
-  when: version.current.version is version('3.1.1g', '!=')
+  when: version.current.version is version('3.1.1g', '<')
 
-- name: Verify nm_change_bd_5_2 for a version that's 3.1
+- name: Verify nm_change_bd_5_2 for a version that's after 3.1
   assert:
     that:
     - nm_change_bd_5_2 is changed
     - nm_change_bd_5_2.current.arpFlood == true
-  when: version.current.version is version('3.1.1g', '==')
+  when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd 5_3 (normal mode)
   mso_schema_template_bd:
@@ -606,19 +606,20 @@
   ignore_errors: yes
   register: nm_change_bd_5_3
 
-- name: Verify nm_change_bd_5_3 for a version that's not 3.1
+- name: Verify nm_change_bd_5_3 for a version that's before 3.1
   assert:
     that:
     - nm_change_bd_5_3 is changed
     - nm_change_bd_5_3.msg is match ("MSO Error 143{{':'}} Invalid Field{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
-  when: version.current.version is version('3.1.1g', '!=')
+  when: version.current.version is version('3.1.1g', '<')
 
-- name: Verify nm_change_bd_5_3 for a version that's 3.1
+- name: Verify nm_change_bd_5_3 for a version that's after 3.1
   assert:
     that:
     - nm_change_bd_5_3 is changed
     - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off exception while trying to update schema")
-  when: version.current.version is version('3.1.1g', '==')
+  when: 
+  - version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd 5 for query (normal mode)
   mso_schema_template_bd:
@@ -873,14 +874,14 @@
     that:
     - nm_change_bd_1_settings.current.l3MCast == false
     - nm_change_bd_1_subnets.current.l3MCast == false
-  when: version.current.version[:5] == '2.2.4'
+  when: version.current.version is version('2.2.4', '=')
 
 - name: Verify l3MCast nm_change_bd_1_subnets (version != 2.2.4)
   assert:
     that:
     - nm_change_bd_1_settings.current.l3MCast == true
     - nm_change_bd_1_subnets.current.l3MCast == true
-  when: version.current.version[:5] != '2.2.4'
+  when: version.current.version is version('2.2.4', '!=')
 
 # FIXME: Add missing DHCP Policy changes and checks (missing DHCP Policy module to make sure it is there.)
 
@@ -979,7 +980,7 @@
     - nm_query_bd_2.current.subnets[3].scope == "private"
     - nm_query_bd_2.current.subnets[3].shared == false
 
-- name: Verify nm_query_bd_5 for a version that's not 3.1
+- name: Verify nm_query_bd_5 for a version that's before 3.1
   assert:
     that:
     - nm_query_bd_5 is not changed
@@ -989,7 +990,7 @@
     - nm_query_bd_5.current.l2Stretch == true
     - nm_query_bd_5.current.l2UnknownUnicast == "flood"
     - nm_query_bd_5.current.l3MCast == false
-  when: version.current.version is version('3.1.1g', '!=')
+  when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_query_bd_5 for a version that's 3.1
   assert:
@@ -1006,7 +1007,7 @@
     - nm_query_bd_5.current.vmac == "00:00:5E:00:01:3C"
     - nm_query_bd_5.current.multiDstPktAct == "drop"
     - nm_query_bd_5.current.arpFlood == true
-  when: version.current.version is version('3.1.1g', '==')
+  when: version.current.version is version('3.1.1g', '>=')
 
 # REMOVE BD
 - name: Remove bd (check_mode)

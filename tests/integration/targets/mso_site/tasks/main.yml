@@ -10,15 +10,26 @@
 
 
 # CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact: 
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
 - name: Undeploy a schema 1 template 1
   mso_schema_template_deploy: &schema_undeploy
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: ansible_test
     template: Template 1
     site: '{{ item }}'
@@ -53,13 +64,7 @@
 
 - name: Remove schemas
   mso_schema:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ item }}'
     state: absent
   loop:
@@ -68,13 +73,7 @@
 
 - name: Remove tenant ansible_test
   mso_tenant: &tenant_absent
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     tenant: ansible_test
     state: absent
 
@@ -86,13 +85,7 @@
 
 - name: Remove site
   mso_site: &site_absent
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     state: absent
 
@@ -106,13 +99,7 @@
 # ADD SITE
 - name: Add site (check_mode)
   mso_site: &site_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
     apic_password: '{{ apic_password }}'
@@ -135,8 +122,21 @@
     that:
     - cm_add_site is changed
     - cm_add_site.previous == {}
+    
+
+- name: Verify cm_add_site (MSO)
+  assert:
+    that:
     - cm_add_site.current.id is not defined
     - cm_add_site.current.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '<')
+
+- name: Verify cm_add_site (ND)
+  assert:
+    that:
+    - cm_add_site.current.id == ""
+    - cm_add_site.current.common.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '>=')
 
 - name: Add site (normal mode)
   mso_site: *site_present
@@ -147,8 +147,19 @@
     that:
     - nm_add_site is changed
     - nm_add_site.previous == {}
+
+- name: Verify nm_add_site (MSO)
+  assert:
+    that:
     - nm_add_site.current.id is defined
     - nm_add_site.current.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '<')
+
+- name: Verify nm_add_site (ND)
+  assert:
+    that:
+    - nm_add_site.current.common.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '>=')
 
 - name: Add site again (check_mode)
   mso_site: *site_present
@@ -159,9 +170,21 @@
   assert:
     that:
     - cm_add_site_again is not changed
-    - cm_add_site_again.previous.name == mso_site|default("ansible_test")
     - cm_add_site_again.current.id == nm_add_site.current.id
+
+- name: Verify cm_add_site_again (MSO)
+  assert:
+    that:
+    - cm_add_site_again.previous.name == mso_site|default("ansible_test")
     - cm_add_site_again.current.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '<')
+
+- name: Verify cm_add_site_again (ND)
+  assert:
+    that:
+    - cm_add_site_again.previous.common.name == mso_site|default("ansible_test")
+    - cm_add_site_again.current.common.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '>=')
 
 - name: Add site again (normal mode)
   mso_site: *site_present
@@ -171,9 +194,21 @@
   assert:
     that:
     - nm_add_site_again is not changed
-    - nm_add_site_again.previous.name == mso_site|default("ansible_test")
     - nm_add_site_again.current.id == nm_add_site.current.id
+
+- name: Verify nm_add_site_again (MSO)
+  assert:
+    that:
+    - nm_add_site_again.previous.name == mso_site|default("ansible_test")
     - nm_add_site_again.current.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '<')
+
+- name: Verify nm_add_site_again (ND)
+  assert:
+    that:
+    - nm_add_site_again.previous.common.name == mso_site|default("ansible_test")
+    - nm_add_site_again.current.common.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '>=')
 
 
 # CHANGE SITE
@@ -194,13 +229,24 @@
 - name: Verify cm_change_site
   assert:
     that:
-    - cm_change_site is changed
     - cm_change_site.current.id == nm_add_site.current.id
-    - cm_change_site.current.name == '{{ mso_site | default("ansible_test") }}'
+
+- name: Verify cm_change_site (MSO)
+  assert:
+    that:
+    - cm_change_site is changed
     - cm_change_site.current.location.lat == 51.887318
     - cm_change_site.current.location.long == 5.447084
     - cm_change_site.current.labels[0] != nm_add_site.current.labels[0]
     - cm_change_site.current.labels[1] == nm_add_site.current.labels[1]
+    - cm_change_site.current.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '<')
+
+- name: Verify cm_change_site (ND)
+  assert:
+    that:
+    - cm_change_site.current.common.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '>=')
 
 - name: Change site (normal mode)
   mso_site:
@@ -219,13 +265,24 @@
 - name: Verify nm_change_site
   assert:
     that:
-    - nm_change_site is changed
     - nm_change_site.current.id == nm_add_site.current.id
-    - nm_change_site.current.name == '{{ mso_site | default("ansible_test") }}'
+
+- name: Verify nm_change_site (MSO)
+  assert:
+    that:
+    - nm_change_site is changed
     - nm_change_site.current.location.lat == 51.887318
     - nm_change_site.current.location.long == 5.447084
     - nm_change_site.current.labels[0] != nm_add_site.current.labels[0]
     - nm_change_site.current.labels[1] == nm_add_site.current.labels[1]
+    - nm_change_site.current.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '<')
+
+- name: Verify nm_change_site (ND)
+  assert:
+    that:
+    - nm_change_site.current.common.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '>=')
 
 - name: Change site again (check_mode)
   mso_site:
@@ -246,11 +303,22 @@
     that:
     - cm_change_site_again is not changed
     - cm_change_site_again.current.id == nm_add_site.current.id
-    - cm_change_site_again.current.name == '{{ mso_site | default("ansible_test") }}'
+
+- name: Verify cm_change_site_again (MSO)
+  assert:
+    that:
     - cm_change_site_again.current.location.lat == 51.887318
     - cm_change_site_again.current.location.long == 5.447084
     - cm_change_site_again.current.labels[0] == nm_change_site.current.labels[0]
     - cm_change_site_again.current.labels[1] == nm_change_site.current.labels[1]
+    - cm_change_site_again.current.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '<')
+
+- name: Verify cm_change_site_again (ND)
+  assert:
+    that:
+    - cm_change_site_again.current.common.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '>=')
 
 - name: Change site again (normal mode)
   mso_site:
@@ -271,22 +339,27 @@
     that:
     - nm_change_site_again is not changed
     - nm_change_site_again.current.id == nm_add_site.current.id
-    - nm_change_site_again.current.name == '{{ mso_site | default("ansible_test") }}'
+
+- name: Verify nm_change_site_again (MSO)
+  assert:
+    that:
     - nm_change_site_again.current.location.lat == 51.887318
     - nm_change_site_again.current.location.long == 5.447084
     - nm_change_site_again.current.labels[0] == nm_change_site.current.labels[0]
     - nm_change_site_again.current.labels[1] == nm_change_site.current.labels[1]
+    - nm_change_site_again.current.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '<')
+
+- name: Verify nm_change_site_again (ND)
+  assert:
+    that:
+    - nm_change_site_again.current.common.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '>=')
 
 # QUERY ALL SITES
 - name: Query all sites (check_mode)
   mso_site: &site_query
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     state: query
   check_mode: yes
   register: cm_query_all_sites
@@ -323,12 +396,23 @@
     that:
     - cm_query_site is not changed
     - cm_query_site.current.id == nm_add_site.current.id
-    - cm_query_site.current.name == '{{ mso_site | default("ansible_test") }}'
     - nm_query_site is not changed
     - nm_query_site.current.id == nm_add_site.current.id
-    - nm_query_site.current.name == '{{ mso_site | default("ansible_test") }}'
     - cm_query_site == nm_query_site
 
+- name: Verify query_site (MSO)
+  assert:
+    that:
+    - cm_query_site.current.name == mso_site|default("ansible_test")
+    - nm_query_site.current.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '<')
+
+- name: Verify query_site (ND)
+  assert:
+    that:
+    - cm_query_site.current.common.name == mso_site|default("ansible_test")
+    - nm_query_site.current.common.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '>=')
 
 # REMOVE SITE
 - name: Remove site (check_mode)
@@ -423,13 +507,7 @@
 # ADD SITE
 - name: Add site (normal_mode)
   mso_site:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
     apic_password: '{{ apic_password }}'
@@ -440,10 +518,21 @@
     state: present
   register: nm_add_site_no_location
 
-- name: Verify cm_add_site
+- name: Verify nm_add_site_no_location
   assert:
     that:
     - nm_add_site_no_location is changed
     - nm_add_site_no_location.previous == {}
     - nm_add_site_no_location.current.id is defined
+
+- name: Verify nm_add_site_no_location (MSO)
+  assert:
+    that:
     - nm_add_site_no_location.current.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '<')
+
+- name: Verify nm_add_site_no_location (ND)
+  assert:
+    that:
+    - nm_add_site_no_location.current.common.name == mso_site|default("ansible_test")
+  when: version.current.version is version('3.2', '>=')

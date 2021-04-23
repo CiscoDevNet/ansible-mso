@@ -375,12 +375,6 @@
 - name: Execute tasks only for MSO version < 3.2
   when: version.current.version is version('3.2', '<')
   block:
-  - name: Verify query_user and add_user have same id
-    assert:
-      that:
-      - cm_query_user.current.id == nm_add_user.current.id
-      - nm_query_user.current.id == nm_add_user.current.id
-
   - name: Query our read-only user
     mso_user:
       <<: *user_query

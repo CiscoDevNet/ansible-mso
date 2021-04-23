@@ -238,7 +238,7 @@ def main():
 
             target_template = target_template.replace(' ', '%20')  # removes API error for extra space
 
-            mso.existing = mso.request(path='/api/v1/migrate/schema/{0}/template/{1}'.format(schema_id, template), method='POST', data=payload)
+            mso.existing = mso.request(path='migrate/schema/{0}/template/{1}'.format(schema_id, template), method='POST', data=payload)
 
     mso.exit_json()
 

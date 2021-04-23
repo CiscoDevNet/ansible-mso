@@ -20,10 +20,6 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
-    apic_hostname_2: 173.36.219.123
-    apic_username_2: admin
-    apic_password_2: ins3965!
-    apic_site_id_2: 102
 
 - name: Ensure sites exists
   mso_site:
@@ -37,7 +33,7 @@
     state: present
   loop:
   - { site: '{{ mso_site | default("ansible_test") }}', username: '{{ apic_username }}', password: '{{ apic_password }}', id: '{{ apic_site_id | default(101) }}', urls: '{{ apic_hostname }}' }
-  - { site: '{{ mso_site | default("ansible_test") }}_2', username: '{{ apic_username_2 }}', password: '{{ apic_password_2 }}', id: '{{ apic_site_id_2 | default(101) }}', urls: '{{ apic_hostname_2 }}' }
+  - { site: 'aws_{{ mso_site | default("ansible_test") }}', username: '{{ aws_apic_username }}', password: '{{ aws_apic_password }}', id: '{{ aws_site_id | default(102) }}', urls: '{{ aws_apic_hostname }}' }
 
 - name: Undeploy a schema 1 template 1
   mso_schema_template_deploy: &schema_undeploy
@@ -49,7 +45,7 @@
   ignore_errors: yes
   loop:
   - '{{ mso_site | default("ansible_test") }}'
-  - '{{ mso_site | default("ansible_test") }}_2'
+  - 'aws_{{ mso_site | default("ansible_test") }}'
 
 - name: Undeploy a schema 1 template 2
   mso_schema_template_deploy:
@@ -60,7 +56,7 @@
   ignore_errors: yes
   loop:
   - '{{ mso_site | default("ansible_test") }}'
-  - '{{ mso_site | default("ansible_test") }}_2'
+  - 'aws_{{ mso_site | default("ansible_test") }}'
 
 - name: Undeploy a schema 2 template 3
   mso_schema_template_deploy:
@@ -72,7 +68,7 @@
   ignore_errors: yes
   loop:
   - '{{ mso_site | default("ansible_test") }}'
-  - '{{ mso_site | default("ansible_test") }}_2'
+  - 'aws_{{ mso_site | default("ansible_test") }}'
 
 - name: Remove schemas
   mso_schema:
@@ -494,7 +490,7 @@
     <<: *tenant_present
     tenant: common
     display_name: common
-    sites: [ansible_test, ansible_test_2]
+    sites: ['{{ mso_site | default("ansible_test") }}', 'aws_{{ mso_site | default("ansible_test") }}']
   register: nm_add_common_tenant
 
 - name: Verify nm_add_common_tenant
@@ -508,7 +504,7 @@
     <<: *tenant_present
     tenant: tenant_with_site
     display_name: tenant_with_site
-    sites: ansible_test
+    sites: '{{ mso_site | default("ansible_test") }}'
   register: nm_add_tenant_with_site
 
 - name: Verify nm_add_tenant_with_site

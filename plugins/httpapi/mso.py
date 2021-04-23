@@ -18,7 +18,7 @@ __metaclass__ = type
 
 DOCUMENTATION = """
 ---
-author: 
+author:
 - Lionel Hercot (lhercot)
 httpapi: aci
 short_description: MSO Ansible HTTPAPI Plugin.
@@ -32,7 +32,7 @@ version_added: "1.2.0"
 import json
 import re
 import pickle
-import ipaddress
+# import ipaddress
 import traceback
 
 from ansible.module_utils.six import PY3
@@ -63,14 +63,6 @@ class HttpApi(HttpApiBase):
 
     def set_params(self, params):
         self.params = params
-        # params.get('host')
-        # self.aci_port = params.get('port')
-        # self.aci_user = params.get('username')
-        # self.aci_pass = params.get('password')
-        # self.auth = auth
-        # self.aci_proxy = params.get('use_proxy')
-        # self.aci_ssl = params.get('use_ssl')
-        # self.aci_validate_certs = params.get('validate_certs')
 
     def set_backup_hosts(self):
         try:
@@ -88,7 +80,7 @@ class HttpApi(HttpApiBase):
         method = 'POST'
         path = '/mso/api/v1/auth/login'
         full_path = self.connection.get_option('host') + path
-        # TODO: Fix when username and password are not used in MSO module
+
         if (self.params.get('login_domain') is not None) and (self.params.get('login_domain') != 'Local'):
             domain_id = self._get_login_domain_id(self.params.get('login_domain'))
             payload = {'username': self.params.get('username'), 'password': self.params.get('password'), 'domainId': domain_id}
@@ -98,7 +90,6 @@ class HttpApi(HttpApiBase):
         try:
             self.connection.queue_message('vvvv', 'login() - connection.send({0}, {1}, {2}, {3})'.format(path, data, method, self.headers))
             response, response_data = self.connection.send(path, data, method=method, headers=self.headers)
-            # raise ConnectionError(self._verify_response(response, method, path, data, response_data))
             # Handle MSO response
             self.status = response.getcode()
             if self.status != 201:
@@ -127,7 +118,7 @@ class HttpApi(HttpApiBase):
             raise ConnectionError(json.dumps(self._verify_response(None, method, self.connection.get_option('host') + path, None)))
         self.connection._auth = None
 
-    def send_request(self, method, path, data={}):
+    def send_request(self, method, path, data=None):
         ''' This method handles all MSO REST API requests other than login '''
 
         self.error = None
@@ -136,13 +127,19 @@ class HttpApi(HttpApiBase):
         self.info = {}
         self.method = 'GET'
 
+        if data is None:
+            data = {}
+
         self.connection.queue_message('vvvv', 'send_request method called')
         # # Case1: List of hosts is provided
         # self.backup_hosts = self.set_backup_hosts()
         # if not self.backup_hosts:
         if self.connection._connected is True and self.params.get('host') != self.connection.get_option('host'):
             self.connection._connected = False
-            self.connection.queue_message('vvvv', 'send_request reseting connection as host has changed from {0} to {1}'.format(self.connection.get_option('host'), self.params.get('host')))
+            self.connection.queue_message('vvvv', 'send_request reseting connection as host has changed from {0} to {1}'.format(
+                self.connection.get_option('host'),
+                self.params.get('host')
+            ))
 
         if self.params.get('host') is not None:
             self.connection.set_option('host', self.params.get('host'))
@@ -185,7 +182,7 @@ class HttpApi(HttpApiBase):
         try:
             self.connection.queue_message('vvvv', 'send_request() - connection.send({0}, {1}, {2}, {3})'.format(path, data, method, self.headers))
             response, rdata = self.connection.send(path, data, method=method, headers=self.headers)
-        except ConnectionError as conn_e:
+        except ConnectionError:
             self.connection.queue_message('vvvv', 'login() - ConnectionError Exception')
             raise
         except Exception as e:
@@ -227,10 +224,7 @@ class HttpApi(HttpApiBase):
         self.info['method'] = method
         if self.error is not None:
             self.info['error'] = self.error
-        # if msg is None:
-        #     self.info['msg'] = str(self.info)
-        # else:
-        #     self.info['msg'] = msg
+
         self.info['body'] = response_data
 
         return self.info
@@ -255,7 +249,7 @@ class HttpApi(HttpApiBase):
         ''' Get a domain and return its id '''
         if domain_name is None:
             return None
-        #TODO: Replace response by -
+        # TODO: Replace response by -
         response, data = self.send_request('GET', 'auth/login-domains')
 
         if data is not None:
@@ -264,19 +258,20 @@ class HttpApi(HttpApiBase):
             if domains is not None:
                 for domain in domains:
                     if domain.get('name') != domain_name:
-                        if 'id' in obj:
-                            return obj.get('id')
+                        if 'id' in domain:
+                            return domain.get('id')
                         else:
                             self.error = dict(code=-1, message="Login domain '{0}' is not a valid domain name.".format(domain))
                             raise ConnectionError(self._verify_response(None, None, None, None))
-                self.error = dict(code=-1, message="Login domain lookup failed for domain '{0}}': {1}".format(domain_name, domain))
+                self.error = dict(code=-1, message="Login domain lookup failed for domain '{0}': {1}".format(domain_name, domain))
                 raise ConnectionError(self._verify_response(None, None, None, None))
             else:
                 self.error = dict(code=-1, message="Key 'domains' missing from data")
                 raise ConnectionError(self._verify_response(None, None, None, None))
 
     def _get_formated_info(self, response):
-        ''' The code in this function is based out of Ansible fetch_url code at https://github.com/ansible/ansible/blob/devel/lib/ansible/module_utils/urls.py '''
+        ''' The code in this function is based out of Ansible fetch_url code
+        at https://github.com/ansible/ansible/blob/devel/lib/ansible/module_utils/urls.py '''
         info = dict(msg="OK (%s bytes)" % response.headers.get('Content-Length', 'unknown'), url=response.geturl(), status=response.getcode())
         # Lowercase keys, to conform to py2 behavior, so that py3 and py2 are predictable
         info.update(dict((k.lower(), v) for k, v in response.info().items()))

@@ -315,7 +315,7 @@
     state: present
   register: nm_add_site_bd_subnet5
 
-- name: Verify nm_add_site_bd_subnet5 for a version that's not 3.1
+- name: Verify nm_add_site_bd_subnet5 for a version that's < 3.1
   assert:
     that:
     - nm_add_site_bd_subnet5 is changed
@@ -326,9 +326,9 @@
     - nm_add_site_bd_subnet5.current.shared == True
     - nm_add_site_bd_subnet5.current.noDefaultGateway == True
     - nm_add_site_bd_subnet5.current.querier == True
-  when: version.current.version is version('3.1.1g', '!=')
+  when: version.current.version is version('3.1.1g', '<')
 
-- name: Verify nm_add_site_bd_subnet5 for a version that's 3.1
+- name: Verify nm_add_site_bd_subnet5 for a version that's >= 3.1
   assert:
     that:
     - nm_add_site_bd_subnet5 is changed
@@ -340,7 +340,7 @@
     - nm_add_site_bd_subnet5.current.noDefaultGateway == True
     - nm_add_site_bd_subnet5.current.querier == True
     - nm_add_site_bd_subnet5.current.virtual == True
-  when: version.current.version is version('3.1.1g', '==')
+  when: version.current.version is version('3.1.1g', '>=')
 
 - name: Query all subnets
   mso_schema_site_bd_subnet:
@@ -388,20 +388,20 @@
     state: query
   register: query_subnet5
 
-- name: Verify query_subnet5 for no 3.1 version
+- name: Verify query_subnet5 for version before 3.1
   assert:
     that:
     - query_subnet5 is not changed
     - query_subnet5.current.ip == "10.1.0.5/16"
-  when: version.current.version is version('3.1.1g', '!=')
+  when: version.current.version is version('3.1.1g', '<')
 
-- name: Verify query_subnet5 for 3.1 version
+- name: Verify query_subnet5 for 3.1 version and later
   assert:
     that:
     - query_subnet5 is not changed
     - query_subnet5.current.ip == "10.1.0.5/16"
     - query_subnet5.current.virtual == true
-  when: version.current.version is version('3.1.1g', '==')
+  when: version.current.version is version('3.1.1g', '>=')
 
 - name: Remove a site BD subnet
   mso_schema_site_bd_subnet:

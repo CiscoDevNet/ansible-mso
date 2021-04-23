@@ -12,7 +12,6 @@ import os
 import datetime
 import shutil
 import tempfile
-import traceback
 from ansible.module_utils.basic import json
 from ansible.module_utils.basic import env_fallback
 from ansible.module_utils.six import PY3
@@ -466,6 +465,12 @@ class MSOModule(object):
         if method == 'PATCH' and not data:
             return {}
 
+        # if method in ['PATCH', 'PUT']:
+        #     if qs is not None:
+        #         qs['enableVersionCheck'] = 'true'
+        #     else:
+        #         qs = dict(enableVersionCheck='true')
+
         resp = None
         if self.module._socket_path:
             self.connection.set_params(self.params)
@@ -473,8 +478,10 @@ class MSOModule(object):
                 uri = '/mso/api/{0}/{1}'.format(api_version, self.path)
             else:
                 uri = self.path
+
             if qs is not None:
                 uri = uri + update_qs(qs)
+
             try:
                 info = self.connection.send_request(method, uri, json.dumps(data))
                 self.url = info.get('url')
@@ -483,7 +490,11 @@ class MSOModule(object):
                 try:
                     error_obj = json.loads(to_text(e))
                 except Exception:
-                    error_obj = dict(error=dict(code=-1, message="Unable to parse error output as JSON. Raw error message: {0}".format(e), exception=to_text(e)))
+                    error_obj = dict(error=dict(
+                        code=-1,
+                        message="Unable to parse error output as JSON. Raw error message: {0}".format(e),
+                        exception=to_text(e)
+                    ))
                     pass
                 self.fail_json(msg=error_obj['error']['message'])
 
@@ -514,19 +525,23 @@ class MSOModule(object):
             elif info.get('modified') == 'true':
                 self.result['changed'] = True
 
-        # 200: OK, 201: Created, 202: Accepted, 204: No Content
-        if self.status in (200, 201, 202, 204):
+        # 200: OK, 201: Created, 202: Accepted
+        if self.status in (200, 201, 202):
             try:
                 output = resp.read()
                 if output:
                     try:
                         return json.loads(output)
-                    except Exception:
-                        self.error = dict(code=-1, message="Unable to parse output as JSON, see 'raw' output. %s" % e)
+                    except Exception as e:
+                        self.error = dict(code=-1, message="Unable to parse output as JSON, see 'raw' output. {0}".format(e))
                         self.result['raw'] = output
                         return
             except AttributeError:
                 return info.get('body')
+
+        # 204: No Content
+        elif self.status == 204:
+            return {}
 
         # 404: Not Found
         elif self.method == 'DELETE' and self.status == 404:
@@ -727,7 +742,9 @@ class MSOModule(object):
         ''' Look up users and return their ids '''
         # Ensure tenant has at least admin user
         if users is None:
-            return [dict(userId="0000ffff0000000000000020")]
+            users = ['admin']
+        elif 'admin' not in users:
+            users.append('admin')
 
         ids = []
         for user in users:
@@ -747,8 +764,6 @@ class MSOModule(object):
                 self.fail_json(msg="User '%s' is duplicate." % user)
             ids.append(id)
 
-        if 'admin' not in users:
-            ids.append(dict(userId="0000ffff0000000000000020"))
         return ids
 
     def create_label(self, label, label_type):

@@ -840,31 +840,37 @@ class MSOModule(object):
                 del(self.sent[key])
                 continue
 
-        # Clean up self.sent
-        for key in updates:
-            # Always retain 'id'
-            if key in required:
-                if key in self.existing or updates.get(key) is not None:
-                    self.sent[key] = updates.get(key)
-                continue
+        if isinstance(updates, dict):
+            # Clean up self.sent
+            for key in updates:
+                # Always retain 'id'
+                if key in required:
+                    if key in self.existing or updates.get(key) is not None:
+                        self.sent[key] = updates.get(key)
+                    continue
 
-            # Remove unspecified values
-            elif not collate and updates.get(key) is None:
-                if key in self.existing:
+                # Remove unspecified values
+                elif not collate and updates.get(key) is None:
+                    if key in self.existing:
+                        del(self.sent[key])
+                    continue
+
+                # Remove identical values
+                elif not collate and updates.get(key) == self.existing.get(key):
                     del(self.sent[key])
-                continue
+                    continue
 
-            # Remove identical values
-            elif not collate and updates.get(key) == self.existing.get(key):
-                del(self.sent[key])
-                continue
+                # Add everything else
+                if updates.get(key) is not None:
+                    self.sent[key] = updates.get(key)
 
-            # Add everything else
-            if updates.get(key) is not None:
-                self.sent[key] = updates.get(key)
+            # Update self.proposed
+            self.proposed.update(self.sent)
 
-        # Update self.proposed
-        self.proposed.update(self.sent)
+        elif updates is not None:
+            self.sent = updates
+            # Update self.proposed
+            self.proposed = self.sent
 
     def exit_json(self, **kwargs):
         ''' Custom written method to exit from module. '''

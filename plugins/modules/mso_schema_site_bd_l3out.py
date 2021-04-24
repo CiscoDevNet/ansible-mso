@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Dag Wieers (@dagwieers) <dag@wieers.com>
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -19,6 +20,7 @@ description:
 - Manage site-local BDs l3out's in schema template on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
+- Anvitha Jain (@anvitha-jain)
 options:
   schema:
     description:
@@ -156,6 +158,12 @@ def main():
     # Get schema objects
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
+    # Get template
+    templates = [t.get('name') for t in schema_obj.get('templates')]
+    if template not in templates:
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates '{1}'".format(template, ', '.join(templates)))
+    template_idx = templates.index(template)
+
     # Get site
     site_id = mso.lookup_site(site)
 
@@ -164,27 +172,52 @@ def main():
         mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, ', '.join(sites)))
+        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates '{2}'".format(site, template, ', '.join(sites)))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
     # Path-based access uses site_id-template
     site_template = '{0}-{1}'.format(site_id, template)
 
+    payload = dict()
+    ops = []
+    op_path = ''
+
     # Get BD
     bd_ref = mso.bd_ref(schema_id=schema_id, template=template, bd=bd)
     bds = [v.get('bdRef') for v in schema_obj.get('sites')[site_idx]['bds']]
+    bds_in_temp = [a.get('name') for a in schema_obj['templates'][template_idx]['bds']]
+    if bd not in bds_in_temp:
+        mso.fail_json(msg="Provided BD '{0}' does not exist. Existing BDs '{1}'".format(bd, ', '.join(bds_in_temp)))
+    else:
+        # Get bd index at template level
+        template_bd_idx = bds_in_temp.index(bd)
+
+    # If bd not at site level but exists at template level
     if bd_ref not in bds:
-        mso.fail_json(msg="Provided BD '{0}' does not exist. Existing BDs: {1}".format(bd, ', '.join(bds)))
-    bd_idx = bds.index(bd_ref)
+        op_path = '/sites/{0}/bds'.format(site_template)
+        payload.update(
+            bdRef=dict(
+                schemaId=schema_id,
+                templateName=template,
+                bdName=bd,
+            ),
+        )
+    else:
+        # Get bd index at site level
+        bd_idx = bds.index(bd_ref)
 
     # Get L3out
-    l3outs = schema_obj.get('sites')[site_idx]['bds'][bd_idx]['l3Outs']
-    if l3out is not None and l3out in l3outs:
-        l3out_idx = l3outs.index(l3out)
-        # FIXME: Changes based on index are DANGEROUS
-        l3out_path = '/sites/{0}/bds/{1}/l3Outs/{2}'.format(site_template, bd, l3out_idx)
-        mso.existing = schema_obj.get('sites')[site_idx]['bds'][bd_idx]['l3Outs'][l3out_idx]
+    # If bd is at site level
+    if 'bdRef' not in payload:
+        l3outs = schema_obj.get('sites')[site_idx]['bds'][bd_idx]['l3Outs']
+        if l3out is not None and l3out in l3outs:
+            l3out_idx = l3outs.index(l3out)
+            # FIXME: Changes based on index are DANGEROUS
+            op_path = '/sites/{0}/bds/{1}/l3Outs/{2}'.format(site_template, bd, l3out_idx)
+            mso.existing = schema_obj.get('sites')[site_idx]['bds'][bd_idx]['l3Outs'][l3out_idx]
+        else:
+            op_path = '/sites/{0}/bds/{1}/l3Outs'.format(site_template, bd)
 
     if state == 'query':
         if l3out is None:
@@ -193,21 +226,27 @@ def main():
             mso.fail_json(msg="L3out '{l3out}' not found".format(l3out=l3out))
         mso.exit_json()
 
-    l3outs_path = '/sites/{0}/bds/{1}/l3Outs'.format(site_template, bd)
     ops = []
 
     mso.previous = mso.existing
     if state == 'absent':
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=l3out_path))
+            ops.append(dict(op='remove', path=op_path))
 
     elif state == 'present':
-        mso.sent = l3out
-        if not mso.existing:
-            ops.append(dict(op='add', path=l3outs_path + '/-', value=l3out))
+        if not payload:
+            payload = l3out
+        else:
+            # If bd in payload, add l3out to payload
+            payload['l3Outs'] = [l3out]
 
-        mso.existing = mso.sent
+        mso.sanitize(payload, collate=True)
+
+        if not mso.existing:
+            ops.append(dict(op='add', path=op_path + '/-', value=payload))
+
+        mso.existing = l3out
 
     if not module.check_mode:
         mso.request(schema_path, method='PATCH', data=ops)

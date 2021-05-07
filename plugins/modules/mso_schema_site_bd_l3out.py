@@ -189,9 +189,6 @@ def main():
     bds_in_temp = [a.get('name') for a in schema_obj['templates'][template_idx]['bds']]
     if bd not in bds_in_temp:
         mso.fail_json(msg="Provided BD '{0}' does not exist. Existing BDs '{1}'".format(bd, ', '.join(bds_in_temp)))
-    else:
-        # Get bd index at template level
-        template_bd_idx = bds_in_temp.index(bd)
 
     # If bd not at site level but exists at template level
     if bd_ref not in bds:

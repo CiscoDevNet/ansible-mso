@@ -279,6 +279,38 @@
     state: query
   register: version
 
+- name: Add VPN Gateway Router to Region for AWS
+  cisco.mso.mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-east-1
+    vpn_gateway_router: true
+    state: present
+  when: version.current.version is version('3.3', '>=')
+  register: add_vpn_gateway_router_aws
+
+- name: Add VPN Gateway Router to Region for Azure
+  cisco.mso.mso_schema_site_vrf_region:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: us-east-1
+    vpn_gateway_router: true
+    state: present
+  when: version.current.version is version('3.3', '>=')
+  register: add_vpn_gateway_router_azure
+
+- name: Verify adding VPN Gateway Router
+  assert:
+    that:
+    - add_vpn_gateway_router_aws.current.isVpnGatewayRouter == add_vpn_gateway_router_azure.current.isVpnGatewayRouter == true
+  when: version.current.version is version('3.3', '>=')
+
 - name: Remove VPN Gateway Router at Region for AWS (check mode)
   cisco.mso.mso_schema_site_vrf_region:
     <<: *mso_info

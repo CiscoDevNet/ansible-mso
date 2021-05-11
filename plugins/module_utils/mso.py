@@ -113,15 +113,20 @@ def mso_reference_spec():
     )
 
 
-def mso_subnet_spec():
+def mso_epg_subnet_spec():
     return dict(
         subnet=dict(type='str', required=True, aliases=['ip']),
         description=dict(type='str'),
         scope=dict(type='str', default='private', choices=['private', 'public']),
         shared=dict(type='bool', default=False),
         no_default_gateway=dict(type='bool', default=False),
-        querier=dict(type='bool', default=False),
     )
+
+
+def mso_subnet_spec():
+    subnet_spec = mso_epg_subnet_spec()
+    subnet_spec.update(dict(querier=dict(type='bool', default=False)))
+    return subnet_spec
 
 
 def mso_dhcp_spec():
@@ -749,7 +754,7 @@ class MSOModule(object):
         ids = []
         for user in users:
             if self.platform == "nd":
-                u = self.get_obj('users', loginID=user)
+                u = self.get_obj('users', loginID=user, api_version='v2')
             else:
                 u = self.get_obj('users', username=user)
             if not u:
@@ -874,7 +879,7 @@ class MSOModule(object):
             'templateName': template,
         }
 
-    def make_subnets(self, data):
+    def make_subnets(self, data, querier=True):
         ''' Create a subnets list from input '''
         if data is None:
             return None
@@ -885,14 +890,16 @@ class MSOModule(object):
                 subnet['ip'] = subnet.get('subnet')
             if subnet.get('description') is None:
                 subnet['description'] = subnet.get('subnet')
-            subnets.append(dict(
+            subnet_payload = dict(
                 ip=subnet.get('ip'),
                 description=str(subnet.get('description')),
                 scope=subnet.get('scope'),
                 shared=subnet.get('shared'),
                 noDefaultGateway=subnet.get('no_default_gateway'),
-                querier=subnet.get('querier'),
-            ))
+            )
+            if querier:
+                subnet_payload.update(dict(querier=subnet.get('querier')))
+            subnets.append(subnet_payload)
 
         return subnets
 

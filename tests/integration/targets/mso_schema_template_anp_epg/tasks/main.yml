@@ -378,7 +378,6 @@
       scope: public
       shared: true
       no_default_gateway: false
-      querier: true
     - ip: 192.168.0.254/24
       description: "My description for a subnet"
       scope: private
@@ -426,25 +425,21 @@
     - nm_add_epg_3.current.subnets[0].noDefaultGateway == false
     - nm_add_epg_3.current.subnets[0].scope == "private"
     - nm_add_epg_3.current.subnets[0].shared == false
-    - nm_add_epg_3.current.subnets[0].querier == false
     - nm_add_epg_3.current.subnets[1].description == "1234567890"
     - nm_add_epg_3.current.subnets[1].ip == "10.0.1.254/24"
     - nm_add_epg_3.current.subnets[1].noDefaultGateway == false
     - nm_add_epg_3.current.subnets[1].scope == "private"
     - nm_add_epg_3.current.subnets[1].shared == false
-    - nm_add_epg_3.current.subnets[1].querier == false
     - nm_add_epg_3.current.subnets[2].description == "My description for a subnet"
     - nm_add_epg_3.current.subnets[2].ip == "172.16.0.1/24"
     - nm_add_epg_3.current.subnets[2].noDefaultGateway == false
     - nm_add_epg_3.current.subnets[2].scope == "public"
     - nm_add_epg_3.current.subnets[2].shared == true
-    - nm_add_epg_3.current.subnets[2].querier == true
     - nm_add_epg_3.current.subnets[3].description == "My description for a subnet"
     - nm_add_epg_3.current.subnets[3].ip == "192.168.0.254/24"
     - nm_add_epg_3.current.subnets[3].noDefaultGateway == true
     - nm_add_epg_3.current.subnets[3].scope == "private"
     - nm_add_epg_3.current.subnets[3].shared == false
-    - nm_add_epg_3.current.subnets[3].querier == false
 
 # CHANGE EPG
 - name: Change EPG (check_mode)
@@ -590,7 +585,6 @@
       scope: public
       shared: true
       no_default_gateway: false
-      querier: true
     - ip: 192.168.1.254/24
       description: "My description for a subnet"
       scope: private
@@ -615,13 +609,11 @@
       scope: private
       shared: false
       no_default_gateway: false
-      querier: false
     - ip: 192.168.1.254/24
       description: "My description for a subnet"
       scope: private
       shared: false
       no_default_gateway: false
-      querier: true
   register: nm_change_epg_1_subnets
 
 - name: Verify nm_change_epg_1_subnets
@@ -642,25 +634,21 @@
     - nm_change_epg_1_settings.current.subnets[0].noDefaultGateway == false
     - nm_change_epg_1_settings.current.subnets[0].scope == "private"
     - nm_change_epg_1_settings.current.subnets[0].shared == false
-    - nm_change_epg_1_settings.current.subnets[0].querier == false
     - nm_change_epg_1_settings.current.subnets[1].description == "1234567890"
     - nm_change_epg_1_settings.current.subnets[1].ip == "10.1.1.254/24"
     - nm_change_epg_1_settings.current.subnets[1].noDefaultGateway == false
     - nm_change_epg_1_settings.current.subnets[1].scope == "private"
     - nm_change_epg_1_settings.current.subnets[1].shared == false
-    - nm_change_epg_1_settings.current.subnets[1].querier == false
     - nm_change_epg_1_settings.current.subnets[2].description == "My description for a subnet"
     - nm_change_epg_1_settings.current.subnets[2].ip == "172.17.0.1/24"
     - nm_change_epg_1_settings.current.subnets[2].noDefaultGateway == false
     - nm_change_epg_1_settings.current.subnets[2].scope == "public"
     - nm_change_epg_1_settings.current.subnets[2].shared == true
-    - nm_change_epg_1_settings.current.subnets[2].querier == true
     - nm_change_epg_1_settings.current.subnets[3].description == "My description for a subnet"
     - nm_change_epg_1_settings.current.subnets[3].ip == "192.168.1.254/24"
     - nm_change_epg_1_settings.current.subnets[3].noDefaultGateway == true
     - nm_change_epg_1_settings.current.subnets[3].scope == "private"
     - nm_change_epg_1_settings.current.subnets[3].shared == false
-    - nm_change_epg_1_settings.current.subnets[3].querier == false
     - nm_change_epg_1_subnets is changed
     - nm_change_epg_1_subnets.current.subnets | length == 3
     - nm_change_epg_1_subnets.current.name == "ansible_test_1"
@@ -677,19 +665,16 @@
     - nm_change_epg_1_subnets.current.subnets[0].noDefaultGateway == false
     - nm_change_epg_1_subnets.current.subnets[0].scope == "private"
     - nm_change_epg_1_subnets.current.subnets[0].shared == false
-    - nm_change_epg_1_subnets.current.subnets[0].querier == false
     - nm_change_epg_1_subnets.current.subnets[1].description == "New description for a subnet"
     - nm_change_epg_1_subnets.current.subnets[1].ip == "172.17.0.1/24"
     - nm_change_epg_1_subnets.current.subnets[1].noDefaultGateway == false
     - nm_change_epg_1_subnets.current.subnets[1].scope == "private"
     - nm_change_epg_1_subnets.current.subnets[1].shared == false
-    - nm_change_epg_1_subnets.current.subnets[1].querier == false
     - nm_change_epg_1_subnets.current.subnets[2].description == "My description for a subnet"
     - nm_change_epg_1_subnets.current.subnets[2].ip == "192.168.1.254/24"
     - nm_change_epg_1_subnets.current.subnets[2].noDefaultGateway == false
     - nm_change_epg_1_subnets.current.subnets[2].scope == "private"
     - nm_change_epg_1_subnets.current.subnets[2].shared == false
-    - nm_change_epg_1_subnets.current.subnets[2].querier == true
 
 
 # # QUERY ALL EPGs
@@ -775,19 +760,16 @@
     - nm_query_epg_1.current.subnets[0].noDefaultGateway == false
     - nm_query_epg_1.current.subnets[0].scope == "private"
     - nm_query_epg_1.current.subnets[0].shared == false
-    - nm_query_epg_1.current.subnets[0].querier == false
     - nm_query_epg_1.current.subnets[1].description == "New description for a subnet"
     - nm_query_epg_1.current.subnets[1].ip == "172.17.0.1/24"
     - nm_query_epg_1.current.subnets[1].noDefaultGateway == false
     - nm_query_epg_1.current.subnets[1].scope == "private"
     - nm_query_epg_1.current.subnets[1].shared == false
-    - nm_query_epg_1.current.subnets[1].querier == false
     - nm_query_epg_1.current.subnets[2].description == "My description for a subnet"
     - nm_query_epg_1.current.subnets[2].ip == "192.168.1.254/24"
     - nm_query_epg_1.current.subnets[2].noDefaultGateway == false
     - nm_query_epg_1.current.subnets[2].scope == "private"
     - nm_query_epg_1.current.subnets[2].shared == false
-    - nm_query_epg_1.current.subnets[2].querier == true
     - nm_query_epg_3.current.name == "ansible_test_3"
     - nm_query_epg_4.current.name == "ansible_test_4"
     - nm_query_epg_3.current.vrfRef.templateName == nm_query_epg_4.current.vrfRef.templateName == "Template1"
@@ -804,25 +786,21 @@
     - nm_query_epg_3.current.subnets[0].noDefaultGateway == false
     - nm_query_epg_3.current.subnets[0].scope == "private"
     - nm_query_epg_3.current.subnets[0].shared == false
-    - nm_query_epg_3.current.subnets[0].querier == false
     - nm_query_epg_3.current.subnets[1].description == "1234567890"
     - nm_query_epg_3.current.subnets[1].ip == "10.0.1.254/24"
     - nm_query_epg_3.current.subnets[1].noDefaultGateway == false
     - nm_query_epg_3.current.subnets[1].scope == "private"
     - nm_query_epg_3.current.subnets[1].shared == false
-    - nm_query_epg_3.current.subnets[1].querier == false
     - nm_query_epg_3.current.subnets[2].description == "My description for a subnet"
     - nm_query_epg_3.current.subnets[2].ip == "172.16.0.1/24"
     - nm_query_epg_3.current.subnets[2].noDefaultGateway == false
     - nm_query_epg_3.current.subnets[2].scope == "public"
     - nm_query_epg_3.current.subnets[2].shared == true
-    - nm_query_epg_3.current.subnets[2].querier == true
     - nm_query_epg_3.current.subnets[3].description == "My description for a subnet"
     - nm_query_epg_3.current.subnets[3].ip == "192.168.0.254/24"
     - nm_query_epg_3.current.subnets[3].noDefaultGateway == true
     - nm_query_epg_3.current.subnets[3].scope == "private"
     - nm_query_epg_3.current.subnets[3].shared == false
-    - nm_query_epg_3.current.subnets[3].querier == false
     
 
 # REMOVE EPG

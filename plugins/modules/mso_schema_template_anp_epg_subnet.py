@@ -66,11 +66,6 @@ options:
     - Whether this subnet has a default gateway.
     type: bool
     default: false
-  querier:
-    description:
-    - Whether this subnet is an IGMP querier.
-    type: bool
-    default: false
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -141,7 +136,7 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_subnet_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_epg_subnet_spec
 
 
 def main():
@@ -153,7 +148,7 @@ def main():
         epg=dict(type='str', required=True),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
-    argument_spec.update(mso_subnet_spec())
+    argument_spec.update(mso_epg_subnet_spec())
 
     module = AnsibleModule(
         argument_spec=argument_spec,
@@ -173,7 +168,6 @@ def main():
     scope = module.params.get('scope')
     shared = module.params.get('shared')
     no_default_gateway = module.params.get('no_default_gateway')
-    querier = module.params.get('querier')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -234,8 +228,6 @@ def main():
                 shared = False
             if no_default_gateway is None:
                 no_default_gateway = False
-            if querier is None:
-                querier = False
 
         payload = dict(
             ip=subnet,
@@ -243,7 +235,6 @@ def main():
             scope=scope,
             shared=shared,
             noDefaultGateway=no_default_gateway,
-            querier=querier,
         )
 
         mso.sanitize(payload, collate=True)

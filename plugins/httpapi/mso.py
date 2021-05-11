@@ -20,7 +20,7 @@ DOCUMENTATION = """
 ---
 author:
 - Lionel Hercot (lhercot)
-httpapi: aci
+httpapi: mso
 short_description: MSO Ansible HTTPAPI Plugin.
 description:
   - This MSO plugin provides the HTTPAPI transport methods needed to initiate

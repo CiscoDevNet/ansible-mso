@@ -118,11 +118,6 @@ options:
         - Whether this subnet has a default gateway.
         type: bool
         default: false
-      querier:
-        description:
-        - Whether this subnet is an IGMP querier.
-        type: bool
-        default: false
   useg_epg:
     description:
     - Whether this is a USEG EPG.
@@ -252,7 +247,7 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec, mso_subnet_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec, mso_epg_subnet_spec
 
 
 def main():
@@ -269,7 +264,7 @@ def main():
         intra_epg_isolation=dict(type='str', choices=['enforced', 'unenforced']),
         intersite_multicast_source=dict(type='bool'),
         proxy_arp=dict(type='bool'),
-        subnets=dict(type='list', elements='dict', options=mso_subnet_spec()),
+        subnets=dict(type='list', elements='dict', options=mso_epg_subnet_spec()),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
         preferred_group=dict(type='bool'),
     )
@@ -350,7 +345,7 @@ def main():
     elif state == 'present':
         bd_ref = mso.make_reference(bd, 'bd', schema_id, template)
         vrf_ref = mso.make_reference(vrf, 'vrf', schema_id, template)
-        subnets = mso.make_subnets(subnets)
+        subnets = mso.make_subnets(subnets, querier=False)
 
         if display_name is None and not mso.existing:
             display_name = epg

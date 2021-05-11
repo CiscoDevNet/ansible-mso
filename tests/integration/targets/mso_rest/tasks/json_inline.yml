@@ -22,6 +22,12 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
 - name: Remove EXT_EPGs Providers from DHCP Relay Policy
   mso_dhcp_relay_policy_provider:
     <<: *mso_info
@@ -59,7 +65,7 @@
     bd: CLIENT_BD
     vrf:
       name: VRF1
-    state: present
+    state: absent
   ignore_errors: yes
 
 - name: Remove DHCP Relay Policies
@@ -244,7 +250,13 @@
   assert:
     that:
     - patch_schema is changed
+
+- name: Verify patch_schema in json_inline
+  assert:
+    that:
     - patch_schema.jsondata.templates[0].anps[0].displayName == 'AP2'
+  # MSO 3.3 PATCH does not return anything anymore.
+  when: version.current.version is version('3.3', '<')
 
 # DELETE the schema
 - name: Delete the schema

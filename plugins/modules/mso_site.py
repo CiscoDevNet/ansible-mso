@@ -204,10 +204,10 @@ def main():
     if site:
         if mso.platform == 'nd':
             site_info = mso.get_obj(path, api_version=api_version, common=dict(name=site))
+            path = 'sites/manage'
             if site_info:
                 # If we found an existing object, continue with it
                 site_id = site_info.get('id')
-                path = 'sites/manage'
                 if site_id is not None and site_id != '':
                     # Checking if site is managed by MSO
                     mso.existing = site_info

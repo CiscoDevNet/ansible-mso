@@ -30,6 +30,17 @@
     state: present
   register: ansible_tenant
 
+- name: Stop consuming DHCP Policy
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: CLIENT_BD
+    vrf:
+      name: VRF1
+    state: absent
+  ignore_errors: yes
+
 - name: Remove DHCP Option Policies
   mso_dhcp_option_policy:
     <<: *mso_info

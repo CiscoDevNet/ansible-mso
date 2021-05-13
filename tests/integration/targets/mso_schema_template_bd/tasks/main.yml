@@ -171,6 +171,30 @@
       template: Template1
     state: absent
 
+- name: Ensure multiple DHCP policies exist 
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    dhcp_relay_policy: '{{ item }}'
+    description: "My Test DHCP Policies"
+    tenant: ansible_test
+    state: present
+  loop:
+  - 'ansible_test_dhcp_policy1'
+  - 'ansible_test_dhcp_policy2'
+  - 'ansible_test_dhcp_policy3'
+
+- name: Ensure multiple DHCP option policies exist 
+  mso_dhcp_option_policy:
+    <<: *mso_info
+    dhcp_option_policy: '{{ item }}'
+    description: "My Test DHCP Policy Options"
+    tenant: ansible_test
+    state: present
+  loop:
+  - 'ansible_test_dhcp_policy_option1'
+  - 'ansible_test_dhcp_policy_option2'
+  - 'ansible_test_dhcp_policy_option3'
+      
 # ADD BD
 - name: Add bd (check_mode)
   mso_schema_template_bd: &bd_present
@@ -225,6 +249,7 @@
     - cm_add_bd_again.previous.vrfRef.vrfName == "VRF"
     - cm_add_bd_again.current.vrfRef.vrfName == "VRF"
     - cm_add_bd_again.previous.vrfRef.schemaId ==  cm_add_bd_again.current.vrfRef.schemaId
+  when: version.current.version is version('3.1.1i', '!=')
 
 
 - name: Add bd again (normal mode)
@@ -699,6 +724,7 @@
     - cm_change_bd_again.current.vrfRef.vrfName == 'VRF2'
     - cm_change_bd_again.current.vrfRef.templateName == "Template1"
     - cm_change_bd_again.current.vrfRef.schemaId == cm_change_bd_again.previous.vrfRef.schemaId
+  when: version.current.version is version('3.1.1i', '!=')
 
 - name: Change bd again (normal mode)
   mso_schema_template_bd:
@@ -883,6 +909,152 @@
     - nm_change_bd_1_subnets.current.l3MCast == true
   when: version.current.version is version('2.2.4', '!=')
 
+- name: Add bd with multiple dhcp policies for mso version > 3.1.1g
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_multiple_dhcp
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: false
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: false
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: drop
+    ipv6_unknown_multicast_flooding: flood
+    arp_flooding: false
+    virtual_mac_address: 00:00:5E:00:01:3C
+    subnets:
+    - subnet: 10.0.0.128/24
+    - subnet: 10.0.1.254/24
+      description: 1234567890
+    - ip: 192.168.0.254/24
+      description: "My description for a subnet"
+      scope: private
+      shared: false
+      no_default_gateway: true
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+    dhcp_policies:
+      - name: ansible_test_dhcp_policy1
+        version: 1
+        dhcp_option_policy:
+          name: ansible_test_dhcp_policy_option1
+          version: 1
+      - name: ansible_test_dhcp_policy2
+        version: 1
+        dhcp_option_policy:
+          name: ansible_test_dhcp_policy_option1
+          version: 1
+      - name: ansible_test_dhcp_policy3
+        version: 1
+        dhcp_option_policy:
+          name: ansible_test_dhcp_policy_option2
+          version: 1
+    state: present
+  register: nm_bd_dhcp_policies
+
+- name: Verify addition of DHCP policies for mso version > 3.1.1g
+  assert:
+    that:
+    - nm_bd_dhcp_policies is changed
+    - nm_bd_dhcp_policies.current.dhcpLabels | length == 3
+    - nm_bd_dhcp_policies.current.dhcpLabels[0].name == 'ansible_test_dhcp_policy1'
+    - nm_bd_dhcp_policies.current.dhcpLabels[1].name == 'ansible_test_dhcp_policy2'
+    - nm_bd_dhcp_policies.current.dhcpLabels[2].name == 'ansible_test_dhcp_policy3'
+    - nm_bd_dhcp_policies.current.dhcpLabels[0].version == 1
+    - nm_bd_dhcp_policies.current.dhcpLabels[1].version == 1
+    - nm_bd_dhcp_policies.current.dhcpLabels[2].version == 1
+    - nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+    - nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+    - nm_bd_dhcp_policies.current.dhcpLabels[2].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option2'
+    - nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.version == 1
+    - nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.version == 1
+    - nm_bd_dhcp_policies.current.dhcpLabels[2].dhcpOptionLabel.version == 1
+  when: version.current.version is version('3.1.1i', '==')
+
+- name: Verify subnets in nm_bd_dhcp_policies
+  assert:
+    that:
+    - nm_bd_dhcp_policies is changed
+    - nm_bd_dhcp_policies.current.subnets | length == 3
+    - nm_bd_dhcp_policies.current.name == 'ansible_test_multiple_dhcp'
+    - nm_bd_dhcp_policies.current.vrfRef.templateName == "Template1"
+    - nm_bd_dhcp_policies.current.vrfRef.vrfName == "VRF"
+    - nm_bd_dhcp_policies.current.intersiteBumTrafficAllow == true
+    - nm_bd_dhcp_policies.current.optimizeWanBandwidth == false
+    - nm_bd_dhcp_policies.current.l2Stretch == true
+    - nm_bd_dhcp_policies.current.l2UnknownUnicast == "flood"
+    - nm_bd_dhcp_policies.current.unkMcastAct == "flood"
+    - nm_bd_dhcp_policies.current.multiDstPktAct == "drop"
+    - nm_bd_dhcp_policies.current.l3MCast == false
+    - nm_bd_dhcp_policies.current.arpFlood == true
+    - nm_bd_dhcp_policies.current.v6unkMcastAct == "flood"
+    - nm_bd_dhcp_policies.current.vmac == "00:00:5E:00:01:3C"
+  when: version.current.version[:5] == '3.1.1'
+
+- name: Change bd with multiple dhcp policies for mso version > 3.1.1g
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_multiple_dhcp
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: false
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: false
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: drop
+    ipv6_unknown_multicast_flooding: flood
+    arp_flooding: false
+    virtual_mac_address: 00:00:5E:00:01:3C
+    subnets:
+    - subnet: 10.0.0.128/24
+    - subnet: 10.0.1.254/24
+      description: 1234567890
+    - ip: 192.168.0.254/24
+      description: "My description for a subnet"
+      scope: private
+      shared: false
+      no_default_gateway: true
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+    dhcp_policies:
+      - name: ansible_test_dhcp_policy1
+        version: 1
+        dhcp_option_policy:
+          name: ansible_test_dhcp_policy_option1
+          version: 1
+      - name: ansible_test_dhcp_policy2
+        version: 1
+        dhcp_option_policy:
+          name: ansible_test_dhcp_policy_option1
+          version: 1
+    state: present
+  register: change_nm_bd_dhcp_policies
+
+- name: Verify addition of DHCP policies for mso version > 3.1.1g
+  assert:
+    that:
+    - change_nm_bd_dhcp_policies is changed
+    - change_nm_bd_dhcp_policies.current.dhcpLabels | length == 2
+    - change_nm_bd_dhcp_policies.current.dhcpLabels[0].name == 'ansible_test_dhcp_policy1'
+    - change_nm_bd_dhcp_policies.current.dhcpLabels[1].name == 'ansible_test_dhcp_policy2'
+    - change_nm_bd_dhcp_policies.current.dhcpLabels[0].version == 1
+    - change_nm_bd_dhcp_policies.current.dhcpLabels[1].version == 1
+    - change_nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+    - change_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+    - change_nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.version == 1
+    - change_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.version == 1
+  when: version.current.version is version('3.1.1i', '==')
+
+
 # FIXME: Add missing DHCP Policy changes and checks (missing DHCP Policy module to make sure it is there.)
 
 # QUERY ALL BD
@@ -905,7 +1077,7 @@
     that:
     - cm_query_all_bds is not changed
     - nm_query_all_bds is not changed
-    - cm_query_all_bds.current | length == cm_query_all_bds.current | length == 2
+    - cm_query_all_bds.current | length == cm_query_all_bds.current | length == 3
 
 
 # QUERY A BD

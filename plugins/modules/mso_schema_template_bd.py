@@ -306,6 +306,7 @@ def main():
         layer3_multicast=dict(type='bool'),
         vrf=dict(type='dict', options=mso_reference_spec()),
         dhcp_policy=dict(type='dict', options=mso_dhcp_spec()),
+        dhcp_policies=dict(type='list', options=mso_dhcp_spec()),
         subnets=dict(type='list', elements='dict', options=mso_subnet_spec()),
         unknown_multicast_flooding=dict(type='str', choices=['optimized_flooding', 'flood']),
         multi_destination_flooding=dict(type='str', choices=['flood_in_bd', 'drop']),
@@ -337,6 +338,7 @@ def main():
     if vrf is not None and vrf.get('template') is not None:
         vrf['template'] = vrf.get('template').replace(' ', '')
     dhcp_policy = module.params.get('dhcp_policy')
+    dhcp_policies = module.params.get('dhcp_policies')
     subnets = module.params.get('subnets')
     unknown_multicast_flooding = module.params.get('unknown_multicast_flooding')
     multi_destination_flooding = module.params.get('multi_destination_flooding')
@@ -395,6 +397,7 @@ def main():
         vrf_ref = mso.make_reference(vrf, 'vrf', schema_id, template)
         subnets = mso.make_subnets(subnets)
         dhcp_label = mso.make_dhcp_label(dhcp_policy)
+        dhcp_labels = mso.make_dhcp_label(dhcp_policies)
 
         if display_name is None and not mso.existing:
             display_name = bd
@@ -412,6 +415,7 @@ def main():
             subnets=subnets,
             vrfRef=vrf_ref,
             dhcpLabel=dhcp_label,
+            dhcpLabels=dhcp_labels,
             unkMcastAct=unknown_multicast_flooding,
             multiDstPktAct=multi_destination_flooding,
             v6unkMcastAct=ipv6_unknown_multicast_flooding,
@@ -419,7 +423,7 @@ def main():
             arpFlood=arp_flooding,
         )
 
-        mso.sanitize(payload, collate=True, required=['dhcpLabel'])
+        mso.sanitize(payload, collate=True, required=['dhcpLabel', 'dhcpLabels'])
         if mso.existing:
             ops.append(dict(op='replace', path=bd_path, value=mso.sent))
         else:

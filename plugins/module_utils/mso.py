@@ -136,7 +136,6 @@ def mso_dhcp_spec():
         version=dict(type='int', required=True),
     )
 
-
 def mso_dhcp_option_spec():
     return dict(
         name=dict(type='str', required=True),
@@ -917,6 +916,15 @@ class MSOModule(object):
         ''' Create a DHCP policy from input '''
         if data is None:
             return None
+        if type(data) == list:
+            dhcps = []
+            for dhcp in data:
+                if 'dhcp_option_policy' in dhcp:
+                    dhcp_option_policy = dhcp['dhcp_option_policy']
+                    dhcp['dhcpOptionLabel'] = dhcp_option_policy
+                    del dhcp['dhcp_option_policy']
+                dhcps.append(dhcp)
+            return dhcps
         if 'version' in data:
             data['version'] = int(data.get('version'))
         if data and 'dhcp_option_policy' in data:

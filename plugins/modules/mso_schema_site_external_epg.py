@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2020, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -78,8 +78,8 @@ def main():
         template=dict(type='str', required=True),
         site=dict(type='str', required=True),
         vrf=dict(type='str'),
-        l3out=dict(type='str', required=True),
-        external_epg=dict(type='str', required=True),
+        l3out=dict(type='str'),
+        external_epg=dict(type='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -115,9 +115,8 @@ def main():
     if template:
         if template in templates:
             template_idx = templates.index(template)
-            mso.existing = schema_obj.get('templates')[template_idx]
-            path = 'tenants/{0}'.format(mso.existing['tenantId'])
-            tenantName = mso.request(path, method='GET').get('name')
+            path = 'tenants/{0}'.format(schema_obj.get('templates')[template_idx]['tenantId'])
+            tenant_name = mso.request(path, method='GET').get('name')
     else:
         mso.fail_json(msg="Provided template '{template}' does not exist. Existing templates: {templates}".format(template=template,
                                                                                                                   templates=', '.join(templates)))
@@ -140,46 +139,26 @@ def main():
     site_template = '{0}-{1}'.format(site_id, template)
 
     payload = dict()
-    op_path = ''
+    op_path = '/sites/{0}/externalEpgs/-'.format(site_template)
 
-    dn = 'uni/tn-{0}/out-{1}'.format(tenantName,l3out)
     # Get External EPG
     ext_epg_ref = mso.ext_epg_ref(schema_id=schema_id, template=template, external_epg=external_epg)
     external_epgs = [e.get('externalEpgRef') for e in schema_obj.get('sites')[site_idx]['externalEpgs']]
 
-    if ext_epg_ref not in external_epgs:
-        op_path = '/sites/{0}/externalEpgs/-'.format(site_template)
-        payload = dict(
-            externalEpgRef=dict(
-                schemaId=schema_id,
-                templateName=template,
-                externalEpgName=external_epg,
-            ),
-            l3outDn=dn,
-            l3outRef=dict(
-                schemaId=schema_id,
-                templateName=template,
-                l3outName=l3out,
-            ),
-        )
-    else:
+    if ext_epg_ref in external_epgs:
         external_epg_idx = external_epgs.index(ext_epg_ref)
-        # Get L3out
-        l3outs = [s.get('name') for s in schema_obj['sites'][site_idx]['externalEpgs'][external_epg_idx]['l3outs']]
-        if l3out is not None and l3out in l3outs:
-            l3out_idx = l3outs.index(l3out)
-            l3out_path = '/sites/{0}/externalEpgs/{1}/l3outs/{2}'.format(site_template, external_epg, l3out_idx)
-            mso.existing = schema_obj.get('sites')[site_idx]['externalEpgs'][external_epg_idx]['l3outs'][l3out_idx]
+        # Get External EPG
+        mso.existing = schema_obj['sites'][site_idx]['externalEpgs'][external_epg_idx]
+        op_path = '/sites/{0}/externalEpgs/{1}'.format(site_template, external_epg)
 
-
-    l3outs_path = '/sites/{0}/externalEpgs/{1}/l3outs/-'.format(site_template, external_epg)
     ops = []
 
+    mso.stdout = str(external_epg)
     if state == 'query':
-        if l3out is None:
-            mso.existing = schema_obj['sites'][site_idx]['externalEpgs'][external_epg_idx]
+        if external_epg is None:
+            mso.existing = schema_obj.get('sites')[site_idx]['externalEpgs']
         elif not mso.existing:
-            mso.fail_json(msg="L3out '{l3out}' not found".format(l3out=l3out))
+            mso.fail_json(msg="External EPG '{external_epg}' not found".format(external_epg=external_epg))
         mso.exit_json()
 
     mso.previous = mso.existing
@@ -187,16 +166,28 @@ def main():
     if state == 'absent':
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=l3outs_path))
+            ops.append(dict(op='remove', path=op_path))
 
     elif state == 'present':
-        payload = payload
-        op_path = l3outs_path
+        l3out_dn = 'uni/tn-{0}/out-{1}'.format(tenant_name,l3out)
+        payload = dict(
+            externalEpgRef=dict(
+                schemaId=schema_id,
+                templateName=template,
+                externalEpgName=external_epg,
+            ),
+            l3outDn=l3out_dn,
+            l3outRef=dict(
+                schemaId=schema_id,
+                templateName=template,
+                l3outName=l3out,
+            ),
+        )
 
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            ops.append(dict(op='replace', path=l3outs_path, value=mso.sent))
+            ops.append(dict(op='replace', path=op_path, value=mso.sent))
         else:
             ops.append(dict(op='add', path=op_path, value=mso.sent))
 

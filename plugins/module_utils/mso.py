@@ -476,6 +476,12 @@ class MSOModule(object):
         #     else:
         #         qs = dict(enableVersionCheck='true')
 
+        if method in ['PATCH']:
+            if qs is not None:
+                qs['validate'] = 'false'
+            else:
+                qs = dict(validate='false')
+
         resp = None
         if self.module._socket_path:
             self.connection.set_params(self.params)

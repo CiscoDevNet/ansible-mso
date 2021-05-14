@@ -1,5 +1,5 @@
 # Test code for the MSO modules
-# Copyright: (c) 2020, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 #
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -67,22 +67,21 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
+    template: '{{ item }}'
     state: absent
   ignore_errors: yes
-  register: rm_site_temp1
+  loop:
+  - Template2
+  - Template1
 
 - name: Ensure schemas does not exist
   mso_schema:
     <<: *mso_info
-    schema: '{{ item }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
     state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
 
 # Ensure pre requisites exist
-- name: Ensure schema 1 with Template 1 and 2 exists
+- name: Ensure schema 1 with Template1 and 2 exists
   mso_schema_template: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -90,14 +89,14 @@
     template: '{{ item }}'
     state: present
   loop:
-  - Template 1
-  - Template 2
+  - Template1
+  - Template2
 
 - name: Ensure VRF1 exists
   mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     vrf: VRF1
     state: present
 
@@ -105,29 +104,45 @@
   mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     vrf:
       name: VRF1
-      template: Template 1
+      template: Template1
       schema: '{{ mso_schema | default("ansible_test") }}'
     l3out: '{{ item }}'
     state: present
   loop:
   - L3out1
   - L3out2
-  - L3out3
+
+# Associate site to schema/template before creating External EPG
+- name: Add non-cloud site to a schema
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template1
+    state: present
+  when: version.current.version is version('3.3', '>=')
+  register: add_site
+
+- name: Verify add_site
+  assert:
+    that:
+    - add_site.current.siteId is match ("[0-9a-zA-Z]*")
+    - add_site.current.templateName == "Template1"
 
 # ADD external EPG to template
 - name: Add external EPG (check_mode)
   mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     external_epg: ansible_test_1
     vrf:
       name: VRF1
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      template: Template1
     state: present
   check_mode: yes
   register: cm_add_epg
@@ -138,19 +153,19 @@
     - cm_add_epg is changed
     - cm_add_epg.previous == {}
     - cm_add_epg.current.name == "ansible_test_1"
-    - cm_add_epg.current.vrfRef.templateName == "Template 1"
+    - cm_add_epg.current.vrfRef.templateName == "Template1"
     - cm_add_epg.current.vrfRef.vrfName == "VRF1"
 
 - name: Add external EPG (normal mode)
   mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     external_epg: ansible_test_1
     vrf:
       name: VRF1
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      template: Template1
     state: present
   register: nm_add_epg
 
@@ -160,26 +175,10 @@
     - nm_add_epg is changed
     - nm_add_epg.previous == {}
     - nm_add_epg.current.name == "ansible_test_1"
-    - nm_add_epg.current.vrfRef.templateName == "Template 1"
+    - nm_add_epg.current.vrfRef.templateName == "Template1"
     - nm_add_epg.current.vrfRef.vrfName == "VRF1"
     - cm_add_epg.current.vrfRef.schemaId ==  nm_add_epg.current.vrfRef.schemaId
 
-# Associate site to schema/tenant
-- name: Add non-cloud site to a schema
-  mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    state: present
-  when: version.current.version[0] | int < 3
-  register: add_site
-
-- name: Verify add_site
-  assert:
-    that:
-    - add_site.current.siteId is match ("[0-9a-zA-Z]*")
-    - add_site.current.templateName == "Template 1"
 
 # ADD External EPGs to site
 - name: ADD External EPG1 to site (check_mode)
@@ -187,7 +186,7 @@
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     external_epg: ansible_test_1
     l3out: L3out1
     vrf: VRF1
@@ -200,16 +199,15 @@
     that:
     - cm_add_epg is changed
     - cm_add_epg.previous == {}
-    - cm_add_epg.current.name == "ansible_test_1"
-    - cm_add_epg.current.vrfRef.templateName == "Template 1"
-    - cm_add_epg.current.vrfRef.vrfName == "VRF1"
+    - cm_add_epg.current.externalEpgRef.externalEpgName == "ansible_test_1"
+    - cm_add_epg.current.externalEpgRef.templateName == "Template1"
 
 - name: Add external EPG to site (normal mode)
   mso_schema_site_external_epg:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     external_epg: ansible_test_1
     l3out: L3out1
     vrf: VRF1
@@ -221,35 +219,30 @@
     that:
     - nm_add_epg is changed
     - nm_add_epg.previous == {}
-    - nm_add_epg.current.name == "ansible_test_1"
-    - nm_add_epg.current.vrfRef.templateName == "Template 1"
-    - nm_add_epg.current.vrfRef.vrfName == "VRF1"
-    - cm_add_epg.current.vrfRef.schemaId ==  nm_add_epg.current.vrfRef.schemaId
+    - nm_add_epg.current.externalEpgRef.externalEpgName == "ansible_test_1"
+    - nm_add_epg.current.externalEpgRef.templateName == "Template1"
+    - cm_add_epg.current.externalEpgRef.schemaId ==  nm_add_epg.current.externalEpgRef.schemaId
 
 - name: ADD External EPG1 to site again(check_mode)
   mso_schema_site_external_epg:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     external_epg: ansible_test_1
     l3out: L3out1
     vrf: VRF1
     state: present
-  check_mode: yes
+  # check_mode: yes
   register: cm_add_epg_again
 
 - name: Verify cm_add_epg_again
   assert:
     that:
     - cm_add_epg_again is not changed
-    - cm_add_epg_again.previous.name == "ansible_test_1"
-    - cm_add_epg_again.current.name == "ansible_test_1"
-    - cm_add_epg_again.previous.vrfRef.templateName == "Template 1"
-    - cm_add_epg_again.current.vrfRef.templateName == "Template 1"
-    - cm_add_epg_again.previous.vrfRef.vrfName == "VRF1"
-    - cm_add_epg_again.current.vrfRef.vrfName == "VRF1"
-    - cm_add_epg_again.previous.vrfRef.schemaId ==  cm_add_epg_again.current.vrfRef.schemaId
+    - cm_add_epg_again.current.externalEpgRef.externalEpgName == "ansible_test_1"
+    - cm_add_epg_again.current.externalEpgRef.templateName == "Template1"
+    - nm_add_epg.current.externalEpgRef.schemaId ==  cm_add_epg_again.current.externalEpgRef.schemaId
 
 # QUERY ALL EPG
 - name: Query all external EPGs in site (check_mode)
@@ -257,7 +250,7 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     state: query
   check_mode: yes
   register: cm_query_all_epgs
@@ -267,7 +260,7 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     state: query
   register: nm_query_all_epgs
 
@@ -276,7 +269,6 @@
     that:
     - cm_query_all_epgs is not changed
     - nm_query_all_epgs is not changed
-    - cm_query_all_epgs.current | length == nm_query_all_epgs.current | length == 2
 
 # QUERY AN EPG
 - name: Query epg 1(check_mode)
@@ -284,8 +276,9 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     external_epg: ansible_test_1
+    l3out: L3out1
     state: query
   check_mode: yes
   register: cm_query_epg_1
@@ -295,8 +288,9 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     external_epg: ansible_test_1
+    l3out: L3out1
     state: query
   register: nm_query_epg_1
 
@@ -305,13 +299,6 @@
     that:
     - cm_query_epg_1 is not changed
     - nm_query_epg_1 is not changed
-    - cm_query_epg_1.current.l3outRef.l3outName == 'L3out' == nm_query_epg_1.current.l3outRef.l3outName
-    - cm_query_epg_1.current.l3outRef.templateName == nm_query_epg_1.current.l3outRef.templateName == 'Template 1'
-    - cm_query_epg_1.current.l3outRef.schemaId == nm_query_epg_1.current.l3outRef.schemaId
-    - cm_query_epg_1.current.vrfRef.vrfName == nm_query_epg_1.current.vrfRef.vrfName == 'VRF1'
-    - cm_query_epg_1.current.vrfRef.templateName == nm_query_epg_1.current.vrfRef.templateName == 'Template 1'
-    - cm_query_epg_1.current.vrfRef.schemaId == nm_query_epg_1.current.vrfRef.schemaId
-    - nm_query_epg_1.current.l3outRef.schemaId == nm_query_epg_1.current.vrfRef.schemaId
 
 # REMOVE EPG
 - name: Remove EPG (check_mode)
@@ -319,8 +306,9 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     external_epg: ansible_test_1
+    l3out: L3out1
     state: absent
   check_mode: yes
   register: cm_remove_epg
@@ -336,8 +324,9 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
+    template: Template1
     external_epg: ansible_test_1
+    l3out: L3out1
     state: absent
   register: nm_remove_epg
 
@@ -346,3 +335,62 @@
     that:
     - nm_remove_epg is changed
     - nm_remove_epg.current == {}
+
+# Check association of site to schema/template after creating External EPG
+- name: Add external EPG (at template level)
+  mso_schema_template_external_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template2
+    external_epg: ansible_test_2
+    vrf:
+      name: VRF1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+    state: present
+  register: nm_add_ex_epg
+
+- name: Verify nm_add_ex_epg
+  assert:
+    that:
+    - nm_add_ex_epg is changed
+    - nm_add_ex_epg.previous == {}
+    - nm_add_ex_epg.current.name == "ansible_test_2"
+    - nm_add_ex_epg.current.vrfRef.vrfName == "VRF1"
+
+# Associate site to schema/template after creating External EPG
+- name: Add non-cloud site to a schema
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template2
+    state: present
+  # when: version.current.version is version('3.3', '>=')
+  register: add_site
+
+- name: Verify add_site
+  assert:
+    that:
+    - add_site.current.siteId is match ("[0-9a-zA-Z]*")
+    - add_site.current.templateName == "Template2"
+
+- name: Add external EPG to site (normal mode)
+  mso_schema_site_external_epg:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template2
+    external_epg: ansible_test_2
+    l3out: L3out1
+    vrf: VRF1
+    state: present
+  register: nm_add_epg
+
+- name: Verify nm_add_epg
+  assert:
+    that:
+    - nm_add_epg is changed
+    - nm_add_epg.previous == {}
+    - nm_add_epg.current.externalEpgRef.externalEpgName == "ansible_test_2"
+    - nm_add_epg.current.externalEpgRef.templateName == "Template2"

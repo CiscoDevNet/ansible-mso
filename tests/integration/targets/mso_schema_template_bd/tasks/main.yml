@@ -249,8 +249,6 @@
     - cm_add_bd_again.previous.vrfRef.vrfName == "VRF"
     - cm_add_bd_again.current.vrfRef.vrfName == "VRF"
     - cm_add_bd_again.previous.vrfRef.schemaId ==  cm_add_bd_again.current.vrfRef.schemaId
-  when: version.current.version is version('3.1.1i', '!=')
-
 
 - name: Add bd again (normal mode)
   mso_schema_template_bd:
@@ -413,7 +411,8 @@
     - nm_add_bd_5.current.l2Stretch == true
     - nm_add_bd_5.current.l2UnknownUnicast == "flood"
     - nm_add_bd_5.current.l3MCast == false
-  when: version.current.version is version('3.1.1g', '<')
+  when: 
+  - version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_add_bd_5 for a version that's 3.1
   assert:
@@ -466,7 +465,8 @@
   assert:
     that:
     - nm_add_again_bd_5 is not changed
-  when: version.current.version is version('3.1.1g', '<')
+  when: 
+  - version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_add_again_bd_5 for a version that's 3.1
   assert:
@@ -506,7 +506,8 @@
   assert:
     that:
     - nm_bd_5_options is not changed
-  when: version.current.version is version('3.1.1g', '<')
+  when: 
+  - version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_bd_5_options for a version that's 3.1
   assert:
@@ -550,7 +551,8 @@
   assert:
     that:
     - nm_change_bd_5_1 is changed
-  when: version.current.version is version('3.1.1g', '<')
+  when: 
+  - version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_change_bd_5_1 for a version that's 3.1
   assert:
@@ -593,7 +595,8 @@
     that:
     - nm_change_bd_5_2 is changed
     - nm_change_bd_5_2.current.l2UnknownUnicast == "flood"
-  when: version.current.version is version('3.1.1g', '<')
+  when: 
+  - version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_change_bd_5_2 for a version that's after 3.1
   assert:
@@ -636,15 +639,16 @@
     that:
     - nm_change_bd_5_3 is changed
     - nm_change_bd_5_3.msg is match ("MSO Error 143{{':'}} Invalid Field{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
-  when: version.current.version is version('3.1.1g', '<')
+  when: 
+  - version.current.version is version('3.1.1g', '<')
+
 
 - name: Verify nm_change_bd_5_3 for a version that's after 3.1
   assert:
     that:
     - nm_change_bd_5_3 is changed
     - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off exception while trying to update schema")
-  when: 
-  - version.current.version is version('3.1.1g', '>=')
+  when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd 5 for query (normal mode)
   mso_schema_template_bd:
@@ -724,7 +728,6 @@
     - cm_change_bd_again.current.vrfRef.vrfName == 'VRF2'
     - cm_change_bd_again.current.vrfRef.templateName == "Template1"
     - cm_change_bd_again.current.vrfRef.schemaId == cm_change_bd_again.previous.vrfRef.schemaId
-  when: version.current.version is version('3.1.1i', '!=')
 
 - name: Change bd again (normal mode)
   mso_schema_template_bd:
@@ -974,7 +977,7 @@
     - nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.version == 1
     - nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.version == 1
     - nm_bd_dhcp_policies.current.dhcpLabels[2].dhcpOptionLabel.version == 1
-  when: version.current.version is version('3.1.1i', '==')
+  when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify subnets in nm_bd_dhcp_policies
   assert:
@@ -994,7 +997,7 @@
     - nm_bd_dhcp_policies.current.arpFlood == true
     - nm_bd_dhcp_policies.current.v6unkMcastAct == "flood"
     - nm_bd_dhcp_policies.current.vmac == "00:00:5E:00:01:3C"
-  when: version.current.version[:5] == '3.1.1'
+  when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd with multiple dhcp policies for mso version > 3.1.1g
   mso_schema_template_bd:
@@ -1039,7 +1042,7 @@
     state: present
   register: change_nm_bd_dhcp_policies
 
-- name: Verify addition of DHCP policies for mso version > 3.1.1g
+- name: Verify change in DHCP policies for mso version > 3.1.1g
   assert:
     that:
     - change_nm_bd_dhcp_policies is changed
@@ -1052,7 +1055,7 @@
     - change_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
     - change_nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.version == 1
     - change_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.version == 1
-  when: version.current.version is version('3.1.1i', '==')
+  when: version.current.version is version('3.1.1g', '>')
 
 
 # FIXME: Add missing DHCP Policy changes and checks (missing DHCP Policy module to make sure it is there.)
@@ -1162,7 +1165,8 @@
     - nm_query_bd_5.current.l2Stretch == true
     - nm_query_bd_5.current.l2UnknownUnicast == "flood"
     - nm_query_bd_5.current.l3MCast == false
-  when: version.current.version is version('3.1.1g', '<')
+  when: 
+  - version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_query_bd_5 for a version that's 3.1
   assert:
@@ -1180,6 +1184,64 @@
     - nm_query_bd_5.current.multiDstPktAct == "drop"
     - nm_query_bd_5.current.arpFlood == true
   when: version.current.version is version('3.1.1g', '>=')
+
+- name: Qery bd with multiple dhcp policies for mso version > 3.1.1g
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_multiple_dhcp
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: false
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: false
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: drop
+    ipv6_unknown_multicast_flooding: flood
+    arp_flooding: false
+    virtual_mac_address: 00:00:5E:00:01:3C
+    subnets:
+    - subnet: 10.0.0.128/24
+    - subnet: 10.0.1.254/24
+      description: 1234567890
+    - ip: 192.168.0.254/24
+      description: "My description for a subnet"
+      scope: private
+      shared: false
+      no_default_gateway: true
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+    dhcp_policies:
+      - name: ansible_test_dhcp_policy1
+        version: 1
+        dhcp_option_policy:
+          name: ansible_test_dhcp_policy_option1
+          version: 1
+      - name: ansible_test_dhcp_policy2
+        version: 1
+        dhcp_option_policy:
+          name: ansible_test_dhcp_policy_option1
+          version: 1
+    state: query
+  register: query_nm_bd_dhcp_policies
+
+- name: Verify query of DHCP policies for mso version > 3.1.1g
+  assert:
+    that:
+    - query_nm_bd_dhcp_policies is not changed
+    - query_nm_bd_dhcp_policies.current.dhcpLabels | length == 2
+    - query_nm_bd_dhcp_policies.current.dhcpLabels[0].name == 'ansible_test_dhcp_policy1'
+    - query_nm_bd_dhcp_policies.current.dhcpLabels[1].name == 'ansible_test_dhcp_policy2'
+    - query_nm_bd_dhcp_policies.current.dhcpLabels[0].version == 1
+    - query_nm_bd_dhcp_policies.current.dhcpLabels[1].version == 1
+    - query_nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+    - query_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+    - query_nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.version == 1
+    - query_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.version == 1
+  when: version.current.version is version('3.1.1g', '>')
 
 # REMOVE BD
 - name: Remove bd (check_mode)
@@ -1342,3 +1404,12 @@
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
     - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
+    
+- name: Remove schemas for next ci test
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'

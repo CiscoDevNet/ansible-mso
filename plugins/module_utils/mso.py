@@ -136,6 +136,7 @@ def mso_dhcp_spec():
         version=dict(type='int', required=True),
     )
 
+
 def mso_dhcp_option_spec():
     return dict(
         name=dict(type='str', required=True),

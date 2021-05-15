@@ -1,0 +1,433 @@
+# Test code for the MSO modules
+# Copyright: (c) 2021, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Set version vars
+  set_fact:
+    mso_l3mcast: false
+  when: version.current.version[:5] == '2.2.4'
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant: &tenant_present
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Ensure schema 1 with Template1 exist
+  mso_schema_template: &schema_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template1
+    state: present
+
+- name: Ensure VRF exists
+  mso_schema_template_vrf: &vrf_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    vrf: VRF
+    layer3_multicast: true
+    state: present
+
+- name: Ensure multiple DHCP policies exist 
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    dhcp_relay_policy: '{{ item }}'
+    description: "My Test DHCP Policies"
+    tenant: ansible_test
+    state: present
+  loop:
+  - 'ansible_test_dhcp_policy1'
+  - 'ansible_test_dhcp_policy2'
+  - 'ansible_test_dhcp_policy3'
+
+- name: Ensure multiple DHCP option policies exist 
+  mso_dhcp_option_policy:
+    <<: *mso_info
+    dhcp_option_policy: '{{ item }}'
+    description: "My Test DHCP Policy Options"
+    tenant: ansible_test
+    state: present
+  loop:
+  - 'ansible_test_dhcp_policy_option1'
+  - 'ansible_test_dhcp_policy_option2'
+      
+# ADD BD
+- name: Add bd
+  mso_schema_template_bd: &bd_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: true
+    layer2_stretch: true
+    layer2_unknown_unicast: proxy
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+    state: present
+
+- name: Add bd2
+  mso_schema_template_bd:
+    <<: *bd_present
+    bd: ansible_test_2
+    state: present
+
+# Add dhcp policies
+- name: Add DHCP policy in check mode
+  mso_schema_template_bd_dhcp_policy: &dhcp_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
+    name: ansible_test_dhcp_policy1
+    version: 1
+    dhcp_option_policy:
+      name: ansible_test_dhcp_policy_option1
+      version: 1
+  register: cm_add_dhcp
+  check_mode: yes
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add DHCP policy in normal mode
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_present
+  register: nm_add_dhcp
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add DHCP policy again in normal mode
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_present
+  register: nm_add_dhcp_again
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add another DHCP policy in normal mode
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_present
+    name: ansible_test_dhcp_policy2
+    version: 1
+    dhcp_option_policy:
+      name: ansible_test_dhcp_policy_option2
+      version: 1
+  register: nm_add_dhcp2
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add dhcp for query all (normal mode)
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_present
+    name: ansible_test_dhcp_policy3
+    version: 1
+  register: nm_add_dhcp3
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Verify cm_add_dhcp, nm_add_dhcp, nm_add_dhcp2 and nm_add_dhcp3
+  assert:
+    that:
+    - cm_add_dhcp is changed
+    - nm_add_dhcp is changed
+    - nm_add_dhcp_again is not changed
+    - nm_add_dhcp.current.name == 'ansible_test_dhcp_policy1'
+    - nm_add_dhcp.current.version == 1
+    - nm_add_dhcp.current.dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+    - nm_add_dhcp.current.dhcpOptionLabel.version == 1
+    - nm_add_dhcp2.current.name == 'ansible_test_dhcp_policy2'
+    - nm_add_dhcp2.current.version == 1
+    - nm_add_dhcp2.current.dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option2'
+    - nm_add_dhcp2.current.dhcpOptionLabel.version == 1
+    - nm_add_dhcp3.current.name == 'ansible_test_dhcp_policy3'
+    - nm_add_dhcp3.current.version == 1
+  when: version.current.version is version('3.1.1g', '>')
+
+# CHANGE dhcp policies
+- name: Change dhcp policy (normal mode)
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_present
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
+    name: ansible_test_dhcp_policy1
+    version: 1
+    dhcp_option_policy:
+      name: ansible_test_dhcp_policy_option2
+      version: 1
+  register: nm_change_dhcp
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Verify nm_change_dhcp
+  assert:
+    that:
+    - nm_change_dhcp is changed
+    - nm_change_dhcp.current.name == 'ansible_test_dhcp_policy1'
+    - nm_change_dhcp.current.version == 1
+    - nm_change_dhcp.current.dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option2'
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Change dhcp policy again (normal mode)
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_present
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
+    name: ansible_test_dhcp_policy1
+    version: 1
+    dhcp_option_policy:
+      name: ansible_test_dhcp_policy_option1
+      version: 1
+  register: nm_change_dhcp_again
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Verify nm_change_dhcp
+  assert:
+    that:
+    - nm_change_dhcp_again is changed
+    - nm_change_dhcp_again.current.name == 'ansible_test_dhcp_policy1'
+    - nm_change_dhcp_again.current.version == 1
+    - nm_change_dhcp_again.current.dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+  when: version.current.version is version('3.1.1g', '>')
+
+
+# QUERY ALL dhcp policies
+- name: Query all dhcp (check_mode)
+  mso_schema_template_bd_dhcp_policy: &dhcp_query
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
+    state: query
+  check_mode: yes
+  register: cm_query_all_dhcp
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Query all dhcp (normal mode)
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_query
+  register: nm_query_all_dhcp
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Verify query_all_dhcp
+  assert:
+    that:
+    - cm_query_all_dhcp is not changed
+    - nm_query_all_dhcp is not changed
+    - cm_query_all_dhcp.current | length == nm_query_all_dhcp.current | length == 3
+  when: version.current.version is version('3.1.1g', '>')
+
+# QUERY a DHCP policy
+- name: Query single dhcp
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_query
+    name: ansible_test_dhcp_policy1
+  register: nm_query_dhcp
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Verify nm_query_dhcp
+  assert:
+    that:
+    - nm_query_dhcp is not changed
+    - nm_query_dhcp.current.name == 'ansible_test_dhcp_policy1'
+    - nm_query_dhcp.current.version == 1
+    - nm_query_dhcp.current.dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+  when: version.current.version is version('3.1.1g', '>')
+
+# QUERY a non associated DHCP policy
+- name: Query non associated dhcp
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_query
+    bd: ansible_test_2
+    name: ansible_test_dhcp_policy1
+  ignore_errors: yes
+  register: non_dhcp
+
+- name: Verify non_dhcp
+  assert:
+    that:
+    - non_dhcp.msg is match ("DHCP policy not associated with the bd")
+  when: version.current.version is version('3.1.1g', '>')
+
+# REMOVE DHCP policy
+- name: Remove dhcp policy
+  mso_schema_template_bd_dhcp_policy: &dhcp_absent
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
+    name: ansible_test_dhcp_policy1
+    version: 1
+    dhcp_option_policy:
+      name: ansible_test_dhcp_policy_option1
+      version: 1
+    state: absent
+  register: nm_remove_dhcp
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Verify nm_remove_dhcp
+  assert:
+    that:
+    - nm_remove_dhcp is changed
+    - nm_remove_dhcp.current == {}
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Remove dhcp again (check_mode)
+  mso_schema_template_bd_dhcp_policy: 
+    <<: *dhcp_absent
+  register: nm_remove_dhcp_again
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Verify nm_remove_dhcp_again
+  assert:
+    that:
+    - nm_remove_dhcp_again is not changed
+    - nm_remove_dhcp_again.current == {}
+  when: version.current.version is version('3.1.1g', '>')
+
+# QUERY NON-EXISTING DHCP policy
+- name: Query non-existing dhcp policy
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_query
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
+    name: non_policy
+    version: 1
+    dhcp_option_policy:
+      name: ansible_test_dhcp_policy_option1
+      version: 1
+  ignore_errors: yes
+  register: nm_query_non_dhcp
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Verify nm_query_non_dhcp
+  assert:
+    that:
+    - nm_query_non_dhcp is not changed
+    - nm_query_non_dhcp.msg is match ("DHCP policy 'non_policy' does not exist")
+  when: version.current.version is version('3.1.1g', '>')
+
+# QUERY NON-EXISTING DHCP policy option
+- name: Query non-existing dhcp policy option
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_query
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
+    name: ansible_test_dhcp_policy1
+    version: 1
+    dhcp_option_policy:
+      name: non_option
+      version: 1
+  ignore_errors: yes
+  register: nm_query_non_dhcp_option
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Verify nm_query_non_dhcp
+  assert:
+    that:
+    - nm_query_non_dhcp_option is not changed
+    - nm_query_non_dhcp_option.msg is match ("DHCP option policy 'non_option' does not exist")
+  when: version.current.version is version('3.1.1g', '>')
+
+# USE A NON-EXISTING STATE
+- name: Non-existing state for dhcp
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_query
+    state: non-existing-state
+  ignore_errors: yes
+  register: nm_non_existing_state
+
+- name: Verify non_existing_state
+  assert:
+    that:
+    - nm_non_existing_state is not changed
+    - nm_non_existing_state.msg is match ("value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state")
+
+# USE A NON-EXISTING SCHEMA
+- name: Non-existing schema for dhcp
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_query
+    schema: non-existing-schema
+  ignore_errors: yes
+  register: nm_non_existing_schema
+
+- name: Verify non_existing_schema
+  assert:
+    that:
+    - nm_non_existing_schema is not changed
+    - nm_non_existing_schema.msg is match ("Provided schema 'non-existing-schema' does not exist.")
+
+# USE A NON-EXISTING TEMPLATE
+- name: Non-existing template for dhcp
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_query
+    template: non-existing-template
+  ignore_errors: yes
+  register: nm_non_existing_template
+
+- name: Verify non_existing_template
+  assert:
+    that:
+    - nm_non_existing_template is not changed
+    - nm_non_existing_template.msg is match ("Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1")
+
+# USE A NON-EXISTING BD
+- name: Non-existing bd for dhcp
+  mso_schema_template_bd_dhcp_policy:
+    <<: *dhcp_query
+    bd: non-existing-bd
+  ignore_errors: yes
+  register: nm_non_existing_bd
+
+- name: Verify non_existing_bd
+  assert:
+    that:
+    - nm_non_existing_bd is not changed
+    - nm_non_existing_bd.msg is match ("Provided BD 'non-existing-bd' does not exist. Existing BDs{{':'}} ansible_test_1")
+
+- name: Remove schemas for next ci test
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'

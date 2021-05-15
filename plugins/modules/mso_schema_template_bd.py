@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
-# Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+# Copyright: (c) 2021, Shreyas Srish (@shrsr) <ssrish@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -67,6 +67,36 @@ options:
     description:
       - The DHCP Policy
     type: dict
+    suboptions:
+      name:
+        description:
+        - The name of the DHCP Relay Policy
+        type: str
+        required: yes
+      version:
+        description:
+        - The version of DHCP Relay Policy
+        type: int
+        required: yes
+      dhcp_option_policy:
+        description:
+        - The DHCP Option Policy
+        type: dict
+        suboptions:
+          name:
+            description:
+            - The name of the DHCP Option Policy
+            type: str
+          version:
+            description:
+            - The version of the DHCP Option Policy
+            type: int
+  dhcp_policies:
+    description:
+    - A list DHCP Policies to be assciated with the BD
+    - This option can only be used on versions of MSO that are 3.1.1h or greater.
+    type: list
+    elements: dict
     suboptions:
       name:
         description:
@@ -249,8 +279,59 @@ EXAMPLES = r'''
       dhcp_option_policy:
         name: ansible_test_option
         version: 1
+    state: present
 
-- name: Remove an BD
+- name: Add bd with options available on version 3.1.1h or greater
+  mso_schema_template_bd:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema 1
+    template: Template 1
+    bd: BD 1
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: false
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: false
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: drop
+    ipv6_unknown_multicast_flooding: flood
+    arp_flooding: false
+    virtual_mac_address: 00:00:5E:00:01:3C
+    subnets:
+    - subnet: 10.0.0.128/24
+    - subnet: 10.0.1.254/24
+      description: 1234567890
+    - ip: 192.168.0.254/24
+      description: "My description for a subnet"
+      scope: private
+      shared: false
+      no_default_gateway: true
+    vrf:
+      name: vrf1
+      schema: Schema1
+      template: Template1
+    dhcp_policies:
+      - name: ansible_test
+        version: 1
+        dhcp_option_policy:
+          name: ansible_test_option
+          version: 1
+      - name: ansible_test2
+        version: 1
+        dhcp_option_policy:
+          name: ansible_test_option2
+          version: 1
+      - name: ansible_test3
+        version: 1
+        dhcp_option_policy:
+          name: ansible_test_option
+          version: 1
+    state: present
+  delegate_to: localhost
+
+- name: Remove a BD
   cisco.mso.mso_schema_template_bd:
     host: mso_host
     username: admin
@@ -261,7 +342,7 @@ EXAMPLES = r'''
     state: absent
   delegate_to: localhost
 
-- name: Query a specific BDs
+- name: Query a specific BD
   cisco.mso.mso_schema_template_bd:
     host: mso_host
     username: admin
@@ -306,7 +387,7 @@ def main():
         layer3_multicast=dict(type='bool'),
         vrf=dict(type='dict', options=mso_reference_spec()),
         dhcp_policy=dict(type='dict', options=mso_dhcp_spec()),
-        dhcp_policies=dict(type='list', options=mso_dhcp_spec()),
+        dhcp_policies=dict(type='list', elements='dict', options=mso_dhcp_spec()),
         subnets=dict(type='list', elements='dict', options=mso_subnet_spec()),
         unknown_multicast_flooding=dict(type='str', choices=['optimized_flooding', 'flood']),
         multi_destination_flooding=dict(type='str', choices=['flood_in_bd', 'drop']),
@@ -415,13 +496,15 @@ def main():
             subnets=subnets,
             vrfRef=vrf_ref,
             dhcpLabel=dhcp_label,
-            dhcpLabels=dhcp_labels,
             unkMcastAct=unknown_multicast_flooding,
             multiDstPktAct=multi_destination_flooding,
             v6unkMcastAct=ipv6_unknown_multicast_flooding,
             vmac=virtual_mac_address,
             arpFlood=arp_flooding,
         )
+
+        if dhcp_labels:
+            payload.update(dhcpLabels=dhcp_labels)
 
         mso.sanitize(payload, collate=True, required=['dhcpLabel', 'dhcpLabels'])
         if mso.existing:

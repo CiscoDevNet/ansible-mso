@@ -105,7 +105,7 @@ def main():
     # Get schema_id
     schema_obj = mso.get_obj('schemas', displayName=schema)
     if not schema_obj:
-        mso.fail_json(msg="Provided schema '{0}' does not exist".format(schema))
+        mso.fail_json(msg="Provided schema '{0}' does not exist.".format(schema))
 
     schema_path = 'schemas/{id}'.format(**schema_obj)
     schema_id = schema_obj.get('id')
@@ -130,8 +130,7 @@ def main():
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
     sites_list = [s.get('siteId') + '/' + s.get('templateName') for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/siteId/template '{0}/{1}/{2}' does not exist. "
-                          "Existing siteIds/templates: {3}".format(site, site_id, template, ', '.join(sites_list)))
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))

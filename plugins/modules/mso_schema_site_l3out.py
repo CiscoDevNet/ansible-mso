@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -13,28 +13,27 @@ ANSIBLE_METADATA = {'metadata_version': '1.1',
 
 DOCUMENTATION = r'''
 ---
-module: mso_schema_template_l3out
-short_description: Manage l3outs in schema templates
+module: mso_schema_site_l3out
+short_description: Manage site-local layer3 Out (L3Outs) in schema template
 description:
-- Manage l3outs in schema templates on Cisco ACI Multi-Site.
+- Manage site-local L3Outs in schema template on Cisco ACI Multi-Site.
 author:
-- Dag Wieers (@dagwieers)
+- Anvitha Jain (@anvitha-jain)
 options:
   schema:
     description:
     - The name of the schema.
     type: str
     required: yes
+  site:
+    description:
+    - The name of the site.
+    type: str
+    required: yes
   template:
     description:
     - The name of the template.
     type: str
-    required: yes
-  l3out:
-    description:
-    - The name of the l3out to manage.
-    type: str
-    aliases: [ name ]
     required: yes
   display_name:
     description:
@@ -60,6 +59,12 @@ options:
         - The template that defines the referenced VRF.
         - If this parameter is unspecified, it defaults to the current schema.
         type: str
+  l3out:
+    description:
+    - The name of the l3out to manage.
+    type: str
+    aliases: [ name ]
+    required: yes
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -67,58 +72,62 @@ options:
     type: str
     choices: [ absent, present, query ]
     default: present
+seealso:
+- module: cisco.mso.mso_schema_site
+- module: cisco.mso.mso_schema_template_l3out
 extends_documentation_fragment: cisco.mso.modules
 '''
 
 EXAMPLES = r'''
-- name: Add a new L3out
-  cisco.mso.mso_schema_template_l3out:
+- name: Add a new site L3Out
+  cisco.mso.mso_schema_site_l3out:
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    validate_certs: false
-    schema: Schema 1
-    template: Template 1
-    l3out: L3out 1
+    schema: Schema1
+    site: Site1
+    template: Template1
+    l3out: L3out1
     vrf:
         name: vrfName
-        schema: vrfSchema
-        template: vrfTemplate
+        template: TemplateName
+        schema: schemaName
     state: present
   delegate_to: localhost
 
-- name: Remove an L3out
-  cisco.mso.mso_schema_template_l3out:
+- name: Remove a site L3Out
+  cisco.mso.mso_schema_site_l3out:
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    schema: Schema 1
-    template: Template 1
-    l3out: L3out 1
+    schema: Schema1
+    site: Site1
+    template: Template1
+    l3out: L3out1
     state: absent
   delegate_to: localhost
 
-- name: Query a specific L3outs
-  cisco.mso.mso_schema_template_l3out:
+- name: Query a specific site L3Out
+  cisco.mso.mso_schema_site_l3out:
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    validate_certs: false
-    schema: Schema 1
-    template: Template 1
-    l3out: L3out 1
+    schema: Schema1
+    site: Site1
+    template: Template1
+    l3out: L3out1
     state: query
   delegate_to: localhost
   register: query_result
 
-- name: Query all L3outs
-  cisco.mso.mso_schema_template_l3out:
+- name: Query all site l3outs
+  cisco.mso.mso_schema_site_l3out:
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    validate_certs: false
-    schema: Schema 1
-    template: Template 1
+    schema: Schema1
+    site: Site1
+    template: Template1
     state: query
   delegate_to: localhost
   register: query_result
@@ -135,10 +144,12 @@ def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
         schema=dict(type='str', required=True),
+        site=dict(type='str', required=True),
         template=dict(type='str', required=True),
-        l3out=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
-        display_name=dict(type='str'),
         vrf=dict(type='dict', options=mso_reference_spec()),
+        description=dict(type='str'),
+        display_name=dict(type='str'),
+        l3out=dict(type='str'),  # This parameter is not required for querying all objects
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -152,12 +163,14 @@ def main():
     )
 
     schema = module.params.get('schema')
+    site = module.params.get('site')
     template = module.params.get('template').replace(' ', '')
     l3out = module.params.get('l3out')
-    display_name = module.params.get('display_name')
     vrf = module.params.get('vrf')
     if vrf is not None and vrf.get('template') is not None:
         vrf['template'] = vrf.get('template').replace(' ', '')
+    display_name = module.params.get('display_name')
+    description = module.params.get('description')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -169,24 +182,41 @@ def main():
     templates = [t.get('name') for t in schema_obj.get('templates')]
     if template not in templates:
         mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
-    template_idx = templates.index(template)
 
-    # Get L3out
-    l3outs = [l3.get('name') for l3 in schema_obj.get('templates')[template_idx]['intersiteL3outs']]
+    # Get site
+    site_id = mso.lookup_site(site)
 
-    if l3out is not None and l3out in l3outs:
-        l3out_idx = l3outs.index(l3out)
-        mso.existing = schema_obj.get('templates')[template_idx]['intersiteL3outs'][l3out_idx]
+    # Get site_idx
+    if 'sites' not in schema_obj:
+        mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
+    sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
+    if (site_id, template) not in sites:
+        mso.fail_json(msg="Provided site-template association '{0}-{1}' does not exist. Associate the site with the template using mso_schema_site.".format(site, template))
+
+    # Schema-access uses indexes
+    site_idx = sites.index((site_id, template))
+    # Path-based access uses site_id-template
+    site_template = '{0}-{1}'.format(site_id, template)
+
+    # Get l3out
+    l3out_ref = mso.l3out_ref(schema_id=schema_id, template=template, l3out=l3out)
+    l3outs = [v.get('l3outRef') for v in schema_obj.get('sites')[site_idx]['intersiteL3outs']]
+
+    if l3out is not None and l3out_ref in l3outs:
+        l3out_idx = l3outs.index(l3out_ref)
+        l3out_path = '/sites/{0}/intersiteL3outs/{1}'.format(site_template, l3out)
+        mso.existing = schema_obj.get('sites')[site_idx]['intersiteL3outs'][l3out_idx]
 
     if state == 'query':
         if l3out is None:
-            mso.existing = schema_obj.get('templates')[template_idx]['intersiteL3outs']
+            mso.existing = schema_obj.get('sites')[site_idx]['intersiteL3outs']
+            for l3out in mso.existing:
+                l3out['l3outRef'] = mso.dict_from_ref(l3out.get('l3outRef'))
         elif not mso.existing:
-            mso.fail_json(msg="L3out '{l3out}' not found".format(l3out=l3out))
+            mso.fail_json(msg="L3Out '{l3out}' not found".format(l3out=l3out))
         mso.exit_json()
 
-    l3outs_path = '/templates/{0}/intersiteL3outs'.format(template)
-    l3out_path = '/templates/{0}/intersiteL3outs/{1}'.format(template, l3out)
+    l3outs_path = '/sites/{0}/intersiteL3outs'.format(site_template)
     ops = []
 
     mso.previous = mso.existing
@@ -202,8 +232,13 @@ def main():
             display_name = l3out
 
         payload = dict(
-            name=l3out,
-            displayName=display_name,
+            l3outRef=dict(
+                schemaId=schema_id,
+                templateName=template,
+                l3outName=l3out,
+                description=description,
+                displayName=display_name,
+            ),
             vrfRef=vrf_ref,
         )
 
@@ -224,3 +259,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -158,6 +158,18 @@ options:
         - Whether this subnet is an IGMP querier.
         type: bool
         default: false
+      virtual:
+        description:
+        - Treat as Virtual IP Address.
+        type: bool
+        default: false
+      primary:
+        description:
+        - Treat as Primary Subnet.
+        - There can be only one primary subnet per address family under a BD.
+        - This option can only be used on versions of MSO that are 3.1.1h or greater.
+        type: bool
+        default: false
   intersite_bum_traffic:
     description:
     - Whether to allow intersite BUM traffic.
@@ -203,6 +215,12 @@ options:
     description:
     - Virtual MAC Address
     type: str
+  unicast_routing:
+    description:
+    - Unicast Routing
+    - This option can only be used on versions of MSO that are 3.1.1h or greater.
+    type: bool
+    default: false
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -299,10 +317,13 @@ EXAMPLES = r'''
     ipv6_unknown_multicast_flooding: flood
     arp_flooding: false
     virtual_mac_address: 00:00:5E:00:01:3C
+    unicast_routing: true
     subnets:
     - subnet: 10.0.0.128/24
+      primary: true
     - subnet: 10.0.1.254/24
       description: 1234567890
+      virtual: true
     - ip: 192.168.0.254/24
       description: "My description for a subnet"
       scope: private
@@ -370,7 +391,7 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec, mso_subnet_spec, mso_dhcp_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec, mso_bd_subnet_spec, mso_dhcp_spec
 
 
 def main():
@@ -388,12 +409,13 @@ def main():
         vrf=dict(type='dict', options=mso_reference_spec()),
         dhcp_policy=dict(type='dict', options=mso_dhcp_spec()),
         dhcp_policies=dict(type='list', elements='dict', options=mso_dhcp_spec()),
-        subnets=dict(type='list', elements='dict', options=mso_subnet_spec()),
+        subnets=dict(type='list', elements='dict', options=mso_bd_subnet_spec()),
         unknown_multicast_flooding=dict(type='str', choices=['optimized_flooding', 'flood']),
         multi_destination_flooding=dict(type='str', choices=['flood_in_bd', 'drop']),
         ipv6_unknown_multicast_flooding=dict(type='str', choices=['optimized_flooding', 'flood']),
         arp_flooding=dict(type='bool'),
         virtual_mac_address=dict(type='str'),
+        unicast_routing=dict(type='bool', default=False),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -426,6 +448,7 @@ def main():
     ipv6_unknown_multicast_flooding = module.params.get('ipv6_unknown_multicast_flooding')
     arp_flooding = module.params.get('arp_flooding')
     virtual_mac_address = module.params.get('virtual_mac_address')
+    unicast_routing = module.params.get('unicast_routing')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -505,6 +528,9 @@ def main():
 
         if dhcp_labels:
             payload.update(dhcpLabels=dhcp_labels)
+
+        if unicast_routing:
+            payload.update(unicastRouting=unicast_routing)
 
         mso.sanitize(payload, collate=True, required=['dhcpLabel', 'dhcpLabels'])
         if mso.existing:

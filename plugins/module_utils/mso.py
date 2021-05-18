@@ -129,6 +129,14 @@ def mso_subnet_spec():
     return subnet_spec
 
 
+def mso_bd_subnet_spec():
+    subnet_spec = mso_epg_subnet_spec()
+    subnet_spec.update(dict(querier=dict(type='bool', default=False)))
+    subnet_spec.update(dict(primary=dict(type='bool', default=False)))
+    subnet_spec.update(dict(virtual=dict(type='bool', default=False)))
+    return subnet_spec
+
+
 def mso_dhcp_spec():
     return dict(
         dhcp_option_policy=dict(type='dict', option=mso_dhcp_option_spec()),
@@ -889,7 +897,7 @@ class MSOModule(object):
             'templateName': template,
         }
 
-    def make_subnets(self, data, querier=True):
+    def make_subnets(self, data, querier=True, primary=True, virtual=True):
         ''' Create a subnets list from input '''
         if data is None:
             return None
@@ -909,6 +917,10 @@ class MSOModule(object):
             )
             if querier:
                 subnet_payload.update(dict(querier=subnet.get('querier')))
+            if primary:
+                subnet_payload.update(dict(primary=subnet.get('primary')))
+            if virtual:
+                subnet_payload.update(dict(virtual=subnet.get('virtual')))
             subnets.append(subnet_payload)
 
         return subnets

@@ -1,0 +1,223 @@
+# Test code for the MSO modules
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    state: absent
+
+- name: Ensure tenant ansible_test exists
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+      - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Ensure schema 1 with Template1, and Template2 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: '{{item.template}}'
+    state: present
+  loop:
+  - { template: Template1}
+  - { template: Template2}
+
+- name: Ensure VRF1 exists
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    vrf: VRF1
+    state: present
+
+- name: Verify L3Out doesn't exist
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    l3out: L3out1
+    state: absent
+
+- name: Add new L3Out
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    l3out: L3out1
+    vrf:
+        name: VRF1
+    state: present
+  register: add_l3out
+
+- name: Add L3Out again
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    l3out: L3out1
+    vrf:
+        name: VRF1
+    state: present
+  register: add_l3out_again
+
+- name: Verify add
+  assert:
+    that:
+    - add_l3out is changed
+    - add_l3out.previous == {}
+    - add_l3out.current.name == "L3out1"
+    - add_l3out.current.vrfRef.templateName == "Template1"
+    - add_l3out.current.vrfRef.vrfName == "VRF1"
+    - add_l3out_again is not changed
+    - add_l3out_again.previous.name == "L3out1"
+    - add_l3out.current.vrfRef.schemaId == add_l3out_again.current.vrfRef.schemaId
+
+- name: Add new L3Outs
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    l3out: '{{item.l3out}}'
+    vrf:
+        name: VRF1
+    state: present
+  register: new_l3outs
+  loop:
+  - { l3out: L3out2}
+  - { l3out: L3out3}
+
+- name: Verify add
+  assert:
+    that:
+    - new_l3outs is changed
+
+- name: Query a specific L3Out
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    l3out: L3out1
+    state: query
+  register: query_l3out
+
+- name: Query all L3outs
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    state: query
+  register: query_all
+
+- name: Verify query
+  assert:
+    that:
+    - query_l3out is not changed
+    - query_all is not changed
+
+- name: Remove an L3Out
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    l3out: L3out1
+    state: absent
+  register: delete_l3out
+
+- name: Verify delete
+  assert:
+    that:
+    - delete_l3out is changed
+    - delete_l3out.previous.name == "L3out1"
+    - delete_l3out.current == {}
+
+# USE A NON_EXISTING_TEMPLATE
+- name: non_existing_template (check_mode)
+  mso_schema_site_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: non_existing_template
+    l3out: L3out1
+    vrf:
+        name: VRF1
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_non_existing_template
+
+- name: non_existing_template (normal_mode)
+  mso_schema_site_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: non_existing_template
+    l3out: L3out1
+    vrf:
+        name: VRF1
+    state: query
+  ignore_errors: yes
+  register: nm_non_existing_template
+
+- name: Verify cm_non_existing_template and nm_non_existing_template
+  assert:
+    that:
+    - cm_non_existing_template is not changed
+    - nm_non_existing_template is not changed
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1, Template2"
+
+# QUERY NON-EXISTING L3Out
+- name: Query non-existing L3Out (check_mode)
+  mso_schema_site_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template1
+    l3out: non_existing_l3out
+    state: query
+  check_mode: yes
+  ignore_errors: yes
+  register: cm_query_non_l3out
+
+- name: Query non-existing L3Out (normal_mode)
+  mso_schema_site_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template1
+    l3out: non_existing_l3out
+    state: query
+  ignore_errors: yes
+  register: nm_query_non_l3out
+
+- name: Verify cm_query_non_l3out and nm_query_non_l3out
+  assert:
+    that:
+    - cm_query_non_l3out is not changed
+    - nm_query_non_l3out is not changed
+    - cm_query_non_l3out.msg == nm_query_non_l3out.msg == "L3Out 'non_existing_l3out' not found"
+

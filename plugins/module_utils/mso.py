@@ -897,7 +897,7 @@ class MSOModule(object):
             'templateName': template,
         }
 
-    def make_subnets(self, data, querier=True, primary=True, virtual=True):
+    def make_subnets(self, data, is_bd_subnet=True):
         ''' Create a subnets list from input '''
         if data is None:
             return None
@@ -915,12 +915,8 @@ class MSOModule(object):
                 shared=subnet.get('shared'),
                 noDefaultGateway=subnet.get('no_default_gateway'),
             )
-            if querier:
-                subnet_payload.update(dict(querier=subnet.get('querier')))
-            if primary:
-                subnet_payload.update(dict(primary=subnet.get('primary')))
-            if virtual:
-                subnet_payload.update(dict(virtual=subnet.get('virtual')))
+            if is_bd_subnet:
+                subnet_payload.update(dict(querier=subnet.get('querier'), primary=subnet.get('primary'), virtual=subnet.get('virtual')))
             subnets.append(subnet_payload)
 
         return subnets

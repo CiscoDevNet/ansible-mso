@@ -959,6 +959,7 @@
           version: 1
     state: present
   register: nm_bd_dhcp_policies
+  when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify addition of DHCP policies for mso version > 3.1.1g
   assert:
@@ -978,26 +979,6 @@
     - nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.version == 1
     - nm_bd_dhcp_policies.current.dhcpLabels[2].dhcpOptionLabel.version == 1
   when: version.current.version is version('3.1.1g', '>')
-
-- name: Verify subnets in nm_bd_dhcp_policies
-  assert:
-    that:
-    - nm_bd_dhcp_policies is changed
-    - nm_bd_dhcp_policies.current.subnets | length == 3
-    - nm_bd_dhcp_policies.current.name == 'ansible_test_multiple_dhcp'
-    - nm_bd_dhcp_policies.current.vrfRef.templateName == "Template1"
-    - nm_bd_dhcp_policies.current.vrfRef.vrfName == "VRF"
-    - nm_bd_dhcp_policies.current.intersiteBumTrafficAllow == true
-    - nm_bd_dhcp_policies.current.optimizeWanBandwidth == false
-    - nm_bd_dhcp_policies.current.l2Stretch == true
-    - nm_bd_dhcp_policies.current.l2UnknownUnicast == "flood"
-    - nm_bd_dhcp_policies.current.unkMcastAct == "flood"
-    - nm_bd_dhcp_policies.current.multiDstPktAct == "drop"
-    - nm_bd_dhcp_policies.current.l3MCast == false
-    - nm_bd_dhcp_policies.current.arpFlood == true
-    - nm_bd_dhcp_policies.current.v6unkMcastAct == "flood"
-    - nm_bd_dhcp_policies.current.vmac == "00:00:5E:00:01:3C"
-  when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd with multiple dhcp policies for mso version > 3.1.1g
   mso_schema_template_bd:
@@ -1041,6 +1022,7 @@
           version: 1
     state: present
   register: change_nm_bd_dhcp_policies
+  when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify change in DHCP policies for mso version > 3.1.1g
   assert:
@@ -1103,6 +1085,7 @@
           version: 1
     state: present
   register: nm_bd_new_subnet_options
+  when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify subnets in nm_bd_new_subnet_options
   assert:
@@ -1176,6 +1159,7 @@
     state: present
   register: nm_bd_subnet_second_primary
   ignore_errors: yes
+  when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify subnets in nm_bd_subnet_second_primary
   assert:
@@ -1200,12 +1184,21 @@
     <<: *bd_query
   register: nm_query_all_bds
 
-- name: Verify query_all_bds
+- name: Verify query_all_bds for version < 3.1.1g
+  assert:
+    that:
+    - cm_query_all_bds is not changed
+    - nm_query_all_bds is not changed
+    - cm_query_all_bds.current | length == cm_query_all_bds.current | length == 2
+  when: version.current.version is version('3.1.1g', '<')
+
+- name: Verify query_all_bds for version > 3.1.1g
   assert:
     that:
     - cm_query_all_bds is not changed
     - nm_query_all_bds is not changed
     - cm_query_all_bds.current | length == cm_query_all_bds.current | length == 3
+  when: version.current.version is version('3.1.1g', '>')
 
 # QUERY A BD
 - name: Query bd 1
@@ -1351,6 +1344,7 @@
           version: 1
     state: query
   register: query_nm_bd_dhcp_policies
+  when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify query of DHCP policies for mso version > 3.1.1g
   assert:
@@ -1413,6 +1407,7 @@
           version: 1
     state: query
   register: query_bd_new_subnet_options
+  when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify subnets in query_bd_new_subnet_options
   assert:
@@ -1498,6 +1493,22 @@
     that:
     - nm_remove_bd_5 is changed
     - nm_remove_bd_5.current == {}
+
+- name: Remove bd ansible_test_multiple_dhcp (normal mode)
+  mso_schema_template_bd:
+    <<: *bd_absent
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_multiple_dhcp
+  register: nm_remove_ansible_test_multiple_dhcp
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Verify nm_remove_ansible_test_multiple_dhcp
+  assert:
+    that:
+    - nm_remove_ansible_test_multiple_dhcp is changed
+    - nm_remove_ansible_test_multiple_dhcp.current == {}
+  when: version.current.version is version('3.1.1g', '>')
 
 # QUERY NON-EXISTING BD
 - name: Query non-existing bd (check_mode)

@@ -150,7 +150,7 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['dhcp_policy', 'version']],
+            ['state', 'absent', ['dhcp_policy']],
             ['state', 'present', ['dhcp_policy', 'version']],
         ],
     )

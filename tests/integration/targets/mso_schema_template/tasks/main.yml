@@ -38,18 +38,22 @@
     schema: '{{ item }}'
     state: absent
   loop:
+  - '{{ mso_schema | default("ansible_test") }}_3'
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exists
   mso_tenant: 
     <<: *mso_info
-    tenant: ansible_test
+    tenant: '{{ item }}'
     users:
       - '{{ mso_username }}'
     sites:
     - '{{ mso_site | default("ansible_test") }}'
     state: present
+  loop:
+  - 'ansible_test'
+  - 'ansible_test_2'
 
 - name: Ensure schema 1 with Template 1 exists in check mode
   mso_schema_template:
@@ -97,6 +101,24 @@
     state: present
   register: add_template3_schema2_again
 
+- name: Ensure schema 3 with Template 1 exists
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_3'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+  register: add_template1_schema3
+
+- name: Ensure schema 3 with Template 2 exists
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_3'
+    tenant: ansible_test_2
+    template: Template 2
+    state: present
+  register: add_template2_schema3
+
 - name: Update display name of Template 3 in schema 2
   mso_schema_template:
     <<: *mso_info
@@ -120,6 +142,10 @@
     - add_template3_schema2.current.name == 'Template3'
     - update_template3_schema2 is changed
     - add_template3_schema2_again is not changed
+    - add_template1_schema3 is changed
+    - add_template1_schema3.current.name == 'Template1'
+    - add_template2_schema3 is changed
+    - add_template2_schema3.current.name == 'Template2'
     - update_template3_schema2.current.displayName == 'Temp 3'
 
 - name: Query Template 1 in Schema 1
@@ -139,6 +165,24 @@
     state: query
   register: query_all_templates_schema1
 
+- name: Query Template 1 in Schema 3
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_3'
+    tenant: ansible_test
+    template: Template 1
+    state: query
+  register: query_template1_schema3
+
+- name: Query Template 2 in Schema 3
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_3'
+    tenant: ansible_test_2
+    template: Template 2
+    state: query
+  register: query_template2_schema3
+
 - name: Verify query
   assert:
     that:
@@ -146,6 +190,10 @@
     - query_template1_schema1.current.name == 'Template1'
     - query_all_templates_schema1 is not changed
     - query_all_templates_schema1.current | length == 2
+    - query_template1_schema3 is not changed
+    - query_template1_schema3.current.name == 'Template1'
+    - query_template2_schema3 is not changed
+    - query_template2_schema3.current.name == 'Template2'
 
 - name: Remove Template 1 of Schema 1
   mso_schema_template:
@@ -165,7 +213,6 @@
     template: Template 2
     state: absent
   register: remove_template2_schema1
-
 
 - name: Remove non_existing_template
   mso_schema_template:
@@ -205,6 +252,24 @@
     state: absent
   register: remove_template3_schema2_nm_again
 
+- name: Remove Template 1 of Schema 3
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_3'
+    tenant: ansible_test
+    template: Template 1
+    state: absent
+  register: remove_template1_schema3
+
+- name: Remove Template 2 of Schema 3
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_3'
+    tenant: ansible_test_2
+    template: Template 2
+    state: absent
+  register: remove_template2_schema3
+
 - name: non_existing_schema
   mso_schema_template:
     <<: *mso_info
@@ -229,6 +294,10 @@
     - remove_template3_schema2_nm_again is not changed
     - remove_template_non_existing_schema is not changed
     - remove_template_non_existing_template is not changed
+    - remove_template1_schema3.current == {}
+    - remove_template2_schema3.current == {}
+    - remove_template1_schema3.previous.name == 'Template1'
+    - remove_template2_schema3.previous.name == 'Template2'
 
 # USE NON-EXISTING STATE
 - name: non_existing_state state
@@ -278,3 +347,21 @@
     that:
     - absent_template is not changed
     - absent_template.current == []
+
+# REMOVE Schemas for next CI Run
+- name: Remove schemas for next ci test
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_3'
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+# REMOVE Tenant2 specific to this test case
+- name: Remove tenant2
+  mso_tenant:
+    <<: *mso_info
+    tenant: ansible_test_2
+    state: absent

@@ -33,6 +33,8 @@ options:
   filter:
     description:
     - The name of the filter to manage.
+    - There should be no space in the filter name. APIC will throw an error if a space is provided in the filter name.
+    - See the C(filter_display_name) attribute if you want the display name of the filter to contain a space.
     type: str
     required: yes
   filter_display_name:

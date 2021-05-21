@@ -919,8 +919,7 @@ class MSOModule(object):
             dhcps = []
             for dhcp in data:
                 if 'dhcp_option_policy' in dhcp:
-                    dhcp_option_policy = dhcp['dhcp_option_policy']
-                    dhcp['dhcpOptionLabel'] = dhcp_option_policy
+                    dhcp['dhcpOptionLabel'] = dhcp.get('dhcp_option_policy')
                     del dhcp['dhcp_option_policy']
                 dhcps.append(dhcp)
             return dhcps

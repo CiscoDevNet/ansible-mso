@@ -1599,7 +1599,30 @@
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
     - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
-    
+
+# CLEAN UP DHCP Policies  
+- name: Ensure DHCP policies are removed
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    dhcp_relay_policy: '{{ item }}'
+    tenant: ansible_test
+    state: absent
+  loop:
+  - 'ansible_test_dhcp_policy1'
+  - 'ansible_test_dhcp_policy2'
+  - 'ansible_test_dhcp_policy3'
+
+- name: Ensure DHCP option policies are removed
+  mso_dhcp_option_policy:
+    <<: *mso_info
+    dhcp_option_policy: '{{ item }}'
+    tenant: ansible_test
+    state: absent
+  loop:
+  - 'ansible_test_dhcp_policy_option1'
+  - 'ansible_test_dhcp_policy_option2'
+
+# REMOVE Schemas for next CI Run
 - name: Remove schemas for next ci test
   mso_schema:
     <<: *mso_info

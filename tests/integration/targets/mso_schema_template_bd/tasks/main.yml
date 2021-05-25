@@ -54,6 +54,27 @@
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
+- name: Remove DHCP policies
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    dhcp_relay_policy: '{{ item }}'
+    tenant: ansible_test
+    state: absent
+  loop:
+  - 'ansible_test_dhcp_policy1'
+  - 'ansible_test_dhcp_policy2'
+  - 'ansible_test_dhcp_policy3'
+
+- name: Remove DHCP option policies
+  mso_dhcp_option_policy:
+    <<: *mso_info
+    dhcp_option_policy: '{{ item }}'
+    tenant: ansible_test
+    state: absent
+  loop:
+  - 'ansible_test_dhcp_policy_option1'
+  - 'ansible_test_dhcp_policy_option2'
+
 - name: Ensure tenant ansible_test exist
   mso_tenant: &tenant_present
     <<: *mso_info

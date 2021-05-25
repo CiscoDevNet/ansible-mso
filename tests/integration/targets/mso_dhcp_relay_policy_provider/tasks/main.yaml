@@ -602,3 +602,54 @@
     that:
     - dhcp_non_existing is not changed
     - dhcp_non_existing.msg == "DHCP Relay Policy 'non_existing' is not a valid DHCP Relay Policy name."
+
+# CLEAN UP
+- name: Remove EXT_EPGs Providers from DHCP Relay Policy
+  mso_dhcp_relay_policy_provider:
+    <<: *mso_info
+    dhcp_relay_policy: ansible_dhcp_relay_1
+    tenant: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_endpoint_group: "{{ item }}"
+    state: absent
+  ignore_errors: yes
+  loop:
+  - EXT_EPG_1
+  - EXT_EPG_2
+
+- name: Remove EXT_EPGs Providers from DHCP Relay Policy
+  mso_dhcp_relay_policy_provider:
+    <<: *mso_info
+    dhcp_relay_policy: ansible_dhcp_relay_1
+    tenant: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    endpoint_group: "{{ item }}"
+    application_profile: "ANP_1"
+    state: absent
+  ignore_errors: yes
+  loop:
+  - EPG_1
+  - EPG_2
+
+- name: Stop consuming DHCP Policy
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: CLIENT_BD
+    vrf:
+      name: VRF1
+    state: absent
+  ignore_errors: yes
+
+- name: Remove DHCP Relay Policies
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    dhcp_relay_policy: '{{ item }}'
+    state: absent
+  ignore_errors: yes
+  loop:
+  - ansible_dhcp_relay_1
+  - ansible_dhcp_relay_2

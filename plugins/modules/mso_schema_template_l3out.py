@@ -35,7 +35,6 @@ options:
     - The name of the l3out to manage.
     type: str
     aliases: [ name ]
-    required: yes
   display_name:
     description:
     - The name as displayed on the MSO web interface.

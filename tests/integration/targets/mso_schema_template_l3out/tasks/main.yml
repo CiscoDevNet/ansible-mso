@@ -157,12 +157,11 @@
 
 # USE A NON_EXISTING_TEMPLATE
 - name: non_existing_template (check_mode)
-  mso_schema_site_l3out:
+  mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
     template: non_existing_template
-    l3out: L3out1
+    l3out: L3out2
     vrf:
         name: VRF1
     state: query
@@ -171,12 +170,11 @@
   register: cm_non_existing_template
 
 - name: non_existing_template (normal_mode)
-  mso_schema_site_l3out:
+  mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
     template: non_existing_template
-    l3out: L3out1
+    l3out: L3out2
     vrf:
         name: VRF1
     state: query
@@ -192,10 +190,9 @@
 
 # QUERY NON-EXISTING L3Out
 - name: Query non-existing L3Out (check_mode)
-  mso_schema_site_l3out:
+  mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
     l3out: non_existing_l3out
     state: query
@@ -204,11 +201,10 @@
   register: cm_query_non_l3out
 
 - name: Query non-existing L3Out (normal_mode)
-  mso_schema_site_l3out:
+  mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
+    template: Template 1
     l3out: non_existing_l3out
     state: query
   ignore_errors: yes
@@ -219,5 +215,4 @@
     that:
     - cm_query_non_l3out is not changed
     - nm_query_non_l3out is not changed
-    - cm_query_non_l3out.msg == nm_query_non_l3out.msg == "L3Out 'non_existing_l3out' not found"
-
+    - cm_query_non_l3out.msg == nm_query_non_l3out.msg == "L3out 'non_existing_l3out' not found"

@@ -20,6 +20,12 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
 - name: Ensure site exists
   mso_site:
     <<: *mso_info
@@ -62,6 +68,14 @@
   - { template: Template1}
   - { template: Template2}
 
+- name: Ensure schema 2 with  Template3 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template3
+    state: present
+
 - name: Ensure VRF1 exists
   mso_schema_template_vrf:
     <<: *mso_info
@@ -97,448 +111,477 @@
     template: Template1
     state: present
 
+# Add L3out to Site when MSO version >= 3.0
+- name: Execute tasks only for MSO version >= 3.0
+  when: version.current.version is version('3.0', '>=')
+  block:
+  # Add l3out to site
+  - name: Add site L3Out (check_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: present
+    check_mode: yes
+    register: cm_add_site_l3out
 
-- name: Add site L3Out (check_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: present
-  check_mode: yes
-  register: cm_add_site_l3out
+  - name: Verify cm_add_site_l3out
+    assert:
+      that:
+      - cm_add_site_l3out is changed
+      - cm_add_site_l3out.previous == {}
+      - cm_add_site_l3out.current.vrfRef.vrfName == "VRF1"
+      - cm_add_site_l3out.current.vrfRef.templateName == "Template1"
 
-- name: Verify cm_add_site_l3out
-  assert:
-    that:
-    - cm_add_site_l3out is changed
-    - cm_add_site_l3out.previous == {}
-    - cm_add_site_l3out.current.vrfRef.vrfName == "VRF1"
-    - cm_add_site_l3out.current.vrfRef.templateName == "Template1"
+  - name: Add site L3Out (normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: present
+    register: nm_add_site_l3out
 
-- name: Add site L3Out (normal_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: present
-  register: nm_add_site_l3out
+  - name: Verify nm_add_site_l3out
+    assert:
+      that:
+      - nm_add_site_l3out is changed
+      - nm_add_site_l3out.previous == {}
+      - nm_add_site_l3out.current.vrfRef.vrfName == "VRF1"
+      - nm_add_site_l3out.current.vrfRef.templateName == "Template1"
+      - cm_add_site_l3out.current.vrfRef.schemaId == nm_add_site_l3out.current.vrfRef.schemaId
 
-- name: Verify nm_add_site_l3out
-  assert:
-    that:
-    - nm_add_site_l3out is changed
-    - nm_add_site_l3out.previous == {}
-    - nm_add_site_l3out.current.vrfRef.vrfName == "VRF1"
-    - nm_add_site_l3out.current.vrfRef.templateName == "Template1"
-    - cm_add_site_l3out.current.vrfRef.schemaId == nm_add_site_l3out.current.vrfRef.schemaId
+  - name: Add site L3Out 2 (normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: L3out2
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: present
 
-- name: Add site L3Out 2 (normal_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: L3out2
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: present
+  - name: Add site L3Out again (normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: L3out2
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: present
+    register: nm_add_site_l3out_again
 
-- name: Add site L3Out again (normal_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: L3out2
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: present
-  register: nm_add_site_l3out_again
+  - name: Verify cm_add_site_l3out_again and nm_add_site_l3out_again
+    assert:
+      that:
+      - nm_add_site_l3out_again is not changed
+      - nm_add_site_l3out_again.current.vrfRef.vrfName == "VRF1"
 
-- name: Verify cm_add_site_l3out_again and nm_add_site_l3out_again
-  assert:
-    that:
-    - nm_add_site_l3out_again is not changed
-    - nm_add_site_l3out_again.current.vrfRef.vrfName == "VRF1"
+  # No options to do changes in site level yet
 
-# No options to do changes in site level yet
+  - name: Query all L3Outs (check_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      state: query
+    check_mode: yes
+    register: cm_query_all_l3out
 
-- name: Query all L3Outs (check_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    state: query
-  check_mode: yes
-  register: cm_query_all_l3out
+  - name: Query all L3Outs (normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      state: query
+    register: nm_query_all_l3out
 
-- name: Query all L3Outs (normal_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    state: query
-  register: nm_query_all_l3out
+  - name: Verify cm_query_all_l3out and cm_query_all_l3out
+    assert:
+      that:
+      - cm_query_all_l3out is not changed
+      - nm_query_all_l3out is not changed
+      - cm_query_all_l3out.current[0].l3outRef.l3outName == nm_query_all_l3out.current[0].l3outRef.l3outName == "L3out1"
+      - cm_query_all_l3out.current[0].l3outRef.schemaId == nm_query_all_l3out.current[0].l3outRef.schemaId
+      - cm_query_all_l3out.current[0].l3outRef.templateName == nm_query_all_l3out.current[0].l3outRef.templateName == "Template1"
 
-- name: Verify cm_query_all_l3out and cm_query_all_l3out
-  assert:
-    that:
-    - cm_query_all_l3out is not changed
-    - nm_query_all_l3out is not changed
-    - cm_query_all_l3out.current[0].l3outRef.l3outName == nm_query_all_l3out.current[0].l3outRef.l3outName == "L3out1"
-    - cm_query_all_l3out.current[0].l3outRef.schemaId == nm_query_all_l3out.current[0].l3outRef.schemaId
-    - cm_query_all_l3out.current[0].l3outRef.templateName == nm_query_all_l3out.current[0].l3outRef.templateName == "Template1"
+  - name: Query a specific L3Out (check_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    check_mode: yes
+    register: cm_query_l3out
 
-- name: Query a specific L3Out (check_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: query
-  check_mode: yes
-  register: cm_query_l3out
+  - name: Query a specific L3Out (normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: L3out1
+      state: query
+    register: nm_query_l3out
 
-- name: Query a specific L3Out (normal_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: L3out1
-    state: query
-  register: nm_query_l3out
+  - name: Verify cm_query_l3out and nm_query_l3out
+    assert:
+      that:
+      - cm_query_l3out is not changed
+      - nm_query_l3out is not changed
 
-- name: Verify cm_query_l3out and nm_query_l3out
-  assert:
-    that:
-    - cm_query_l3out is not changed
-    - nm_query_l3out is not changed
+  - name: Remove L3Out (check_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: L3out1
+      state: absent
+    check_mode: yes
+    register: cm_remove_site_l3out
 
-- name: Remove L3Out (check_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: L3out1
-    state: absent
-  check_mode: yes
-  register: cm_remove_site_l3out
+  - name: Remove L3Out (normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: L3out1
+      state: absent
+    register: nm_remove_site_l3out
 
-- name: Remove L3Out (normal_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: L3out1
-    state: absent
-  register: nm_remove_site_l3out
+  - name: Verify cm_remove_site_l3out and nm_remove_site_l3out
+    assert:
+      that:
+      - cm_remove_site_l3out is changed
+      - nm_remove_site_l3out is changed
+      - cm_remove_site_l3out.current == nm_remove_site_l3out.current == {}
 
-- name: Verify cm_remove_site_l3out and nm_remove_site_l3out
-  assert:
-    that:
-    - cm_remove_site_l3out is changed
-    - nm_remove_site_l3out is changed
-    - cm_remove_site_l3out.current == nm_remove_site_l3out.current == {}
+  - name: Remove L3Out again(normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: L3out1
+      state: absent
+    register: nm_remove_site_l3out_again
 
-- name: Remove L3Out again(normal_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: L3out1
-    state: absent
-  register: nm_remove_site_l3out_again
-
-- name: Verify nm_remove_site_l3out_again
-  assert:
-    that:
-    - nm_remove_site_l3out_again is not changed
-    - nm_remove_site_l3out_again.previous == nm_remove_site_l3out_again.current == {}
+  - name: Verify nm_remove_site_l3out_again
+    assert:
+      that:
+      - nm_remove_site_l3out_again is not changed
+      - nm_remove_site_l3out_again.previous == nm_remove_site_l3out_again.current == {}
 
 
-# QUERY NON-EXISTING L3Out
-- name: Query non-existing L3Out (check_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: non_existing_l3out
-    state: query
-  check_mode: yes
-  ignore_errors: yes
-  register: cm_query_non_l3out
+  # QUERY NON-EXISTING L3Out
+  - name: Query non-existing L3Out (check_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: non_existing_l3out
+      state: query
+    check_mode: yes
+    ignore_errors: yes
+    register: cm_query_non_l3out
 
-- name: Query non-existing L3Out (normal_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: non_existing_l3out
-    state: query
-  ignore_errors: yes
-  register: nm_query_non_l3out
+  - name: Query non-existing L3Out (normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: non_existing_l3out
+      state: query
+    ignore_errors: yes
+    register: nm_query_non_l3out
 
-- name: Verify cm_query_non_l3out and nm_query_non_l3out
-  assert:
-    that:
-    - cm_query_non_l3out is not changed
-    - nm_query_non_l3out is not changed
-    - cm_query_non_l3out.msg == nm_query_non_l3out.msg == "L3Out 'non_existing_l3out' not found"
+  - name: Verify cm_query_non_l3out and nm_query_non_l3out
+    assert:
+      that:
+      - cm_query_non_l3out is not changed
+      - nm_query_non_l3out is not changed
+      - cm_query_non_l3out.msg == nm_query_non_l3out.msg == "L3Out 'non_existing_l3out' not found"
 
-# USE NON-EXISTING STATE
-- name: non_existing_state state (check_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: non_existing_state
-  ignore_errors: yes
-  register: cm_non_existing_state
+  # USE NON-EXISTING STATE
+  - name: non_existing_state state (check_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: non_existing_state
+    ignore_errors: yes
+    register: cm_non_existing_state
 
-- name: non_existing_state state (normal_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: non_existing_state
-  ignore_errors: yes
-  register: nm_non_existing_state
+  - name: non_existing_state state (normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: non_existing_state
+    ignore_errors: yes
+    register: nm_non_existing_state
 
-- name: Verify cm_non_existing_state and nm_non_existing_state
-  assert:
-    that:
-    - cm_non_existing_state is not changed
-    - nm_non_existing_state is not changed
-    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non_existing_state"
+  - name: Verify cm_non_existing_state and nm_non_existing_state
+    assert:
+      that:
+      - cm_non_existing_state is not changed
+      - nm_non_existing_state is not changed
+      - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non_existing_state"
 
-# USE A NON_EXISTING_TEMPLATE
-- name: non_existing_template (check_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: non_existing_template
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: query
-  check_mode: yes
-  ignore_errors: yes
-  register: cm_non_existing_template
+  # USE A NON_EXISTING_TEMPLATE
+  - name: non_existing_template (check_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: non_existing_template
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    check_mode: yes
+    ignore_errors: yes
+    register: cm_non_existing_template
 
-- name: non_existing_template (normal_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: non_existing_template
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: query
-  ignore_errors: yes
-  register: nm_non_existing_template
+  - name: non_existing_template (normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: non_existing_template
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: nm_non_existing_template
 
-- name: Verify cm_non_existing_template and nm_non_existing_template
-  assert:
-    that:
-    - cm_non_existing_template is not changed
-    - nm_non_existing_template is not changed
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1, Template2"
+  - name: Verify cm_non_existing_template and nm_non_existing_template
+    assert:
+      that:
+      - cm_non_existing_template is not changed
+      - nm_non_existing_template is not changed
+      - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1, Template2"
 
-# USE A NON_EXISTING_SCHEMA
-- name: non_existing_schema (check_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: non_existing_schema
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: query
-  check_mode: yes
-  ignore_errors: yes
-  register: cm_non_existing_schema
+  # USE A NON_EXISTING_SCHEMA
+  - name: non_existing_schema (check_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: non_existing_schema
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    check_mode: yes
+    ignore_errors: yes
+    register: cm_non_existing_schema
 
-- name: non_existing_schema (normal_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: non_existing_schema
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: query
-  ignore_errors: yes
-  register: nm_non_existing_schema
+  - name: non_existing_schema (normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: non_existing_schema
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: nm_non_existing_schema
 
-- name: Verify cm_non_existing_schema and nm_non_existing_schema
-  assert:
-    that:
-    - cm_non_existing_schema is not changed
-    - nm_non_existing_schema is not changed
-    - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
+  - name: Verify cm_non_existing_schema and nm_non_existing_schema
+    assert:
+      that:
+      - cm_non_existing_schema is not changed
+      - nm_non_existing_schema is not changed
+      - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
 
-# USE A NON_EXISTING_SITE
-- name: non_existing_site (check_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: non_existing_site
-    template: Template1
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: query
-  check_mode: yes
-  ignore_errors: yes
-  register: cm_non_existing_site
+  # USE A NON_EXISTING_SITE
+  - name: non_existing_site (check_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: non_existing_site
+      template: Template1
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    check_mode: yes
+    ignore_errors: yes
+    register: cm_non_existing_site
 
-- name: non_existing_site (normal_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: non_existing_site
-    template: Template1
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: query
-  ignore_errors: yes
-  register: nm_non_existing_site
+  - name: non_existing_site (normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: non_existing_site
+      template: Template1
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: nm_non_existing_site
 
-- name: Verify cm_non_existing_site and nm_non_existing_site
-  assert:
-    that:
-    - cm_non_existing_site is not changed
-    - nm_non_existing_site is not changed
-    - cm_non_existing_site.msg == nm_non_existing_site.msg == "Site 'non_existing_site' is not a valid site name."
+  - name: Verify cm_non_existing_site and nm_non_existing_site
+    assert:
+      that:
+      - cm_non_existing_site is not changed
+      - nm_non_existing_site is not changed
+      - cm_non_existing_site.msg == nm_non_existing_site.msg == "Site 'non_existing_site' is not a valid site name."
 
-# USE A NON_EXISTING_SITE_TEMPLATE
-- name: non_existing_site_template (check_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template3
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: query
-  check_mode: yes
-  ignore_errors: yes
-  register: cm_non_existing_site_template
+  # USE A NON_EXISTING_SITE_TEMPLATE
+  - name: non_existing_site_template (check_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template5
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    check_mode: yes
+    ignore_errors: yes
+    register: cm_non_existing_site_template
 
-- name: non_existing_site_template (normal_mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template3
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: query
-  ignore_errors: yes
-  register: nm_non_existing_site_template
+  - name: non_existing_site_template (normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template5
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: nm_non_existing_site_template
 
-- name: Verify cm_non_existing_site_template and nm_non_existing_site_template
-  assert:
-    that:
-    - cm_non_existing_site_template is not changed
-    - nm_non_existing_site_template is not changed
-    - cm_non_existing_site_template.msg == nm_non_existing_site_template.msg == "Provided template 'Template3' does not exist. Existing templates{{':'}} Template1, Template2"
+  - name: Verify cm_non_existing_site_template and nm_non_existing_site_template
+    assert:
+      that:
+      - cm_non_existing_site_template is not changed
+      - nm_non_existing_site_template is not changed
+      - cm_non_existing_site_template.msg == nm_non_existing_site_template.msg == "Provided template 'Template5' does not exist. Existing templates{{':'}} Template1, Template2"
 
-# USE A TEMPLATE WITHOUT ANY SITE
-- name: Add site L3Out to Schema Template2 without any site associated (check mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template2
-    l3out: L3out1
-    state: present
-  check_mode: yes
-  ignore_errors: yes
-  register: cm_no_site_associated
+  - name: nm_non_existing_template_site (normal_mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template2
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: nm_non_existing_template_site
 
-- name: Add site L3Out to Template2 without any site associated (normal mode)
-  mso_schema_site_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template2
-    l3out: L3out1
-    vrf:
-        name: VRF1
-        template: Template1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-    state: present
-  ignore_errors: yes
-  register: nm_no_site_associated
+  - name: Verify nm_non_existing_template_site
+    assert:
+      that:
+      - nm_non_existing_template_site is not changed
+      - nm_non_existing_template_site.msg == "Provided template 'Template2' is not associated to site"
 
-- name: Verify cm_no_site_associated and nm_no_site_associated
-  assert:
-    that:
-    - cm_no_site_associated is not changed
-    - nm_no_site_associated is not changed
-    - cm_no_site_associated.msg == nm_no_site_associated.msg == "Provided site-template association 'ansible_test-Template2' does not exist. Associate the site with the template using mso_schema_site."
+  # USE A TEMPLATE WITHOUT ANY SITE
+  - name: Add site L3Out to Schema Template3 without any site associated (check mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template3
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: present
+    check_mode: yes
+    ignore_errors: yes
+    register: cm_no_site_associated
+
+  - name: Add site L3Out to Template3 without any site associated (normal mode)
+    mso_schema_site_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template3
+      l3out: L3out1
+      vrf:
+          name: VRF1
+          template: Template1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+      state: present
+    ignore_errors: yes
+    register: nm_no_site_associated
+
+  - name: Verify cm_no_site_associated and nm_no_site_associated
+    assert:
+      that:
+      - cm_no_site_associated is not changed
+      - nm_no_site_associated is not changed
+      - cm_no_site_associated.msg == nm_no_site_associated.msg == "No site associated with template 'Template3'. Associate the site with the template using mso_schema_site."

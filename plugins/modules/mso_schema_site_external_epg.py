@@ -14,9 +14,10 @@ ANSIBLE_METADATA = {'metadata_version': '1.1',
 DOCUMENTATION = r'''
 ---
 module: mso_schema_site_external_epg
-short_description: Manage External EPG in schema of cloud sites
+short_description: Manage External EPG in schema of sites
 description:
-- Manage External EPG in schema of cloud sites on Cisco ACI Multi-Site.
+- Manage External EPG in schema of sites on Cisco ACI Multi-Site.
+- This module can only be used on versions of MSO that are 3.3 or greater.
 author:
 - Anvitha Jain (@anvitha-jain)
 options:
@@ -30,23 +31,18 @@ options:
     - The name of the template to change.
     type: str
     required: yes
-  vrf:
-    description:
-    - The name of the VRF to manage.
-    type: str
   l3out:
     description:
     - The L3Out associated with the external epg.
     type: str
-    required: yes
   external_epg:
     description:
     - The name of the External EPG to be managed.
     type: str
-    required: yes
+    aliases: [ name ]
   site:
     description:
-    - The name of the cloud site.
+    - The name of the site.
     type: str
     required: yes
   state:
@@ -68,7 +64,7 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_expression_spec_ext_epg
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 
 
 def main():
@@ -77,9 +73,8 @@ def main():
         schema=dict(type='str', required=True),
         template=dict(type='str', required=True),
         site=dict(type='str', required=True),
-        vrf=dict(type='str'),
         l3out=dict(type='str'),
-        external_epg=dict(type='str'),
+        external_epg=dict(type='str', aliases=['name']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -96,7 +91,6 @@ def main():
     template = module.params.get('template')
     site = module.params.get('site')
     external_epg = module.params.get('external_epg')
-    vrf = module.params.get('vrf')
     l3out = module.params.get('l3out')
     state = module.params.get('state')
 
@@ -128,7 +122,6 @@ def main():
     if 'sites' not in schema_obj:
         mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
-    sites_list = [s.get('siteId') + '/' + s.get('templateName') for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
         mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
 
@@ -152,7 +145,6 @@ def main():
 
     ops = []
 
-    mso.stdout = str(external_epg)
     if state == 'query':
         if external_epg is None:
             mso.existing = schema_obj.get('sites')[site_idx]['externalEpgs']
@@ -168,7 +160,7 @@ def main():
             ops.append(dict(op='remove', path=op_path))
 
     elif state == 'present':
-        l3out_dn = 'uni/tn-{0}/out-{1}'.format(tenant_name,l3out)
+        l3out_dn = 'uni/tn-{0}/out-{1}'.format(tenant_name, l3out)
         payload = dict(
             externalEpgRef=dict(
                 schemaId=schema_id,

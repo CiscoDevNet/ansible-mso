@@ -827,7 +827,6 @@ class MSOModule(object):
         ''' Create l3outRef string '''
         return '/schemas/{schema_id}/templates/{template}/l3outs/{l3out}'.format(**data)
 
-
     def ext_epg_ref(self, **data):
         ''' Create extEpgRef string '''
         return '/schemas/{schema_id}/templates/{template}/externalEpgs/{external_epg}'.format(**data)

@@ -17,6 +17,8 @@ module: mso_schema_site_l3out
 short_description: Manage site-local layer3 Out (L3Outs) in schema template
 description:
 - Manage site-local L3Outs in schema template on Cisco ACI Multi-Site.
+- This module can only be used on versions of MSO that are 3.0 or greater.
+- NOTE - Usage of this module for version lesser than 3.0 might break the MSO.
 author:
 - Anvitha Jain (@anvitha-jain)
 options:
@@ -35,10 +37,6 @@ options:
     - The name of the template.
     type: str
     required: yes
-  display_name:
-    description:
-    - The name as displayed on the MSO web interface.
-    type: str
   vrf:
     description:
     - The VRF associated to this L3out.
@@ -64,7 +62,6 @@ options:
     - The name of the l3out to manage.
     type: str
     aliases: [ name ]
-    required: yes
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -147,9 +144,7 @@ def main():
         site=dict(type='str', required=True),
         template=dict(type='str', required=True),
         vrf=dict(type='dict', options=mso_reference_spec()),
-        description=dict(type='str'),
-        display_name=dict(type='str'),
-        l3out=dict(type='str'),  # This parameter is not required for querying all objects
+        l3out=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -167,10 +162,6 @@ def main():
     template = module.params.get('template').replace(' ', '')
     l3out = module.params.get('l3out')
     vrf = module.params.get('vrf')
-    if vrf is not None and vrf.get('template') is not None:
-        vrf['template'] = vrf.get('template').replace(' ', '')
-    display_name = module.params.get('display_name')
-    description = module.params.get('description')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -191,7 +182,7 @@ def main():
         mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site-template association '{0}-{1}' does not exist. Associate the site with the template using mso_schema_site.".format(site, template))
+        mso.fail_json(msg="Provided template '{0}' is not associated to site".format(template))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
@@ -228,16 +219,11 @@ def main():
     elif state == 'present':
         vrf_ref = mso.make_reference(vrf, 'vrf', schema_id, template)
 
-        if display_name is None and not mso.existing:
-            display_name = l3out
-
         payload = dict(
             l3outRef=dict(
                 schemaId=schema_id,
                 templateName=template,
                 l3outName=l3out,
-                description=description,
-                displayName=display_name,
             ),
             vrfRef=vrf_ref,
         )
@@ -259,4 +245,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

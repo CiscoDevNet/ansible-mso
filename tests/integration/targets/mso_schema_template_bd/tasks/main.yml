@@ -664,7 +664,9 @@
     that:
     - nm_change_bd_5_3 is changed
     - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off exception while trying to update schema")
-  when: version.current.version is version('3.1.1g', '>=')
+  when: 
+  - version.current.version is version('3.1.1g', '>=')
+  - version.current.version is version('3.3', '<')
 
 - name: Change bd 5 for query (normal mode)
   mso_schema_template_bd:
@@ -1181,7 +1183,9 @@
   assert:
     that:
     - nm_bd_subnet_second_primary.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Only one preferred subnet per address family is allowed under BD ansible_test_multiple_dhcp of Template Template1 exception while trying to update schema")
-  when: version.current.version is version('3.1.1g', '>')
+  when: 
+  - version.current.version is version('3.1.1g', '>')
+  - version.current.version is version('3.3', '<')
 
 - name: Add bd with new option flood in encap available in mso versions > 3.1.1g with l2 set to true
   mso_schema_template_bd:
@@ -1211,7 +1215,10 @@
   assert:
     that:
     - nm_bd_new_encap_flood_non.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template1', BD 'ansible_test_flood_encap' {{':'}} Multi destination flood in encapsulation is only supported when l2Stretch is disabled exception while trying to update schema")
-  when: version.current.version is version('3.1.1g', '>')
+  when: 
+  - version.current.version is version('3.1.1g', '>')
+  - version.current.version is version('3.3', '<')
+  
 
 - name: Add bd with new option flood in encap available in mso versions > 3.1.1g l2 set to false
   mso_schema_template_bd:

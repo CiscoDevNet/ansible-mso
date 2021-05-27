@@ -1,5 +1,5 @@
 # Test code for the MSO modules
-# Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -40,7 +40,7 @@
     - '{{ mso_site | default("ansible_test") }}'
     state: present
 
-- name: Create schema 1 with Template 1, and Template 2, Template 3 exist
+- name: Create Source schema with Template 1, and Template 2, Template 3 exist
   cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: Source_Schema
@@ -52,6 +52,24 @@
   - { template: Template 2}
   - { template: Template 3}
 
+- name: Ensure VRF exist
+  mso_schema_template_vrf: &vrf_present
+    <<: *mso_info
+    schema: Source_Schema
+    template: Template1
+    vrf: VRF1
+    state: present
+
+- name: Add bd in Source schema
+  mso_schema_template_bd: &bd_present
+    <<: *mso_info
+    schema: Source_Schema
+    template: Template1
+    bd: BD_1
+    vrf:
+      name: VRF1
+    state: present
+
 - name: Clone schema
   cisco.mso.mso_schema_clone:
     <<: *mso_info
@@ -60,7 +78,14 @@
     state: clone
   register: add_schema
 
-- name: Clone schema
+- name: Verify add_schema
+  assert:
+    that:
+    - add_schema is changed
+    - add_schema.previous == {}
+    - add_schema.current.displayName == 'Destination_Schema'
+
+- name: Clone schema with same name
   cisco.mso.mso_schema_clone:
     <<: *mso_info
     source_schema: Source_Schema
@@ -74,7 +99,37 @@
     that:
     - add_same_schema is not changed
     - add_same_schema.current == {}
-    - add_same_schema.msg == "Schema with the name 'Source_Schema' already exists. Please use another name."
+    - add_same_schema.msg == "Source and Destination schema cannot have same names."
+
+- name: Clone schema when destination schema exists
+  cisco.mso.mso_schema_clone:
+    <<: *mso_info
+    source_schema: Source_Schema
+    destination_schema: Destination_Schema
+    state: clone
+  ignore_errors: yes
+  register: add_existing_schema
+
+- name: Verify add_existing_schema
+  assert:
+    that:
+    - add_existing_schema is not changed
+    - add_existing_schema.msg == "Schema with the name 'Destination_Schema' already exists. Please use another name."
+
+- name: Clone schema when source schema does not exist
+  cisco.mso.mso_schema_clone:
+    <<: *mso_info
+    source_schema: Source_Schema_1
+    destination_schema: Destination_Schema_2
+    state: clone
+  ignore_errors: yes
+  register: add_existing_schema
+
+- name: Verify add_existing_schema
+  assert:
+    that:
+    - add_existing_schema is not changed
+    - add_existing_schema.msg == "Provided schema 'Source_Schema_1' does not exist."
 
 - name: Remove schemas
   cisco.mso.mso_schema:
@@ -90,4 +145,3 @@
   assert:
     that:
     - rm_schema is changed
-

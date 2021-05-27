@@ -30,6 +30,22 @@ options:
     description:
     - The name of the destination_schema.
     type: str
+  destination_tenant:
+    description:
+    - The name of the destination_schema.
+    type: str
+  source_template_name:
+    description:
+    - The name of the source template.
+    type: str
+  destination_template_name:
+    description:
+    - The name of the destination template.
+    type: str
+  destination_template_display_name:
+    description:
+    - The display name of the destination template.
+    type: str
   state:
     description:
     - Use C(clone) for adding.
@@ -43,6 +59,46 @@ extends_documentation_fragment: cisco.mso.modules
 '''
 
 EXAMPLES = r'''
+- name: Clone template in the same schema
+  cisco.mso.mso_schema_template_clone:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    source_schema: Schema1
+    destination_schema: Schema1
+    destination_tenant: ansible_test
+    source_template_name: Template1
+    destination_template_name: Template1_clone
+    destination_template_display_name: Template1_clone
+    state: clone
+  delegate_to: localhost
+
+- name: Clone template to different schema
+  cisco.mso.mso_schema_template_clone:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    source_schema: Schema1
+    destination_schema: Schema2
+    destination_tenant: ansible_test
+    source_template_name: Template2
+    destination_template_name: Cloned_template_1
+    destination_template_display_name: Cloned_template_1
+    state: clone
+  delegate_to: localhost
+
+- name: Clone template in the same schema but different tenant attached
+  cisco.mso.mso_schema_template_clone:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    source_schema: Schema1
+    destination_schema: Schema1
+    destination_tenant: common
+    source_template_name: Template1_clone
+    destination_template_name: Template1_clone_2
+    state: clone
+  delegate_to: localhost
 '''
 
 RETURN = r'''
@@ -82,6 +138,8 @@ def main():
 
     mso = MSOModule(module)
 
+    destination_schema_id = None
+
     # Get source schema id and destination schema id
     schema_summary = mso.query_objs('schemas/list-identity', key='schemas')
 
@@ -92,13 +150,11 @@ def main():
             destination_schema_id = schema.get('id')
             destination_schema = None
             break
-        # else:
-        #     mso.fail_json(msg="Schema with the name '{0}' does not exist.".format(destination_schema))
-        #     destination_schema_id = None
-        #     break
+    if destination_schema_id is None:
+        mso.fail_json(msg="Schema with the name '{0}' does not exist.".format(destination_schema))
 
     # Get destination tenant id
-    destination_tenant_id = mso.lookup_tenant(module.params.get('destination_tenant'))
+    destination_tenant_id = mso.lookup_tenant(destination_tenant)
 
     path = 'schemas/cloneTemplates'
 
@@ -110,12 +166,12 @@ def main():
             destTenantId=destination_tenant_id,
             destSchemaId=destination_schema_id,
             destSchemaName=destination_schema,
-            templatesToBeCloned = [
+            templatesToBeCloned=[
                 dict(
                     schemaId=source_schema_id,
-                    templateName= source_template_name,
-                    destTemplateName= destination_template_name,
-                    destTempDisplayName= destination_template_display_name,
+                    templateName=source_template_name,
+                    destTemplateName=destination_template_name,
+                    destTempDisplayName=destination_template_display_name,
                 )
             ],
         )

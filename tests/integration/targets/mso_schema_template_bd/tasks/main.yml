@@ -1183,6 +1183,114 @@
     - nm_bd_subnet_second_primary.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Only one preferred subnet per address family is allowed under BD ansible_test_multiple_dhcp of Template Template1 exception while trying to update schema")
   when: version.current.version is version('3.1.1g', '>')
 
+- name: Add bd with new option flood in encap available in mso versions > 3.1.1g with l2 set to true
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_flood_encap
+    intersite_bum_traffic: true
+    optimize_wan_bandwidth: false
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    layer3_multicast: false
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: encap-flood
+    ipv6_unknown_multicast_flooding: flood
+    unicast_routing: true
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+    state: present
+  ignore_errors: yes
+  register: nm_bd_new_encap_flood_non
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Verify nm_bd_new_encap_flood_non
+  assert:
+    that:
+    - nm_bd_new_encap_flood_non.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template1', BD 'ansible_test_flood_encap' {{':'}} Multi destination flood in encapsulation is only supported when l2Stretch is disabled exception while trying to update schema")
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add bd with new option flood in encap available in mso versions > 3.1.1g l2 set to false
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_flood_encap
+    layer2_stretch: false
+    layer2_unknown_unicast: flood
+    unknown_multicast_flooding: flood
+    multi_destination_flooding: encap-flood
+    ipv6_unknown_multicast_flooding: flood
+    unicast_routing: true
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+    state: present
+  register: nm_bd_new_encap_flood
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Verify nm_bd_new_encap_flood
+  assert:
+    that:
+    - nm_bd_new_encap_flood.current.multiDstPktAct == "encap-flood"
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add bd with new option description in mso versions >= 3.3
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_description
+    description: ansible_test_bd
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    unknown_multicast_flooding: flood
+    ipv6_unknown_multicast_flooding: flood
+    unicast_routing: true
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+    state: present
+  register: nm_bd_desc
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify nm_bd_desc
+  assert:
+    that:
+    - nm_bd_desc.current.description == "ansible_test_bd"
+  when: version.current.version is version('3.3', '>=')
+
+- name: Add bd with chage in description in mso versions >= 3.3
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_description
+    description: ansible_test_bd_again
+    layer2_stretch: true
+    layer2_unknown_unicast: flood
+    unknown_multicast_flooding: flood
+    ipv6_unknown_multicast_flooding: flood
+    unicast_routing: true
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+    state: present
+  register: nm_bd_desc_2
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify nm_bd_desc_2
+  assert:
+    that:
+    - nm_bd_desc_2.current.description == "ansible_test_bd_again"
+  when: version.current.version is version('3.3', '>=')
+
 # FIXME: Add missing DHCP Policy changes and checks (missing DHCP Policy module to make sure it is there.)
 
 # QUERY ALL BD
@@ -1213,7 +1321,6 @@
     that:
     - cm_query_all_bds is not changed
     - nm_query_all_bds is not changed
-    - cm_query_all_bds.current | length == cm_query_all_bds.current | length == 3
   when: version.current.version is version('3.1.1g', '>')
 
 # QUERY A BD
@@ -1319,44 +1426,8 @@
 
 - name: Query bd with multiple dhcp policies for mso version > 3.1.1g
   mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template1
+    <<: *bd_query
     bd: ansible_test_multiple_dhcp
-    intersite_bum_traffic: true
-    optimize_wan_bandwidth: false
-    layer2_stretch: true
-    layer2_unknown_unicast: flood
-    layer3_multicast: false
-    unknown_multicast_flooding: flood
-    multi_destination_flooding: drop
-    ipv6_unknown_multicast_flooding: flood
-    arp_flooding: false
-    virtual_mac_address: 00:00:5E:00:01:3C
-    subnets:
-    - subnet: 10.0.0.128/24
-    - subnet: 10.0.1.254/24
-      description: 1234567890
-    - ip: 192.168.0.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: true
-    vrf:
-      name: VRF
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template1
-    dhcp_policies:
-      - name: ansible_test_dhcp_policy1
-        version: 1
-        dhcp_option_policy:
-          name: ansible_test_dhcp_policy_option1
-          version: 1
-      - name: ansible_test_dhcp_policy2
-        version: 1
-        dhcp_option_policy:
-          name: ansible_test_dhcp_policy_option1
-          version: 1
     state: query
   register: query_nm_bd_dhcp_policies
   when: version.current.version is version('3.1.1g', '>')
@@ -1377,77 +1448,31 @@
   when: version.current.version is version('3.1.1g', '>')
 
 # Query BD with new options for mso version > 3.1.1g
-- name: Query bd with new options available in mso versions > 3.1.1g
+- name: Query bd with new option flood in encap available in mso versions > 3.1.1g with l2 set to false
   mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template1
-    bd: ansible_test_multiple_dhcp
-    intersite_bum_traffic: true
-    optimize_wan_bandwidth: false
-    layer2_stretch: true
-    layer2_unknown_unicast: flood
-    layer3_multicast: false
-    unknown_multicast_flooding: flood
-    multi_destination_flooding: drop
-    ipv6_unknown_multicast_flooding: flood
-    arp_flooding: false
-    virtual_mac_address: 00:00:5E:00:01:3C
-    unicast_routing: true
-    subnets:
-    - subnet: 10.0.0.128/24
-    - subnet: 10.0.1.254/24
-      description: 1234567890
-    - ip: 192.168.0.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: true
-      virtual: true
-      primary: true
-    vrf:
-      name: VRF
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template1
-    dhcp_policies:
-      - name: ansible_test_dhcp_policy1
-        version: 1
-        dhcp_option_policy:
-          name: ansible_test_dhcp_policy_option1
-          version: 1
-      - name: ansible_test_dhcp_policy2
-        version: 1
-        dhcp_option_policy:
-          name: ansible_test_dhcp_policy_option1
-          version: 1
+    <<: *bd_query
+    bd: ansible_test_flood_encap
     state: query
-  register: query_bd_new_subnet_options
+  register: query_bd_new_encap_flood
   when: version.current.version is version('3.1.1g', '>')
 
-- name: Verify subnets in query_bd_new_subnet_options
+- name: Verify query_bd_new_encap_flood
   assert:
     that:
-    - query_bd_new_subnet_options is not changed
-    - query_bd_new_subnet_options.current.name == 'ansible_test_multiple_dhcp'
-    - query_bd_new_subnet_options.current.intersiteBumTrafficAllow == true
-    - query_bd_new_subnet_options.current.optimizeWanBandwidth == false
-    - query_bd_new_subnet_options.current.l2Stretch == true
-    - query_bd_new_subnet_options.current.l2UnknownUnicast == "flood"
-    - query_bd_new_subnet_options.current.unkMcastAct == "flood"
-    - query_bd_new_subnet_options.current.multiDstPktAct == "drop"
-    - query_bd_new_subnet_options.current.l3MCast == false
-    - query_bd_new_subnet_options.current.arpFlood == true
-    - query_bd_new_subnet_options.current.v6unkMcastAct == "flood"
-    - query_bd_new_subnet_options.current.vmac == "00:00:5E:00:01:3C"
-    - query_bd_new_subnet_options.current.unicastRouting == true
-    - query_bd_new_subnet_options.current.subnets[2].primary == true
-    - query_bd_new_subnet_options.current.subnets[2].virtual == true
+    - query_bd_new_encap_flood is not changed
+    - query_bd_new_encap_flood.current.name == 'ansible_test_flood_encap'
+    - query_bd_new_encap_flood.current.l2UnknownUnicast == "flood"
+    - query_bd_new_encap_flood.current.unkMcastAct == "flood"
+    - query_bd_new_encap_flood.current.multiDstPktAct == "encap-flood"
+    - query_bd_new_encap_flood.current.arpFlood == true
+    - query_bd_new_encap_flood.current.v6unkMcastAct == "flood"
+    - query_bd_new_encap_flood.current.unicastRouting == true
   when: version.current.version is version('3.1.1g', '>')
 
 # REMOVE BD
 - name: Remove bd (check_mode)
   mso_schema_template_bd: &bd_absent
-    <<: *mso_info
+    <<: *bd_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     bd: ansible_test_1

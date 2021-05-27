@@ -43,6 +43,10 @@ options:
     description:
     - The name as displayed on the MSO web interface.
     type: str
+  description:
+    description:
+    - The description of BD is supported on versions of MSO that are 3.3 or greater.
+    type: str
   vrf:
     description:
     - The VRF associated to this BD. This is required only when creating a new BD.
@@ -194,14 +198,15 @@ options:
     type: bool
   unknown_multicast_flooding:
     description:
-    - Unknown Multicast Flooding can either be Flood or Optimized Flooding
+    - Unknown Multicast Flooding can either be Flood or Optimized Flooding.
     type: str
     choices: [ flood, optimized_flooding ]
   multi_destination_flooding:
     description:
-    - Multi-Destination Flooding can either be Flood in BD or just Drop
+    - Multi-Destination Flooding can either be Flood in BD, Drop or Flood in Encapsulation.
+    - Flood in Encapsulation is only supported on versions of MSO that are 3.3 or greater.
     type: str
-    choices: [ flood_in_bd, drop ]
+    choices: [ flood_in_bd, drop, encap-flood ]
   ipv6_unknown_multicast_flooding:
     description:
     - IPv6 Unknown Multicast Flooding can either be Flood or Optimized Flooding
@@ -401,6 +406,7 @@ def main():
         template=dict(type='str', required=True),
         bd=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
         display_name=dict(type='str'),
+        description=dict(type='str'),
         intersite_bum_traffic=dict(type='bool'),
         optimize_wan_bandwidth=dict(type='bool'),
         layer2_stretch=dict(type='bool', default='true'),
@@ -411,7 +417,7 @@ def main():
         dhcp_policies=dict(type='list', elements='dict', options=mso_dhcp_spec()),
         subnets=dict(type='list', elements='dict', options=mso_bd_subnet_spec()),
         unknown_multicast_flooding=dict(type='str', choices=['optimized_flooding', 'flood']),
-        multi_destination_flooding=dict(type='str', choices=['flood_in_bd', 'drop']),
+        multi_destination_flooding=dict(type='str', choices=['flood_in_bd', 'drop', 'encap-flood']),
         ipv6_unknown_multicast_flooding=dict(type='str', choices=['optimized_flooding', 'flood']),
         arp_flooding=dict(type='bool'),
         virtual_mac_address=dict(type='str'),
@@ -432,6 +438,7 @@ def main():
     template = module.params.get('template').replace(' ', '')
     bd = module.params.get('bd')
     display_name = module.params.get('display_name')
+    description = module.params.get('description')
     intersite_bum_traffic = module.params.get('intersite_bum_traffic')
     optimize_wan_bandwidth = module.params.get('optimize_wan_bandwidth')
     layer2_stretch = module.params.get('layer2_stretch')
@@ -531,6 +538,9 @@ def main():
 
         if unicast_routing:
             payload.update(unicastRouting=unicast_routing)
+
+        if description:
+            payload.update(description=description)
 
         mso.sanitize(payload, collate=True, required=['dhcpLabel', 'dhcpLabels'])
         if mso.existing:

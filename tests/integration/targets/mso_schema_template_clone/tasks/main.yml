@@ -20,140 +20,150 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
-- name: Remove schemas
-  cisco.mso.mso_schema:
+- name: Query MSO version
+  mso_version:
     <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  ignore_errors: yes
-  loop:
-  - Schema1
-  - Schema2
+    state: query
+  register: version
 
-- name: Ensure tenant ansible_test exists
-  mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test
-    users:
-      - '{{ mso_username }}'
-    sites:
-    - '{{ mso_site | default("ansible_test") }}'
-    state: present
+# Execute only when when MSO version >= 3.3
+- name: Execute tasks only for MSO version >= 3.3
+  when: version.current.version is version('3.3', '>=')
+  block:
+  - name: Remove schemas
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    ignore_errors: yes
+    loop:
+    - Schema1
+    - Schema2
 
-- name: Create Schema1 with Template 1, and Template 2 exist
-  cisco.mso.mso_schema_template:
-    <<: *mso_info
-    schema: Schema1
-    tenant: ansible_test
-    template: '{{ item }}'
-    state: present
-  loop:
-  - Template1
-  - Template2
+  - name: Ensure tenant ansible_test exists
+    mso_tenant:
+      <<: *mso_info
+      tenant: ansible_test
+      users:
+        - '{{ mso_username }}'
+      sites:
+      - '{{ mso_site | default("ansible_test") }}'
+      state: present
 
-- name: Create Schema2 with Template 3 exist
-  cisco.mso.mso_schema_template:
-    <<: *mso_info
-    schema: Schema2
-    tenant: ansible_test
-    template: Template3
-    state: present
+  - name: Create Schema1 with Template 1, and Template 2 exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: Schema1
+      tenant: ansible_test
+      template: '{{ item }}'
+      state: present
+    loop:
+    - Template1
+    - Template2
 
-- name: Clone template in the same schema
-  cisco.mso.mso_schema_template_clone:
-    <<: *mso_info
-    source_schema: Schema1
-    destination_schema: Schema1
-    destination_tenant: ansible_test
-    source_template_name: Template1
-    destination_template_name: Template1_clone
-    destination_template_display_name: Template1_clone
-    state: clone
-  register: add_template
+  - name: Create Schema2 with Template 3 exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: Schema2
+      tenant: ansible_test
+      template: Template3
+      state: present
 
-- name: Clone template to different schema
-  cisco.mso.mso_schema_template_clone:
-    <<: *mso_info
-    source_schema: Schema1
-    destination_schema: Schema2
-    destination_tenant: ansible_test
-    source_template_name: Template2
-    destination_template_name: Cloned_template_1
-    destination_template_display_name: Cloned_template_1
-    state: clone
-  register: add_template_schema
+  - name: Clone template in the same schema
+    cisco.mso.mso_schema_template_clone:
+      <<: *mso_info
+      source_schema: Schema1
+      destination_schema: Schema1
+      destination_tenant: ansible_test
+      source_template_name: Template1
+      destination_template_name: Template1_clone
+      destination_template_display_name: Template1_clone
+      state: clone
+    register: add_template
 
-- name: Clone template in the same schema but different tenant attached
-  cisco.mso.mso_schema_template_clone:
-    <<: *mso_info
-    source_schema: Schema1
-    destination_schema: Schema1
-    destination_tenant: common
-    source_template_name: Template1_clone
-    destination_template_name: Template1_clone_2
-    state: clone
-  register: add_template_tenant
+  - name: Clone template to different schema
+    cisco.mso.mso_schema_template_clone:
+      <<: *mso_info
+      source_schema: Schema1
+      destination_schema: Schema2
+      destination_tenant: ansible_test
+      source_template_name: Template2
+      destination_template_name: Cloned_template_1
+      destination_template_display_name: Cloned_template_1
+      state: clone
+    register: add_template_schema
 
-- name: Verify add_templates
-  assert:
-    that:
-    - add_template is changed
-    - (add_template.current.templates |  selectattr('displayName', 'contains', 'Template1_clone')|first).name == 'Template1_clone'
-    - add_template_schema is changed
-    - (add_template_schema.current.templates |  selectattr('displayName', 'contains', 'Cloned_template_1')|first).name == 'Cloned_template_1'
-    - add_template_tenant is changed
-    - (add_template_tenant.current.templates |  selectattr('displayName', 'contains', 'Template1_clone_2')|first).name == 'Template1_clone_2'
+  - name: Clone template in the same schema but different tenant attached
+    cisco.mso.mso_schema_template_clone:
+      <<: *mso_info
+      source_schema: Schema1
+      destination_schema: Schema1
+      destination_tenant: common
+      source_template_name: Template1_clone
+      destination_template_name: Template1_clone_2
+      state: clone
+    register: add_template_tenant
 
-# Checking for other cases
-- name: Clone non existing template
-  cisco.mso.mso_schema_template_clone:
-    <<: *mso_info
-    source_schema: Schema2
-    destination_schema: Schema2
-    destination_tenant: common
-    source_template_name: non_existing_template
-    destination_template_name: Cloned_template_2
-    destination_template_display_name: Cloned_template_2
-    state: clone
-  ignore_errors: yes
-  register: non_existing_template
+  - name: Verify add_templates
+    assert:
+      that:
+      - add_template is changed
+      - (add_template.current.templates |  selectattr('displayName', 'contains', 'Template1_clone')|first).name == 'Template1_clone'
+      - add_template_schema is changed
+      - (add_template_schema.current.templates |  selectattr('displayName', 'contains', 'Cloned_template_1')|first).name == 'Cloned_template_1'
+      - add_template_tenant is changed
+      - (add_template_tenant.current.templates |  selectattr('displayName', 'contains', 'Template1_clone_2')|first).name == 'Template1_clone_2'
 
-- name: Verify non_existing_template
-  assert:
-    that:
-    - non_existing_template is not changed
-    - non_existing_template.msg == "MSO Error 141{{':'}} Resource Not Found{{':'}}  Template with name{{':'}} non_existing_template not found in schema Schema2"
+  # Checking for other cases
+  - name: Clone non existing template
+    cisco.mso.mso_schema_template_clone:
+      <<: *mso_info
+      source_schema: Schema2
+      destination_schema: Schema2
+      destination_tenant: common
+      source_template_name: non_existing_template
+      destination_template_name: Cloned_template_2
+      destination_template_display_name: Cloned_template_2
+      state: clone
+    ignore_errors: yes
+    register: non_existing_template
 
-- name: Clone non existing schema
-  cisco.mso.mso_schema_template_clone:
-    <<: *mso_info
-    source_schema: Schema1
-    destination_schema: non_existing_schema
-    destination_tenant: common
-    source_template_name: Template2
-    destination_template_name: Template_clone
-    destination_template_display_name: Template_clone
-    state: clone
-  ignore_errors: yes
-  register: non_existing_schema
+  - name: Verify non_existing_template
+    assert:
+      that:
+      - non_existing_template is not changed
+      - non_existing_template.msg == "MSO Error 141{{':'}} Resource Not Found{{':'}}  Template with name{{':'}} non_existing_template not found in schema Schema2"
 
-- name: Verify non_existing_schema
-  assert:
-    that:
-    - non_existing_schema is not changed
-    - non_existing_schema.msg == "Schema with the name 'non_existing_schema' does not exist."
+  - name: Clone non existing schema
+    cisco.mso.mso_schema_template_clone:
+      <<: *mso_info
+      source_schema: Schema1
+      destination_schema: non_existing_schema
+      destination_tenant: common
+      source_template_name: Template2
+      destination_template_name: Template_clone
+      destination_template_display_name: Template_clone
+      state: clone
+    ignore_errors: yes
+    register: non_existing_schema
 
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  register: rm_schema
-  loop:
-  - Schema2
-  - Schema1
+  - name: Verify non_existing_schema
+    assert:
+      that:
+      - non_existing_schema is not changed
+      - non_existing_schema.msg == "Schema with the name 'non_existing_schema' does not exist."
 
-- name: Verify rm_schema
-  assert:
-    that:
-    - rm_schema is changed
+  - name: Remove schemas
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    register: rm_schema
+    loop:
+    - Schema2
+    - Schema1
+
+  - name: Verify rm_schema
+    assert:
+      that:
+      - rm_schema is changed

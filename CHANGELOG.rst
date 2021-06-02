@@ -6,6 +6,49 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v1.2.0
+======
+
+Release Summary
+---------------
+
+Release v1.2.0 of the ``cisco.mso`` collection on 2021-06-02.
+This changelog describes all changes made to the modules and plugins included in this collection since v1.1.0.
+
+
+Minor Changes
+-------------
+
+- Add Ansible common HTTPAPI dependancy in galaxy.yml
+- Add HTTPAPI connection plugin support and HTTPAPI MSO connection plugin
+- Add primary and unicast_routing attributes to mso_schema_template_bd
+- Add requirements.txt for Ansible Environment support
+- Add schema and template cloning modules mso_schema_clone and mso_schema_template_clone
+- Add support cisco.nd.nd connection plugin
+- Add support for multiple DCHP policies in a BD and new module mso_schema_template_bd_dhcp_policy
+- Upgrade CI to latest Ansible version and Python 3.8
+
+Bugfixes
+--------
+
+- Add test case and small fixes to mso_schema_site_bd_l3out module
+- Fix documentation issues accross modules
+- Fix fail_json usage accross module_utils/mso.py
+- Fix mso_rest to support HTTPAPI plugin and tests to support ND platform
+- Fix mso_user to due to error in v1 API in MSO 3.2
+- Fix path issue in mso_schema_template_migrate
+- Fixes for site level external epgs and site level L3Outs
+- Fixes to support MSO 3.3
+- Remove query of all schemas to get schema ID and only query schema ID indentity list API
+
+New Plugins
+-----------
+
+Httpapi
+~~~~~~~
+
+- cisco.mso.mso - MSO Ansible HTTPAPI Plugin.
+
 v1.1.0
 ======
 

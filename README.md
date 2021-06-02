@@ -43,6 +43,28 @@ Once the collection is installed, you can use it in a playbook by specifying the
     delegate_to: localhost
 ```
 
+You can also use the MSO HTTPAPI connection plugin by setting the following variables in your inventory file (cisco.mso collection v1.2+).
+```yaml
+ansible_connection=ansible.netcommon.httpapi
+ansible_network_os=cisco.mso.mso
+```
+
+The HTTPAPI connection plugin will also allow you to specify additional parameters as variable and omit them from the task itself. Module parameters will override global variables.
+```yaml
+ansible_host=10.0.0.1
+ansible_user=admin
+ansible_ssh_pass="MySuperPassword"
+ansible_httpapi_validate_certs=False
+ansible_httpapi_use_ssl=True
+ansible_httpapi_use_proxy=True
+```
+
+You can also use the Nexus Dashboard (ND) connection plugin available in the [cisco.nd](https://galaxy.ansible.com/cisco/nd) collection by changin the following variable.
+```yaml
+ansible_connection=ansible.netcommon.httpapi
+ansible_network_os=cisco.nd.nd
+```
+
 ## Update
 Getting the latest/nightly collection build
 

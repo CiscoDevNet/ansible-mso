@@ -21,6 +21,12 @@
       use_proxy: '{{ mso_use_proxy | default(false) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
 - name: Remove schemas
   mso_schema:
     <<: *mso_info
@@ -116,24 +122,29 @@
     - nm_create_anp_again.current.name == "ANP"
     - nm_create_anp_again.current.epgs == []
 
-- name: Create another anp (normal_mode)
+# Add description for version >= 3.3
+- name: Create another anp with description(normal_mode)
   mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     anp: ANP_2
     display_name: another anp
+    description: "Description of an ANP_2"
     state: present
   register: nm_create_another_anp
+  when: version.current.version is version('3.3', '>=')
 
-- name: Verify nm_create_another_anp
+- name: Verify nm_create_another_anp with description
   assert:
     that:
     - nm_create_another_anp is changed
     - nm_create_another_anp.previous == {}
     - nm_create_another_anp.current.displayName == "another anp"
     - nm_create_another_anp.current.name == "ANP_2"
+    - nm_create_another_anp.current.description == "Description of an ANP_2"
     - nm_create_another_anp.current.epgs == []
+  when: version.current.version is version('3.3', '>=')
 
 - name: Change anp (normal_mode)
   mso_schema_template_anp:

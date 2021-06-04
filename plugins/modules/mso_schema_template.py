@@ -260,7 +260,7 @@ def main():
     if not module.check_mode:
         mso.request(schema_path, method='PATCH', data=ops)
 
-    mso.exit_json(ops=ops)
+    mso.exit_json()
 
 
 if __name__ == "__main__":

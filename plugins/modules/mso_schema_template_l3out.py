@@ -205,8 +205,6 @@ def main():
 
         if display_name is None and not mso.existing:
             display_name = l3out
-        # if description is None:
-        #         description = ''
 
         payload = dict(
             name=l3out,

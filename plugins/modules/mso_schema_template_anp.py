@@ -35,6 +35,10 @@ options:
     - The name of the ANP to manage.
     type: str
     aliases: [ name ]
+  description:
+    description:
+    - The description of ANP is supported on versions of MSO that are 3.3 or greater.
+    type: str
   display_name:
     description:
     - The name as displayed on the MSO web interface.
@@ -111,6 +115,7 @@ def main():
         schema=dict(type='str', required=True),
         template=dict(type='str', required=True),
         anp=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
+        description=dict(type='str'),
         display_name=dict(type='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
@@ -127,6 +132,7 @@ def main():
     schema = module.params.get('schema')
     template = module.params.get('template').replace(' ', '')
     anp = module.params.get('anp')
+    description = module.params.get('description')
     display_name = module.params.get('display_name')
     state = module.params.get('state')
 
@@ -179,6 +185,10 @@ def main():
             displayName=display_name,
             epgs=epgs,
         )
+
+        if description is not None:
+            payload.update(description=description)
+
 
         mso.sanitize(payload, collate=True)
 

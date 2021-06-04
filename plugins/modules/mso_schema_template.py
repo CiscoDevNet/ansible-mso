@@ -30,6 +30,14 @@ options:
     - The name of the schema.
     type: str
     required: yes
+  schema_description:
+    description:
+    - The description of Schema is supported on versions of MSO that are 3.3 or greater.
+    type: str
+  template_description:
+    description:
+    - The description of template is supported on versions of MSO that are 3.3 or greater.
+    type: str
   template:
     description:
     - The name of the template.
@@ -113,6 +121,8 @@ def main():
     argument_spec.update(
         tenant=dict(type='str', required=True),
         schema=dict(type='str', required=True),
+        schema_description=dict(type='str'),
+        template_description=dict(type='str'),
         template=dict(type='str', aliases=['name']),
         display_name=dict(type='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
@@ -129,6 +139,8 @@ def main():
 
     tenant = module.params.get('tenant')
     schema = module.params.get('schema')
+    schema_description = module.params.get('schema_description')
+    template_description = module.params.get('template_description')
     template = module.params.get('template')
     if template is not None:
         template = template.replace(' ', '')
@@ -155,6 +167,11 @@ def main():
             mso.existing = schema_obj.get('templates')
     else:
         schema_path = 'schemas'
+
+    if schema_description is None:
+        schema_description = ''
+    if template_description is None:
+        template_description = ''
 
     if state == 'query':
         if not mso.existing:
@@ -201,6 +218,11 @@ def main():
                 sites=[],
             )
 
+            if schema_description:
+                payload.update(description=schema_description)
+            if template_description:
+                payload['templates'][0].update(description=template_description)
+
             mso.existing = payload.get('templates')[0]
 
             if not module.check_mode:
@@ -211,6 +233,7 @@ def main():
             payload = dict(
                 name=template,
                 displayName=display_name,
+                description = template_description,
                 tenantId=tenant_id,
             )
 
@@ -237,7 +260,7 @@ def main():
     if not module.check_mode:
         mso.request(schema_path, method='PATCH', data=ops)
 
-    mso.exit_json()
+    mso.exit_json(ops=ops)
 
 
 if __name__ == "__main__":

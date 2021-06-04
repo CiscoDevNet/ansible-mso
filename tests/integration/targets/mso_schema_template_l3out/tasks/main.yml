@@ -20,6 +20,12 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
 - name: Remove schemas
   mso_schema:
     <<: *mso_info
@@ -216,3 +222,24 @@
     - cm_query_non_l3out is not changed
     - nm_query_non_l3out is not changed
     - cm_query_non_l3out.msg == nm_query_non_l3out.msg == "L3out 'non_existing_l3out' not found"
+
+# Add description for version >= 3.3
+
+- name: Add new L3Out
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    l3out: L3out1
+    description: "A L3out description"
+    vrf:
+        name: VRF1
+    state: present
+  register: add_desc
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify add description
+  assert:
+    that:
+    - add_desc is changed
+  when: version.current.version is version('3.3', '>=')

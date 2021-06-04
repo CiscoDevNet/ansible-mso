@@ -20,6 +20,12 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
 - name: Ensure site exists
   mso_site:
     <<: *mso_info
@@ -347,6 +353,24 @@
     that:
     - absent_template is not changed
     - absent_template.current == []
+
+- name: Update description schema 1 with Template 1 when version is greater than 3.3
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    schema_description: "this is schema"
+    tenant: ansible_test
+    template: Template 1
+    template_description: "this is template"
+    state: present
+  register: add_description
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify add description
+  assert:
+    that:
+    - add_description is changed
+  when: version.current.version is version('3.3', '>=')
 
 # REMOVE Schemas for next CI Run
 - name: Remove schemas for next ci test

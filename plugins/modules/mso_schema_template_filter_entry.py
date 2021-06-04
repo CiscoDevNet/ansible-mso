@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -19,6 +20,7 @@ description:
 - Manage filter entries in schema templates on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
+- Anvitha Jain (@anvitha-jain)
 options:
   schema:
     description:
@@ -37,6 +39,10 @@ options:
     - See the C(filter_display_name) attribute if you want the display name of the filter to contain a space.
     type: str
     required: yes
+  filter_description:
+    description:
+    - The description of this filter is supported on versions of MSO that are 3.3 or greater.
+    type: str
   filter_display_name:
     description:
     - The name as displayed on the MSO web interface.
@@ -51,9 +57,9 @@ options:
     - The name as displayed on the MSO web interface.
     type: str
     aliases: [ entry_display_name ]
-  description:
+  filter_entry_description:
     description:
-    - The description of this filer entry.
+    - The description of this filter entry.
     type: str
     aliases: [ entry_description ]
   ethertype:
@@ -175,9 +181,10 @@ def main():
         schema=dict(type='str', required=True),
         template=dict(type='str', required=True),
         filter=dict(type='str', required=True),
+        filter_description=dict(type='str'),
         filter_display_name=dict(type='str'),
         entry=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
-        description=dict(type='str', aliases=['entry_description']),
+        filter_entry_description=dict(type='str', aliases=['entry_description']),
         display_name=dict(type='str', aliases=['entry_display_name']),
         ethertype=dict(type='str', choices=['arp', 'fcoe', 'ip', 'ipv4', 'ipv6', 'mac-security', 'mpls-unicast', 'trill', 'unspecified']),
         ip_protocol=dict(type='str', choices=['eigrp', 'egp', 'icmp', 'icmpv6', 'igmp', 'igp', 'l2tp', 'ospfigp', 'pim', 'tcp', 'udp', 'unspecified']),
@@ -205,9 +212,10 @@ def main():
     template = module.params.get('template').replace(' ', '')
     filter_name = module.params.get('filter')
     filter_display_name = module.params.get('filter_display_name')
+    filter_description = module.params.get('filter_description')
     entry = module.params.get('entry')
     display_name = module.params.get('display_name')
-    description = module.params.get('description')
+    filter_entry_description = module.params.get('filter_entry_description')
     ethertype = module.params.get('ethertype')
     ip_protocol = module.params.get('ip_protocol')
     tcp_session_rules = module.params.get('tcp_session_rules')
@@ -284,8 +292,10 @@ def main():
         if not mso.existing:
             if display_name is None:
                 display_name = entry
-            if description is None:
-                description = ''
+            if filter_description is None:
+                filter_description = ''
+            if filter_entry_description is None:
+                filter_entry_description = ''
             if ethertype is None:
                 ethertype = 'unspecified'
             if ip_protocol is None:
@@ -310,7 +320,7 @@ def main():
         payload = dict(
             name=entry,
             displayName=display_name,
-            description=description,
+            description=filter_entry_description,
             etherType=ethertype,
             ipProtocol=ip_protocol,
             tcpSessionRules=tcp_session_rules,
@@ -333,6 +343,7 @@ def main():
             payload = dict(
                 name=filter_name,
                 displayName=filter_display_name,
+                description=filter_description,
                 entries=[mso.sent],
             )
 

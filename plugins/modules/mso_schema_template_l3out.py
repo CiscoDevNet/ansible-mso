@@ -35,6 +35,10 @@ options:
     - The name of the l3out to manage.
     type: str
     aliases: [ name ]
+  description:
+    description:
+    - The description of l3out is supported on versions of MSO that are 3.3 or greater.
+    type: str
   display_name:
     description:
     - The name as displayed on the MSO web interface.
@@ -136,6 +140,7 @@ def main():
         schema=dict(type='str', required=True),
         template=dict(type='str', required=True),
         l3out=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
+        description=dict(type='str'),
         display_name=dict(type='str'),
         vrf=dict(type='dict', options=mso_reference_spec()),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
@@ -153,6 +158,7 @@ def main():
     schema = module.params.get('schema')
     template = module.params.get('template').replace(' ', '')
     l3out = module.params.get('l3out')
+    description = module.params.get('description')
     display_name = module.params.get('display_name')
     vrf = module.params.get('vrf')
     if vrf is not None and vrf.get('template') is not None:
@@ -199,12 +205,17 @@ def main():
 
         if display_name is None and not mso.existing:
             display_name = l3out
+        # if description is None:
+        #         description = ''
 
         payload = dict(
             name=l3out,
             displayName=display_name,
             vrfRef=vrf_ref,
         )
+
+        if description is not None:
+                payload.update(description=description)
 
         mso.sanitize(payload, collate=True)
 

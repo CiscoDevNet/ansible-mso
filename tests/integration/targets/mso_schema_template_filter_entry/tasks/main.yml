@@ -1,0 +1,268 @@
+# Test code for the MSO modules
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Ensure site exist
+  mso_site: &site_present
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ apic_username }}'
+    apic_password: '{{ apic_password }}'
+    apic_site_id: '{{ apic_site_id | default(101) }}'
+    urls:
+    - https://{{ apic_hostname }}
+    state: present
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant: &tenant_present
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Ensure schema 1 with Template1 exist
+  mso_schema_template: &schema_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template1
+    state: present
+
+- name: Create filter with filter entry
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: filter1
+    entry: filter_entry1
+    state: present
+  register: add_filter
+
+- name: Add description to filter and filter entry for version grater than 3.3
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: filter1
+    filter_description: "filter description"
+    entry: filter_entry1
+    filter_entry_description: "filter entry description"
+    state: present
+  register: add_filter_descr
+  when: version.current.version is version('3.3', '>=')
+
+- name: Create filter with filter entry again
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: filter1
+    entry: filter_entry1
+    state: present
+  register: add_filter_again
+
+- name: Create filter without filter entry
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: filter1
+    state: present
+  ignore_errors: yes
+  register: add_filter_only
+
+- name: Verify add_filter_only
+  assert:
+    that:
+    - add_filter_only is not changed
+    - add_filter_only.msg == "state is present but all of the following are missing{{':'}} entry"
+
+- name: Create filter with multiple filter entries
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: filter1
+    entry: '{{ item }}'
+    state: present
+  register: add_multiple_entries
+  loop:
+  - 'filter_entry2'
+  - 'filter_entry3'
+
+# QUERY the filters
+- name: Query a particular filter entry 1
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: filter1
+    entry: filter_entry1
+    state: query
+  register: query_filter
+
+- name: Query all filter entries
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: filter1
+    state: query
+  register: query_all
+
+- name: Verify query
+  assert:
+    that:
+    - query_filter is not changed
+    - query_all is not changed
+
+# QUERY cases
+- name: Query existing filter and filter entry
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: non_existing_filter
+    entry: non_existing_filter_entry
+    state: query
+  ignore_errors: yes
+  register: query_non_existing_filter
+
+- name: Query non-existing filter entry
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: filter1
+    entry: non_existing_filter_entry
+    state: query
+  ignore_errors: yes
+  register: query_non_existing_entry
+
+- name: Verify query cases
+  assert:
+    that:
+    - query_non_existing_filter is not changed
+    # - query_non_existing_filter.msg == "Entry 'filter_entry1' not found"
+    - query_non_existing_entry is not changed
+    - query_non_existing_entry.msg == "Entry 'non_existing_filter_entry' not found"
+
+# Delete filter entries
+- name: Delete filter entry 3
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: filter1
+    entry: filter_entry3
+    state: absent
+  register: remove_filter
+
+- name: Verify delete filter_entry3
+  assert:
+    that:
+    - remove_filter is changed
+    - remove_filter.current == {}
+
+# USE A NON_EXISTING_TEMPLATE
+- name: non_existing_template (normal_mode)
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: non_existing_template
+    filter: filter1
+    entry: filter_entry1
+    state: present
+  ignore_errors: yes
+  register: nm_non_existing_template
+
+- name: Verify nm_non_existing_template
+  assert:
+    that:
+    - nm_non_existing_template is not changed
+    - nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1"
+
+- name: Delete non_existing_filter
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: non_existing_filter
+    entry: filter_entry1
+    state: absent
+  ignore_errors: yes
+  register: remove_non_existing_filter
+
+- name: Delete non_existing_filter_entry
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: filter1
+    entry: non_existing_filter_entry
+    state: absent
+  ignore_errors: yes
+  register: remove_non_existing_entry
+
+- name: Verify nm_non_existing_template
+  assert:
+    that:
+    - remove_non_existing_filter is not changed
+    - remove_non_existing_entry is not changed
+    - nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1"
+
+
+# Delete filter entries
+- name: Delete filter entry 3
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: filter1
+    entry: '{{ item }}'
+    state: absent
+  register: remove_multiple_entries
+  loop:
+  - 'filter_entry1'
+  - 'filter_entry2'
+
+- name: Verify remove_multiple_entries
+  assert:
+    that:
+    - remove_multiple_entries is changed

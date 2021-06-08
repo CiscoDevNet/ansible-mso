@@ -189,7 +189,6 @@ def main():
         if description is not None:
             payload.update(description=description)
 
-
         mso.sanitize(payload, collate=True)
 
         if mso.existing:

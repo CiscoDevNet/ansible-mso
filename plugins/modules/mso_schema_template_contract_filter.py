@@ -35,6 +35,10 @@ options:
     - The name of the contract to manage.
     type: str
     required: yes
+  description:
+    description:
+    - The description of contract is supported on versions of MSO that are 3.3 or greater.
+    type: str
   contract_display_name:
     description:
     - The name as displayed on the MSO web interface.
@@ -79,6 +83,25 @@ options:
     type: list
     elements: str
     choices: [ log, none, policy_compression ]
+  qos_level:
+    description:
+    - The Contract QoS Level parameter is supported on versions of MSO that are 3.3 or greater.
+    type: str
+  action:
+    description:
+    - The filter action parameter is supported on versions of MSO that are 3.3 or greater.
+    type: str
+    choices: [ permit, deny ]
+    default: permit
+  priority:
+    description:
+    - The filter priority override parameter is supported on versions of MSO that are 3.3 or greater.
+    type: str
+    choices: [ Lowest Priority, Medium Priority, Highest Priority ]
+  service_graph:
+    description:
+    - The Service graph parameter is supported on versions of MSO that are 3.3 or greater.
+    type: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -166,6 +189,7 @@ def main():
         schema=dict(type='str', required=True),
         template=dict(type='str', required=True),
         contract=dict(type='str', required=True),
+        description=dict(type='str'),
         contract_display_name=dict(type='str'),
         contract_scope=dict(type='str', choices=['application-profile', 'global', 'tenant', 'vrf']),
         contract_filter_type=dict(type='str', default='both-way', choices=['both-way', 'one-way']),
@@ -174,6 +198,10 @@ def main():
         filter_template=dict(type='str'),
         filter_schema=dict(type='str'),
         filter_type=dict(type='str', default='both-way', choices=list(FILTER_KEYS), aliases=['type']),
+        qos_level=dict(type='str'),
+        action=dict(type='str', default='permit', choices=['permit', 'deny']),
+        priority=dict(type='str', choices=['Lowest Priority', 'Medium Priority', 'Highest Priority']),
+        service_graph=dict(type='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -190,6 +218,7 @@ def main():
     template = module.params.get('template').replace(' ', '')
     contract = module.params.get('contract')
     contract_display_name = module.params.get('contract_display_name')
+    description = module.params.get('description')
     contract_filter_type = module.params.get('contract_filter_type')
     contract_scope = module.params.get('contract_scope')
     filter_name = module.params.get('filter')
@@ -199,6 +228,10 @@ def main():
         filter_template = filter_template.replace(' ', '')
     filter_schema = module.params.get('filter_schema')
     filter_type = module.params.get('filter_type')
+    qos_level = module.params.get('qos_level')
+    action = module.params.get('action')
+    priority = module.params.get('priority')
+    service_graph = module.params.get('service_graph')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -245,6 +278,16 @@ def main():
             filter_path = '/templates/{0}/contracts/{1}/{2}/{3}'.format(template, contract, filter_key, filter_name)
             filter = contract_obj.get(filter_key)[filter_idx]
             mso.existing = mso.update_filter_obj(contract_obj, filter, filter_type)
+
+    # service_graphs = [f.get('serviceGraphsRef') for f in schema_obj.get('templates')[template_idx]['serviceGraphs']]
+    # mso.stdout = str(service_graphs)
+    # service_graph_ref = mso.service_graph_ref(schema_id=filter_schema_id, template=filter_template, service_graph=service_graph)
+    # mso.stdout += str(service_graph_ref)
+    # if service_graph_ref in service_graphs:
+    #     service_graph_idx = service_graphs.index(service_graph_ref)
+    #     service_graph_path = '/templates/{0}/contracts/{1}/serviceGraphs/{2}'.format(template, contract, service_graph)
+    #     service_graph = contract_obj.get(service_graph)[service_graph_idx]
+    #     mso.existing = mso.update_service_graph_obj(contract_obj, service_graph, filter_type)
 
     if state == 'query':
         if contract_idx is None:
@@ -298,6 +341,11 @@ def main():
             ),
             directives=filter_directives,
         )
+        if action is not None:
+                payload.update(action=action)
+        if action is 'deny' and priority is not None:
+            # priority = "level3"
+            payload.update(priorityOverride=priority)
 
         mso.sanitize(payload, collate=True, unwanted=['filterType', 'contractScope', 'contractFilterType'])
         mso.existing = mso.sent
@@ -313,6 +361,12 @@ def main():
                 'filterType': contract_ftype,
                 'scope': contract_scope,
             }
+
+            if description is not None:
+                payload.update(description=description)
+            if qos_level is not None:
+                payload.update(prio=qos_level)
+
             ops.append(dict(op='add', path='/templates/{0}/contracts/-'.format(template), value=payload))
 
         else:
@@ -333,10 +387,16 @@ def main():
         if filter_idx is None:
             # Filter does not exist, so we have to add it
             ops.append(dict(op='add', path=filters_path + '/-', value=mso.sent))
-
         else:
             # Filter exists, we have to update it
             ops.append(dict(op='replace', path=filter_path, value=mso.sent))
+
+        # if service_graph_idx is None:
+        #     # Filter does not exist, so we have to add it
+        #     ops.append(dict(op='add', path=service_graph_path + '/-', value=mso.sent))
+        # else:
+        #     # Filter exists, we have to update it
+        #     ops.append(dict(op='replace', path=service_graph_path, value=mso.sent))
 
     if not module.check_mode and mso.existing != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)

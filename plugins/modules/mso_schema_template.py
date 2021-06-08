@@ -233,7 +233,7 @@ def main():
             payload = dict(
                 name=template,
                 displayName=display_name,
-                description = template_description,
+                description=template_description,
                 tenantId=tenant_id,
             )
 

@@ -827,10 +827,6 @@ class MSOModule(object):
         ''' Create a filterRef string '''
         return '/schemas/{schema_id}/templates/{template}/filters/{filter}'.format(**data)
 
-    def service_graph_ref(self, **data):
-        ''' Create a serviceGraphsRef string '''
-        return '/schemas/{schema_id}/templates/{template}/serviceGraphs/{service_graph}'.format(**data)
-
     def vrf_ref(self, **data):
         ''' Create vrfRef string '''
         return '/schemas/{schema_id}/templates/{template}/vrfs/{vrf}'.format(**data)

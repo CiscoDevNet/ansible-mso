@@ -70,6 +70,13 @@ options:
     - Whether this subnet is an IGMP querier.
     type: bool
     default: false
+  primary:
+    description:
+    - Treat as Primary Subnet.
+    - There can be only one primary subnet per address family under a BD.
+    - This option can only be used on versions of MSO that are 3.1.1h or greater.
+    type: bool
+    default: false
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -153,6 +160,7 @@ def main():
         shared=dict(type='bool', default=False),
         no_default_gateway=dict(type='bool', default=False),
         querier=dict(type='bool', default=False),
+        primary=dict(type='bool', default=False),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -175,6 +183,7 @@ def main():
     shared = module.params.get('shared')
     no_default_gateway = module.params.get('no_default_gateway')
     querier = module.params.get('querier')
+    primary = module.params.get('primary')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -219,9 +228,6 @@ def main():
             ops.append(dict(op='remove', path=subnet_path))
 
     elif state == 'present':
-        if not mso.existing:
-            if description is None:
-                description = subnet
 
         payload = dict(
             ip=subnet,
@@ -231,7 +237,11 @@ def main():
             shared=shared,
             noDefaultGateway=no_default_gateway,
             querier=querier,
+            primary=primary,
         )
+
+        if description is not None:
+            payload.update(description=description)
 
         mso.sanitize(payload, collate=True)
 

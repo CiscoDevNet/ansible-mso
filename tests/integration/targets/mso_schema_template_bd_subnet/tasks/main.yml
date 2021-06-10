@@ -72,14 +72,6 @@
     template: Template1
     state: present
 
-- name: Ensure schema 2 with Template2 exists
-  mso_schema_template:
-    <<: *schema_present
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    tenant: ansible_test
-    template: Template2
-    state: present
-
 - name: Ensure VRF exists
   mso_schema_template_vrf: &vrf_present
     <<: *mso_info
@@ -89,13 +81,6 @@
     layer3_multicast: true
     state: present
 
-- name: Ensure VRF2 exists
-  mso_schema_template_vrf:
-    <<: *vrf_present
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template2
-    vrf: VRF2
-
 # ADD BD
 - name: Add bd
   mso_schema_template_bd: &bd_present
@@ -103,49 +88,6 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     bd: ansible_test_1
-    intersite_bum_traffic: true
-    optimize_wan_bandwidth: true
-    layer2_stretch: true
-    layer2_unknown_unicast: proxy
-    vrf:
-      name: VRF
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template1
-    dhcp_policy:
-      name: ansible_test
-      version: 1
-      dhcp_option_policy:
-        name: ansible_test_option
-        version: 1
-    state: present
-
-- name: Add bd 2
-  mso_schema_template_bd:
-    <<: *bd_present
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template2
-    bd: ansible_test_2
-    intersite_bum_traffic: true
-    optimize_wan_bandwidth: true
-    layer2_stretch: true
-    layer2_unknown_unicast: proxy
-    vrf:
-      name: VRF2
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template2
-    dhcp_policy:
-      name: ansible_test
-      version: 1
-      dhcp_option_policy:
-        name: ansible_test_option
-        version: 1
-
-- name: Add bd
-  mso_schema_template_bd: 
-    <<: *bd_present
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template1
-    bd: ansible_test_3
     intersite_bum_traffic: true
     optimize_wan_bandwidth: true
     layer2_stretch: true
@@ -189,11 +131,6 @@
     <<: *subnet_present
   register: nm_add_subnet_again
 
-- name: Add subnet for query all (normal mode)
-  mso_schema_template_bd_subnet:
-    <<: *subnet_present
-    subnet: 2.16.0.1/24
-
 - name: Verify cm_add_subnet and nm_add_subnet
   assert:
     that:
@@ -215,20 +152,22 @@
 
 - name: Add subnet 2 (normal mode)
   mso_schema_template_bd_subnet:
-    <<: *subnet_present
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template2
-    bd: ansible_test_2
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
     subnet: 10.1.1.1/24
     description: "My description for a subnet with virtual ip"
     scope: public
     shared: true
     no_default_gateway: false
     querier: true
+    primary: true
     is_virtual_ip: true
+    state: present
   register: nm_add_subnet_2
 
-- name: Verify nm_bd_2 for a version that's < 3.1
+- name: Verify nm_add_subnet_2 for a version that's < 3.1
   assert:
     that:
     - nm_add_subnet_2.current.ip == "10.1.1.1/24"
@@ -238,7 +177,7 @@
     - nm_add_subnet_2.current.querier == true
   when: version.current.version is version('3.1.1g', '<')
 
-- name: Verify nm_bd_2 for a version that's >= 3.1
+- name: Verify nm_add_subnet_2 for a version that's >= 3.1
   assert:
     that:
     - nm_add_subnet_2.current.ip == "10.1.1.1/24"
@@ -247,15 +186,16 @@
     - nm_add_subnet_2.current.shared == true
     - nm_add_subnet_2.current.querier == true
     - nm_add_subnet_2.current.virtual == true
+    - nm_add_subnet_2.current.primary == true
   when: version.current.version is version('3.1.1g', '>=')
 
 # CHANGE Subnet
 - name: Change subnet 2 (normal mode)
   mso_schema_template_bd_subnet:
-    <<: *subnet_present
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template2
-    bd: ansible_test_2
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
     subnet: 10.1.1.1/24
     description: "My description for a subnet with virtual ip"
     scope: public
@@ -263,6 +203,8 @@
     no_default_gateway: false
     querier: true
     is_virtual_ip: false
+    primary: true
+    state: present
   register: nm_change_subnet2
 
 - name: Verify nm_change_subnet2 for a version < 3.1
@@ -286,14 +228,15 @@
     - nm_change_subnet2.current.shared == true
     - nm_change_subnet2.current.querier == true
     - nm_change_subnet2.current.virtual == false
+    - nm_change_subnet2.current.primary == true
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change subnet2 again (normal mode)
   mso_schema_template_bd_subnet:
-    <<: *subnet_present
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template2
-    bd: ansible_test_2
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
     subnet: 10.1.1.1/24
     description: "My description for a subnet with virtual ip"
     scope: public
@@ -301,6 +244,8 @@
     no_default_gateway: false
     querier: true
     is_virtual_ip: false
+    primary: true
+    state: present
   register: nm_change_subnet2_again
 
 - name: Verify nm_change_subnet2_again for a version that's < 3.1
@@ -324,6 +269,7 @@
     - nm_change_subnet2_again.current.shared == true
     - nm_change_subnet2_again.current.querier == true
     - nm_change_subnet2_again.current.virtual == false
+    - nm_change_subnet2_again.current.primary == true
   when: version.current.version is version('3.1.1g', '>=')
 
 # QUERY ALL Subnets
@@ -353,9 +299,9 @@
 - name: Query subnet2
   mso_schema_template_bd_subnet:
     <<: *subnet_query
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template2
-    bd: ansible_test_2
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
     subnet: 10.1.1.1/24
   register: nm_query_subnet2
 
@@ -400,7 +346,7 @@
     - nm_remove_subnet.current == {}
 
 - name: Remove subnet again (check_mode)
-  mso_schema_template_bd_subnet: 
+  mso_schema_template_bd_subnet:
     <<: *subnet_absent
   register: nm_remove_subnet_again
 
@@ -467,22 +413,6 @@
     - nm_non_existing_template is not changed
     - nm_non_existing_template.msg is match ("Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1")
 
-# USE NON-EXISTING OPTIONS
-- name: Add subnet with no description
-  mso_schema_template_bd_subnet: 
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template1
-    bd: ansible_test_3
-    subnet: 172.16.0.5/24
-    state: present
-  register: nm_add_subnet_no_desc
-
-- name: Verify nm_add_subnet_no_desc
-  assert:
-    that:
-    - nm_add_subnet_no_desc.current.description == "172.16.0.5/24"
-
 # USE A NON-EXISTING BD
 - name: Non-existing bd for subnet
   mso_schema_template_bd_subnet:
@@ -500,8 +430,5 @@
 - name: Remove schemas for next ci test
   mso_schema:
     <<: *mso_info
-    schema: '{{ item }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
     state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'

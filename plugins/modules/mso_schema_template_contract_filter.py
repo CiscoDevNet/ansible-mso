@@ -334,10 +334,10 @@ def main():
             payload.update(action=action)
         if action == 'deny' and priority is not None:
             priority_map = {
-                    'lowest_priority': 'level1',
-                    'medium_priority': 'level2',
-                    'highest_priority': 'level3',
-                }
+                'lowest_priority': 'level1',
+                'medium_priority': 'level2',
+                'highest_priority': 'level3',
+            }
             payload.update(priorityOverride=priority_map[priority])
 
         mso.sanitize(payload, collate=True, unwanted=['filterType', 'contractScope', 'contractFilterType'])

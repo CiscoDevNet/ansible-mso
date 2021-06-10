@@ -331,7 +331,7 @@ def main():
             directives=filter_directives,
         )
         if action is not None:
-                payload.update(action=action)
+            payload.update(action=action)
         if action == 'deny' and priority is not None:
             priority_map = {
                     'lowest_priority': 'level1',
@@ -383,7 +383,6 @@ def main():
         else:
             # Filter exists, we have to update it
             ops.append(dict(op='replace', path=filter_path, value=mso.sent))
-
 
     if not module.check_mode and mso.existing != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)

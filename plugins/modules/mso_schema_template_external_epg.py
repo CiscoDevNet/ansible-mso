@@ -35,6 +35,10 @@ options:
     - The name of the external EPG to manage.
     type: str
     aliases: [ name, externalepg ]
+  description:
+    description:
+    - The description of external EPG is supported on versions of MSO that are 3.3 or greater.
+    type: str
   type:
     description:
     - The type of external epg.
@@ -205,6 +209,7 @@ def main():
         schema=dict(type='str', required=True),
         template=dict(type='str', required=True),
         external_epg=dict(type='str', aliases=['name', 'externalepg']),  # This parameter is not required for querying all objects
+        description=dict(type='str'),
         display_name=dict(type='str'),
         vrf=dict(type='dict', options=mso_reference_spec()),
         l3out=dict(type='dict', options=mso_reference_spec()),
@@ -227,6 +232,7 @@ def main():
     schema = module.params.get('schema')
     template = module.params.get('template').replace(' ', '')
     external_epg = module.params.get('external_epg')
+    description = module.params.get('description')
     display_name = module.params.get('display_name')
     vrf = module.params.get('vrf')
     if vrf is not None and vrf.get('template') is not None:
@@ -297,6 +303,9 @@ def main():
             vrfRef=vrf_ref,
             preferredGroup=preferred_group,
         )
+
+        if description is not None:
+            payload.update(description=description)
 
         if type_ext_epg == 'cloud':
             payload['extEpgType'] = 'cloud'

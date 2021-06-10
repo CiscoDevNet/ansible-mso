@@ -41,6 +41,12 @@
 #     - https://{{ apic_hostname }}
 #     state: present
 
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
 - name: Undeploy templates if deployed from previous test case
   mso_schema_template_deploy:
     <<: *mso_info
@@ -920,6 +926,31 @@
     that:
     - nm_remove_epg_4_again is not changed
     - nm_remove_epg_4_again.previous == nm_remove_epg_4_again.current == {}
+
+- name: Add external EPG 4 description for version greater than 3.3
+  mso_schema_template_external_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: ansible_test_4
+    description: "Description of an external EPG 4"
+    vrf:
+      name: VRF
+    state: present
+  register: add_epg_4
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify add_epg_4 for version greater than 3.3
+  assert:
+    that:
+    - add_epg_4 is changed
+    - add_epg_4.current.name == "ansible_test_4"
+    - add_epg_4.current.description == "Description of an external EPG 4"
+    - add_epg_4.current.vrfRef.templateName == "Template1"
+    - add_epg_4.current.vrfRef.vrfName == "VRF"
+    - add_epg_4.current.vrfRef.schemaId == add_epg_4.current.vrfRef.schemaId
+  when: version.current.version is version('3.3', '>=')
+
 
 # QUERY NON-EXISTING EPG
 - name: Query non-existing EPG (check_mode)

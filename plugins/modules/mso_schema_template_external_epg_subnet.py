@@ -44,12 +44,16 @@ options:
     required: true
   scope:
     description:
-    - The scope of the subnet.
+    - The scope has Route Control and External EPG Classification parameters of the subnet.
+    - The existing scope-Route Control parameters are Export Route Control, Import Route Control and Shared Route Control
+    - The existing scope-External EPG Classification parameters are External Subnets for External EPG and Shared Security Import
+    - The scope-External EPG Classification parameter 'Shared Security Import' can only be added to list if 'External Subnets for External EPG' is present
     type: list
     elements: str
   aggregate:
     description:
-    - The aggregate option for the subnet.
+    - The aggregate option aggregates shared routes for the subnet.
+    - The Aggregate Shared Routes option can be added only when scope-Route Control parameter Shared Route Control is selected.
     type: list
     elements: str
   state:
@@ -132,13 +136,6 @@ def main():
         scope=dict(type='list', elements='str', default=[]),
         aggregate=dict(type='list', elements='str', default=[]),
     )
-
-# select all items on checklist "subnets": [{
-#                 "ip": "10.10.10.10/24",
-#            Route Control     "scope": ["export-rtctrl", "import-rtctrl", "shared-rtctrl", "import-security", "shared-security"],
-#         External EPG Classification        "aggregate": ["shared-rtctrl"]
-#             }],Route Control
-
 
     module = AnsibleModule(
         argument_spec=argument_spec,

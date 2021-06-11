@@ -22,23 +22,6 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
-# - name: Ensure site exist
-#   mso_site: &site_present
-#     host: '{{ mso_hostname }}'
-#     username: '{{ mso_username }}'
-#     password: '{{ mso_password }}'
-#     validate_certs: '{{ mso_validate_certs | default(false) }}'
-#     use_ssl: '{{ mso_use_ssl | default(true) }}'
-#     use_proxy: '{{ mso_use_proxy | default(true) }}'
-#     output_level: '{{ mso_output_level | default("info") }}'
-#     site: '{{ mso_site | default("ansible_test") }}'
-#     apic_username: '{{ apic_username }}'
-#     apic_password: '{{ apic_password }}'
-#     apic_site_id: '{{ apic_site_id | default(101) }}'
-#     urls:
-#     - https://{{ apic_hostname }}
-#     state: present
-
 - name: Query MSO version
   mso_version:
     <<: *mso_info
@@ -323,6 +306,68 @@
     - nm_remove_epg_subnet_1_again is not changed
     - nm_remove_epg_subnet_1_again.previous == nm_remove_epg_subnet_1_again.current == {}
 
+# Chcek aggregate when scope parameter Shared control is absent and present
+- name: Add aggregate without Shared control scope parameter
+  mso_schema_template_external_epg_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: ansible_test_1
+    subnet: 10.0.0.2/24
+    scope: import-rtctrl
+    aggregate: shared-rtctrl
+    state: present
+  ignore_errors: yes
+  register: add_epg_subnet_no_ag
+
+- name: Verify add_epg_subnet_no_ag
+  assert:
+    that:
+    - add_epg_subnet_no_ag is changed
+    - add_epg_subnet_no_ag.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Aggregate should be enabled only if shared-rtctrl is enabled in Scope"
+
+- name: Add aggregate with Shared control scope parameter
+  mso_schema_template_external_epg_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: ansible_test_1
+    subnet: 10.0.0.2/24
+    scope: shared-rtctrl
+    aggregate: shared-rtctrl
+    state: present
+  ignore_errors: yes
+  register: add_epg_subnet_ag
+
+- name: Verify add_epg_subnet_ag
+  assert:
+    that:
+    - add_epg_subnet_ag is changed
+    - add_epg_subnet_ag.current.aggregate[0] == "shared-rtctrl"
+
+- name: Change EPG subnet 2 by changing Route Controls
+  mso_schema_template_external_epg_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: ansible_test_1
+    subnet: 10.0.0.2/24
+    scope:
+    - import-rtctrl
+    - shared-security
+    - export-rtctrl
+    - shared-security
+    - import-security
+    state: present
+  register: change_epg_subnet
+
+- name: Verify change_epg_subnet
+  assert:
+    that:
+    - change_epg_subnet is changed
+    - change_epg_subnet.current.ip == "10.0.0.2/24"
+    - change_epg_subnet.current.scope | length == 5
+
 # QUERY NON-EXISTING EPG subnet
 - name: Query non-existing EPG subnet(check_mode)
   mso_schema_template_external_epg_subnet:
@@ -354,6 +399,38 @@
     - nm_query_non_existing_epg_subnet is not changed
     - cm_query_non_existing_epg_subnet == nm_query_non_existing_epg_subnet
     - cm_query_non_existing_epg_subnet.msg == nm_query_non_existing_epg_subnet.msg == "Subnet '10.0.0.10/24' not found"
+
+# QUERY NON-EXISTING EPG
+- name: Query non-existing EPG subnet(check_mode)
+  mso_schema_template_external_epg_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: non_existing_epg
+    subnet: 10.0.0.2/24
+    state: query
+  ignore_errors: yes
+  check_mode: yes
+  register: cm_query_non_existing_epg
+
+- name: Query non-existing EPG subnet(normal_mode)
+  mso_schema_template_external_epg_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    external_epg: non_existing_epg
+    subnet: 10.0.0.2/24
+    state: query
+  ignore_errors: yes
+  register: nm_query_non_existing_epg
+
+- name: Verify cm_query_non_existing_epg and nm_query_non_existing_epg
+  assert:
+    that:
+    - cm_query_non_existing_epg is not changed
+    - nm_query_non_existing_epg is not changed
+    - cm_query_non_existing_epg == nm_query_non_existing_epg
+    - cm_query_non_existing_epg.msg == nm_query_non_existing_epg.msg == "Provided External EPG 'non_existing_epg' does not exist. Existing epgs{{':'}} ansible_test_1"
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for epg subnet(check_mode)

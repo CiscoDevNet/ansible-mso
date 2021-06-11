@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -18,6 +19,7 @@ description:
 - Manage External EPG subnets in schema templates on Cisco ACI Multi-Site.
 author:
 - Devarshi Shah (@devarshishah3)
+- Anvitha Jain (@anvitha-jain)
 version_added: '0.0.8'
 options:
   schema:
@@ -126,10 +128,17 @@ def main():
         template=dict(type='str', required=True),
         external_epg=dict(type='str', required=True),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
-        subnet=dict(type='str', required=True),
+        subnet=dict(type='str'),
         scope=dict(type='list', elements='str', default=[]),
         aggregate=dict(type='list', elements='str', default=[]),
     )
+
+# select all items on checklist "subnets": [{
+#                 "ip": "10.10.10.10/24",
+#            Route Control     "scope": ["export-rtctrl", "import-rtctrl", "shared-rtctrl", "import-security", "shared-security"],
+#         External EPG Classification        "aggregate": ["shared-rtctrl"]
+#             }],Route Control
+
 
     module = AnsibleModule(
         argument_spec=argument_spec,

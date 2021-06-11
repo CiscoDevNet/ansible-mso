@@ -41,7 +41,6 @@ options:
     description:
     - The IP range in CIDR notation.
     type: str
-    required: true
   scope:
     description:
     - The scope has Route Control and External EPG Classification parameters of the subnet.

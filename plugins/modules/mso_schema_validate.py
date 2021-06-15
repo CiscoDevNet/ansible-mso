@@ -66,8 +66,6 @@ def main():
 
     mso = MSOModule(module)
 
-    schema_id = None
-
     # Get schema_id
     schema_id = mso.lookup_schema(schema)
 

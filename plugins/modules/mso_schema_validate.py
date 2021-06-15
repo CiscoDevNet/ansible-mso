@@ -1,0 +1,80 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+from __future__ import absolute_import, division, print_function
+__metaclass__ = type
+
+ANSIBLE_METADATA = {'metadata_version': '1.1',
+                    'status': ['preview'],
+                    'supported_by': 'community'}
+
+DOCUMENTATION = r'''
+---
+module: mso_schema_validate
+short_description: Validate the schema before deploying it to site
+description:
+- This module is used to verify if schema can be deployed to site without any error.
+- This module can only be used on versions of MSO that are 3.3 or greater.
+author:
+- Anvitha Jain (@anvitha-jain)
+options:
+  schema:
+    description:
+    - The name of the schema.
+    type: str
+    required: yes
+  state:
+    description:
+    - Use C(query) to validate deploying the schema.
+    type: str
+    default: query
+    choices: [ query ]
+seealso:
+- module: cisco.mso.mso_schema_template_external_epg
+extends_documentation_fragment: cisco.mso.modules
+'''
+
+EXAMPLES = r'''
+'''
+
+RETURN = r'''
+'''
+
+from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+
+
+def main():
+    argument_spec = mso_argument_spec()
+    argument_spec.update(
+        schema=dict(type='str', required=True),
+        state=dict(type='str', default='query', choices=['query']),
+    )
+
+    module = AnsibleModule(
+        argument_spec=argument_spec,
+        supports_check_mode=True,
+    )
+
+    schema = module.params.get('schema')
+    state = module.params.get('state')
+
+    mso = MSOModule(module)
+
+    schema_id = None
+
+    # Get schema_id
+    schema_id = mso.lookup_schema(schema)
+
+    # if state == 'query':
+    path = 'schemas/{id}/validate'.format(id=schema_id)
+    mso.existing = mso.request(path, method='GET')
+
+    mso.exit_json()
+
+
+if __name__ == "__main__":
+    main()

@@ -131,7 +131,13 @@
       <<: *mso_info
       schema: ansible_test
       state: query
-    register: query_validate
+    register: query_validate_again
+
+  - name: Verify query_validate_again
+    assert:
+      that:
+      - query_validate_again is not changed
+      - query_validate_again.current.result == "true"
 
   - name: Deploy templates (normal_mode)
     mso_schema_template_deploy:
@@ -180,6 +186,13 @@
       schema: ansible_test_2
       state: query
     ignore_errors: yes
+    register: query_validate_2
+
+  - name: Verify query_validate_2
+    assert:
+      that:
+      - query_validate_2 is not changed
+      - query_validate_2.current.result == "true"
 
   - name: Add physical site to a schema
     mso_schema_site:
@@ -195,13 +208,13 @@
       schema: ansible_test_2
       state: query
     ignore_errors: yes
-    register: query_validate_2
+    register: query_validate_2_again
 
-  - name: Verify query_validate_2
+  - name: Verify query_validate_2_again
     assert:
       that:
-      - query_validate_2 is not changed
-      - query_validate_2.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} ExternalEpg ext_EPG is missing site local configuration on site ansible_test exception while trying to update schema"
+      - query_validate_2_again is not changed
+      - query_validate_2_again.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} ExternalEpg ext_EPG is missing site local configuration on site ansible_test exception while trying to update schema"
 
   - name: Deploy templates (normal_mode)
     mso_schema_template_deploy:

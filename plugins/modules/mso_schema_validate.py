@@ -16,8 +16,10 @@ DOCUMENTATION = r'''
 module: mso_schema_validate
 short_description: Validate the schema before deploying it to site
 description:
-- This module is used to verify if schema can be deployed to site without any error.
+- This module is used to verify if a schema can be deployed to site without any error.
 - This module can only be used on versions of MSO that are 3.3 or greater.
+- Starting with MSO 3.3, the schema modules in this collection will skip some validation checks to allow part of the schema to be updated more easily.
+- This module will check those validation after all changes have been made.
 author:
 - Anvitha Jain (@anvitha-jain)
 options:
@@ -60,7 +62,7 @@ def main():
     )
 
     schema = module.params.get('schema')
-    state = module.params.get('state')
+    state = module.params.get('state')  # NOQA
 
     mso = MSOModule(module)
 
@@ -69,7 +71,6 @@ def main():
     # Get schema_id
     schema_id = mso.lookup_schema(schema)
 
-    # if state == 'query':
     path = 'schemas/{id}/validate'.format(id=schema_id)
     mso.existing = mso.request(path, method='GET')
 

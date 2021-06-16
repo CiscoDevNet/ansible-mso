@@ -43,6 +43,7 @@ options:
     description:
     - The description of this filter is supported on versions of MSO that are 3.3 or greater.
     type: str
+    default: ''
   filter_display_name:
     description:
     - The name as displayed on the MSO web interface.
@@ -62,6 +63,7 @@ options:
     - The description of this filter entry.
     type: str
     aliases: [ entry_description, description ]
+    default: ''
   ethertype:
     description:
     - The ethernet type to use for this filter entry.
@@ -292,10 +294,6 @@ def main():
         if not mso.existing:
             if display_name is None:
                 display_name = entry
-            # if filter_description is None:
-            #     filter_description = ''
-            # if filter_entry_description is None:
-            #     filter_entry_description = ''
             if ethertype is None:
                 ethertype = 'unspecified'
             if ip_protocol is None:

@@ -168,11 +168,6 @@ def main():
     else:
         schema_path = 'schemas'
 
-    if schema_description is None:
-        schema_description = ''
-    if template_description is None:
-        template_description = ''
-
     if state == 'query':
         if not mso.existing:
             if template:
@@ -218,9 +213,9 @@ def main():
                 sites=[],
             )
 
-            if schema_description:
+            if schema_description is not None:
                 payload.update(description=schema_description)
-            if template_description:
+            if template_description is not None:
                 payload['templates'][0].update(description=template_description)
 
             mso.existing = payload.get('templates')[0]

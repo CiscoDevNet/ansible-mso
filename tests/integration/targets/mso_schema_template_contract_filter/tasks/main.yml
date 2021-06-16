@@ -31,17 +31,6 @@
     state: query
   register: version
 
-# - name: Ensure site exist
-#   mso_site: &site_present
-#     <<: *mso_info
-#     site: '{{ mso_site | default("ansible_test") }}'
-#     apic_username: '{{ apic_username }}'
-#     apic_password: '{{ apic_password }}'
-#     apic_site_id: '{{ apic_site_id | default(101) }}'
-#     urls:
-#     - https://{{ apic_hostname }}
-#     state: present
-
 - name: Remove schema 2
   mso_schema:
     <<: *mso_info
@@ -60,8 +49,6 @@
     tenant: ansible_test
     users:
     - '{{ mso_username }}'
-    # sites:
-    # - '{{ mso_site | default("ansible_test") }}'
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
@@ -137,13 +124,7 @@
 
 - name: Ensure Contract_1 contract does not exist
   mso_schema_template_contract_filter: &contract_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     contract: Contract 1
@@ -190,8 +171,6 @@
   mso_schema_template_contract_filter:
     <<: *contract_present
     contract: Contract 1
-    #contract_scope: global
-    #contract_filter_type: both-way
     filter: Filter 1
     state: present
   check_mode: yes
@@ -209,8 +188,6 @@
   mso_schema_template_contract_filter:
     <<: *contract_present
     contract: Contract 1
-    #contract_scope: global
-    #contract_filter_type: both-way
     filter: Filter 1
     state: present
   register: nm_add_contract
@@ -228,7 +205,6 @@
   mso_schema_template_contract_filter:
     <<: *contract_present
     contract: Contract 1
-    #contract_scope: global
     filter: Filter 1
     state: present
   check_mode: yes
@@ -237,7 +213,7 @@
 - name: Verify cm_add_contract_again
   assert:
     that:
-    # - cm_add_contract_again is not changed
+    - cm_add_contract_again is not changed
     - cm_add_contract_again.current.filterRef.filterName == "Filter 1"
     - cm_add_contract_again.current.filterRef.templateName == "Template1"
     - cm_add_contract_again.previous.filterRef.filterName == "Filter 1"
@@ -248,7 +224,6 @@
   mso_schema_template_contract_filter:
     <<: *contract_present
     contract: Contract 1
-    #contract_scope: global
     filter: Filter 1
     state: present
   register: nm_add_contract_again
@@ -959,7 +934,7 @@
     filter: Filter 1
     qos_level: level1
     action: deny
-    priority: 'Lowest Priority'
+    priority: 'lowest_priority'
     state: present
   register: add_contract
   when: version.current.version is version('3.3', '>=')

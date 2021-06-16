@@ -61,7 +61,7 @@ options:
     description:
     - The description of this filter entry.
     type: str
-    aliases: [ entry_description ]
+    aliases: [ entry_description, description ]
   ethertype:
     description:
     - The ethernet type to use for this filter entry.
@@ -181,10 +181,10 @@ def main():
         schema=dict(type='str', required=True),
         template=dict(type='str', required=True),
         filter=dict(type='str', required=True),
-        filter_description=dict(type='str'),
+        filter_description=dict(type='str', default=''),
         filter_display_name=dict(type='str'),
         entry=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
-        filter_entry_description=dict(type='str', aliases=['entry_description']),
+        filter_entry_description=dict(type='str', default='', aliases=['entry_description', 'description']),
         display_name=dict(type='str', aliases=['entry_display_name']),
         ethertype=dict(type='str', choices=['arp', 'fcoe', 'ip', 'ipv4', 'ipv6', 'mac-security', 'mpls-unicast', 'trill', 'unspecified']),
         ip_protocol=dict(type='str', choices=['eigrp', 'egp', 'icmp', 'icmpv6', 'igmp', 'igp', 'l2tp', 'ospfigp', 'pim', 'tcp', 'udp', 'unspecified']),
@@ -292,10 +292,10 @@ def main():
         if not mso.existing:
             if display_name is None:
                 display_name = entry
-            if filter_description is None:
-                filter_description = ''
-            if filter_entry_description is None:
-                filter_entry_description = ''
+            # if filter_description is None:
+            #     filter_description = ''
+            # if filter_entry_description is None:
+            #     filter_entry_description = ''
             if ethertype is None:
                 ethertype = 'unspecified'
             if ip_protocol is None:

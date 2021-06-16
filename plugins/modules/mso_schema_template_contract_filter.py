@@ -93,12 +93,11 @@ options:
     - The filter action parameter is supported on versions of MSO that are 3.3 or greater.
     type: str
     choices: [ permit, deny ]
-    default: permit
   priority:
     description:
     - The filter priority override parameter is supported on versions of MSO that are 3.3 or greater.
     type: str
-    choices: [ default, Lowest Priority, Medium Priority, Highest Priority ]
+    choices: [ default, lowest_priority, medium_priority, highest_priority ]
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -196,8 +195,8 @@ def main():
         filter_schema=dict(type='str'),
         filter_type=dict(type='str', default='both-way', choices=list(FILTER_KEYS), aliases=['type']),
         qos_level=dict(type='str'),
-        action=dict(type='str', default='permit', choices=['permit', 'deny']),
-        priority=dict(type='str', choices=['default', 'Lowest Priority', 'Medium Priority', 'Highest Priority']),
+        action=dict(type='str', choices=['permit', 'deny']),
+        priority=dict(type='str', choices=['default', 'lowest_priority', 'medium_priority', 'highest_priority']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -227,9 +226,6 @@ def main():
     qos_level = module.params.get('qos_level')
     action = module.params.get('action')
     priority = module.params.get('priority')
-    if priority is not None:
-        priority = priority.lower()
-        priority = priority.replace(' ', '_')
 
     state = module.params.get('state')
 

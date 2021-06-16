@@ -228,6 +228,9 @@ def main():
             ops.append(dict(op='remove', path=subnet_path))
 
     elif state == 'present':
+        if not mso.existing:
+            if description is None:
+                description = subnet
 
         payload = dict(
             ip=subnet,
@@ -239,9 +242,6 @@ def main():
             querier=querier,
             primary=primary,
         )
-
-        if description is not None:
-            payload.update(description=description)
 
         mso.sanitize(payload, collate=True)
 

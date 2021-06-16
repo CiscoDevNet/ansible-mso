@@ -37,11 +37,11 @@
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
-- name: Remove tenant2
-  mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test_2
-    state: absent
+# - name: Remove tenant2
+#   mso_tenant:
+#     <<: *mso_info
+#     tenant: ansible_test_2
+#     state: absent
 
 - name: Ensure tenant ansible_test exist
   mso_tenant:
@@ -122,15 +122,35 @@
     - nm_create_anp_again.current.name == "ANP"
     - nm_create_anp_again.current.epgs == []
 
-# Add description for version >= 3.3
-- name: Create another anp with description(normal_mode)
+- name: Create another anp (normal_mode)
   mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     anp: ANP_2
     display_name: another anp
-    description: "Description of an ANP_2"
+    state: present
+  register: nm_create_another_anp
+
+- name: Verify nm_create_another_anp
+  assert:
+    that:
+    - nm_create_another_anp is changed
+    - nm_create_another_anp.previous == {}
+    - nm_create_another_anp.current.displayName == "another anp"
+    - nm_create_another_anp.current.name == "ANP_2"
+    - nm_create_another_anp.current.epgs == []
+
+
+# Add description for version >= 3.3
+- name: Create another anp with description(normal_mode)
+  mso_schema_template_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP_3
+    display_name: another anp
+    description: "Description of an ANP_3"
     state: present
   register: nm_create_another_anp
   when: version.current.version is version('3.3', '>=')
@@ -141,8 +161,8 @@
     - nm_create_another_anp is changed
     - nm_create_another_anp.previous == {}
     - nm_create_another_anp.current.displayName == "another anp"
-    - nm_create_another_anp.current.name == "ANP_2"
-    - nm_create_another_anp.current.description == "Description of an ANP_2"
+    - nm_create_another_anp.current.name == "ANP_3"
+    - nm_create_another_anp.current.description == "Description of an ANP_3"
     - nm_create_another_anp.current.epgs == []
   when: version.current.version is version('3.3', '>=')
 
@@ -195,6 +215,14 @@
     that:
     - query_all is not changed
     - query_all.current | length == 2
+  when: version.current.version is version('3.3', '<')
+
+- name: Verify query_all
+  assert:
+    that:
+    - query_all is not changed
+    - query_all.current | length == 3
+  when: version.current.version is version('3.3', '>=')
 
 - name: Query non_existing anp
   mso_schema_template_anp:

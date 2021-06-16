@@ -43,16 +43,19 @@ options:
     type: str
   scope:
     description:
-    - The scope has Route Control and External EPG Classification parameters of the subnet.
-    - The existing scope-Route Control parameters are C(Export Route Control), C(Import Route Control) and C(Shared Route Control)
-    - The existing scope-External EPG Classification parameters are C(External Subnets for External EPG) and C(Shared Security Import)
-    - The scope-External EPG Classification parameter C(Shared Security Import) can only be added to list if C(External Subnets for External EPG) is present
+    - The scope parameter contains two sections 1. Route Control and 2. External EPG Classification.
+    - The existing Route Control parameters are C(export-rtctrl) for Export Route Control, C(import-rtctrl) for Import Route Control
+    - and C(shared-rtctrl) for Shared Route Control
+    - The existing External EPG Classification parameters are C(import-security) for External Subnets for External EPG
+    - and C(shared-security) for Shared Security Import
+    - The  C(shared-security) for Shared Security Import can only be used when External Subnets for External EPG is present
     type: list
     elements: str
   aggregate:
     description:
     - The aggregate option aggregates shared routes for the subnet.
-    - The C(Aggregate Shared Routes) option can be added only when scope-Route Control parameter C(Shared Route Control) is selected.
+    - Use C(shared-rtctrl) to add Aggregate Shared Routes
+    - The C(shared-rtctrl) option can only be used when scope parameter Shared Route Control in the Route Control section is selected.
     type: list
     elements: str
   state:

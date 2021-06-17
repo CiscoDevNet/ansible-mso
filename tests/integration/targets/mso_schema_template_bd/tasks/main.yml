@@ -1,7 +1,7 @@
 # Test code for the MSO modules
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
-# 
+#
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -125,7 +125,7 @@
     state: present
 
 - name: Ensure VRF2 exist
-  mso_schema_template_vrf: 
+  mso_schema_template_vrf:
     <<: *vrf_present
     vrf: VRF2
 
@@ -193,7 +193,7 @@
       template: Template1
     state: absent
 
-- name: Ensure multiple DHCP policies exist 
+- name: Ensure multiple DHCP policies exist
   mso_dhcp_relay_policy:
     <<: *mso_info
     dhcp_relay_policy: '{{ item }}'
@@ -205,7 +205,7 @@
   - 'ansible_test_dhcp_policy2'
   - 'ansible_test_dhcp_policy3'
 
-- name: Ensure multiple DHCP option policies exist 
+- name: Ensure multiple DHCP option policies exist
   mso_dhcp_option_policy:
     <<: *mso_info
     dhcp_option_policy: '{{ item }}'
@@ -216,7 +216,7 @@
   - 'ansible_test_dhcp_policy_option1'
   - 'ansible_test_dhcp_policy_option2'
   - 'ansible_test_dhcp_policy_option3'
-      
+
 # ADD BD
 - name: Add bd (check_mode)
   mso_schema_template_bd: &bd_present
@@ -356,7 +356,7 @@
     that:
     - nm_add_bd_2 is changed
     - nm_add_bd_3 is changed
-    - nm_add_bd_2.current.name == "ansible_test_2" 
+    - nm_add_bd_2.current.name == "ansible_test_2"
     - nm_add_bd_3.current.name == "ansible_test_3"
     - nm_add_bd_2.current.vrfRef.templateName == "Template1"
     - nm_add_bd_3.current.vrfRef.templateName == "Template3"
@@ -425,7 +425,7 @@
   assert:
     that:
     - nm_add_bd_5 is changed
-    - nm_add_bd_5.current.name == "ansible_test_5" 
+    - nm_add_bd_5.current.name == "ansible_test_5"
     - nm_add_bd_5.current.vrfRef.templateName == "Template5"
     - nm_add_bd_5.current.vrfRef.vrfName == "VRF5"
     - nm_add_bd_5.current.intersiteBumTrafficAllow == true
@@ -439,7 +439,7 @@
   assert:
     that:
     - nm_add_bd_5 is changed
-    - nm_add_bd_5.current.name == "ansible_test_5" 
+    - nm_add_bd_5.current.name == "ansible_test_5"
     - nm_add_bd_5.current.vrfRef.templateName == "Template5"
     - nm_add_bd_5.current.vrfRef.vrfName == "VRF5"
     - nm_add_bd_5.current.intersiteBumTrafficAllow == true
@@ -580,7 +580,7 @@
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd 5_2 (normal mode)
-  mso_schema_template_bd:
+  mso_schema_template_bd: &change_bd5_2
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template5
@@ -658,15 +658,45 @@
     - nm_change_bd_5_3.msg is match ("MSO Error 143{{':'}} Invalid Field{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
   when: version.current.version is version('3.1.1g', '<')
 
-
-- name: Verify nm_change_bd_5_3 for a version that's after 3.1
+- name: Verify nm_change_bd_5_3 for a version that's after 3.1 and before 3.3
   assert:
     that:
     - nm_change_bd_5_3 is changed
     - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off exception while trying to update schema")
-  when: 
-  - version.current.version is version('3.1.1g', '>=')
+  when:
   - version.current.version is version('3.3', '<')
+  - version.current.version is version('3.1.1g', '>=')
+
+- name: Get Validation status
+  mso_schema_validate:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    state: query
+  ignore_errors: yes
+  register: query_validate
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify query_validate for a version that's after 3.3
+  assert:
+    that:
+    - query_validate is not changed
+    - query_validate.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template5', BD 'ansible_test_5' {{':'}} ARP Flooding has to be disabled if L2 Stretch enabled and BUM traffic disabled exception while trying to update schema")
+  when: version.current.version is version('3.3', '>=')
+
+# Reverting back to bd 5_2
+- name: Change bd 5_3 (normal mode)
+  mso_schema_template_bd:
+    <<: *change_bd5_2
+  register: nm_change_bd_5_3_again
+  when: query_validate is failed
+
+- name: Get Validation status
+  mso_schema_validate:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    state: query
+  register: query_validate
+  when: version.current.version is version('3.3', '>=')
 
 - name: Change bd 5 for query (normal mode)
   mso_schema_template_bd:
@@ -1148,7 +1178,7 @@
     virtual_mac_address: 00:00:5E:00:01:3C
     unicast_routing: true
     subnets:
-    - subnet: 10.0.0.128/24      
+    - subnet: 10.0.0.128/24
     - subnet: 10.0.1.254/24
       description: 1234567890
       primary: true
@@ -1183,7 +1213,7 @@
   assert:
     that:
     - nm_bd_subnet_second_primary.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Only one preferred subnet per address family is allowed under BD ansible_test_multiple_dhcp of Template Template1 exception while trying to update schema")
-  when: 
+  when:
   - version.current.version is version('3.1.1g', '>')
   - version.current.version is version('3.3', '<')
 
@@ -1215,10 +1245,9 @@
   assert:
     that:
     - nm_bd_new_encap_flood_non.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template1', BD 'ansible_test_flood_encap' {{':'}} Multi destination flood in encapsulation is only supported when l2Stretch is disabled exception while trying to update schema")
-  when: 
+  when:
   - version.current.version is version('3.1.1g', '>')
   - version.current.version is version('3.3', '<')
-  
 
 - name: Add bd with new option flood in encap available in mso versions > 3.1.1g l2 set to false
   mso_schema_template_bd:
@@ -1374,7 +1403,7 @@
     - nm_query_bd is not changed
     - cm_query_bd.current.name == nm_query_bd.current.name == "ansible_test_1"
     - cm_query_bd == nm_query_bd
-    - nm_query_bd_2.current.name == "ansible_test_2" 
+    - nm_query_bd_2.current.name == "ansible_test_2"
     - nm_query_bd_3.current.name == "ansible_test_3"
     - nm_query_bd_2.current.intersiteBumTrafficAllow == true
     - nm_query_bd_2.current.optimizeWanBandwidth == true
@@ -1418,7 +1447,7 @@
   assert:
     that:
     - nm_query_bd_5 is not changed
-    - nm_query_bd_5.current.name == "ansible_test_5" 
+    - nm_query_bd_5.current.name == "ansible_test_5"
     - nm_query_bd_5.current.intersiteBumTrafficAllow == true
     - nm_query_bd_5.current.optimizeWanBandwidth == true
     - nm_query_bd_5.current.l2Stretch == true
@@ -1505,7 +1534,7 @@
     - nm_remove_bd.current == {}
 
 - name: Remove bd again (check_mode)
-  mso_schema_template_bd: 
+  mso_schema_template_bd:
     <<: *bd_absent
   check_mode: yes
   register: cm_remove_bd_again
@@ -1654,7 +1683,7 @@
     - cm_non_existing_template == nm_non_existing_template
     - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
 
-# CLEAN UP DHCP Policies  
+# CLEAN UP DHCP Policies
 - name: Ensure DHCP policies are removed
   mso_dhcp_relay_policy:
     <<: *mso_info

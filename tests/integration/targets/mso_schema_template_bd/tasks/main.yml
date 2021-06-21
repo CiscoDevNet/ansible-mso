@@ -1357,6 +1357,7 @@
     that:
     - cm_query_all_bds is not changed
     - nm_query_all_bds is not changed
+    - cm_query_all_bds.current | length == cm_query_all_bds.current | length == 3
   when: version.current.version is version('3.1.1g', '>')
 
 # QUERY A BD
@@ -1496,13 +1497,20 @@
   assert:
     that:
     - query_bd_new_encap_flood is not changed
-    - query_bd_new_encap_flood.current.name == 'ansible_test_flood_encap'
+    - query_bd_new_encap_flood.current.name == 'ansible_test_multiple_dhcp'
+    - query_bd_new_encap_flood.current.intersiteBumTrafficAllow == true
+    - query_bd_new_encap_flood.current.optimizeWanBandwidth == false
+    - query_bd_new_encap_flood.current.l2Stretch == true
     - query_bd_new_encap_flood.current.l2UnknownUnicast == "flood"
     - query_bd_new_encap_flood.current.unkMcastAct == "flood"
-    - query_bd_new_encap_flood.current.multiDstPktAct == "encap-flood"
+    - query_bd_new_encap_flood.current.multiDstPktAct == "drop"
+    - query_bd_new_encap_flood.current.l3MCast == false
     - query_bd_new_encap_flood.current.arpFlood == true
     - query_bd_new_encap_flood.current.v6unkMcastAct == "flood"
+    - query_bd_new_encap_flood.current.vmac == "00:00:5E:00:01:3C"
     - query_bd_new_encap_flood.current.unicastRouting == true
+    - query_bd_new_encap_flood.current.subnets[2].primary == true
+    - query_bd_new_encap_flood.current.subnets[2].virtual == true
   when: version.current.version is version('3.1.1g', '>')
 
 # REMOVE BD

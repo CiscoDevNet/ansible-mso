@@ -321,7 +321,15 @@
   assert:
     that:
     - add_epg_subnet_no_ag is changed
+    - add_epg_subnet_no_ag.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Aggregate should be enabled only if shared-rtctrl is enabled in Scope exception while trying to update schema"
+  when: version.current.version is version('3.1.1g', '==')
+
+- name: Verify add_epg_subnet_no_ag
+  assert:
+    that:
+    - add_epg_subnet_no_ag is changed
     - add_epg_subnet_no_ag.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Aggregate should be enabled only if shared-rtctrl is enabled in Scope"
+  when: version.current.version is version('3.1.1g', '!=')
 
 - name: Add aggregate with Shared control scope parameter
   mso_schema_template_external_epg_subnet:

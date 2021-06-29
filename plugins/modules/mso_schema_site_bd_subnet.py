@@ -54,7 +54,6 @@ options:
     description:
     - The scope of the subnet.
     type: str
-    default: private
     choices: [ private, public ]
   shared:
     description:
@@ -165,7 +164,7 @@ def main():
         bd=dict(type='str', aliases=['name'], required=True),
         subnet=dict(type='str', aliases=['ip']),
         description=dict(type='str'),
-        scope=dict(type='str', default='private', choices=['private', 'public']),
+        scope=dict(type='str', choices=['private', 'public']),
         shared=dict(type='bool', default=False),
         no_default_gateway=dict(type='bool', default=False),
         querier=dict(type='bool', default=False),
@@ -269,6 +268,8 @@ def main():
         if not mso.existing:
             if description is None:
                 description = subnet
+            if scope is None:
+                scope = 'private'
 
         payload = dict(
             ip=subnet,

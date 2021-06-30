@@ -44,6 +44,10 @@ options:
     description:
     - The name as displayed on the MSO web interface.
     type: str
+  description:
+    description:
+    - The description of EPG is supported on versions of MSO that are 3.3 or greater.
+    type: str
 #  contracts:
 #    description:
 #    - A list of contracts associated to this ANP.
@@ -147,6 +151,34 @@ options:
     - Whether this EPG is added to preferred group or not.
     - When not specified, this parameter defaults to C(no).
     type: bool
+  qos_level:
+    description:
+    - The Contract QoS Level parameter is supported on versions of MSO that are 3.1 or greater.
+    type: str
+  epg_type:
+    description:
+    - The EPG type parameter is supported on versions of MSO that are 3.3 or greater.
+    type: str
+    choices: [ application, service ]
+  deployment_type:
+    description:
+    - The deployment_type parameter indicates how and where the service is deployed.
+    - This parameter is available only when epg_type is service and is supported on versions of MSO that are 3.3 or greater.
+    type: str
+    choices: [ cloud native, cloud native managed, third party ]
+  access_type:
+    description:
+    - The access_type parameter indicates how the service will be accessed.
+    - This parameter is available only when epg_type is service and is supported on versions of MSO that are 3.3 or greater.
+    type: str
+    choices: [ private  , public ]
+  service_type:
+    description:
+    - The service_type parmeter refers to the type of cloud services.
+    - Only certain deployment types, and certain access types within each deployment type, are supported for each service type.
+    - This parameter is available only when epg_type is service and is supported on versions of MSO that are 3.3 or greater.
+    type: str
+    choices: [ application, service ]
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -257,6 +289,7 @@ def main():
         template=dict(type='str', required=True),
         anp=dict(type='str', required=True),
         epg=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
+        description=dict(type='str'),
         bd=dict(type='dict', options=mso_reference_spec()),
         vrf=dict(type='dict', options=mso_reference_spec()),
         display_name=dict(type='str'),
@@ -265,6 +298,11 @@ def main():
         intersite_multicast_source=dict(type='bool'),
         proxy_arp=dict(type='bool'),
         subnets=dict(type='list', elements='dict', options=mso_epg_subnet_spec()),
+        qos_level=dict(type='str'),
+        epg_type=dict(type='str', choices=['application', 'service']),
+        deployment_type=dict(type='str', choices=['CloudNative', 'CloudNativeManaged', 'Third-party']),
+        service_type=dict(type='str'),
+        access_type=dict(type='str', choices=['Private', 'Public', 'PublicAndPrivate']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
         preferred_group=dict(type='bool'),
     )
@@ -282,6 +320,7 @@ def main():
     template = module.params.get('template').replace(' ', '')
     anp = module.params.get('anp')
     epg = module.params.get('epg')
+    description = module.params.get('description')
     display_name = module.params.get('display_name')
     bd = module.params.get('bd')
     if bd is not None and bd.get('template') is not None:
@@ -294,6 +333,11 @@ def main():
     intersite_multicast_source = module.params.get('intersite_multicast_source')
     proxy_arp = module.params.get('proxy_arp')
     subnets = module.params.get('subnets')
+    qos_level = module.params.get('qos_level')
+    epg_type = module.params.get('epg_type')
+    deployment_type = module.params.get('deployment_type')
+    service_type = module.params.get('service_type')
+    access_type = module.params.get('access_type')
     state = module.params.get('state')
     preferred_group = module.params.get('preferred_group')
 
@@ -335,6 +379,7 @@ def main():
     epgs_path = '/templates/{0}/anps/{1}/epgs'.format(template, anp)
     epg_path = '/templates/{0}/anps/{1}/epgs/{2}'.format(template, anp, epg)
     ops = []
+    epg_service_payload = []
 
     mso.previous = mso.existing
     if state == 'absent':
@@ -364,6 +409,14 @@ def main():
             preferredGroup=preferred_group,
             vrfRef=vrf_ref,
         )
+        if description is not None:
+            payload.update(description=description)
+        if qos_level is not None:
+            payload.update(prio=qos_level)
+        if epg_type is not None and epg_type == 'service':
+            payload.update(epgType=epg_type)
+            epg_service_payload.append(dict(deploymentType=deployment_type, serviceType=service_type, accessType=access_type))
+            payload.update(cloudServiceEpgConfig=epg_service_payload)
 
         mso.sanitize(payload, collate=True)
 

@@ -165,13 +165,13 @@ options:
     - The deployment_type parameter indicates how and where the service is deployed.
     - This parameter is available only when epg_type is service and is supported on versions of MSO that are 3.3 or greater.
     type: str
-    choices: [ cloud native, cloud native managed, third party ]
+    choices: [ CloudNative, CloudNativeManaged, Third-party ]
   access_type:
     description:
     - The access_type parameter indicates how the service will be accessed.
     - This parameter is available only when epg_type is service and is supported on versions of MSO that are 3.3 or greater.
     type: str
-    choices: [ private  , public ]
+    choices: [ Private, Public, PublicAndPrivate ]
   service_type:
     description:
     - The service_type parmeter refers to the type of cloud services.

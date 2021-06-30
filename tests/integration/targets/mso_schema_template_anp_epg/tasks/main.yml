@@ -733,7 +733,6 @@
     - nm_query_epg_3.current.subnets[3].noDefaultGateway == true
     - nm_query_epg_3.current.subnets[3].scope == "private"
     - nm_query_epg_3.current.subnets[3].shared == false
-    
 
 # REMOVE EPG
 - name: Remove EPG (check_mode)
@@ -786,48 +785,97 @@
     - nm_remove_epg_again is not changed
     - nm_remove_epg_again.current == {}
 
-- name: Add EPG (for version greater than 3.3)
+- name: Remove EPG (normal mode)
   mso_schema_template_anp_epg:
-    <<: *epg_present
-    description: 'Description of ANP EPG'
-    epg_type: 'service'
-    # requires enableVersionCheck=true&validate=true
-    # deployment_type: 'Third-party'
-    # service_type: 'Azure-Storage'
-    # access_type: 'PublicAndPrivate'
-  register: add_epg
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    epg: ansible_test_1
+    state: absent
+  ignore_errors: yes
+
+# Add EPG when MSO version >= 3.3
+- name: Execute tasks only for MSO version >= 3.3
   when: version.current.version is version('3.3', '>=')
+  block:
+  - name: Add EPG (for version greater than 3.3)
+    mso_schema_template_anp_epg: &new_epg
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      anp: ANP
+      epg: ansible_test_1
+      description: 'Description of ANP EPG'
+      state: present
+    register: add_epg_desc
 
-# - name: Get Validation status
-#   mso_schema_validate:
-#     <<: *mso_info
-#     schema: '{{ mso_schema | default("ansible_test") }}'
-#     state: query
-#   register: query_validate_again
-#   when: version.current.version is version('3.3', '>=')
+  - name: Verify Add description
+    assert:
+      that:
+      - add_epg_desc is changed
+      - add_epg_desc.current.description == "Description of ANP EPG"
 
-- name: Verify add_epg for version greater than 3.3
-  assert:
-    that:
-    - add_epg is changed
-    - add_epg.current.description == "Description of ANP EPG"
-  when: version.current.version is version('3.3', '>=')
+  - name: Add EPG service type parameters (for version greater than 3.3)
+    mso_schema_template_anp_epg:
+      <<: *new_epg
+      epg_type: 'service'
+      deployment_type: 'Third-party'
+      service_type: 'Azure-Storage'
+      access_type: 'PublicAndPrivate'
+    register: add_epg
 
+  - name: Get Validation status for service type parameters
+    mso_schema_validate:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: query_validate
+
+  - name: Verify validation
+    assert:
+      that:
+      - query_validate is not changed
+      - query_validate.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} For Deployment type 'Third-party' access type 'PublicAndPrivate' is not supported exception while trying to update schema"
+
+  - name: Add EPG service type parameters (for version greater than 3.3)
+    mso_schema_template_anp_epg:
+      <<: *new_epg
+      epg_type: 'service'
+      deployment_type: 'CloudNative'
+      service_type: 'Azure-Storage'
+      access_type: 'Public'
+    register: add_epg
+
+  - name: Get Validation status for service type parameters
+    mso_schema_validate:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: query_validate
+
+  - name: Verify validation
+    assert:
+      that:
+      - query_validate is not changed
+      - query_validate.current.result == "true"
+
+# Add QoS level to EPG
 - name: Add EPG (for version greater than 3.1)
   mso_schema_template_anp_epg:
     <<: *epg_present
     name: ansible_test_5
     qos_level: 'level2'
-    description: 'Description of ANP EPG'
   register: add_epg
   when: version.current.version is version('3.1', '>=')
 
-# - name: Verify Add contract for version greater than 3.1
-#   assert:
-#     that:
-#     - add_epg is changed
-#     - add_epg.current.description == "Description of ANP EPG"
-#   when: version.current.version is version('3.1', '>=')
+- name: Verify Add contract for version greater than 3.1
+  assert:
+    that:
+    - add_epg is changed
+  when: version.current.version is version('3.1', '>=')
 
 # QUERY NON-EXISTING EPG
 - name: Query non-existing EPG (check_mode)

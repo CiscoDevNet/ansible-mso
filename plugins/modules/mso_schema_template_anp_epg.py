@@ -178,7 +178,6 @@ options:
     - Only certain deployment types, and certain access types within each deployment type, are supported for each service type.
     - This parameter is available only when epg_type is service and is supported on versions of MSO that are 3.3 or greater.
     type: str
-    choices: [ application, service ]
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -378,8 +377,10 @@ def main():
 
     epgs_path = '/templates/{0}/anps/{1}/epgs'.format(template, anp)
     epg_path = '/templates/{0}/anps/{1}/epgs/{2}'.format(template, anp, epg)
+    service_path = '/templates/{0}/anps/{1}/epgs/{2}/cloudServiceEpgConfig'.format(template, anp, epg)
     ops = []
-    epg_service_payload = []
+    # epg_service_payload = []
+    cloudServiceEpgConfig ={}
 
     mso.previous = mso.existing
     if state == 'absent':
@@ -413,10 +414,8 @@ def main():
             payload.update(description=description)
         if qos_level is not None:
             payload.update(prio=qos_level)
-        if epg_type is not None and epg_type == 'service':
+        if epg_type is not None:
             payload.update(epgType=epg_type)
-            epg_service_payload.append(dict(deploymentType=deployment_type, serviceType=service_type, accessType=access_type))
-            payload.update(cloudServiceEpgConfig=epg_service_payload)
 
         mso.sanitize(payload, collate=True)
 
@@ -427,6 +426,14 @@ def main():
             ops.append(dict(op='replace', path=epg_path, value=mso.sent))
         else:
             ops.append(dict(op='add', path=epgs_path + '/-', value=mso.sent))
+
+        if epg_type == 'service':
+          if cloudServiceEpgConfig != {}:
+              cloudServiceEpgConfig.update(dict(deploymentType=deployment_type, serviceType=service_type, accessType=access_type))
+              ops.append(dict(op='replace', path=service_path, value=cloudServiceEpgConfig))
+          else:
+              cloudServiceEpgConfig.update(dict(deploymentType=deployment_type, serviceType=service_type, accessType=access_type))
+              ops.append(dict(op='add', path=service_path, value=cloudServiceEpgConfig))
 
         mso.existing = mso.proposed
 

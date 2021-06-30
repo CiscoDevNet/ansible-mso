@@ -379,8 +379,7 @@ def main():
     epg_path = '/templates/{0}/anps/{1}/epgs/{2}'.format(template, anp, epg)
     service_path = '/templates/{0}/anps/{1}/epgs/{2}/cloudServiceEpgConfig'.format(template, anp, epg)
     ops = []
-    # epg_service_payload = []
-    cloudServiceEpgConfig ={}
+    cloudServiceEpgConfig = {}
 
     mso.previous = mso.existing
     if state == 'absent':
@@ -428,14 +427,14 @@ def main():
             ops.append(dict(op='add', path=epgs_path + '/-', value=mso.sent))
 
         if epg_type == 'service':
-          if cloudServiceEpgConfig != {}:
-              cloudServiceEpgConfig.update(dict(deploymentType=deployment_type, serviceType=service_type, accessType=access_type))
-              ops.append(dict(op='replace', path=service_path, value=cloudServiceEpgConfig))
-          else:
-              cloudServiceEpgConfig.update(dict(deploymentType=deployment_type, serviceType=service_type, accessType=access_type))
-              ops.append(dict(op='add', path=service_path, value=cloudServiceEpgConfig))
+            if cloudServiceEpgConfig != {}:
+                cloudServiceEpgConfig.update(dict(deploymentType=deployment_type, serviceType=service_type, accessType=access_type))
+                ops.append(dict(op='replace', path=service_path, value=cloudServiceEpgConfig))
+            else:
+                cloudServiceEpgConfig.update(dict(deploymentType=deployment_type, serviceType=service_type, accessType=access_type))
+                ops.append(dict(op='add', path=service_path, value=cloudServiceEpgConfig))
 
-        mso.existing = mso.proposed
+    mso.existing = mso.proposed
 
     if 'epgRef' in mso.previous:
         del mso.previous['epgRef']

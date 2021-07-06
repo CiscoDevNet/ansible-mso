@@ -296,7 +296,7 @@
     template: Template 2
     anp: ANP2
     epg: ansible_test_3
-    bd: 
+    bd:
       name: ansible_test_1
       template: Template 1
     vrf:
@@ -847,6 +847,29 @@
       deployment_type: 'cloud_native'
       service_type: 'Azure-Storage'
       access_type: 'public'
+    register: add_epg
+
+  - name: Get Validation status for service type parameters
+    mso_schema_validate:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: query_validate
+
+  - name: Verify validation
+    assert:
+      that:
+      - query_validate is not changed
+      - query_validate.current.result == "true"
+
+  - name: Add new EPG service type parameters (for version greater than 3.3)
+    mso_schema_template_anp_epg:
+      <<: *new_epg
+      epg_type: 'service'
+      deployment_type: 'third_party'
+      service_type: 'Azure-Storage'
+      access_type: 'private'
     register: add_epg
 
   - name: Get Validation status for service type parameters

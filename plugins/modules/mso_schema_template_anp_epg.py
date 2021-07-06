@@ -443,10 +443,16 @@ def main():
                 'third_party': 'Third-party',
             }
             if cloud_service_epg_config != {}:
-                cloud_service_epg_config.update(dict(deploymentType=deployment_type_map[deployment_type], serviceType=service_type, accessType=access_type_map[access_type]))
+                cloud_service_epg_config.update(dict(
+                    deploymentType=deployment_type_map[deployment_type],
+                    serviceType=service_type,
+                    accessType=access_type_map[access_type]))
                 ops.append(dict(op='replace', path=service_path, value=cloud_service_epg_config))
             else:
-                cloud_service_epg_config.update(dict(deploymentType=deployment_type_map[deployment_type], serviceType=service_type, accessType=access_type_map[access_type]))
+                cloud_service_epg_config.update(dict(
+                    deploymentType=deployment_type_map[deployment_type],
+                    serviceType=service_type,
+                    accessType=access_type_map[access_type]))
                 ops.append(dict(op='add', path=service_path, value=cloud_service_epg_config))
 
     mso.existing = mso.proposed

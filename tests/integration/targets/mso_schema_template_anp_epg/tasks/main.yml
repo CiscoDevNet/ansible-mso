@@ -1,4 +1,5 @@
 # Test code for the MSO modules
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
 # 
@@ -38,13 +39,13 @@
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
-# - name: Ensure tenant ansible_test exist
-#   mso_tenant: &tenant_present
-#     <<: *mso_info
-#     tenant: ansible_test
-#     # users:
-#     # - '{{ mso_username }}'
-#     state: present
+- name: Ensure tenant ansible_test exist
+  mso_tenant: &tenant_present
+    <<: *mso_info
+    tenant: ansible_test
+    # users:
+    # - '{{ mso_username }}'
+    state: present
 
 - name: Ensure schema 1 with Template 1 exist
   mso_schema_template: &schema_present
@@ -820,9 +821,9 @@
     mso_schema_template_anp_epg:
       <<: *new_epg
       epg_type: 'service'
-      deployment_type: 'Third-party'
+      deployment_type: 'third_party'
       service_type: 'Azure-Storage'
-      access_type: 'PublicAndPrivate'
+      access_type: 'public_and_private'
     register: add_epg
 
   - name: Get Validation status for service type parameters
@@ -843,9 +844,9 @@
     mso_schema_template_anp_epg:
       <<: *new_epg
       epg_type: 'service'
-      deployment_type: 'CloudNative'
+      deployment_type: 'cloud_native'
       service_type: 'Azure-Storage'
-      access_type: 'Public'
+      access_type: 'public'
     register: add_epg
 
   - name: Get Validation status for service type parameters

@@ -156,8 +156,8 @@ options:
     type: bool
   qos_level:
     description:
-    - Quality of Service (QoS) feature allows you to classify the network traffic in your fabric
-    -  and then to prioritize and police the traffic flow to help avoid congestion in your network.
+    - Quality of Service (QoS) allows you to classify the network traffic in the fabric.
+    - It helps prioritize and police the traffic flow to help avoid congestion in the network.
     - The Contract QoS Level parameter is supported on versions of MSO that are 3.1 or greater.
     type: str
   epg_type:
@@ -173,13 +173,13 @@ options:
     choices: [ cloud_native, cloud_native_managed, third_party ]
   access_type:
     description:
-    - The access_type parameter indicates how the service will be accessed.
-    - This parameter is available only when epg_type is service.
+    - This parameter indicates how the service will be accessed.
+    - It is only available when epg_type is service.
     type: str
     choices: [ private, public, public_and_private ]
   service_type:
     description:
-    - The service_type parmeter refers to the type of cloud services.
+    - The service_type parameter refers to the type of cloud services.
     - Only certain deployment types, and certain access types within each deployment type, are supported for each service type.
     - This parameter is available only when epg_type is service.
     type: str

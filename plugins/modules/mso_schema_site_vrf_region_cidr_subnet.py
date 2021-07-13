@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # Copyright: (c) 2019, Dag Wieers (@dagwieers) <dag@wieers.com>
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -21,6 +22,7 @@ description:
 author:
 - Dag Wieers (@dagwieers)
 - Lionel Hercot (@lhercot)
+- Anvitha Jain (@anvitha-jain)
 options:
   schema:
     description:
@@ -57,6 +59,11 @@ options:
     - The IP subnet of this region CIDR.
     type: str
     aliases: [ ip ]
+  private_link_label:
+    description:
+    - The name of the private link label for the region CIDR subnet.
+    - This parameter is available for MSO version greater than 3.3.
+    type: str
   zone:
     description:
     - The name of the zone for the region CIDR subnet.
@@ -167,6 +174,7 @@ def main():
         region=dict(type='str', required=True),
         cidr=dict(type='str', required=True),
         subnet=dict(type='str', aliases=['ip']),  # This parameter is not required for querying all objects
+        private_link_label=dict(type='str'),
         zone=dict(type='str', aliases=['name']),
         vgw=dict(type='bool', aliases=['hub_network']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
@@ -188,6 +196,7 @@ def main():
     region = module.params.get('region')
     cidr = module.params.get('cidr')
     subnet = module.params.get('subnet')
+    private_link_label = module.params.get('private_link_label')
     zone = module.params.get('zone')
     vgw = module.params.get('vgw')
     state = module.params.get('state')
@@ -277,6 +286,8 @@ def main():
             payload['zone'] = zone
         if vgw is True:
             payload['usage'] = 'gateway'
+        if private_link_label is not None:
+            payload['privateLinkLabel'] = dict(name=private_link_label)
 
         mso.sanitize(payload, collate=True)
 

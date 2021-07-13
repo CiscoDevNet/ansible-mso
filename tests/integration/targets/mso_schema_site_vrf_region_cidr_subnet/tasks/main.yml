@@ -1,4 +1,5 @@
 # Test code for the MSO modules
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com> (based on mso_schema_anp_epg_domain)
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
@@ -256,6 +257,7 @@
     - cm_add_subnet_3.current.zone == ''
     - cm_add_subnet_3.current.usage == 'gateway'
 
+#  VGW
 - name: Add a second subnet to Azure CIDR in VRF1 at site level for VGW (normal mode)
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
@@ -275,6 +277,27 @@
     - nm_add_subnet_3.current.ip == '10.1.1.0/24'
     - nm_add_subnet_3.current.zone == ''
     - nm_add_subnet_3.current.usage == 'gateway'
+
+# Private Link Label
+- name: Add a new subnet to Azure CIDR in VRF1 at site level for Private Link Label (MSO >3.3)
+  mso_schema_site_vrf_region_cidr_subnet:
+    <<: *mso_present
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    region: westus
+    cidr: 10.1.0.0/16
+    subnet: 10.1.0.0/24
+    private_link_label: 'New_Private_Link_Label'
+    zone: null
+  register: nm_add_subnet_4
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify nm_add_subnet_4
+  assert:
+    that:
+    - nm_add_subnet_4 is changed
+    - nm_add_subnet_4.current.ip == '10.1.0.0/24'
+    - nm_add_subnet_4.current.privateLinkLabel.name == 'New_Private_Link_Label'
+  when: version.current.version is version('3.3', '>=')
 
 # QUERY SUBNETS
 - name: Query subnet to AWS CIDR in VRF1 at site level (check mode)

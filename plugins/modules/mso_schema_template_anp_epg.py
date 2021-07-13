@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -19,6 +20,7 @@ description:
 - Manage EPGs in schema templates on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
+- Anvitha Jain (@anvitha-jain)
 options:
   schema:
     description:
@@ -43,6 +45,11 @@ options:
   display_name:
     description:
     - The name as displayed on the MSO web interface.
+    type: str
+  description:
+    description:
+    - The description as displayed on the MSO web interface.
+    - The description is supported on versions of MSO that are 3.3 or greater.
     type: str
 #  contracts:
 #    description:
@@ -147,6 +154,35 @@ options:
     - Whether this EPG is added to preferred group or not.
     - When not specified, this parameter defaults to C(no).
     type: bool
+  qos_level:
+    description:
+    - Quality of Service (QoS) allows you to classify the network traffic in the fabric.
+    - It helps prioritize and police the traffic flow to help avoid congestion in the network.
+    - The Contract QoS Level parameter is supported on versions of MSO that are 3.1 or greater.
+    type: str
+  epg_type:
+    description:
+    - The EPG type parameter is supported on versions of MSO that are 3.3 or greater.
+    type: str
+    choices: [ application, service ]
+  deployment_type:
+    description:
+    - The deployment_type parameter indicates how and where the service is deployed.
+    - This parameter is available only when epg_type is service.
+    type: str
+    choices: [ cloud_native, cloud_native_managed, third_party ]
+  access_type:
+    description:
+    - This parameter indicates how the service will be accessed.
+    - It is only available when epg_type is service.
+    type: str
+    choices: [ private, public, public_and_private ]
+  service_type:
+    description:
+    - The service_type parameter refers to the type of cloud services.
+    - Only certain deployment types, and certain access types within each deployment type, are supported for each service type.
+    - This parameter is available only when epg_type is service.
+    type: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -257,6 +293,7 @@ def main():
         template=dict(type='str', required=True),
         anp=dict(type='str', required=True),
         epg=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
+        description=dict(type='str'),
         bd=dict(type='dict', options=mso_reference_spec()),
         vrf=dict(type='dict', options=mso_reference_spec()),
         display_name=dict(type='str'),
@@ -265,6 +302,11 @@ def main():
         intersite_multicast_source=dict(type='bool'),
         proxy_arp=dict(type='bool'),
         subnets=dict(type='list', elements='dict', options=mso_epg_subnet_spec()),
+        qos_level=dict(type='str'),
+        epg_type=dict(type='str', choices=['application', 'service']),
+        deployment_type=dict(type='str', choices=['cloud_native', 'cloud_native_managed', 'third_party']),
+        service_type=dict(type='str'),
+        access_type=dict(type='str', choices=['private', 'public', 'public_and_private']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
         preferred_group=dict(type='bool'),
     )
@@ -282,6 +324,7 @@ def main():
     template = module.params.get('template').replace(' ', '')
     anp = module.params.get('anp')
     epg = module.params.get('epg')
+    description = module.params.get('description')
     display_name = module.params.get('display_name')
     bd = module.params.get('bd')
     if bd is not None and bd.get('template') is not None:
@@ -294,6 +337,11 @@ def main():
     intersite_multicast_source = module.params.get('intersite_multicast_source')
     proxy_arp = module.params.get('proxy_arp')
     subnets = module.params.get('subnets')
+    qos_level = module.params.get('qos_level')
+    epg_type = module.params.get('epg_type')
+    deployment_type = module.params.get('deployment_type')
+    service_type = module.params.get('service_type')
+    access_type = module.params.get('access_type')
     state = module.params.get('state')
     preferred_group = module.params.get('preferred_group')
 
@@ -334,7 +382,9 @@ def main():
 
     epgs_path = '/templates/{0}/anps/{1}/epgs'.format(template, anp)
     epg_path = '/templates/{0}/anps/{1}/epgs/{2}'.format(template, anp, epg)
+    service_path = '{0}/cloudServiceEpgConfig'.format(epg_path)
     ops = []
+    cloud_service_epg_config = {}
 
     mso.previous = mso.existing
     if state == 'absent':
@@ -364,6 +414,12 @@ def main():
             preferredGroup=preferred_group,
             vrfRef=vrf_ref,
         )
+        if description is not None:
+            payload.update(description=description)
+        if qos_level is not None:
+            payload.update(prio=qos_level)
+        if epg_type is not None:
+            payload.update(epgType=epg_type)
 
         mso.sanitize(payload, collate=True)
 
@@ -375,7 +431,31 @@ def main():
         else:
             ops.append(dict(op='add', path=epgs_path + '/-', value=mso.sent))
 
-        mso.existing = mso.proposed
+        if epg_type == 'service':
+            access_type_map = {
+                'private': 'Private',
+                'public': 'Public',
+                'public_and_private': 'PublicAndPrivate',
+            }
+            deployment_type_map = {
+                'cloud_native': 'CloudNative',
+                'cloud_native_managed': 'CloudNativeManaged',
+                'third_party': 'Third-party',
+            }
+            if cloud_service_epg_config != {}:
+                cloud_service_epg_config.update(dict(
+                    deploymentType=deployment_type_map[deployment_type],
+                    serviceType=service_type,
+                    accessType=access_type_map[access_type]))
+                ops.append(dict(op='replace', path=service_path, value=cloud_service_epg_config))
+            else:
+                cloud_service_epg_config.update(dict(
+                    deploymentType=deployment_type_map[deployment_type],
+                    serviceType=service_type,
+                    accessType=access_type_map[access_type]))
+                ops.append(dict(op='add', path=service_path, value=cloud_service_epg_config))
+
+    mso.existing = mso.proposed
 
     if 'epgRef' in mso.previous:
         del mso.previous['epgRef']

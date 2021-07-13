@@ -1,4 +1,5 @@
 # Test code for the MSO modules
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
 # 
@@ -12,32 +13,26 @@
 
 
 # CLEAN ENVIRONMENT
-# - name: Ensure site exist
-#   mso_site: &site_present
-#     host: '{{ mso_hostname }}'
-#     username: '{{ mso_username }}'
-#     password: '{{ mso_password }}'
-#     validate_certs: '{{ mso_validate_certs | default(false) }}'
-#     use_ssl: '{{ mso_use_ssl | default(true) }}'
-#     use_proxy: '{{ mso_use_proxy | default(true) }}'
-#     output_level: '{{ mso_output_level | default("info") }}'
-#     site: '{{ mso_site | default("ansible_test") }}'
-#     apic_username: '{{ apic_username }}'
-#     apic_password: '{{ apic_password }}'
-#     apic_site_id: '{{ apic_site_id | default(101) }}'
-#     urls:
-#     - https://{{ apic_hostname }}
-#     state: present
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(false) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
 
 - name: Remove schemas
   mso_schema:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ item }}'
     state: absent
   loop:
@@ -46,29 +41,15 @@
 
 - name: Ensure tenant ansible_test exist
   mso_tenant: &tenant_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     tenant: ansible_test
-    users:
-    - '{{ mso_username }}'
-    # sites:
-    # - '{{ mso_site | default("ansible_test") }}'
+    # users:
+    # - '{{ mso_username }}'
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
   mso_schema_template: &schema_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
     template: Template 1
@@ -92,13 +73,7 @@
 
 - name: Ensure VRF exist
   mso_schema_template_vrf: &vrf_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     vrf: VRF
@@ -129,13 +104,7 @@
 
 - name: Ensure ANP exist
   mso_schema_template_anp:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     anp: ANP
@@ -143,13 +112,7 @@
 
 - name: Ensure ANP2 exist
   mso_schema_template_anp:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
     anp: ANP2
@@ -157,13 +120,7 @@
 
 - name: Ensure ANP3 exist
   mso_schema_template_anp:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
     anp: ANP3
@@ -171,13 +128,7 @@
 
 - name: Ensure Filter 1 exist
   mso_schema_template_filter_entry:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     filter: Filter1
@@ -186,13 +137,7 @@
 
 - name: Ensure Contract1 exist
   mso_schema_template_contract_filter: &contract_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     contract: Contract1
@@ -260,13 +205,7 @@
 # ADD EPG
 - name: Add EPG (check_mode)
   mso_schema_template_anp_epg: &epg_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     anp: ANP
@@ -357,7 +296,7 @@
     template: Template 2
     anp: ANP2
     epg: ansible_test_3
-    bd: 
+    bd:
       name: ansible_test_1
       template: Template 1
     vrf:
@@ -680,13 +619,7 @@
 # # QUERY ALL EPGs
 - name: Query all EPGs in an ANP (check_mode)
   mso_schema_template_anp_epg: &epg_query
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     anp: ANP
@@ -801,7 +734,6 @@
     - nm_query_epg_3.current.subnets[3].noDefaultGateway == true
     - nm_query_epg_3.current.subnets[3].scope == "private"
     - nm_query_epg_3.current.subnets[3].shared == false
-    
 
 # REMOVE EPG
 - name: Remove EPG (check_mode)
@@ -854,6 +786,120 @@
     - nm_remove_epg_again is not changed
     - nm_remove_epg_again.current == {}
 
+- name: Remove EPG (normal mode)
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    epg: ansible_test_1
+    state: absent
+  ignore_errors: yes
+
+# Add EPG when MSO version >= 3.3
+- name: Execute tasks only for MSO version >= 3.3
+  when: version.current.version is version('3.3', '>=')
+  block:
+  - name: Add EPG (for version greater than 3.3)
+    mso_schema_template_anp_epg: &new_epg
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      anp: ANP
+      epg: ansible_test_1
+      description: 'Description of ANP EPG'
+      state: present
+    register: add_epg_desc
+
+  - name: Verify Add description
+    assert:
+      that:
+      - add_epg_desc is changed
+      - add_epg_desc.current.description == "Description of ANP EPG"
+
+  - name: Add EPG service type parameters (for version greater than 3.3)
+    mso_schema_template_anp_epg:
+      <<: *new_epg
+      epg_type: 'service'
+      deployment_type: 'third_party'
+      service_type: 'Azure-Storage'
+      access_type: 'public_and_private'
+    register: add_epg
+
+  - name: Get Validation status for service type parameters
+    mso_schema_validate:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: query_validate
+
+  - name: Verify validation
+    assert:
+      that:
+      - query_validate is not changed
+      - query_validate.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} For Deployment type 'Third-party' access type 'PublicAndPrivate' is not supported exception while trying to update schema"
+
+  - name: Add EPG service type parameters (for version greater than 3.3)
+    mso_schema_template_anp_epg:
+      <<: *new_epg
+      epg_type: 'service'
+      deployment_type: 'cloud_native'
+      service_type: 'Azure-Storage'
+      access_type: 'public'
+    register: add_epg
+
+  - name: Get Validation status for service type parameters
+    mso_schema_validate:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: query_validate
+
+  - name: Verify validation
+    assert:
+      that:
+      - query_validate is not changed
+      - query_validate.current.result == "true"
+
+  - name: Add new EPG service type parameters (for version greater than 3.3)
+    mso_schema_template_anp_epg:
+      <<: *new_epg
+      epg_type: 'service'
+      deployment_type: 'third_party'
+      service_type: 'Azure-Storage'
+      access_type: 'private'
+    register: add_epg
+
+  - name: Get Validation status for service type parameters
+    mso_schema_validate:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: query_validate
+
+  - name: Verify validation
+    assert:
+      that:
+      - query_validate is not changed
+      - query_validate.current.result == "true"
+
+# Add QoS level to EPG
+- name: Add EPG (for version greater than 3.1)
+  mso_schema_template_anp_epg:
+    <<: *epg_present
+    name: ansible_test_5
+    qos_level: 'level2'
+  register: add_epg
+  when: version.current.version is version('3.1', '>=')
+
+- name: Verify Add contract for version greater than 3.1
+  assert:
+    that:
+    - add_epg is changed
+  when: version.current.version is version('3.1', '>=')
 
 # QUERY NON-EXISTING EPG
 - name: Query non-existing EPG (check_mode)
@@ -1046,13 +1092,7 @@
 # Checking if contract are removed after re-applying an EPG. (#13 | #62137)
 - name: Add Contracts to EPG 2
   mso_schema_template_anp_epg_contract:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     anp: ANP
@@ -1105,13 +1145,7 @@
 # Checking if issue when querying EPG and VRF is not defined (#66)
 - name: Add new test EPG 3 (normal mode)
   mso_schema_template_anp_epg: &epg_present_2
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     anp: ANP

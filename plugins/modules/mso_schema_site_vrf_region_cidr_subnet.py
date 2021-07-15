@@ -61,7 +61,7 @@ options:
     aliases: [ ip ]
   private_link_label:
     description:
-    - The name of the private link label for the region CIDR subnet.
+    - The private link label used to represent this subnet.
     - This parameter is available for MSO version greater than 3.3.
     type: str
   zone:

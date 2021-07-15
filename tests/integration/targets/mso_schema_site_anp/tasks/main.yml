@@ -46,15 +46,15 @@
     state: present
   ignore_errors: yes
 
-# - name: Ensure tenant ansible_test exists
-#   mso_tenant: 
-#     <<: *mso_info
-#     tenant: ansible_test
-#     users:
-#       - '{{ mso_username }}'
-#     # sites:
-#     # - '{{ mso_site | default("ansible_test") }}'
-#     state: present
+- name: Ensure tenant ansible_test exists
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+      - '{{ mso_username }}'
+    # sites:
+    # - '{{ mso_site | default("ansible_test") }}'
+    state: present
 
 - name: Ensure schema 1 with Template 1, and Template 2 exist
   mso_schema_template:
@@ -275,4 +275,4 @@
   assert:
     that:
     - nm_no_site_associated is not changed
-    -  nm_no_site_associated.msg == "No site associated with template 'Template4'. Associate the site with the template using mso_schema_site."
+    - nm_no_site_associated.msg == "No site associated with template 'Template4'. Associate the site with the template using mso_schema_site."

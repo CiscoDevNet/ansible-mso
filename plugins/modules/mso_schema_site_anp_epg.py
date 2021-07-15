@@ -160,7 +160,7 @@ def main():
     # Get schema objects
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
-        # Get template
+    # Get template
     templates = [t.get('name') for t in schema_obj.get('templates')]
     if template not in templates:
         mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
@@ -271,7 +271,7 @@ def main():
     elif state == 'present':
 
         if private_link_label is not None:
-          payload['privateLinkLabel'] = dict(name=private_link_label)
+            payload['privateLinkLabel'] = dict(name=private_link_label)
 
         mso.sanitize(payload, collate=True)
 

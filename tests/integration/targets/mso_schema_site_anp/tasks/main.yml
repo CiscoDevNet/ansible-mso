@@ -107,6 +107,8 @@
   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', anp: 'ANP' }
   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 2', anp: 'ANP_2' }
   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3' }
+  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_1' }
+  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_2' }
   - { schema: '{{ mso_schema | default("ansible_test") }}_2', template: 'Template 4', anp: 'ANP_4' }
 
 - name: Add ANP to site
@@ -136,6 +138,8 @@
   loop:
   - { site: 'aws_{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 2', anp: 'ANP_2' }
   - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3' }
+  - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_1' }
+  - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_2' }
 
 # QUERY  ANPs
 - name: Query specific ANP (normal mode)
@@ -153,6 +157,19 @@
     that:
     - query_anp is not changed
 
+- name: Query all ANPs (normal mode)
+  mso_schema_site_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 3
+    state: query
+  register: query_all
+
+- name: Verify query_all
+  assert:
+    that:
+    - query_all is not changed
 
 # DELETE the ANP
 - name: Delete ANP1 (normal mode)
@@ -276,3 +293,21 @@
     that:
     - nm_no_site_associated is not changed
     - nm_no_site_associated.msg == "No site associated with template 'Template4'. Associate the site with the template using mso_schema_site."
+
+# USE A NON-EXISTING SITE-TEMPLATE 
+- name: Non-existing site-template  (normal_mode)
+  mso_schema_site_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    state: query
+  ignore_errors: yes
+  register: nm_non_existing_site_template
+
+- name: Verify non_existing_site_template
+  assert:
+    that:
+    - nm_non_existing_site_template is not changed
+    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'aws_ansible_test/[0-9a-zA-Z]*/Template1' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1")

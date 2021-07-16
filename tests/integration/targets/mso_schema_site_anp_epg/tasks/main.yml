@@ -413,8 +413,7 @@
   assert:
     that:
     - nm_non_existing_site_template is not changed
-    - nm_non_existing_site_template.msg == "Provided site-template association 'aws_ansible_test-Template1' does not exist."
-
+    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'aws_ansible_test/[0-9a-zA-Z]*/Template1' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1")
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add EPG to Template without any site associated (normal mode)

@@ -19,6 +19,7 @@ short_description: Manage site-local VRF regions in schema template
 description:
 - Manage site-local VRF regions in schema template on Cisco ACI Multi-Site.
 author:
+- Anvitha Jain (@anvitha-jain)
 - Dag Wieers (@dagwieers)
 options:
   schema:
@@ -57,21 +58,21 @@ options:
     type: bool
   underlay_context_profile:
     description:
-      - The name of the context profile type.
-      - This parameter can only be added when container_overlay is True.
-      - This is supported on versions of MSO that are 3.3 or greater.
-      type: dict
-      suboptions:
+    - The name of the context profile type.
+    - This parameter can only be added when container_overlay is True.
+    - This is supported on versions of MSO that are 3.3 or greater.
+    type: dict
+    suboptions:
       vrf:
         description:
-        - The name of the underlay context profile VRF to associate with.
+        - The name of the VRF to associate with underlay context profile.
         type: str
-        required: yes
+        required: true
       region:
         description:
-        - The name of the underlay context profile regionassociated with underlay context profile VRF.
+        - The name of the region associated with underlay context profile VRF.
         type: str
-        required: yes
+        required: true
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -245,7 +246,7 @@ def main():
             isVpnGatewayRouter=vpn_gateway_router,
         )
 
-        if container_overlay == True:
+        if container_overlay:
             payload['contextProfileType'] = 'container-overlay'
             if mso.existing:
                 underlay_dict = dict(

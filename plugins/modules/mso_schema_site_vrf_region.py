@@ -49,6 +49,29 @@ options:
     description:
     - Whether VPN Gateway Router is enabled or not.
     type: bool
+  container_overlay:
+    description:
+      - The name of the context profile type.
+      - This is supported on versions of MSO that are 3.3 or greater.
+      type: bool
+  underlay_context_profile:
+    description:
+      - The name of the context profile type.
+      - This parameter can only be added when container_overlay is True.
+      - This is supported on versions of MSO that are 3.3 or greater.
+      type: dict
+      suboptions:
+      vrf:
+        description:
+        - The name of the underlay context profile VRF to associate with.
+        required: true
+        type: str
+        required: yes
+      region:
+        description:
+        - The name of the underlay context profile regionassociated with underlay context profile VRF.
+        type: str
+        required: yes
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -137,6 +160,11 @@ def main():
         vrf=dict(type='str', required=True),
         region=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
         vpn_gateway_router=dict(type='bool'),
+        container_overlay=dict(type='bool'),
+        underlay_context_profile=dict(type='dict', options=dict(
+            vrf=dict(type='str', required=True),
+            region=dict(type='str', required=True),
+        )),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -155,6 +183,8 @@ def main():
     vrf = module.params.get('vrf')
     region = module.params.get('region')
     vpn_gateway_router = module.params.get('vpn_gateway_router')
+    container_overlay = module.params.get('container_overlay')
+    underlay_context_profile = module.params.get('underlay_context_profile')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -215,8 +245,20 @@ def main():
             isVpnGatewayRouter=vpn_gateway_router,
         )
 
-        mso.sanitize(payload, collate=True)
+        if container_overlay == True:
+            payload['contextProfileType'] = 'container-overlay'
+            if mso.existing:
+                underlay_dict = dict(
+                    vrfRef=dict(
+                        schemaId=schema_id,
+                        templateName=template,
+                        vrfName=underlay_context_profile['vrf']
+                    ),
+                    regionName=underlay_context_profile['region']
+                )
+                payload ['underlayCtxProfile'] = underlay_dict
 
+        mso.sanitize(payload, collate=True)
         if mso.existing:
             ops.append(dict(op='replace', path=region_path, value=mso.sent))
         else:

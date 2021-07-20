@@ -4,7 +4,7 @@
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact: 
+  set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -13,9 +13,15 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
-    sites: "['aws_{{ mso_site | default(\"ansible_test\") }}', 
+    sites: "['aws_{{ mso_site | default(\"ansible_test\") }}',
               'azure_{{ mso_site | default(\"ansible_test\") }}',
               '{{ mso_site | default(\"ansible_test\") }}']"
+
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
 
 - name: Ensure aws site exists
   mso_site:
@@ -48,16 +54,16 @@
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
-- name: Ensure tenant ansible_test exist
-  mso_tenant: 
-    <<: *mso_info
-    tenant: ansible_test
-    users:
-    - '{{ mso_username }}'
-    state: present
+# - name: Ensure tenant ansible_test exist
+#   mso_tenant:
+#     <<: *mso_info
+#     tenant: ansible_test
+#     users:
+#     - '{{ mso_username }}'
+#     state: present
 
 - name: Ensure AWS site is present under tenant ansible_test
-  mso_tenant_site: 
+  mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -67,7 +73,7 @@
     state: present
 
 - name: Ensure Azure site is present under tenant ansible_test
-  mso_tenant_site: 
+  mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -75,7 +81,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 and 2 exists
-  mso_schema_template: 
+  mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -94,7 +100,7 @@
     state: present
 
 - name: Ensure VRF1 exists
-  mso_schema_template_vrf: 
+  mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -152,6 +158,95 @@
     primary: true
     state: present
   register: azure_add_another_region_cidr
+
+# Execute context underlay parameters only when when MSO version >= 3.3
+- name: Execute tasks only for MSO version >= 3.3
+  when: version.current.version is version('3.3', '>=')
+  block:
+  - name: Ensure VRF2 exists
+    mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      vrf: VRF2
+      state: present
+
+  - name: Add region and cidr in VRF2 at Azure site level
+    mso_schema_site_vrf_region_cidr:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      site: 'azure_{{ mso_site | default("ansible_test") }}'
+      vrf: VRF2
+      region: westus
+      cidr: 10.10.0.0/16
+      primary: true
+      state: present
+    register: azure_add_another_region_cidr
+
+  - name: Add region and cidr in VRF2 at AWS site level
+    mso_schema_site_vrf_region_cidr:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      site: 'aws_{{ mso_site | default("ansible_test") }}'
+      vrf: VRF2
+      region: westus
+      cidr: 10.10.0.0/16
+      primary: true
+      state: present
+    register: azure_add_another_region_cidr
+
+  - name: Add context underlay parameters in VRF1 at Azure site level
+    mso_schema_site_vrf_region:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      site: 'azure_{{ mso_site | default("ansible_test") }}'
+      vrf: VRF1
+      region: us-west-1
+      container_overlay: true
+      underlay_context_profile:
+        vrf: VRF2
+        region: westus
+      state: present
+    register: azure_add_context_underlay
+
+  - name: Add context underlay parameters in VRF1 at AWS site level
+    mso_schema_site_vrf_region:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      site: 'aws_{{ mso_site | default("ansible_test") }}'
+      vrf: VRF1
+      region: us-east-1
+      container_overlay: true
+      underlay_context_profile:
+        vrf: VRF2
+        region: westus
+      state: present
+    register: aws_add_context_underlay
+
+  - name: Verify add_context_underlay
+    assert:
+      that:
+      - azure_add_context_underlay is changed
+      - azure_add_context_underlay.current.contextProfileType == "container-overlay"
+      - aws_add_context_underlay is changed
+      - aws_add_context_underlay.current.contextProfileType == "container-overlay"
+
+  - name: Get Validation status
+    mso_schema_validate:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    register: query_validate
+
+  - name: Verify query_validate
+    assert:
+      that:
+      - query_validate is not changed
+      - query_validate.current.result == "true"
 
 - name: Query all aws regions
   mso_schema_site_vrf_region:
@@ -220,7 +315,7 @@
     template: Template 1
     site: 'aws_{{ mso_site | default("ansible_test") }}'
     vrf: VRF1
-    region: us-west-1
+    region: us-east-1
     state: absent
   check_mode: yes
   register: cm_rm_aws_region
@@ -232,7 +327,7 @@
     template: Template 1
     site: 'aws_{{ mso_site | default("ansible_test") }}'
     vrf: VRF1
-    region: us-west-1
+    region: us-east-1
     state: absent
   register: nm_rm_aws_region
 
@@ -270,7 +365,7 @@
     - cm_rm_azure_region.previous == nm_rm_azure_region.previous
     - cm_rm_aws_region.current == nm_rm_aws_region.current == {}
     - cm_rm_azure_region.current == nm_rm_azure_region.current == {}
-    - cm_rm_aws_region.previous.name == nm_rm_aws_region.previous.name == "us-west-1"
+    - cm_rm_aws_region.previous.name == nm_rm_aws_region.previous.name == "us-east-1"
     - cm_rm_azure_region.previous.name == nm_rm_azure_region.previous.name == "us-west-1"
 
 - name: Query MSO version
@@ -444,7 +539,7 @@
     - non_existing_schema.msg == "Provided schema 'non_existing' does not exist."
     - non_existing_site.msg == "Site 'non_existing' is not a valid site name."
     - non_existing_site_template.msg == "Provided site-template association 'aws_ansible_test-Template2' does not exist."
-    - non_existing_vrf.msg == "Provided vrf 'non_existing' does not exist. Existing vrfs{{':'}} VRF1"
+    - non_existing_vrf.msg == "Provided vrf 'non_existing' does not exist. Existing vrfs{{':'}} VRF1, VRF2"
     - non_existing_region.msg == "Region 'non_existing' not found"
 
 - name: Delete non_existing region

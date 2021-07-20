@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Dag Wieers (@dagwieers) <dag@wieers.com>
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -51,9 +52,9 @@ options:
     type: bool
   container_overlay:
     description:
-      - The name of the context profile type.
-      - This is supported on versions of MSO that are 3.3 or greater.
-      type: bool
+    - The name of the context profile type.
+    - This is supported on versions of MSO that are 3.3 or greater.
+    type: bool
   underlay_context_profile:
     description:
       - The name of the context profile type.
@@ -64,7 +65,6 @@ options:
       vrf:
         description:
         - The name of the underlay context profile VRF to associate with.
-        required: true
         type: str
         required: yes
       region:
@@ -256,7 +256,7 @@ def main():
                     ),
                     regionName=underlay_context_profile['region']
                 )
-                payload ['underlayCtxProfile'] = underlay_dict
+                payload['underlayCtxProfile'] = underlay_dict
 
         mso.sanitize(payload, collate=True)
         if mso.existing:

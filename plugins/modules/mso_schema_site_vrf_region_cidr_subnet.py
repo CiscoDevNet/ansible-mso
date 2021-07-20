@@ -4,6 +4,7 @@
 # Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # Copyright: (c) 2019, Dag Wieers (@dagwieers) <dag@wieers.com>
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -76,6 +77,11 @@ options:
     - Whether this subnet is used for the Transit Gateway Attachment in AWS.
     type: bool
     aliases: [ hub_network ]
+  hosted_vrf:
+    description:
+    - The name of hosted vrf associated with region CIDR subnet.
+    - This is supported on versions of MSO that are 3.3 or greater.
+    type: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -177,6 +183,7 @@ def main():
         private_link_label=dict(type='str'),
         zone=dict(type='str', aliases=['name']),
         vgw=dict(type='bool', aliases=['hub_network']),
+        hosted_vrf=dict(type='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -198,6 +205,7 @@ def main():
     subnet = module.params.get('subnet')
     private_link_label = module.params.get('private_link_label')
     zone = module.params.get('zone')
+    hosted_vrf = module.params.get('hosted_vrf')
     vgw = module.params.get('vgw')
     state = module.params.get('state')
 
@@ -228,7 +236,7 @@ def main():
     # Path-based access uses site_id-template
     site_template = '{0}-{1}'.format(site_id, template)
 
-    # Get VRF
+    # Get VRF at site level
     vrf_ref = mso.vrf_ref(schema_id=schema_id, template=template, vrf=vrf)
     vrfs = [v.get('vrfRef') for v in schema_obj.get('sites')[site_idx]['vrfs']]
 
@@ -288,6 +296,13 @@ def main():
             payload['usage'] = 'gateway'
         if private_link_label is not None:
             payload['privateLinkLabel'] = dict(name=private_link_label)
+        if hosted_vrf is not None:
+            payload['vrfRef'] = dict(
+                schemaId=schema_id,
+                templateName=template,
+                vrfName=hosted_vrf
+            )
+            payload['inEditing'] = 'false'
 
         mso.sanitize(payload, collate=True)
 

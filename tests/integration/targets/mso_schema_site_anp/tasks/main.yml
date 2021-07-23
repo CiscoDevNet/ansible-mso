@@ -9,7 +9,7 @@
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact: 
+  set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -47,14 +47,40 @@
   ignore_errors: yes
 
 - name: Ensure tenant ansible_test exists
-  mso_tenant: 
+  mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
       - '{{ mso_username }}'
-    # sites:
-    # - '{{ mso_site | default("ansible_test") }}'
     state: present
+
+- name: Associate non-cloud site with ansible_test again in normal mode
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Associate aws site with ansible_test in normal mode
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    cloud_account: "000000000000"
+    aws_trusted: false
+    aws_access_key: "1"
+    secret_key: "0"
+    state: present
+  register: aaws_nm
+
+- name: Associate azure site with access_type not present, with ansible_test in normal mode
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    cloud_account: uni/tn-ansible_test/act-[100]-vendor-azure
+    state: present
+  register: aazure_shared_nm
 
 - name: Ensure schema 1 with Template 1, and Template 2 exist
   mso_schema_template:
@@ -76,17 +102,25 @@
     template: Template 4
     state: present
 
-- name: Add physical site to a schema
+- name: Add cloud site to a schema
   mso_schema_site:
     <<: *mso_info
-    schema: '{{item.schema}}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{item.site}}'
     template: '{{item.template}}'
     state: present
   loop:
-  - { site: 'azure_{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1' }
-  - { site: 'aws_{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 2' }
-  - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3' }
+  - { site: 'azure_{{ mso_site | default("ansible_test") }}', template: 'Template 1' }
+  - { site: 'aws_{{ mso_site | default("ansible_test") }}', template: 'Template 2' }
+  when: version.current.version is version('3', '<')
+
+- name: Add physical site to a schema
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 3
+    state: present
 
 - name: Ensure VRF1 exists
   mso_schema_template_vrf:
@@ -111,7 +145,7 @@
   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_2' }
   - { schema: '{{ mso_schema | default("ansible_test") }}_2', template: 'Template 4', anp: 'ANP_4' }
 
-- name: Add ANP to site
+- name: Add ANP to site azure
   mso_schema_site_anp:
     <<: *mso_info
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -120,12 +154,32 @@
     anp: ANP
     state: present
   register: add_anp
+  when: version.current.version is version('3', '<')
 
 - name: Verify add_anp
   assert:
     that:
     - add_anp is changed
     - add_anp.current.anpRef.anpName == 'ANP'
+  when: version.current.version is version('3', '<')
+
+- name: Add ANP to site aws
+  mso_schema_site_anp:
+    <<: *mso_info
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    anp: ANP_2
+    state: present
+  register: add_anp
+  when: version.current.version is version('3', '<')
+
+- name: Verify add_anp
+  assert:
+    that:
+    - add_anp is changed
+    - add_anp.current.anpRef.anpName == 'ANP_2'
+  when: version.current.version is version('3', '<')
 
 - name: Add ANPs to site
   mso_schema_site_anp:
@@ -136,7 +190,6 @@
     anp: '{{ item.anp }}'
     state: present
   loop:
-  - { site: 'aws_{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 2', anp: 'ANP_2' }
   - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3' }
   - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_1' }
   - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_2' }
@@ -172,13 +225,13 @@
     - query_all is not changed
 
 # DELETE the ANP
-- name: Delete ANP1 (normal mode)
+- name: Delete ANP3 (normal mode)
   mso_schema_site_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    anp: ANP_2
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 3
+    anp: ANP_3
     state: absent
   register: delete_anp
 
@@ -192,9 +245,9 @@
   mso_schema_site_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    anp: ANP_2
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 3
+    anp: ANP_3
     state: absent
   register: delete_anp_again
 
@@ -209,8 +262,8 @@
   mso_schema_site_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
-    template: Template 1
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 3
     anp: non_existing_anp
     state: query
   ignore_errors: yes
@@ -299,9 +352,9 @@
   mso_schema_site_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 2
+    anp: ANP_2
     state: query
   ignore_errors: yes
   register: nm_non_existing_site_template
@@ -310,4 +363,12 @@
   assert:
     that:
     - nm_non_existing_site_template is not changed
-    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'aws_ansible_test/[0-9a-zA-Z]*/Template1' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1")
+    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1, [0-9a-zA-Z]*/Template2, [0-9a-zA-Z]*/Template3")
+  when: version.current.version is version('3', '<')
+
+- name: Verify non_existing_site_template
+  assert:
+    that:
+    - nm_non_existing_site_template is not changed
+    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template3")
+  when: version.current.version is version('3', '>')

@@ -10,15 +10,39 @@
 
 
 # CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# REMOVE DHCP POLICY
+- name: Remove DHCP Option Policy
+  mso_dhcp_option_policy: &remove_dhcp
+    <<: *mso_info
+    dhcp_option_policy: '{{ item }}'
+    state: absent
+  loop:
+  - ansible_dhcp_option_1
+  - ansible_dhcp_option_2
+
+- name: Remove DHCP Relay Policy
+  mso_dhcp_relay_policy:
+    <<: *mso_info
+    dhcp_relay_policy: '{{ item }}'
+    state: absent
+  loop:
+  - ansible_dhcp_relay_1
+  - ansible_dhcp_relay_2
+
 - name: Remove label ansible_test
   mso_label: &label_absent
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     label: ansible_test
     state: absent
 
@@ -30,13 +54,7 @@
 
 - name: Remove label ansible_test3
   mso_label: &domain_label_absent
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     state: absent
     label: ansible_test3
     login_domain: Local
@@ -51,13 +69,7 @@
 # ADD LABEL
 - name: Add label (check_mode)
   mso_label: &label_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     label: ansible_test
     state: present
   check_mode: yes
@@ -183,13 +195,7 @@
 # QUERY ALL LABELS
 - name: Query all labels (check_mode)
   mso_label: &label_query
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     state: query
   check_mode: yes
   register: cm_query_all_labels
@@ -305,13 +311,7 @@
 # add label with login domain
 - name: Add label local domain(normal mode)
   mso_label: &domain_label_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     state: present
     label: ansible_test3
     login_domain: Local

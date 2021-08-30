@@ -276,6 +276,13 @@ class MSOModule(object):
             self.params['output_level'] = 'debug'
 
         if self.module._socket_path is None:
+            if self.params.get('use_ssl') is None:
+                self.params['use_ssl'] = True
+            if self.params.get('use_proxy') is None:
+                self.params['use_proxy'] = True
+            if self.params.get('validate_certs') is None:
+                self.params['validate_certs'] = True
+
             # Ensure protocol is set
             self.params['protocol'] = 'https' if self.params.get('use_ssl', True) else 'http'
 

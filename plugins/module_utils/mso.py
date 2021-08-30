@@ -98,9 +98,9 @@ def mso_argument_spec():
         password=dict(type='str', required=False, no_log=True, fallback=(env_fallback, ['MSO_PASSWORD', 'ANSIBLE_NET_PASSWORD'])),
         output_level=dict(type='str', default='normal', choices=['debug', 'info', 'normal'], fallback=(env_fallback, ['MSO_OUTPUT_LEVEL'])),
         timeout=dict(type='int', default=30, fallback=(env_fallback, ['MSO_TIMEOUT'])),
-        use_proxy=dict(type='bool', default=True, fallback=(env_fallback, ['MSO_USE_PROXY'])),
-        use_ssl=dict(type='bool', default=True, fallback=(env_fallback, ['MSO_USE_SSL'])),
-        validate_certs=dict(type='bool', default=True, fallback=(env_fallback, ['MSO_VALIDATE_CERTS'])),
+        use_proxy=dict(type='bool', fallback=(env_fallback, ['MSO_USE_PROXY'])),
+        use_ssl=dict(type='bool', fallback=(env_fallback, ['MSO_USE_SSL'])),
+        validate_certs=dict(type='bool', fallback=(env_fallback, ['MSO_VALIDATE_CERTS'])),
         login_domain=dict(type='str', fallback=(env_fallback, ['MSO_LOGIN_DOMAIN'])),
     )
 

@@ -54,17 +54,20 @@ options:
     description:
     - If C(no), it will not use a proxy, even if one is defined in an environment variable on the target hosts.
     - If the value is not specified in the task, the value of environment variable C(MSO_USE_PROXY) will be used instead.
+    - The default is C(yes).
     type: bool
   use_ssl:
     description:
     - If C(no), an HTTP connection will be used instead of the default HTTPS connection.
     - If the value is not specified in the task, the value of environment variable C(MSO_USE_SSL) will be used instead.
+    - The default is C(yes).
     type: bool
   validate_certs:
     description:
     - If C(no), SSL certificates will not be validated.
     - This should only set to C(no) when used on personally controlled sites using self-signed certificates.
     - If the value is not specified in the task, the value of environment variable C(MSO_VALIDATE_CERTS) will be used instead.
+    - The default is C(yes).
     type: bool
   login_domain:
     description:

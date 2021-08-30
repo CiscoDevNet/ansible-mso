@@ -75,3 +75,22 @@
     - nm_non_existing_state is not changed
     - cm_non_existing_state == nm_non_existing_state
     - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} query, got{{':'}} non-existing-state"
+
+# query without setting username&password in task
+- name: Query MSO version
+  cisco.mso.mso_version:
+    state: query
+  register: query_version_global_params
+  when: ansible_connection != 'local'
+
+- name: Verify query_version_global_params
+  assert:
+    that:
+    - query_version_global_params is not changed
+    - query_version_global_params.current.id is defined
+    - query_version_global_params.current.version is defined
+    - query_version_global_params.current.timestamp is defined
+    - query_version_global_params.current.id == cm_query_version.current.id
+    - query_version_global_params.current.version == cm_query_version.current.version
+    - query_version_global_params.current.timestamp == cm_query_version.current.timestamp
+  when: ansible_connection != 'local'

@@ -66,7 +66,7 @@ class HttpApi(HttpApiBase):
 
     def set_backup_hosts(self):
         try:
-            list_of_hosts = re.sub(r'[[\]]', '', self.connection.get_option("host")).split(",")
+            list_of_hosts = re.sub(r'[[\]]', '', self.connection.get_option('host')).split(",")
             # ipaddress.ip_address(list_of_hosts[0])
             return list_of_hosts
         except Exception:
@@ -157,27 +157,27 @@ class HttpApi(HttpApiBase):
             except FileNotFoundError:
                 pass
             try:
-                self.connection.set_option("host", self.backup_hosts[self.host_counter])
+                self.connection.set_option('host', self.backup_hosts[self.host_counter])
             except (IndexError, TypeError):
                 pass
 
         if self.params.get('port') is not None:
-            self.connection.set_option("port", self.params.get('port'))
+            self.connection.set_option('port', self.params.get('port'))
 
         if self.params.get('username') is not None:
-            self.connection.set_option("remote_user", self.params.get('username'))
+            self.connection.set_option('remote_user', self.params.get('username'))
 
         if self.params.get('password') is not None:
-            self.connection.set_option("password", self.params.get('password'))
+            self.connection.set_option('password', self.params.get('password'))
 
         if self.params.get('use_proxy') is not None:
-            self.connection.set_option("use_proxy", self.params.get('use_proxy'))
+            self.connection.set_option('use_proxy', self.params.get('use_proxy'))
 
         if self.params.get('use_ssl') is not None:
-            self.connection.set_option("use_ssl", self.params.get('use_ssl'))
+            self.connection.set_option('use_ssl', self.params.get('use_ssl'))
 
         if self.params.get('validate_certs') is not None:
-            self.connection.set_option("validate_certs", self.params.get('validate_certs'))
+            self.connection.set_option('validate_certs', self.params.get('validate_certs'))
 
         # Perform some very basic path input validation.
         path = str(path)
@@ -205,10 +205,10 @@ class HttpApi(HttpApiBase):
         with open('my_hosts.pk', 'wb') as host_file:
             pickle.dump(self.host_counter, host_file)
         try:
-            self.connection.set_option("host", self.backup_hosts[self.host_counter])
+            self.connection.set_option('host', self.backup_hosts[self.host_counter])
         except IndexError:
             pass
-        self.login(self.connection.get_option("remote_user"), self.connection.get_option("password"))
+        self.login(self.connection.get_option('remote_user'), self.connection.get_option('password'))
         return True
 
     def _verify_response(self, response, method, path, data):

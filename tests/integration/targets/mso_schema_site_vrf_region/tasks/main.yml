@@ -369,12 +369,6 @@
     - cm_rm_aws_region.previous.name == nm_rm_aws_region.previous.name == "us-east-1"
     - cm_rm_azure_region.previous.name == nm_rm_azure_region.previous.name == "us-west-1"
 
-- name: Query MSO version
-  mso_version:
-    <<: *mso_info
-    state: query
-  register: version
-
 - name: Add VPN Gateway Router to Region for AWS
   cisco.mso.mso_schema_site_vrf_region:
     <<: *mso_info
@@ -382,10 +376,10 @@
     template: Template 1
     site: 'aws_{{ mso_site | default("ansible_test") }}'
     vrf: VRF1
-    region: us-east-1
+    region: us-west-1
     vpn_gateway_router: true
     state: present
-  when: version.current.version is version('3.3', '>=')
+  when: version.current.version is version('3.0.0a', '>=')
   register: add_vpn_gateway_router_aws
 
 - name: Add VPN Gateway Router to Region for Azure
@@ -398,14 +392,14 @@
     region: us-east-1
     vpn_gateway_router: true
     state: present
-  when: version.current.version is version('3.3', '>=')
+  when: version.current.version is version('3.0.0a', '>=')
   register: add_vpn_gateway_router_azure
 
 - name: Verify adding VPN Gateway Router
   assert:
     that:
     - add_vpn_gateway_router_aws.current.isVpnGatewayRouter == add_vpn_gateway_router_azure.current.isVpnGatewayRouter == true
-  when: version.current.version is version('3.3', '>=')
+  when: version.current.version is version('3.0.0a', '>=')
 
 - name: Remove VPN Gateway Router at Region for AWS (check mode)
   cisco.mso.mso_schema_site_vrf_region:
@@ -414,7 +408,7 @@
     template: Template 1
     site: 'aws_{{ mso_site | default("ansible_test") }}'
     vrf: VRF1
-    region: us-east-1
+    region: us-west-1
     vpn_gateway_router: false
     state: present
   check_mode: yes
@@ -428,7 +422,7 @@
     template: Template 1
     site: 'aws_{{ mso_site | default("ansible_test") }}'
     vrf: VRF1
-    region: us-east-1
+    region: us-west-1
     vpn_gateway_router: false
     state: present
   when: version.current.version is version('3.0.0a', '>=')
@@ -540,7 +534,7 @@
     - non_existing_schema.msg == "Provided schema 'non_existing' does not exist."
     - non_existing_site.msg == "Site 'non_existing' is not a valid site name."
     - non_existing_site_template.msg == "Provided site-template association 'aws_ansible_test-Template2' does not exist."
-    - non_existing_vrf.msg == "Provided vrf 'non_existing' does not exist. Existing vrfs{{':'}} VRF1, VRF2"
+    - non_existing_vrf.msg == "Provided vrf 'non_existing' does not exist. Existing vrfs{{':'}} VRF1"
     - non_existing_region.msg == "Region 'non_existing' not found"
 
 - name: Delete non_existing region

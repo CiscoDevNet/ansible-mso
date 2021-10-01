@@ -563,12 +563,14 @@
     <<: *aws_cidr
     state: absent
   register: remove_subnet
+  when: version.current.version is version('3.3', '>=')
 
 - name: Verify nm_remove_subnet
   assert:
     that:
     - remove_subnet is changed
     - remove_subnet.current == {}
+  when: version.current.version is version('3.3', '>=')
 
 # QUERY NON-EXISTING subnet in CIDR
 - name: Query non-existing subnet (check_mode)
@@ -617,7 +619,7 @@
     - cm_query_non_cidr is not changed
     - nm_query_non_cidr is not changed
     - cm_query_non_cidr == nm_query_non_cidr
-    - cm_query_non_cidr.msg == nm_query_non_cidr.msg == "Provided CIDR IP 'non_existing_cidr' does not exist. Existing CIDR IPs{{':'}} 10.0.0.0/16, 10.2.0.0/16. Use mso_schema_site_vrf_region_cidr to create it."
+    - cm_query_non_cidr.msg == nm_query_non_cidr.msg == "Provided CIDR IP 'non_existing_cidr' does not exist. Existing CIDR IPs{{':'}} 10.0.0.0/16. Use mso_schema_site_vrf_region_cidr to create it."
 
 # QUERY NON-EXISTING region
 - name: Query non-existing region (check_mode)

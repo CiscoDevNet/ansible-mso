@@ -536,7 +536,7 @@ def main():
         if dhcp_labels:
             payload.update(dhcpLabels=dhcp_labels)
 
-        if unicast_routing:
+        if not unicast_routing:
             payload.update(unicastRouting=unicast_routing)
 
         if description:

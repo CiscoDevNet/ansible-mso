@@ -139,7 +139,7 @@ def mso_bd_subnet_spec():
 
 def mso_dhcp_spec():
     return dict(
-        dhcp_option_policy=dict(type='dict', option=mso_dhcp_option_spec()),
+        dhcp_option_policy=dict(type='dict', options=mso_dhcp_option_spec()),
         name=dict(type='str', required=True),
         version=dict(type='int', required=True),
     )

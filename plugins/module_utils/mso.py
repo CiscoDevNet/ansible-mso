@@ -94,7 +94,7 @@ def mso_argument_spec():
     return dict(
         host=dict(type='str', required=False, aliases=['hostname'], fallback=(env_fallback, ['MSO_HOST'])),
         port=dict(type='int', required=False, fallback=(env_fallback, ['MSO_PORT'])),
-        username=dict(type='str', default='admin', fallback=(env_fallback, ['MSO_USERNAME', 'ANSIBLE_NET_USERNAME'])),
+        username=dict(type='str', required=False, fallback=(env_fallback, ['MSO_USERNAME', 'ANSIBLE_NET_USERNAME'])),
         password=dict(type='str', required=False, no_log=True, fallback=(env_fallback, ['MSO_PASSWORD', 'ANSIBLE_NET_PASSWORD'])),
         output_level=dict(type='str', default='normal', choices=['debug', 'info', 'normal'], fallback=(env_fallback, ['MSO_OUTPUT_LEVEL'])),
         timeout=dict(type='int', default=30, fallback=(env_fallback, ['MSO_TIMEOUT'])),
@@ -294,6 +294,9 @@ class MSOModule(object):
                 self.base_only_uri = '{protocol}://{host}/'.format(**self.params)
                 self.baseuri = '{0}api/v1/'.format(self.base_only_uri)
 
+            if self.params.get('host') is None:
+                self.fail_json(msg="Parameter 'host' is required when not using the HTTP API connection plugin")
+
             if self.params.get('password'):
                 # Perform password-based authentication, log on using password
                 self.login()
@@ -321,9 +324,9 @@ class MSOModule(object):
         # Perform login request
         if (self.params.get('login_domain') is not None) and (self.params.get('login_domain') != 'Local'):
             domain_id = self.get_login_domain_id(self.params.get('login_domain'))
-            payload = {'username': self.params.get('username'), 'password': self.params.get('password'), 'domainId': domain_id}
+            payload = {'username': self.params.get('username', 'admin'), 'password': self.params.get('password'), 'domainId': domain_id}
         else:
-            payload = {'username': self.params.get('username'), 'password': self.params.get('password')}
+            payload = {'username': self.params.get('username', 'admin'), 'password': self.params.get('password')}
         self.url = urljoin(self.baseuri, 'auth/login')
         resp, auth = fetch_url(self.module,
                                self.url,

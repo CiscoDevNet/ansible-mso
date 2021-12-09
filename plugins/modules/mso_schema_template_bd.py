@@ -91,10 +91,12 @@ options:
             description:
             - The name of the DHCP Option Policy
             type: str
+            required: yes
           version:
             description:
             - The version of the DHCP Option Policy
             type: int
+            required: yes
   dhcp_policies:
     description:
     - A list DHCP Policies to be assciated with the BD
@@ -121,10 +123,12 @@ options:
             description:
             - The name of the DHCP Option Policy
             type: str
+            required: yes
           version:
             description:
             - The version of the DHCP Option Policy
             type: int
+            required: yes
   subnets:
     description:
     - The subnets associated to this BD.

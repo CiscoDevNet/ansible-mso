@@ -224,13 +224,13 @@ def main():
         aws_trusted=dict(type='bool'),
         azure_access_type=dict(type='str', default='shared', choices=['managed', 'unmanaged', 'shared']),
         azure_active_directory_id=dict(type='str'),
-        aws_access_key=dict(type='str'),
+        aws_access_key=dict(type='str', no_log=True),
         aws_account_org=dict(type='bool', default='false'),
         azure_active_directory_name=dict(type='str'),
         azure_subscription_id=dict(type='str'),
         azure_application_id=dict(type='str'),
         azure_credential_name=dict(type='str'),
-        secret_key=dict(type='str'),
+        secret_key=dict(type='str', no_log=True),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 

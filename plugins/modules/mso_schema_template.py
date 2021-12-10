@@ -54,6 +54,11 @@ options:
     type: str
     choices: [ absent, present, query ]
     default: present
+  template_type:
+    description:
+    - Type of the template 
+    type: srt
+    default: ACI 
 notes:
 - Due to restrictions of the MSO REST API this module creates schemas when needed, and removes them when the last template has been removed.
 seealso:
@@ -71,6 +76,7 @@ EXAMPLES = r'''
     tenant: Tenant 1
     schema: Schema 1
     template: Template 1
+    template_type: ACI
     state: present
   delegate_to: localhost
 
@@ -125,6 +131,7 @@ def main():
         template_description=dict(type='str'),
         template=dict(type='str', aliases=['name']),
         display_name=dict(type='str'),
+        template_type=dict(type='str', default='ACI'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -146,6 +153,7 @@ def main():
         template = template.replace(' ', '')
     display_name = module.params.get('display_name')
     state = module.params.get('state')
+    template_type = module.params.get('template_type')
 
     mso = MSOModule(module)
 
@@ -213,6 +221,9 @@ def main():
                 sites=[],
             )
 
+            if template_type == 'DCNM':
+                payload['templates'][0].update({"templateSubType": ["networking"]})
+
             if schema_description is not None:
                 payload.update(description=schema_description)
             if template_description is not None:
@@ -245,6 +256,9 @@ def main():
                 displayName=display_name,
                 tenantId=tenant_id,
             )
+
+            if template_type == 'DCNM':
+                payload.update({"templateSubType": ["networking"]})
 
             mso.sanitize(payload, collate=True)
 

@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
 # Copyright: (c) 2021, Cassio Lange (calange) <calange@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -18,6 +19,7 @@ short_description: Manage DCNM VRFs in schema templates
 description:
 - Manage VRFs in schema templates on Cisco ACI Multi-Site.
 author:
+- Dag Wieers (@dagwieers)
 - Cassio Lange (@calange)
 options:
   schema:

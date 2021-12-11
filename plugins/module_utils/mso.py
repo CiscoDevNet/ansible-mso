@@ -774,10 +774,14 @@ class MSOModule(object):
 
         ids = []
         for user in users:
-            if self.platform == "nd":
-                u = self.get_obj('users', loginID=user, api_version='v2')
-            else:
-                u = self.get_obj('users', username=user)
+            # if self.platform == "nd":
+            #     u = self.get_obj('users', loginID=user, api_version='v2')
+            # else:
+            #     u = self.get_obj('users', username=user)
+            all_users= self.request('api/config/class/localusers/', api_version=None, method='GET')
+            for loop_users in all_users:
+                if loop_users['loginID'] == user:
+                    u = loop_users
             if not u:
                 self.fail_json(msg="User '%s' is not a valid user name." % user)
             if 'id' not in u:

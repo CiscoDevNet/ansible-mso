@@ -719,7 +719,12 @@ class MSOModule(object):
         if site is None:
             return site
 
-        s = self.get_obj('sites', name=site)
+        # s = self.get_obj('sites', name=site)
+        all_sites = self.request('mso/api/v2/sites', api_version=None, method='GET')
+        for loop_site in all_sites['sites']:
+            if loop_site['common']['name'] == site:
+                s = loop_site
+
         if not s:
             self.fail_json(msg="Site '%s' is not a valid site name." % site)
         if 'id' not in s:

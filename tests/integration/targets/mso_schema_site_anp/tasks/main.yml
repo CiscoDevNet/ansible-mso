@@ -194,6 +194,22 @@
   - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_1' }
   - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_2' }
 
+- name: Add ANPs to site again
+  mso_schema_site_anp:
+    <<: *mso_info
+    site:  '{{ mso_site | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: 'Template 3'
+    anp: 'ANP_3'
+    state: present
+  register: add_anp_again
+
+- name: Verify add_anp_again
+  assert:
+    that:
+    - add_anp_again is not changed
+    - add_anp_again.current.anpRef.anpName == 'ANP_3'
+
 # QUERY  ANPs
 - name: Query specific ANP (normal mode)
   mso_schema_site_anp:
@@ -223,6 +239,7 @@
   assert:
     that:
     - query_all is not changed
+    - query_all | length >= 3
 
 # DELETE the ANP
 - name: Delete ANP3 (normal mode)

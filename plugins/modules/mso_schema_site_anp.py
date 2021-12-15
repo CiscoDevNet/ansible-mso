@@ -196,7 +196,9 @@ def main():
 
         mso.sanitize(payload, collate=True)
 
-        if not mso.existing:
+        if mso.existing:
+            ops.append(dict(op='replace', path=anp_path, value=mso.sent))
+        else:
             ops.append(dict(op='add', path=anps_path + '/-', value=mso.sent))
 
         mso.existing = mso.proposed

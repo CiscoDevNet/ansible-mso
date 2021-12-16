@@ -541,7 +541,6 @@ def main():
         else:
             payload.update(unicastRouting=False)
 
-
         if description:
             payload.update(description=description)
 

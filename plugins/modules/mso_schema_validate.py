@@ -22,6 +22,7 @@ description:
 - This module will check those validation after all changes have been made.
 author:
 - Anvitha Jain (@anvitha-jain)
+version_added: "1.3.0"
 options:
   schema:
     description:

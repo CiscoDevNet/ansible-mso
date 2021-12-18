@@ -151,9 +151,8 @@
     that:
     - aaws_cm is changed
     - aaws_cm.current.awsAccount != 'null'
-    - aaws_cm.current.awsAccount[0].accessKeyId == '1'
-    - aaws_cm.current.awsAccount[0].secretKey == '0'
-    - aaws_cm.current.awsAccount[0].accountId == '000000000000'
+    - aaws_cm.current.awsAccount[0].isAccountInOrg == false
+    - aaws_cm.current.awsAccount[0].isTrusted == false
 
 - name: Associate aws site with ansible_test in normal mode
   mso_tenant_site:
@@ -172,9 +171,8 @@
     that:
     - aaws_nm is changed
     - aaws_nm.current.awsAccount != 'null'
-    - aaws_nm.current.awsAccount[0].accessKeyId == '1'
-    - aaws_nm.current.awsAccount[0].secretKey == '0'
-    - aaws_nm.current.awsAccount[0].accountId == '000000000000'
+    - aaws_nm.current.awsAccount[0].isAccountInOrg == false
+    - aaws_nm.current.awsAccount[0].isTrusted == false
 
 - name: Associate aws site with ansible_test again in normal mode
   mso_tenant_site:
@@ -484,7 +482,6 @@
     - aazure_credentials_nm.current.azureAccount[0].cloudApplication[0].cloudApplicationId == '100'
     - aazure_credentials_nm.current.azureAccount[0].cloudApplication[0].cloudActiveDirectoryId == '32'
     - aazure_credentials_nm.current.azureAccount[0].cloudApplication[0].cloudCredentialName == 'cApicApp'
-    - aazure_credentials_nm.current.azureAccount[0].cloudApplication[0].secretKey == 'iins'
 
 - name: Associate azure site with credentials mode, with ansible_test again in normal mode
   mso_tenant_site:

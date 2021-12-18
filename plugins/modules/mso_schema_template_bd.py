@@ -229,7 +229,6 @@ options:
     - Unicast Routing
     - This option can only be used on versions of MSO that are 3.1.1h or greater.
     type: bool
-    default: false
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -425,7 +424,7 @@ def main():
         ipv6_unknown_multicast_flooding=dict(type='str', choices=['optimized_flooding', 'flood']),
         arp_flooding=dict(type='bool'),
         virtual_mac_address=dict(type='str'),
-        unicast_routing=dict(type='bool', default=False),
+        unicast_routing=dict(type='bool'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -542,8 +541,9 @@ def main():
 
         if unicast_routing:
             payload.update(unicastRouting=True)
-        else:
-            payload.update(unicastRouting=False)
+        elif unicast_routing is not None:
+            if mso.existing and mso.existing.get('unicastRouting') is not None:
+                payload.update(unicastRouting=False)
 
         if description:
             payload.update(description=description)

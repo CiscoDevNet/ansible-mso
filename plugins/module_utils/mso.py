@@ -9,6 +9,7 @@ __metaclass__ = type
 from copy import deepcopy
 import re
 import os
+import ast
 import datetime
 import shutil
 import tempfile
@@ -703,12 +704,16 @@ class MSOModule(object):
 
         ids = []
         for role in roles:
-            name = role
             access_type = "readWrite"
-            if 'name' in role:
-                name = role.get('name')
-                if role.get('access_type') == 'read':
-                    access_type = 'readOnly'
+            try:
+                role = ast.literal_eval(role)
+                if type(role) is dict and 'name' in role:
+                    name = role.get('name')
+                    if role.get('access_type') == 'read':
+                        access_type = 'readOnly'
+            except ValueError:
+                name = role
+
             r = self.get_obj('roles', name=name)
             if not r:
                 self.fail_json(msg="Role '%s' is not a valid role name." % name)

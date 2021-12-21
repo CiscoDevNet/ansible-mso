@@ -71,7 +71,7 @@ Getting the latest/nightly collection build
 ### First Approach
 Clone the ansible-mso repository.
 ```
-git clone https://github.com/CiscoDevNet/ansible-mso.git
+git clone https://github.com/cassiolange/ansible-mso.git
 ```
 
 Go to the ansible-mso directory
@@ -91,7 +91,7 @@ ansible-galaxy collection install cisco-mso-* --force
 ```
 
 ### Second Approach
-Go to: https://github.com/CiscoDevNet/ansible-mso/actions
+Go to: https://github.com/cassiolange/ansible-mso/actions
 
 Select the latest CI build
 

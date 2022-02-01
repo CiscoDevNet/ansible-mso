@@ -59,7 +59,7 @@ ansible_httpapi_use_ssl=True
 ansible_httpapi_use_proxy=True
 ```
 
-You can also use the Nexus Dashboard (ND) connection plugin available in the [cisco.nd](https://galaxy.ansible.com/cisco/nd) collection by changin the following variable.
+You can also use the Nexus Dashboard (ND) connection plugin available in the [cisco.nd](https://galaxy.ansible.com/cisco/nd) collection by changing the following variable.
 ```yaml
 ansible_connection=ansible.netcommon.httpapi
 ansible_network_os=cisco.nd.nd

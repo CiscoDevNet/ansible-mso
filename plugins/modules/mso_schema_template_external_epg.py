@@ -316,6 +316,9 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
+            # clean anpRef when anpRef is null
+            if 'anpRef' in mso.existing and mso.existing.get('anpRef') is None:
+                del(mso.existing['anpRef'])
             # clean contractRef to fix api issue
             for contract in mso.sent.get('contractRelationships'):
                 contract['contractRef'] = mso.dict_from_ref(contract.get('contractRef'))
@@ -325,7 +328,7 @@ def main():
 
         mso.existing = mso.proposed
 
-    if not module.check_mode:
+    if not module.check_mode and mso.proposed != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)
 
     mso.exit_json()

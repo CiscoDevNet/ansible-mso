@@ -865,7 +865,7 @@ class MSOModule(object):
 
     def dict_from_ref(self, data):
         if data and data != '':
-            ref_regex = re.compile(r'\/schemas\/(.*)\/templates\/(.*)\/(.*)\/(.*)')
+            ref_regex = re.compile(r'\/schemas\/(.*)\/templates\/(.*?)\/(.*?)\/(.*)')
             dic = ref_regex.search(data)
             if dic is not None:
                 schema_id = dic.group(1)
@@ -881,13 +881,38 @@ class MSOModule(object):
                     'anps': ['anpName', 'schemaId', 'templateName'],
                 }
                 result = {
-                    uri_map[category][0]: name,
                     uri_map[category][1]: schema_id,
                     uri_map[category][2]: template_name,
                 }
+
+                self.recursive_dict_from_ref_regex(name, result, uri_map[category][0])
+
                 return result
             else:
                 self.fail_json(msg="There was no group in search: {data}".format(data=data))
+
+    def recursive_dict_from_ref_regex(self, data, result, category):
+        continued_ref_regex = re.compile(r'(.*?)\/([a-zA-Z]+.*)')
+        section_ref_regex = re.compile(r'([a-zA-Z]+)\/(.*)')
+        dic_name = continued_ref_regex.search(data)
+        if dic_name is not None:
+            result[category] = dic_name.group(1)
+            next_section = dic_name.group(2)
+            dic_next_section = section_ref_regex.search(next_section)
+            if dic_next_section is not None:
+                next_name = dic_next_section.group(2)
+                self.recursive_dict_from_ref_regex(next_name, result, dic_next_section.group(1).rstrip("s") + "Name")
+        else:
+            result[category] = data
+
+    def recursive_dict_from_ref(self, data):
+        for key in data:
+            if key.endswith('Ref'):
+                data[key] = self.dict_from_ref(data.get(key))
+            if isinstance(data[key], list):
+                for item in data[key]:
+                    self.recursive_dict_from_ref(item)
+        return data
 
     def make_reference(self, data, reftype, schema_id, template):
         ''' Create a reference from a dictionary '''

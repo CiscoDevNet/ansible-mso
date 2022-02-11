@@ -30,6 +30,17 @@
   - Destination_Schema
   - Source_Schema
 
+- name: Ensure site exists
+  mso_site:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ apic_username }}'
+    apic_password: '{{ apic_password }}'
+    apic_site_id: '{{ apic_site_id | default(101) }}'
+    urls:
+    - https://{{ apic_hostname }}
+    state: present
+
 - name: Ensure tenant ansible_test exists
   mso_tenant: 
     <<: *mso_info

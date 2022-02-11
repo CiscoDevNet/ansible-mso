@@ -659,7 +659,7 @@
     - nm_change_bd_5_3.msg is match ("MSO Error 143{{':'}} Invalid Field{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
   when: version.current.version is version('3.1.1g', '<')
 
-- name: Verify nm_change_bd_5_3 for a version that's after 3.1 and before 3.3
+- name: Verify nm_change_bd_5_3 for a version that's after 3.1 and before 3.3 or after and equal to 3.6
   assert:
     that:
     - nm_change_bd_5_3 is changed
@@ -682,7 +682,16 @@
     that:
     - query_validate is not changed
     - query_validate.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template5', BD 'ansible_test_5' {{':'}} ARP Flooding has to be disabled if L2 Stretch enabled and BUM traffic disabled exception while trying to update schema")
-  when: version.current.version is version('3.3', '>=')
+  when:
+  - version.current.version is version('3.3', '>=')
+  - version.current.version is version('3.6', '<')
+
+- name: Verify query_validate for a version that's after 3.3
+  assert:
+    that:
+    - query_validate is not changed
+    - query_validate.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off exception while trying to update schema")
+  when: version.current.version is version('3.6', '>=')
 
 # Reverting back to bd 5_2
 - name: Change bd 5_3 (normal mode)
@@ -1306,7 +1315,7 @@
     - nm_bd_desc.current.description == "ansible_test_bd"
   when: version.current.version is version('3.3', '>=')
 
-- name: Add bd with chage in description in mso versions >= 3.3
+- name: Add bd with change in description in mso versions >= 3.3
   mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -1357,13 +1366,23 @@
     - cm_query_all_bds.current | length == cm_query_all_bds.current | length == 2
   when: version.current.version is version('3.1.1g', '<')
 
-- name: Verify query_all_bds for version > 3.1.1g
+- name: Verify query_all_bds for version > 3.1.1g and version < 3.3
   assert:
     that:
     - cm_query_all_bds is not changed
     - nm_query_all_bds is not changed
     - cm_query_all_bds.current | length == cm_query_all_bds.current | length == 3
-  when: version.current.version is version('3.1.1g', '>')
+  when:
+  - version.current.version is version('3.1.1g', '>')
+  - version.current.version is version('3.3', '<')
+
+- name: Verify query_all_bds for version >= 3.3
+  assert:
+    that:
+    - cm_query_all_bds is not changed
+    - nm_query_all_bds is not changed
+    - cm_query_all_bds.current | length == cm_query_all_bds.current | length == 5
+  when: version.current.version is version('3.3', '>=')
 
 # QUERY A BD
 - name: Query bd 1
@@ -1478,6 +1497,7 @@
   assert:
     that:
     - query_nm_bd_dhcp_policies is not changed
+    - query_nm_bd_dhcp_policies.current.name == 'ansible_test_multiple_dhcp'
     - query_nm_bd_dhcp_policies.current.dhcpLabels | length == 2
     - query_nm_bd_dhcp_policies.current.dhcpLabels[0].name == 'ansible_test_dhcp_policy1'
     - query_nm_bd_dhcp_policies.current.dhcpLabels[1].name == 'ansible_test_dhcp_policy2'
@@ -1502,20 +1522,17 @@
   assert:
     that:
     - query_bd_new_encap_flood is not changed
-    - query_bd_new_encap_flood.current.name == 'ansible_test_multiple_dhcp'
+    - query_bd_new_encap_flood.current.name == 'ansible_test_flood_encap'
     - query_bd_new_encap_flood.current.intersiteBumTrafficAllow == true
     - query_bd_new_encap_flood.current.optimizeWanBandwidth == false
-    - query_bd_new_encap_flood.current.l2Stretch == true
+    - query_bd_new_encap_flood.current.l2Stretch == false
     - query_bd_new_encap_flood.current.l2UnknownUnicast == "flood"
     - query_bd_new_encap_flood.current.unkMcastAct == "flood"
-    - query_bd_new_encap_flood.current.multiDstPktAct == "drop"
+    - query_bd_new_encap_flood.current.multiDstPktAct == "encap-flood"
     - query_bd_new_encap_flood.current.l3MCast == false
     - query_bd_new_encap_flood.current.arpFlood == true
     - query_bd_new_encap_flood.current.v6unkMcastAct == "flood"
-    - query_bd_new_encap_flood.current.vmac == "00:00:5E:00:01:3C"
     - query_bd_new_encap_flood.current.unicastRouting == true
-    - query_bd_new_encap_flood.current.subnets[2].primary == true
-    - query_bd_new_encap_flood.current.subnets[2].virtual == true
   when: version.current.version is version('3.1.1g', '>')
 
 # REMOVE BD

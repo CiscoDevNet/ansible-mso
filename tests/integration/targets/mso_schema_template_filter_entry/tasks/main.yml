@@ -64,7 +64,19 @@
     template: Template1
     state: present
 
-- name: Create filter with filter entry
+- name: Create filter with filter entry (check_model)
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: filter1
+    filter_display_name: filter1
+    entry: filter_entry1
+    state: present
+  check_mode: yes
+  register: cm_add_filter
+
+- name: Create filter with filter entry (normal mode)
   cisco.mso.mso_schema_template_filter_entry:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -72,9 +84,32 @@
     filter: filter1
     entry: filter_entry1
     state: present
-  register: add_filter
+  register: nm_add_filter
 
-- name: Add description to filter and filter entry for version grater than 3.3
+- name: Create filter with filter entry again
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: filter1
+    entry: filter_entry1
+    state: present
+  register: add_filter_again
+
+- name: Verify add_filter
+  assert:
+    that:
+    - cm_add_filter is changed
+    - cm_add_filter.previous == {}
+    - cm_add_filter.current.name == "filter_entry1"
+    - nm_add_filter is changed
+    - nm_add_filter.previous == {}
+    - nm_add_filter.current.name == "filter_entry1"
+    - add_filter_again is not changed
+    - add_filter_again.previous.name == "filter_entry1"
+    - nm_add_filter.current == add_filter_again.current
+
+- name: Add description to filter and filter entry for version greater than 3.3
   cisco.mso.mso_schema_template_filter_entry:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -87,15 +122,13 @@
   register: add_filter_descr
   when: version.current.version is version('3.3', '>=')
 
-- name: Create filter with filter entry again
-  cisco.mso.mso_schema_template_filter_entry:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template1
-    filter: filter1
-    entry: filter_entry1
-    state: present
-  register: add_filter_again
+- name: Verify add_filter_only
+  assert:
+    that:
+    - add_filter_descr is changed
+    - add_filter_descr.current.description == "filter entry description"
+  when: version.current.version is version('3.3', '>=')
+
 
 - name: Create filter without filter entry
   cisco.mso.mso_schema_template_filter_entry:
@@ -119,6 +152,20 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     filter: filter1
+    filter_display_name: filter1
+    display_name: '{{ item }}'
+    ethertype: ip
+    ip_protocol: tcp
+    tcp_session_rules:
+    - acknowledgement
+    - established
+    source_from: 22
+    source_to: 22
+    destination_from: 22
+    destination_to: 22
+    arp_flag: request
+    stateful: true
+    fragments_only: false
     entry: '{{ item }}'
     state: present
   register: add_multiple_entries
@@ -217,6 +264,16 @@
     - nm_non_existing_template is not changed
     - nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1"
 
+- name: Query non_existing_filter
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    filter: non_existing_filter
+    state: query
+  ignore_errors: yes
+  register: query_non_existing_filter
+
 - name: Delete non_existing_filter
   cisco.mso.mso_schema_template_filter_entry:
     <<: *mso_info
@@ -239,9 +296,11 @@
   ignore_errors: yes
   register: remove_non_existing_entry
 
-- name: Verify nm_non_existing_template
+- name: Verify non_existing
   assert:
     that:
+    - query_non_existing_filter is not changed
+    - query_non_existing_filter.msg == "Filter 'non_existing_filter' not found"
     - remove_non_existing_filter is not changed
     - remove_non_existing_entry is not changed
     - nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1"

@@ -619,7 +619,18 @@
     - cm_query_non_cidr is not changed
     - nm_query_non_cidr is not changed
     - cm_query_non_cidr == nm_query_non_cidr
+
+- name: Verify query_non_cidr value (version < 3.3)
+  assert:
+    that:
     - cm_query_non_cidr.msg == nm_query_non_cidr.msg == "Provided CIDR IP 'non_existing_cidr' does not exist. Existing CIDR IPs{{':'}} 10.0.0.0/16. Use mso_schema_site_vrf_region_cidr to create it."
+  when: version.current.version is version('3.3', '<')
+
+- name: Verify query_non_cidr value (version >= 3.3)
+  assert:
+    that:
+    - cm_query_non_cidr.msg == nm_query_non_cidr.msg == "Provided CIDR IP 'non_existing_cidr' does not exist. Existing CIDR IPs{{':'}} 10.0.0.0/16, 10.2.0.0/16. Use mso_schema_site_vrf_region_cidr to create it."
+  when: version.current.version is version('3.3', '>=')
 
 # QUERY NON-EXISTING region
 - name: Query non-existing region (check_mode)

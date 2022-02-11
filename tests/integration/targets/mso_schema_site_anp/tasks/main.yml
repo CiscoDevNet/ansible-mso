@@ -34,7 +34,7 @@
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
-- name: Ensure site exists
+- name: Ensure physical site exists
   mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
@@ -44,7 +44,28 @@
     urls:
     - https://{{ apic_hostname }}
     state: present
-  ignore_errors: yes
+
+- name: Ensure aws site exists
+  mso_site:
+    <<: *mso_info
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ aws_apic_username }}'
+    apic_password: '{{ aws_apic_password }}'
+    apic_site_id: '{{ aws_site_id | default(102) }}'
+    urls:
+    - https://{{ aws_apic_hostname }}
+    state: present
+
+- name: Ensure azure site exists
+  mso_site:
+    <<: *mso_info
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ azure_apic_username }}'
+    apic_password: '{{ azure_apic_password }}'
+    apic_site_id: '{{ azure_site_id | default(103) }}'
+    urls:
+    - https://{{ azure_apic_hostname }}
+    state: present
 
 - name: Ensure tenant ansible_test exists
   mso_tenant:

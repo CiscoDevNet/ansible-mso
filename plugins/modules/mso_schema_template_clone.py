@@ -18,7 +18,6 @@ short_description: Clone templates
 description:
 - Clone templates on Cisco ACI Multi-Site.
 - Clones only template objects and not site objects.
-- This module can only be used on versions of MSO that are 3.3 or greater.
 author:
 - Anvitha Jain (@anvitha-jain)
 options:
@@ -106,6 +105,7 @@ RETURN = r'''
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+import json
 
 
 def main():
@@ -124,7 +124,7 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'clone', ['destination_schema', 'destination_tenant']],
+            ['state', 'clone', ['source_schema', 'source_template_name']],
         ],
     )
 
@@ -138,7 +138,24 @@ def main():
 
     mso = MSOModule(module)
 
+    source_schema_id = None
     destination_schema_id = None
+    destination_tenant_id = None
+    ops = []
+
+    if destination_schema is None:
+        destination_schema = source_schema
+
+    if destination_template_name is None:
+        destination_template_name = source_template_name
+
+    if destination_template_display_name is None:
+        destination_template_display_name = destination_template_name
+
+    # Check if source and destination template are named differently if in same schema
+    if source_schema == destination_schema:
+        if source_template_name == destination_template_name:
+            mso.fail_json(msg="Source and destination templates in the same schema cannot have same names.")
 
     # Get source schema id and destination schema id
     schema_summary = mso.query_objs('schemas/list-identity', key='schemas')
@@ -146,45 +163,56 @@ def main():
     for schema in schema_summary:
         if schema.get('displayName') == source_schema:
             source_schema_id = schema.get('id')
+
         if schema.get('displayName') == destination_schema:
             destination_schema_id = schema.get('id')
-            destination_schema = None
-            break
-    if destination_schema_id is None:
+            for template in schema.get('templates'):
+                if template.get('name') == destination_template_name:
+                    mso.fail_json(msg="Template with the name '{0}' already exists. Please use another name.".format(destination_template_name))
+
+    if source_schema_id is None:
+        mso.fail_json(msg="Schema with the name '{0}' does not exist.".format(source_schema))
+    elif destination_schema_id is None:
         mso.fail_json(msg="Schema with the name '{0}' does not exist.".format(destination_schema))
 
-    # Get destination tenant id
-    destination_tenant_id = mso.lookup_tenant(destination_tenant)
-
-    path = 'schemas/cloneTemplates'
+    # Get destination schema details before change
+    destination_schema_path = "schemas/{0}".format(destination_schema_id)
+    mso.existing = mso.query_obj(destination_schema_path, displayName=destination_schema)
 
     if state == 'clone':
-        if destination_template_display_name is None:
-            destination_template_display_name = destination_template_name
+        # Get destination tenant id
+        if destination_tenant is not None:
+            destination_tenant_id = mso.lookup_tenant(destination_tenant)
 
-        payload = dict(
-            destTenantId=destination_tenant_id,
-            destSchemaId=destination_schema_id,
-            destSchemaName=destination_schema,
-            templatesToBeCloned=[
-                dict(
-                    schemaId=source_schema_id,
-                    templateName=source_template_name,
-                    destTemplateName=destination_template_name,
-                    destTempDisplayName=destination_template_display_name,
-                )
-            ],
-        )
+        # Get source schema details
+        source_schema_path = "schemas/{0}".format(source_schema_id)
+        source_schema_obj = mso.query_obj(source_schema_path, displayName=source_schema)
 
-        mso.sanitize(payload, collate=True)
+        source_template_path = '/{0}/templates/{1}'.format(source_schema_path, source_template_name)
+        destination_template_path = '/{0}/templates/{1}'.format(destination_schema_path, destination_template_name)
 
-        mso.previous = {}
+        source_templates = source_schema_obj.get('templates')
+        new_template = None
+        for template in source_templates:
+            if template.get('name') == source_template_name:
+                new_template = json.loads(json.dumps(template).replace(source_template_path, destination_template_path))
+                new_template['name'] = destination_template_name
+                new_template['displayName'] = destination_template_display_name
+                if destination_tenant_id is not None:
+                    new_template['tenantId'] = destination_tenant_id
+                break
 
-        if not mso.existing:
-            if module.check_mode:
-                mso.existing = {}
-            else:
-                mso.existing = mso.request(path, method='POST', data=mso.sent)
+        if new_template is None:
+            mso.fail_json(msg="Source template with the name '{0}' does not exist.".format(source_template_name))
+
+        new_template = mso.recursive_dict_from_ref(new_template)
+        mso.previous = mso.existing
+
+        ops.append(dict(op='add', path='/templates/-', value=new_template))
+        if not module.check_mode:
+            mso.request(destination_schema_path, method='PATCH', data=ops)
+
+        mso.existing = mso.query_obj(destination_schema_path, displayName=destination_schema)
 
     mso.exit_json()
 

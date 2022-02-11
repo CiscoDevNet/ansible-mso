@@ -28,439 +28,467 @@
 
 - name: Clear tenant
   mso_tenant:
-    <<: *mso_info 
+    <<: *mso_info
     tenant: Tenant1
     display_name: Test_Tenant
     state: absent
 
-- name: Query all backups 
-  mso_backup:
-    <<: *mso_info 
-    state: query
-  register: query_ansibleBackup_for_delete
+# Backup is not supported in MSO/NDO version < 3.2
+- name: Execute tasks only for MSO version < 3.2
+  when: version.current.version is version('3.2', '<')
+  block:
+  - name: Query all backups 
+    mso_backup:
+      <<: *mso_info
+      state: query
+    register: query_ansibleBackup_for_delete
 
-- name: Remove backups starting with name ansibleBackup
-  mso_backup:
-    <<: *mso_info 
-    backup:  '{{ item.name }}'
-    state: absent
-  loop: '{{ query_ansibleBackup_for_delete.current | selectattr("name", "match", "^ansibleBackup.*") | list  }}'
+  - name: Remove backups starting with name ansibleBackup
+    mso_backup:
+      <<: *mso_info
+      backup:  '{{ item.name }}'
+      state: absent
+    loop: '{{ query_ansibleBackup_for_delete.current | selectattr("name", "match", "^ansibleBackup.*") | list  }}'
 
-# Create Backups
-- name: Create ansibleBackup1 in check mode
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup1
-    description: via Ansible
-    location_type: local
-    state: present
-  register: cm_add_ansibleBackup1
-  check_mode: yes
+  # Create Backups
+  - name: Create ansibleBackup1 in check mode
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup1
+      description: via Ansible
+      location_type: local
+      state: present
+    register: cm_add_ansibleBackup1
+    check_mode: yes
 
-- name: Verify cm_add_ansibleBackup1
-  assert:
-    that:
-    - cm_add_ansibleBackup1 is changed
+  - name: Verify cm_add_ansibleBackup1
+    assert:
+      that:
+      - cm_add_ansibleBackup1 is changed
 
-- name: Create ansibleBackup1 in normal mode
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup1
-    description: via Ansible
-    location_type: local
-    state: present
-  register: nm_add_ansibleBackup1
+  - name: Create ansibleBackup1 in normal mode
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup1
+      description: via Ansible
+      location_type: local
+      state: present
+    register: nm_add_ansibleBackup1
 
-- name: Verify nm_add_ansibleBackup1
-  assert:
-    that:
-    - nm_add_ansibleBackup1.current.backupEntry.metadata.name is match("ansibleBackup1_[0-9a-zA-Z]*")
+  - name: Query ansibleBackup1 to check if it exists
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup1
+      state: query
+    register: check_ansibleBackup1
 
-- name: Create ansibleBackup2 in normal mode
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup2
-    description: via Ansible
-    location_type: local
-    state: present
-  register: nm_add_ansibleBackup2
+  - name: Verify nm_add_ansibleBackup1
+    assert:
+      that:
+      - nm_add_ansibleBackup1 is changed
+      - check_ansibleBackup1.current[0].backupEntry.metadata.name is match("ansibleBackup1_[0-9a-zA-Z]*")
 
-- name: Verify nm_add_ansibleBackup2
-  assert:
-    that:
-    - nm_add_ansibleBackup2.current.backupEntry.metadata.name is match ("ansibleBackup2_[0-9a-zA-Z]*")
+  - name: Create ansibleBackup2 in normal mode
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup2
+      description: via Ansible
+      location_type: local
+      state: present
+    register: nm_add_ansibleBackup2
 
-- name: Create ansibleBackup3 in normal mode
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup3
-    description: via Ansible
-    location_type: local
-    state: present
-  register: nm_add_ansibleBackup3
+  - name: Query ansibleBackup2 to check if it exists
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup2
+      state: query
+    register: check_ansibleBackup2
 
-- name: Verify nm_add_ansibleBackup3
-  assert:
-    that:
-    - nm_add_ansibleBackup3.current.backupEntry.metadata.name is match ("ansibleBackup3_[0-9a-zA-Z]*")
+  - name: Verify nm_add_ansibleBackup2
+    assert:
+      that:
+      - nm_add_ansibleBackup2 is changed
+      - check_ansibleBackup2.current[0].backupEntry.metadata.name is match ("ansibleBackup2_[0-9a-zA-Z]*")
 
-- name: Create ansibleBackup3 in normal mode again
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup3
-    description: via Ansible
-    location_type: local
-    state: present
-  register: nm_add_ansibleBackup3_again
+  - name: Create ansibleBackup3 in normal mode
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup3
+      description: via Ansible
+      location_type: local
+      state: present
+    register: nm_add_ansibleBackup3
 
-- name: Verify nm_add_ansibleBackup3_again
-  assert:
-    that:
-    - nm_add_ansibleBackup3_again.current.backupEntry.metadata.name is match ("ansibleBackup3_[0-9a-zA-Z]*")
+  - name: Query ansibleBackup3 to check if it exists
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup3
+      state: query
+    register: check_ansibleBackup3
 
-- name: Create ansibleBackupRemote1 in normal mode
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackupRemote1
-    description: Remote via Ansible
-    location_type: remote
-    remote_location: ansible_test
-    state: present
-  register: nm_add_ansibleBackupRemote1
+  - name: Verify nm_add_ansibleBackup3
+    assert:
+      that:
+      - nm_add_ansibleBackup3 is changed
+      - check_ansibleBackup3.current[0].backupEntry.metadata.name is match ("ansibleBackup3_[0-9a-zA-Z]*")
 
-- name: Verify nm_add_ansibleBackupRemote1
-  assert:
-    that:
-    - nm_add_ansibleBackupRemote1.current.backupEntry.metadata.name is match ("ansibleBackupRemote1_[0-9a-zA-Z]*")
+  - name: Create ansibleBackup3 in normal mode again
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup3
+      description: via Ansible
+      location_type: local
+      state: present
+    register: nm_add_ansibleBackup3_again
 
-- name: Verify nm_add_ansibleBackupRemote1
-  assert:
-    that:
-    - nm_add_ansibleBackupRemote1.current.backupEntry.metadata.name is match ("ansibleBackupRemote1_[0-9a-zA-Z]*")
+  - name: Verify nm_add_ansibleBackup3_again
+    assert:
+      that:
+      - nm_add_ansibleBackup3_again.current.backupEntry.metadata.name is match ("ansibleBackup3_[0-9a-zA-Z]*")
 
-- name: Create ansibleBackupRemote2 in normal mode in a known path
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackupRemote2
-    description: Remote via Ansible
-    location_type: remote
-    remote_location: ansible_test
-    remote_path: test
-    state: present
-  register: nm_add_ansibleBackupRemote2_known_path
+  - name: Create ansibleBackupRemote1 in normal mode
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackupRemote1
+      description: Remote via Ansible
+      location_type: remote
+      remote_location: ansible_test
+      state: present
+    register: nm_add_ansibleBackupRemote1
 
-- name: Verify nm_add_ansibleBackupRemote2_known_path
-  assert:
-    that:
-    - nm_add_ansibleBackupRemote2_known_path.current.backupEntry.metadata.name is match ("ansibleBackupRemote2_[0-9a-zA-Z]*")
+  - name: Verify nm_add_ansibleBackupRemote1
+    assert:
+      that:
+      - nm_add_ansibleBackupRemote1.current.backupEntry.metadata.name is match ("ansibleBackupRemote1_[0-9a-zA-Z]*")
 
-- name: Create ansibleBackupMove in normal mode
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackupMove
-    description: Local to Remote via Ansible
-    location_type: local
-    state: present
-  
-# Move Backup test
-- name: Move backup from local to remote location in check mode
-  mso_backup:
-    <<: *mso_info
-    remote_location: ansible_test
-    remote_path: test
-    backup: ansibleBackupMove
-    description: Local to Remote via Ansible
-    state: move
-  check_mode: yes 
-  register: move_backup_cm
+  - name: Verify nm_add_ansibleBackupRemote1
+    assert:
+      that:
+      - nm_add_ansibleBackupRemote1.current.backupEntry.metadata.name is match ("ansibleBackupRemote1_[0-9a-zA-Z]*")
 
-- name: Move backup from local to remote location in normal mode
-  mso_backup:
-    <<: *mso_info
-    remote_location: ansible_test
-    remote_path: test
-    backup: ansibleBackupMove
-    description: Local to Remote via Ansible
-    state: move
-  register: move_backup_nm
+  - name: Create ansibleBackupRemote2 in normal mode in a known path
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackupRemote2
+      description: Remote via Ansible
+      location_type: remote
+      remote_location: ansible_test
+      remote_path: test
+      state: present
+    register: nm_add_ansibleBackupRemote2_known_path
 
-- name: Move a non existent backup from local location to remote
-  mso_backup:
-    <<: *mso_info
-    backup: non_existent_backup
-    remote_location: ansible_test
-    remote_path: test
-    state: move
-  register: move_non_existent_backup
-  ignore_errors: yes
+  - name: Verify nm_add_ansibleBackupRemote2_known_path
+    assert:
+      that:
+      - nm_add_ansibleBackupRemote2_known_path.current.backupEntry.metadata.name is match ("ansibleBackupRemote2_[0-9a-zA-Z]*")
 
-- name: Move a ansibleBackup3 from local location to remote
-  mso_backup:
-    <<: *mso_info
-    backup: ansibleBackup3
-    remote_location: ansible_test
-    remote_path: test
-    state: move
-  register: move_ansibleBackup3
-  ignore_errors: yes
+  - name: Create ansibleBackupMove in normal mode
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackupMove
+      description: Local to Remote via Ansible
+      location_type: local
+      state: present
+    
+  # Move Backup test
+  - name: Move backup from local to remote location in check mode
+    mso_backup:
+      <<: *mso_info
+      remote_location: ansible_test
+      remote_path: test
+      backup: ansibleBackupMove
+      description: Local to Remote via Ansible
+      state: move
+    check_mode: yes 
+    register: move_backup_cm
 
-- name: Verify move function of backup
-  assert:
-    that:
-    - move_backup_cm is changed
-    - move_backup_nm is changed
-    - move_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
-    - move_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
+  - name: Move backup from local to remote location in normal mode
+    mso_backup:
+      <<: *mso_info
+      remote_location: ansible_test
+      remote_path: test
+      backup: ansibleBackupMove
+      description: Local to Remote via Ansible
+      state: move
+    register: move_backup_nm
 
-# Download Backup
-- name: Download backup in check mode
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup2
-    destination: ./
-    state: download
-  register: download_ansibleBackup2_cm
-  check_mode: yes
+  - name: Move a non existent backup from local location to remote
+    mso_backup:
+      <<: *mso_info
+      backup: non_existent_backup
+      remote_location: ansible_test
+      remote_path: test
+      state: move
+    register: move_non_existent_backup
+    ignore_errors: yes
 
-- name: Download backup
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup2
-    destination: ./
-    state: download
-  register: download_ansibleBackup2
+  - name: Move a ansibleBackup3 from local location to remote
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup3
+      remote_location: ansible_test
+      remote_path: test
+      state: move
+    register: move_ansibleBackup3
+    ignore_errors: yes
 
-- name: Download non existent backup
-  mso_backup:
-    <<: *mso_info 
-    backup: non_existent_backup
-    destination: ./
-    state: download
-  ignore_errors: yes
-  register: download_non_existent_backup
+  - name: Verify move function of backup
+    assert:
+      that:
+      - move_backup_cm is changed
+      - move_backup_nm is changed
+      - move_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
+      - move_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
 
-- name: Download backup ansibleBackup3
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup3
-    destination: ./
-    state: download
-  ignore_errors: yes
-  register: download_ansibleBackup3
+  # Download Backup
+  - name: Download backup in check mode
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup2
+      destination: ./
+      state: download
+    register: download_ansibleBackup2_cm
+    check_mode: yes
 
-- name: Verify download of backup
-  assert:
-    that:
-    - download_ansibleBackup2_cm is changed
-    - download_ansibleBackup2 is changed
-    - download_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
-    - download_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
+  - name: Download backup
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup2
+      destination: ./
+      state: download
+    register: download_ansibleBackup2
 
-- name: Remove backup ansibleBackup2 for testing purpose
-  mso_backup:
-    <<: *mso_info 
-    backup:  ansibleBackup2
-    state: absent
+  - name: Download non existent backup
+    mso_backup:
+      <<: *mso_info
+      backup: non_existent_backup
+      destination: ./
+      state: download
+    ignore_errors: yes
+    register: download_non_existent_backup
 
-# Find Backup
-- name: Find backup
-  find:
-    paths: ./
-    patterns: "*.tar.gz"
-  register: backup_match
+  - name: Download backup ansibleBackup3
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup3
+      destination: ./
+      state: download
+    ignore_errors: yes
+    register: download_ansibleBackup3
 
-# Upload Backup
-- name: Upload a backup from local location in check mode
-  mso_backup:
-    <<: *mso_info
-    backup: "{{ backup_match.files[0].path }}"
-    state: upload
-  register: upload_backup_cm
-  check_mode: yes
+  - name: Verify download of backup
+    assert:
+      that:
+      - download_ansibleBackup2_cm is changed
+      - download_ansibleBackup2 is changed
+      - download_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
+      - download_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
 
-- name: Upload a backup from local location
-  mso_backup:
-    <<: *mso_info
-    backup: "{{ backup_match.files[0].path }}"
-    state: upload
-  register: upload_backup
+  - name: Remove backup ansibleBackup2 for testing purpose
+    mso_backup:
+      <<: *mso_info
+      backup:  ansibleBackup2
+      state: absent
 
-- name: Upload a non existent backup from local location
-  mso_backup:
-    <<: *mso_info
-    backup: non_existent_backup
-    state: upload
-  register: upload_non_existent_backup
-  ignore_errors: yes
+  # Find Backup
+  - name: Find backup
+    find:
+      paths: ./
+      patterns: "*.tar.gz"
+    register: backup_match
 
-- name: Verify upload of backup
-  assert:
-    that:
-    - upload_backup is changed
-    - upload_backup_cm is changed
-    - upload_non_existent_backup.msg is match ("Backup file 'non_existent_backup' not found!")
+  # Upload Backup
+  - name: Upload a backup from local location in check mode
+    mso_backup:
+      <<: *mso_info
+      backup: "{{ backup_match.files[0].path }}"
+      state: upload
+    register: upload_backup_cm
+    check_mode: yes
 
-# Restore Backup
-- name: Restore non existent backup
-  mso_backup:
-    <<: *mso_info 
-    backup: non_existent_backup
-    state: restore
-  ignore_errors: yes
-  when: version.current.version is version('2.2.4e', '!=')
-  register: restore_non_existent_backup
+  - name: Upload a backup from local location
+    mso_backup:
+      <<: *mso_info
+      backup: "{{ backup_match.files[0].path }}"
+      state: upload
+    register: upload_backup
 
-- name: Restore backup ansibleBackup3
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup3
-    state: restore
-  ignore_errors: yes
-  when: version.current.version is version('2.2.4e', '!=')
-  register: restore_ansibleBackup3
+  - name: Upload a non existent backup from local location
+    mso_backup:
+      <<: *mso_info
+      backup: non_existent_backup
+      state: upload
+    register: upload_non_existent_backup
+    ignore_errors: yes
 
-- name: Verify restore of backup
-  assert:
-    that:
-    - restore_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
-    - restore_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
-  when: version.current.version is version('2.2.4e', '!=')
+  - name: Verify upload of backup
+    assert:
+      that:
+      - upload_backup is changed
+      - upload_backup_cm is changed
+      - upload_non_existent_backup.msg is match ("Backup file 'non_existent_backup' not found!")
 
-- name: Add a new tenant
-  mso_tenant:
-    <<: *mso_info 
-    tenant: Tenant1
-    display_name: Test_Tenant
-    state: present
-  when: version.current.version is version('2.2.4e', '!=')
+  # Restore Backup
+  - name: Restore non existent backup
+    mso_backup:
+      <<: *mso_info
+      backup: non_existent_backup
+      state: restore
+    ignore_errors: yes
+    when: version.current.version is version('2.2.4e', '!=')
+    register: restore_non_existent_backup
 
-- name: Restore backup in check mode
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup1
-    state: restore
-  check_mode: yes
-  when: version.current.version is version('2.2.4e', '!=')
-  register: restore_cm
+  - name: Restore backup ansibleBackup3
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup3
+      state: restore
+    ignore_errors: yes
+    when: version.current.version is version('2.2.4e', '!=')
+    register: restore_ansibleBackup3
 
-- name: Verify retore in check mode
-  assert:
-    that:
-    - restore_cm is changed
-  when: version.current.version is version('2.2.4e', '!=')
+  - name: Verify restore of backup
+    assert:
+      that:
+      - restore_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
+      - restore_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
+    when: version.current.version is version('2.2.4e', '!=')
 
-- name: Restore backup
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup1
-    state: restore
-  when: version.current.version is version('2.2.4e', '!=')
+  - name: Add a new tenant
+    mso_tenant:
+      <<: *mso_info
+      tenant: Tenant1
+      display_name: Test_Tenant
+      state: present
+    when: version.current.version is version('2.2.4e', '!=')
 
-- name: Pause for 6 minutes after restore
-  pause:
-    minutes: 6
+  - name: Restore backup in check mode
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup1
+      state: restore
+    check_mode: yes
+    when: version.current.version is version('2.2.4e', '!=')
+    register: restore_cm
 
-- name: Query Tenant1
-  mso_tenant:
-    <<: *mso_info 
-    tenant: Tenant1
-    state: query
-  when: version.current.version is version('2.2.4e', '!=')
-  register: query_non_existent_tenant
+  - name: Verify retore in check mode
+    assert:
+      that:
+      - restore_cm is changed
+    when: version.current.version is version('2.2.4e', '!=')
 
-- name: Verify non existent Tenant
-  assert:
-    that:
-    - query_non_existent_tenant is not changed
-    - query_non_existent_tenant.current == {}
-  when: version.current.version is version('2.2.4e', '!=')
+  - name: Restore backup
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup1
+      state: restore
+    when: version.current.version is version('2.2.4e', '!=')
 
-# Query a Backup
-- name: Query ansibleBackup3
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup3
-    state: query
-  register: query_ansibleBackup3
+  - name: Pause for 6 minutes after restore
+    pause:
+      minutes: 6
 
-- name: Verify query_ansibleBackup3
-  assert:
-    that:
-    - query_ansibleBackup3 is not changed
-    - query_ansibleBackup3.current | length == 2
+  - name: Query Tenant1
+    mso_tenant:
+      <<: *mso_info
+      tenant: Tenant1
+      state: query
+    when: version.current.version is version('2.2.4e', '!=')
+    register: query_non_existent_tenant
 
-# Query All
-- name: Query All
-  mso_backup:
-    <<: *mso_info 
-    state: query
-  register: query_all_backups
+  - name: Verify non existent Tenant
+    assert:
+      that:
+      - query_non_existent_tenant is not changed
+      - query_non_existent_tenant.current == {}
+    when: version.current.version is version('2.2.4e', '!=')
 
-- name: Verify query_all_backups
-  assert:
-    that:
-    - query_all_backups is not changed
-    - query_all_backups.current | selectattr("name", "match", "^ansibleBackup.*") | list | length == 7
+  # Query a Backup
+  - name: Query ansibleBackup3
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup3
+      state: query
+    register: query_ansibleBackup3
 
-# Remove Backup
-- name: Remove ansibleBackup1 in check mode
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup1
-    state: absent
-  check_mode: yes
-  register: cm_remove_ansibleBackup1
+  - name: Verify query_ansibleBackup3
+    assert:
+      that:
+      - query_ansibleBackup3 is not changed
+      - query_ansibleBackup3.current | length == 2
 
-- name: Verify cm_remove_ansibleBackup1
-  assert:
-    that:
-    - cm_remove_ansibleBackup1 is changed
+  # Query All
+  - name: Query All
+    mso_backup:
+      <<: *mso_info
+      state: query
+    register: query_all_backups
 
-- name: Remove ansibleBackup1 in normal mode
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup1
-    state: absent
-  register: nm_remove_ansibleBackup1
+  - name: Verify query_all_backups
+    assert:
+      that:
+      - query_all_backups is not changed
+      - query_all_backups.current | selectattr("name", "match", "^ansibleBackup.*") | list | length == 7
 
-- name: Verify nm_remove_ansibleBackup1
-  assert:
-    that:
-    - nm_remove_ansibleBackup1 is changed
+  # Remove Backup
+  - name: Remove ansibleBackup1 in check mode
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup1
+      state: absent
+    check_mode: yes
+    register: cm_remove_ansibleBackup1
 
-- name: Remove ansibleBackup1 in normal mode again
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup1
-    state: absent
-  register: nm_remove_ansibleBackup1_2
+  - name: Verify cm_remove_ansibleBackup1
+    assert:
+      that:
+      - cm_remove_ansibleBackup1 is changed
 
-- name: Verify nm_remove_ansibleBackup1_2
-  assert:
-    that:
-    - nm_remove_ansibleBackup1_2 is not changed
+  - name: Remove ansibleBackup1 in normal mode
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup1
+      state: absent
+    register: nm_remove_ansibleBackup1
 
-- name: Remove ansibleBackup3 in normal mode
-  mso_backup:
-    <<: *mso_info 
-    backup: ansibleBackup3
-    state: absent
-  ignore_errors: yes
-  register: nm_remove_ansibleBackup3
+  - name: Verify nm_remove_ansibleBackup1
+    assert:
+      that:
+      - nm_remove_ansibleBackup1 is changed
 
-- name: Verify nm_remove_ansibleBackup3
-  assert:
-    that:
-    - nm_remove_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
+  - name: Remove ansibleBackup1 in normal mode again
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup1
+      state: absent
+    register: nm_remove_ansibleBackup1_2
 
-- name: Query non_existent_backup
-  mso_backup:
-    <<: *mso_info 
-    backup: nonExistentBackup
-    state: query
-  register: query_non_existent_backup
+  - name: Verify nm_remove_ansibleBackup1_2
+    assert:
+      that:
+      - nm_remove_ansibleBackup1_2 is not changed
 
-- name: Verify query_non_existent_backup
-  assert:
-    that:
-    - query_non_existent_backup is not changed
+  - name: Remove ansibleBackup3 in normal mode
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup3
+      state: absent
+    ignore_errors: yes
+    register: nm_remove_ansibleBackup3
+
+  - name: Verify nm_remove_ansibleBackup3
+    assert:
+      that:
+      - nm_remove_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
+
+  - name: Query non_existent_backup
+    mso_backup:
+      <<: *mso_info
+      backup: nonExistentBackup
+      state: query
+    register: query_non_existent_backup
+
+  - name: Verify query_non_existent_backup
+    assert:
+      that:
+      - query_non_existent_backup is not changed

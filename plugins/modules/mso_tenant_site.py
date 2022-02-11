@@ -41,7 +41,7 @@ options:
     type: str
   security_domains:
     description:
-    - List of security domains for cloud sites.
+    - List of security domains for sites.
     type: list
     elements: str
     default: []

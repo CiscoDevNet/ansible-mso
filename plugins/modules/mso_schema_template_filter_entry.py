@@ -226,6 +226,8 @@ def main():
     destination_from = module.params.get('destination_from')
     destination_to = module.params.get('destination_to')
     arp_flag = module.params.get('arp_flag')
+    if arp_flag == 'request':
+        arp_flag = 'req'
     stateful = module.params.get('stateful')
     fragments_only = module.params.get('fragments_only')
     state = module.params.get('state')

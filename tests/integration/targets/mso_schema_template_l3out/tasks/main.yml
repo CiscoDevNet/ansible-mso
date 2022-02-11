@@ -69,7 +69,7 @@
     l3out: L3out1
     state: absent
 
-- name: Add new L3Out
+- name: Add new L3Out (check_mode)
   mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -78,7 +78,19 @@
     vrf:
         name: VRF1
     state: present
-  register: add_l3out
+  check_mode: yes
+  register: cm_add_l3out
+
+- name: Add new L3Out (normal mode)
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    l3out: L3out1
+    vrf:
+        name: VRF1
+    state: present
+  register: nm_add_l3out
 
 - name: Add L3Out again
   mso_schema_template_l3out:
@@ -94,14 +106,19 @@
 - name: Verify add
   assert:
     that:
-    - add_l3out is changed
-    - add_l3out.previous == {}
-    - add_l3out.current.name == "L3out1"
-    - add_l3out.current.vrfRef.templateName == "Template1"
-    - add_l3out.current.vrfRef.vrfName == "VRF1"
+    - cm_add_l3out is changed
+    - cm_add_l3out.previous == {}
+    - cm_add_l3out.current.name == "L3out1"
+    - cm_add_l3out.current.vrfRef.templateName == "Template1"
+    - cm_add_l3out.current.vrfRef.vrfName == "VRF1"
+    - nm_add_l3out is changed
+    - nm_add_l3out.previous == {}
+    - nm_add_l3out.current.name == "L3out1"
+    - nm_add_l3out.current.vrfRef.templateName == "Template1"
+    - nm_add_l3out.current.vrfRef.vrfName == "VRF1"
     - add_l3out_again is not changed
     - add_l3out_again.previous.name == "L3out1"
-    - add_l3out.current.vrfRef.schemaId == add_l3out_again.current.vrfRef.schemaId
+    - nm_add_l3out.current.vrfRef.schemaId == add_l3out_again.current.vrfRef.schemaId
 
 - name: Add new L3Outs
   mso_schema_template_l3out:

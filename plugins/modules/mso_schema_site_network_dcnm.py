@@ -65,7 +65,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r'''
 - name: Add a new site Network
-  cisco.mso.mso_schema_site_vrf:
+  cisco.mso.mso_schema_site_network_dcnm:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -79,7 +79,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Remove a site Network
-  cisco.mso.mso_schema_site_vrf:
+  cisco.mso.mso_schema_site_network_dcnm:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -91,7 +91,7 @@ EXAMPLES = r'''
   delegate_to: localhost
 
 - name: Query a specific site Network
-  cisco.mso.mso_schema_site_vrf:
+  cisco.mso.mso_schema_site_network_dcnm:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -104,7 +104,7 @@ EXAMPLES = r'''
   register: query_result
 
 - name: Query all site Networks
-  cisco.mso.mso_schema_site_vrf:
+  cisco.mso.mso_schema_site_network_dcnm:
     host: mso_host
     username: admin
     password: SomeSecretPassword

@@ -186,7 +186,7 @@ def main():
         display_name=dict(type='str'),
         network_id=dict(type='int'),
         layer2_only=dict(type='bool'),
-        vrf=dict(type='dict', required=True, options=mso_reference_spec()),
+        vrf=dict(type='dict', options=mso_reference_spec()),
         network_profile=dict(type='str', default='Default_Network_Universal'),
         network_extension_profile=dict(type='str', default='Default_Network_Extension_Universal'),
         vlan_name=dict(type='str'),
@@ -265,32 +265,46 @@ def main():
     elif state == 'present':
         if display_name is None and not mso.existing:
             display_name = network
-        vrf_ref = mso.make_reference(vrf, 'vrf', schema_id, template)
+        if not layer2_only:
+
+            vrf_ref = mso.make_reference(vrf, 'vrf', schema_id, template)
 
 
-        payload = dict(
-            name=network,
-            displayName=display_name,
-            vrfRef=vrf_ref,
-            nwId=network_id,
-            l2Only=layer2_only,
-            nwProfileName=network_profile,
-            nwExtnProfileName=network_extension_profile,
-            suppressArp=suppress_arp,
-            sviDescr=svi_description,
-            mtu=mtu,
-            tag=routing_tag,
-            vlanId=vlan_id,
-            vlanName=vlan_name,
-            subnets= []
-        )
-        if gateway_ip is not None:
-            payload['subnets'].append(
-                {
-                    'ip': gateway_ip,
-                    'primary':True,
-                }
+            payload = dict(
+                name=network,
+                displayName=display_name,
+                vrfRef=vrf_ref,
+                nwId=network_id,
+                nwProfileName=network_profile,
+                nwExtnProfileName=network_extension_profile,
+                suppressArp=suppress_arp,
+                sviDescr=svi_description,
+                mtu=mtu,
+                tag=routing_tag,
+                vlanId=vlan_id,
+                vlanName=vlan_name,
+                subnets= []
             )
+            if gateway_ip is not None:
+                payload['subnets'].append(
+                    {
+                        'ip': gateway_ip,
+                        'primary':True,
+                    }
+                )
+        else:
+            payload = dict(
+                name=network,
+                displayName=display_name,
+                nwId=network_id,
+                l2Only=layer2_only,
+                nwProfileName=network_profile,
+                nwExtnProfileName=network_extension_profile,
+                vlanId=vlan_id,
+                vlanName=vlan_name,
+            )
+
+
 
         mso.sanitize(payload, collate=True)
 

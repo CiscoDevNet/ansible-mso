@@ -58,7 +58,8 @@ options:
   use_ssl:
     description:
     - If C(no), an HTTP connection will be used instead of the default HTTPS connection.
-    - If the value is not specified in the task, the value of environment variable C(MSO_USE_SSL) will be used instead or the value of the C(ansible_httpapi_use_ssl) when using a HTTPAPI connection plugin.
+    - If the value is not specified in the task, the value of environment variable C(MSO_USE_SSL) will be used instead.
+    - When using a HTTPAPI connection plugin the inventory variable C(ansible_httpapi_use_ssl) will be used if this attribute is not specified.
     - The default is C(no) when using a HTTPAPI connection plugin (mso or nd) and C(yes) when using the legacy connection method (only for mso).
     type: bool
   validate_certs:

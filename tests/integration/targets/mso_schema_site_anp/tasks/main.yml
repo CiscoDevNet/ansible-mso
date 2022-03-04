@@ -147,8 +147,18 @@
   mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template 3
     vrf: VRF1
+    state: present
+
+- name: Add BD1
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 3
+    bd: BD1
+    vrf:
+      name: VRF1
     state: present
 
 - name: Ensure ANPs exist at template level
@@ -165,6 +175,23 @@
   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_1' }
   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_2' }
   - { schema: '{{ mso_schema | default("ansible_test") }}_2', template: 'Template 4', anp: 'ANP_4' }
+
+- name: Ensure EPGs exist at template level
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 3
+    anp: ANP_3
+    epg: ansible_test_3
+    vrf:
+      name: VRF1
+      schema: ansible_test
+      template: Template 3
+    bd:
+      name: BD1
+      schema: ansible_test
+      template: Template 3
+    state: present
 
 - name: Add ANP to site azure
   mso_schema_site_anp:
@@ -214,6 +241,16 @@
   - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3' }
   - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_1' }
   - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_2' }
+
+- name: Add a new site EPG for idempotency check
+  mso_schema_site_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: 'Template 3'
+      anp: 'ANP_3'
+      site: '{{ mso_site | default("ansible_test") }}'
+      epg: ansible_test_3
+      state: present
 
 - name: Add ANPs to site again
   mso_schema_site_anp:

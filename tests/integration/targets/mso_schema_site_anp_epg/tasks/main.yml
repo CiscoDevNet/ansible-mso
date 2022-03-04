@@ -233,6 +233,24 @@
     - add_epg.current.epgRef.anpName == 'ANP_3'
     - add_epg.current.epgRef.epgName == 'ansible_test_3'
 
+- name: Add new EPG to site after adding ANP to site again
+  mso_schema_site_anp_epg:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 3
+    anp: ANP_3
+    epg: ansible_test_3
+    state: present
+  register: add_epg_again
+
+- name: Verify add_epg_again
+  assert:
+    that:
+    - add_epg_again is not changed
+    - add_epg_again.current.epgRef.anpName == 'ANP_3'
+    - add_epg_again.current.epgRef.epgName == 'ansible_test_3'
+
 - name: Add new EPG to site without adding ANPs to site
   mso_schema_site_anp_epg:
     <<: *mso_info
@@ -242,6 +260,32 @@
     anp: ANP
     epg: ansible_test_1
     state: present
+  register: add_epg_no_anp
+
+- name: Verify add_epg_no_anp
+  assert:
+    that:
+    - add_epg_no_anp is changed
+    - add_epg_no_anp.current.epgs.0.epgRef.anpName == 'ANP'
+    - add_epg_no_anp.current.epgs.0.epgRef.epgName == 'ansible_test_1'
+
+- name: Add new EPG to site without adding ANPs to site again (ANP already exists from previous run)
+  mso_schema_site_anp_epg:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    epg: ansible_test_1
+    state: present
+  register: add_epg_no_anp_again
+
+- name: Verify add_epg_no_anp_again
+  assert:
+    that:
+    - add_epg_no_anp_again is not changed
+    - add_epg_no_anp_again.current.epgRef.anpName == 'ANP'
+    - add_epg_no_anp_again.current.epgRef.epgName == 'ansible_test_1'
 
 # QUERY  EPGs
 - name: Query all EPGs with ANP (normal mode)

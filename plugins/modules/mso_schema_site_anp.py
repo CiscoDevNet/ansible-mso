@@ -194,6 +194,10 @@ def main():
             ),
         )
 
+        if 'epgs' in mso.existing:
+            for epg in mso.existing.get('epgs'):
+                epg = mso.recursive_dict_from_ref(epg)
+
         mso.sanitize(payload, collate=True)
 
         if mso.existing:

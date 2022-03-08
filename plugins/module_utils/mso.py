@@ -854,6 +854,10 @@ class MSOModule(object):
         ''' Create extEpgRef string '''
         return '/schemas/{schema_id}/templates/{template}/externalEpgs/{external_epg}'.format(**data)
 
+    def service_graph_ref(self, **data):
+        ''' Create serviceGraphRef string '''
+        return '/schemas/{schema_id}/templates/{template}/serviceGraphs/{service_graph}'.format(**data)
+
     def vrf_dict_from_ref(self, data):
         vrf_ref_regex = re.compile(r'\/schemas\/(.*)\/templates\/(.*)\/vrfs\/(.*)')
         vrf_dict = vrf_ref_regex.search(data)
@@ -879,6 +883,8 @@ class MSOModule(object):
                     'contracts': ['contractName', 'schemaId', 'templateName'],
                     'l3outs': ['l3outName', 'schemaId', 'templateName'],
                     'anps': ['anpName', 'schemaId', 'templateName'],
+                    'serviceGraphs':['serviceGraphName', 'schemaId', 'templateName'],
+                    'serviceNodes':['serviceNodeNmae','serviceGraphName', 'schemaId', 'templateName'],
                 }
                 result = {
                     uri_map[category][1]: schema_id,
@@ -1129,3 +1135,10 @@ class MSOModule(object):
         if not schema_obj:
             self.module.fail_json(msg="Schema '{0}' is not a valid schema name.".format(schema))
         return schema_id, schema_path, schema_obj
+
+    def query_node(self, node):
+        node_obj = self.get_obj('schemas/service-node-types', key='serviceNodeTypes', name=node)
+        if not node_obj:
+            self.module.fail_json(msg="Node '{0}' is not a valid node name.".format(node))
+        return node_obj
+

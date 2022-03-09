@@ -191,6 +191,10 @@ def mso_object_migrate_spec():
         anp=dict(type='str', required=True),
     )
 
+def mso_node_spec():
+    return dict(
+        type=dict(type='str', required=True),
+    )
 
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp):
@@ -1136,9 +1140,11 @@ class MSOModule(object):
             self.module.fail_json(msg="Schema '{0}' is not a valid schema name.".format(schema))
         return schema_id, schema_path, schema_obj
 
-    def query_node(self, node):
-        node_obj = self.get_obj('schemas/service-node-types', key='serviceNodeTypes', name=node)
-        if not node_obj:
-            self.module.fail_json(msg="Node '{0}' is not a valid node name.".format(node))
-        return node_obj
+    def query_nodes(self):
+        node_objs = self.query_objs('schemas/service-node-types', key='serviceNodeTypes')
+        if not node_objs:
+            self.module.fail_json(msg="Nodes not found")
+        return node_objs
+
+
 

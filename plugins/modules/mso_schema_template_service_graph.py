@@ -159,11 +159,6 @@ def main():
 
     mso = MSOModule(module)
 
-    if filter_after_first_node == 'allow_all':
-        filter_after_first_node = 'allow-all'
-    if filter_after_first_node == 'filters_from_contract':
-        filter_after_first_node = 'filters-from-contract'
-
     # Get schema
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
@@ -190,7 +185,7 @@ def main():
             mso.fail_json(msg="Service Graph '{service_graph}' not found".format(service_graph=service_graph))
         mso.exit_json()
 
-    service_graphs_path = '/templates/{0}/serviceGraphs'.format(template)
+    service_graphs_path = '/templates/{0}/serviceGraphs/-'.format(template)
     service_graph_path = '/templates/{0}/serviceGraphs/{1}'.format(template, service_graph)
     ops = []
 
@@ -203,6 +198,12 @@ def main():
     elif state == 'present':
         nodes_payload = []
         service_node_index = 0
+
+        if filter_after_first_node == 'allow_all':
+            filter_after_first_node = 'allow-all'
+        elif filter_after_first_node == 'filters_from_contract':
+            filter_after_first_node = 'filters-from-contract'
+
         if display_name is None:
             display_name = service_graph
 
@@ -248,7 +249,7 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if not mso.existing:
-            ops.append(dict(op='add', path=service_graphs_path + '/-', value=payload))
+            ops.append(dict(op='add', path=service_graphs_path, value=payload))
         else:
             ops.append(dict(op='replace', path=service_graph_path, value=mso.sent))
 

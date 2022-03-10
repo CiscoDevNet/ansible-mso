@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_service_node_type
 short_description: Manage Service Node Types
@@ -36,16 +35,16 @@ options:
     choices: [ absent, present, query ]
     default: present
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a new Service Node Type
   cisco.mso.mso_schema_service_node:
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    name: Firewall
-    display_name: firewall1
+    name: ips
+    display_name: ips
     state: present
   delegate_to: localhost
 
@@ -54,7 +53,7 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    name: Firewall
+    name: ips
     state: absent
   delegate_to: localhost
 
@@ -63,7 +62,7 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    name: Firewall
+    name: ips
     state: query
   delegate_to: localhost
 
@@ -74,10 +73,10 @@ EXAMPLES = r'''
     password: SomeSecretPassword
     state: query
   delegate_to: localhost
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
@@ -86,23 +85,23 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        name=dict(type='str'),
-        display_name=dict(type='str'),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        name=dict(type="str"),
+        display_name=dict(type="str"),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['name']],
-            ['state', 'present', ['name']],
+            ["state", "absent", ["name"]],
+            ["state", "present", ["name"]],
         ],
     )
 
-    name = module.params.get('name')
-    display_name = module.params.get('display_name')
-    state = module.params.get('state')
+    name = module.params.get("name")
+    display_name = module.params.get("display_name")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -111,32 +110,32 @@ def main():
 
     # Get service node id
     query_node_data = mso.query_service_node_types()
-    service_nodes = [f.get('name') for f in query_node_data]
+    service_nodes = [f.get("name") for f in query_node_data]
     if name in service_nodes:
         for node_data in query_node_data:
-            if node_data.get('name') == name:
-                service_node_id = node_data.get('id')
+            if node_data.get("name") == name:
+                service_node_id = node_data.get("id")
                 mso.existing = node_data
 
-    if state == 'query':
+    if state == "query":
         if name is None:
             mso.existing = query_node_data
         if name is not None and service_node_id is None:
             mso.fail_json(msg="Service Node Type '{service_node_type}' not found".format(service_node_type=name))
         mso.exit_json()
 
-    service_nodes_path = '/schemas/service-node-types'
-    service_node_path = '/schemas/service-node-types/{0}'.format(service_node_id)
+    service_nodes_path = "/schemas/service-node-types"
+    service_node_path = "/schemas/service-node-types/{0}".format(service_node_id)
 
     mso.previous = mso.existing
-    if state == 'absent':
+    if state == "absent":
         if mso.existing:
             if module.check_mode:
                 mso.existing = {}
             else:
-                mso.existing = mso.request(service_node_path, method='DELETE')
+                mso.existing = mso.request(service_node_path, method="DELETE")
 
-    elif state == 'present':
+    elif state == "present":
         if display_name is None:
             display_name = name
 
@@ -147,9 +146,13 @@ def main():
         mso.sanitize(payload, collate=True)
         if not module.check_mode:
             if not mso.existing:
-                mso.request(service_nodes_path, method='POST', data=payload)
-            else:
-                mso.fail_json(msg="Service Node '{0}' already exists".format(name))
+                mso.request(service_nodes_path, method="POST", data=payload)
+            elif mso.existing.get("displayName") != display_name:
+                mso.fail_json(
+                    msg="Service Node Type '{0}' already exists with display name '{1}' which is different from provided display name '{2}'.".format(
+                        name, mso.existing.get("displayName"), display_name
+                    )
+                )
         mso.existing = mso.proposed
 
     mso.exit_json()

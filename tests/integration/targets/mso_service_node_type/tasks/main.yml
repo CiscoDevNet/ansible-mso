@@ -30,11 +30,11 @@
   - TEST1
   - TEST2
 
-- name: Add a new Node in check mode
+- name: Add a new node type (check_mode)
   cisco.mso.mso_service_node_type:
     <<: *mso_info
-    name: TEST_cm
-    display_name: test_cm
+    name: TEST1
+    display_name: test
     state: present
   register: node_cm
   check_mode: yes
@@ -43,10 +43,10 @@
   assert:
     that:
     - node_cm is changed
-    - node_cm.current.displayName == "test_cm"
-    - node_cm.current.name == "TEST_cm"
+    - node_cm.current.displayName == "test"
+    - node_cm.current.name == "TEST1"
 
-- name: Add a new Node
+- name: Add a new node type (normal mode)
   cisco.mso.mso_service_node_type:
     <<: *mso_info
     name: TEST1
@@ -61,7 +61,7 @@
     - node1.current.displayName == "test"
     - node1.current.name == "TEST1"
 
-- name: Add another Node
+- name: Add another node type
   cisco.mso.mso_service_node_type:
     <<: *mso_info
     name: TEST2
@@ -75,20 +75,35 @@
     - node2.current.displayName == "TEST2"
     - node2.current.name == "TEST2"
 
-- name: Add Node again
+- name: Add node type TEST2 again
   cisco.mso.mso_service_node_type:
     <<: *mso_info
     name: TEST2
     state: present
   register: node2_again
-  ignore_errors: yes
 
 - name: Verify node2_again
   assert:
     that:
-    - node2_again.msg == "Service Node 'TEST2' already exists"
+    - node2_again is not changed
+    - node2_again.current.displayName == "TEST2"
+    - node2_again.current.name == "TEST2"
 
-- name: Query a Node
+- name: Add TEST1 again with a different display name
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    name: TEST1
+    display_name: change_test
+    state: present
+  register: node2_different_display_name
+  ignore_errors: yes
+
+- name: Verify node2_different_display_name
+  assert:
+    that:
+    - node2_different_display_name.msg == "Service Node Type 'TEST1' already exists with display name 'test' which is different from provided display name 'change_test'."
+
+- name: Query a node type
   cisco.mso.mso_service_node_type:
     <<: *mso_info
     name: TEST1
@@ -102,7 +117,7 @@
     - query_node1.current.displayName == "test"
     - query_node1.current.name == "TEST1"
   
-- name: Query all nodes
+- name: Query all node types
   cisco.mso.mso_service_node_type:
     <<: *mso_info
     state: query
@@ -114,7 +129,7 @@
     - query_all is not changed
     - query_all.current | length >= 2
 
-- name: Remove a node in check mode
+- name: Remove a node type (check_mode)
   cisco.mso.mso_service_node_type:
     <<: *mso_info
     name: TEST1
@@ -128,7 +143,7 @@
     - cm_rm is changed
     - cm_rm.previous.name == "TEST1"
 
-- name: Remove a node
+- name: Remove a node type (normal_mode)
   cisco.mso.mso_service_node_type:
     <<: *mso_info
     name: TEST1
@@ -142,7 +157,7 @@
     - rm_node1.current == {}
     - rm_node1.previous.name == "TEST1"
 
-- name: Query absent node
+- name: Query absent node type
   cisco.mso.mso_service_node_type:
     <<: *mso_info
     name: TEST1
@@ -155,7 +170,7 @@
     that:
     - query_absent.msg == "Service Node Type 'TEST1' not found"
 
-- name: Remove another node
+- name: Remove another node type
   cisco.mso.mso_service_node_type:
     <<: *mso_info
     name: TEST2
@@ -169,7 +184,7 @@
     - rm_node2.current == {}
     - rm_node2.previous.name == "TEST2"
 
-- name: Remove node again
+- name: Remove node type again
   cisco.mso.mso_service_node_type:
     <<: *mso_info
     name: TEST2

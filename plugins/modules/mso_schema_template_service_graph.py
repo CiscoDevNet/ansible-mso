@@ -216,7 +216,6 @@ def main():
                     service_node_index = service_node_index + 1
                     for node_data in query_node_data:
                         if node_data['name'] == node_name:
-                            node_data = node_data
                             nodes_payload.append(dict(
                                 name=node_name,
                                 serviceNodeTypeId=node_data.get('id'),

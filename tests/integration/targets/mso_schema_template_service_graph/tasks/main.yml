@@ -1,0 +1,293 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(false) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Remove schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_3'
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Remove tenant2
+  mso_tenant:
+    <<: *mso_info
+    tenant: ansible_test_2
+    state: absent
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant:
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    state: present
+
+- name: Ensure schema 1 with Template 1 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template1
+    state: present
+
+- name: Create a service graph
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    service_graph: SG1
+    display_name: sg
+    service_nodes:
+      - type: firewall
+      - type: load-balancer
+      - type: other
+    filter_after_first_node: allow_all
+    state: present
+  register: sg1
+
+- name: Create service graph again
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    service_graph: SG1
+    display_name: sg
+    service_nodes: 
+      - type: firewall
+      - type: load-balancer
+      - type: other
+    filter_after_first_node: allow_all
+    state: present
+  register: sg1_again
+
+- name: Verify sg1 and sg1_again
+  assert:
+    that:
+    - sg1 is changed
+    - sg1_again is not changed
+    - sg1.current.name == "SG1"
+    - sg1.current.displayName == "sg"
+    - sg1.current.nodeFilter == "allow-all"
+    - sg1.current.serviceGraphRef.templateName == "Template1"
+    - sg1.current.serviceNodes | length == 3
+    - sg1_again.current.name == "SG1"
+    - sg1_again.current.displayName == "sg"
+    - sg1_again.current.nodeFilter == "allow-all"
+    - sg1_again.current.serviceGraphRef.templateName == "Template1"
+    - sg1_again.current.serviceNodes | length == 3
+
+- name: Create another service graph SG2
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    service_graph: SG2
+    display_name: Service_Graph2
+    service_nodes: 
+      - type: firewall
+      - type: load-balancer
+    filter_after_first_node: filters_from_contract
+    state: present
+  register: sg2
+
+- name: Verify sg2
+  assert:
+    that:
+    - sg2 is changed
+    - sg2.current.name == "SG2"
+    - sg2.current.displayName == "Service_Graph2"
+    - sg2.current.nodeFilter == "filters-from-contract"
+    - sg2.current.serviceGraphRef.templateName == "Template1"
+    - sg2.current.serviceNodes | length == 2
+
+- name: Change Service Graph SG2
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    service_graph: SG2
+    display_name: Service_Graph_changed
+    service_nodes: 
+      - type: firewall
+      - type: load-balancer
+    filter_after_first_node: filters_from_contract
+    state: present
+  register: sg2_change
+
+- name: Verify sg2_change
+  assert:
+    that:
+    - sg2_change is changed
+    - sg2_change.current.name == "SG2"
+    - sg2_change.current.displayName == "Service_Graph_changed"
+    - sg2_change.current.nodeFilter == "filters-from-contract"
+    - sg2_change.current.serviceGraphRef.templateName == "Template1"
+    - sg2_change.current.serviceNodes | length == 2
+
+- name: Create another service graph with no display name
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    service_graph: SG3
+    service_nodes: 
+      - type: firewall
+    filter_after_first_node: filters_from_contract
+    state: present
+  register: sg3
+
+- name: Verify sg3
+  assert:
+    that:
+    - sg3 is changed
+    - sg3.current.name == "SG3"
+    - sg3.current.displayName == "SG3"
+    - sg3.current.nodeFilter == "filters-from-contract"
+    - sg3.current.serviceGraphRef.templateName == "Template1"
+    - sg3.current.serviceNodes | length == 1
+
+- name: Create another service graph with non existing node type
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    service_graph: SG4
+    service_nodes: 
+      - type: FW
+    filter_after_first_node: filters_from_contract
+    state: present
+  register: sg4
+  ignore_errors: yes
+
+- name: Verify sg4
+  assert:
+    that:
+    - sg4.msg == "Provided service node type 'FW' does not exist. Existing node types include{{':'}} firewall, load-balancer, other",
+
+- name: Query service graph SG
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    service_graph: SG1
+    state: query
+  register: query_sg
+
+- name: Verify query_sg
+  assert:
+    that:
+    - query_sg is not changed
+    - query_sg.current.name == "SG1"
+    - query_sg.current.displayName == "sg"
+    - query_sg.current.nodeFilter == "allow-all"
+    - query_sg.current.serviceNodes | length == 3
+
+- name: Query all service graphs
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    state: query
+  register: query_all
+
+- name: Verify query_all
+  assert:
+    that:
+    - query_all is not changed
+    - query_all.current | length == 3
+
+- name: Query non_existing service graph
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    service_graph: non_existent
+    state: query
+  ignore_errors: yes
+  register: query_non_existing_sg
+
+- name: Verify query_non_existing_sg
+  assert:
+    that:
+    - query_non_existing_sg.msg == "Service Graph 'non_existent' not found"
+
+- name: Use non_existing schema
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: non_existing_schema
+    template: Template1
+    service_graph: SG
+    state: query
+  ignore_errors: yes
+  register: query_non_existing_schema
+
+- name: Use non_existing template
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: non_existing_template
+    service_graph: SG
+    state: query
+  ignore_errors: yes
+  register: query_non_existing_template
+
+- name: Verify query_non_existing_schema and query_non_existing_template
+  assert:
+    that:
+    - query_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
+    - query_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1"
+
+- name: Remove service graph
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    service_graph: SG1
+    state: absent
+  register: rm_sg
+
+- name: Verify rm_sg
+  assert:
+    that:
+    - rm_sg is changed
+    - rm_sg.current == {}
+    - rm_sg.previous.name == "SG1"
+
+- name: Remove service graph again
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    service_graph: SG1
+    state: absent
+  register: rm_sg_again
+
+- name: Verify rm_sg_again
+  assert:
+    that:
+    - rm_sg_again is not changed
+    - rm_sg_again.current == {}
+    - rm_sg_again.previous == {}

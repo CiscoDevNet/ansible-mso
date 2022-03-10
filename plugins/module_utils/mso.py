@@ -191,10 +191,12 @@ def mso_object_migrate_spec():
         anp=dict(type='str', required=True),
     )
 
-def mso_node_spec():
+
+def mso_service_graph_node_spec():
     return dict(
         type=dict(type='str', required=True),
     )
+
 
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp):
@@ -887,8 +889,7 @@ class MSOModule(object):
                     'contracts': ['contractName', 'schemaId', 'templateName'],
                     'l3outs': ['l3outName', 'schemaId', 'templateName'],
                     'anps': ['anpName', 'schemaId', 'templateName'],
-                    'serviceGraphs':['serviceGraphName', 'schemaId', 'templateName'],
-                    'serviceNodes':['serviceNodeNmae','serviceGraphName', 'schemaId', 'templateName'],
+                    'serviceGraphs': ['serviceGraphName', 'schemaId', 'templateName'],
                 }
                 result = {
                     uri_map[category][1]: schema_id,
@@ -1140,11 +1141,8 @@ class MSOModule(object):
             self.module.fail_json(msg="Schema '{0}' is not a valid schema name.".format(schema))
         return schema_id, schema_path, schema_obj
 
-    def query_nodes(self):
+    def query_service_node_types(self):
         node_objs = self.query_objs('schemas/service-node-types', key='serviceNodeTypes')
         if not node_objs:
-            self.module.fail_json(msg="Nodes not found")
+            self.module.fail_json(msg="Service node types do not exist")
         return node_objs
-
-
-

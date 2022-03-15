@@ -133,7 +133,6 @@
   loop:
   - { site: 'azure_{{ mso_site | default("ansible_test") }}', template: 'Template 1' }
   - { site: 'aws_{{ mso_site | default("ansible_test") }}', template: 'Template 2' }
-  when: version.current.version is version('3', '<')
 
 - name: Add physical site to a schema
   mso_schema_site:
@@ -193,7 +192,7 @@
       template: Template 3
     state: present
 
-- name: Add ANP to site azure
+- name: Add ANP to site azure (check_mode)
   mso_schema_site_anp:
     <<: *mso_info
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -201,15 +200,26 @@
     template: Template 1
     anp: ANP
     state: present
-  register: add_anp
-  when: version.current.version is version('3', '<')
+  check_mode: yes
+  register: cm_add_anp
+
+- name: Add ANP to site azure  (normal mode)
+  mso_schema_site_anp:
+    <<: *mso_info
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    state: present
+  register: nm_add_anp
 
 - name: Verify add_anp
   assert:
     that:
-    - add_anp is changed
-    - add_anp.current.anpRef.anpName == 'ANP'
-  when: version.current.version is version('3', '<')
+    - cm_add_anp is changed
+    - nm_add_anp is changed
+    - cm_add_anp.current.anpRef.anpName == 'ANP'
+    - nm_add_anp.current.anpRef.anpName == 'ANP'
 
 - name: Add ANP to site aws
   mso_schema_site_anp:
@@ -220,14 +230,12 @@
     anp: ANP_2
     state: present
   register: add_anp
-  when: version.current.version is version('3', '<')
 
 - name: Verify add_anp
   assert:
     that:
     - add_anp is changed
     - add_anp.current.anpRef.anpName == 'ANP_2'
-  when: version.current.version is version('3', '<')
 
 - name: Add ANPs to site
   mso_schema_site_anp:
@@ -439,11 +447,3 @@
     that:
     - nm_non_existing_site_template is not changed
     - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1, [0-9a-zA-Z]*/Template2, [0-9a-zA-Z]*/Template3")
-  when: version.current.version is version('3', '<')
-
-- name: Verify non_existing_site_template
-  assert:
-    that:
-    - nm_non_existing_site_template is not changed
-    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template3")
-  when: version.current.version is version('3', '>')

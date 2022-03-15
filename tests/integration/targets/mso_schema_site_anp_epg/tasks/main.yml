@@ -112,7 +112,7 @@
   loop:
   - { site: 'azure_{{ mso_site | default("ansible_test") }}', template: 'Template 1' }
   - { site: 'aws_{{ mso_site | default("ansible_test") }}', template: 'Template 2' }
-  when: version.current.version is version('3', '<')
+  when: version.current.version is version('3', '<') or version.current.version is version('3.2', '>=')
 
 - name: Add physical site to a schema
   mso_schema_site:
@@ -215,7 +215,7 @@
     state: present
 
 # ADD ANP EPGs to SITE
-- name: Add new EPG to site after adding ANP to site
+- name: Add new EPG to site after adding ANP to site (check_mode)
   mso_schema_site_anp_epg:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
@@ -224,14 +224,29 @@
     anp: ANP_3
     epg: ansible_test_3
     state: present
-  register: add_epg
+  check_mode: yes
+  register: cm_add_epg
+
+- name: Add new EPG to site after adding ANP to site (normal mode)
+  mso_schema_site_anp_epg:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 3
+    anp: ANP_3
+    epg: ansible_test_3
+    state: present
+  register: nm_add_epg
 
 - name: Verify add_epg
   assert:
     that:
-    - add_epg is changed
-    - add_epg.current.epgRef.anpName == 'ANP_3'
-    - add_epg.current.epgRef.epgName == 'ansible_test_3'
+    - cm_add_epg is changed
+    - nm_add_epg is changed
+    - cm_add_epg.current.epgRef.anpName == 'ANP_3'
+    - nm_add_epg.current.epgRef.anpName == 'ANP_3'
+    - cm_add_epg.current.epgRef.epgName == 'ansible_test_3'
+    - nm_add_epg.current.epgRef.epgName == 'ansible_test_3'
 
 - name: Add new EPG to site after adding ANP to site again
   mso_schema_site_anp_epg:
@@ -531,15 +546,15 @@
   assert:
     that:
     - nm_non_existing_site_template is not changed
-    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template3, [0-9a-zA-Z]*/Template1")
-  when: version.current.version is version('3', '>')
+    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1, [0-9a-zA-Z]*/Template2, [0-9a-zA-Z]*/Template3, [0-9a-zA-Z]*/Template1")
+  when: version.current.version is version('3', '<') or version.current.version is version('3.2', '>=')
 
 - name: Verify non_existing_site_template
   assert:
     that:
     - nm_non_existing_site_template is not changed
-    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1, [0-9a-zA-Z]*/Template2, [0-9a-zA-Z]*/Template3, [0-9a-zA-Z]*/Template1")
-  when: version.current.version is version('3', '<')
+    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template3, [0-9a-zA-Z]*/Template1")
+  when: version.current.version is version('3', '>=') and version.current.version is version('3.2', '<')
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add EPG to Template without any site associated (normal mode)

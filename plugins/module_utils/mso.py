@@ -198,6 +198,12 @@ def mso_service_graph_node_spec():
     )
 
 
+def mso_service_graph_node_device_spec():
+    return dict(
+        name=dict(type='str', required=True),
+    )
+
+
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp):
     # create a tempfile with some test content
@@ -1146,3 +1152,10 @@ class MSOModule(object):
         if not node_objs:
             self.module.fail_json(msg="Service node types do not exist")
         return node_objs
+
+    def query_service_node_device_types(self, site_id, tenant, service_node, device):
+        node_devices = self.query_objs('sites/{0}/aci/tenants/{1}/devices?deviceType={2}'.format(site_id, tenant, service_node), key='devices')
+        if not node_devices:
+            self.module.fail_json(msg="Provided device '{0}' does not exist."
+                                  .format(device))
+        return node_devices

@@ -256,7 +256,7 @@
     template: Template1
     service_graph: SG4
     service_nodes: 
-      - type: FW
+      - type: non_existing_type
     filter_after_first_node: filters_from_contract
     state: present
   register: sg4
@@ -265,7 +265,7 @@
 - name: Verify sg4
   assert:
     that:
-    - sg4.msg == "Provided service node type 'FW' does not exist. Existing node types include{{':'}} firewall, load-balancer, other",
+    - sg4.msg == "Provided service node type 'non_existing_type' does not exist. Existing node types include{{':'}} firewall, load-balancer, other",
 
 - name: Query service graph SG
   cisco.mso.mso_schema_template_service_graph:
@@ -284,6 +284,9 @@
     - query_sg.current.displayName == "sg"
     - query_sg.current.nodeFilter == "allow-all"
     - query_sg.current.serviceNodes | length == 3
+    - query_sg.current.serviceNodes.0.name == "firewall"
+    - query_sg.current.serviceNodes.1.name == "load-balancer"
+    - query_sg.current.serviceNodes.2.name == "other"
 
 - name: Query all service graphs
   cisco.mso.mso_schema_template_service_graph:

@@ -6,6 +6,28 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v1.4.0
+======
+
+Release Summary
+---------------
+
+Release v1.4.0 of the ``ansible-mso`` collection on 2022-03-15.
+This changelog describes all changes made to the modules and plugins included in this collection since v1.3.0.
+
+
+Minor Changes
+-------------
+
+- Update mso_schema_template_clone to use new method from NDO and unrestrict it to earlier version
+
+Bugfixes
+--------
+
+- Fix arp_entry value issue in mso_schema_template_filter_entry
+- Fix mso_schema_site_anp idempotency when children exists
+- Fix use_ssl documentation to explain usage when used with HTTPAPI connection plugin
+
 v1.3.0
 ======
 

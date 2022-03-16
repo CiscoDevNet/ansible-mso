@@ -1153,9 +1153,14 @@ class MSOModule(object):
             self.module.fail_json(msg="Service node types do not exist")
         return node_objs
 
-    def query_service_node_device_types(self, site_id, tenant, service_node, device):
-        node_devices = self.query_objs('sites/{0}/aci/tenants/{1}/devices?deviceType={2}'.format(site_id, tenant, service_node), key='devices')
-        if not node_devices:
-            self.module.fail_json(msg="Provided device '{0}' does not exist."
-                                  .format(device))
+    def lookup_service_node_device(self, site_id, tenant, device_name, service_node_type=None):
+        if service_node_type is None:
+            node_devices = self.query_objs('sites/{0}/aci/tenants/{1}/devices'.format(site_id, tenant), key='devices')
+        else:
+            node_devices = self.query_objs('sites/{0}/aci/tenants/{1}/devices?deviceType={2}'.format(site_id, tenant, service_node_type), key='devices')
+            for device in node_devices:
+                if device_name == device.get('name'):
+                    return device
+            self.module.fail_json(msg="Provided device '{0}' of type '{1}' does not exist."
+                                  .format(device_name, service_node_type))
         return node_devices

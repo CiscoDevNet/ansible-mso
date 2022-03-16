@@ -36,7 +36,7 @@
 - name: Remove schemas
   cisco.mso.mso_schema:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     state: absent
 
 - name: Ensure tenant ansible_test exist
@@ -94,7 +94,7 @@
 - name: Ensure schema 1 with Template1 and 2 exist
   cisco.mso.mso_schema_template:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
     template: '{{ item }}'
     state: present
@@ -105,7 +105,7 @@
 - name: Ensure schema 2 with Template1 exists
   cisco.mso.mso_schema_template:
     <<: *mso_info
-    schema: Schema2
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
     template: Template1
     state: present
@@ -127,7 +127,7 @@
 - name: Create a service graph 1 at Template level
   cisco.mso.mso_schema_template_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG1
     display_name: sg1
@@ -139,7 +139,7 @@
 - name: Create service graph 2 at Template level
   cisco.mso.mso_schema_template_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG2
     display_name: sg2
@@ -153,7 +153,7 @@
 - name: Create service graph 3 at Template level
   cisco.mso.mso_schema_template_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG3
     display_name: sg3
@@ -168,10 +168,10 @@
 - name: Create a service graph 4 at Template level
   cisco.mso.mso_schema_template_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG4
-    display_name: sg
+    display_name: sg4
     service_nodes: 
       - type: other
       - type: load-balancer
@@ -182,7 +182,7 @@
 - name: Create a service graph 5 at Template level
   cisco.mso.mso_schema_template_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG5
     display_name: sg5
@@ -196,7 +196,7 @@
 - name: Create a service graph 6 at Template level
   cisco.mso.mso_schema_template_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG6
     display_name: sg6
@@ -210,7 +210,7 @@
 - name: Create a service graph 7 at Template level
   cisco.mso.mso_schema_template_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG7
     display_name: sg7
@@ -223,15 +223,15 @@
 - name: Add physical site to a schema
   cisco.mso.mso_schema_site:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
     state: present
 
 - name: Add a new Graph at site level (check mode)
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG1
     site: '{{ mso_site | default("ansible_test") }}'
@@ -246,16 +246,15 @@
   assert:
     that:
     - cm_sg1 is changed
-    - cm_sg1.current.serviceGraphRef.schemaId == "[0-9a-zA-Z]*"
     - cm_sg1.current.serviceGraphRef.serviceGraphName == "SG1"
     - cm_sg1.current.serviceGraphRef.templateName == "Template1"
     - cm_sg1.current.serviceNodes | length == 1
     - cm_sg1.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
 
 - name: Add a new Graph SG1 at site level (normal mode)
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG1
     site: '{{ mso_site | default("ansible_test") }}'
@@ -269,16 +268,15 @@
   assert:
     that:
     - nm_sg1 is changed
-    - nm_sg1.current.serviceGraphRef.schemaId == "[0-9a-zA-Z]*"
     - nm_sg1.current.serviceGraphRef.serviceGraphName == "SG1"
     - nm_sg1.current.serviceGraphRef.templateName == "Template1"
     - nm_sg1.current.serviceNodes | length == 1
     - nm_sg1.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
 
 - name: Add Graph SG1 at site level again
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG1
     site: '{{ mso_site | default("ansible_test") }}'
@@ -292,16 +290,15 @@
   assert:
     that:
     - nm_sg1_again is not changed
-    - nm_sg1_again.current.serviceGraphRef.schemaId == "[0-9a-zA-Z]*"
     - nm_sg1_again.current.serviceGraphRef.serviceGraphName == "SG1"
     - nm_sg1_again.current.serviceGraphRef.templateName == "Template1"
     - nm_sg1_again.current.serviceNodes | length == 1
     - nm_sg1_again.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
 
 - name: Change service graph SG1 at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG1
     site: '{{ mso_site | default("ansible_test") }}'
@@ -315,16 +312,15 @@
   assert:
     that:
     - change_sg1 is changed
-    - change_sg1.current.serviceGraphRef.schemaId == "[0-9a-zA-Z]*"
     - change_sg1.current.serviceGraphRef.serviceGraphName == "SG1"
     - change_sg1.current.serviceGraphRef.templateName == "Template1"
     - change_sg1.current.serviceNodes | length == 1
     - change_sg1.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall2"
 
 - name: Add a new Graph SG2 at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG2
     site: '{{ mso_site | default("ansible_test") }}'
@@ -339,7 +335,6 @@
   assert:
     that:
     - sg2 is changed
-    - sg2.current.serviceGraphRef.schemaId == "[0-9a-zA-Z]*"
     - sg2.current.serviceGraphRef.serviceGraphName == "SG2"
     - sg2.current.serviceGraphRef.templateName == "Template1"
     - sg2.current.serviceNodes | length == 2
@@ -347,9 +342,9 @@
     - sg2.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_adc"
 
 - name: Add a new Graph SG3 at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG3
     site: '{{ mso_site | default("ansible_test") }}'
@@ -365,7 +360,6 @@
   assert:
     that:
     - sg3 is changed
-    - sg3.current.serviceGraphRef.schemaId == "[0-9a-zA-Z]*"
     - sg3.current.serviceGraphRef.serviceGraphName == "SG3"
     - sg3.current.serviceGraphRef.templateName == "Template1"
     - sg3.current.serviceNodes | length == 3
@@ -374,9 +368,9 @@
     - sg3.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
 
 - name: Add a new Graph SG4 at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG4
     site: '{{ mso_site | default("ansible_test") }}'
@@ -392,7 +386,6 @@
   assert:
     that:
     - sg4 is changed
-    - sg4.current.serviceGraphRef.schemaId == "[0-9a-zA-Z]*"
     - sg4.current.serviceGraphRef.serviceGraphName == "SG4"
     - sg4.current.serviceGraphRef.templateName == "Template1"
     - sg4.current.serviceNodes | length == 3
@@ -401,9 +394,9 @@
     - sg4.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
 
 - name: Change Graph SG4 at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG4
     site: '{{ mso_site | default("ansible_test") }}'
@@ -419,7 +412,6 @@
   assert:
     that:
     - change1_sg4 is changed
-    - change1_sg4.current.serviceGraphRef.schemaId == "[0-9a-zA-Z]*"
     - change1_sg4.current.serviceGraphRef.serviceGraphName == "SG4"
     - change1_sg4.current.serviceGraphRef.templateName == "Template1"
     - change1_sg4.current.serviceNodes | length == 3
@@ -428,9 +420,9 @@
     - change1_sg4.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall2"
 
 - name: Change Graph SG4 at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG4
     site: '{{ mso_site | default("ansible_test") }}'
@@ -448,9 +440,9 @@
     - change2_sg4.msg == "Service Graph 'SG4' has '3' service node type(s) but '1' service node type(s) were given for the device"
 
 - name: Change Graph SG4 at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG4
     site: '{{ mso_site | default("ansible_test") }}'
@@ -468,9 +460,9 @@
     - change3_sg4.msg == "Service Graph 'SG4' has '3' service node type(s) but '1' service node type(s) were given for the device"
 
 - name: Change Graph SG4 at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG4
     site: '{{ mso_site | default("ansible_test") }}'
@@ -488,9 +480,9 @@
     - change4_sg4.msg == "Service Graph 'SG4' has '3' service node type(s) but '1' service node type(s) were given for the device"
 
 - name: Change Graph SG4 at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG4
     site: '{{ mso_site | default("ansible_test") }}'
@@ -509,9 +501,9 @@
     - change5_sg4.msg == "Service Graph 'SG4' has '3' service node type(s) but '2' service node type(s) were given for the device"
 
 - name: Change Graph SG4 at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG4
     site: '{{ mso_site | default("ansible_test") }}'
@@ -531,9 +523,9 @@
     - change6_sg4.msg == "Provided device 'ansible_test_other' of type 'ADC' does not exist."
 
 - name: Add Graph SG5 at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG5
     site: '{{ mso_site | default("ansible_test") }}'
@@ -549,7 +541,6 @@
   assert:
     that:
     - sg5 is changed
-    - sg5.current.serviceGraphRef.schemaId == "[0-9a-zA-Z]*"
     - sg5.current.serviceGraphRef.serviceGraphName == "SG5"
     - sg5.current.serviceGraphRef.templateName == "Template1"
     - sg5.current.serviceNodes | length == 3
@@ -558,9 +549,9 @@
     - sg5.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
 
 - name: Add Graph SG6 at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG6
     site: '{{ mso_site | default("ansible_test") }}'
@@ -576,7 +567,6 @@
   assert:
     that:
     - sg6 is changed
-    - sg6.current.serviceGraphRef.schemaId == "[0-9a-zA-Z]*"
     - sg6.current.serviceGraphRef.serviceGraphName == "SG7"
     - sg6.current.serviceGraphRef.templateName == "Template1"
     - sg6.current.serviceNodes | length == 3
@@ -585,9 +575,9 @@
     - sg6.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
 
 - name: Add Graph SG7 at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG7
     site: '{{ mso_site | default("ansible_test") }}'
@@ -602,7 +592,6 @@
   assert:
     that:
     - sg7 is changed
-    - sg7.current.serviceGraphRef.schemaId == "[0-9a-zA-Z]*"
     - sg7.current.serviceGraphRef.serviceGraphName == "SG7"
     - sg7.current.serviceGraphRef.templateName == "Template1"
     - sg7.current.serviceNodes | length == 2
@@ -610,9 +599,9 @@
     - sg7.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_adc"
 
 - name: Query service graph SG at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG1
     site: '{{ mso_site | default("ansible_test") }}'
@@ -627,9 +616,9 @@
     - query_sg.current.serviceGraphRef == "/schemas/[0-9a-zA-Z]*/templates/Template1/serviceGraphs/SG1"
 
 - name: Query all service graphs at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     site: '{{ mso_site | default("ansible_test") }}'
     tenant: ansible_test
@@ -643,9 +632,9 @@
     - query_all.current | length == 7
 
 - name: Query non_existing service graph at site level
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     site: '{{ mso_site | default("ansible_test") }}'
     service_graph: non-existent
@@ -660,7 +649,7 @@
     - query_non_existing_sg.msg == "Service Graph 'non_existent' not found"
 
 - name: Use non_existing schema
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
     schema: non_existing_schema
     template: Template1
@@ -678,9 +667,9 @@
     - query_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
 
 - name: Use non_existing template
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: non_existing_template
     service_graph: SG
     tenant: ansible_test
@@ -696,9 +685,9 @@
     - query_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1, Template2"
 
 - name: Use non_existing_site_template
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
     service_graph: SG
     template: Template2
@@ -714,9 +703,9 @@
     - nm_non_existing_site_template.msg == "Provided site-template association 'ansible_test-Template2' does not exist."
 
 - name: Add site Service Graph to Template2 without any site association
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema2
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
     service_graph: SG1
@@ -734,9 +723,9 @@
     - nm_no_site_associated.msg == "No site associated with template 'Template1'. Associate the site with the template using mso_schema_site."
 
 - name: Remove service graph from site level(check mode)
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG1
     site: '{{ mso_site | default("ansible_test") }}'
@@ -753,9 +742,9 @@
     - rm_sg_cm.previous.serviceGraphRef== "/schemas/[0-9a-zA-Z]*/templates/Template1/serviceGraphs/SG1"
 
 - name: Remove service graph from site level (normal mode)
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG1
     tenant: ansible_test
@@ -771,9 +760,9 @@
     - rm_sg.previous.serviceGraphRef== "/schemas/[0-9a-zA-Z]*/templates/Template1/serviceGraphs/SG1"
 
 - name: Remove service graph again
-  cisco.mso.mso_schema_site_service_graph_node:
+  cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     service_graph: SG1
     tenant: ansible_test

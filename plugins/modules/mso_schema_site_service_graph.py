@@ -13,7 +13,7 @@ ANSIBLE_METADATA = {'metadata_version': '1.1',
 
 DOCUMENTATION = r'''
 ---
-module: mso_schema_site_service_graph_node
+module: mso_schema_site_service_graph
 short_description: Manage Service Graph in schema sites
 description:
 - Manage Service Graph in schema sites on Cisco ACI Multi-Site.
@@ -161,7 +161,7 @@ def main():
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
-    templates = list(schema_obj.get('templates'))
+    templates = schema_obj.get('templates')
     template_names = [t.get('name') for t in templates]
     if template not in template_names:
         mso.fail_json(msg="Provided template '{template}' does not exist. Existing templates: {templates}".format(template=template,
@@ -196,7 +196,7 @@ def main():
     if state == 'query':
         if service_graph is None:
             mso.existing = schema_obj.get('sites')[site_idx]['serviceGraphs']
-        if service_graph is not None and service_graph_idx is None:
+        elif service_graph is not None and service_graph_idx is None:
             mso.fail_json(msg="Service Graph '{service_graph}' not found".format(service_graph=service_graph))
         mso.exit_json()
 
@@ -212,58 +212,40 @@ def main():
 
     elif state == 'present':
         devices_payload = []
-        node_device_type = []
-        device_types = {}
-        device_number = 0
-        service_graphs = list(templates[template_idx]['serviceGraphs'])
-        service_nodes_list = [r['serviceNodes'] for r in service_graphs if r.get('name') == service_graph]
-        service_nodes_list_types = [k.get('name') for k in service_nodes_list[0]]
+        service_graphs = templates[template_idx]['serviceGraphs']
+        for graph in service_graphs:
+            if graph.get('name') == service_graph:
+                service_nodes_list = graph['serviceNodes']
+        service_nodes_list_types = [type.get('name') for type in service_nodes_list]
         user_number_devices = len(devices)
-        number_service_nodes = len(service_nodes_list[0])
-        if user_number_devices != number_service_nodes:
+        number_of_nodes_in_template = len(service_nodes_list)
+        if user_number_devices != number_of_nodes_in_template:
             mso.fail_json(msg="Service Graph '{0}' has '{1}' service node type(s) but '{2}' service node type(s) were given for the device"
-                          .format(service_graph, number_service_nodes, user_number_devices))
-        # Populate dict for service node type and device type
-        for node_type in service_nodes_list_types:
-            if node_type == 'firewall':
-                node_device_type.append('FW')
-            elif node_type == 'load-balancer':
-                node_device_type.append('ADC')
-            else:
-                node_device_type.append('OTHERS')
-
-        # Populate dict for device types and an index number
-        keys_number_devices = range(user_number_devices)
-        for number in keys_number_devices:
-            device_types[number] = node_device_type[number]
+                          .format(service_graph, number_of_nodes_in_template, user_number_devices))
 
         if devices is not None:
-            for device in devices:
+            for index, device in enumerate(devices):
+                template_node_type = service_nodes_list_types[index]
+                apic_type = 'OTHERS'
+                if template_node_type == 'firewall':
+                    apic_type = 'FW'
+                elif template_node_type == 'load-balancer':
+                    apic_type = 'ADC'
                 device_name = device.get('name')
-                query_device_data = mso.query_service_node_device_types(site_id, tenant, device_types[device_number], device_name)
-                device_names = [f.get('name') for f in query_device_data]
-                service_node_type = node_device_type[device_number]
-                device_number = device_number + 1
-                device_names = [f.get('name') for f in query_device_data]
-                if device_name not in device_names:
-                    mso.fail_json(msg="Provided device '{0}' of type '{1}' does not exist."
-                                  .format(device_name, service_node_type))
-                else:
-                    for device_data in query_device_data:
-                        if device_data['name'] == device_name:
-                            devices_payload.append(dict(
-                                device=dict(
-                                    dn=device_data.get('dn'),
-                                    funcTyp=device_data.get('funcType'),
-                                ),
-                                serviceNodeRef=dict(
-                                    serviceNodeName=service_node_type,
-                                    serviceGraphName=service_graph,
-                                    templateName=template,
-                                    schemaId=schema_id,
-                                )
-                            ),
-                            )
+                query_device_data = mso.lookup_service_node_device(site_id, tenant, device_name, apic_type)
+                devices_payload.append(dict(
+                    device=dict(
+                        dn=query_device_data.get('dn'),
+                        funcTyp=query_device_data.get('funcType'),
+                    ),
+                    serviceNodeRef=dict(
+                        serviceNodeName=template_node_type,
+                        serviceGraphName=service_graph,
+                        templateName=template,
+                        schemaId=schema_id,
+                    )
+                ),
+                )
 
         payload = dict(
             serviceGraphRef=dict(

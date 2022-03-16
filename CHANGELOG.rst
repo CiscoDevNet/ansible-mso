@@ -28,6 +28,16 @@ Bugfixes
 - Fix mso_schema_site_anp idempotency when children exists
 - Fix use_ssl documentation to explain usage when used with HTTPAPI connection plugin
 
+v1.3.1
+======
+
+Release Summary
+---------------
+
+Release v1.3.1 of the ``ansible-mso`` collection on 2022-03-16.
+This changelog describes all changes made to the modules and plugins included in this collection since v1.3.0.
+
+
 v1.3.0
 ======
 

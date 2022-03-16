@@ -365,7 +365,7 @@
     - sg3.current.serviceNodes | length == 3
     - sg3.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
     - sg3.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_adc"
-    - sg3.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
+    - sg3.current.serviceNodes.2.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
 
 - name: Add a new Graph SG4 at site level
   cisco.mso.mso_schema_site_service_graph:
@@ -391,7 +391,7 @@
     - sg4.current.serviceNodes | length == 3
     - sg4.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
     - sg4.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_adc"
-    - sg4.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
+    - sg4.current.serviceNodes.2.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
 
 - name: Change Graph SG4 at site level
   cisco.mso.mso_schema_site_service_graph:
@@ -417,7 +417,7 @@
     - change1_sg4.current.serviceNodes | length == 3
     - change1_sg4.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
     - change1_sg4.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_adc"
-    - change1_sg4.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall2"
+    - change1_sg4.current.serviceNodes.2.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall2"
 
 - name: Change Graph SG4 at site level
   cisco.mso.mso_schema_site_service_graph:
@@ -546,7 +546,7 @@
     - sg5.current.serviceNodes | length == 3
     - sg5.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
     - sg5.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
-    - sg5.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
+    - sg5.current.serviceNodes.2.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
 
 - name: Add Graph SG6 at site level
   cisco.mso.mso_schema_site_service_graph:
@@ -567,12 +567,12 @@
   assert:
     that:
     - sg6 is changed
-    - sg6.current.serviceGraphRef.serviceGraphName == "SG7"
+    - sg6.current.serviceGraphRef.serviceGraphName == "SG6"
     - sg6.current.serviceGraphRef.templateName == "Template1"
     - sg6.current.serviceNodes | length == 3
     - sg6.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
     - sg6.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
-    - sg6.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
+    - sg6.current.serviceNodes.2.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
 
 - name: Add Graph SG7 at site level
   cisco.mso.mso_schema_site_service_graph:
@@ -613,7 +613,7 @@
   assert:
     that:
     - query_sg is not changed
-    - query_sg.current.serviceGraphRef == "/schemas/[0-9a-zA-Z]*/templates/Template1/serviceGraphs/SG1"
+    - query_sg.current.serviceGraphRef is match("/schemas/[0-9a-zA-Z]*/templates/Template1/serviceGraphs/SG1")
 
 - name: Query all service graphs at site level
   cisco.mso.mso_schema_site_service_graph:
@@ -637,7 +637,7 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     site: '{{ mso_site | default("ansible_test") }}'
-    service_graph: non-existent
+    service_graph: non_existent
     tenant: ansible_test
     state: query
   ignore_errors: yes
@@ -664,7 +664,7 @@
   assert:
     that:
     - query_non_existing_schema is not changed
-    - query_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
+    - query_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
 
 - name: Use non_existing template
   cisco.mso.mso_schema_site_service_graph:
@@ -678,10 +678,9 @@
   ignore_errors: yes
   register: query_non_existing_template
 
-- name: Verify query_non_existing_schema and query_non_existing_template
+- name: Verify query_non_existing_template
   assert:
     that:
-    - query_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
     - query_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1, Template2"
 
 - name: Use non_existing_site_template
@@ -739,7 +738,7 @@
     that:
     - rm_sg_cm is changed
     - rm_sg_cm.current == {}
-    - rm_sg_cm.previous.serviceGraphRef== "/schemas/[0-9a-zA-Z]*/templates/Template1/serviceGraphs/SG1"
+    - rm_sg_cm.previous.serviceGraphRef is match("/schemas/[0-9a-zA-Z]*/templates/Template1/serviceGraphs/SG1")
 
 - name: Remove service graph from site level (normal mode)
   cisco.mso.mso_schema_site_service_graph:
@@ -757,7 +756,7 @@
     that:
     - rm_sg is changed
     - rm_sg.current == {}
-    - rm_sg.previous.serviceGraphRef== "/schemas/[0-9a-zA-Z]*/templates/Template1/serviceGraphs/SG1"
+    - rm_sg.previous.serviceGraphRef is match("/schemas/[0-9a-zA-Z]*/templates/Template1/serviceGraphs/SG1")
 
 - name: Remove service graph again
   cisco.mso.mso_schema_site_service_graph:

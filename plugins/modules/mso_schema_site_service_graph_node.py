@@ -161,7 +161,7 @@ def main():
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
-    templates = [t for t in schema_obj.get('templates')]
+    templates = list(schema_obj.get('templates'))
     template_names = [t.get('name') for t in templates]
     if template not in template_names:
         mso.fail_json(msg="Provided template '{template}' does not exist. Existing templates: {templates}".format(template=template,
@@ -215,7 +215,7 @@ def main():
         node_device_type = []
         device_types = {}
         device_number = 0
-        service_graphs = [f for f in templates[template_idx]['serviceGraphs']]
+        service_graphs = list(templates[template_idx]['serviceGraphs'])
         service_nodes_list = [r['serviceNodes'] for r in service_graphs if r.get('name') == service_graph]
         service_nodes_list_types = [k.get('name') for k in service_nodes_list[0]]
         user_number_devices = len(devices)

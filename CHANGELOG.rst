@@ -6,6 +6,16 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v1.4.1
+======
+
+Release Summary
+---------------
+
+Release v1.4.1 of the ``ansible-mso`` collection on 2022-03-17.
+This changelog describes all changes made to the modules and plugins included in this collection since v1.4.0.
+
+
 v1.4.0
 ======
 

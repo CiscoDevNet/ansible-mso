@@ -223,8 +223,8 @@ def main():
                           .format(service_graph, number_of_nodes_in_template, user_number_devices))
 
         if devices is not None:
+            service_node_type_names_from_template = [type.get('name') for type in service_node_types_from_template]
             for index, device in enumerate(devices):
-                service_node_type_names_from_template = [type.get('name') for type in service_node_types_from_template]
                 template_node_type = service_node_type_names_from_template[index]
                 apic_type = 'OTHERS'
                 if template_node_type == 'firewall':

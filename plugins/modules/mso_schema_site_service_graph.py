@@ -215,10 +215,10 @@ def main():
         service_graphs = templates[template_idx]['serviceGraphs']
         for graph in service_graphs:
             if graph.get('name') == service_graph:
-                service_nodes_list = graph['serviceNodes']
-        service_nodes_list_types = [type.get('name') for type in service_nodes_list]
+                service_node_types_from_template = graph['serviceNodes']
+        service_nodes_list_types = [type.get('name') for type in service_node_types_from_template]
         user_number_devices = len(devices)
-        number_of_nodes_in_template = len(service_nodes_list)
+        number_of_nodes_in_template = len(service_node_types_from_template)
         if user_number_devices != number_of_nodes_in_template:
             mso.fail_json(msg="Service Graph '{0}' has '{1}' service node type(s) but '{2}' service node type(s) were given for the device"
                           .format(service_graph, number_of_nodes_in_template, user_number_devices))
@@ -231,8 +231,7 @@ def main():
                     apic_type = 'FW'
                 elif template_node_type == 'load-balancer':
                     apic_type = 'ADC'
-                device_name = device.get('name')
-                query_device_data = mso.lookup_service_node_device(site_id, tenant, device_name, apic_type)
+                query_device_data = mso.lookup_service_node_device(site_id, tenant, device.get('name'), apic_type)
                 devices_payload.append(dict(
                     device=dict(
                         dn=query_device_data.get('dn'),
@@ -244,8 +243,7 @@ def main():
                         templateName=template,
                         schemaId=schema_id,
                     )
-                ),
-                )
+                ),)
 
         payload = dict(
             serviceGraphRef=dict(

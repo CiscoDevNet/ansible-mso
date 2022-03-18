@@ -55,17 +55,12 @@
     state: present
 
 - name: Add a tenant on APIC
-  cisco.aci.aci_rest:
+  cisco.aci.aci_tenant:
     host: '{{ apic_hostname }}'
     username: '{{ apic_username }}'
     password: '{{ apic_password }}'
     validate_certs: no
-    path: /api/mo/uni.json
-    method: post
-    content:
-        fvTenant:
-          attributes:
-            name: "ansible_test"
+    name: "ansible_test"
 
 - name: Add devices to APIC
   cisco.aci.aci_rest:
@@ -110,14 +105,14 @@
     template: Template1
     state: present
 
-- name: Add a new Node 
+- name: Add Node1 
   cisco.mso.mso_service_node_type:
     <<: *mso_info
     name: ansible_test_other1
     display_name: ansible_test_other1
     state: present
 
-- name: Add a new Node
+- name: Add Node2
   cisco.mso.mso_service_node_type:
     <<: *mso_info
     name: ansible_test_other2

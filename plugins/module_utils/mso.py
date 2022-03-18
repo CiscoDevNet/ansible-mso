@@ -1153,11 +1153,12 @@ class MSOModule(object):
             self.module.fail_json(msg="Service node types do not exist")
         return node_objs
 
-    def lookup_service_node_device(self, site_id, tenant, device_name, service_node_type=None):
+    def lookup_service_node_device(self, site_id, tenant, device_name=None, service_node_type=None):
         if service_node_type is None:
             node_devices = self.query_objs('sites/{0}/aci/tenants/{1}/devices'.format(site_id, tenant), key='devices')
         else:
             node_devices = self.query_objs('sites/{0}/aci/tenants/{1}/devices?deviceType={2}'.format(site_id, tenant, service_node_type), key='devices')
+        if device_name is not None:
             for device in node_devices:
                 if device_name == device.get('name'):
                     return device

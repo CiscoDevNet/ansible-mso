@@ -216,7 +216,6 @@ def main():
         for graph in service_graphs:
             if graph.get('name') == service_graph:
                 service_node_types_from_template = graph['serviceNodes']
-        service_nodes_list_types = [type.get('name') for type in service_node_types_from_template]
         user_number_devices = len(devices)
         number_of_nodes_in_template = len(service_node_types_from_template)
         if user_number_devices != number_of_nodes_in_template:
@@ -225,7 +224,8 @@ def main():
 
         if devices is not None:
             for index, device in enumerate(devices):
-                template_node_type = service_nodes_list_types[index]
+                service_node_type_names_from_template = [type.get('name') for type in service_node_types_from_template]
+                template_node_type = service_node_type_names_from_template[index]
                 apic_type = 'OTHERS'
                 if template_node_type == 'firewall':
                     apic_type = 'FW'

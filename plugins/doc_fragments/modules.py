@@ -78,6 +78,5 @@ options:
 requirements:
 - Multi Site Orchestrator v2.1 or newer
 notes:
-- Please read the :ref:`mso_guide` for more detailed information on how to manage your MSO infrastructure using Ansible.
 - This module was written to support Multi Site Orchestrator v2.1 or newer. Some or all functionality may not work on earlier versions.
 '''

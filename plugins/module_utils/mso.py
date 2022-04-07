@@ -1137,7 +1137,6 @@ class MSOModule(object):
         filter_obj['filterType'] = filter_type
         filter_obj['contractScope'] = contract_obj.get('scope')
         filter_obj['contractFilterType'] = contract_obj.get('filterType')
-        return filter_obj
 
     def query_schema(self, schema):
         schema_id = self.lookup_schema(schema)

@@ -312,6 +312,7 @@
     shared: true
     no_default_gateway: true
     querier: true
+    primary: true
     state: present
   register: nm_add_site_bd_subnet5
 
@@ -340,6 +341,7 @@
     - nm_add_site_bd_subnet5.current.noDefaultGateway == True
     - nm_add_site_bd_subnet5.current.querier == True
     - nm_add_site_bd_subnet5.current.virtual == True
+    - nm_add_site_bd_subnet5.current.primary == True
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Query all subnets
@@ -401,6 +403,7 @@
     - query_subnet5 is not changed
     - query_subnet5.current.ip == "10.1.0.5/16"
     - query_subnet5.current.virtual == true
+    - query_subnet5.current.primary == true
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Remove a site BD subnet

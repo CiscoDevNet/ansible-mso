@@ -70,6 +70,13 @@ options:
     - Whether this subnet is an IGMP querier.
     type: bool
     default: false
+  primary:
+    description:
+    - Treat as Primary Subnet.
+    - There can be only one primary subnet per address family under a BD.
+    - This option can only be used on versions of MSO that are 3.1.1h or greater.
+    type: bool
+    default: false
   is_virtual_ip:
     description:
     - Treat as Virtual IP Address
@@ -168,6 +175,7 @@ def main():
         shared=dict(type='bool', default=False),
         no_default_gateway=dict(type='bool', default=False),
         querier=dict(type='bool', default=False),
+        primary=dict(type='bool', default=False),
         is_virtual_ip=dict(type='bool', default=False),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
@@ -191,6 +199,7 @@ def main():
     shared = module.params.get('shared')
     no_default_gateway = module.params.get('no_default_gateway')
     querier = module.params.get('querier')
+    primary = module.params.get('primary')
     is_virtual_ip = module.params.get('is_virtual_ip')
     state = module.params.get('state')
 
@@ -279,6 +288,7 @@ def main():
             noDefaultGateway=no_default_gateway,
             virtual=is_virtual_ip,
             querier=querier,
+            primary=primary,
         )
 
         mso.sanitize(payload, collate=True)

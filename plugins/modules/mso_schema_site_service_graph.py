@@ -219,7 +219,7 @@ def main():
         user_number_devices = len(devices)
         number_of_nodes_in_template = len(service_node_types_from_template)
         if user_number_devices != number_of_nodes_in_template:
-            mso.fail_json(msg="Service Graph '{0}' has '{1}' service node type(s) but '{2}' service node type(s) were given for the device"
+            mso.fail_json(msg="Service Graph '{0}' has '{1}' service node type(s) but '{2}' service node(s) were given for the service graph"
                           .format(service_graph, number_of_nodes_in_template, user_number_devices))
 
         if devices is not None:

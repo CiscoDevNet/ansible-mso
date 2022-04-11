@@ -33,14 +33,14 @@ options:
     - The time to start the scheduler in format HH:MM:SS
     - If no time is provided, midnight "00:00:00" will be used.
     type: str
-  interval_unit:
+  frequency_unit:
     description:
     - The interval unit type
     choices: [ hours, days ]
     type: str
-  interval_length:
+  frequency_length:
     description:
-    - Amount of hours or days for schedule to trigger
+    - Amount of hours or days for the schedule trigger frequency
     type: int
   remote_location:
     description:
@@ -63,7 +63,7 @@ extends_documentation_fragment: cisco.mso.modules
 '''
 
 EXAMPLES = r'''
-- name: Get set backup schedule
+- name: Get current backup schedule
   cisco.mso.mso_backup_schedule:
     host: mso_host
     username: admin
@@ -76,8 +76,8 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    interval_unit: hours
-    interval_length: 7
+    frequency_unit: hours
+    frequency_length: 7
     remote_location: ansible_test
     state: present
   delegate_to: localhost
@@ -87,8 +87,8 @@ EXAMPLES = r'''
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    interval_unit: days
-    interval_length: 1
+    frequency_unit: days
+    frequency_length: 1
     remote_location: ansible_test
     remote_path: test
     start_time: 20:57:36
@@ -118,8 +118,8 @@ def main():
     argument_spec.update(
         start_date=dict(type='str'),
         start_time=dict(type='str'),
-        interval_unit=dict(type='str', choices=['hours', 'days']),
-        interval_length=dict(type='int'),
+        frequency_unit=dict(type='str', choices=['hours', 'days']),
+        frequency_length=dict(type='int'),
         remote_location=dict(type='str'),
         remote_path=dict(type='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
@@ -129,14 +129,14 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'present', ['interval_unit', 'interval_length', 'remote_location']]
+            ['state', 'present', ['frequency_unit', 'frequency_length', 'remote_location']]
         ]
     )
 
     start_date = module.params.get('start_date')
     start_time = module.params.get('start_time')
-    interval_unit = module.params.get('interval_unit')
-    interval_length = module.params.get('interval_length')
+    frequency_unit = module.params.get('frequency_unit')
+    frequency_length = module.params.get('frequency_length')
     remote_location = module.params.get('remote_location')
     remote_path = module.params.get('remote_path')
     state = module.params.get('state')
@@ -161,18 +161,18 @@ def main():
         try:
             start_time = time.fromisoformat(start_time) if start_time else time()
         except Exception as e:
-            module.fail_json(msg="Failed to parse time format 'HH:MM:SS' %s', %s" % (start_time, e))
+            module.fail_json(msg="Failed to parse time format 'HH:MM:SS' %s, %s" % (start_time, e))
 
         # If no date has been provided default to current date.
         try:
             start_date = date.fromisoformat(start_date) if start_date else date.today()
         except Exception as e:
-            module.fail_json(msg="Failed to parse date format 'YYYY-MM-DD' '%s', %s" % (start_date, e))
+            module.fail_json(msg="Failed to parse date format 'YYYY-MM-DD' %s, %s" % (start_date, e))
 
         payload = dict(
             startDate="{0}Z".format(datetime.combine(start_date, start_time).isoformat(timespec='milliseconds')),
-            intervalTimeUnit=interval_unit.upper(),
-            intervalLength=interval_length,
+            intervalTimeUnit=frequency_unit.upper(),
+            intervalLength=frequency_length,
             remoteLocationId=remote_location_info.get('id'),
             locationType="remote"
         )

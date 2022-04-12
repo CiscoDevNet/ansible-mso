@@ -192,6 +192,18 @@ def mso_object_migrate_spec():
     )
 
 
+def mso_service_graph_node_spec():
+    return dict(
+        type=dict(type='str', required=True),
+    )
+
+
+def mso_service_graph_node_device_spec():
+    return dict(
+        name=dict(type='str', required=True),
+    )
+
+
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp):
     # create a tempfile with some test content
@@ -869,6 +881,10 @@ class MSOModule(object):
         ''' Create extEpgRef string '''
         return '/schemas/{schema_id}/templates/{template}/externalEpgs/{external_epg}'.format(**data)
 
+    def service_graph_ref(self, **data):
+        ''' Create serviceGraphRef string '''
+        return '/schemas/{schema_id}/templates/{template}/serviceGraphs/{service_graph}'.format(**data)
+
     def vrf_dict_from_ref(self, data):
         vrf_ref_regex = re.compile(r'\/schemas\/(.*)\/templates\/(.*)\/vrfs\/(.*)')
         vrf_dict = vrf_ref_regex.search(data)
@@ -894,6 +910,7 @@ class MSOModule(object):
                     'contracts': ['contractName', 'schemaId', 'templateName'],
                     'l3outs': ['l3outName', 'schemaId', 'templateName'],
                     'anps': ['anpName', 'schemaId', 'templateName'],
+                    'serviceGraphs': ['serviceGraphName', 'schemaId', 'templateName'],
                 }
                 result = {
                     uri_map[category][1]: schema_id,
@@ -1144,3 +1161,22 @@ class MSOModule(object):
         if not schema_obj:
             self.module.fail_json(msg="Schema '{0}' is not a valid schema name.".format(schema))
         return schema_id, schema_path, schema_obj
+
+    def query_service_node_types(self):
+        node_objs = self.query_objs('schemas/service-node-types', key='serviceNodeTypes')
+        if not node_objs:
+            self.module.fail_json(msg="Service node types do not exist")
+        return node_objs
+
+    def lookup_service_node_device(self, site_id, tenant, device_name=None, service_node_type=None):
+        if service_node_type is None:
+            node_devices = self.query_objs('sites/{0}/aci/tenants/{1}/devices'.format(site_id, tenant), key='devices')
+        else:
+            node_devices = self.query_objs('sites/{0}/aci/tenants/{1}/devices?deviceType={2}'.format(site_id, tenant, service_node_type), key='devices')
+        if device_name is not None:
+            for device in node_devices:
+                if device_name == device.get('name'):
+                    return device
+            self.module.fail_json(msg="Provided device '{0}' of type '{1}' does not exist."
+                                  .format(device_name, service_node_type))
+        return node_devices

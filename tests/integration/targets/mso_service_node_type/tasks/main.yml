@@ -1,0 +1,199 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(false) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Remove existing nodes added during test
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    name: '{{ item }}'
+    state: absent
+  loop:
+  - TEST1
+  - TEST2
+
+- name: Add a new node type (check_mode)
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    name: TEST1
+    display_name: test
+    state: present
+  register: node_cm
+  check_mode: yes
+
+- name: Verify node_cm
+  assert:
+    that:
+    - node_cm is changed
+    - node_cm.current.displayName == "test"
+    - node_cm.current.name == "TEST1"
+
+- name: Add a new node type (normal mode)
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    name: TEST1
+    display_name: test
+    state: present
+  register: node1
+
+- name: Verify node1
+  assert:
+    that:
+    - node1 is changed
+    - node1.current.displayName == "test"
+    - node1.current.name == "TEST1"
+
+- name: Add another node type
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    name: TEST2
+    state: present
+  register: node2
+
+- name: Verify node2
+  assert:
+    that:
+    - node2 is changed
+    - node2.current.displayName == "TEST2"
+    - node2.current.name == "TEST2"
+
+- name: Add node type TEST2 again
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    name: TEST2
+    state: present
+  register: node2_again
+
+- name: Verify node2_again
+  assert:
+    that:
+    - node2_again is not changed
+    - node2_again.current.displayName == "TEST2"
+    - node2_again.current.name == "TEST2"
+
+- name: Add TEST1 again with a different display name
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    name: TEST1
+    display_name: change_test
+    state: present
+  register: node2_different_display_name
+  ignore_errors: yes
+
+- name: Verify node2_different_display_name
+  assert:
+    that:
+    - node2_different_display_name.msg == "Service Node Type 'TEST1' already exists with display name 'test' which is different from provided display name 'change_test'."
+
+- name: Query a node type
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    name: TEST1
+    state: query
+  register: query_node1
+
+- name: Verify query_node1
+  assert:
+    that:
+    - query_node1 is not changed
+    - query_node1.current.displayName == "test"
+    - query_node1.current.name == "TEST1"
+  
+- name: Query all node types
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    state: query
+  register: query_all
+
+- name: Verify query_all
+  assert:
+    that:
+    - query_all is not changed
+    - query_all.current | length >= 4
+
+- name: Remove a node type (check_mode)
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    name: TEST1
+    state: absent
+  check_mode: yes
+  register: cm_rm
+
+- name: Verify cm_rm
+  assert:
+    that:
+    - cm_rm is changed
+    - cm_rm.previous.name == "TEST1"
+
+- name: Remove a node type (normal_mode)
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    name: TEST1
+    state: absent
+  register: rm_node1
+
+- name: Verify rm_node1
+  assert:
+    that:
+    - rm_node1 is changed
+    - rm_node1.current == {}
+    - rm_node1.previous.name == "TEST1"
+
+- name: Query absent node type
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    name: TEST1
+    state: query
+  register: query_absent
+  ignore_errors: yes
+
+- name: Verify query_absent
+  assert:
+    that:
+    - query_absent.msg == "Service Node Type 'TEST1' not found"
+
+- name: Remove another node type
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    name: TEST2
+    state: absent
+  register: rm_node2
+
+- name: Verify rm_node2
+  assert:
+    that:
+    - rm_node2 is changed
+    - rm_node2.current == {}
+    - rm_node2.previous.name == "TEST2"
+
+- name: Remove node type again
+  cisco.mso.mso_service_node_type:
+    <<: *mso_info
+    name: TEST2
+    state: absent
+  register: rm_node2_again
+
+- name: Verify rm_node2_again
+  assert:
+    that:
+    - rm_node2_again is not changed
+    - rm_node2_again.current == {}
+    - rm_node2_again.previous == {}

@@ -1,0 +1,783 @@
+# Test code for the MSO modules
+# Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(false) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+# Service Graph at Site Level is blocked by validations in MSO/NDO before v3.3.
+# It is supported after v3.3 by using validate=false.
+- name: Execute tasks only for MSO version >= 3.3
+  when: version.current.version is version('3.3', '>=')
+  block:
+  - name: Ensure site exists
+    cisco.mso.mso_site:
+      <<: *mso_info
+      site: '{{ mso_site | default("ansible_test") }}'
+      apic_username: '{{ apic_username }}'
+      apic_password: '{{ apic_password }}'
+      apic_site_id: '{{ apic_site_id | default(101) }}'
+      urls:
+      - https://{{ apic_hostname }}
+      state: present
+    ignore_errors: yes
+
+  - name: Remove schemas
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      state: absent
+
+  - name: Ensure tenant ansible_test exist
+    cisco.mso.mso_tenant:
+      <<: *mso_info
+      tenant: ansible_test
+      users:
+      - '{{ mso_username }}'
+      state: present
+
+  - name: Associate site with ansible_test
+    cisco.mso.mso_tenant_site:
+      <<: *mso_info
+      tenant: ansible_test
+      site: '{{ mso_site | default("ansible_test") }}'
+      state: present
+
+  - name: Add a tenant on APIC
+    cisco.aci.aci_tenant:
+      host: '{{ apic_hostname }}'
+      username: '{{ apic_username }}'
+      password: '{{ apic_password }}'
+      validate_certs: no
+      name: "ansible_test"
+
+  - name: Add devices to APIC
+    cisco.aci.aci_rest:
+      host: '{{ apic_hostname }}'
+      username: '{{ apic_username }}'
+      password: '{{ apic_password }}'
+      validate_certs: no
+      path: /api/node/mo/uni/tn-ansible_test.json
+      method: post
+      content:
+        vnsLDevVip:
+          attributes:
+            svcType: '{{ item.type }}'
+            managed: 'false'
+            name: '{{ item.name }}'
+          children:
+            - vnsCDev:
+                attributes:
+                  name: '{{ item.name }}'
+    loop:
+    - { type: FW, name: ansible_test_firewall1 }
+    - { type: FW, name: ansible_test_firewall2 }
+    - { type: ADC, name: ansible_test_adc }
+    - { type: OTHERS, name: ansible_test_other }
+
+  - name: Ensure schema 1 with Template1 and 2 exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      tenant: ansible_test
+      template: '{{ item }}'
+      state: present
+    loop:
+    - 'Template1'
+    - 'Template2'
+
+  - name: Ensure schema 2 with Template1 exists
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      tenant: ansible_test
+      template: Template1
+      state: present
+
+  - name: Add Node1
+    cisco.mso.mso_service_node_type:
+      <<: *mso_info
+      name: ansible_test_other1
+      display_name: ansible_test_other1
+      state: present
+
+  - name: Add Node2
+    cisco.mso.mso_service_node_type:
+      <<: *mso_info
+      name: ansible_test_other2
+      display_name: ansible_test_other2
+      state: present
+
+  - name: Create a service graph 1 at Template level
+    cisco.mso.mso_schema_template_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG1
+      display_name: sg1
+      service_nodes:
+        - type: firewall
+      filter_after_first_node: allow_all
+      state: present
+
+  - name: Create service graph 2 at Template level
+    cisco.mso.mso_schema_template_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG2
+      display_name: sg2
+      service_nodes:
+        - type: firewall
+        - type: load-balancer
+      filter_after_first_node: allow_all
+      state: present
+    register: sg1_again
+
+  - name: Create service graph 3 at Template level
+    cisco.mso.mso_schema_template_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG3
+      display_name: sg3
+      service_nodes:
+        - type: firewall
+        - type: load-balancer
+        - type: other
+      filter_after_first_node: allow_all
+      state: present
+    register: sg1_again
+
+  - name: Create a service graph 4 at Template level
+    cisco.mso.mso_schema_template_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG4
+      display_name: sg4
+      service_nodes:
+        - type: other
+        - type: load-balancer
+        - type: firewall
+      filter_after_first_node: filters_from_contract
+      state: present
+
+  - name: Create a service graph 5 at Template level
+    cisco.mso.mso_schema_template_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG5
+      display_name: sg5
+      service_nodes:
+        - type: other
+        - type: firewall
+        - type: firewall
+      filter_after_first_node: filters_from_contract
+      state: present
+
+  - name: Create a service graph 6 at Template level
+    cisco.mso.mso_schema_template_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG6
+      display_name: sg6
+      service_nodes:
+        - type: other
+        - type: other
+        - type: other
+      filter_after_first_node: filters_from_contract
+      state: present
+
+  - name: Create a service graph 7 at Template level
+    cisco.mso.mso_schema_template_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG7
+      display_name: sg7
+      service_nodes:
+        - type: load-balancer
+        - type: load-balancer
+      filter_after_first_node: filters_from_contract
+      state: present
+
+  - name: Add physical site to a schema
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      state: present
+
+  - name: Add a new Graph at site level (check mode)
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG1
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_firewall1
+      state: present
+    register: cm_sg1
+    check_mode: yes
+
+  - name: Verify cm_sg1
+    assert:
+      that:
+      - cm_sg1 is changed
+      - cm_sg1.current.serviceGraphRef.serviceGraphName == "SG1"
+      - cm_sg1.current.serviceGraphRef.templateName == "Template1"
+      - cm_sg1.current.serviceNodes | length == 1
+      - cm_sg1.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
+
+  - name: Add a new Graph SG1 at site level (normal mode)
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG1
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_firewall1
+      state: present
+    register: nm_sg1
+
+  - name: Verify change_sg1
+    assert:
+      that:
+      - nm_sg1 is changed
+      - nm_sg1.current.serviceGraphRef.serviceGraphName == "SG1"
+      - nm_sg1.current.serviceGraphRef.templateName == "Template1"
+      - nm_sg1.current.serviceNodes | length == 1
+      - nm_sg1.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
+
+  - name: Add Graph SG1 at site level again
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG1
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_firewall1
+      state: present
+    register: nm_sg1_again
+
+  - name: Verify change_sg1
+    assert:
+      that:
+      - nm_sg1_again is not changed
+      - nm_sg1_again.current.serviceGraphRef.serviceGraphName == "SG1"
+      - nm_sg1_again.current.serviceGraphRef.templateName == "Template1"
+      - nm_sg1_again.current.serviceNodes | length == 1
+      - nm_sg1_again.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
+
+  - name: Change service graph SG1 at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG1
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_firewall2
+      state: present
+    register: change_sg1
+
+  - name: Verify change_sg1
+    assert:
+      that:
+      - change_sg1 is changed
+      - change_sg1.current.serviceGraphRef.serviceGraphName == "SG1"
+      - change_sg1.current.serviceGraphRef.templateName == "Template1"
+      - change_sg1.current.serviceNodes | length == 1
+      - change_sg1.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall2"
+
+  - name: Add a new Graph SG2 at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG2
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_firewall1
+        - name: ansible_test_adc
+      state: present
+    register: sg2
+
+  - name: Verify sg2
+    assert:
+      that:
+      - sg2 is changed
+      - sg2.current.serviceGraphRef.serviceGraphName == "SG2"
+      - sg2.current.serviceGraphRef.templateName == "Template1"
+      - sg2.current.serviceNodes | length == 2
+      - sg2.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
+      - sg2.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_adc"
+
+  - name: Add a new Graph SG3 at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG3
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_firewall1
+        - name: ansible_test_adc
+        - name: ansible_test_other
+      state: present
+    register: sg3
+
+  - name: Verify sg3
+    assert:
+      that:
+      - sg3 is changed
+      - sg3.current.serviceGraphRef.serviceGraphName == "SG3"
+      - sg3.current.serviceGraphRef.templateName == "Template1"
+      - sg3.current.serviceNodes | length == 3
+      - sg3.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
+      - sg3.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_adc"
+      - sg3.current.serviceNodes.2.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
+
+  - name: Add a new Graph SG4 at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG4
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_other
+        - name: ansible_test_adc
+        - name: ansible_test_firewall1
+      state: present
+    register: sg4
+
+  - name: Verify sg4
+    assert:
+      that:
+      - sg4 is changed
+      - sg4.current.serviceGraphRef.serviceGraphName == "SG4"
+      - sg4.current.serviceGraphRef.templateName == "Template1"
+      - sg4.current.serviceNodes | length == 3
+      - sg4.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
+      - sg4.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_adc"
+      - sg4.current.serviceNodes.2.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
+
+  - name: Change Graph SG4 at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG4
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_other
+        - name: ansible_test_adc
+        - name: ansible_test_firewall2
+      state: present
+    register: change1_sg4
+
+  - name: Verify change1_sg4
+    assert:
+      that:
+      - change1_sg4 is changed
+      - change1_sg4.current.serviceGraphRef.serviceGraphName == "SG4"
+      - change1_sg4.current.serviceGraphRef.templateName == "Template1"
+      - change1_sg4.current.serviceNodes | length == 3
+      - change1_sg4.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
+      - change1_sg4.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_adc"
+      - change1_sg4.current.serviceNodes.2.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall2"
+
+  - name: Change Graph SG4 at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG4
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_other
+      state: present
+    ignore_errors: yes
+    register: change2_sg4
+
+  - name: Verify change2_sg4
+    assert:
+      that:
+      - change2_sg4 is not changed
+      - change2_sg4.msg == "Service Graph 'SG4' has '3' service node type(s) but '1' service node(s) were given for the service graph"
+
+  - name: Change Graph SG4 at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG4
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_adc
+      state: present
+    ignore_errors: yes
+    register: change3_sg4
+
+  - name: Verify change3_sg4
+    assert:
+      that:
+      - change3_sg4 is not changed
+      - change3_sg4.msg == "Service Graph 'SG4' has '3' service node type(s) but '1' service node(s) were given for the service graph"
+
+  - name: Change Graph SG4 at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG4
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_firewall1
+      state: present
+    ignore_errors: yes
+    register: change4_sg4
+
+  - name: Verify change4_sg4
+    assert:
+      that:
+      - change4_sg4 is not changed
+      - change4_sg4.msg == "Service Graph 'SG4' has '3' service node type(s) but '1' service node(s) were given for the service graph"
+
+  - name: Change Graph SG4 at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG4
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_other
+        - name: ansible_test_adc
+      state: present
+    ignore_errors: yes
+    register: change5_sg4
+
+  - name: Verify change5_sg4
+    assert:
+      that:
+      - change5_sg4 is not changed
+      - change5_sg4.msg == "Service Graph 'SG4' has '3' service node type(s) but '2' service node(s) were given for the service graph"
+
+  - name: Change Graph SG4 at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG4
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_other
+        - name: ansible_test_other
+        - name: ansible_test_adc
+      state: present
+    ignore_errors: yes
+    register: change6_sg4
+
+  - name: Verify change6_sg4
+    assert:
+      that:
+      - change6_sg4 is not changed
+      - change6_sg4.msg == "Provided device 'ansible_test_other' of type 'ADC' does not exist."
+
+  - name: Add Graph SG5 at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG5
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_other
+        - name: ansible_test_firewall1
+        - name: ansible_test_firewall1
+      state: present
+    register: sg5
+
+  - name: Verify sg5
+    assert:
+      that:
+      - sg5 is changed
+      - sg5.current.serviceGraphRef.serviceGraphName == "SG5"
+      - sg5.current.serviceGraphRef.templateName == "Template1"
+      - sg5.current.serviceNodes | length == 3
+      - sg5.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
+      - sg5.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
+      - sg5.current.serviceNodes.2.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_firewall1"
+
+  - name: Add Graph SG6 at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG6
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_other
+        - name: ansible_test_other
+        - name: ansible_test_other
+      state: present
+    register: sg6
+
+  - name: Verify sg6
+    assert:
+      that:
+      - sg6 is changed
+      - sg6.current.serviceGraphRef.serviceGraphName == "SG6"
+      - sg6.current.serviceGraphRef.templateName == "Template1"
+      - sg6.current.serviceNodes | length == 3
+      - sg6.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
+      - sg6.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
+      - sg6.current.serviceNodes.2.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_other"
+
+  - name: Add Graph SG7 at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG7
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_adc
+        - name: ansible_test_adc
+      state: present
+    register: sg7
+
+  - name: Verify sg7
+    assert:
+      that:
+      - sg7 is changed
+      - sg7.current.serviceGraphRef.serviceGraphName == "SG7"
+      - sg7.current.serviceGraphRef.templateName == "Template1"
+      - sg7.current.serviceNodes | length == 2
+      - sg7.current.serviceNodes.0.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_adc"
+      - sg7.current.serviceNodes.1.device.dn == "uni/tn-ansible_test/lDevVip-ansible_test_adc"
+
+  - name: Query service graph SG at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG1
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      state: query
+    register: query_sg
+
+  - name: Verify query_sg
+    assert:
+      that:
+      - query_sg is not changed
+      - query_sg.current.serviceGraphRef is match("/schemas/[0-9a-zA-Z]*/templates/Template1/serviceGraphs/SG1")
+
+  - name: Query all service graphs at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      state: query
+    register: query_all
+
+  - name: Verify query_all
+    assert:
+      that:
+      - query_all is not changed
+      - query_all.current | length == 7
+
+  - name: Query non_existing service graph at site level
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      site: '{{ mso_site | default("ansible_test") }}'
+      service_graph: non_existent
+      tenant: ansible_test
+      state: query
+    ignore_errors: yes
+    register: query_non_existing_sg
+
+  - name: Verify query_non_existing_sg
+    assert:
+      that:
+      - query_non_existing_sg.msg == "Service Graph 'non_existent' not found"
+
+  - name: Use non_existing schema
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: non_existing_schema
+      template: Template1
+      service_graph: SG
+      tenant: ansible_test
+      site: '{{ mso_site | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: query_non_existing_schema
+
+  - name: Verify non_existing_schema
+    assert:
+      that:
+      - query_non_existing_schema is not changed
+      - query_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
+
+  - name: Use non_existing template
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: non_existing_template
+      service_graph: SG
+      tenant: ansible_test
+      site: '{{ mso_site | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: query_non_existing_template
+
+  - name: Verify query_non_existing_template
+    assert:
+      that:
+      - query_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1, Template2"
+
+  - name: Use non_existing_site_template
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      service_graph: SG
+      template: Template2
+      tenant: ansible_test
+      state: query
+    ignore_errors: yes
+    register: nm_non_existing_site_template
+
+  - name: Verify cm_non_existing_site_template and nm_non_existing_site_template
+    assert:
+      that:
+      - nm_non_existing_site_template is not changed
+      - nm_non_existing_site_template.msg == "Provided site-template association 'ansible_test-Template2' does not exist."
+
+  - name: Add site Service Graph to Template2 without any site association
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG1
+      tenant: ansible_test
+      devices:
+      - name: ansible_test_firewall2
+      state: present
+    ignore_errors: yes
+    register: nm_no_site_associated
+
+  - name: Verify nm_no_site_associated
+    assert:
+      that:
+      - nm_no_site_associated is not changed
+      - nm_no_site_associated.msg == "No site associated with template 'Template1'. Associate the site with the template using mso_schema_site."
+
+  - name: Remove service graph from site level(check mode)
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG1
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      state: absent
+    register: rm_sg_cm
+    check_mode: yes
+
+  - name: Verify rm_sg_cm
+    assert:
+      that:
+      - rm_sg_cm is changed
+      - rm_sg_cm.current == {}
+      - rm_sg_cm.previous.serviceGraphRef is match("/schemas/[0-9a-zA-Z]*/templates/Template1/serviceGraphs/SG1")
+
+  - name: Remove service graph from site level (normal mode)
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG1
+      tenant: ansible_test
+      site: '{{ mso_site | default("ansible_test") }}'
+      state: absent
+    register: rm_sg
+
+  - name: Verify rm_sg
+    assert:
+      that:
+      - rm_sg is changed
+      - rm_sg.current == {}
+      - rm_sg.previous.serviceGraphRef is match("/schemas/[0-9a-zA-Z]*/templates/Template1/serviceGraphs/SG1")
+
+  - name: Remove service graph again
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG1
+      tenant: ansible_test
+      site: '{{ mso_site | default("ansible_test") }}'
+      state: absent
+    register: rm_sg_again
+
+  - name: Verify rm_sg_again
+    assert:
+      that:
+      - rm_sg_again is not changed
+      - rm_sg_again.current == {}
+      - rm_sg_again.previous == {}

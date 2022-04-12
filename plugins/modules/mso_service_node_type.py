@@ -124,8 +124,8 @@ def main():
             mso.fail_json(msg="Service Node Type '{service_node_type}' not found".format(service_node_type=name))
         mso.exit_json()
 
-    service_nodes_path = "/schemas/service-node-types"
-    service_node_path = "/schemas/service-node-types/{0}".format(service_node_id)
+    service_nodes_path = "schemas/service-node-types"
+    service_node_path = "schemas/service-node-types/{0}".format(service_node_id)
 
     mso.previous = mso.existing
     if state == "absent":

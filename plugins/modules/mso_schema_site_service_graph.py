@@ -17,6 +17,7 @@ module: mso_schema_site_service_graph
 short_description: Manage Service Graph in schema sites
 description:
 - Manage Service Graph in schema sites on Cisco ACI Multi-Site.
+- This module is only supported in MSO/NDO version 3.3 and above.
 author:
 - Shreyas Srish (@shrsr)
 options:

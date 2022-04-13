@@ -341,8 +341,13 @@
     - nm_add_site_bd_subnet5.current.noDefaultGateway == True
     - nm_add_site_bd_subnet5.current.querier == True
     - nm_add_site_bd_subnet5.current.virtual == True
-    - nm_add_site_bd_subnet5.current.primary == True
   when: version.current.version is version('3.1.1g', '>=')
+
+- name: Verify nm_add_site_bd_subnet5 for a version that's >= 3.1.1h
+  assert:
+    that:
+    - nm_add_site_bd_subnet5.current.primary == True
+  when: version.current.version is version('3.1.1h', '>=')
 
 - name: Query all subnets
   mso_schema_site_bd_subnet:
@@ -403,8 +408,13 @@
     - query_subnet5 is not changed
     - query_subnet5.current.ip == "10.1.0.5/16"
     - query_subnet5.current.virtual == true
-    - query_subnet5.current.primary == true
   when: version.current.version is version('3.1.1g', '>=')
+
+- name: Verify query_subnet5 for 3.1.1h version and later
+  assert:
+    that:
+    - query_subnet5.current.primary == true
+  when: version.current.version is version('3.1.1h', '>=')
 
 - name: Remove a site BD subnet
   mso_schema_site_bd_subnet:

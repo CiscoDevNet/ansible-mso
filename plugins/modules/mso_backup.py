@@ -33,7 +33,7 @@ options:
     aliases: [ name ]
   remote_location:
     description:
-    - The remote location's name for the backup to be stored
+    - The remote location's name where the backup should be stored
     type: str
   remote_path:
    description:

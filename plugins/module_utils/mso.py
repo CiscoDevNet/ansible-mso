@@ -1126,9 +1126,9 @@ class MSOModule(object):
             existing['password'] = self.sent.get('password')
         return not issubset(self.sent, existing)
 
-    def update_filter_obj(self, contract_obj, filter_obj, filter_type, contract_display_name=None, updateFilterRef=True):
+    def update_filter_obj(self, contract_obj, filter_obj, filter_type, contract_display_name=None, update_filter_ref=True):
         ''' update filter with more information '''
-        if updateFilterRef:
+        if update_filter_ref:
             filter_obj['filterRef'] = self.dict_from_ref(filter_obj.get('filterRef'))
         if contract_display_name:
             filter_obj['displayName'] = contract_display_name
@@ -1137,6 +1137,13 @@ class MSOModule(object):
         filter_obj['filterType'] = filter_type
         filter_obj['contractScope'] = contract_obj.get('scope')
         filter_obj['contractFilterType'] = contract_obj.get('filterType')
+        # Conditional statement 'description == ""' is needed to set empty string.
+        if contract_obj.get('description') or contract_obj.get('description') == "":
+            filter_obj['description'] = contract_obj.get('description')
+        # Conditional statement is needed to determine if "prio" exist in contract object.
+        # Same reason as described mso_schema_template_contract_filter.py.
+        if contract_obj.get('prio'):
+            filter_obj['prio'] = contract_obj.get('prio')
 
     def query_schema(self, schema):
         schema_id = self.lookup_schema(schema)

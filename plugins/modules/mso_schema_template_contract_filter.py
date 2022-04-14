@@ -47,6 +47,7 @@ options:
     type: str
   contract_filter_type:
     description:
+    - DEPRECATION WARNING CONTRACT_FILTER_TYPE WILL NOT BE USED AND IS REDUCED FROM FILTER_TYPE
     - The type of filters defined in this contract.
     - This defaults to C(both-way) when unset on creation.
     default: both-way
@@ -74,6 +75,7 @@ options:
   filter_type:
     description:
     - The type of filter to manage.
+    - Prior to mso 3.3 remove and re-apply contract to change the filter type.
     type: str
     choices: [ both-way, consumer-to-provider, provider-to-consumer ]
     default: both-way
@@ -88,6 +90,7 @@ options:
     description:
     - The Contract QoS Level parameter is supported on versions of MSO that are 3.3 or greater.
     type: str
+    choices: [ unspecified, level1, level2, level3, level4, level5, level6 ]
   action:
     description:
     - The filter action parameter is supported on versions of MSO that are 3.3 or greater.
@@ -190,7 +193,7 @@ def main():
         filter_template=dict(type='str'),
         filter_schema=dict(type='str'),
         filter_type=dict(type='str', default='both-way', choices=list(FILTER_KEY_MAP), aliases=['type']),
-        qos_level=dict(type='str'),
+        qos_level=dict(type='str', choices=['unspecified', 'level1', 'level2', 'level3', 'level4', 'level5', 'level6']),
         action=dict(type='str', choices=['permit', 'deny']),
         priority=dict(type='str', choices=['default', 'lowest_priority', 'medium_priority', 'highest_priority']),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
@@ -210,7 +213,7 @@ def main():
     contract_name = module.params.get('contract')
     contract_display_name = module.params.get('contract_display_name')
     description = module.params.get('description')
-    # Deprecated input: contract_filter_type is reduced from filter_type
+    # Deprecated input: contract_filter_type is reduced from filter_type.
     # contract_filter_type = module.params.get('contract_filter_type')
     contract_scope = module.params.get('contract_scope')
     filter_name = module.params.get('filter')
@@ -218,9 +221,9 @@ def main():
     filter_template = module.params.get('filter_template')
     filter_schema = module.params.get('filter_schema')
     filter_type = module.params.get('filter_type')
+    filter_action = module.params.get('action')
+    filter_priority = module.params.get('priority')
     qos_level = module.params.get('qos_level')
-    action = module.params.get('action')
-    priority = module.params.get('priority')
 
     state = module.params.get('state')
 
@@ -233,27 +236,28 @@ def main():
     filter_template = template_name if filter_template is None else filter_template.replace(' ', '')
     filter_schema = schema if filter_schema is None else filter_schema
     filter_schema_id = mso.lookup_schema(filter_schema)
+    contract_filter_type = 'bothWay' if filter_type == 'both-way' else 'oneWay'
 
-    # Set path defaults for create logic, if object (contract or filter) is found replace the "-" for specific value
+    # Set path defaults for create logic, if object (contract or filter) is found replace the "-" for specific value.
     base_contract_path = '/templates/{0}/contracts'.format(template_name)
     contract_path = '{0}/-'.format(base_contract_path)
     filter_path = '{0}/{1}/{2}/-'.format(base_contract_path, contract_name, filter_key)
 
-    # Get schema
+    # Get schema information.
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
-    # Get template
+    # Get template by unique identifier "name".
     template_obj = next((item for item in schema_obj.get('templates') if item.get('name') == template_name), None)
     if not template_obj:
         existing_templates = [t.get('name') for t in schema_obj.get('templates')]
         mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template_name, ', '.join(existing_templates)))
 
-    # Get contract
+    # Get contract by unique identifier "name".
     contract_obj = next((item for item in template_obj.get('contracts') if item.get('name') == contract_name), None)
     if contract_obj:
         contract_path = contract_path.replace("-", contract_name)
         if filter_name:
-            # Get filter by unique identifier "filterRef"
+            # Get filter by unique identifier "filterRef".
             filter_ref = mso.filter_ref(schema_id=filter_schema_id, template=filter_template, filter=filter_name)
             filter_obj = next((item for item in contract_obj.get(filter_key) if item.get('filterRef') == filter_ref), None)
             if filter_obj:
@@ -265,12 +269,11 @@ def main():
 
     if state == 'query':
 
-        # TODO: discuss all filters or just for the defined filter_type?
-        # When filter_obj is not present get the filters defined in the contract.
         if not contract_obj:
             existing_contracts = [c.get('name') for c in template_obj.get('contracts')]
             mso.fail_json(msg="Provided contract '{0}' does not exist. Existing contracts: {1}".format(contract_name, ', '.join(existing_contracts)))
 
+        # If filter object is not provide, provide overview of all filter objects for the filter type.
         if not filter_obj:
             mso.existing = contract_obj.get(filter_key)
             for filter_obj in mso.existing:
@@ -278,7 +281,7 @@ def main():
 
     elif state == 'absent':
 
-        # Contracts need at least one filter left, remove contract if remove would lead 0 filters remaining
+        # Contracts need at least one filter left, remove contract if remove would lead 0 filters remaining.
         if contract_obj:
             if len(contract_obj.get(filter_key)) == 1:
                 mso.existing = {}
@@ -289,18 +292,34 @@ def main():
 
     elif state == 'present':
 
-        # Initialize "present" state contract variables
-        contract_filter_type = 'bothWay' if filter_type == 'both-way' else 'oneWay'
-        contract_scope = 'context' if contract_scope is None or contract_scope == 'vrf' else contract_scope
+        # Initialize "present" state contract variables.
+        contract_scope = 'context' if contract_scope == 'vrf' else contract_scope
 
-        # If contract exist the operation should be set to replace else operation is add to create new contract
+        # If contract exist the operation should be set to replace else operation is add to create new contract.
         if contract_obj:
             if contract_display_name:
                 ops.append(dict(op='replace', path=contract_path + '/displayName', value=contract_display_name))
+            # Conditional statement 'description == ""' is needed to allow setting the description back to empty string.
+            if description or description == "":
+                ops.append(dict(op='replace', path=contract_path + '/description', value=description))
+            if qos_level:
+                # Conditional statement is needed to determine if "prio" exist in contract object.
+                # Earlier version allow for contract object to be created thus the module also,
+                #  which causes an object to be created in 3.3 higher version without prio, where in GUI
+                #  default is set to "unspecified".
+                # When we need to change logic is needed to support both add and replace operation
+                if contract_obj.get('prio'):
+                    ops.append(dict(op='replace', path=contract_path + '/prio', value=qos_level))
+                else:
+                    ops.append(dict(op='add', path=contract_path + '/prio', value=qos_level))
+            if contract_scope:
+                ops.append(dict(op='replace', path=contract_path + '/scope', value=contract_scope))
+
             ops.append(dict(op='replace', path=contract_path + '/filterType', value=contract_filter_type))
-            ops.append(dict(op='replace', path=contract_path + '/scope', value=contract_scope))
         else:
             contract_display_name = contract_display_name if contract_display_name else contract_name
+            # If contract_scope is not provided default to context to match GUI behaviour on create new contract.
+            contract_scope = 'context' if contract_scope is None else contract_scope
             payload = dict(
                 name=contract_name,
                 displayName=contract_display_name,
@@ -328,25 +347,33 @@ def main():
             directives=filter_directives,
         )
 
-        if action:
-            payload.update(action=action)
-        if action == 'deny' and priority:
-            payload.update(priorityOverride=PRIORITY_MAP.get(priority))
+        if filter_action:
+            payload.update(action=filter_action)
+        if filter_action == 'deny' and filter_priority:
+            payload.update(priorityOverride=PRIORITY_MAP.get(filter_priority))
 
         mso.sanitize(payload, collate=True, unwanted=['filterType', 'contractScope', 'contractFilterType'])
 
-        # If filter exist the operation should be set to replace else operation is add to create new filter
+        # If filter exist the operation should be set to replace else operation is add to create new filter.
         if filter_obj:
             ops.append(dict(op='replace', path=filter_path, value=mso.sent))
         else:
             ops.append(dict(op='add', path=filter_path, value=mso.sent))
 
-        # Update existing with filter (mso.sent) and contract information
+        # Update existing with filter (mso.sent) and contract information.
         mso.existing = mso.sent
         mso.existing['displayName'] = contract_display_name if contract_display_name else contract_obj.get('displayName')
         mso.existing['filterType'] = filter_type
-        mso.existing['contractScope'] = contract_scope
+        mso.existing['contractScope'] = contract_scope if contract_scope else contract_obj.get('scope')
         mso.existing['contractFilterType'] = contract_filter_type
+        # Conditional statement 'description == ""' is needed to allow setting the description back to empty string.
+        if description or (contract_obj and (contract_obj.get('description') or contract_obj.get('description') == "")):
+            mso.existing['description'] = description if description or description == "" else contract_obj.get('description')
+        # Conditional statement to check qos_level is defined or is present in the contract object.
+        # qos_level is not supported prior to 3.3 thus this check in place, GUI uses default of "unspecified" from 3.3.
+        # When default of "unspecified" is set, conditional statement can be simplified since "prio" always present.
+        if qos_level or (contract_obj and contract_obj.get('prio')):
+            mso.existing['prio'] = qos_level if qos_level else contract_obj.get('prio')
 
     if state != 'query' and not module.check_mode and mso.existing != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)

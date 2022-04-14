@@ -10,3 +10,8 @@ PRIORITY_MAP = {
     'medium_priority': 'level2',
     'highest_priority': 'level3',
 }
+
+SERVICE_NODE_CONNECTOR_MAP = {
+    'bd': {'id': 'bd', 'connector_type': 'general'}
+    # 'external_epg': {'id': 'externalEpg', 'connector_type': 'route-peering'}
+}

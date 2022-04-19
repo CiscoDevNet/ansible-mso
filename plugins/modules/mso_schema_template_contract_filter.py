@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# Copyright: (c) 2022, Akini Ross (@akinross) <akinross@cisco.com>
 # Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -38,7 +39,7 @@ options:
     required: yes
   description:
     description:
-    - The description of contract is supported on versions of MSO that are 3.3 or greater.
+    - The description of contract is supported on versions of MSO/NDO that are 3.3 or greater.
     type: str
   contract_display_name:
     description:
@@ -47,7 +48,7 @@ options:
     type: str
   contract_filter_type:
     description:
-    - DEPRECATION WARNING CONTRACT_FILTER_TYPE WILL NOT BE USED AND IS REDUCED FROM FILTER_TYPE
+    - DEPRECATION WARNING, contract_filter_type will not be used anymore and is deduced from filter_type.
     - The type of filters defined in this contract.
     - This defaults to C(both-way) when unset on creation.
     default: both-way
@@ -75,7 +76,7 @@ options:
   filter_type:
     description:
     - The type of filter to manage.
-    - Prior to mso 3.3 remove and re-apply contract to change the filter type.
+    - Prior to MSO/NDO 3.3 remove and re-apply contract to change the filter type.
     type: str
     choices: [ both-way, consumer-to-provider, provider-to-consumer ]
     default: both-way
@@ -88,17 +89,17 @@ options:
     choices: [ log, none, policy_compression ]
   qos_level:
     description:
-    - The Contract QoS Level parameter is supported on versions of MSO that are 3.3 or greater.
+    - The Contract QoS Level parameter is supported on versions of MSO/NDO that are 3.3 or greater.
     type: str
     choices: [ unspecified, level1, level2, level3, level4, level5, level6 ]
   action:
     description:
-    - The filter action parameter is supported on versions of MSO that are 3.3 or greater.
+    - The filter action parameter is supported on versions of MSO/NDO that are 3.3 or greater.
     type: str
     choices: [ permit, deny ]
   priority:
     description:
-    - The filter priority override parameter is supported on versions of MSO that are 3.3 or greater.
+    - The filter priority override parameter is supported on versions of MSO/NDO that are 3.3 or greater.
     type: str
     choices: [ default, lowest_priority, medium_priority, highest_priority ]
   state:
@@ -111,8 +112,8 @@ options:
 seealso:
 - module: cisco.mso.mso_schema_template_filter_entry
 notes:
-- Due to restrictions of the MSO REST API this module creates contracts when needed, and removes them when the last filter has been removed.
-- Due to restrictions of the MSO REST API concurrent modifications to contract filters can be dangerous and corrupt data.
+- Due to restrictions of the MSO/NDO REST API this module creates contracts when needed, and removes them when the last filter has been removed.
+- Due to restrictions of the MSO/NDO REST API concurrent modifications to contract filters can be dangerous and corrupt data.
 extends_documentation_fragment: cisco.mso.modules
 '''
 
@@ -186,7 +187,7 @@ def main():
         description=dict(type='str'),
         contract_display_name=dict(type='str'),
         contract_scope=dict(type='str', choices=['application-profile', 'global', 'tenant', 'vrf']),
-        # Deprecated input: contract_filter_type is reduced from filter_type
+        # Deprecated input: contract_filter_type is deduced from filter_type
         contract_filter_type=dict(type='str', default='both-way', choices=['both-way', 'one-way']),
         filter=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
         filter_directives=dict(type='list', elements='str', choices=['log', 'none', 'policy_compression']),
@@ -213,7 +214,7 @@ def main():
     contract_name = module.params.get('contract')
     contract_display_name = module.params.get('contract_display_name')
     description = module.params.get('description')
-    # Deprecated input: contract_filter_type is reduced from filter_type.
+    # Deprecated input: contract_filter_type is deduced from filter_type.
     # contract_filter_type = module.params.get('contract_filter_type')
     contract_scope = module.params.get('contract_scope')
     filter_name = module.params.get('filter')
@@ -265,21 +266,26 @@ def main():
                 mso.update_filter_obj(contract_obj, filter_obj, filter_type)
                 mso.existing = filter_obj
 
-    mso.previous = mso.existing
-
     if state == 'query':
 
         if not contract_obj:
             existing_contracts = [c.get('name') for c in template_obj.get('contracts')]
             mso.fail_json(msg="Provided contract '{0}' does not exist. Existing contracts: {1}".format(contract_name, ', '.join(existing_contracts)))
 
-        # If filter object is not provide, provide overview of all filter objects for the filter type.
-        if not filter_obj:
+        # If filter name is not provided, provide overview of all filter objects for the filter type.
+        if not filter_name:
             mso.existing = contract_obj.get(filter_key)
             for filter_obj in mso.existing:
                 mso.update_filter_obj(contract_obj, filter_obj, filter_type)
 
-    elif state == 'absent':
+        elif not mso.existing:
+            mso.fail_json(msg="FilterRef '{filter_ref}' not found".format(filter_ref=filter_ref))
+
+        mso.exit_json()
+
+    mso.previous = mso.existing
+
+    if state == 'absent':
 
         # Contracts need at least one filter left, remove contract if remove would lead 0 filters remaining.
         if contract_obj:
@@ -292,7 +298,6 @@ def main():
 
     elif state == 'present':
 
-        # Initialize "present" state contract variables.
         contract_scope = 'context' if contract_scope == 'vrf' else contract_scope
 
         # If contract exist the operation should be set to replace else operation is add to create new contract.
@@ -304,10 +309,10 @@ def main():
                 ops.append(dict(op='replace', path=contract_path + '/description', value=description))
             if qos_level:
                 # Conditional statement is needed to determine if "prio" exist in contract object.
-                # Earlier version allow for contract object to be created thus the module also,
-                #  which causes an object to be created in 3.3 higher version without prio, where in GUI
-                #  default is set to "unspecified".
-                # When we need to change logic is needed to support both add and replace operation
+                # An object can be created in 3.3 higher version without prio via the API.
+                # In the GUI a default is set to "unspecified" and thus prio is always configured via GUI.
+                # We can't set a default of "unspecified" because prior to version 3.3 qos_level is not supported,
+                #  thus the logic is needed for both add and replace operation
                 if contract_obj.get('prio'):
                     ops.append(dict(op='replace', path=contract_path + '/prio', value=qos_level))
                 else:
@@ -375,7 +380,7 @@ def main():
         if qos_level or (contract_obj and contract_obj.get('prio')):
             mso.existing['prio'] = qos_level if qos_level else contract_obj.get('prio')
 
-    if state != 'query' and not module.check_mode and mso.existing != mso.previous:
+    if not module.check_mode and mso.existing != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)
 
     mso.exit_json()

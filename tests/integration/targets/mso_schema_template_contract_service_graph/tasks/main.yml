@@ -1,9 +1,5 @@
 # Test code for the MSO modules
-# Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
-# Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
-# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
-# Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
-#
+# Copyright: (c) 2022, Akini Ross (@akinross) <akinross@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -23,8 +19,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(false) }}'
-      # move back to info
-      output_level: '{{ mso_output_level | default("debug") }}'
+      output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
   mso_version:
@@ -37,12 +32,14 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     state: absent
+  when: version.current.version is version('3.3', '>=')
 
 - name: Remove schema 1
   mso_schema:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     state: absent
+  when: version.current.version is version('3.3', '>=')
 
 - name: Ensure tenant ansible_test exist
   mso_tenant: &tenant_present
@@ -51,6 +48,7 @@
     users:
     - '{{ mso_username }}'
     state: present
+  when: version.current.version is version('3.3', '>=')
 
 - name: Ensure schema 1 with Template 1 exist
   mso_schema_template: &schema_present
@@ -59,12 +57,23 @@
     tenant: ansible_test
     template: Template 1
     state: present
+  when: version.current.version is version('3.3', '>=')
 
 - name: Ensure schema 1 with Template 2 exist
   mso_schema_template:
     <<: *schema_present
     template: Template 2
     state: present
+  when: version.current.version is version('3.3', '>=')
+
+- name: Ensure schema 2 with Template 1 exist
+  mso_schema_template: &schema2_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+  when: version.current.version is version('3.3', '>=')
 
 - name: Ensure Filter 1 exist
   cisco.mso.mso_schema_template_filter_entry: &filter_present
@@ -74,6 +83,7 @@
     filter: Filter 1
     entry: Filter 1 entry
     state: present
+  when: version.current.version is version('3.3', '>=')
 
 - name: Ensure Filter 2 exist
   cisco.mso.mso_schema_template_filter_entry:
@@ -81,6 +91,7 @@
     filter: Filter 2
     entry: Filter 2 entry
     state: present
+  when: version.current.version is version('3.3', '>=')
 
 - name: Ensure Contract_1 contract exist
   mso_schema_template_contract_filter: &contract_present
@@ -90,12 +101,15 @@
     contract: Contract 1
     filter: Filter 1
     state: present
+  when: version.current.version is version('3.3', '>=')
 
 - name: Ensure Contract_2 contract exist
   mso_schema_template_contract_filter:
     <<: *contract_present
+    template: Template 2
     contract: Contract 2
     state: present
+  when: version.current.version is version('3.3', '>=')
 
 - name: Ensure SG_1 service graph exist
   cisco.mso.mso_schema_template_service_graph:
@@ -108,18 +122,20 @@
       - type: firewall
       - type: load-balancer
     state: present
+  when: version.current.version is version('3.3', '>=')
 
 - name: Ensure SG_2 service graph exist
   cisco.mso.mso_schema_template_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template 2
     service_graph: SG2
     display_name: sg2
     service_nodes:
       - type: firewall
       - type: load-balancer
     state: present
+  when: version.current.version is version('3.3', '>=')
 
 - name: Ensure VRF_1 vrf exist
   mso_schema_template_vrf: &vrf_present
@@ -129,6 +145,7 @@
     vrf: VRF1
     layer3_multicast: true
     state: present
+  when: version.current.version is version('3.3', '>=')
 
 - name: Ensure BD_1 bd exist
   mso_schema_template_bd: &bd_present
@@ -139,12 +156,27 @@
     vrf:
       name: VRF1
     state: present
+  when: version.current.version is version('3.3', '>=')
 
 - name: Ensure BD_2 bd exist
   mso_schema_template_bd:
     <<: *bd_present
     bd: BD2
     state: present
+  when: version.current.version is version('3.3', '>=')
+
+- name: Ensure BD_3 bd exist
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    bd: BD3
+    vrf:
+      name: VRF1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+    state: present
+  when: version.current.version is version('3.3', '>=')
 
 # TESTS
 
@@ -155,7 +187,7 @@
     template: Template 1
     contract: Contract 1
     service_graph: SG1
-    service_graph_nodes:
+    service_nodes:
       - consumer: BD1
         provider: BD2
       - consumer: BD1
@@ -172,7 +204,7 @@
     template: Template 1
     contract: Contract 1
     service_graph: SG1
-    service_graph_nodes:
+    service_nodes:
       - consumer: BD1
         provider: BD2
       - consumer: BD1
@@ -215,7 +247,7 @@
     template: Template 1
     contract: Contract 1
     service_graph: SG1
-    service_graph_nodes:
+    service_nodes:
       - consumer: BD1
         provider: BD2
       - consumer: BD1
@@ -232,7 +264,7 @@
     template: Template 1
     contract: Contract 1
     service_graph: SG1
-    service_graph_nodes:
+    service_nodes:
       - consumer: BD1
         provider: BD2
       - consumer: BD1
@@ -273,7 +305,7 @@
     template: Template 1
     contract: Contract 1
     service_graph: SG1
-    service_graph_nodes:
+    service_nodes:
       - consumer: BD2
         provider: BD1
       - consumer: BD2
@@ -290,7 +322,7 @@
     template: Template 1
     contract: Contract 1
     service_graph: SG1
-    service_graph_nodes:
+    service_nodes:
       - consumer: BD2
         provider: BD1
       - consumer: BD2
@@ -394,6 +426,47 @@
     - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
   when: version.current.version is version('3.3', '>=')
 
+- name: Add service graph 1 to contract 2 with BD in other schema (check_mode)
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    contract: Contract 2
+    service_graph: SG2
+    service_nodes:
+      - consumer: BD1
+        provider: BD3
+        provider_schema: '{{ mso_schema | default("ansible_test") }}_2'
+        provider_template: Template 1
+      - consumer: BD3
+        consumer_schema: '{{ mso_schema | default("ansible_test") }}_2'
+        consumer_template: Template 1
+        provider: BD2
+    state: present
+  check_mode: yes
+  register: cm_add_sg1_to_c1
+  when: version.current.version is version('3.3', '>=')
+
+- name: Add service graph 1 to contract 2 with BD in other schema
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    contract: Contract 2
+    service_graph: SG2
+    service_nodes:
+      - consumer: BD1
+        provider: BD3
+        provider_schema: '{{ mso_schema | default("ansible_test") }}_2'
+        provider_template: Template 1
+      - consumer: BD3
+        consumer_schema: '{{ mso_schema | default("ansible_test") }}_2'
+        consumer_template: Template 1
+        provider: BD2
+    state: present
+  register: nm_add_sg1_to_c1
+  when: version.current.version is version('3.3', '>=')
+
 # NOT EXISTING INPUT
 
 - name: Not existing template provided for absent
@@ -428,7 +501,6 @@
     contract: Contract 1
     service_graph: SG False
     state: absent
-  ignore_errors: yes
   register: not_existing_service_graph_input_absent
   when: version.current.version is version('3.3', '>=')
 
@@ -451,7 +523,7 @@
     contract: Contract 1
     service_graph: SG1
     service_graph_template: Template False
-    service_graph_nodes:
+    service_nodes:
       - consumer: BD2
         provider: BD1
       - consumer: BD2
@@ -469,7 +541,7 @@
     contract: Contract 1
     service_graph: SG False
     service_graph_template: Template 2
-    service_graph_nodes:
+    service_nodes:
       - consumer: BD2
         provider: BD1
       - consumer: BD2
@@ -496,14 +568,14 @@
 
 # False input
 
-- name: False service graph node amount provided ( less than 2 as provided in SG2 config )
+- name: False service graph node amount provided ( less than 2 as provided in SG1 config )
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     contract: Contract 1
-    service_graph: SG2
-    service_graph_nodes:
+    service_graph: SG1
+    service_nodes:
       - consumer: BD1
         provider: BD2
     state: present
@@ -511,14 +583,14 @@
   register: nm_false_sg1_to_c1_less_than_2
   when: version.current.version is version('3.3', '>=')
 
-- name: False service graph node amount provided ( more than 2 as provided in SG2 config )
+- name: False service graph node amount provided ( more than 2 as provided in SG1 config )
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     contract: Contract 1
-    service_graph: SG2
-    service_graph_nodes:
+    service_graph: SG1
+    service_nodes:
       - consumer: BD1
         provider: BD2
       - consumer: BD1

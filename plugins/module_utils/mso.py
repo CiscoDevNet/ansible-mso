@@ -213,6 +213,10 @@ def mso_service_graph_connector_spec():
         #  also change SERVICE_NODE_CONNECTOR_TYPE_MAP in constants.py
         #  also verify if connector type is specific to provider or always same for both
         connector_object_type=dict(type='str', default='bd', choices=['bd']),
+        provider_schema=dict(type='str'),
+        provider_template=dict(type='str'),
+        consumer_schema=dict(type='str'),
+        consumer_template=dict(type='str'),
     )
 
 

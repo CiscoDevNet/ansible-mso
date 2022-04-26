@@ -1,0 +1,267 @@
+# Test code for the MSO modules
+# Copyright: (c) 2022, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+
+- name: Set vars
+  set_fact: 
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Query all backups
+  cisco.mso.mso_backup:
+    <<: *mso_info
+    state: query
+  delegate_to: localhost
+  register: backups
+
+- name: Ensure all backups with link to remote location ansible_test are removed
+  cisco.mso.mso_backup:
+    <<: *mso_info
+    backup: "{{ item.name }}"
+    state: absent
+  when:
+    - item.remoteLocationName is defined
+    - item.remoteLocationName == "ansible_test"
+  loop: "{{ backups.current }}"
+  delegate_to: localhost
+
+- name: Ensure remote location ansible_test is removed
+  cisco.mso.mso_remote_location:
+    <<: *mso_info
+    remote_location: ansible_test
+    state: absent
+  delegate_to: localhost
+
+- name: Configure remote location scp (check mode)
+  cisco.mso.mso_remote_location: &remote_location
+    <<: *mso_info
+    remote_location: ansible_test
+    remote_protocol: scp
+    remote_host: 173.36.219.25
+    remote_path: '/tmp'
+    remote_authentication_type: password
+    remote_username: '{{ mso_username }}'
+    remote_password: '{{ mso_password }}'
+    state: present
+  check_mode: yes
+  delegate_to: localhost
+  register: cm_config_remote
+
+- name: Configure remote location scp
+  cisco.mso.mso_remote_location:
+    <<: *remote_location
+  delegate_to: localhost
+  register: nm_config_remote
+
+- name: Verify configuration
+  assert:
+    that:
+      - cm_config_remote is changed
+      - cm_config_remote.current.name == "ansible_test"
+      - cm_config_remote.current.credential.authType == "password"
+      - cm_config_remote.current.credential.port == 22
+      - cm_config_remote.current.credential.protocolType == "scp"
+      - cm_config_remote.current.credential.hostname == "173.36.219.25"
+      - cm_config_remote.current.credential.remotePath == "/tmp"
+      - cm_config_remote.current.credential.username == '{{ mso_username }}'
+      - nm_config_remote is changed
+      - nm_config_remote.current.name == "ansible_test"
+      - nm_config_remote.current.credential.authType == "password"
+      - nm_config_remote.current.credential.port == 22
+      - nm_config_remote.current.credential.protocolType == "scp"
+      - nm_config_remote.current.credential.hostname == "173.36.219.25"
+      - nm_config_remote.current.credential.remotePath == "/tmp"
+      - nm_config_remote.current.credential.username == '{{ mso_username }}'
+      - nm_config_remote.current.id is defined
+
+- name: Configure remote location again
+  cisco.mso.mso_remote_location:
+    <<: *remote_location
+  delegate_to: localhost
+  register: nm_config_remote_again
+
+- name: Verify configuration after again
+  assert:
+    that:
+      - nm_config_remote_again is not changed
+
+- name: Change remote location description (check mode)
+  cisco.mso.mso_remote_location:
+    <<: *remote_location
+    remote_description: changed_description
+  check_mode: yes
+  delegate_to: localhost
+  register: cm_change_config_remote_description
+
+- name: Change remote location description
+  cisco.mso.mso_remote_location:
+    <<: *remote_location
+    remote_description: changed_description
+  delegate_to: localhost
+  register: nm_change_config_remote_description
+
+- name: Verify configuration change
+  assert:
+    that:
+      - cm_change_config_remote_description is changed
+      - cm_change_config_remote_description.current.description == "changed_description"
+      - nm_change_config_remote_description is changed
+      - nm_change_config_remote_description.current.description == "changed_description"
+
+- name: Query remote location
+  cisco.mso.mso_remote_location:
+    <<: *remote_location
+    state: query
+  delegate_to: localhost
+  register: nm_query_remote
+
+- name: Query all remote locations
+  cisco.mso.mso_remote_location:
+    <<: *mso_info
+    state: query
+  delegate_to: localhost
+  register: nm_query_all_remotes
+
+- name: Query non existing remote location
+  cisco.mso.mso_remote_location:
+    <<: *mso_info
+    remote_location: non_existing
+    state: query
+  ignore_errors: yes
+  delegate_to: localhost
+  register: nm_query_non_existing
+
+- name: Verify queries
+  assert:
+    that:
+      - nm_query_remote is not changed
+      - nm_query_remote.current | type_debug == "dict"
+      - nm_query_all_remotes is not changed
+      - nm_query_all_remotes.current | type_debug == "list"
+      - nm_query_non_existing is not changed
+      - 'nm_query_non_existing.msg == "Remote location non_existing not found. Remote locations configured: ansible_test"'
+
+- name: Remove remote location (check mode)
+  cisco.mso.mso_remote_location:
+    <<: *remote_location
+    state: absent
+  check_mode: yes
+  delegate_to: localhost
+  register: cm_delete_config_remote
+
+- name: Remove remote location
+  cisco.mso.mso_remote_location:
+    <<: *remote_location
+    state: absent
+  delegate_to: localhost
+  register: nm_delete_config_remote
+
+- name: Verify delete
+  assert:
+    that:
+      - cm_delete_config_remote is changed
+      - cm_delete_config_remote.current == {}
+      - nm_delete_config_remote is changed
+      - nm_delete_config_remote.current == {}
+
+- name: Configure remote location sftp (check mode)
+  cisco.mso.mso_remote_location:
+    <<: *remote_location
+    remote_protocol: sftp
+  check_mode: yes
+  delegate_to: localhost
+  register: cm_config_remote_sftp
+
+- name: Configure remote location sftp
+  cisco.mso.mso_remote_location:
+    <<: *remote_location
+    remote_protocol: sftp
+  delegate_to: localhost
+  register: nm_config_remote_sftp
+
+- name: Verify configuration sftp
+  assert:
+    that:
+      - cm_config_remote_sftp is changed
+      - cm_config_remote_sftp.current.credential.protocolType == "sftp"
+      - nm_config_remote_sftp is changed
+      - nm_config_remote_sftp.current.credential.protocolType == "sftp"
+
+- name: Remove remote location
+  cisco.mso.mso_remote_location:
+    <<: *remote_location
+    state: absent
+  delegate_to: localhost
+
+- name: Configure remote location ssh (check mode)
+  cisco.mso.mso_remote_location: &remote_location_ssh
+    <<: *remote_location
+    remote_authentication_type: ssh
+    remote_ssh_key: "-----BEGIN RSA PRIVATE KEY-----\n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\n-----END RSA PRIVATE KEY-----\n"
+  check_mode: yes
+  delegate_to: localhost
+  register: cm_config_remote_ssh
+
+- name: Configure remote location ssh
+  cisco.mso.mso_remote_location:
+    <<: *remote_location_ssh
+  delegate_to: localhost
+  register: nm_config_remote_ssh
+
+- name: Verify configuration ssh
+  assert:
+    that:
+      - cm_config_remote_ssh is changed
+      - cm_config_remote_ssh.current.credential.authType == "sshKey"
+      - nm_config_remote_ssh is changed
+      - nm_config_remote_ssh.current.credential.authType == "sshKey"
+
+- name: Remove remote location
+  cisco.mso.mso_remote_location:
+    <<: *remote_location_ssh
+    state: absent
+  delegate_to: localhost
+
+- name: Configure remote location ssh with passphrase (check mode)
+  cisco.mso.mso_remote_location: &remote_location_ssh_pass
+    <<: *remote_location
+    remote_authentication_type: ssh
+    remote_ssh_key: "-----BEGIN RSA PRIVATE KEY-----\nProc-Type: 4,ENCRYPTED\nDEK-Info: AES-128-CBC,234BAAD9A19386249918BB2C07874AD1\n\n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\n-----END RSA PRIVATE KEY-----\n"
+    remote_ssh_passphrase: ansible
+  check_mode: yes
+  delegate_to: localhost
+  register: cm_config_remote_ssh_pass
+
+- name: Configure remote location ssh with passphrase
+  cisco.mso.mso_remote_location:
+    <<: *remote_location_ssh_pass
+  delegate_to: localhost
+  register: nm_config_remote_ssh_pass
+
+- name: Verify configuration ssh
+  assert:
+    that:
+      - cm_config_remote_ssh_pass is changed
+      - cm_config_remote_ssh_pass.current.credential.authType == "sshKey"
+      - nm_config_remote_ssh_pass is changed
+      - nm_config_remote_ssh_pass.current.credential.authType == "sshKey"
+
+- name: Remove remote location
+  cisco.mso.mso_remote_location:
+    <<: *remote_location_ssh_pass
+    state: absent
+  delegate_to: localhost

@@ -88,7 +88,9 @@ extends_documentation_fragment: cisco.mso.modules
 EXAMPLES = r'''
 - name: Query all remote locations
   cisco.mso.mso_backup:
-    <<: *mso_info
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
     state: query
   delegate_to: localhost
   register: backups

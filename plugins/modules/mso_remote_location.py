@@ -27,7 +27,8 @@ options:
     description:
     - The remote location's name.
     type: str
-  remote_description:
+    aliases: [ name ]
+  description:
     description:
     - The remote location's description.
     type: str
@@ -52,7 +53,7 @@ options:
     - The port used to connect to the remote server.
     default: 22
     type: int
-  remote_authentication_type:
+  authentication_type:
     description:
     - The authentication method used to connect to the remote server.
     choices: [ password, ssh ]
@@ -67,13 +68,13 @@ options:
     type: str
   remote_ssh_key:
     description:
-    - The ssh key used to log in to the remote server.
-    - The ssh key must be provided in PEM format.
-    - The ssh key must be a single line string with linebreaks represent as "\n".
+    - The private ssh key used to log in to the remote server.
+    - The private ssh key must be provided in PEM format.
+    - The private ssh key must be a single line string with linebreaks represent as "\n".
     type: str
   remote_ssh_passphrase:
     description:
-    - The passphrase used to log in to the remote server.
+    - The private ssh key passphrase used to log in to the remote server.
     type: str
   state:
     description:
@@ -139,13 +140,13 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        remote_location=dict(type='str'),
-        remote_description=dict(type='str'),
+        remote_location=dict(type='str', aliases=['name']),
+        description=dict(type='str'),
         remote_protocol=dict(type='str', choices=['scp', 'sftp']),
         remote_host=dict(type='str'),
         remote_path=dict(type='str'),
         remote_port=dict(type='int', default=22),
-        remote_authentication_type=dict(type='str', choices=['password', 'ssh']),
+        authentication_type=dict(type='str', choices=['password', 'ssh']),
         remote_username=dict(type='str'),
         remote_password=dict(type='str', no_log=True),
         remote_ssh_key=dict(type='str', no_log=True),
@@ -157,20 +158,20 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'present', ['remote_location', 'remote_protocol', 'remote_host', 'remote_path', 'remote_authentication_type']],
+            ['state', 'present', ['remote_location', 'remote_protocol', 'remote_host', 'remote_path', 'authentication_type']],
             ['state', 'absent', ['remote_location']],
-            ['remote_authentication_type', 'password', ['remote_username', 'remote_password']],
-            ['remote_authentication_type', 'ssh', ['remote_ssh_key']]
+            ['authentication_type', 'password', ['remote_username', 'remote_password']],
+            ['authentication_type', 'ssh', ['remote_ssh_key']]
         ]
     )
 
     location_name = module.params.get('remote_location')
-    description = module.params.get('remote_description')
+    description = module.params.get('description')
     protocol = module.params.get('remote_protocol')
     host = module.params.get('remote_host')
     path = module.params.get('remote_path')
     port = module.params.get('remote_port')
-    authentication_type = module.params.get('remote_authentication_type')
+    authentication_type = module.params.get('authentication_type')
     username = module.params.get('remote_username')
     password = module.params.get('remote_password')
     ssh_key = module.params.get('remote_ssh_key')

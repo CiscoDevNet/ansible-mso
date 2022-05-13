@@ -98,6 +98,19 @@
     layer3_multicast: true
     state: present
 
+- name: Add template BD to Template1 for create in site subnet
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_create_1
+    layer2_stretch: false
+    vrf:
+      name: VRF1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+    state: present
+
 - name: Add template BD to Template3
   mso_schema_template_bd:
     <<: *mso_info
@@ -349,6 +362,79 @@
     - nm_add_site_bd_subnet5.current.primary == True
   when: version.current.version is version('3.1.1h', '>=')
 
+- name: Add site BD subnet with non existing site bd (normal_mode)
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_create_1
+    subnet: 10.1.0.1/16
+    state: present
+  ignore_errors: yes
+  register: nm_add_site_bd_subnet_and_site_bd_false_configure
+
+- name: Verify nm_add_site_bd_subnet_and_site_bd_false_configure
+  assert:
+    that:
+    - nm_add_site_bd_subnet_and_site_bd_false_configure.msg.startswith("Provided BD 'ansible_test_create_1' does not exist.")
+
+- name: Add site BD subnet with non existing site bd (normal_mode)
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_create_1
+    create_bd: true
+    subnet: 10.1.0.1/16
+    state: present
+  register: nm_add_site_bd_subnet_and_site_bd
+
+- name: Verify nm_add_site_bd_subnet_and_site_bd
+  assert:
+    that:
+    - nm_add_site_bd_subnet_and_site_bd is changed
+    - nm_add_site_bd_subnet_and_site_bd.previous == {}
+    - nm_add_site_bd_subnet_and_site_bd.current.ip == "10.1.0.1/16"
+    - nm_add_site_bd_subnet_and_site_bd.current.scope == "private"
+    - nm_add_site_bd_subnet_and_site_bd.current.description == "10.1.0.1/16"
+    - nm_add_site_bd_subnet_and_site_bd.current.shared == False
+    - nm_add_site_bd_subnet_and_site_bd.current.noDefaultGateway == False
+    - nm_add_site_bd_subnet_and_site_bd.current.querier == False
+
+- name: Query site bd
+  mso_schema_site_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_create_1
+    state: query
+  register: query_site_bd
+
+- name: Verify query_site_bd
+  assert:
+    that:
+    - query_site_bd.current.bdRef.bdName == "ansible_test_create_1"
+
+- name: Add site BD subnet with now existing site bd again (normal_mode)
+  mso_schema_site_bd_subnet:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_create_1
+    create_bd: true
+    subnet: 10.1.0.1/16
+    state: present
+  register: nm_add_site_bd_subnet_and_site_bd_again
+
+- name: Verify nm_add_site_bd_subnet_and_site_bd_again
+  assert:
+    that:
+    - nm_add_site_bd_subnet_and_site_bd_again is not changed
+
 - name: Query all subnets
   mso_schema_site_bd_subnet:
     <<: *mso_info
@@ -521,7 +607,7 @@
 - name: Verify non_existing_template_bd
   assert:
     that:
-    - non_existing_template_bd.msg == "Provided BD 'non_existing_template_bd' does not exist. Existing template BDs{{':'}} ansible_test_1"
+    - non_existing_template_bd.msg == "Provided BD 'non_existing_template_bd' does not exist. Existing template BDs{{':'}} ansible_test_create_1, ansible_test_1"
 
 # Use template without site associated
 - name: Query with no site associated to template

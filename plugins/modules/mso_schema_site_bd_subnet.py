@@ -41,11 +41,6 @@ options:
     type: str
     required: true
     aliases: [ name ]
-  create_bd:
-    description:
-    - Create the site bd when the bd does not exist.
-    type: bool
-    default: false
   subnet:
     description:
     - The IP range in CIDR notation.
@@ -175,7 +170,6 @@ def main():
         site=dict(type='str', required=True),
         template=dict(type='str', required=True),
         bd=dict(type='str', aliases=['name'], required=True),
-        create_bd=dict(type='bool', default=False),
         subnet=dict(type='str', aliases=['ip']),
         description=dict(type='str'),
         scope=dict(type='str', choices=['private', 'public']),
@@ -200,7 +194,6 @@ def main():
     site = module.params.get('site')
     template = module.params.get('template').replace(' ', '')
     bd = module.params.get('bd')
-    create_bd = module.params.get('create_bd')
     subnet = module.params.get('subnet')
     description = module.params.get('description')
     scope = module.params.get('scope')
@@ -221,7 +214,7 @@ def main():
         mso.fail_json(msg="The l2Stretch of template bd should be false in order to create a site bd subnet. "
                           "Set l2Stretch as false using mso_schema_template_bd")
 
-    bd_site_obj = mso_schema.get_site_bd_object(bd, mso_schema.site_obj, create_bd)
+    bd_site_obj = mso_schema.get_site_bd_object(bd, mso_schema.site_obj)
     subnet_obj = None
 
     bds_path = '/sites/{0}-{1}/bds'.format(mso_schema.site_obj['siteId'], template)
@@ -236,7 +229,7 @@ def main():
     if state == 'query':
         if subnet is None:
             mso.existing = bd_site_obj.get('subnets')
-        elif not mso.existing:
+        elif not subnet_obj:
             mso.fail_json(msg="Subnet IP '{subnet}' not found".format(subnet=subnet))
         mso.exit_json()
 
@@ -250,7 +243,7 @@ def main():
 
     elif state == 'present':
 
-        if not bd_site_obj and create_bd is True:
+        if not bd_site_obj:
             bd_payload = dict(
                 bdRef=dict(
                     schemaId=mso_schema.schema_id,

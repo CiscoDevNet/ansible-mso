@@ -371,24 +371,6 @@
     bd: ansible_test_create_1
     subnet: 10.1.0.1/16
     state: present
-  ignore_errors: yes
-  register: nm_add_site_bd_subnet_and_site_bd_false_configure
-
-- name: Verify nm_add_site_bd_subnet_and_site_bd_false_configure
-  assert:
-    that:
-    - nm_add_site_bd_subnet_and_site_bd_false_configure.msg.startswith("Provided BD 'ansible_test_create_1' does not exist.")
-
-- name: Add site BD subnet with non existing site bd (normal_mode)
-  mso_schema_site_bd_subnet:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template1
-    bd: ansible_test_create_1
-    create_bd: true
-    subnet: 10.1.0.1/16
-    state: present
   register: nm_add_site_bd_subnet_and_site_bd
 
 - name: Verify nm_add_site_bd_subnet_and_site_bd
@@ -425,7 +407,6 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
     bd: ansible_test_create_1
-    create_bd: true
     subnet: 10.1.0.1/16
     state: present
   register: nm_add_site_bd_subnet_and_site_bd_again
@@ -679,7 +660,7 @@
 - name: Verify non_existing_site_bd
   assert:
     that:
-    - non_existing_site_bd.msg == "Provided BD 'ansible_test_2' does not exist. Existing site BDs{{':'}} "
+    - non_existing_site_bd.msg == "Subnet IP '10.1.0.1/16' not found"
 
 - name: Remove schemas for next ci test case
   mso_schema:

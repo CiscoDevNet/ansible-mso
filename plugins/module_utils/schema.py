@@ -59,15 +59,9 @@ class MSOSchema:
             msg = "Provided site/template '{0}-{1}' does not exist.".format(site, self.template_obj.get('name'))
             self.mso.fail_json(msg=msg)
 
-    def get_site_bd_object(self, bd, site_obj, create_bd=False):
-
+    def get_site_bd_object(self, bd, site_obj):
         bd_ref = self.mso.bd_ref(schema_id=self.schema_id, template=self.template_obj.get('name'), bd=bd)
-        bd_site_obj = next((item for item in site_obj.get('bds') if item.get('bdRef') == bd_ref), None)
-        if not bd_site_obj and create_bd is False:
-            msg = "Provided BD '{0}' does not exist. Existing site BDs: {1}".format(
-                bd, ', '.join([bd.get('bdRef') for bd in site_obj.get('bds')]))
-            self.mso.fail_json(msg=msg)
-        return bd_site_obj
+        return next((item for item in site_obj.get('bds') if item.get('bdRef') == bd_ref), None)
 
     @staticmethod
     def get_site_bd_subnet_object(subnet, bd_site_obj):

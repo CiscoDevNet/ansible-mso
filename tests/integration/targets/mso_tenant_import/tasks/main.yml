@@ -218,6 +218,68 @@
       - nm_import_tenant_once_again.current.description == "anstest_imp_tenant_description"
   when: query_site.current != {}
 
+- name: Update "anstest_imp_tenant" tenant description with check mode
+  mso_tenant_import: &cm_update_anstest_imp_tenant
+    <<: *nm_import_anstest_imp_tenant_present
+    description: "updated_anstest_imp_tenant_description"
+  check_mode: yes
+  register: cm_update_anstest_imp_tenant
+  when: query_site.current != {}
+
+- name: Assertions check for update "anstest_imp_tenant" tenant description with check mode
+  assert:
+    that:
+      - cm_update_anstest_imp_tenant is changed
+      - cm_update_anstest_imp_tenant.current != {}
+      - cm_update_anstest_imp_tenant.previous != {}
+      - cm_update_anstest_imp_tenant.current.name == "anstest_imp_tenant"
+      - cm_update_anstest_imp_tenant.current.displayName == "anstest_imp_tenant_display_name"
+      - cm_update_anstest_imp_tenant.current.description == "updated_anstest_imp_tenant_description"
+      - cm_update_anstest_imp_tenant.previous.name == "anstest_imp_tenant"
+      - cm_update_anstest_imp_tenant.previous.displayName == "anstest_imp_tenant_display_name"
+      - cm_update_anstest_imp_tenant.previous.description == "anstest_imp_tenant_description"
+  when: query_site.current != {}
+
+- name: Update "anstest_imp_tenant" tenant description with normal mode
+  mso_tenant_import: &nm_update_anstest_imp_tenant
+    <<: *cm_update_anstest_imp_tenant
+  register: nm_update_anstest_imp_tenant
+  when: query_site.current != {}
+
+- name: Assertions check for update "anstest_imp_tenant" tenant description with normal mode
+  assert:
+    that:
+      - nm_update_anstest_imp_tenant is changed
+      - nm_update_anstest_imp_tenant.current != {}
+      - nm_update_anstest_imp_tenant.previous != {}
+      - nm_update_anstest_imp_tenant.current.name == "anstest_imp_tenant"
+      - nm_update_anstest_imp_tenant.current.displayName == "anstest_imp_tenant_display_name"
+      - nm_update_anstest_imp_tenant.current.description == "updated_anstest_imp_tenant_description"
+      - nm_update_anstest_imp_tenant.previous.name == "anstest_imp_tenant"
+      - nm_update_anstest_imp_tenant.previous.displayName == "anstest_imp_tenant_display_name"
+      - nm_update_anstest_imp_tenant.previous.description == "anstest_imp_tenant_description"
+  when: query_site.current != {}
+
+- name: Update "anstest_imp_tenant" tenant description with normal mode - idempotency works
+  mso_tenant_import:
+    <<: *nm_update_anstest_imp_tenant
+  register: nm_idempotency_update_anstest_imp_tenant
+  when: query_site.current != {}
+
+- name: Idempotency assertions check for update "anstest_imp_tenant" tenant description with normal mode
+  assert:
+    that:
+      - nm_idempotency_update_anstest_imp_tenant is not changed
+      - nm_idempotency_update_anstest_imp_tenant.current != {}
+      - nm_idempotency_update_anstest_imp_tenant.previous != {}
+      - nm_idempotency_update_anstest_imp_tenant.current.name == "anstest_imp_tenant"
+      - nm_idempotency_update_anstest_imp_tenant.current.displayName == "anstest_imp_tenant_display_name"
+      - nm_idempotency_update_anstest_imp_tenant.current.description == "updated_anstest_imp_tenant_description"
+      - nm_idempotency_update_anstest_imp_tenant.previous.name == "anstest_imp_tenant"
+      - nm_idempotency_update_anstest_imp_tenant.previous.displayName == "anstest_imp_tenant_display_name"
+      - nm_idempotency_update_anstest_imp_tenant.previous.description == "updated_anstest_imp_tenant_description"
+  when: query_site.current != {}
+
 # Cleanup Part
 # MSC Only false will remove the tenant from MSO and APIC
 - name: Remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value false with check mode
@@ -238,7 +300,7 @@
       - cm_anstest_imp_tenant_absent_msc_only_false.previous != {}
       - cm_anstest_imp_tenant_absent_msc_only_false.previous.name == "anstest_imp_tenant"
       - cm_anstest_imp_tenant_absent_msc_only_false.previous.displayName == "anstest_imp_tenant_display_name"
-      - cm_anstest_imp_tenant_absent_msc_only_false.previous.description == "anstest_imp_tenant_description"
+      - cm_anstest_imp_tenant_absent_msc_only_false.previous.description == "updated_anstest_imp_tenant_description"
   when: query_site.current != {}
 
 - name: Remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value false with normal mode
@@ -255,7 +317,7 @@
       - nm_anstest_imp_tenant_absent_msc_only_false.previous != {}
       - nm_anstest_imp_tenant_absent_msc_only_false.previous.name == "anstest_imp_tenant"
       - nm_anstest_imp_tenant_absent_msc_only_false.previous.displayName == "anstest_imp_tenant_display_name"
-      - nm_anstest_imp_tenant_absent_msc_only_false.previous.description == "anstest_imp_tenant_description"
+      - nm_anstest_imp_tenant_absent_msc_only_false.previous.description == "updated_anstest_imp_tenant_description"
   when: query_site.current != {}
 
 - name: Remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value false with normal mode - idempotency works

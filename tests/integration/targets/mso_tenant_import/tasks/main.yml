@@ -1,0 +1,273 @@
+# Test code for the MSO modules
+# Copyright: (c) 2022, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY A SITE
+- name: Query ansible_test site
+  mso_site:
+    <<: *mso_info
+    site: "ansible_test"
+    state: query
+  register: query_site
+
+# Setup Part
+# MSO creates the tenant if it does not present in the site
+- name: Ensure "anstest_imp_tenant" present in the APIC
+  mso_tenant_import: &anstest_imp_tenant_present
+    <<: *mso_info
+    tenant_name: anstest_imp_tenant
+    display_name: anstest_imp_tenant_display_name
+    description: anstest_imp_tenant_description
+    sites: ["ansible_test"]
+    state: present
+  register: anstest_imp_tenant_present
+  when: query_site.current != {}
+
+- name: Query a tenant with name "anstest_imp_tenant" when it is present
+  mso_tenant_import:
+    tenant_name: anstest_imp_tenant
+    state: query
+  register: query_an_valid_object
+  when: query_site.current != {}
+
+- name: Remove "anstest_imp_tenant" only from MSO using msc_only flag value true
+  mso_tenant_import:
+    <<: *mso_info
+    tenant_name: anstest_imp_tenant
+    msc_only: true
+    state: absent
+  register: anstest_imp_tenant_absent_msc_only_true
+  when: query_site.current != {}
+
+- name: Query a tenant with name "anstest_imp_tenant" when it is absent
+  mso_tenant_import:
+    tenant_name: anstest_imp_tenant
+    state: query
+  register: query_an_invalid_object
+  when: query_site.current != {}
+
+# Test Part
+- name: Import "anstest_imp_tenant" to the MSO with check mode
+  mso_tenant_import: &cm_import_anstest_imp_tenant_present
+    <<: *anstest_imp_tenant_present
+  check_mode: yes
+  register: cm_import_anstest_imp_tenant_present
+  when: query_site.current != {}
+
+- name: Assertions check for import "anstest_imp_tenant" to the MSO with check mode
+  assert:
+    that:
+      - cm_import_anstest_imp_tenant_present is changed
+      - cm_import_anstest_imp_tenant_present.current != {}
+      - cm_import_anstest_imp_tenant_present.previous == {}
+      - cm_import_anstest_imp_tenant_present.current.name == "anstest_imp_tenant"
+      - cm_import_anstest_imp_tenant_present.current.displayName == "anstest_imp_tenant_display_name"
+      - cm_import_anstest_imp_tenant_present.current.description == "anstest_imp_tenant_description"
+  when: query_site.current != {}
+
+- name: Import "anstest_imp_tenant" to the MSO with normal mode
+  mso_tenant_import: &nm_import_anstest_imp_tenant_present
+    <<: *cm_import_anstest_imp_tenant_present
+  register: nm_import_anstest_imp_tenant_present
+  when: query_site.current != {}
+
+- name: Assertions check for import "anstest_imp_tenant" to the MSO with normal mode
+  assert:
+    that:
+      - nm_import_anstest_imp_tenant_present is changed
+      - nm_import_anstest_imp_tenant_present.current != {}
+      - nm_import_anstest_imp_tenant_present.previous == {}
+      - nm_import_anstest_imp_tenant_present.current.name == "anstest_imp_tenant"
+      - nm_import_anstest_imp_tenant_present.current.displayName == "anstest_imp_tenant_display_name"
+      - nm_import_anstest_imp_tenant_present.current.description == "anstest_imp_tenant_description"
+  when: query_site.current != {}
+
+- name: Import "anstest_imp_tenant" to the MSO with normal mode - idempotency works
+  mso_tenant_import:
+    <<: *nm_import_anstest_imp_tenant_present
+  register: idempotency_nm_import_anstest_imp_tenant_present
+  when: query_site.current != {}
+
+- name: Idempotency assertions check for import "anstest_imp_tenant" to the MSO with normal mode
+  assert:
+    that:
+      - idempotency_nm_import_anstest_imp_tenant_present is not changed
+      - idempotency_nm_import_anstest_imp_tenant_present.current != {}
+      - idempotency_nm_import_anstest_imp_tenant_present.previous != {}
+      - idempotency_nm_import_anstest_imp_tenant_present.current.name == "anstest_imp_tenant"
+      - idempotency_nm_import_anstest_imp_tenant_present.current.displayName == "anstest_imp_tenant_display_name"
+      - idempotency_nm_import_anstest_imp_tenant_present.current.description == "anstest_imp_tenant_description"
+      - idempotency_nm_import_anstest_imp_tenant_present.previous.name == "anstest_imp_tenant"
+      - idempotency_nm_import_anstest_imp_tenant_present.previous.displayName == "anstest_imp_tenant_display_name"
+      - idempotency_nm_import_anstest_imp_tenant_present.previous.description == "anstest_imp_tenant_description"
+  when: query_site.current != {}
+
+- name: Query a tenant with name "anstest_imp_tenant" when it is imported to the MSO
+  mso_tenant_import:
+    tenant_name: anstest_imp_tenant
+    state: query
+  register: query_anstest_imp_tenant
+  when: query_site.current != {}
+
+- name: Assertions check for query a tenant with name "anstest_imp_tenant" when it is imported to the MSO
+  assert:
+    that:
+      - query_anstest_imp_tenant is not changed
+      - query_anstest_imp_tenant.current != {}
+      - query_anstest_imp_tenant.current.name == "anstest_imp_tenant"
+      - query_anstest_imp_tenant.current.displayName == "anstest_imp_tenant_display_name"
+      - query_anstest_imp_tenant.current.description == "anstest_imp_tenant_description"
+  when: query_site.current != {}
+
+- name: Query all tenants
+  mso_tenant_import:
+    state: query
+  register: query_all_tenants
+  when: query_site.current != {}
+
+- name: Assertions check for query all tenants
+  assert:
+    that:
+      - query_all_tenants is not changed
+      - query_all_tenants.current | length >= 1
+  when: query_site.current != {}
+
+- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value true with check mode
+  mso_tenant_import: &cm_anstest_imp_tenant_absent_msc_only_true
+    <<: *mso_info
+    tenant_name: anstest_imp_tenant
+    msc_only: true
+    state: absent
+  check_mode: yes
+  register: cm_anstest_imp_tenant_absent_msc_only_true
+  when: query_site.current != {}
+
+- name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value true with check mode
+  assert:
+    that:
+      - cm_anstest_imp_tenant_absent_msc_only_true is changed
+      - cm_anstest_imp_tenant_absent_msc_only_true.current == {}
+      - cm_anstest_imp_tenant_absent_msc_only_true.previous != {}
+      - cm_anstest_imp_tenant_absent_msc_only_true.previous.name == "anstest_imp_tenant"
+      - cm_anstest_imp_tenant_absent_msc_only_true.previous.displayName == "anstest_imp_tenant_display_name"
+      - cm_anstest_imp_tenant_absent_msc_only_true.previous.description == "anstest_imp_tenant_description"
+  when: query_site.current != {}
+
+- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value true with normal mode
+  mso_tenant_import: &nm_anstest_imp_tenant_absent_msc_only_true
+    <<: *cm_anstest_imp_tenant_absent_msc_only_true
+  register: nm_anstest_imp_tenant_absent_msc_only_true
+  when: query_site.current != {}
+
+- name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value true with normal mode
+  assert:
+    that:
+      - nm_anstest_imp_tenant_absent_msc_only_true is changed
+      - nm_anstest_imp_tenant_absent_msc_only_true.current == {}
+      - nm_anstest_imp_tenant_absent_msc_only_true.previous != {}
+      - nm_anstest_imp_tenant_absent_msc_only_true.previous.name == "anstest_imp_tenant"
+      - nm_anstest_imp_tenant_absent_msc_only_true.previous.displayName == "anstest_imp_tenant_display_name"
+      - nm_anstest_imp_tenant_absent_msc_only_true.previous.description == "anstest_imp_tenant_description"
+  when: query_site.current != {}
+
+- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value true with normal mode - idempotency works
+  mso_tenant_import:
+    <<: *nm_anstest_imp_tenant_absent_msc_only_true
+  register: idempotency_nm_anstest_imp_tenant_absent_msc_only_true
+  when: query_site.current != {}
+
+- name: Idempotency assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value true with normal mode
+  assert:
+    that:
+      - idempotency_nm_anstest_imp_tenant_absent_msc_only_true is not changed
+      - idempotency_nm_anstest_imp_tenant_absent_msc_only_true.current == {}
+      - idempotency_nm_anstest_imp_tenant_absent_msc_only_true.previous == {}
+  when: query_site.current != {}
+
+- name: Import "anstest_imp_tenant" to the MSO with normal mode once again
+  mso_tenant_import:
+    <<: *nm_import_anstest_imp_tenant_present
+  register: nm_import_tenant_once_again
+  when: query_site.current != {}
+
+- name: Assertions check for import "anstest_imp_tenant" to the MSO with normal mode once again
+  assert:
+    that:
+      - nm_import_tenant_once_again is changed
+      - nm_import_tenant_once_again.current != {}
+      - nm_import_tenant_once_again.previous == {}
+      - nm_import_tenant_once_again.current.name == "anstest_imp_tenant"
+      - nm_import_tenant_once_again.current.displayName == "anstest_imp_tenant_display_name"
+      - nm_import_tenant_once_again.current.description == "anstest_imp_tenant_description"
+  when: query_site.current != {}
+
+# Cleanup Part
+# MSC Only false will remove the tenant from MSO and APIC
+- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value false with check mode
+  mso_tenant_import: &cm_anstest_imp_tenant_absent_msc_only_false
+    <<: *mso_info
+    tenant_name: anstest_imp_tenant
+    msc_only: false
+    state: absent
+  check_mode: yes
+  register: cm_anstest_imp_tenant_absent_msc_only_false
+  when: query_site.current != {}
+
+- name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value false with check mode
+  assert:
+    that:
+      - cm_anstest_imp_tenant_absent_msc_only_false is changed
+      - cm_anstest_imp_tenant_absent_msc_only_false.current == {}
+      - cm_anstest_imp_tenant_absent_msc_only_false.previous != {}
+      - cm_anstest_imp_tenant_absent_msc_only_false.previous.name == "anstest_imp_tenant"
+      - cm_anstest_imp_tenant_absent_msc_only_false.previous.displayName == "anstest_imp_tenant_display_name"
+      - cm_anstest_imp_tenant_absent_msc_only_false.previous.description == "anstest_imp_tenant_description"
+  when: query_site.current != {}
+
+- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value false with normal mode
+  mso_tenant_import: &nm_anstest_imp_tenant_absent_msc_only_false
+    <<: *cm_anstest_imp_tenant_absent_msc_only_false
+  register: nm_anstest_imp_tenant_absent_msc_only_false
+  when: query_site.current != {}
+
+- name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value false with normal mode
+  assert:
+    that:
+      - nm_anstest_imp_tenant_absent_msc_only_false is changed
+      - nm_anstest_imp_tenant_absent_msc_only_false.current == {}
+      - nm_anstest_imp_tenant_absent_msc_only_false.previous != {}
+      - nm_anstest_imp_tenant_absent_msc_only_false.previous.name == "anstest_imp_tenant"
+      - nm_anstest_imp_tenant_absent_msc_only_false.previous.displayName == "anstest_imp_tenant_display_name"
+      - nm_anstest_imp_tenant_absent_msc_only_false.previous.description == "anstest_imp_tenant_description"
+  when: query_site.current != {}
+
+- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value false with normal mode - idempotency works
+  mso_tenant_import:
+    <<: *nm_anstest_imp_tenant_absent_msc_only_false
+  register: idempotency_nm_anstest_imp_tenant_absent_msc_only_false
+  when: query_site.current != {}
+
+- name: Idempotency assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using msc_only flag value false with normal mode
+  assert:
+    that:
+      - idempotency_nm_anstest_imp_tenant_absent_msc_only_false is not changed
+      - idempotency_nm_anstest_imp_tenant_absent_msc_only_false.current == {}
+      - idempotency_nm_anstest_imp_tenant_absent_msc_only_false.previous == {}
+  when: query_site.current != {}

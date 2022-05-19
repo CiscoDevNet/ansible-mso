@@ -194,7 +194,7 @@ def main():
     site = module.params.get('site')
     template = module.params.get('template').replace(' ', '')
     bd = module.params.get('bd')
-    subnet = module.params.get('subnet')
+    ip = module.params.get('subnet')
     description = module.params.get('description')
     scope = module.params.get('scope')
     shared = module.params.get('shared')
@@ -206,62 +206,60 @@ def main():
 
     mso = MSOModule(module)
 
-    mso_schema = MSOSchema(mso, schema, template)
-    mso_schema.set_site_object(site)
+    mso_schema = MSOSchema(mso, schema, template, site)
 
-    bd_template_obj = mso_schema.get_template_bd_object(bd)
-    if bd_template_obj and bd_template_obj.get('l2Stretch') is True and state == 'present':
+    template_bd = mso_schema.get_template_bd(bd, mso_schema.template.details)
+    if template_bd and template_bd.details.get('l2Stretch') is True and state == 'present':
         mso.fail_json(msg="The l2Stretch of template bd should be false in order to create a site bd subnet. "
                           "Set l2Stretch as false using mso_schema_template_bd")
 
-    bd_site_obj = mso_schema.get_site_bd_object(bd, mso_schema.site_obj)
-    subnet_obj = None
+    site_bd = mso_schema.get_site_bd(bd, mso_schema.template.details, mso_schema.site.details, fail_module=False)
+    subnet = None
 
-    bds_path = '/sites/{0}-{1}/bds'.format(mso_schema.site_obj['siteId'], template)
-    subnets_path = '{0}/{1}/subnets'.format(bds_path, bd)
+    bd_path = '/sites/{0}-{1}/bds'.format(mso_schema.site.details['siteId'], template)
+    subnet_path = '{0}/{1}/subnets'.format(bd_path, bd)
 
-    if bd_site_obj:
-        subnet_obj = mso_schema.get_site_bd_subnet_object(subnet, bd_site_obj)
-        if subnet_obj:
-            subnet_path = '{0}/{1}'.format(subnets_path, subnet_obj.index)
-            mso.existing = subnet_obj.details
+    if site_bd:
+        subnet = mso_schema.get_site_bd_subnet(ip, site_bd.details, fail_module=False)
+        if subnet:
+            mso.existing = subnet.details
 
     if state == 'query':
-        if subnet is None:
-            mso.existing = bd_site_obj.get('subnets')
-        elif not subnet_obj:
-            mso.fail_json(msg="Subnet IP '{subnet}' not found".format(subnet=subnet))
+        if ip is None:
+            mso.existing = site_bd.details.get('subnets')
+        elif not subnet:
+            mso.fail_json(msg="Subnet IP '{0}' not found".format(ip))
         mso.exit_json()
 
     ops = []
     mso.previous = mso.existing
 
     if state == 'absent':
-        if subnet_obj:
+        if subnet:
             mso.sent = mso.existing = {}
             ops.append(dict(op='remove', path=subnet_path))
 
     elif state == 'present':
 
-        if not bd_site_obj:
+        if not site_bd:
             bd_payload = dict(
                 bdRef=dict(
-                    schemaId=mso_schema.schema_id,
+                    schemaId=mso_schema.id,
                     templateName=template,
                     bdName=bd,
                 ),
                 hostBasedRouting=False,
             )
-            ops.append(dict(op='add', path=bds_path + '/-', value=bd_payload))
+            ops.append(dict(op='add', path=bd_path + '/-', value=bd_payload))
 
-        if not subnet_obj:
+        if not subnet:
             if description is None:
-                description = subnet
+                description = ip
             if scope is None:
                 scope = 'private'
 
         subnet_payload = dict(
-            ip=subnet,
+            ip=ip,
             description=description,
             scope=scope,
             shared=shared,
@@ -273,15 +271,15 @@ def main():
 
         mso.sanitize(subnet_payload, collate=True)
 
-        if subnet_obj:
-            ops.append(dict(op='replace', path=subnet_path, value=mso.sent))
+        if subnet:
+            ops.append(dict(op='replace', path='{0}/{1}'.format(subnet_path, subnet.index), value=mso.sent))
         else:
-            ops.append(dict(op='add', path=subnets_path + '/-', value=mso.sent))
+            ops.append(dict(op='add', path='{0}/{1}'.format(subnet_path, '-'), value=mso.sent))
 
         mso.existing = mso.proposed
 
     if not module.check_mode:
-        mso.request(mso_schema.schema_path, method='PATCH', data=ops)
+        mso.request(mso_schema.path, method='PATCH', data=ops)
 
     mso.exit_json()
 

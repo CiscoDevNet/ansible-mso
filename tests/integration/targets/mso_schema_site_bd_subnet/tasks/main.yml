@@ -570,7 +570,7 @@
 - name: Verify non_existing_template
   assert:
     that:
-    - non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1, Template2, Template4, Template5"
+    - non_existing_template.msg == "Provided condition(s) ['name==non_existing_template'] not matching existing object(s){{':'}} ['name==Template1'], ['name==Template2'], ['name==Template4'], ['name==Template5']"
 
 # Use non_existing_template_bd
 - name: Query subnet by non_existing_template_bd
@@ -588,7 +588,7 @@
 - name: Verify non_existing_template_bd
   assert:
     that:
-    - non_existing_template_bd.msg == "Provided BD 'non_existing_template_bd' does not exist. Existing template BDs{{':'}} ansible_test_create_1, ansible_test_1"
+    - non_existing_template_bd.msg == "Provided condition(s) ['name==non_existing_template_bd'] not matching existing object(s){{':'}} ['name==ansible_test_create_1'], ['name==ansible_test_1']"
 
 # Use template without site associated
 - name: Query with no site associated to template
@@ -609,7 +609,7 @@
     - template_without_sites.msg == "No site associated with template 'Template3'. Associate the site with the template using mso_schema_site."
 
 # Use non_existing_subnet
-- name: Query with non_existing_site
+- name: Query with non_existing_subnet
   mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -642,7 +642,7 @@
 - name: Verify non_existing_site_template_association
   assert:
     that:
-    - non_existing_site_template_association.msg == "Provided site/template 'ansible_test-Template4' does not exist."
+    - non_existing_site_template_association.msg.startswith("Provided condition(s) ['siteId==")
 
 # Use BD at template level but not at site level
 - name: Query with non_existing_site_bd

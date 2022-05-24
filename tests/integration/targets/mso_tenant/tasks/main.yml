@@ -72,13 +72,7 @@
 
 - name: Remove schemas
   mso_schema:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ item }}'
     state: absent
   loop:
@@ -87,13 +81,7 @@
 
 - name: Remove tenants
   mso_tenant: &tenant_absent
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     tenant: '{{ item }}'
     state: absent
   loop:
@@ -101,17 +89,11 @@
   - ansible_test2
   - ansible_test3
   - tenant_with_site
-  
+
 # ADD TENANT
 - name: Add tenant (check_mode)
   mso_tenant: &tenant_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     tenant: ansible_test
     display_name: Ansible test title
     description: Ansible test tenant
@@ -203,7 +185,7 @@
   when: mso_username == 'admin'
 
 - name: Add tenant 2 again (normal mode)
-  mso_tenant: 
+  mso_tenant:
     <<: *tenant_present
     tenant: ansible_test2
     users:
@@ -230,7 +212,7 @@
   when: mso_username == 'admin'
 
 - name: Add tenant 3 with duplicate admin user (normal mode)
-  mso_tenant: 
+  mso_tenant:
     <<: *tenant_present
     tenant: ansible_test3
     users:
@@ -248,7 +230,7 @@
     - nm_add_tenant3_with_duplicate_admin.msg == "User 'admin' is duplicate."
 
 - name: Add tenant 3 with invalid user (normal mode)
-  mso_tenant: 
+  mso_tenant:
     <<: *tenant_present
     tenant: ansible_test3
     users:
@@ -265,7 +247,7 @@
     - nm_add_tenant3_with_invalid_user.msg == "User 'invalid user' is not a valid user name."
 
 - name: Add tenant 3 (normal mode)
-  mso_tenant: 
+  mso_tenant:
     <<: *tenant_present
     tenant: ansible_test3
     users:
@@ -359,13 +341,7 @@
 # QUERY ALL TENANTS
 - name: Query all tenants (check_mode)
   mso_tenant: &tenant_query
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     state: query
   check_mode: yes
   register: cm_query_all_tenants
@@ -413,7 +389,7 @@
 
 # REMOVE TENANT
 - name: Remove tenant (check_mode)
-  mso_tenant: 
+  mso_tenant:
     <<: *tenant_absent
     tenant: ansible_test
   check_mode: yes
@@ -426,7 +402,7 @@
     - cm_remove_tenant.current == {}
 
 - name: Remove tenant (normal mode)
-  mso_tenant: 
+  mso_tenant:
     <<: *tenant_absent
     tenant: ansible_test
   register: nm_remove_tenant
@@ -438,7 +414,7 @@
     - nm_remove_tenant.current == {}
 
 - name: Remove tenant again (check_mode)
-  mso_tenant: 
+  mso_tenant:
     <<: *tenant_absent
     tenant: ansible_test
   check_mode: yes
@@ -451,7 +427,7 @@
     - cm_remove_tenant_again.current == {}
 
 - name: Remove tenant again (normal mode)
-  mso_tenant: 
+  mso_tenant:
     <<: *tenant_absent
     tenant: ansible_test
   register: nm_remove_tenant_again
@@ -536,3 +512,247 @@
     that:
     - rm_tenant_with_site is changed
     - rm_tenant_with_site.current == {}
+
+- name: Remove "anstest_imp_tenant" to the MSO if exists
+  mso_tenant:
+    <<: *mso_info
+    tenant: anstest_imp_tenant
+    display_name: anstest_imp_tenant_display_name
+    description: anstest_imp_tenant_description
+    sites: '{{ mso_site | default("ansible_test") }}'
+    state: absent
+  register: pre_test_anstest_imp_tenant_absent
+
+- name: Import "anstest_imp_tenant" to the MSO with check mode
+  mso_tenant: &cm_import_anstest_imp_tenant_present
+    <<: *mso_info
+    tenant: anstest_imp_tenant
+    display_name: anstest_imp_tenant_display_name
+    description: anstest_imp_tenant_description
+    sites: '{{ mso_site | default("ansible_test") }}'
+    state: present
+  check_mode: yes
+  register: cm_import_anstest_imp_tenant_present
+
+- name: Assertions check for import "anstest_imp_tenant" to the MSO with check mode
+  assert:
+    that:
+      - cm_import_anstest_imp_tenant_present is changed
+      - cm_import_anstest_imp_tenant_present.current != {}
+      - cm_import_anstest_imp_tenant_present.previous == {}
+      - cm_import_anstest_imp_tenant_present.current.name == "anstest_imp_tenant"
+      - cm_import_anstest_imp_tenant_present.current.displayName == "anstest_imp_tenant_display_name"
+      - cm_import_anstest_imp_tenant_present.current.description == "anstest_imp_tenant_description"
+
+- name: Import "anstest_imp_tenant" to the MSO with normal mode
+  mso_tenant: &nm_import_anstest_imp_tenant_present
+    <<: *cm_import_anstest_imp_tenant_present
+  register: nm_import_anstest_imp_tenant_present
+
+- name: Assertions check for import "anstest_imp_tenant" to the MSO with normal mode
+  assert:
+    that:
+      - nm_import_anstest_imp_tenant_present is changed
+      - nm_import_anstest_imp_tenant_present.current != {}
+      - nm_import_anstest_imp_tenant_present.previous == {}
+      - nm_import_anstest_imp_tenant_present.current.name == "anstest_imp_tenant"
+      - nm_import_anstest_imp_tenant_present.current.displayName == "anstest_imp_tenant_display_name"
+      - nm_import_anstest_imp_tenant_present.current.description == "anstest_imp_tenant_description"
+
+- name: Import "anstest_imp_tenant" to the MSO with normal mode - idempotency works
+  mso_tenant:
+    <<: *nm_import_anstest_imp_tenant_present
+  register: idempotency_nm_import_anstest_imp_tenant_present
+
+- name: Idempotency assertions check for import "anstest_imp_tenant" to the MSO with normal mode
+  assert:
+    that:
+      - idempotency_nm_import_anstest_imp_tenant_present is not changed
+      - idempotency_nm_import_anstest_imp_tenant_present.current != {}
+      - idempotency_nm_import_anstest_imp_tenant_present.previous != {}
+      - idempotency_nm_import_anstest_imp_tenant_present.current.name == "anstest_imp_tenant"
+      - idempotency_nm_import_anstest_imp_tenant_present.current.displayName == "anstest_imp_tenant_display_name"
+      - idempotency_nm_import_anstest_imp_tenant_present.current.description == "anstest_imp_tenant_description"
+      - idempotency_nm_import_anstest_imp_tenant_present.previous.name == "anstest_imp_tenant"
+      - idempotency_nm_import_anstest_imp_tenant_present.previous.displayName == "anstest_imp_tenant_display_name"
+      - idempotency_nm_import_anstest_imp_tenant_present.previous.description == "anstest_imp_tenant_description"
+
+- name: Query a tenant with name "anstest_imp_tenant" when it is imported to the MSO
+  mso_tenant:
+    <<: *mso_info
+    tenant: anstest_imp_tenant
+    state: query
+  register: query_anstest_imp_tenant
+
+- name: Assertions check for query a tenant with name "anstest_imp_tenant" when it is imported to the MSO
+  assert:
+    that:
+      - query_anstest_imp_tenant is not changed
+      - query_anstest_imp_tenant.current != {}
+      - query_anstest_imp_tenant.current.name == "anstest_imp_tenant"
+      - query_anstest_imp_tenant.current.displayName == "anstest_imp_tenant_display_name"
+      - query_anstest_imp_tenant.current.description == "anstest_imp_tenant_description"
+
+- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value yes with check mode
+  mso_tenant: &cm_anstest_imp_tenant_absent_orchestrator_only_yes
+    <<: *mso_info
+    tenant: anstest_imp_tenant
+    orchestrator_only: yes
+    state: absent
+  check_mode: yes
+  register: cm_anstest_imp_tenant_absent_orchestrator_only_yes
+
+- name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value yes with check mode
+  assert:
+    that:
+      - cm_anstest_imp_tenant_absent_orchestrator_only_yes is changed
+      - cm_anstest_imp_tenant_absent_orchestrator_only_yes.current == {}
+      - cm_anstest_imp_tenant_absent_orchestrator_only_yes.previous != {}
+      - cm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.name == "anstest_imp_tenant"
+      - cm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.displayName == "anstest_imp_tenant_display_name"
+      - cm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.description == "anstest_imp_tenant_description"
+
+- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value yes with normal mode
+  mso_tenant: &nm_anstest_imp_tenant_absent_orchestrator_only_yes
+    <<: *cm_anstest_imp_tenant_absent_orchestrator_only_yes
+  register: nm_anstest_imp_tenant_absent_orchestrator_only_yes
+
+- name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value yes with normal mode
+  assert:
+    that:
+      - nm_anstest_imp_tenant_absent_orchestrator_only_yes is changed
+      - nm_anstest_imp_tenant_absent_orchestrator_only_yes.current == {}
+      - nm_anstest_imp_tenant_absent_orchestrator_only_yes.previous != {}
+      - nm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.name == "anstest_imp_tenant"
+      - nm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.displayName == "anstest_imp_tenant_display_name"
+      - nm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.description == "anstest_imp_tenant_description"
+
+- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value yes with normal mode - idempotency works
+  mso_tenant:
+    <<: *nm_anstest_imp_tenant_absent_orchestrator_only_yes
+  register: idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_yes
+
+- name: Idempotency assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value yes with normal mode
+  assert:
+    that:
+      - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_yes is not changed
+      - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_yes.current == {}
+      - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_yes.previous == {}
+
+- name: Import "anstest_imp_tenant" to the MSO with normal mode once again
+  mso_tenant:
+    <<: *nm_import_anstest_imp_tenant_present
+  register: nm_import_tenant_once_again
+
+- name: Assertions check for import "anstest_imp_tenant" to the MSO with normal mode once again
+  assert:
+    that:
+      - nm_import_tenant_once_again is changed
+      - nm_import_tenant_once_again.current != {}
+      - nm_import_tenant_once_again.previous == {}
+      - nm_import_tenant_once_again.current.name == "anstest_imp_tenant"
+      - nm_import_tenant_once_again.current.displayName == "anstest_imp_tenant_display_name"
+      - nm_import_tenant_once_again.current.description == "anstest_imp_tenant_description"
+
+- name: Update "anstest_imp_tenant" tenant description with check mode
+  mso_tenant: &cm_update_anstest_imp_tenant
+    <<: *nm_import_anstest_imp_tenant_present
+    description: "updated_anstest_imp_tenant_description"
+  check_mode: yes
+  register: cm_update_anstest_imp_tenant
+
+- name: Assertions check for update "anstest_imp_tenant" tenant description with check mode
+  assert:
+    that:
+      - cm_update_anstest_imp_tenant is changed
+      - cm_update_anstest_imp_tenant.current != {}
+      - cm_update_anstest_imp_tenant.previous != {}
+      - cm_update_anstest_imp_tenant.current.name == "anstest_imp_tenant"
+      - cm_update_anstest_imp_tenant.current.displayName == "anstest_imp_tenant_display_name"
+      - cm_update_anstest_imp_tenant.current.description == "updated_anstest_imp_tenant_description"
+      - cm_update_anstest_imp_tenant.previous.name == "anstest_imp_tenant"
+      - cm_update_anstest_imp_tenant.previous.displayName == "anstest_imp_tenant_display_name"
+      - cm_update_anstest_imp_tenant.previous.description == "anstest_imp_tenant_description"
+
+- name: Update "anstest_imp_tenant" tenant description with normal mode
+  mso_tenant: &nm_update_anstest_imp_tenant
+    <<: *cm_update_anstest_imp_tenant
+  register: nm_update_anstest_imp_tenant
+
+- name: Assertions check for update "anstest_imp_tenant" tenant description with normal mode
+  assert:
+    that:
+      - nm_update_anstest_imp_tenant is changed
+      - nm_update_anstest_imp_tenant.current != {}
+      - nm_update_anstest_imp_tenant.previous != {}
+      - nm_update_anstest_imp_tenant.current.name == "anstest_imp_tenant"
+      - nm_update_anstest_imp_tenant.current.displayName == "anstest_imp_tenant_display_name"
+      - nm_update_anstest_imp_tenant.current.description == "updated_anstest_imp_tenant_description"
+      - nm_update_anstest_imp_tenant.previous.name == "anstest_imp_tenant"
+      - nm_update_anstest_imp_tenant.previous.displayName == "anstest_imp_tenant_display_name"
+      - nm_update_anstest_imp_tenant.previous.description == "anstest_imp_tenant_description"
+
+- name: Update "anstest_imp_tenant" tenant description with normal mode - idempotency works
+  mso_tenant:
+    <<: *nm_update_anstest_imp_tenant
+  register: nm_idempotency_update_anstest_imp_tenant
+
+- name: Idempotency assertions check for update "anstest_imp_tenant" tenant description with normal mode
+  assert:
+    that:
+      - nm_idempotency_update_anstest_imp_tenant is not changed
+      - nm_idempotency_update_anstest_imp_tenant.current != {}
+      - nm_idempotency_update_anstest_imp_tenant.previous != {}
+      - nm_idempotency_update_anstest_imp_tenant.current.name == "anstest_imp_tenant"
+      - nm_idempotency_update_anstest_imp_tenant.current.displayName == "anstest_imp_tenant_display_name"
+      - nm_idempotency_update_anstest_imp_tenant.current.description == "updated_anstest_imp_tenant_description"
+      - nm_idempotency_update_anstest_imp_tenant.previous.name == "anstest_imp_tenant"
+      - nm_idempotency_update_anstest_imp_tenant.previous.displayName == "anstest_imp_tenant_display_name"
+      - nm_idempotency_update_anstest_imp_tenant.previous.description == "updated_anstest_imp_tenant_description"
+
+# Orchestrator Only no will remove the tenant from MSO and APIC
+- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value no with check mode
+  mso_tenant: &cm_anstest_imp_tenant_absent_orchestrator_only_no
+    <<: *mso_info
+    tenant: anstest_imp_tenant
+    orchestrator_only: no
+    state: absent
+  check_mode: yes
+  register: cm_anstest_imp_tenant_absent_orchestrator_only_no
+
+- name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value no with check mode
+  assert:
+    that:
+      - cm_anstest_imp_tenant_absent_orchestrator_only_no is changed
+      - cm_anstest_imp_tenant_absent_orchestrator_only_no.current == {}
+      - cm_anstest_imp_tenant_absent_orchestrator_only_no.previous != {}
+      - cm_anstest_imp_tenant_absent_orchestrator_only_no.previous.name == "anstest_imp_tenant"
+      - cm_anstest_imp_tenant_absent_orchestrator_only_no.previous.displayName == "anstest_imp_tenant_display_name"
+      - cm_anstest_imp_tenant_absent_orchestrator_only_no.previous.description == "updated_anstest_imp_tenant_description"
+
+- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value no with normal mode
+  mso_tenant: &nm_anstest_imp_tenant_absent_orchestrator_only_no
+    <<: *cm_anstest_imp_tenant_absent_orchestrator_only_no
+  register: nm_anstest_imp_tenant_absent_orchestrator_only_no
+
+- name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value no with normal mode
+  assert:
+    that:
+      - nm_anstest_imp_tenant_absent_orchestrator_only_no is changed
+      - nm_anstest_imp_tenant_absent_orchestrator_only_no.current == {}
+      - nm_anstest_imp_tenant_absent_orchestrator_only_no.previous != {}
+      - nm_anstest_imp_tenant_absent_orchestrator_only_no.previous.name == "anstest_imp_tenant"
+      - nm_anstest_imp_tenant_absent_orchestrator_only_no.previous.displayName == "anstest_imp_tenant_display_name"
+      - nm_anstest_imp_tenant_absent_orchestrator_only_no.previous.description == "updated_anstest_imp_tenant_description"
+
+- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value no with normal mode - idempotency works
+  mso_tenant:
+    <<: *nm_anstest_imp_tenant_absent_orchestrator_only_no
+  register: idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_no
+
+- name: Idempotency assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value no with normal mode
+  assert:
+    that:
+      - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_no is not changed
+      - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_no.current == {}
+      - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_no.previous == {}

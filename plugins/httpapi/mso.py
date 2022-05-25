@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Copyright: (c) 2020, Lionel Hercot (lhercot) <lhercot@cisco.com>
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 
 from __future__ import (absolute_import, division, print_function)
@@ -18,14 +21,14 @@ __metaclass__ = type
 
 DOCUMENTATION = """
 ---
-author:
-- Lionel Hercot (lhercot)
-httpapi: mso
+module: mso
 short_description: MSO Ansible HTTPAPI Plugin.
 description:
   - This MSO plugin provides the HTTPAPI transport methods needed to initiate
     a connection to MSO, send API requests and process the
     response.
+author:
+  - Lionel Hercot (lhercot)
 version_added: "1.2.0"
 """
 

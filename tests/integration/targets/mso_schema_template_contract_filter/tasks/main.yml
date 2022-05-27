@@ -350,57 +350,6 @@
     - cm_add_contract_filter_both_way.current.displayName == "Contract 1"
     - cm_add_contract_filter_both_way.current.filterType == "both-way"
 
-- name: Change Contract type both_way Filter type consumer-to-provider(normal_mode)
-  mso_schema_template_contract_filter:
-    <<: *contract_present
-    contract: Contract 1
-    contract_filter_type: both-way
-    filter: Filter 4
-    filter_type: consumer-to-provider
-    state: present
-  ignore_errors: yes
-  register: nm_both_way_and_consumer_to_provider
-
-- name: Verify nm_both_way_and_consumer_to_provider
-  assert:
-    that:
-    - nm_both_way_and_consumer_to_provider is not changed
-    - nm_both_way_and_consumer_to_provider.msg == "You are adding 'one-way' filters to a 'both-way' contract"
-
-- name: Change Contract type both_way Filter type provider-to-consumer(normal_mode)
-  mso_schema_template_contract_filter:
-    <<: *contract_present
-    contract: Contract 1
-    contract_filter_type: both-way
-    filter: Filter 4
-    filter_type: provider-to-consumer
-    state: present
-  ignore_errors: yes
-  register: nm_both_way_and_provider_to_consumer
-
-- name: Verify nm_both_way_and_provider_to_consumer
-  assert:
-    that:
-    - nm_both_way_and_provider_to_consumer is not changed
-    - nm_both_way_and_provider_to_consumer.msg == "You are adding 'one-way' filters to a 'both-way' contract"
-
-- name: Change Contract type one_way Filter type both way(normal_mode)
-  mso_schema_template_contract_filter:
-    <<: *contract_present
-    contract: Contract 1
-    contract_filter_type: one-way
-    filter: Filter 4
-    filter_type: both-way
-    state: present
-  ignore_errors: yes
-  register: nm_one_way_and_both_way
-
-- name: Verify nm_one_way_and_both_way
-  assert:
-    that:
-    - nm_one_way_and_both_way is not changed
-    - nm_one_way_and_both_way.msg == "You are adding 'both-way' filters to a 'one-way' contract"
-
 - name: Change Contract type one_way Filter type consumer-to-provider(normal_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
@@ -622,6 +571,144 @@
     - nm_change_contract_scope_default is not changed
     - nm_change_contract_scope_default.current.contractScope == "context"
     - nm_change_contract_scope_default.previous.contractScope == "context"
+
+- name: Change contract 1 description (normal mode)
+  mso_schema_template_contract_filter:
+    <<: *contract_present
+    contract: Contract 1
+    description: changed description
+    state: present
+  register: nm_change_contract_description
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify nm_change_contract_description
+  assert:
+    that:
+    - nm_change_contract_description is changed
+    - nm_change_contract_description.current.description == "changed description"
+    - nm_change_contract_description.previous.description == ""
+  when: version.current.version is version('3.3', '>=')
+
+- name: Change contract 1 description empty (normal mode)
+  mso_schema_template_contract_filter:
+    <<: *contract_present
+    contract: Contract 1
+    description: ""
+    state: present
+  register: nm_change_contract_description_empty
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify nm_change_contract_description_empty
+  assert:
+    that:
+    - nm_change_contract_description_empty is changed
+    - nm_change_contract_description_empty.current.description == ""
+    - nm_change_contract_description_empty.previous.description == "changed description"
+  when: version.current.version is version('3.3', '>=')
+
+- name: Change contract 1 qos_level (normal mode)
+  mso_schema_template_contract_filter:
+    <<: *contract_present
+    contract: Contract 1
+    qos_level: level1
+    state: present
+  register: nm_change_contract_qos
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify nm_change_contract_qos_level
+  assert:
+    that:
+    - nm_change_contract_qos is changed
+    - nm_change_contract_qos.current.prio == "level1"
+  when: version.current.version is version('3.3', '>=')
+
+- name: Change contract 1 qos_level unspecified (normal mode)
+  mso_schema_template_contract_filter:
+    <<: *contract_present
+    contract: Contract 1
+    qos_level: unspecified
+    state: present
+  register: nm_change_contract_qos_unspecified
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify nm_change_contract_qos_level_unspecified
+  assert:
+    that:
+    - nm_change_contract_qos_unspecified is changed
+    - nm_change_contract_qos_unspecified.current.prio == "unspecified"
+    - nm_change_contract_qos_unspecified.previous.prio == "level1"
+  when: version.current.version is version('3.3', '>=')
+
+- name: Ensure contract filter_type set to both-way (normal mode)
+  mso_schema_template_contract_filter:
+    <<: *contract_present
+    contract: Contract 1
+    filter: Filter 1
+    filter_type: both-way
+    state: present
+  register: nm_contract_filter_both_way
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify nm_contract_filter_both_way
+  assert:
+    that:
+    - nm_contract_filter_both_way.current.contractFilterType == "bothWay"
+    - nm_contract_filter_both_way.current.filterType == "both-way"
+  when: version.current.version is version('3.3', '>=')
+
+- name: Change contract filter_type set to one-way with consumer-to-provider (normal mode)
+  mso_schema_template_contract_filter:
+    <<: *contract_present
+    contract: Contract 1
+    filter: Filter 1
+    filter_type: consumer-to-provider
+    state: present
+  register: nm_contract_filter_consumer_to_provider
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify nm_contract_filter_consumer_to_provider
+  assert:
+    that:
+    - nm_contract_filter_consumer_to_provider is changed
+    - nm_contract_filter_consumer_to_provider.current.contractFilterType == "oneWay"
+    - nm_contract_filter_consumer_to_provider.current.filterType == "consumer-to-provider"
+  when: version.current.version is version('3.3', '>=')
+
+- name: Change contract filter_type set to one-way with provider-to-consumer (normal mode)
+  mso_schema_template_contract_filter:
+    <<: *contract_present
+    contract: Contract 1
+    filter: Filter 1
+    filter_type: provider-to-consumer
+    state: present
+  register: nm_contract_filter_provider_to_consumer
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify nm_contract_filter_provider_to_consumer
+  assert:
+    that:
+    - nm_contract_filter_provider_to_consumer is changed
+    - nm_contract_filter_provider_to_consumer.current.contractFilterType == "oneWay"
+    - nm_contract_filter_provider_to_consumer.current.filterType == "provider-to-consumer"
+  when: version.current.version is version('3.3', '>=')
+
+- name: Change contract filter_type back to both-way (normal mode)
+  mso_schema_template_contract_filter:
+    <<: *contract_present
+    contract: Contract 1
+    filter: Filter 1
+    filter_type: both-way
+    state: present
+  register: nm_contract_filter_both_way_again
+  when: version.current.version is version('3.3', '>=')
+
+- name: Verify nm_contract_filter_both_way
+  assert:
+    that:
+    - nm_contract_filter_both_way_again is changed
+    - nm_contract_filter_both_way_again.current.contractFilterType == "bothWay"
+    - nm_contract_filter_both_way_again.current.filterType == "both-way"
+  when: version.current.version is version('3.3', '>=')
 
 # QUERY ALL CONTRACT
 - name: Query contract 1 filters (check_mode)

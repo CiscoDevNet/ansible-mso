@@ -204,6 +204,22 @@ def mso_service_graph_node_device_spec():
     )
 
 
+def mso_service_graph_connector_spec():
+    return dict(
+        provider=dict(type='str', required=True),
+        consumer=dict(type='str', required=True),
+        # Only connectorType bd with value "general" is supported for now thus fixed in code
+        #  when connectorType externalEpg is supported "route-peering" should be added
+        #  also change SERVICE_NODE_CONNECTOR_TYPE_MAP in constants.py
+        #  also verify if connector type is specific to provider or always same for both
+        connector_object_type=dict(type='str', default='bd', choices=['bd']),
+        provider_schema=dict(type='str'),
+        provider_template=dict(type='str'),
+        consumer_schema=dict(type='str'),
+        consumer_template=dict(type='str'),
+    )
+
+
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp):
     # create a tempfile with some test content
@@ -911,6 +927,7 @@ class MSOModule(object):
                     'l3outs': ['l3outName', 'schemaId', 'templateName'],
                     'anps': ['anpName', 'schemaId', 'templateName'],
                     'serviceGraphs': ['serviceGraphName', 'schemaId', 'templateName'],
+                    'serviceNode': ['serviceNodeName', 'schemaId', 'templateName', 'serviceGraphName'],
                 }
                 result = {
                     uri_map[category][1]: schema_id,
@@ -1141,9 +1158,19 @@ class MSOModule(object):
             existing['password'] = self.sent.get('password')
         return not issubset(self.sent, existing)
 
-    def update_filter_obj(self, contract_obj, filter_obj, filter_type, contract_display_name=None, updateFilterRef=True):
+    def update_service_graph_obj(self, service_graph_obj):
         ''' update filter with more information '''
-        if updateFilterRef:
+        service_graph_obj['serviceGraphRef'] = self.dict_from_ref(service_graph_obj.get('serviceGraphRef'))
+        for service_node in service_graph_obj['serviceNodesRelationship']:
+            service_node.get('consumerConnector')['bdRef'] = self.dict_from_ref(service_node.get('consumerConnector').get('bdRef'))
+            service_node.get('providerConnector')['bdRef'] = self.dict_from_ref(service_node.get('providerConnector').get('bdRef'))
+            service_node['serviceNodeRef'] = self.dict_from_ref(service_node.get('serviceNodeRef'))
+        if service_graph_obj.get('serviceGraphContractRelationRef'):
+            del service_graph_obj['serviceGraphContractRelationRef']
+
+    def update_filter_obj(self, contract_obj, filter_obj, filter_type, contract_display_name=None, update_filter_ref=True):
+        ''' update filter with more information '''
+        if update_filter_ref:
             filter_obj['filterRef'] = self.dict_from_ref(filter_obj.get('filterRef'))
         if contract_display_name:
             filter_obj['displayName'] = contract_display_name
@@ -1152,7 +1179,13 @@ class MSOModule(object):
         filter_obj['filterType'] = filter_type
         filter_obj['contractScope'] = contract_obj.get('scope')
         filter_obj['contractFilterType'] = contract_obj.get('filterType')
-        return filter_obj
+        # Conditional statement 'description == ""' is needed to set empty string.
+        if contract_obj.get('description') or contract_obj.get('description') == "":
+            filter_obj['description'] = contract_obj.get('description')
+        # Conditional statement is needed to determine if "prio" exist in contract object.
+        # Same reason as described mso_schema_template_contract_filter.py.
+        if contract_obj.get('prio'):
+            filter_obj['prio'] = contract_obj.get('prio')
 
     def query_schema(self, schema):
         schema_id = self.lookup_schema(schema)

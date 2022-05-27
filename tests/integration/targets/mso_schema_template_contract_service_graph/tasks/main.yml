@@ -1,0 +1,744 @@
+# Test code for the MSO modules
+# Copyright: (c) 2022, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(false) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Remove schema 2
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    state: absent
+
+- name: Remove schema 1
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    state: absent
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant:
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    state: present
+
+- name: Ensure schema 1 with Template 1 exist
+  mso_schema_template: &schema_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+
+- name: Ensure schema 1 with Template 2 exist
+  mso_schema_template:
+    <<: *schema_present
+    template: Template 2
+    state: present
+
+- name: Ensure schema 2 with Template 1 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template 1
+    state: present
+
+- name: Ensure Filter 1 exist
+  cisco.mso.mso_schema_template_filter_entry: &filter_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    filter: Filter 1
+    entry: Filter 1 entry
+    state: present
+
+- name: Ensure Filter 2 exist
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *filter_present
+    filter: Filter 2
+    entry: Filter 2 entry
+    state: present
+
+- name: Ensure Filter 3 exist
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    filter: Filter 3
+    entry: Filter 3 entry
+    state: present
+
+- name: Ensure Contract_1 contract exist
+  mso_schema_template_contract_filter: &contract_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    filter: Filter 1
+    state: present
+
+- name: Ensure Contract_2 contract exist
+  mso_schema_template_contract_filter:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    contract: Contract 2
+    filter: Filter 3
+    state: present
+
+- name: Ensure SG_1 service graph exist
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    service_graph: SG1
+    display_name: sg1
+    service_nodes:
+      - type: firewall
+      - type: load-balancer
+    state: present
+
+- name: Ensure SG_2 service graph exist
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    service_graph: SG2
+    display_name: sg2
+    service_nodes:
+      - type: firewall
+      - type: load-balancer
+    state: present
+
+- name: Ensure VRF_1 vrf exist
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    layer3_multicast: true
+    state: present
+
+- name: Ensure BD_1 bd exist
+  mso_schema_template_bd: &bd_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: BD1
+    vrf:
+      name: VRF1
+    state: present
+
+- name: Ensure BD_2 bd exist
+  mso_schema_template_bd:
+    <<: *bd_present
+    bd: BD2
+    state: present
+
+- name: Ensure BD_3 bd exist
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    bd: BD3
+    vrf:
+      name: VRF1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    state: present
+
+- name: Ensure AP1 in Template 1 exists
+  mso_schema_template_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    state: present
+
+- name: Ensure AP1 in Template 1 exists
+  mso_schema_template_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    anp: AP2
+    state: present
+
+- name: Ensure EPG1 in AP1 in Template 1 exists
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    bd:
+      name: BD1
+    state: present
+
+- name: Ensure EPG2 in AP1 in Template 1 exists
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    anp: AP2
+    epg: EPG2
+    bd:
+      name: BD3
+    state: present
+
+- name: Add Contract 1 to EPG1 provider
+  mso_schema_template_anp_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    contract:
+      name: Contract 1
+      type: provider
+    state: present
+
+- name: Add Contract 1 to EPG1 consumer
+  mso_schema_template_anp_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    contract:
+      name: Contract 1
+      type: consumer
+    state: present
+
+- name: Add Contract 2 to EPG2 provider
+  mso_schema_template_anp_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    anp: AP2
+    epg: EPG2
+    contract:
+      name: Contract 2
+      type: provider
+    state: present
+
+- name: Add Contract 2 to EPG2 consumer
+  mso_schema_template_anp_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    anp: AP2
+    epg: EPG2
+    contract:
+      name: Contract 2
+      type: consumer
+    state: present
+
+# TESTS
+
+- name: Add service graph 1 to contract 1 (check_mode)
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG1
+    service_nodes:
+      - consumer: BD1
+        provider: BD2
+      - consumer: BD1
+        provider: BD2
+    state: present
+  check_mode: yes
+  register: cm_add_sg1_to_c1
+
+- name: Add service graph 1 to contract 1
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG1
+    service_nodes:
+      - consumer: BD1
+        provider: BD2
+      - consumer: BD1
+        provider: BD2
+    state: present
+  register: nm_add_sg1_to_c1
+
+- name: Verify service graph 1 is added to contract 1
+  assert:
+    that:
+    - cm_add_sg1_to_c1 is changed
+    - cm_add_sg1_to_c1.previous == {}
+    - cm_add_sg1_to_c1.current.serviceGraphRef.serviceGraphName == "SG1"
+    - cm_add_sg1_to_c1.current.serviceGraphRef.templateName == "Template1"
+    - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+    - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
+    - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
+    - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - cm_add_sg1_to_c1.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
+    - nm_add_sg1_to_c1 is changed
+    - nm_add_sg1_to_c1.previous == {}
+    - nm_add_sg1_to_c1.current.serviceGraphRef.serviceGraphName == "SG1"
+    - nm_add_sg1_to_c1.current.serviceGraphRef.templateName == "Template1"
+    - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+    - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
+    - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
+    - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - nm_add_sg1_to_c1.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
+
+- name: Add service graph 1 to contract 1 again (check_mode)
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG1
+    service_nodes:
+      - consumer: BD1
+        provider: BD2
+      - consumer: BD1
+        provider: BD2
+    state: present
+  check_mode: yes
+  register: cm_add_sg1_to_c1_again
+
+- name: Add service graph 1 to contract 1 again
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG1
+    service_nodes:
+      - consumer: BD1
+        provider: BD2
+      - consumer: BD1
+        provider: BD2
+    state: present
+  register: nm_add_sg1_to_c1_again
+
+- name: Verify service graph 1 is added to contract 1 again
+  assert:
+    that:
+    - cm_add_sg1_to_c1_again is not changed
+    - cm_add_sg1_to_c1_again.previous.serviceGraphRef.serviceGraphName == "SG1"
+    - cm_add_sg1_to_c1_again.previous.serviceGraphRef.templateName == "Template1"
+    - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+    - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
+    - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
+    - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
+    - nm_add_sg1_to_c1_again is not changed
+    - nm_add_sg1_to_c1_again.previous.serviceGraphRef.serviceGraphName == "SG1"
+    - nm_add_sg1_to_c1_again.previous.serviceGraphRef.templateName == "Template1"
+    - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+    - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
+    - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
+    - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
+
+- name: Change service graph 1 node to contract 1 (check_mode)
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG1
+    service_nodes:
+      - consumer: BD2
+        provider: BD1
+      - consumer: BD2
+        provider: BD1
+    state: present
+  check_mode: yes
+  register: cm_change_sg1_to_c1
+
+- name: Change service graph 1 node to contract 1
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG1
+    service_nodes:
+      - consumer: BD2
+        provider: BD1
+      - consumer: BD2
+        provider: BD1
+    state: present
+  register: nm_change_sg1_to_c1
+
+- name: Verify service graph 1 is added to contract 1 again
+  assert:
+    that:
+    - cm_change_sg1_to_c1 is changed
+    - cm_change_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
+    - cm_change_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - cm_change_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
+    - cm_change_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - cm_change_sg1_to_c1.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+    - cm_change_sg1_to_c1.previous.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - cm_change_sg1_to_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
+    - cm_change_sg1_to_c1.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - cm_change_sg1_to_c1 is changed
+    - nm_change_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
+    - nm_change_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - nm_change_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
+    - nm_change_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - nm_change_sg1_to_c1.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+    - nm_change_sg1_to_c1.previous.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - nm_change_sg1_to_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
+    - nm_change_sg1_to_c1.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+
+- name: Query service graph 1 to contract 1 (check_mode)
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG1
+    state: query
+  register: cm_query_sg1_to_c1
+
+- name: Query service graph 1 to contract 1
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG1
+    state: query
+  register: nm_query_sg1_to_c1
+
+- name: Verify queried service graph 1
+  assert:
+    that:
+    - cm_query_sg1_to_c1 is not changed
+    - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
+    - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+    - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
+    - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+    - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - cm_query_sg1_to_c1 is not changed
+    - nm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
+    - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+    - nm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - nm_query_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
+    - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+    - nm_query_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+
+- name: Remove service graph 1 from contract 1 (check_mode)
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG1
+    state: absent
+  check_mode: yes
+  register: cm_remove_sg1_from_c1
+
+- name: Remove service graph 1 from contract 1
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG1
+    state: absent
+  register: nm_remove_sg1_from_c1
+
+- name: Verify service graph 1 is removed from contract 1
+  assert:
+    that:
+    - cm_remove_sg1_from_c1 is changed
+    - cm_remove_sg1_from_c1.current == {}
+    - cm_remove_sg1_from_c1.previous.serviceGraphRef.serviceGraphName == "SG1"
+    - cm_remove_sg1_from_c1.previous.serviceGraphRef.templateName == "Template1"
+    - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
+    - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
+    - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
+    - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
+    - nm_remove_sg1_from_c1 is changed
+    - nm_remove_sg1_from_c1.current == {}
+    - nm_remove_sg1_from_c1.previous.serviceGraphRef.serviceGraphName == "SG1"
+    - nm_remove_sg1_from_c1.previous.serviceGraphRef.templateName == "Template1"
+    - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
+    - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
+    - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
+    - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
+
+- name: Add service graph 2 to contract 2 with BD in other schema (check_mode)
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    contract: Contract 2
+    service_graph: SG2
+    service_nodes:
+      - consumer: BD1
+        consumer_template: Template 1
+        consumer_schema: '{{ mso_schema | default("ansible_test") }}'
+        provider: BD3
+      - consumer: BD3
+        provider: BD2
+        provider_template: Template 1
+        provider_schema: '{{ mso_schema | default("ansible_test") }}'
+    state: present
+  check_mode: yes
+  register: cm_add_sg2_to_c2
+
+- name: Add service graph 2 to contract 2 with BD in other schema
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    contract: Contract 2
+    service_graph: SG2
+    service_nodes:
+      - consumer: BD1
+        consumer_template: Template 1
+        consumer_schema: '{{ mso_schema | default("ansible_test") }}'
+        provider: BD3
+      - consumer: BD3
+        provider: BD2
+        provider_template: Template 1
+        provider_schema: '{{ mso_schema | default("ansible_test") }}'
+    state: present
+  register: nm_add_sg2_to_c2
+
+- name: Verify service graph 2 is added to contract 2
+  assert:
+    that:
+    - cm_add_sg2_to_c2 is changed
+    - cm_add_sg2_to_c2.previous == {}
+    - cm_add_sg2_to_c2.current.serviceGraphRef.serviceGraphName == "SG2"
+    - cm_add_sg2_to_c2.current.serviceGraphRef.templateName == "Template1"
+    - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+    - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD3"
+    - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG2"
+    - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - cm_add_sg2_to_c2.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
+    - nm_add_sg2_to_c2 is changed
+    - nm_add_sg2_to_c2.previous == {}
+    - nm_add_sg2_to_c2.current.serviceGraphRef.serviceGraphName == "SG2"
+    - nm_add_sg2_to_c2.current.serviceGraphRef.templateName == "Template1"
+    - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+    - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD3"
+    - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG2"
+    - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - nm_add_sg2_to_c2.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
+
+- name: Query service graph 2 to contract 2 (check_mode)
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    contract: Contract 2
+    service_graph: SG2
+    state: query
+  register: cm_query_sg2_to_c2
+
+- name: Query service graph 2 to contract 2
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 1
+    contract: Contract 2
+    service_graph: SG2
+    state: query
+  register: nm_query_sg2_to_c2
+
+- name: Verify queried service graph 1
+  assert:
+    that:
+    - cm_query_sg2_to_c2 is not changed
+    - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+    - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+    - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD3"
+    - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+    - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.schemaId != cm_query_sg2_to_c2.current.serviceGraphRef.schemaId
+    - cm_query_sg2_to_c2 is not changed
+    - nm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+    - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+    - nm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
+    - nm_query_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD3"
+    - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+    - nm_query_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
+    - nm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.schemaId != nm_query_sg2_to_c2.current.serviceGraphRef.schemaId
+
+# NOT EXISTING INPUT
+
+- name: Not existing template provided for absent
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template False
+    contract: Contract 1
+    service_graph: SG1
+    state: absent
+  ignore_errors: yes
+  register: not_existing_template_input_absent
+
+- name: Not existing contract provided for absent
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract False
+    service_graph: SG1
+    state: absent
+  ignore_errors: yes
+  register: not_existing_contract_input_absent
+
+- name: Not existing service graph provided for absent
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG False
+    state: absent
+  register: not_existing_service_graph_input_absent
+
+- name: Not existing service graph provided for query
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG False
+    state: query
+  register: not_existing_service_graph_input_query
+
+- name: Not existing template provided for present
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG1
+    service_graph_template: Template False
+    service_nodes:
+      - consumer: BD2
+        provider: BD1
+      - consumer: BD2
+        provider: BD1
+    state: present
+  ignore_errors: yes
+  register: not_existing_template_input_present
+
+- name: Not existing service graph provided for present
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG False
+    service_graph_template: Template 2
+    service_nodes:
+      - consumer: BD2
+        provider: BD1
+      - consumer: BD2
+        provider: BD1
+    state: present
+  ignore_errors: yes
+  register: not_existing_service_graph_input_present
+
+- name: Verify non_existing_input
+  assert:
+    that:
+    - not_existing_template_input_absent is not changed
+    - not_existing_template_input_absent.msg.startswith("Provided template")
+    - not_existing_contract_input_absent is not changed
+    - not_existing_contract_input_absent.msg.startswith("Provided contract")
+    - not_existing_service_graph_input_absent is not changed
+    - not_existing_service_graph_input_query is not changed
+    - not_existing_template_input_present is not changed
+    - not_existing_template_input_present.msg.startswith("Provided template")
+    - not_existing_service_graph_input_present is not changed
+    - not_existing_service_graph_input_present.msg.startswith("Provided service graph")
+
+# False input
+
+- name: False service graph node amount provided ( less than 2 as provided in SG1 config )
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG1
+    service_nodes:
+      - consumer: BD1
+        provider: BD2
+    state: present
+  ignore_errors: yes
+  register: nm_false_sg1_to_c1_less_than_2
+
+- name: False service graph node amount provided ( more than 2 as provided in SG1 config )
+  mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract 1
+    service_graph: SG1
+    service_nodes:
+      - consumer: BD1
+        provider: BD2
+      - consumer: BD1
+        provider: BD2
+      - consumer: BD1
+        provider: BD2
+    state: present
+  ignore_errors: yes
+  register: nm_false_sg1_to_c1_more_than_2
+
+- name: Verify false_sg1_to_c1
+  assert:
+    that:
+    - nm_false_sg1_to_c1_less_than_2 is not changed
+    - nm_false_sg1_to_c1_less_than_2.msg.startswith("Not enough service nodes defined")
+    - nm_false_sg1_to_c1_more_than_2 is not changed
+    - nm_false_sg1_to_c1_more_than_2.msg.startswith("Too many service nodes defined")

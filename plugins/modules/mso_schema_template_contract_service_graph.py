@@ -254,10 +254,10 @@ def main():
         for node_id, service_node in enumerate(service_nodes, 1):
             # Consumer and provider share connector details (so provider/consumer could have separate details in future)
             connector_details = SERVICE_NODE_CONNECTOR_MAP.get(service_node.get('connector_object_type'))
-            provider_schema = mso.lookup_schema(connector_details.get('provider_schema')) if connector_details.get('provider_schema') else schema_id
-            provider_template = connector_details.get('provider_template').replace(' ', '') if connector_details.get('provider_template') else template_name
-            consumer_schema = mso.lookup_schema(connector_details.get('consumer_schema')) if connector_details.get('consumer_schema') else schema_id
-            consumer_template = connector_details.get('consumer_template').replace(' ', '') if connector_details.get('consumer_template') else template_name
+            provider_schema = mso.lookup_schema(service_node.get('provider_schema')) if service_node.get('provider_schema') else schema_id
+            provider_template = service_node.get('provider_template').replace(' ', '') if service_node.get('provider_template') else template_name
+            consumer_schema = mso.lookup_schema(service_node.get('consumer_schema')) if service_node.get('consumer_schema') else schema_id
+            consumer_template = service_node.get('consumer_template').replace(' ', '') if service_node.get('consumer_template') else template_name
 
             service_nodes_relationship.append(
                 {

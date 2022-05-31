@@ -120,6 +120,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.constants import YES_OR_NO_TO_BOOL_STRING_MAP
 
 
 def main():
@@ -177,8 +178,7 @@ def main():
             if module.check_mode:
                 mso.existing = {}
             else:
-                orchestrator_only_map = {"yes": "true", "no": "false"}
-                path = "{0}?msc-only={1}".format(path, orchestrator_only_map.get(orchestrator_only))
+                path = "{0}?msc-only={1}".format(path, YES_OR_NO_TO_BOOL_STRING_MAP.get(orchestrator_only))
                 mso.existing = mso.request(path, method="DELETE")
 
     elif state == "present":

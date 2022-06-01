@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Cisco and/or its affiliates.
+# Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,16 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+#
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
 DOCUMENTATION = """
 ---
-author:
-- Lionel Hercot (lhercot)
-httpapi: mso
+name: mso
 short_description: MSO Ansible HTTPAPI Plugin.
 description:
   - This MSO plugin provides the HTTPAPI transport methods needed to initiate

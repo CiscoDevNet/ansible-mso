@@ -6,6 +6,29 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v1.5.0
+======
+
+Release Summary
+---------------
+
+Release v1.5.0 of the ``ansible-mso`` collection on 2022-06-01.
+This changelog describes all changes made to the modules and plugins included in this collection since v1.4.0.
+
+
+Minor Changes
+-------------
+
+- Add mso_backup_schedule module (#250)
+- Add mso_chema_template_contract_service_graph module and(#257)
+- Add primary attribute to mso_schema_site_bd_subnet (#254) Co-authored-by: netgirard <76009256+netgirard@users.noreply.github.com>
+- Addition of new mso_schema_template_service_graph, mso_schema_site_service_graph and mso_service_node_type modules (#243)
+
+Bugfixes
+--------
+
+- Remove mso_guide from notes
+
 v1.4.0
 ======
 

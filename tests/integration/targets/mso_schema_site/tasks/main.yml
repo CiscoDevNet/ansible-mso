@@ -115,6 +115,7 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template 2
     state: present
+    output_level: debug
   register: add_site_temp2_nm
 
 - name: Verify add_site_temp2_nm
@@ -122,6 +123,14 @@
     that:
     - add_site_temp2_nm.current.siteId is match ("[0-9a-zA-Z]*")
     - add_site_temp2_nm.current.templateName == "Template2"
+    - add_site_temp2_nm.method == "PATCH"
+    - add_site_temp2_nm.patch_operation != []
+    - add_site_temp2_nm.patch_operation.0.value.templateName == "Template2"
+    - add_site_temp2_nm.previous == {}
+    - add_site_temp2_nm.proposed != {}
+    - add_site_temp2_nm.proposed.templateName == "Template2"
+    - add_site_temp2_nm.sent != {}
+    - add_site_temp2_nm.sent.templateName == "Template2"
 
 - name: Query a schema site
   mso_schema_site:
@@ -171,7 +180,7 @@
     - rm_site_temp1.current == {}
     - rm_site_temp2 is changed
     - rm_site_temp2.current == {}
-  
+
 - name: Remove a site from a schema with Template2 again
   mso_schema_site:
     <<: *mso_info
@@ -185,7 +194,7 @@
   assert:
     that:
     - rm_site_again is not changed
-  
+
 # USE NON-EXISTING STATE
 - name: non_existing_state state
   mso_schema_site:

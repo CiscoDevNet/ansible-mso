@@ -290,6 +290,7 @@ class MSOModule(object):
         self.proposed = dict()
         self.sent = dict()
         self.stdout = None
+        self.patch_operation = None
 
         # debug output
         self.has_modified = False
@@ -516,6 +517,8 @@ class MSOModule(object):
         # If we PATCH with empty operations, return
         if method == 'PATCH' and not data:
             return {}
+        else:
+            self.patch_operation = data
 
         # if method in ['PATCH', 'PUT']:
         #     if qs is not None:
@@ -1095,6 +1098,9 @@ class MSOModule(object):
                 self.result['sent'] = self.sent
                 self.result['proposed'] = self.proposed
 
+                if self.method == "PATCH":
+                    self.result['patch_operation'] = self.patch_operation
+
         self.result['current'] = self.existing
 
         if self.module._diff and self.result.get('changed') is True:
@@ -1130,6 +1136,9 @@ class MSOModule(object):
             if self.params.get('state') in ('absent', 'present'):
                 self.result['sent'] = self.sent
                 self.result['proposed'] = self.proposed
+
+                if self.method == "PATCH":
+                    self.result['patch_operation'] = self.patch_operation
 
         self.result['current'] = self.existing
 

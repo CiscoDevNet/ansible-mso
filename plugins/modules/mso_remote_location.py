@@ -190,8 +190,8 @@ def main():
 
     if state == 'query':
         if location_name and not remote_location_obj:
-            mso.module.fail_json(msg="Remote location {0} not found. Remote locations configured: {1}".format(
-                location_name, ', '.join([item.get('name') for item in mso.existing])))
+            existing_location_list = ', '.join([item.get('name') for item in mso.existing])
+            mso.module.fail_json(msg="Remote location {0} not found. Remote locations configured: {1}".format(location_name, existing_location_list))
 
     elif state == 'absent':
         mso.previous = mso.existing

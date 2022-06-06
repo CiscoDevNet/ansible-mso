@@ -274,7 +274,7 @@ def main():
         if subnet:
             ops.append(dict(op='replace', path='{0}/{1}'.format(subnet_path, subnet.index), value=mso.sent))
         else:
-            ops.append(dict(op='add', path='{0}/{1}'.format(subnet_path, '-'), value=mso.sent))
+            ops.append(dict(op='add', path='{0}/-'.format(subnet_path), value=mso.sent))
 
         mso.existing = mso.proposed
 

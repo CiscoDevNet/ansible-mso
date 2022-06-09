@@ -1,6 +1,6 @@
 # Test code for the MSO modules
+# Copyright: (c) 2022, Akini Ross (@akinross) <akinross@cisco.com>
 # Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
-
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
@@ -570,7 +570,7 @@
 - name: Verify non_existing_template
   assert:
     that:
-    - non_existing_template.msg == "Provided condition(s) ['name==non_existing_template'] not matching existing object(s){{':'}} ['name==Template1'], ['name==Template2'], ['name==Template4'], ['name==Template5']"
+    - non_existing_template.msg == "Provided template 'non_existing_template' not matching existing template(s): Template1, Template2, Template4, Template5"
 
 # Use non_existing_template_bd
 - name: Query subnet by non_existing_template_bd
@@ -588,7 +588,7 @@
 - name: Verify non_existing_template_bd
   assert:
     that:
-    - non_existing_template_bd.msg == "Provided condition(s) ['name==non_existing_template_bd'] not matching existing object(s){{':'}} ['name==ansible_test_create_1'], ['name==ansible_test_1']"
+    - non_existing_template.msg == "Provided bd 'non_existing_bd' not matching existing bd(s): ansible_test_create_1, ansible_test_1"
 
 # Use template without site associated
 - name: Query with no site associated to template
@@ -624,7 +624,7 @@
 - name: Verify non_existing_subnet
   assert:
     that:
-    - non_existing_subnet.msg == "Subnet IP 'non_existing_subnet' not found"
+    - non_existing_subnet.msg.startswith("Provided subnet 'non_existing_subnet' not matching existing site bd subnet(s):")
 
 # Use non_existing_site_template_association
 - name: Query with non_existing_site_template_association
@@ -642,25 +642,7 @@
 - name: Verify non_existing_site_template_association
   assert:
     that:
-    - non_existing_site_template_association.msg.startswith("Provided condition(s) ['siteId==")
-
-# Use BD at template level but not at site level
-- name: Query with non_existing_site_bd
-  mso_schema_site_bd_subnet:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template2
-    bd: ansible_test_2
-    subnet: 10.1.0.1/16
-    state: query
-  ignore_errors: yes
-  register: non_existing_site_bd
-
-- name: Verify non_existing_site_bd
-  assert:
-    that:
-    - non_existing_site_bd.msg == "Subnet IP '10.1.0.1/16' not found"
+    - non_existing_site_template_association.msg == "Provided site 'ansible_test' not associated with template 'Template4'. Site is currently associated with template(s): Template1, Template2, Template5"
 
 - name: Remove schemas for next ci test case
   mso_schema:

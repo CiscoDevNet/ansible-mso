@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# Copyright: (c) 2022, Akini Ross (@akinross) <akinross@cisco.com>
 # Copyright: (c) 2019, Dag Wieers (@dagwieers) <dag@wieers.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -213,26 +214,22 @@ def main():
         mso.fail_json(msg="The l2Stretch of template bd should be false in order to create a site bd subnet. "
                           "Set l2Stretch as false using mso_schema_template_bd")
 
+    if state == 'query':
+        site_bd = mso_schema.get_site_bd(bd, mso_schema.template.details, mso_schema.site.details)
+        if not ip:
+            mso.existing = site_bd.details.get('subnets')
+        else:
+            subnet = mso_schema.get_site_bd_subnet(ip, site_bd.details)
+            mso.existing = subnet.details
+        mso.exit_json()
+
     site_bd = mso_schema.get_site_bd(bd, mso_schema.template.details, mso_schema.site.details, fail_module=False)
-    subnet = None
+    subnet = mso_schema.get_site_bd_subnet(ip, site_bd.details, fail_module=False) if site_bd else None
+    mso.previous = mso.existing = subnet.details if subnet else mso.existing
 
     bd_path = '/sites/{0}-{1}/bds'.format(mso_schema.site.details['siteId'], template)
     subnet_path = '{0}/{1}/subnets'.format(bd_path, bd)
-
-    if site_bd:
-        subnet = mso_schema.get_site_bd_subnet(ip, site_bd.details, fail_module=False)
-        if subnet:
-            mso.existing = subnet.details
-
-    if state == 'query':
-        if ip is None:
-            mso.existing = site_bd.details.get('subnets')
-        elif not subnet:
-            mso.fail_json(msg="Subnet IP '{0}' not found".format(ip))
-        mso.exit_json()
-
     ops = []
-    mso.previous = mso.existing
 
     if state == 'absent':
         if subnet:
@@ -240,7 +237,6 @@ def main():
             ops.append(dict(op='remove', path=subnet_path))
 
     elif state == 'present':
-
         if not site_bd:
             bd_payload = dict(
                 bdRef=dict(

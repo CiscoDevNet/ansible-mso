@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2022, Akini Ross (@akinross) <akinross@cisco.com>
-# Simplified BSD License (see licenses/simplified_bsd.txt or https://opensource.org/licenses/BSD-2-Clause)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
 
@@ -27,56 +27,105 @@ class MSOSchema:
         self.template = self.get_template(template_name) if template_name else None
         self.site = self.get_site(template_name, site_name) if template_name and site_name else None
 
-    def get_object_from_list(self, search_list, kv_list, fail_module):
+    @staticmethod
+    def get_object_from_list(search_list, kv_list):
         """
         Get the first matched object from a list of mso object dictionaries.
         :param search_list: Objects to search through -> List.
-        :param kv_list: Key/value pairs that should match in the object. -> List[KVPair (Named Tuple)]
-        :param fail_module: Value to determine if mso module fail_json function should be triggered. -> Bool
+        :param kv_list: Key/value pairs that should match in the object. -> List[KVPair(Str, Str)]
         :return: The index and details of the object. -> Item (Named Tuple)
+                 Values of provided keys of all existing objects. -> List
         """
 
         def kv_match(kvs, item):
             return all((item.get(kv.key) == kv.value for kv in kvs))
 
         match = next((Item(index, item) for index, item in enumerate(search_list) if kv_match(kv_list, item)), None)
+        existing = [item.get(kv.key) for item in search_list for kv in kv_list]
+        return match, existing
 
+    def get_template(self, template, fail_module=True):
+        """
+        Get template item that matches the name of a template.
+        :param template: Name of the template to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template item. -> Item(Int, Dict) | None
+        """
+
+        kv_list = [KVPair('name', template)]
+        match, existing = self.get_object_from_list(self.schema.get('templates'), kv_list)
         if not match and fail_module:
-            match_kvs = ["{0}=={1}".format(kv.key, kv.value) for kv in kv_list]
-            existing = ["{0}=={1}".format(kv.key, item.get(kv.key)) for item in search_list for kv in kv_list]
-            msg = "Provided condition(s) {0} not matching existing object(s): {1}".format(
-                match_kvs, ', '.join([
-                    str(existing[0 + i: len(match_kvs) + i]) for i in range(0, len(existing), len(match_kvs))]
-                ))
+            msg = "Provided template '{0}' not matching existing template(s): {1}".format(template, ', '.join(existing))
             self.mso.fail_json(msg=msg)
-
         return match
 
-    def get_template(self, template_name, fail_module=True):
-
-        kv_list = [KVPair('name', template_name)]
-        return self.get_object_from_list(self.schema.get('templates'), kv_list, fail_module)
-
     def get_template_bd(self, bd, template, fail_module=True):
+        """
+        Get template bridge domain item that matches the name of a bd.
+        :param bd: Name of the bd to match. -> Str
+        :param template: Template details. -> Dict
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template bd item. -> Item(Int, Dict) | None
+        """
 
         kv_list = [KVPair('name', bd)]
-        return self.get_object_from_list(template.get('bds'), kv_list, fail_module)
+        match, existing = self.get_object_from_list(template.get('bds'), kv_list)
+        if not match and fail_module:
+            msg = "Provided bd '{0}' not matching existing bd(s): {1}".format(bd, ', '.join(existing))
+            self.mso.fail_json(msg=msg)
+        return match
 
-    def get_site(self, template_name, site_name, fail_module=True):
+    def get_site(self, template, site, fail_module=True):
+        """
+        Get site item that matches the name of a site.
+        :param template: Template details. -> Dict
+        :param site: Name of the site to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Site item. -> Item(Int, Dict) | None
+        """
 
         if 'sites' not in self.schema:
-            msg = "No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template_name)
+            msg = "No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template)
             self.mso.fail_json(msg=msg)
 
-        kv_list = [KVPair('siteId', self.mso.lookup_site(site_name)), KVPair('templateName', template_name)]
-        return self.get_object_from_list(self.schema.get('sites'), kv_list, fail_module)
+        kv_list = [KVPair('siteId', self.mso.lookup_site(site)), KVPair('templateName', template)]
+        match, existing = self.get_object_from_list(self.schema.get('sites'), kv_list)
+        if not match and fail_module:
+            msg = "Provided site '{0}' not associated with template '{1}'. Site is currently associated with template(s): {2}".format(
+                site, template, ', '.join(existing[1::2])
+            )
+            self.mso.fail_json(msg=msg)
+        return match
 
     def get_site_bd(self, bd, template, site, fail_module=True):
+        """
+        Get site bridge domain item that matches the name of a bd.
+        :param bd: Name of the bd to match. -> Str
+        :param template: Template details. -> Dict
+        :param site: Site details. -> Dict
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Site bd item. -> Item(Int, Dict) | None
+        """
 
         kv_list = [KVPair('bdRef', self.mso.bd_ref(schema_id=self.id, template=template.get('name'), bd=bd))]
-        return self.get_object_from_list(site.get('bds'), kv_list, fail_module)
+        match, existing = self.get_object_from_list(site.get('bds'), kv_list)
+        if not match and fail_module:
+            msg = "Provided bd '{0}' not matching existing site bd(s): {1}".format(bd, ', '.join(existing))
+            self.mso.fail_json(msg=msg)
+        return match
 
     def get_site_bd_subnet(self, subnet, site_bd, fail_module=True):
+        """
+        Get site bridge domain subnet item that matches the ip of a subnet.
+        :param subnet: Subnet (ip) to match. -> Str
+        :param site_bd: Site bd details. -> Dict
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Site bd subnet item. -> Item(Int, Dict) | None
+        """
 
         kv_list = [KVPair('ip', subnet)]
-        return self.get_object_from_list(site_bd.get('subnets'), kv_list, fail_module)
+        match, existing = self.get_object_from_list(site_bd.get('subnets'), kv_list)
+        if not match and fail_module:
+            msg = "Provided subnet '{0}' not matching existing site bd subnet(s): {1}".format(subnet, ', '.join(existing))
+            self.mso.fail_json(msg=msg)
+        return match

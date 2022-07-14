@@ -115,6 +115,7 @@ def main():
         template=dict(type='str', required=True),
         network=dict(type='str', required=True),
         switch_serial_number=dict(type='str', required=True),  # This parameter is not required for querying all objects
+        interface=dict(type='str'),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -132,6 +133,7 @@ def main():
     template = module.params.get('template').replace(' ', '')
     network = module.params.get('network')
     switch_serial_number = module.params.get('switch_serial_number')
+    interface = module.params.get('interface')
     state = module.params.get('state')
 
     mso = MSOModule(module)
@@ -193,6 +195,13 @@ def main():
         payload = dict(
             switchSN=switch_serial_number
         )
+        if interface:
+            payload.update(
+                {
+                    'ports': []
+                }
+            )
+            payload['ports'].append(interface)
 
 
         mso.sanitize(payload, collate=True)

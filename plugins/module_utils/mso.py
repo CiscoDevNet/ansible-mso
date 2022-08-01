@@ -219,6 +219,14 @@ def mso_service_graph_connector_spec():
         consumer_template=dict(type='str'),
     )
 
+def mso_contract_service_graph_spec():
+    return dict(
+        provider_cluster_interface=dict(type='str', required=True),
+        provider_redirect_policy=dict(type='str', required=True),
+        consumer_cluster_interface=dict(type='str', required=True),
+        consumer_redirect_policy=dict(type='str', required=True),
+    )
+
 
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp):
@@ -1165,6 +1173,11 @@ class MSOModule(object):
             service_node['serviceNodeRef'] = self.dict_from_ref(service_node.get('serviceNodeRef'))
         if service_graph_obj.get('serviceGraphContractRelationRef'):
             del service_graph_obj['serviceGraphContractRelationRef']
+
+    def update_site_service_graph_obj(self, site_service_graph_obj):
+        site_service_graph_obj["serviceGraphRef"] = self.dict_from_ref(site_service_graph_obj.get("serviceGraphRef"))
+        for service_node in site_service_graph_obj['serviceNodesRelationship']:
+            service_node['serviceNodeRef'] = self.dict_from_ref(service_node.get('serviceNodeRef'))
 
     def update_filter_obj(self, contract_obj, filter_obj, filter_type, contract_display_name=None, update_filter_ref=True):
         ''' update filter with more information '''

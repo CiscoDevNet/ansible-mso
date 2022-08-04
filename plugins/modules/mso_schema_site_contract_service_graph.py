@@ -141,7 +141,7 @@ def main():
     service_graph_ref = ""
 
     # Get schema
-    schema_id, _, schema_obj = mso.query_schema(schema)
+    schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
     templates = schema_obj.get('templates')
@@ -182,6 +182,7 @@ def main():
         if contract_obj.get("serviceGraphRelationship"):
             service_obj = contract_obj.get("serviceGraphRelationship")
             contract_service_graph_ref = service_obj.get("serviceGraphRef")
+            contract_service_nodes_relationship = service_obj.get("serviceNodesRelationship")
             if service_graph_ref == "" or service_graph_ref == contract_service_graph_ref:
                 mso.update_site_service_graph_obj(service_obj)
                 mso.existing = service_obj
@@ -201,6 +202,14 @@ def main():
             ops.append(dict("remove", path=contract_service_graph_path))
 
     elif state == "present":
+        # Validation to check if amount of service graph nodes provided is matching the contract service graph.
+        if mso.existing:
+            contract_service_nodes = mso.existing.get("serviceNodesRelationship")
+            if len(contract_service_nodes) != len(service_nodes):
+                mso.fail_json(msg="Number of service graph nodes provided is inconsistent with current service graph")
+            if mso.existing.get("serviceGraphRef") != service_graph_ref:
+                mso.fail_json(msg="Sevice graph '{0}' is not attached to contract {1}.".format(service_graph, contract))
+
         service_nodes_relationship = []
         contract_service_graph_payload = dict(
             serviceGraphRef=dict(
@@ -210,26 +219,45 @@ def main():
             ),
             serviceNodesRelationship=service_nodes_relationship
         )
-        for node_id, service_node in enumerate(service_nodes, 1):
+        for node_id, service_node in enumerate(contract_service_nodes_relationship):
+            contract_service_node = mso.dict_from_ref(service_node.get("serviceNodeRef"))
             service_nodes_relationship.append(
-                
+                {
+                    'serviceNodeRef': contract_service_node,
+                    'providerConnector': {
+                        'clusterInterface': {
+                          'dn': service_nodes[node_id].get("provider_cluster_interface")
+                        },
+                        'redirectPolicy': {
+                          'dn': service_nodes[node_id].get("provider_redirect_policy")
+                        }
+                    },
+                    'consumerConnector': {
+                        'clusterInterface': {
+                          'dn': service_nodes[node_id].get("consumer_cluster_interface")
+                        },
+                        'redirectPolicy': {
+                          'dn': service_nodes[node_id].get("consumer_redirect_policy")
+                        }
+                    },
+                }
             )
 
-        # Validation to check if amount of service graph nodes provided is matching the contract service graph.
-        if mso.existing:
-            contract_service_nodes = mso.existing.get("serviceNodesRelationship")
-            if len(contract_service_nodes) != len(service_nodes):
-                mso.fail_json(msg="Number of service graph nodes provided is inconsistent with current service graph")
-            if mso.existing.get("serviceGraphRef") != service_graph_ref:
-                mso.fail_json(msg="Sevice graph '{0}' is not attached to contract {1}.".format(service_graph, contract))
-        
-        
-        
-        
+
         if mso.existing:
             if contract_obj.get("serviceGraphRelationship")["serviceGraphRef"] != service_graph_ref:
                 mso.fail_json(msg="Sevice graph '{0}' is not attached to contract {1}.".format(service_graph, contract))
             ops.append(dict(op='replace', path=contract_service_graph_path, value=contract_service_graph_payload))
         else:
             ops.append(dict(op='add', path=contract_service_graph_path, value=contract_service_graph_payload))
+
+    if not module.check_mode and mso.existing != mso.previous:
+        mso.request(schema_path, method='PATCH', data=ops)
+
+    mso.exit_json()
+
+
+if __name__ == "__main__":
+    main()
+
 

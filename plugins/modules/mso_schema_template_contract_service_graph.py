@@ -251,7 +251,12 @@ def main():
         else:
             mso.fail_json(msg="Provided service graph '{0}' does not exist.".format(service_graph_name))
 
-        for node_id, service_node in enumerate(service_nodes, 1):
+        # Get existing service nodes in service graph
+        existing_service_nodes = service_graph_schema_obj.get('serviceNodes')
+        for node_id, service_node in enumerate(service_nodes):
+            existing_service_node_ref = existing_service_nodes[node_id]["serviceNodeRef"]
+            existing_service_node = mso.dict_from_ref(existing_service_node_ref)
+
             # Consumer and provider share connector details (so provider/consumer could have separate details in future)
             connector_details = SERVICE_NODE_CONNECTOR_MAP.get(service_node.get('connector_object_type'))
             provider_schema = mso.lookup_schema(service_node.get('provider_schema')) if service_node.get('provider_schema') else schema_id
@@ -261,12 +266,7 @@ def main():
 
             service_nodes_relationship.append(
                 {
-                    'serviceNodeRef': dict(
-                        schemaId=service_graph_schema_id,
-                        templateName=service_graph_template,
-                        serviceGraphName=service_graph_name,
-                        serviceNodeName="node{0}".format(node_id)
-                    ),
+                    'serviceNodeRef': existing_service_node,
                     'providerConnector': {
                         'connectorType': connector_details.get('connector_type'),
                         "{0}Ref".format(connector_details.get('id')): {

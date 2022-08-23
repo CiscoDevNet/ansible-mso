@@ -186,9 +186,12 @@ def main():
             if service_graph_ref == "" or service_graph_ref == contract_service_graph_ref:
                 mso.update_site_service_graph_obj(service_obj)
                 mso.existing = service_obj
+            else:
+                mso.fail_json(msg="Provided service graph {0} is not attached to contract {1} at site level.".format(
+                    service_graph, contract))
 
     else:
-        mso.fail_json(msg="Provided contract '{0}' does not exist. Existing contracts: {1}".format(
+        mso.fail_json(msg="Provided contract '{0}' does not exist at site level. Existing contracts: {1}.".format(
             contract, ', '.join([c.get('name') for c in contracts])))
 
     if state == "query":
@@ -207,8 +210,8 @@ def main():
             contract_service_nodes = mso.existing.get("serviceNodesRelationship")
             if len(contract_service_nodes) != len(service_nodes):
                 mso.fail_json(msg="Number of service graph nodes provided is inconsistent with current service graph")
-            if mso.existing.get("serviceGraphRef") != service_graph_ref:
-                mso.fail_json(msg="Sevice graph '{0}' is not attached to contract {1}.".format(service_graph, contract))
+            # if mso.existing.get("serviceGraphRef") != service_graph_ref:
+            #     mso.fail_json(msg="Sevice graph '{0}' is not attached to contract {1}.".format(service_graph, contract))
 
         service_nodes_relationship = []
         contract_service_graph_payload = dict(

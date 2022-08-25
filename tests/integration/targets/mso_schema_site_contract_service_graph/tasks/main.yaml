@@ -91,11 +91,50 @@
             - vnsCDev:
                 attributes:
                   name: '{{ item.name }}'
+                children:
+                  - vnsCIf:
+                      attributes:
+                        name: '{{ item.concrete_interface }}'
+                      children:
+                        - vnsRsCIfPathAtt:
+                            attributes:
+                              tDn: "topology/pod-1/paths-101/pathep-[eth1/1]"
+            - vnsLIf:
+                attributes:
+                  name: '{{ item.cluster_interface }}'
+                children:
+                  - vnsRsCIfAttN:
+                      attributes:
+                        tDn: 'uni/tn-ansible_test/lDevVip-{{ item.name }}/cDev-{{ item.name }}/cIf-[{{ item.concrete_interface }}]'
+            - vnsLIf:
+                attributes:
+                  name: '{{ item.cluster_interface }}_2'
+                children:
+                  - vnsRsCIfAttN:
+                      attributes:
+                        tDn: 'uni/tn-ansible_test/lDevVip-{{ item.name }}/cDev-{{ item.name }}/cIf-[{{ item.concrete_interface }}]'
+
     loop:
     - { type: FW, name: ansible_test_firewall1, cluster_interface: clu_if1, concrete_interface: cn_if1 }
     - { type: FW, name: ansible_test_firewall2, cluster_interface: clu_if2, concrete_interface: cn_if2 }
     - { type: ADC, name: ansible_test_adc, cluster_interface: clu_if3, concrete_interface: cn_if3 }
     - { type: OTHERS, name: ansible_test_other, cluster_interface: clu_if4, concrete_interface: cn_if4 }
+
+  - name: Add redirect policy
+    cisco.aci.aci_rest:
+      host: '{{ apic_hostname }}'
+      username: '{{ apic_username }}'
+      password: '{{ apic_password }}'
+      validate_certs: no
+      path: /api/node/mo/uni/tn-ansible_test/svcCont.json
+      method: post
+      content:
+        vnsSvcRedirectPol:
+          attributes:
+            name: '{{ item.name }}'
+    loop:
+    - { name: redirect_policy1 }
+    - { name: redirect_policy2 }
 
   - name: Ensure schema 1 with Template1 and 2 exist
     cisco.mso.mso_schema_template:

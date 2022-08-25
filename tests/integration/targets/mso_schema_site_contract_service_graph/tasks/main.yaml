@@ -1,0 +1,253 @@
+# Test code for the MSO modules
+# Copyright: (c) 2022, Cindy Zhao (@cizhao) <cizhao@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(false) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+# Service Graph at Site Level is blocked by validations in MSO/NDO before v3.3.
+# It is supported after v3.3 by using validate=false.
+- name: Execute tasks only for MSO version >= 3.3
+  when: version.current.version is version('3.3', '>=')
+  block:
+  - name: Ensure site exists
+    cisco.mso.mso_site:
+      <<: *mso_info
+      site: '{{ mso_site | default("ansible_test") }}'
+      apic_username: '{{ apic_username }}'
+      apic_password: '{{ apic_password }}'
+      apic_site_id: '{{ apic_site_id | default(101) }}'
+      urls:
+      - https://{{ apic_hostname }}
+      state: present
+    ignore_errors: yes
+
+  - name: Remove schemas
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      state: absent
+
+  - name: Ensure tenant ansible_test exist
+    cisco.mso.mso_tenant:
+      <<: *mso_info
+      tenant: ansible_test
+      users:
+      - '{{ mso_username }}'
+      state: present
+
+  - name: Associate site with ansible_test
+    cisco.mso.mso_tenant_site:
+      <<: *mso_info
+      tenant: ansible_test
+      site: '{{ mso_site | default("ansible_test") }}'
+      state: present
+
+  - name: Add a tenant on APIC
+    cisco.aci.aci_tenant:
+      host: '{{ apic_hostname }}'
+      username: '{{ apic_username }}'
+      password: '{{ apic_password }}'
+      validate_certs: no
+      name: "ansible_test"
+
+  - name: Add devices and cluster interfaces to APIC
+    cisco.aci.aci_rest:
+      host: '{{ apic_hostname }}'
+      username: '{{ apic_username }}'
+      password: '{{ apic_password }}'
+      validate_certs: no
+      path: /api/node/mo/uni/tn-ansible_test.json
+      method: post
+      content:
+        vnsLDevVip:
+          attributes:
+            svcType: '{{ item.type }}'
+            managed: 'false'
+            name: '{{ item.name }}'
+          children:
+            - vnsCDev:
+                attributes:
+                  name: '{{ item.name }}'
+    loop:
+    - { type: FW, name: ansible_test_firewall1, cluster_interface: clu_if1, concrete_interface: cn_if1 }
+    - { type: FW, name: ansible_test_firewall2, cluster_interface: clu_if2, concrete_interface: cn_if2 }
+    - { type: ADC, name: ansible_test_adc, cluster_interface: clu_if3, concrete_interface: cn_if3 }
+    - { type: OTHERS, name: ansible_test_other, cluster_interface: clu_if4, concrete_interface: cn_if4 }
+
+  - name: Ensure schema 1 with Template1 and 2 exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      tenant: ansible_test
+      template: '{{ item }}'
+      state: present
+    loop:
+    - 'Template1'
+    - 'Template2'
+
+  - name: Create a service graph 1 at Template level
+    cisco.mso.mso_schema_template_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG1
+      display_name: sg1
+      service_nodes:
+        - type: firewall
+        - type: firewall
+      filter_after_first_node: allow_all
+      state: present
+
+  - name: Add physical site to a schema
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      state: present
+
+  - name: Add a new Graph SG1 at site level (normal mode)
+    cisco.mso.mso_schema_site_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      service_graph: SG1
+      site: '{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_firewall1
+        - name: ansible_test_firewall2
+      state: present
+    register: nm_sg1
+
+  - name: Ensure Filter 1 exist
+    cisco.mso.mso_schema_template_filter_entry: &filter_present
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      filter: Filter 1
+      entry: Filter 1 entry
+      state: present
+
+  - name: Ensure Contract_1 contract exist
+    mso_schema_template_contract_filter: &contract_present
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      contract: Contract 1
+      filter: Filter 1
+      state: present
+
+  - name: Ensure VRF_1 vrf exist
+    mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      vrf: VRF1
+      layer3_multicast: true
+      state: present
+
+  - name: Ensure BD_1 bd exist
+    mso_schema_template_bd: &bd_present
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      bd: BD1
+      vrf:
+        name: VRF1
+      state: present
+
+  - name: Ensure BD_2 bd exist
+    mso_schema_template_bd:
+      <<: *bd_present
+      bd: BD2
+      state: present
+
+  - name: Ensure AP1 in Template 1 exists
+    mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      anp: AP1
+      state: present
+
+  - name: Ensure EPG1 in AP1 in Template 1 exists
+    mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      anp: AP1
+      epg: EPG1
+      bd:
+        name: BD1
+      state: present
+
+  - name: Add Contract 1 to EPG1 provider
+    mso_schema_template_anp_epg_contract:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      anp: AP1
+      epg: EPG1
+      contract:
+        name: Contract 1
+        type: provider
+      state: present
+
+  - name: Add service graph 1 to contract 1
+    mso_schema_template_contract_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      contract: Contract 1
+      service_graph: SG1
+      service_nodes:
+        - consumer: BD1
+          provider: BD2
+        - consumer: BD1
+          provider: BD2
+      state: present
+    register: nm_add_sg1_to_c1
+
+  - name: Add service graph 1 to contract 1 at site level
+    mso_schema_site_contract_service_graph:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      site: '{{ mso_site | default("ansible_test") }}'
+      contract: Contract 1
+      service_graph: SG1
+      service_nodes:
+        - provider_cluster_interface: 'uni/tn-ansible_test/lDevVip-ansible_test_firewall1/lIf-clu_if1'
+          consumer_cluster_interface: 'uni/tn-ansible_test/lDevVip-ansible_test_firewall1/lIf-clu_if1_2'
+          consumer_redirect_policy: 'uni/tn-ansible_test/svcCont/svcRedirectPol-redirect_policy1'
+          provider_redirect_policy: 'uni/tn-ansible_test/svcCont/svcRedirectPol-redirect_policy1'
+        - provider_cluster_interface: 'uni/tn-ansible_test/lDevVip-ansible_test_firewall1/lIf-clu_if1_2'
+          consumer_cluster_interface: 'uni/tn-ansible_test/lDevVip-ansible_test_firewall1/lIf-clu_if1'
+          consumer_redirect_policy: 'uni/tn-ansible_test/svcCont/svcRedirectPol-redirect_policy2'
+          provider_redirect_policy: 'uni/tn-ansible_test/svcCont/svcRedirectPol-redirect_policy2'
+      state: present
+    register: nm_add_sg1_to_c1

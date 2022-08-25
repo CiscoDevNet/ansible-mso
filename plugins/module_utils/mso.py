@@ -222,9 +222,9 @@ def mso_service_graph_connector_spec():
 def mso_contract_service_graph_spec():
     return dict(
         provider_cluster_interface=dict(type='str', required=True),
-        provider_redirect_policy=dict(type='str', required=True),
+        provider_redirect_policy=dict(type='str'),
         consumer_cluster_interface=dict(type='str', required=True),
-        consumer_redirect_policy=dict(type='str', required=True),
+        consumer_redirect_policy=dict(type='str'),
     )
 
 

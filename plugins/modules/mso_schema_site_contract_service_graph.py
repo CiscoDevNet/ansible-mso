@@ -139,6 +139,9 @@ def main():
         # Initialize variables
     ops = []
     service_graph_ref = ""
+    contract_service_graph_path = ""
+    payload = {}
+    contract_obj = {}
 
     # Get schema
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
@@ -148,7 +151,7 @@ def main():
     template_names = [t.get('name') for t in templates]
     if template not in template_names:
         mso.fail_json(msg="Provided template '{template}' does not exist. Existing templates: {templates}".format(template=template, templates=', '.join(template_names)))
-    
+
     template_idx = template_names.index(template)
 
     # Get site
@@ -168,15 +171,43 @@ def main():
 
     mso.existing = {}
 
+    # Get contract
     contract_service_graph_path = '/sites/{0}/contracts/{1}/serviceGraphRelationship'.format(site_template, contract)
+    contracts = schema_obj.get('sites')[site_idx]['contracts']
+    contracts_in_site = [item.get('contractRef') for item in contracts]
     contract_ref = '/schemas/{0}/templates/{1}/contracts/{2}'.format(schema_id, template, contract)
-    if service_graph and service_graph_schema and service_graph_template:
+    contracts_in_temp = [item.get('name') for item in schema_obj['templates'][template_idx]['contracts']]
+    if contract not in contracts_in_temp:
+        mso.fail_json(msg="Provided contract '{0}' does not exist. Existing contracts: {1}".format(contract, ', '.join(contracts_in_temp)))
+    # Get contract at template level
+    template_contract_idx = contracts_in_temp.index(contract)
+    template_contract_obj = schema_obj['templates'][template_idx]['contracts'][template_contract_idx]
+    # Get service graph attached to contract if there is any at template level
+    template_contract_service_graph = template_contract_obj.get('serviceGraphRelationship')
+    if template_contract_service_graph is None:
+        mso.fail_json(msg="No service graph attached to contract {0}.".format(contract))
+    if service_graph:
+        if service_graph_schema is None:
+            service_graph_schema = schema
+        if service_graph_template is None:
+            service_graph_template = template
         service_graph_schema_id, _, _ = mso.query_schema(service_graph_schema)
         service_graph_ref = "/schemas/{0}/templates/{1}/serviceGraphs/{2}".format(service_graph_schema_id, service_graph_template, service_graph)
 
-    # Get contracts at site level
-    contracts = schema_obj.get('sites')[site_idx]['contracts']
-    contract_obj = next((item for item in contracts if item.get("contractRef") == contract_ref))
+    # If contract not at site level but exists at template level
+    if contract_ref not in contracts_in_site:
+        payload = dict(
+            contractRef=dict(
+                schemaId=schema_id,
+                templateName=template,
+                contractName=contract,
+            )
+        )
+    else:
+        # Get contract existing at site level
+        site_contract_idx = contracts_in_site.index(contract_ref)
+        contract_obj = contracts[site_contract_idx]
+
     if contract_obj:
         # Get service graph if it exists in contract
         if contract_obj.get("serviceGraphRelationship"):
@@ -187,12 +218,8 @@ def main():
                 mso.update_site_service_graph_obj(service_obj)
                 mso.existing = service_obj
             else:
-                mso.fail_json(msg="Provided service graph {0} is not attached to contract {1} at site level.".format(
-                    service_graph, contract))
-
-    else:
-        mso.fail_json(msg="Provided contract '{0}' does not exist at site level. Existing contracts: {1}.".format(
-            contract, ', '.join([c.get('name') for c in contracts])))
+                mso.fail_json(msg="Provided service graph {0} is not attached to given contract {1} at site level. Existing service graph is {1}".format(
+                    service_graph, contract, contract_service_graph_ref))
 
     if state == "query":
 
@@ -205,16 +232,37 @@ def main():
             ops.append(dict("remove", path=contract_service_graph_path))
 
     elif state == "present":
-        # Validation to check if amount of service graph nodes provided is matching the contract service graph.
-        if mso.existing:
-            contract_service_nodes = mso.existing.get("serviceNodesRelationship")
-            if len(contract_service_nodes) != len(service_nodes):
-                mso.fail_json(msg="Number of service graph nodes provided is inconsistent with current service graph")
-            # if mso.existing.get("serviceGraphRef") != service_graph_ref:
-            #     mso.fail_json(msg="Sevice graph '{0}' is not attached to contract {1}.".format(service_graph, contract))
 
         service_nodes_relationship = []
-        contract_service_graph_payload = dict(
+        contract_service_nodes = template_contract_service_graph.get("serviceNodesRelationship")
+        # Validation to check if amount of service graph nodes provided is matching the contract service graph.
+        if len(contract_service_nodes) != len(service_nodes):
+            mso.fail_json(msg="Number of service graph nodes provided is inconsistent with current service graph")
+        if template_contract_service_graph.get("serviceGraphRef") != service_graph_ref:
+            mso.fail_json(msg="Sevice graph '{0}' is not attached to contract {1}. Existing service graph is {2}".format(service_graph, contract, mso.existing.get("serviceGraphRef")))
+        for node_id, service_node in enumerate(contract_service_nodes):
+            contract_service_node = mso.dict_from_ref(service_node.get("serviceNodeRef"))
+            node_content = {
+                'serviceNodeRef': contract_service_node,
+                'providerConnector': {
+                    'clusterInterface': {
+                    'dn': service_nodes[node_id].get("provider_cluster_interface")
+                    },
+                    'subnets': [service_nodes[node_id].get("provider_subnets")]
+                },
+                'consumerConnector': {
+                    'clusterInterface': {
+                    'dn': service_nodes[node_id].get("consumer_cluster_interface")
+                    },
+                    'subnets': [service_nodes[node_id].get("consumer_subnets")]
+                },
+            }
+            if service_nodes[node_id].get("provider_redirect_policy"):
+                node_content['providerConnector']['dn'] = service_nodes[node_id].get("provider_redirect_policy")
+            if service_nodes[node_id].get("consumer_redirect_policy"):
+                node_content['consumerConnector']['dn'] = service_nodes[node_id].get("consumer_redirect_policy")
+            service_nodes_relationship.append(node_content)
+        service_graph_payload = dict(
             serviceGraphRef=dict(
                 serviceGraphName=service_graph,
                 templateName=service_graph_template,
@@ -222,38 +270,26 @@ def main():
             ),
             serviceNodesRelationship=service_nodes_relationship
         )
-        for node_id, service_node in enumerate(contract_service_nodes_relationship):
-            contract_service_node = mso.dict_from_ref(service_node.get("serviceNodeRef"))
-            service_nodes_relationship.append(
-                {
-                    'serviceNodeRef': contract_service_node,
-                    'providerConnector': {
-                        'clusterInterface': {
-                          'dn': service_nodes[node_id].get("provider_cluster_interface")
-                        },
-                        'redirectPolicy': {
-                          'dn': service_nodes[node_id].get("provider_redirect_policy")
-                        }
-                    },
-                    'consumerConnector': {
-                        'clusterInterface': {
-                          'dn': service_nodes[node_id].get("consumer_cluster_interface")
-                        },
-                        'redirectPolicy': {
-                          'dn': service_nodes[node_id].get("consumer_redirect_policy")
-                        }
-                    },
-                }
-            )
-
 
         if mso.existing:
-            if contract_obj.get("serviceGraphRelationship")["serviceGraphRef"] != service_graph_ref:
-                mso.fail_json(msg="Sevice graph '{0}' is not attached to contract {1}.".format(service_graph, contract))
-            ops.append(dict(op='replace', path=contract_service_graph_path, value=contract_service_graph_payload))
+            payload = service_graph_payload
+            # ops.append(dict(op='replace', path=contract_service_graph_path, value=service_graph_payload))
         else:
-            ops.append(dict(op='add', path=contract_service_graph_path, value=contract_service_graph_payload))
+            if payload.get('contractRef'):
+                contract_service_graph_path = '/sites/{0}/contracts/-'.format(site_template)
+                payload['serviceGraphRelationship'] = service_graph_payload
+            else:
+                payload = service_graph_payload
+            # ops.append(dict(op='add', path=contract_service_graph_path, value=payload))
 
+    mso.sanitize(payload, collate=True)
+
+    if not mso.existing:
+        ops.append(dict(op='add', path=contract_service_graph_path, value=payload))
+    else:
+        ops.append(dict(op='replace', path=contract_service_graph_path, value=payload))
+
+    mso.existing = mso.proposed
     if not module.check_mode and mso.existing != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)
 

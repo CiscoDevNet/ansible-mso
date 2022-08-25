@@ -248,19 +248,23 @@ def main():
                     'clusterInterface': {
                     'dn': service_nodes[node_id].get("provider_cluster_interface")
                     },
-                    'subnets': [service_nodes[node_id].get("provider_subnets")]
+                    'subnets': []
                 },
                 'consumerConnector': {
                     'clusterInterface': {
                     'dn': service_nodes[node_id].get("consumer_cluster_interface")
                     },
-                    'subnets': [service_nodes[node_id].get("consumer_subnets")]
+                    'subnets': []
                 },
             }
             if service_nodes[node_id].get("provider_redirect_policy"):
-                node_content['providerConnector']['dn'] = service_nodes[node_id].get("provider_redirect_policy")
+                node_content['providerConnector']['redirectPolicy'] = {
+                    'dn' : service_nodes[node_id].get("provider_redirect_policy")
+                }
             if service_nodes[node_id].get("consumer_redirect_policy"):
-                node_content['consumerConnector']['dn'] = service_nodes[node_id].get("consumer_redirect_policy")
+                node_content['consumerConnector']['redirectPolicy'] = {
+                    'dn': service_nodes[node_id].get("consumer_redirect_policy")
+                }
             service_nodes_relationship.append(node_content)
         service_graph_payload = dict(
             serviceGraphRef=dict(

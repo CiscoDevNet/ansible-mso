@@ -178,6 +178,13 @@ def main():
     anps_path = '/sites/{0}/anps'.format(site_template)
     ops = []
 
+    # Workaround due to inconsistency in attributes REQUEST/RESPONSE API
+    # FIX for MSO Error 400: Bad Request: (0)(0)(0)(0)/deploymentImmediacy error.path.missing
+    mso.replace_keys_in_dict("deployImmediacy", "deploymentImmediacy")
+    if mso.existing.get("anpRef"):
+        anp_ref = mso.dict_from_ref(mso.existing.get("anpRef"))
+        mso.existing["anpRef"] = anp_ref
+
     mso.previous = mso.existing
     if state == 'absent':
         if mso.existing:
@@ -207,7 +214,7 @@ def main():
 
         mso.existing = mso.proposed
 
-    if not module.check_mode:
+    if not module.check_mode and mso.existing != mso.previous:
         mso.request(schema_path, method='PATCH', data=ops)
 
     mso.exit_json()

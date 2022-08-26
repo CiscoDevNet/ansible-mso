@@ -251,14 +251,25 @@
   - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_2' }
 
 - name: Add a new site EPG for idempotency check
-  mso_schema_site_anp_epg:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: 'Template 3'
-      anp: 'ANP_3'
-      site: '{{ mso_site | default("ansible_test") }}'
-      epg: ansible_test_3
-      state: present
+  mso_schema_site_anp_epg: &idempotency_vmm
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: 'Template 3'
+    anp: 'ANP_3'
+    site: '{{ mso_site | default("ansible_test") }}'
+    epg: ansible_test_3
+    state: present
+
+# Test due to inconsistency in attributes REQUEST/RESPONSE API
+# MSO Error 400: Bad Request: (0)(0)(0)(0)/deploymentImmediacy error.path.missing
+- name: Add new site domain to site EPG for idempotency check
+  mso_schema_site_anp_epg_domain:
+    <<: *idempotency_vmm
+    domain_association_type: vmmDomain
+    domain_profile: 'VMware-VMM'
+    deployment_immediacy: lazy
+    resolution_immediacy: pre-provision
+    state: present
 
 - name: Add ANPs to site again
   mso_schema_site_anp:

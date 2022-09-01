@@ -97,11 +97,30 @@ def update_qs(params):
 
 def mso_argument_spec():
     return dict(
-        host=dict(type="str", required=False, aliases=["hostname"], fallback=(env_fallback, ["MSO_HOST"])),
+        host=dict(
+            type="str",
+            required=False,
+            aliases=["hostname"],
+            fallback=(env_fallback, ["MSO_HOST"]),
+        ),
         port=dict(type="int", required=False, fallback=(env_fallback, ["MSO_PORT"])),
-        username=dict(type="str", required=False, fallback=(env_fallback, ["MSO_USERNAME", "ANSIBLE_NET_USERNAME"])),
-        password=dict(type="str", required=False, no_log=True, fallback=(env_fallback, ["MSO_PASSWORD", "ANSIBLE_NET_PASSWORD"])),
-        output_level=dict(type="str", default="normal", choices=["debug", "info", "normal"], fallback=(env_fallback, ["MSO_OUTPUT_LEVEL"])),
+        username=dict(
+            type="str",
+            required=False,
+            fallback=(env_fallback, ["MSO_USERNAME", "ANSIBLE_NET_USERNAME"]),
+        ),
+        password=dict(
+            type="str",
+            required=False,
+            no_log=True,
+            fallback=(env_fallback, ["MSO_PASSWORD", "ANSIBLE_NET_PASSWORD"]),
+        ),
+        output_level=dict(
+            type="str",
+            default="normal",
+            choices=["debug", "info", "normal"],
+            fallback=(env_fallback, ["MSO_OUTPUT_LEVEL"]),
+        ),
         timeout=dict(type="int", default=30, fallback=(env_fallback, ["MSO_TIMEOUT"])),
         use_proxy=dict(type="bool", fallback=(env_fallback, ["MSO_USE_PROXY"])),
         use_ssl=dict(type="bool", fallback=(env_fallback, ["MSO_USE_SSL"])),
@@ -169,7 +188,18 @@ def mso_contractref_spec():
 def mso_expression_spec():
     return dict(
         type=dict(type="str", required=True, aliases=["tag"]),
-        operator=dict(type="str", choices=["not_in", "in", "equals", "not_equals", "has_key", "does_not_have_key"], required=True),
+        operator=dict(
+            type="str",
+            choices=[
+                "not_in",
+                "in",
+                "equals",
+                "not_equals",
+                "has_key",
+                "does_not_have_key",
+            ],
+            required=True,
+        ),
         value=dict(type="str"),
     )
 
@@ -308,6 +338,19 @@ class MSOModule(object):
             self.module.warn("Enable debug output because ANSIBLE_DEBUG was set.")
             self.params["output_level"] = "debug"
 
+        # Ensure protocol is set
+        self.params["protocol"] = "https" if self.params.get("use_ssl", True) else "http"
+
+        if self.params.get("host") is None:
+            self.fail_json(msg="Parameter 'host' is required when not using the HTTP API connection plugin")
+
+        # Set base_only_uri
+        if self.params.get("port") is not None:
+            self.base_only_uri = "{protocol}://{host}:{port}/".format(**self.params)
+        else:
+            self.base_only_uri = "{protocol}://{host}/".format(**self.params)
+
+        # Set MSO params
         if self.module._socket_path is None:
             if self.params.get("use_ssl") is None:
                 self.params["use_ssl"] = True
@@ -316,29 +359,22 @@ class MSOModule(object):
             if self.params.get("validate_certs") is None:
                 self.params["validate_certs"] = True
 
-            # Ensure protocol is set
-            self.params["protocol"] = "https" if self.params.get("use_ssl", True) else "http"
-
             # Set base_uri
-            if self.params.get("port") is not None:
-                self.base_only_uri = "{protocol}://{host}:{port}/".format(**self.params)
-                self.baseuri = "{0}api/v1/".format(self.base_only_uri)
-            else:
-                self.base_only_uri = "{protocol}://{host}/".format(**self.params)
-                self.baseuri = "{0}api/v1/".format(self.base_only_uri)
-
-            if self.params.get("host") is None:
-                self.fail_json(msg="Parameter 'host' is required when not using the HTTP API connection plugin")
-
-            if self.params.get("password"):
-                # Perform password-based authentication, log on using password
-                self.login()
-            else:
-                self.fail_json(msg="Parameter 'password' is required for authentication")
+            self.baseuri = "{0}api/v1/".format(self.base_only_uri)
+        # Set NDO params
         else:
             self.connection = Connection(self.module._socket_path)
             if self.connection.get_platform() == "cisco.nd":
                 self.platform = "nd"
+
+            # Set base_uri
+            self.baseuri = "{0}mso/api/v1/".format(self.base_only_uri)
+
+        if self.params.get("password"):
+            # Perform password-based authentication, log on using password
+            self.login()
+        else:
+            self.fail_json(msg="Parameter 'password' is required for authentication")
 
     def get_login_domain_id(self, domain):
         """Get a domain and return its id"""
@@ -357,10 +393,22 @@ class MSOModule(object):
         # Perform login request
         if (self.params.get("login_domain") is not None) and (self.params.get("login_domain") != "Local"):
             domain_id = self.get_login_domain_id(self.params.get("login_domain"))
-            payload = {"username": self.params.get("username", "admin"), "password": self.params.get("password"), "domainId": domain_id}
+            payload = {
+                "username": self.params.get("username", "admin"),
+                "password": self.params.get("password"),
+                "domainId": domain_id,
+            }
         else:
-            payload = {"username": self.params.get("username", "admin"), "password": self.params.get("password")}
+            payload = {
+                "username": self.params.get("username", "admin"),
+                "password": self.params.get("password"),
+            }
+
         self.url = urljoin(self.baseuri, "auth/login")
+
+        if self.platform == "nd":
+            self.url = "{0}login".format(self.base_only_uri)
+
         resp, auth = fetch_url(
             self.module,
             self.url,
@@ -387,7 +435,10 @@ class MSOModule(object):
             self.jsondata = json.loads(rawoutput)
         except Exception as e:
             # Expose RAW output for troubleshooting
-            self.error = dict(code=-1, message="Unable to parse output as JSON, see 'raw' output. %s" % e)
+            self.error = dict(
+                code=-1,
+                message="Unable to parse output as JSON, see 'raw' output. %s" % e,
+            )
             self.result["raw"] = rawoutput
             return
 
@@ -417,13 +468,22 @@ class MSOModule(object):
         if destination is not None:
             if os.path.isdir(destination):
                 # first check if we are redirected to a file download
-                check, redir_info = fetch_url(self.module, self.url, headers=self.headers, method="GET", timeout=self.params.get("timeout"))
+                check, redir_info = fetch_url(
+                    self.module,
+                    self.url,
+                    headers=self.headers,
+                    method="GET",
+                    timeout=self.params.get("timeout"),
+                )
                 # if we are redirected, update the url with the location header,
                 # and update dest with the new url filename
                 if redir_info["status"] in (301, 302, 303, 307):
                     self.url = redir_info.get("location")
                     redirected = True
-                destination = os.path.join(destination, check.headers.get("Content-Disposition").split("filename=")[1])
+                destination = os.path.join(
+                    destination,
+                    check.headers.get("Content-Disposition").split("filename=")[1],
+                )
             # if destination file already exist, only download if file newer
             if os.path.exists(destination):
                 kwargs["last_mod_time"] = datetime.datetime.utcfromtimestamp(os.path.getmtime(destination))
@@ -511,7 +571,11 @@ class MSOModule(object):
                 except Exception:
                     self.fail_json(msg="MSO Error:", info=info)
             if "code" in payload:
-                self.fail_json(msg="MSO Error {code}: {message}".format(**payload), info=info, payload=payload)
+                self.fail_json(
+                    msg="MSO Error {code}: {message}".format(**payload),
+                    info=info,
+                    payload=payload,
+                )
             else:
                 self.fail_json(msg="MSO Error:".format(**payload), info=info, payload=payload)
 
@@ -562,7 +626,11 @@ class MSOModule(object):
                     error_obj = json.loads(to_text(e))
                 except Exception:
                     error_obj = dict(
-                        error=dict(code=-1, message="Unable to parse error output as JSON. Raw error message: {0}".format(e), exception=to_text(e))
+                        error=dict(
+                            code=-1,
+                            message="Unable to parse error output as JSON. Raw error message: {0}".format(e),
+                            exception=to_text(e),
+                        )
                     )
                     pass
                 self.fail_json(msg=error_obj["error"]["message"])
@@ -604,7 +672,10 @@ class MSOModule(object):
                     try:
                         return json.loads(output)
                     except Exception as e:
-                        self.error = dict(code=-1, message="Unable to parse output as JSON, see 'raw' output. {0}".format(e))
+                        self.error = dict(
+                            code=-1,
+                            message="Unable to parse output as JSON, see 'raw' output. {0}".format(e),
+                        )
                         self.result["raw"] = output
                         return
             except AttributeError:
@@ -631,14 +702,27 @@ class MSOModule(object):
                     else:
                         payload = json.loads(body)
                 except Exception as e:
-                    self.error = dict(code=-1, message="Unable to parse output as JSON, see 'raw' output. %s" % e)
+                    self.error = dict(
+                        code=-1,
+                        message="Unable to parse output as JSON, see 'raw' output. %s" % e,
+                    )
                     self.result["raw"] = body
                     self.fail_json(msg="MSO Error:", data=data, info=info)
                 self.error = payload
                 if "code" in payload:
-                    self.fail_json(msg="MSO Error {code}: {message}".format(**payload), data=data, info=info, payload=payload)
+                    self.fail_json(
+                        msg="MSO Error {code}: {message}".format(**payload),
+                        data=data,
+                        info=info,
+                        payload=payload,
+                    )
                 else:
-                    self.fail_json(msg="MSO Error:".format(**payload), data=data, info=info, payload=payload)
+                    self.fail_json(
+                        msg="MSO Error:".format(**payload),
+                        data=data,
+                        info=info,
+                        payload=payload,
+                    )
             else:
                 # Connection error
                 msg = "Connection failed for {0}. {1}".format(info.get("url"), info.get("msg"))
@@ -925,7 +1009,12 @@ class MSOModule(object):
                     "l3outs": ["l3outName", "schemaId", "templateName"],
                     "anps": ["anpName", "schemaId", "templateName"],
                     "serviceGraphs": ["serviceGraphName", "schemaId", "templateName"],
-                    "serviceNode": ["serviceNodeName", "schemaId", "templateName", "serviceGraphName"],
+                    "serviceNode": [
+                        "serviceNodeName",
+                        "schemaId",
+                        "templateName",
+                        "serviceGraphName",
+                    ],
                 }
                 result = {
                     uri_map[category][1]: schema_id,
@@ -1003,7 +1092,13 @@ class MSOModule(object):
                 noDefaultGateway=subnet.get("no_default_gateway"),
             )
             if is_bd_subnet:
-                subnet_payload.update(dict(querier=subnet.get("querier"), primary=subnet.get("primary"), virtual=subnet.get("virtual")))
+                subnet_payload.update(
+                    dict(
+                        querier=subnet.get("querier"),
+                        primary=subnet.get("primary"),
+                        virtual=subnet.get("virtual"),
+                    )
+                )
             subnets.append(subnet_payload)
 
         return subnets
@@ -1087,7 +1182,15 @@ class MSOModule(object):
     def exit_json(self, **kwargs):
         """Custom written method to exit from module."""
 
-        if self.params.get("state") in ("absent", "present", "upload", "restore", "download", "move", "clone"):
+        if self.params.get("state") in (
+            "absent",
+            "present",
+            "upload",
+            "restore",
+            "download",
+            "move",
+            "clone",
+        ):
             if self.params.get("output_level") in ("debug", "info"):
                 self.result["previous"] = self.previous
             # FIXME: Modified header only works for PATCH
@@ -1176,7 +1279,14 @@ class MSOModule(object):
         if service_graph_obj.get("serviceGraphContractRelationRef"):
             del service_graph_obj["serviceGraphContractRelationRef"]
 
-    def update_filter_obj(self, contract_obj, filter_obj, filter_type, contract_display_name=None, update_filter_ref=True):
+    def update_filter_obj(
+        self,
+        contract_obj,
+        filter_obj,
+        filter_type,
+        contract_display_name=None,
+        update_filter_ref=True,
+    ):
         """update filter with more information"""
         if update_filter_ref:
             filter_obj["filterRef"] = self.dict_from_ref(filter_obj.get("filterRef"))
@@ -1211,9 +1321,15 @@ class MSOModule(object):
 
     def lookup_service_node_device(self, site_id, tenant, device_name=None, service_node_type=None):
         if service_node_type is None:
-            node_devices = self.query_objs("sites/{0}/aci/tenants/{1}/devices".format(site_id, tenant), key="devices")
+            node_devices = self.query_objs(
+                "sites/{0}/aci/tenants/{1}/devices".format(site_id, tenant),
+                key="devices",
+            )
         else:
-            node_devices = self.query_objs("sites/{0}/aci/tenants/{1}/devices?deviceType={2}".format(site_id, tenant, service_node_type), key="devices")
+            node_devices = self.query_objs(
+                "sites/{0}/aci/tenants/{1}/devices?deviceType={2}".format(site_id, tenant, service_node_type),
+                key="devices",
+            )
         if device_name is not None:
             for device in node_devices:
                 if device_name == device.get("name"):

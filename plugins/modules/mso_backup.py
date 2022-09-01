@@ -5,10 +5,17 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+import os
+from ansible_collections.cisco.mso.plugins.module_utils.mso import (
+    MSOModule,
+    mso_argument_spec,
+)
+from ansible.module_utils.basic import AnsibleModule
 
 __metaclass__ = type
 
-ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
+ANSIBLE_METADATA = {"metadata_version": "1.1",
+                    "status": ["preview"], "supported_by": "community"}
 
 DOCUMENTATION = r"""
 ---
@@ -167,20 +174,18 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
-import os
-
 
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        location_type=dict(type="str", default="local", choices=["local", "remote"]),
+        location_type=dict(type="str", default="local",
+                           choices=["local", "remote"]),
         description=dict(type="str"),
         backup=dict(type="str", aliases=["name"]),
         remote_location=dict(type="str"),
         remote_path=dict(type="str"),
-        state=dict(type="str", default="present", choices=["absent", "present", "query", "upload", "restore", "download", "move"]),
+        state=dict(type="str", default="present", choices=[
+                   "absent", "present", "query", "upload", "restore", "download", "move"]),
         destination=dict(type="str"),
     )
 
@@ -225,24 +230,28 @@ def main():
     elif state == "absent":
         mso.previous = mso.existing
         if len(mso.existing) > 1:
-            mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(", ".join(backup_names)))
+            mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(
+                ", ".join(backup_names)))
         elif len(mso.existing) == 1:
             if module.check_mode:
                 mso.existing = {}
             else:
-                mso.existing = mso.request("backups/backupRecords/{id}".format(id=mso.existing[0].get("id")), method="DELETE")
+                mso.existing = mso.request(
+                    "backups/backupRecords/{id}".format(id=mso.existing[0].get("id")), method="DELETE")
         mso.exit_json()
 
     elif state == "present":
         mso.previous = mso.existing
 
-        payload = dict(name=backup, description=description, locationType=location_type)
+        payload = dict(name=backup, description=description,
+                       locationType=location_type)
 
         if location_type == "remote":
             remote_location_info = mso.lookup_remote_location(remote_location)
             payload.update(remoteLocationId=remote_location_info.get("id"))
             if remote_path:
-                remote_path = "{0}/{1}".format(remote_location_info.get("path"), remote_path)
+                remote_path = "{0}/{1}".format(
+                    remote_location_info.get("path"), remote_path)
                 payload.update(remotePath=remote_path)
 
         mso.proposed = payload
@@ -260,40 +269,73 @@ def main():
             mso.existing = mso.proposed
         else:
             try:
-                payload = dict(name=(os.path.basename(backup), open(backup, "rb"), "application/x-gzip"))
-                mso.existing = mso.request_upload("backups/upload", fields=payload)
-            except Exception:
-                mso.module.fail_json(msg="Backup file '{0}' not found!".format(", ".join(backup.split("/")[-1:])))
+                request_url = "backups/upload"
+                payload = dict(
+                    name=(
+                        os.path.basename(backup),
+                        open(backup, "rb"),
+                        "application/x-gzip",
+                    )
+                )
+                if mso.platform == "nd":
+                    if remote_location is None or remote_path is None:
+                        mso.module.fail_json(
+                            msg="NDO backup upload failed: remote_location and remote_path is required for NDO backup upload")
+
+                    remote_location_info = mso.lookup_remote_location(
+                        remote_location)
+                    payload["rdir"] = "{0}/{1}".format(
+                        remote_location_info.get("path"), remote_path)
+                    request_url = "backups/remoteUpload/{0}".format(
+                        remote_location_info.get("id"))
+
+                mso.existing = mso.request_upload(request_url, fields=payload)
+            except Exception as error:
+                mso.module.fail_json(msg="Upload failed due to: {0}, Backup file: '{1}'".format(
+                    error, ", ".join(backup.split("/")[-1:])))
         mso.exit_json()
 
     if len(mso.existing) == 0:
         mso.module.fail_json(msg="Backup '{0}' does not exist".format(backup))
     elif len(mso.existing) > 1:
-        mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(", ".join(backup_names)))
+        mso.module.fail_json(msg="Multiple backups with same name found. Existing backups with similar names: {0}".format(
+            ", ".join(backup_names)))
 
     elif state == "restore":
         mso.previous = mso.existing
         if module.check_mode:
             mso.existing = mso.proposed
         else:
-            mso.existing = mso.request("backups/{id}/restore".format(id=mso.existing[0].get("id")), method="PUT")
+            mso.existing = mso.request(
+                "backups/{id}/restore".format(id=mso.existing[0].get("id")),
+                method="PUT",
+            )
 
     elif state == "download":
         mso.previous = mso.existing
         if module.check_mode:
             mso.existing = mso.proposed
         else:
-            mso.existing = mso.request_download("backups/{id}/download".format(id=mso.existing[0].get("id")), destination=destination)
+            mso.existing = mso.request_download(
+                "backups/{id}/download".format(id=mso.existing[0].get("id")),
+                destination=destination,
+            )
 
     elif state == "move":
         mso.previous = mso.existing
         remote_location_info = mso.lookup_remote_location(remote_location)
-        remote_path = "{0}/{1}".format(remote_location_info.get("path"), remote_path)
-        payload = dict(remoteLocationId=remote_location_info.get("id"), remotePath=remote_path, backupRecordId=mso.existing[0].get("id"))
+        remote_path = "{0}/{1}".format(
+            remote_location_info.get("path"), remote_path)
+        payload = dict(
+            remoteLocationId=remote_location_info.get("id"),
+            remotePath=remote_path,
+            backupRecordId=mso.existing[0].get("id"),
+        )
         if module.check_mode:
             mso.existing = mso.proposed
         else:
-            mso.existing = mso.request("backups/remote-location", method="POST", data=payload)
+            mso.existing = mso.request(
+                "backups/remote-location", method="POST", data=payload)
 
     mso.exit_json()
 

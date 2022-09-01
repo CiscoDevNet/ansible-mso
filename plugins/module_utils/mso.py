@@ -201,6 +201,8 @@ def mso_service_graph_node_spec():
 def mso_service_graph_node_device_spec():
     return dict(
         name=dict(type='str', required=True),
+        provider_connector_type=dict(type='str', default=False),
+        consumer_connector_type=dict(type='str', default=False),
     )
 
 

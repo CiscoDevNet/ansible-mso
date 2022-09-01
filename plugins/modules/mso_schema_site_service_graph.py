@@ -170,7 +170,13 @@ def main():
     template_idx = template_names.index(template)
 
     # Get site
-    site_id = mso.lookup_site(site)
+    site_obj = mso.query_site(site)
+
+    # Get site id
+    site_id = site_obj.get('id')
+
+    # Get site type
+    site_type = mso.lookup_site_type(site_obj)
 
     # Get site_idx
     if 'sites' not in schema_obj:
@@ -227,12 +233,12 @@ def main():
             service_node_type_names_from_template = [type.get('name') for type in service_node_types_from_template]
             for index, device in enumerate(devices):
                 template_node_type = service_node_type_names_from_template[index]
-                apic_type = 'OTHERS'
+                service_node_type = 'OTHERS'
                 if template_node_type == 'firewall':
-                    apic_type = 'FW'
+                    service_node_type = 'FW'
                 elif template_node_type == 'load-balancer':
-                    apic_type = 'ADC'
-                query_device_data = mso.lookup_service_node_device(site_id, tenant, device.get('name'), apic_type)
+                    service_node_type = 'ADC'
+                query_device_data = mso.lookup_service_node_device(site_id, tenant, device.get('name'), service_node_type, site_type)
                 devices_payload.append(dict(
                     device=dict(
                         dn=query_device_data.get('dn'),

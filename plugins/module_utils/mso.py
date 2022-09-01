@@ -763,6 +763,13 @@ class MSOModule(object):
 
     def lookup_site(self, site):
         ''' Look up a site and return its id '''
+        s = self.query_site(site)
+        if s is None:
+            return s
+        return s.get('id')
+
+    def query_site(self, site):
+        ''' Query site object based on site name '''
         if site is None:
             return site
 
@@ -771,7 +778,14 @@ class MSOModule(object):
             self.fail_json(msg="Site '%s' is not a valid site name." % site)
         if 'id' not in s:
             self.fail_json(msg="Site lookup failed for site '%s': %s" % (site, s))
-        return s.get('id')
+        return s
+
+    def lookup_site_type(self, s):
+        ''' Get site type(AWS, AZURE or physical) '''
+        platform = s.get('platform')
+        if platform == "cloud":
+            return s.get('cloudProviders')[0]
+        return platform
 
     def lookup_sites(self, sites):
         ''' Look up sites and return their ids '''
@@ -1212,11 +1226,13 @@ class MSOModule(object):
             self.module.fail_json(msg="Service node types do not exist")
         return node_objs
 
-    def lookup_service_node_device(self, site_id, tenant, device_name=None, service_node_type=None):
-        if service_node_type is None:
-            node_devices = self.query_objs('sites/{0}/aci/tenants/{1}/devices'.format(site_id, tenant), key='devices')
-        else:
-            node_devices = self.query_objs('sites/{0}/aci/tenants/{1}/devices?deviceType={2}'.format(site_id, tenant, service_node_type), key='devices')
+    def lookup_service_node_device(self, site_id, tenant, device_name=None, service_node_type=None, site_type="on-premise"):
+        device_path = 'sites/{0}/aci/tenants/{1}/devices'.format(site_id, tenant)
+        if site_type != "on-premise":
+            device_path = 'sites/{0}/aci/tenants/{1}/cloud/devices'.format(site_id, tenant)
+        if service_node_type is not None:
+            device_path = '{0}?deviceType={1}'.format(device_path, service_node_type)
+        node_devices = self.query_objs(device_path, key='devices')
         if device_name is not None:
             for device in node_devices:
                 if device_name == device.get('name'):

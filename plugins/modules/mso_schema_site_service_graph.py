@@ -56,6 +56,16 @@ options:
         - The name of the device
         required: true
         type: str
+      provider_connector_type:
+        description:
+        - Whether provider type is redirect in Azure apic
+        type: bool
+        default: false
+      consumer_connector_type:
+        description:
+        - Whether consumer type is redirect in Azure apic
+        type: bool
+        default: false
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -239,7 +249,7 @@ def main():
                 elif template_node_type == 'load-balancer':
                     service_node_type = 'ADC'
                 query_device_data = mso.lookup_service_node_device(site_id, tenant, device.get('name'), service_node_type, site_type)
-                devices_payload.append(dict(
+                device_payload = dict(
                     device=dict(
                         dn=query_device_data.get('dn'),
                         funcTyp=query_device_data.get('funcType'),
@@ -249,8 +259,18 @@ def main():
                         serviceGraphName=service_graph,
                         templateName=template,
                         schemaId=schema_id,
-                    )
-                ),)
+                    ),
+                )
+                if site_type == "azure":
+                    if device.get('provider_connector_type') == "True":
+                        device_payload['providerConnectorType'] = "redir"
+                    # else:
+                    #     device_payload['providerConnectorType'] = "none"
+                    if device.get('consumer_connector_type') == "True":
+                        device_payload['consumerConnectorType'] = "redir"
+                    # else:
+                    #     device_payload['consumerConnectorType'] = "none"
+                devices_payload.append(device_payload)
 
         payload = dict(
             serviceGraphRef=dict(

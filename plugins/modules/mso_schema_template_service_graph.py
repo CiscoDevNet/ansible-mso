@@ -212,11 +212,12 @@ def main():
         service_node_types = [f.get('name') for f in query_node_data]
         if service_nodes is not None:
             for node in service_nodes:
-                node_name = node.get('type')
-                if node_name in service_node_types:
-                    service_node_index = service_node_index + 1
+                node_type = node.get('type')
+                if node_type in service_node_types:
+                    service_node_index += 1
+                    node_name = 'node{0}'.format(service_node_index)
                     for node_data in query_node_data:
-                        if node_data['name'] == node_name:
+                        if node_data['name'] == node_type:
                             nodes_payload.append(dict(
                                 name=node_name,
                                 serviceNodeTypeId=node_data.get('id'),
@@ -230,8 +231,8 @@ def main():
                             ),
                             )
                 else:
-                    mso.fail_json("Provided service node type '{node_name}' does not exist. Existing service node types include: {node_types}"
-                                  .format(node_name=node_name, node_types=', '.join(service_node_types)))
+                    mso.fail_json("Provided service node type '{node_type}' does not exist. Existing service node types include: {node_types}"
+                                  .format(node_type=node_type, node_types=', '.join(service_node_types)))
 
         payload = dict(
             name=service_graph,

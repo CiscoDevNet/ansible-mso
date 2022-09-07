@@ -190,7 +190,7 @@ def main():
 
     mso = MSOModule(module)
 
-        # Initialize variables
+    # Initialize variables
     ops = []
     service_graph_ref = ""
     contract_service_graph_path = ""
@@ -317,7 +317,7 @@ def main():
                     'dn': service_nodes[node_id].get("consumer_cluster_interface")
                     },
                     'subnets': []
-            }
+                }
                 if service_nodes[node_id].get("provider_redirect_policy"):
                     node_content['providerConnector']['redirectPolicy'] = {
                         'dn' : service_nodes[node_id].get("provider_redirect_policy")

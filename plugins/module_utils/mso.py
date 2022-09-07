@@ -227,6 +227,24 @@ def mso_contract_service_graph_spec():
         provider_redirect_policy=dict(type='str'),
         consumer_cluster_interface=dict(type='str', required=True),
         consumer_redirect_policy=dict(type='str'),
+        index=dict(type='str')
+        listeners=dict(type='list', elements='dict', options=mso_listener_spec())
+    )
+
+def mso_listener_spec():
+    return dict(
+        name=dict(type='str', required=True),
+        protocol=dict(type='str', default='tcp'),
+        port=dict(type='int', default=80),
+        rules=dict(type='list', elements='dict', options=mso_listener_rule())
+    )
+
+def mso_listener_rule():
+    return dict(
+        name=dict(type='str', default='default'),
+        action_type=dict(type='str', default='forward', choices=[ 'fixedResponse', 'forward', 'redirect', 'haPort' ] ),
+        protocol=dict(type='str', default='tcp', choice=['https', 'tls', 'inherit', 'tcp', 'udp', 'http']),
+        port=dict(type='int', default=80)
     )
 
 

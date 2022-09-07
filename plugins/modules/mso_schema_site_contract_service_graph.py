@@ -77,6 +77,60 @@ options:
         description:
         - Redirect policy for consumer connector.
         type: str
+      index:
+        description:
+        - The index of the cloud device.
+        type: int
+      listeners:
+        description:
+        - Listeners for cloud load balancer.
+        type: list
+        elements: dict
+        suboptions:
+          name:
+            description:
+            - Name of the listener.
+            type: str
+            required: true
+          protocol:
+            description:
+            - Protocol of the listener.
+            type: str
+            choices: [ https, tls, inherit, tcp, udp, http ]
+            default: tcp
+          port:
+            description:
+            - Port of the listener.
+            type: int
+            default: 80
+          rules:
+            description:
+            - Rules of the listener.
+            type: list
+            elements: dict
+            suboptions:
+              name:
+                description:
+                - Name of the listener rule.
+                type: str
+                default: default
+              action_type:
+                description:
+                - Action type of the listener rule.
+                type: str
+                choices: [ fixedResponse, forward, redirect, haPort ]
+                default: forward
+              protocol:
+                description:
+                - Protocol of listener rule.
+                type: str
+                choices: [ https, tls, inherit, tcp, udp, http ]
+                default: tcp
+              port:
+                description:
+                - Port of listener rule.
+                type: int
+                default: 80
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -155,7 +209,13 @@ def main():
     template_idx = template_names.index(template)
 
     # Get site
-    site_id = mso.lookup_site(site)
+    site_obj = mso.query_site(site)
+    
+    # Get site id
+    site_id = site_obj.get('id')
+
+    # Get site type
+    site_type = mso.lookup_site_type(site_obj)
 
     # Get site_idx
     if 'sites' not in schema_obj:
@@ -244,27 +304,59 @@ def main():
             contract_service_node = mso.dict_from_ref(service_node.get("serviceNodeRef"))
             node_content = {
                 'serviceNodeRef': contract_service_node,
-                'providerConnector': {
+            }
+            if site_type == "on-premise":
+                node_content['providerConnector'] = {
                     'clusterInterface': {
                     'dn': service_nodes[node_id].get("provider_cluster_interface")
                     },
                     'subnets': []
-                },
-                'consumerConnector': {
+                }
+                node_content['consumerConnector'] = {
                     'clusterInterface': {
                     'dn': service_nodes[node_id].get("consumer_cluster_interface")
                     },
                     'subnets': []
-                },
             }
-            if service_nodes[node_id].get("provider_redirect_policy"):
-                node_content['providerConnector']['redirectPolicy'] = {
-                    'dn' : service_nodes[node_id].get("provider_redirect_policy")
-                }
-            if service_nodes[node_id].get("consumer_redirect_policy"):
-                node_content['consumerConnector']['redirectPolicy'] = {
-                    'dn': service_nodes[node_id].get("consumer_redirect_policy")
-                }
+                if service_nodes[node_id].get("provider_redirect_policy"):
+                    node_content['providerConnector']['redirectPolicy'] = {
+                        'dn' : service_nodes[node_id].get("provider_redirect_policy")
+                    }
+                if service_nodes[node_id].get("consumer_redirect_policy"):
+                    node_content['consumerConnector']['redirectPolicy'] = {
+                        'dn': service_nodes[node_id].get("consumer_redirect_policy")
+                    }
+            else:
+                if service_nodes[node_id].get("index"):
+                    node_content['deviceConfiguration'] = {
+                        'cloudDevInst': service_nodes[node_id].get("index")
+                    }
+                if service_nodes[node_id].get("listeners"):
+                    listeners = service_nodes[node_id].get("listeners")
+                    listener_list = []
+                    for listener in listeners:
+                        listener_payload = {}
+                        listener_payload['name'] = listener.get('name')
+                        listener_payload['port'] = listener.get('port')
+                        listener_payload['protocol'] = listener.get('protocol')
+                        rules = listener.get('rules')
+                        rule_list = []
+                        for rule_idx, rule in enumerate(rules):
+                            rule_payload = {}
+                            rule_payload['name'] = rule.get('name')
+                            rule_payload['actionType'] = rule.get('action_type')
+                            rule_payload['protocol'] = rule.get('protocol')
+                            rule_payload['port'] = rule.get('port')
+                            rule_payload['index'] = rule_idx
+                            rule_list.append(rule_payload)
+                        listener_payload['rules'] = rule_list
+                        listener_payload['certificates'] = []
+                        listener_list.append(listener_payload)
+                    node_content['deviceConfiguration'] = {
+                        'cloudLoadBalancer': {
+                            'listeners': listener_list
+                        }
+                    }
             service_nodes_relationship.append(node_content)
         service_graph_payload = dict(
             serviceGraphRef=dict(

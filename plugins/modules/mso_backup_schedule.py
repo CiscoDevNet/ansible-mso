@@ -110,7 +110,22 @@ RETURN = r'''
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
-from datetime import date, datetime, time
+from datetime import date, datetime, time, tzinfo, timedelta
+
+# UTC Timezone implementation as datetime.timezone is not supported in Python 2.7
+
+
+class UTC(tzinfo):
+    """UTC"""
+
+    def utcoffset(self, dt):
+        return timedelta(0)
+
+    def tzname(self, dt):
+        return "UTC"
+
+    def dst(self, dt):
+        return timedelta(0)
 
 
 def main():
@@ -165,7 +180,7 @@ def main():
 
         # If no date has been provided default to current date.
         try:
-            start_date = date.fromisoformat(start_date) if start_date else date.today()
+            start_date = date.fromisoformat(start_date) if start_date else datetime.now(UTC()).date()
         except Exception as e:
             module.fail_json(msg="Failed to parse date format 'YYYY-MM-DD' %s, %s" % (start_date, e))
 

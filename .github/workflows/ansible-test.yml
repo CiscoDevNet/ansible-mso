@@ -15,10 +15,10 @@ jobs:
         ansible: [2.9.27, 2.10.17, 2.11.9, 2.12.3, 2.13.0]
     steps:
     - name: Check out code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     
     - name: Set up Python 3.8
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
         python-version: 3.8
 
@@ -29,7 +29,7 @@ jobs:
       run: ansible-galaxy collection build --output-path "${GITHUB_WORKSPACE}/.cache/collection-tarballs"
 
     - name: Store migrated collection artifacts
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v3
       with:
         name: collection
         path: .cache/collection-tarballs
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Set up Python 3.8
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
         python-version: 3.8
 
@@ -49,7 +49,7 @@ jobs:
       run: pip install https://github.com/ansible/ansible/archive/v2.12.3.tar.gz --disable-pip-version-check
 
     - name: Download migrated collection artifacts
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v3
       with:
         name: collection
         path: .cache/collection-tarballs
@@ -73,7 +73,7 @@ jobs:
       run: if grep -E 'WARNING|ERROR' .cache/collection-tarballs/log.txt; then exit 1; else exit 0; fi
 
     - name: Store galaxy_importer check log file
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v3
       with:
         name: galaxy-importer-log
         path: .cache/collection-tarballs/importer_result.json
@@ -89,7 +89,7 @@ jobs:
         ansible: [2.9.27, 2.10.17, 2.11.9, 2.12.3, 2.13.0]
     steps:
     - name: Set up Python 3.8
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
         python-version: 3.8
 
@@ -100,7 +100,7 @@ jobs:
       run: pip install coverage==4.5.4
 
     - name: Download migrated collection artifacts
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v3
       with:
         name: collection
         path: .cache/collection-tarballs
@@ -130,7 +130,7 @@ jobs:
         ansible: [2.9.27, 2.10.17, 2.11.9, 2.12.3, 2.13.0]
     steps:
     - name: Set up Python 3.8
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
         python-version: 3.8
 
@@ -141,7 +141,7 @@ jobs:
       run: pip install coverage==4.5.4
 
     - name: Download migrated collection artifacts
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v3
       with:
         name: collection
         path: .cache/collection-tarballs
@@ -169,7 +169,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Set up Python 3.8
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
         python-version: 3.8
   
@@ -180,7 +180,7 @@ jobs:
       run: pip install coverage==4.5.4
   
     - name: Download migrated collection artifacts
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v3
       with:
         name: collection
         path: .cache/collection-tarballs

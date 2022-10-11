@@ -27,6 +27,18 @@
     state: absent
   delegate_to: localhost
 
+- name: Ensure remote location is present
+  cisco.mso.mso_remote_location:
+    <<: *mso_info
+    remote_location: ansible_test
+    remote_protocol: scp
+    remote_host: '{{ apic_remote_location }}'
+    remote_path: '{{ mso_remote_location_path | default("/tmp") }}'
+    authentication_type: password
+    remote_username: '{{ mso_username }}'
+    remote_password: '{{ mso_password }}'
+    state: present
+
 # TESTS
 
 - name: Get empty backup schedule

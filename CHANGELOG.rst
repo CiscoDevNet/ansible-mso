@@ -6,6 +6,36 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v1.5.0
+======
+
+Release Summary
+---------------
+
+Release v1.5.0 of the ``ansible-mso`` collection on 2022-10-14.
+This changelog describes all changes made to the modules and plugins included in this collection since v1.4.0.
+
+
+Minor Changes
+-------------
+
+- Add aci_remote_location module (#259)
+- Add mso_backup_schedule module (#250)
+- Add mso_chema_template_contract_service_graph module (#257)
+- Add mso_schema_template_service_graph, mso_schema_site_service_graph and mso_service_node_type modules (#243)
+- Add primary attribute to mso_schema_site_bd_subnet (#254)
+
+Deprecated Features
+-------------------
+
+- The mso_schema_template_contract_filter contract_filter_type attribute is deprecated. The value is now deduced from filter_type.
+
+Bugfixes
+--------
+
+- Fix time issue when host running ansible is in a different timezone then NDO
+- Remove mso_guide from notes
+
 v1.4.0
 ======
 

@@ -321,33 +321,49 @@
   assert:
     that:
     - add_epg_subnet_no_ag is changed
-    - add_epg_subnet_no_ag.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Aggregate should be enabled only if shared-rtctrl is enabled in Scope exception while trying to update schema"
-  when: version.current.version is version('3.1.1g', '==')
 
-- name: Verify add_epg_subnet_no_ag
+- name: Verify add_epg_subnet_no_ag (3.1.1g to 3.1.1n)
   assert:
     that:
-    - add_epg_subnet_no_ag is changed
+    - add_epg_subnet_no_ag.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Aggregate should be enabled only if shared-rtctrl is enabled in Scope exception while trying to update schema"
+  when:
+  - version.current.version is version('3.1.1g', '>=')
+  - version.current.version is version('3.2', '<')
+
+- name: Verify add_epg_subnet_no_ag (version < 3.1.1g)
+  assert:
+    that:
     - add_epg_subnet_no_ag.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Aggregate should be enabled only if shared-rtctrl is enabled in Scope"
   when:
-  - version.current.version is version('3.1.1g', '!=')
-  - version.current.version is version('3.6', '<')
+  - version.current.version is version('3.1.1g', '<')
 
-- name: Get Validation status
-  mso_schema_validate:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    state: query
-  ignore_errors: yes
-  register: query_validate
-  when: version.current.version is version('3.6', '>=')
-
-- name: Verify query_validate for a version that's after 3.6
+- name: Verify add_epg_subnet_no_ag (version >= 4.0)
   assert:
     that:
-    - query_validate is not changed
-    - query_validate.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Aggregate should be enabled only if shared-rtctrl is enabled in Scope exception while trying to update schema")
-  when: version.current.version is version('3.6', '>=')
+    - add_epg_subnet_no_ag.msg == "MSO Error 400{{':'}} External EPG{{':'}} ansible_test_1 in Schema{{':'}} ansible_test , Template{{':'}} Template1 External EPG validation error{{':'}} aggregate should be enabled only if shared-rtctrl is enabled in Scope for subnet 10.0.0.2/24"
+  when:
+  - version.current.version is version('4.0', '>=')
+
+- name: Execute tasks only for MSO version < 4.0
+  # mso_schema_validate not supported after 4.0, validation executed upon request
+  when: version.current.version is version('4.0', '<')
+  block:
+  - name: Get Validation status
+    mso_schema_validate:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: query_validate
+    when: version.current.version is version('3.6', '>=')
+
+  - name: Verify query_validate for a version that's after 3.6
+    assert:
+      that:
+      - query_validate is not changed
+      - query_validate.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Aggregate should be enabled only if shared-rtctrl is enabled in Scope exception while trying to update schema")
+    when:
+    - version.current.version is version('3.6', '>=')
 
 - name: Add aggregate with Shared control scope parameter
   mso_schema_template_external_epg_subnet:

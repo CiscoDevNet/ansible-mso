@@ -71,6 +71,7 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template 1
     state: absent
+  ignore_errors: yes
   register: rm_site_temp1
 
 - name: Remove a site from a schema 2 with Template 2
@@ -94,6 +95,7 @@
     output_level: '{{ mso_output_level | default("info") }}'
     schema: '{{ item }}'
     state: absent
+  ignore_errors: yes
   loop:
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
@@ -267,6 +269,16 @@
   when: version.current.version is version('2.2.4e', '!=')
   register: object_migrate
 
+- name: Deploy a schema 1 template 1 after version 4.0
+  ndo_schema_template_deploy:
+    <<: *mso_info
+    template: Template 1
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    sites:
+      - '{{ mso_site | default("ansible_test") }}'
+    state: deploy
+  when: version.current.version is version('4.0', '>=')
+
 - name: Migration of BD objects between templates
   mso_schema_template_migrate:
     <<: *mso_info
@@ -279,6 +291,16 @@
     state: present
   when: version.current.version is version('2.2.4e', '!=')
   register: bd_migrate
+
+- name: Deploy a schema 2 template 2 after version 4.0
+  ndo_schema_template_deploy:
+    <<: *mso_info
+    template: Template 2
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    sites:
+      - '{{ mso_site | default("ansible_test") }}'
+    state: deploy
+  when: version.current.version is version('4.0', '>=')
 
 - name: Migration of EPG objects between templates
   mso_schema_template_migrate:
@@ -296,34 +318,51 @@
   when: version.current.version is version('2.2.4e', '!=')
   register: epg_migrate
 
-- name: Undeploy a schema 2 template 2
-  mso_schema_template_deploy:
-    <<: *mso_info
-    template: Template 2
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: undeploy
-  ignore_errors: yes
-  register: undeploy_template2
+- name: Undeploy before 4.0
+  when:
+    - version.current.version is version('4.0', '<')
+  block:
+  - name: Undeploy a schema 2 template 2
+    mso_schema_template_deploy:
+      <<: *mso_info
+      template: Template 2
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      site: '{{ mso_site | default("ansible_test") }}'
+      state: undeploy
+    ignore_errors: yes
+    register: undeploy_template2
 
-- name: Undeploy a schema 1 template 1
-  mso_schema_template_deploy:
-    <<: *mso_info
-    template: Template 1
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: undeploy
-  ignore_errors: yes
-  register: undeploy_template1
+  - name: Undeploy a schema 1 template 1
+    mso_schema_template_deploy:
+      <<: *mso_info
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      state: undeploy
+    ignore_errors: yes
+    register: undeploy_template1
 
-- name: Remove a site from a schema 1 with Template 1
-  mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    state: absent
-  register: rm_site_temp1
+- name: Undeploy after 4.0
+  when:
+    - version.current.version is version('4.0', '>=')
+  block:
+  - name: Undeploy a schema 2 template 2
+    ndo_schema_template_deploy:
+      <<: *mso_info
+      template: Template 2
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      sites:
+        - '{{ mso_site | default("ansible_test") }}'
+      state: undeploy
+  
+  - name: Undeploy a schema 1 template 1
+    ndo_schema_template_deploy:
+      <<: *mso_info
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      sites:
+        - '{{ mso_site | default("ansible_test") }}'
+      state: undeploy
 
 - name: Remove a site from a schema 2 with Template 2
   mso_schema_site:
@@ -333,3 +372,12 @@
     template: Template 2
     state: absent
   register: rm_site_temp2
+
+- name: Remove a site from a schema 1 with Template 1
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: absent
+  register: rm_site_temp1

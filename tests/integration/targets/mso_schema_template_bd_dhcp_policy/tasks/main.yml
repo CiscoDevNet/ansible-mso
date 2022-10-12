@@ -28,7 +28,10 @@
   register: version
 
 - name: Execute tasks on MSO version > 3.1.1g
-  when: version.current.version is version('3.1.1g', '>')
+  when:
+    - version.current.version is version('3.1.1g', '>')
+    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
+    - version.current.version is version('4.0', '<')
   block:
   - name: Remove schemas
     mso_schema:

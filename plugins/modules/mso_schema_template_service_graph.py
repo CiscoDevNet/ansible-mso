@@ -217,19 +217,20 @@ def main():
                     service_node_index = service_node_index + 1
                     for node_data in query_node_data:
                         if node_data["name"] == node_name:
-                            nodes_payload.append(
-                                dict(
-                                    name=node_name,
-                                    serviceNodeTypeId=node_data.get("id"),
-                                    index=service_node_index,
-                                    serviceNodeRef=dict(
-                                        serviceNodeName=node_name,
-                                        serviceGraphName=service_graph,
-                                        templateName=template,
-                                        schemaId=schema_id,
-                                    ),
+                            payload = dict(
+                                name=node_name,
+                                serviceNodeTypeId=node_data.get("id"),
+                                index=service_node_index,
+                                serviceNodeRef=dict(
+                                    serviceNodeName=node_name,
+                                    serviceGraphName=service_graph,
+                                    templateName=template,
+                                    schemaId=schema_id,
                                 ),
                             )
+                            if node_data.get("uuid"):
+                                payload.update(uuid=node_data.get("uuid"))
+                            nodes_payload.append(payload)
                 else:
                     mso.fail_json(
                         "Provided service node type '{node_name}' does not exist. Existing service node types include: {node_types}".format(

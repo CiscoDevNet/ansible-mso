@@ -1084,6 +1084,23 @@ class MSOModule(object):
             # Update self.proposed
             self.proposed = self.sent
 
+    def delete_keys_from_dict(self, dict_to_sanitize, keys):
+        # TODO investigate combine this method above sanitize method
+        copy = deepcopy(dict_to_sanitize)
+        for (
+            k,
+            v,
+        ) in copy.items():
+            if k in keys:
+                del dict_to_sanitize[k]
+            elif isinstance(v, dict):
+                dict_to_sanitize[k] = self.delete_keys_from_dict(v, keys)
+            elif isinstance(v, list):
+                for index, item in enumerate(v):
+                    if isinstance(item, dict):
+                        dict_to_sanitize[k][index] = self.delete_keys_from_dict(item, keys)
+        return dict_to_sanitize
+
     def exit_json(self, **kwargs):
         """Custom written method to exit from module."""
 

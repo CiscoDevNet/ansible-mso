@@ -263,7 +263,7 @@ def main():
         else:
             mso.fail_json(msg="Provided service graph '{0}' does not exist.".format(service_graph_name))
 
-        for node_id, service_node in enumerate(service_nodes, 1):
+        for node_id, service_node in enumerate(service_nodes, 0):
             # Consumer and provider share connector details (so provider/consumer could have separate details in future)
             connector_details = SERVICE_NODE_CONNECTOR_MAP.get(service_node.get("connector_object_type"))
             provider_schema = mso.lookup_schema(service_node.get("provider_schema")) if service_node.get("provider_schema") else schema_id
@@ -277,7 +277,7 @@ def main():
                         schemaId=service_graph_schema_id,
                         templateName=service_graph_template,
                         serviceGraphName=service_graph_name,
-                        serviceNodeName="node{0}".format(node_id),
+                        serviceNodeName=service_graph_schema_obj.get("serviceNodes")[node_id].get("name"),
                     ),
                     "providerConnector": {
                         "connectorType": connector_details.get("connector_type"),

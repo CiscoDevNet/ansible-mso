@@ -27,318 +27,330 @@
     state: query
   register: version
 
-# New deploy module only applicable for NDO v4.0+
-- name: Execute tasks only for MSO version > 4.0
-  when: version.current.version is version('4.0', '>=')
-  block:
-  - name: Ensure site exist
-    cisco.mso.mso_site:
-      <<: *mso_info
-      site: '{{ mso_site | default("ansible_test") }}'
-      apic_username: '{{ apic_username }}'
-      apic_password: '{{ apic_password }}'
-      apic_site_id: '{{ apic_site_id | default(101) }}'
-      urls:
-      - https://{{ apic_hostname }}
-      state: present
+- name: Ensure site exist
+  cisco.mso.mso_site:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ apic_username }}'
+    apic_password: '{{ apic_password }}'
+    apic_site_id: '{{ apic_site_id | default(101) }}'
+    urls:
+    - https://{{ apic_hostname }}
+    state: present
 
-  - name: Ensure aws site exists
-    mso_site:
-      <<: *mso_info
-      site: 'aws_{{ mso_site | default("ansible_test") }}'
-      apic_username: '{{ aws_apic_username }}'
-      apic_password: '{{ aws_apic_password }}'
-      apic_site_id: '{{ aws_site_id | default(102) }}'
-      urls:
-      - https://{{ aws_apic_hostname }}
-      state: present
+- name: Ensure aws site exists
+  mso_site:
+    <<: *mso_info
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ aws_apic_username }}'
+    apic_password: '{{ aws_apic_password }}'
+    apic_site_id: '{{ aws_site_id | default(102) }}'
+    urls:
+    - https://{{ aws_apic_hostname }}
+    state: present
 
-  - name: Ensure azure site exists
-    mso_site:
-      <<: *mso_info
-      site: 'azure_{{ mso_site | default("ansible_test") }}'
-      apic_username: '{{ azure_apic_username }}'
-      apic_password: '{{ azure_apic_password }}'
-      apic_site_id: '{{ azure_site_id | default(103) }}'
-      urls:
-      - https://{{ azure_apic_hostname }}
-      state: present
+- name: Ensure azure site exists
+  mso_site:
+    <<: *mso_info
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ azure_apic_username }}'
+    apic_password: '{{ azure_apic_password }}'
+    apic_site_id: '{{ azure_site_id | default(103) }}'
+    urls:
+    - https://{{ azure_apic_hostname }}
+    state: present
 
-  - name: Undeploy template
-    cisco.mso.ndo_schema_template_deploy:
-      <<: *mso_info
-      schema: ansible_test
-      template: "{{ item }}"
-      sites:
-        - '{{ mso_site | default("ansible_test") }}'
-      state: undeploy
-    ignore_errors: yes
-    loop:
-      - Template 1
-      - Template 2
-
-  - name: Remove schemas
-    cisco.mso.mso_schema:
-      <<: *mso_info
-      schema: '{{ item }}'
-      state: absent
-    loop:
-    - '{{ mso_schema | default("ansible_test") }}_2'
-    - '{{ mso_schema | default("ansible_test") }}'
-
-  - name: Ensure tenant ansible_test exists
-    cisco.mso.mso_tenant: 
-      <<: *mso_info
-      tenant: ansible_test
-      users:
-        - '{{ mso_username }}'
-      sites:
+- name: Undeploy template
+  cisco.mso.ndo_schema_template_deploy:
+    <<: *mso_info
+    schema: ansible_test
+    template: "{{ item }}"
+    sites:
       - '{{ mso_site | default("ansible_test") }}'
-      state: present
-
-  - name: Ensure schema 1 with Template 1, and Template 2 exist
-    cisco.mso.mso_schema_template:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      tenant: ansible_test
-      template: '{{ item }}'
-      state: present
-    loop:
+    state: undeploy
+  ignore_errors: yes
+  loop:
     - Template 1
     - Template 2
 
-  - name: Add physical site to a schema
-    cisco.mso.mso_schema_site:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      site: '{{ mso_site | default("ansible_test") }}'
-      template: '{{ item }}'
-      state: present
-    loop:
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure tenant ansible_test exists
+  cisco.mso.mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+      - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Ensure schema 1 with Template 1, and Template 2 exist
+  cisco.mso.mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: '{{ item }}'
+    state: present
+  loop:
+  - Template 1
+  - Template 2
+
+- name: Add physical site to a schema
+  cisco.mso.mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: '{{ item }}'
+    state: present
+  loop:
+  - Template 1
+  - Template 2
+
+- name: Deploy templates (check_mode)
+  cisco.mso.ndo_schema_template_deploy:
+    <<: *mso_info
+    schema: ansible_test
+    template: "{{ item }}"
+    sites:
+      - '{{ mso_site | default("ansible_test") }}'
+    state: deploy
+  check_mode: yes
+  register: cm_deploy_template
+  loop:
+  - Template 1
+  - Template 2
+
+- name: Verify cm_deploy_template
+  ansible.builtin.assert:
+    that:
+    - item is not changed
+  loop: "{{ cm_deploy_template.results }}"
+
+- name: Deploy templates (normal_mode)
+  cisco.mso.ndo_schema_template_deploy:
+    <<: *mso_info
+    schema: ansible_test
+    template: "{{ item }}"
+    sites:
+      - '{{ mso_site | default("ansible_test") }}'
+    state: deploy
+  register: nm_deploy_template
+  loop:
+  - Template 1
+  - Template 2
+
+- name: Verify nm_deploy_template 
+  ansible.builtin.assert:
+    that:
+    - item is not changed
+    - '"isRedeploy" not in item.current.reqDetails'
+  loop: "{{ nm_deploy_template.results }}"
+
+- name: Verify nm_deploy_template 4.0 specific
+  ansible.builtin.assert:
+    that:
+    - '"deploy" in item.current.reqDetails'
+  loop: "{{ nm_deploy_template.results }}"
+  when: version.current.version is version('4.0', '>=')
+
+- name: Query deployment
+  cisco.mso.ndo_schema_template_deploy: 
+    <<: *mso_info
+    schema: ansible_test
+    template: "{{ item }}"
+    state: query
+  register: query_deploy_status
+  loop:
+  - Template 1
+  - Template 2
+
+- name: Verify query_deploy_status
+  ansible.builtin.assert:
+    that:
+    - item is not changed
+    - item.current.status.0.status.siteStatus == "Succeeded"
+  loop: "{{ query_deploy_status.results }}"
+
+- name: Redeploy templates
+  cisco.mso.ndo_schema_template_deploy:
+    <<: *mso_info
+    schema: ansible_test
+    template: '{{ item }}'
+    sites:
+      - '{{ mso_site | default("ansible_test") }}'
+    state: redeploy
+  register: redeploy_template
+  loop:
     - Template 1
     - Template 2
 
-  - name: Deploy templates (check_mode)
-    cisco.mso.ndo_schema_template_deploy:
-      <<: *mso_info
-      schema: ansible_test
-      template: "{{ item }}"
-      sites:
-        - '{{ mso_site | default("ansible_test") }}'
-      state: deploy
-    check_mode: yes
-    register: cm_deploy_template
-    loop:
+- name: Verify redeploy_template
+  ansible.builtin.assert:
+    that:
+    - item is not changed
+    - item.current.reqDetails.isRedeploy == true
+  loop: "{{ redeploy_template.results }}"
+
+- name: Verify redeploy_template 4.0 specific
+  ansible.builtin.assert:
+    that:
+    - '"deploy" in item.current.reqDetails'
+  loop: "{{ redeploy_template.results }}"
+  when: version.current.version is version('4.0', '>=')
+
+- name: Undeploy templates
+  cisco.mso.ndo_schema_template_deploy:
+    <<: *mso_info
+    schema: ansible_test
+    template: '{{ item }}'
+    sites:
+      - '{{ mso_site | default("ansible_test") }}'
+    state: undeploy
+  register: undeploy_template
+  loop:
     - Template 1
     - Template 2
 
-  - name: Verify cm_deploy_template
-    ansible.builtin.assert:
-      that:
-      - item is not changed
-    loop: "{{ cm_deploy_template.results }}"
+- name: Verify undeploy_template
+  assert:
+    that:
+    - item is not changed
+    - '"undeploy" in item.current.reqDetails'
+  loop: "{{ undeploy_template.results }}"
 
-  - name: Deploy templates (normal_mode)
-    cisco.mso.ndo_schema_template_deploy:
-      <<: *mso_info
-      schema: ansible_test
-      template: "{{ item }}"
-      sites:
-        - '{{ mso_site | default("ansible_test") }}'
-      state: deploy
-    register: nm_deploy_template
-    loop:
-    - Template 1
-    - Template 2
+- name: Ensure AWS site is present under tenant ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    cloud_account: '000000000000'
+    aws_access_key: 1
+    secret_key: 0
+    state: present
 
-  - name: Verify nm_deploy_template
-    ansible.builtin.assert:
-      that:
-      - item is not changed
-      - '"deploy" in item.current.reqDetails'
-      - '"isRedeploy" not in item.current.reqDetails'
-    loop: "{{ nm_deploy_template.results }}"
+- name: Ensure Azure site is present under tenant ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
+    state: present
 
-  - name: Query deployment
-    cisco.mso.ndo_schema_template_deploy: 
-      <<: *mso_info
-      schema: ansible_test
-      template: "{{ item }}"
-      state: query
-    register: query_deploy_status
-    loop:
-    - Template 1
-    - Template 2
+- name: Add AWS site to a schema
+  cisco.mso.mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: present
 
-  - name: Verify query_deploy_status
-    ansible.builtin.assert:
-      that:
-      - item is not changed
-      - item.current.status.0.status.siteStatus == "Succeeded"
-    loop: "{{ query_deploy_status.results }}"
+- name: Add Azure site to a schema
+  cisco.mso.mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: present
 
-  - name: Redeploy templates
-    cisco.mso.ndo_schema_template_deploy:
-      <<: *mso_info
-      schema: ansible_test
-      template: '{{ item }}'
-      sites:
-        - '{{ mso_site | default("ansible_test") }}'
-      state: redeploy
-    register: redeploy_template
-    loop:
-      - Template 1
-      - Template 2
-  
-  - name: Verify redeploy_template
-    ansible.builtin.assert:
-      that:
-      - item is not changed
-      - '"deploy" in item.current.reqDetails'
-      - item.current.reqDetails.isRedeploy == true
-    loop: "{{ redeploy_template.results }}"
+- name: Deploy templates
+  cisco.mso.ndo_schema_template_deploy:
+    <<: *mso_info
+    schema: ansible_test
+    template: Template 1
+    sites: 
+      - '{{ mso_site | default("ansible_test") }}'
+      - 'aws_{{ mso_site | default("ansible_test") }}'
+      - 'azure_{{ mso_site | default("ansible_test") }}'
+    state: deploy
+  register: deploy_template_all
 
-  - name: Undeploy templates
-    cisco.mso.ndo_schema_template_deploy:
-      <<: *mso_info
-      schema: ansible_test
-      template: '{{ item }}'
-      sites:
-        - '{{ mso_site | default("ansible_test") }}'
-      state: undeploy
-    register: undeploy_template
-    loop:
-      - Template 1
-      - Template 2
+- name: Query deployment
+  cisco.mso.ndo_schema_template_deploy: 
+    <<: *mso_info
+    schema: ansible_test
+    template: Template 1
+    state: query
+  register: query_deploy_status_all
 
-  - name: Verify undeploy_template
-    assert:
-      that:
-      - item is not changed
-      - '"undeploy" in item.current.reqDetails'
-    loop: "{{ undeploy_template.results }}"
-  
-  - name: Ensure AWS site is present under tenant ansible_test
-    mso_tenant_site:
-      <<: *mso_info
-      tenant: ansible_test
-      site: 'aws_{{ mso_site | default("ansible_test") }}'
-      cloud_account: '000000000000'
-      aws_access_key: 1
-      secret_key: 0
-      state: present
+- name: Check deployment status of Template 1
+  cisco.mso.mso_schema_template_deploy_status:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    state: query
+  register: deployment_status
 
-  - name: Ensure Azure site is present under tenant ansible_test
-    mso_tenant_site:
-      <<: *mso_info
-      tenant: ansible_test
-      site: 'azure_{{ mso_site | default("ansible_test") }}'
-      cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
-      state: present
+- name: Redeploy templates
+  cisco.mso.ndo_schema_template_deploy:
+    <<: *mso_info
+    schema: ansible_test
+    template: Template 1
+    sites: 
+      - '{{ mso_site | default("ansible_test") }}'
+      - 'aws_{{ mso_site | default("ansible_test") }}'
+      - 'azure_{{ mso_site | default("ansible_test") }}'
+    state: redeploy
+  register: redeploy_template_all
 
-  - name: Add AWS site to a schema
-    cisco.mso.mso_schema_site:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      site: 'aws_{{ mso_site | default("ansible_test") }}'
-      template: Template 1
-      state: present
+- name: Query redeployment
+  cisco.mso.ndo_schema_template_deploy: 
+    <<: *mso_info
+    schema: ansible_test
+    template: Template 1
+    state: query
+  register: query_redeploy_status_all
 
-  - name: Add Azure site to a schema
-    cisco.mso.mso_schema_site:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      site: 'azure_{{ mso_site | default("ansible_test") }}'
-      template: Template 1
-      state: present
+- name: Undeploy templates
+  cisco.mso.ndo_schema_template_deploy:
+    <<: *mso_info
+    schema: ansible_test
+    template: Template 1
+    sites: 
+      - '{{ mso_site | default("ansible_test") }}'
+      - 'aws_{{ mso_site | default("ansible_test") }}'
+      - 'azure_{{ mso_site | default("ansible_test") }}'
+    state: undeploy
+  register: undeploy_template_all
 
-  - name: Deploy templates
-    cisco.mso.ndo_schema_template_deploy:
-      <<: *mso_info
-      schema: ansible_test
-      template: Template 1
-      sites: 
-        - '{{ mso_site | default("ansible_test") }}'
-        - 'aws_{{ mso_site | default("ansible_test") }}'
-        - 'azure_{{ mso_site | default("ansible_test") }}'
-      state: deploy
-    register: deploy_template_all
-  
-  - name: Query deployment
-    cisco.mso.ndo_schema_template_deploy: 
-      <<: *mso_info
-      schema: ansible_test
-      template: Template 1
-      state: query
-    register: query_deploy_status_all
+- name: Query undeployment
+  cisco.mso.ndo_schema_template_deploy: 
+    <<: *mso_info
+    schema: ansible_test
+    template: Template 1
+    state: query
+  register: query_undeploy_status_all
 
-  - name: Check deployment status of Template 1
-    cisco.mso.mso_schema_template_deploy_status:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
-      state: query
-    register: deployment_status
+- name: Verify multiple sites
+  ansible.builtin.assert:
+    that:
+    - deploy_template_all is not changed
+    - redeploy_template_all is not changed
+    - '"isRedeploy" in redeploy_template_all.current.reqDetails'
+    - undeploy_template_all is not changed
+    - '"undeploy" in undeploy_template_all.current.reqDetails'
+    - undeploy_template_all.current.reqDetails.undeploy | length == 3
+    - deployment_status.current | length == 3
+    - query_deploy_status_all.current.status | length == 3
+    - query_deploy_status_all.current.status.0.status.siteStatus == "Succeeded"
+    - query_deploy_status_all.current.status.1.status.siteStatus == "Succeeded"
+    - query_deploy_status_all.current.status.2.status.siteStatus == "Succeeded"
+    - query_redeploy_status_all.current.status | length == 3
+    - query_redeploy_status_all.current.status.0.status.siteStatus == "Succeeded"
+    - query_redeploy_status_all.current.status.1.status.siteStatus == "Succeeded"
+    - query_redeploy_status_all.current.status.2.status.siteStatus == "Succeeded"
+    - query_undeploy_status_all.current.status == []
 
-  - name: Redeploy templates
-    cisco.mso.ndo_schema_template_deploy:
-      <<: *mso_info
-      schema: ansible_test
-      template: Template 1
-      sites: 
-        - '{{ mso_site | default("ansible_test") }}'
-        - 'aws_{{ mso_site | default("ansible_test") }}'
-        - 'azure_{{ mso_site | default("ansible_test") }}'
-      state: redeploy
-    register: redeploy_template_all
-
-  - name: Query redeployment
-    cisco.mso.ndo_schema_template_deploy: 
-      <<: *mso_info
-      schema: ansible_test
-      template: Template 1
-      state: query
-    register: query_redeploy_status_all
-
-  - name: Undeploy templates
-    cisco.mso.ndo_schema_template_deploy:
-      <<: *mso_info
-      schema: ansible_test
-      template: Template 1
-      sites: 
-        - '{{ mso_site | default("ansible_test") }}'
-        - 'aws_{{ mso_site | default("ansible_test") }}'
-        - 'azure_{{ mso_site | default("ansible_test") }}'
-      state: undeploy
-    register: undeploy_template_all
-
-  - name: Query undeployment
-    cisco.mso.ndo_schema_template_deploy: 
-      <<: *mso_info
-      schema: ansible_test
-      template: Template 1
-      state: query
-    register: query_undeploy_status_all
-
-  - name: Verify multiple sites
-    ansible.builtin.assert:
-      that:
-      - deploy_template_all is not changed
-      - '"deploy" in deploy_template_all.current.reqDetails'
-      - '"isRedeploy" not in deploy_template_all.current.reqDetails'
-      - redeploy_template_all is not changed
-      - '"deploy" in redeploy_template_all.current.reqDetails'
-      - '"isRedeploy" in redeploy_template_all.current.reqDetails'
-      - undeploy_template_all is not changed
-      - '"undeploy" in undeploy_template_all.current.reqDetails'
-      - undeploy_template_all.current.reqDetails.undeploy | length == 3
-      - deployment_status.current | length == 3
-      - query_deploy_status_all.current.status | length == 3
-      - query_deploy_status_all.current.status.0.status.siteStatus == "Succeeded"
-      - query_deploy_status_all.current.status.1.status.siteStatus == "Succeeded"
-      - query_deploy_status_all.current.status.2.status.siteStatus == "Succeeded"
-      - query_redeploy_status_all.current.status | length == 3
-      - query_redeploy_status_all.current.status.0.status.siteStatus == "Succeeded"
-      - query_redeploy_status_all.current.status.1.status.siteStatus == "Succeeded"
-      - query_redeploy_status_all.current.status.2.status.siteStatus == "Succeeded"
-      - query_undeploy_status_all.current.status == []
+- name: Verify multiple sites 4.0 specific
+  ansible.builtin.assert:
+    that:
+    - '"deploy" in deploy_template_all.current.reqDetails'
+    - '"deploy" in redeploy_template_all.current.reqDetails'
+  when: version.current.version is version('4.0', '>=')

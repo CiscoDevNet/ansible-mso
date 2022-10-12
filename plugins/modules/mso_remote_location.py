@@ -84,7 +84,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r"""
 - name: Query all remote locations
-  cisco.mso.mso_backup:
+  cisco.mso.mso_remote_location:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -93,7 +93,7 @@ EXAMPLES = r"""
   register: backups
 
 - name: Query a remote location
-  cisco.mso.mso_backup_schedule:
+  cisco.mso.mso_remote_location:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -102,7 +102,7 @@ EXAMPLES = r"""
   delegate_to: localhost
 
 - name: Configure a remote location
-  cisco.mso.mso_backup_schedule:
+  cisco.mso.mso_remote_location:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -117,7 +117,7 @@ EXAMPLES = r"""
   delegate_to: localhost
 
 - name: Delete a remote location
-  cisco.mso.mso_backup_schedule:
+  cisco.mso.mso_remote_location:
     host: mso_host
     username: admin
     password: SomeSecretPassword

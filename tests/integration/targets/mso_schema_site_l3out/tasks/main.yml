@@ -47,6 +47,17 @@
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
+- name: Ensure sites removed from tenant ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ mso_site | default("ansible_test") }}'
+    - 'aws_{{ mso_site | default("ansible_test") }}'
+    - 'azure_{{ mso_site | default("ansible_test") }}'
+
 - name: Ensure tenant ansible_test exists
   mso_tenant: 
     <<: *mso_info
@@ -134,10 +145,15 @@
   - name: Verify cm_add_site_l3out
     assert:
       that:
-      - cm_add_site_l3out is changed
-      - cm_add_site_l3out.previous == {}
       - cm_add_site_l3out.current.vrfRef.vrfName == "VRF1"
       - cm_add_site_l3out.current.vrfRef.templateName == "Template1"
+
+  - name: Verify cm_add_site_l3out
+    assert:
+      that:
+      - cm_add_site_l3out is changed
+      - cm_add_site_l3out.previous == {}
+    when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
   - name: Add site L3Out (normal_mode)
     mso_schema_site_l3out:
@@ -156,11 +172,16 @@
   - name: Verify nm_add_site_l3out
     assert:
       that:
-      - nm_add_site_l3out is changed
-      - nm_add_site_l3out.previous == {}
       - nm_add_site_l3out.current.vrfRef.vrfName == "VRF1"
       - nm_add_site_l3out.current.vrfRef.templateName == "Template1"
       - cm_add_site_l3out.current.vrfRef.schemaId == nm_add_site_l3out.current.vrfRef.schemaId
+
+  - name: Verify nm_add_site_l3out
+    assert:
+      that:
+      - nm_add_site_l3out is changed
+      - nm_add_site_l3out.previous == {}
+    when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
   - name: Add site L3Out 2 (normal_mode)
     mso_schema_site_l3out:
@@ -283,6 +304,7 @@
       - cm_remove_site_l3out is changed
       - nm_remove_site_l3out is changed
       - cm_remove_site_l3out.current == nm_remove_site_l3out.current == {}
+    when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
   - name: Remove L3Out again(normal_mode)
     mso_schema_site_l3out:
@@ -299,6 +321,7 @@
       that:
       - nm_remove_site_l3out_again is not changed
       - nm_remove_site_l3out_again.previous == nm_remove_site_l3out_again.current == {}
+    when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
 
   # QUERY NON-EXISTING L3Out

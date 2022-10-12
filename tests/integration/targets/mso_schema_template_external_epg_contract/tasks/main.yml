@@ -119,6 +119,21 @@
     entry: Filter1-Entry
     state: present
 
+- name: Ensure Filter 2 exist
+  mso_schema_template_filter_entry:
+    host: '{{ mso_hostname }}'
+    username: '{{ mso_username }}'
+    password: '{{ mso_password }}'
+    validate_certs: '{{ mso_validate_certs | default(false) }}'
+    use_ssl: '{{ mso_use_ssl | default(true) }}'
+    use_proxy: '{{ mso_use_proxy | default(true) }}'
+    output_level: '{{ mso_output_level | default("info") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    filter: Filter2
+    entry: Filter2-Entry
+    state: present
+
 - name: Ensure Contract1 exist
   mso_schema_template_contract_filter: &contract_present
     host: '{{ mso_hostname }}'
@@ -141,6 +156,9 @@
     <<: *contract_present
     template: Template 2
     contract: Contract2
+    filter: Filter2
+    filter_schema: '{{ mso_schema | default("ansible_test") }}'
+    filter_template: Template 2
     state: present
 
 - name: Ensure external EPGs exist

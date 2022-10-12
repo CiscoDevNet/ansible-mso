@@ -63,6 +63,17 @@
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
+- name: Ensure sites removed from tenant ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ mso_site | default("ansible_test") }}'
+    - 'aws_{{ mso_site | default("ansible_test") }}'
+    - 'azure_{{ mso_site | default("ansible_test") }}'
+
 - name: Ensure tenant ansible_test exist
   mso_tenant:
     <<: *mso_info
@@ -364,9 +375,22 @@
     - cm_query_subnet_all_aws.current[0].zone == 'us-west-1a'
     - cm_query_subnet_all_azure is not changed
     - cm_query_subnet_all_azure.current[0].ip == '10.1.0.0/24'
-    - cm_query_subnet_all_azure.current[0].zone == ''
     - cm_query_subnet_all_azure.current[1].ip == '10.1.1.0/24'
+
+- name: Verify cm_query_subnet_all_aws and cm_query_subnet_all_azure zone
+  assert:
+    that:
+    - cm_query_subnet_all_azure.current[0].zone == ''
     - cm_query_subnet_all_azure.current[1].zone == ''
+  when: version.current.version is version('4.0', '<')
+
+
+- name: Verify cm_query_subnet_all_aws and cm_query_subnet_all_azure zone
+  assert:
+    that:
+    - cm_query_subnet_all_azure.current[0].zone == 'default'
+    - cm_query_subnet_all_azure.current[1].zone == 'default'
+  when: version.current.version is version('4.0', '>=') 
 
 - name: Query subnet to AWS CIDR in VRF1 at site level (normal mode)
   mso_schema_site_vrf_region_cidr_subnet:
@@ -390,9 +414,22 @@
     - nm_query_subnet_all_aws.current[0].zone == 'us-west-1a'
     - nm_query_subnet_all_azure is not changed
     - nm_query_subnet_all_azure.current[0].ip == '10.1.0.0/24'
-    - nm_query_subnet_all_azure.current[0].zone == ''
     - nm_query_subnet_all_azure.current[1].ip == '10.1.1.0/24'
+
+- name: Verify cm_query_subnet_all_aws and cm_query_subnet_all_azure zone
+  assert:
+    that:
+    - nm_query_subnet_all_azure.current[0].zone == ''
     - nm_query_subnet_all_azure.current[1].zone == ''
+  when: version.current.version is version('4.0', '<')
+
+
+- name: Verify cm_query_subnet_all_aws and cm_query_subnet_all_azure zone
+  assert:
+    that:
+    - nm_query_subnet_all_azure.current[0].zone == 'default'
+    - nm_query_subnet_all_azure.current[1].zone == 'default'
+  when: version.current.version is version('4.0', '>=') 
 
 # Execute Hosted VRF parameters only when when MSO version >= 3.3
 - name: Execute tasks only for MSO version >= 3.3
@@ -505,7 +542,18 @@
     assert:
       that:
       - query_validate is not changed
+  
+  - name: Verify query_validate result < 4.0
+    assert:
+      that:
       - query_validate.current.result == "true"
+    when: version.current.version is version('4.0', '<')
+  
+  - name: Verify query_validate result => 4.0
+    assert:
+      that:
+      - query_validate.current.result == true
+    when: version.current.version is version('4.0', '>=')
 
 # REMOVE SUBNETS
 - name: Remove Subnet from CIDR (check_mode)

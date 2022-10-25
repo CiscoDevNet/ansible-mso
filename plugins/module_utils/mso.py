@@ -1207,3 +1207,34 @@ class MSOModule(object):
             self.module.fail_json(msg="Provided device '{0}' of type '{1}' does not exist."
                                   .format(device_name, service_node_type))
         return node_devices
+
+    # Workaround function due to inconsistency in attributes REQUEST/RESPONSE API
+    # Fix for MSO Error 400: Bad Request: (0)(0)(0)(0)/deploymentImmediacy error.path.missing
+    def find_dicts_with_target_key(self, target_dict, target, replace, result=None):
+
+        if result is None:
+            result = []
+
+        for key, value in target_dict.items():
+            if key == target:
+                result.append(target_dict)
+            if isinstance(value, dict):
+                self.find_dicts_with_target_key(value, target, replace, result)
+            if isinstance(value, list):
+                for entry in value:
+                    if isinstance(entry, dict):
+                        self.find_dicts_with_target_key(entry, target, replace, result)
+
+        return result
+
+    # Workaround function due to inconsistency in attributes REQUEST/RESPONSE API
+    # Fix for MSO Error 400: Bad Request: (0)(0)(0)(0)/deploymentImmediacy error.path.missing
+    def replace_keys_in_dict(self, target, replace, target_dict=None):
+
+        if target_dict is None:
+            target_dict = self.existing
+
+        key_list = self.find_dicts_with_target_key(target_dict, target, replace)
+        for item in key_list:
+            item[replace] = item.get(target)
+            del item[target]

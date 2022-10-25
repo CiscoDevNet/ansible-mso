@@ -333,7 +333,6 @@
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template3
     bd: ansible_test_3
-    unicast_routing: false
     vrf:
       name: VRF4
       schema: '{{ mso_schema | default("ansible_test") }}_2'
@@ -741,7 +740,6 @@
     <<: *bd_present
     vrf:
       name: VRF2
-    unicast_routing: false
   check_mode: yes
   register: cm_change_bd
 
@@ -759,7 +757,6 @@
     <<: *bd_present
     vrf:
       name: VRF2
-    unicast_routing: false
     output_level: debug
   register: nm_change_bd
 
@@ -777,7 +774,6 @@
     <<: *bd_present
     vrf:
       name: VRF2
-    unicast_routing: false
   check_mode: yes
   register: cm_change_bd_again
 
@@ -795,7 +791,6 @@
     <<: *bd_present
     vrf:
       name: VRF2
-    unicast_routing: false
   register: nm_change_bd_again
 
 - name: Verify nm_change_bd_again
@@ -1340,6 +1335,124 @@
     that:
     - nm_bd_desc_2.current.description == "ansible_test_bd_again"
   when: version.current.version is version('3.3', '>=')
+
+- name: Ensure bd ansible_test_unicast_false is removed >= 3.1.1g
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_unicast_false
+    state: absent
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Ensure bd ansible_test_unicast_true is removed >= 3.1.1g
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_unicast_true
+    state: absent
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add bd with change in unicast routing false in mso versions >= 3.1.1g (check mode)
+  mso_schema_template_bd: &unicast_routing_false_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_unicast_false
+    unicast_routing: false
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+    state: present
+  check_mode: yes
+  register: cm_ansible_test_unicast_false
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add bd with change in unicast routing false in mso versions >= 3.1.1g
+  mso_schema_template_bd:
+    <<: *unicast_routing_false_present
+  register: nm_ansible_test_unicast_false
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add bd again with unicast routing false in mso versions >= 3.1.1g
+  mso_schema_template_bd:
+    <<: *unicast_routing_false_present
+  register: nm_ansible_test_unicast_false_again
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Change bd with unicast routing to true in mso versions >= 3.1.1g
+  mso_schema_template_bd:
+    <<: *unicast_routing_false_present
+    unicast_routing: true
+  register: nm_ansible_test_unicast_false_to_true
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add bd with change in unicast routing true in mso versions >= 3.1.1g (check mode)
+  mso_schema_template_bd: &unicast_routing_true_present
+    <<: *unicast_routing_false_present
+    bd: ansible_test_unicast_true
+    unicast_routing: true
+  check_mode: yes
+  register: cm_ansible_test_unicast_true
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add bd with change in unicast routing true in mso versions >= 3.1.1g
+  mso_schema_template_bd:
+    <<: *unicast_routing_true_present
+  register: nm_ansible_test_unicast_true
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add bd again with unicast routing true in mso versions >= 3.1.1g
+  mso_schema_template_bd:
+    <<: *unicast_routing_true_present
+  register: nm_ansible_test_unicast_true_again
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Change bd with unicast routing to false in mso versions >= 3.1.1g
+  mso_schema_template_bd:
+    <<: *unicast_routing_true_present
+    unicast_routing: false
+  register: nm_ansible_test_unicast_true_to_false
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Verify unicast routing
+  assert:
+    that:
+      - cm_ansible_test_unicast_false is changed
+      - cm_ansible_test_unicast_false.current.unicastRouting == false
+      - nm_ansible_test_unicast_false is changed
+      - nm_ansible_test_unicast_false.current.unicastRouting == false
+      - nm_ansible_test_unicast_false_again is not changed
+      - nm_ansible_test_unicast_false_again.previous.unicastRouting == false
+      - nm_ansible_test_unicast_false_again.current.unicastRouting == false
+      - nm_ansible_test_unicast_false_to_true is changed
+      - nm_ansible_test_unicast_false_to_true.current.unicastRouting == true
+      - cm_ansible_test_unicast_true is changed
+      - cm_ansible_test_unicast_true.current.unicastRouting == true
+      - nm_ansible_test_unicast_true is changed
+      - nm_ansible_test_unicast_true.current.unicastRouting == true
+      - nm_ansible_test_unicast_true_again is not changed
+      - nm_ansible_test_unicast_true_again.previous.unicastRouting == true
+      - nm_ansible_test_unicast_true_again.current.unicastRouting == true
+      - nm_ansible_test_unicast_true_to_false is changed
+      - nm_ansible_test_unicast_true_to_false.current.unicastRouting == false
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add bd with change in unicast routing false in mso versions >= 3.1.1g
+  mso_schema_template_bd:
+    <<: *unicast_routing_false_present
+    state: absent
+  register: ansible_test_unicast_false
+  when: version.current.version is version('3.1.1g', '>')
+
+- name: Add bd with change in unicast routing true in mso versions >= 3.1.1g
+  mso_schema_template_bd:
+    <<: *unicast_routing_true_present
+    state: absent
+  register: ansible_test_unicast_true
+  when: version.current.version is version('3.1.1g', '>')
 
 # FIXME: Add missing DHCP Policy changes and checks (missing DHCP Policy module to make sure it is there.)
 

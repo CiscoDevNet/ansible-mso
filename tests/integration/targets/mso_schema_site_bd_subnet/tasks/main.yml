@@ -103,7 +103,7 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
-    bd: ansible_test_create_1
+    bd: ansible_test_site_bd_from_subnet
     layer2_stretch: false
     vrf:
       name: VRF1
@@ -368,7 +368,7 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
-    bd: ansible_test_create_1
+    bd: ansible_test_site_bd_from_subnet
     subnet: 10.1.0.1/16
     state: present
   register: nm_add_site_bd_subnet_and_site_bd
@@ -391,14 +391,14 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
-    bd: ansible_test_create_1
+    bd: ansible_test_site_bd_from_subnet
     state: query
   register: query_site_bd
 
 - name: Verify query_site_bd
   assert:
     that:
-    - query_site_bd.current.bdRef.bdName == "ansible_test_create_1"
+    - query_site_bd.current.bdRef.bdName == "ansible_test_site_bd_from_subnet"
 
 - name: Add site BD subnet with now existing site bd again (normal_mode)
   mso_schema_site_bd_subnet:
@@ -406,7 +406,7 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
-    bd: ansible_test_create_1
+    bd: ansible_test_site_bd_from_subnet
     subnet: 10.1.0.1/16
     state: present
   register: nm_add_site_bd_subnet_and_site_bd_again
@@ -588,7 +588,7 @@
 - name: Verify non_existing_template_bd
   assert:
     that:
-    - non_existing_template_bd.msg == "Provided BD 'non_existing_template_bd' does not exist. Existing template BDs{{':'}} ansible_test_1"
+    - non_existing_template_bd.msg == "Provided bd 'non_existing_template_bd' not matching existing bd(s){{':'}} ansible_test_site_bd_from_subnet, ansible_test_1"
 
 # Use template without site associated
 - name: Query with no site associated to template
@@ -606,7 +606,7 @@
 - name: Verify template_without_sites
   assert:
     that:
-    - template_without_sites.msg == "No site associated with template 'Template3'. Associate the site with the template using mso_schema_site."
+    - template_without_sites.msg == "No sites associated with schema 'ansible_test_2'. Associate the site with the schema using (M)mso_schema_site."
 
 # Use non_existing_subnet
 - name: Query with non_existing_subnet

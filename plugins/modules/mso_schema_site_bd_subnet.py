@@ -208,26 +208,32 @@ def main():
     mso = MSOModule(module)
 
     mso_schema = MSOSchema(mso, schema, template, site)
+    mso_objects = mso_schema.schema_objects
 
-    template_bd = mso_schema.get_template_bd(bd, mso_schema.template.details)
-    if template_bd and template_bd.details.get('l2Stretch') is True and state == 'present':
+    mso_schema.set_template_bd(bd)
+    if mso_objects.get('template_bd') and mso_objects.get('template_bd').details.get('l2Stretch') is True and state == 'present':
         mso.fail_json(msg="The l2Stretch of template bd should be false in order to create a site bd subnet. "
                           "Set l2Stretch as false using mso_schema_template_bd")
 
     if state == 'query':
-        site_bd = mso_schema.get_site_bd(bd, mso_schema.template.details, mso_schema.site.details)
+        mso_schema.set_site_bd(bd)
         if not ip:
-            mso.existing = site_bd.details.get('subnets')
+            mso.existing = mso_objects.get('site_bd').details.get('subnets')
         else:
-            subnet = mso_schema.get_site_bd_subnet(ip, site_bd.details)
-            mso.existing = subnet.details
+            mso_schema.set_site_bd_subnet(ip)
+            mso.existing = mso_objects.get('site_bd_subnet').details
         mso.exit_json()
 
-    site_bd = mso_schema.get_site_bd(bd, mso_schema.template.details, mso_schema.site.details, fail_module=False)
-    subnet = mso_schema.get_site_bd_subnet(ip, site_bd.details, fail_module=False) if site_bd else None
+    mso_schema.set_site_bd(bd, fail_module=False)
+
+    subnet = None
+    if mso_objects.get('site_bd'):
+        mso_schema.set_site_bd_subnet(ip, fail_module=False)
+        subnet = mso_objects.get('site_bd_subnet')
+
     mso.previous = mso.existing = subnet.details if subnet else mso.existing
 
-    bd_path = '/sites/{0}-{1}/bds'.format(mso_schema.site.details['siteId'], template)
+    bd_path = '/sites/{0}-{1}/bds'.format(mso_objects.get('site').details.get('siteId'), template)
     subnet_path = '{0}/{1}/subnets'.format(bd_path, bd)
     ops = []
 
@@ -237,7 +243,7 @@ def main():
             ops.append(dict(op='remove', path=subnet_path))
 
     elif state == 'present':
-        if not site_bd:
+        if not mso_objects.get('site_bd'):
             bd_payload = dict(
                 bdRef=dict(
                     schemaId=mso_schema.id,

@@ -1165,6 +1165,10 @@ class MSOModule(object):
         existing = self.existing
         if 'password' in existing:
             existing['password'] = self.sent.get('password')
+
+        existing = self.remove_keys_from_dict_when_value_empty(existing)
+        self.stdout = json.dumps(existing)
+
         return not issubset(self.sent, existing)
 
     def update_service_graph_obj(self, service_graph_obj):
@@ -1253,3 +1257,21 @@ class MSOModule(object):
         for item in key_list:
             item[replace] = item.get(target)
             del item[target]
+
+    # Workaround function to remove null/None fields returned by API RESPONSE
+    def remove_keys_from_dict_when_value_empty(self, target_dict, modified_target=None):
+
+        if modified_target is None:
+            modified_target = deepcopy(target_dict)
+
+        for key, value in target_dict.items():
+            if value is None:
+                del(modified_target[key])
+            elif isinstance(value, dict):
+                self.remove_keys_from_dict_when_value_empty(value, modified_target[key])
+            elif isinstance(value, list):
+                for entry_index, entry in enumerate(value):
+                    if isinstance(entry, dict):
+                        self.remove_keys_from_dict_when_value_empty(entry, modified_target[key][entry_index])
+
+        return modified_target

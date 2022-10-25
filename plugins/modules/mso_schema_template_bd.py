@@ -539,11 +539,8 @@ def main():
         if dhcp_labels:
             payload.update(dhcpLabels=dhcp_labels)
 
-        if unicast_routing:
-            payload.update(unicastRouting=True)
-        elif unicast_routing is not None:
-            if mso.existing and mso.existing.get('unicastRouting') is not None:
-                payload.update(unicastRouting=False)
+        if unicast_routing is not None:
+            payload.update(unicastRouting=unicast_routing)
 
         if description:
             payload.update(description=description)

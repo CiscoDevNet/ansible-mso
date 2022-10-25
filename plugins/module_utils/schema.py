@@ -82,7 +82,7 @@ class MSOSchema:
         kv_list = [KVPair('name', bd)]
         match, existing = self.get_object_from_list(self.schema_objects['template'].details.get('bds'), kv_list)
         if not match and fail_module:
-            msg = "Provided bd '{0}' not matching existing bd(s): {1}".format(bd, ', '.join(existing))
+            msg = "Provided BD '{0}' not matching existing bd(s): {1}".format(bd, ', '.join(existing))
             self.mso.fail_json(msg=msg)
         self.schema_objects['template_bd'] = match
 
@@ -95,7 +95,7 @@ class MSOSchema:
         :return: Site item. -> Item(Int, Dict) | None
         """
         if 'sites' not in self.schema:
-            msg = "No sites associated with schema '{0}'. Associate the site with the schema using (M)mso_schema_site.".format(self.schema_name)
+            msg = "No sites associated with schema '{0}'. Associate the site with the schema using (M) mso_schema_site.".format(self.schema_name)
             self.mso.fail_json(msg=msg)
 
         kv_list = [KVPair('siteId', self.mso.lookup_site(site_name)), KVPair('templateName', template_name)]
@@ -119,7 +119,7 @@ class MSOSchema:
             schema_id=self.id, template=self.schema_objects['template'].details.get('name'), bd=bd_name))]
         match, existing = self.get_object_from_list(self.schema_objects['site'].details.get('bds'), kv_list)
         if not match and fail_module:
-            msg = "Provided bd '{0}' not matching existing site bd(s): {1}".format(bd_name, ', '.join(existing))
+            msg = "Provided BD '{0}' not matching existing site bd(s): {1}".format(bd_name, ', '.join(existing))
             self.mso.fail_json(msg=msg)
         self.schema_objects['site_bd'] = match
 

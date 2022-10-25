@@ -21,6 +21,78 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for MSO version < 3.2
+  when: version.current.version is version('3.2', '<')
+  block:
+  - name: GET auth radius providers
+    mso_rest:
+      <<: *mso_info
+      path: /api/v1/auth/providers/radius
+      method: get
+    register: radius_providers
+
+  - name: Add auth radius provider
+    mso_rest:
+      <<: *mso_info
+      path: /api/v1/auth/providers/radius
+      method: post
+      content:
+        {
+            "host": "{{ mso_radius_server }}",
+            "description": "",
+            "port": 1812,
+            "providerType": "radius",
+            "sharedSecret": "{{ mso_radius_secret | default('radius-secret') }}",
+            "timeoutInSeconds": 5,
+            "retries": 3,
+            "protocol": "pap"
+        }
+    register: radius_provider
+    when: mso_radius_server not in (radius_providers.jsondata.radiusProviders | map(attribute='host'))
+
+  - name: GET login domains
+    mso_rest:
+      <<: *mso_info
+      path: /api/v1/auth/domains
+      method: get
+    register: login_domains
+
+  - name: GET auth radius providers again after creation
+    mso_rest:
+      <<: *mso_info
+      path: /api/v1/auth/providers/radius
+      method: get
+    register: radius_providers
+
+  - name: GET auth radius provider ID
+    set_fact:
+      radius_provider_id: "{{ (radius_providers.jsondata.radiusProviders | selectattr('host', 'eq', mso_radius_server) | first)['id']  }}"
+
+  - name: Add test login domain
+    mso_rest:
+      <<: *mso_info
+      path: /api/v1/auth/domains
+      method: post
+      content:
+        {
+          "name": "{{ mso_login_domain | default('test') }}",
+          "description": "",
+          "realm": "radius",
+          "providerAssociations": [{
+              "priority": 1,
+              "providerId": "{{ radius_provider_id }}"
+          }],
+          "status": "active",
+          "isDefault": false
+        }
+    when: (mso_login_domain | default('test')) not in (login_domains.jsondata.domains | map(attribute='name'))
+
 # REMOVE DHCP POLICY
 - name: Remove DHCP Option Policy
   mso_dhcp_option_policy: &remove_dhcp

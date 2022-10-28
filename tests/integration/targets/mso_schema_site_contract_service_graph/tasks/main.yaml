@@ -51,7 +51,8 @@
       state: absent
     loop:
     - { schema: ansible_test }
-    - { schema: cloud_ansible_test }
+    - { schema: aws_ansible_test }
+    - { schema: azure_ansible_test }
 
   - name: Ensure physical site exists
     mso_site:
@@ -195,22 +196,199 @@
     - { name: redirect_policy1 }
     - { name: redirect_policy2 }
 
-  - name: Ensure schema 1 with Template1 Template2 and 3 exist
+  - name: Ensure schema with template1 exist
     cisco.mso.mso_schema_template:
       <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
+      schema: '{{ item.schema }}'
       tenant: ansible_test
       template: '{{ item.template }}'
       state: present
     loop:
-    - { template: Template1 }
-    - { template: Template2 }
-    - { template: Template3 }
+    - { template: Template1, schema: ansible_test }
+    - { template: Template1, schema: aws_ansible_test }
+    - { template: Template1, schema: azure_ansible_test }
+
+  - name: Ensure schema with template2 exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ item.schema }}'
+      tenant: ansible_test
+      template: '{{ item.template }}'
+      state: present
+    loop:
+    - { template: Template2, schema: ansible_test }
+    - { template: Template2, schema: aws_ansible_test }
+    - { template: Template2, schema: azure_ansible_test }
+
+  - name: Ensure Filter 1 exist
+    cisco.mso.mso_schema_template_filter_entry: &filter_present
+      <<: *mso_info
+      schema: '{{ item.schema }}'
+      template: '{{ item.template }}'
+      filter: Filter 1
+      entry: Filter 1 entry
+      state: present
+    loop:
+    - { schema: ansible_test, template: Template1 }
+    - { schema: aws_ansible_test, template: Template1 }
+    - { schema: azure_ansible_test, template: Template1 }
+
+  - name: Ensure Contract_1 contract exist
+    mso_schema_template_contract_filter: &contract_present
+      <<: *mso_info
+      schema: '{{ item.schema }}'
+      template: '{{ item.template }}'
+      contract: Contract 1
+      filter: Filter 1
+      state: present
+    loop:
+    - { schema: ansible_test, template: Template1 }
+    - { schema: aws_ansible_test, template: Template1 }
+    - { schema: azure_ansible_test, template: Template1 }
+
+  - name: Ensure VRF_1 vrf exist
+    mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ item.schema }}'
+      template: '{{ item.template }}'
+      vrf: VRF1
+      layer3_multicast: true
+      state: present
+    loop:
+    - { schema: ansible_test, template: Template1 }
+    - { schema: aws_ansible_test, template: Template1 }
+    - { schema: azure_ansible_test, template: Template1 }
+
+  - name: Add region and cidr in VRF_1 at Azure site level
+    mso_schema_site_vrf_region_cidr:
+      <<: *mso_info
+      schema: azure_ansible_test
+      template: Template1
+      site: 'azure_{{ mso_site | default("ansible_test") }}'
+      vrf: VRF1
+      region: westus
+      cidr: 10.10.0.0/16
+      primary: true
+      state: present
+    register: azure_add_region_cidr
+
+  - name: Add region and cidr in VRF2 at AWS site level
+    mso_schema_site_vrf_region_cidr:
+      <<: *mso_info
+      schema: aws_ansible_test
+      template: Template1
+      site: 'aws_{{ mso_site | default("ansible_test") }}'
+      vrf: VRF1
+      region: westus
+      cidr: 10.10.0.0/16
+      primary: true
+      state: present
+    register: azure_add_aregion_cidr
+
+  - name: Ensure BD_1 bd exist
+    mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ item.schema }}'
+      template: '{{ item.template }}'
+      bd: BD1
+      vrf:
+        name: VRF1
+      state: present
+    loop:
+    - { schema: ansible_test, template: Template1 }
+    - { schema: aws_ansible_test, template: Template1 }
+    - { schema: azure_ansible_test, template: Template1 }
+
+  - name: Ensure BD_2 bd exist
+    mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ item.schema }}'
+      template: '{{ item.template }}'
+      bd: BD2
+      vrf:
+        name: VRF1
+      state: present
+    loop:
+    - { schema: ansible_test, template: Template1 }
+    - { schema: aws_ansible_test, template: Template1 }
+    - { schema: azure_ansible_test, template: Template1 }
+
+  # - name: Ensure AP1 in Template 1 exists
+  #   mso_schema_template_anp:
+  #     <<: *mso_info
+  #     schema: '{{ item.schema }}'
+  #     template: '{{ item.template }}'
+  #     anp: AP1
+  #     state: present
+  #   loop:
+  #   # - { schema: ansible_test, template: Template1 }
+  #   # - { schema: aws_ansible_test, template: Template1 }
+  #   - { schema: azure_ansible_test, template: Template1 }
+
+  - name: Ensure AP2 in Template2 exists
+    mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ item.schema }}'
+      template: '{{ item.template }}'
+      anp: AP2
+      state: present
+    loop:
+    - { schema: ansible_test, template: Template2 }
+    - { schema: aws_ansible_test, template: Template2 }
+    - { schema: azure_ansible_test, template: Template2 }
+
+  # - name: Ensure EPG1 in AP1 in Template exists
+  #   mso_schema_template_anp_epg:
+  #     <<: *mso_info
+  #     schema: '{{ item.schema }}'
+  #     template: '{{ item.template }}'
+  #     anp: AP1
+  #     epg: EPG1
+  #     bd:
+  #       name: BD1
+  #     state: present
+  #   loop:
+  #   # - { schema: ansible_test, template: Template1 }
+  #   # - { schema: aws_ansible_test, template: Template1 }
+  #   - { schema: azure_ansible_test, template: Template1 }
+
+  - name: Ensure EPG2 in AP2 in Template2 exists
+    mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ item.schema }}'
+      template: '{{ item.template }}'
+      anp: AP2
+      epg: EPG2
+      bd:
+        template: Template1
+        name: BD1
+      state: present
+    loop:
+    - { schema: ansible_test, template: Template2 }
+    - { schema: aws_ansible_test, template: Template2 }
+    - { schema: azure_ansible_test, template: Template2 }
+
+  - name: Add Contract 1 to EPG2 provider
+    mso_schema_template_anp_epg_contract:
+      <<: *mso_info
+      schema: '{{ item.schema }}'
+      template: '{{ item.template }}'
+      anp: AP2
+      epg: EPG2
+      contract:
+        name: Contract 1
+        template: Template1
+        type: provider
+      state: present
+    loop:
+    - { schema: ansible_test, template: Template2 }
+    - { schema: aws_ansible_test, template: Template2 }
+    - { schema: azure_ansible_test, template: Template2 }
 
   - name: Create service graph at Template level
     cisco.mso.mso_schema_template_service_graph:
       <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
+      schema: '{{ item.schema }}'
       template: '{{ item.template }}'
       service_graph: '{{ item.name }}'
       display_name: '{{ item.name }}'
@@ -220,9 +398,22 @@
       filter_after_first_node: allow_all
       state: present
     loop:
-    - { template: Template1, name: sg1, type1: firewall, type2: firewall }
-    - { template: Template2, name: sg1, type1: load-balancer, type2: load-balancer }
-    - { template: Template3, name: sg1, type1: load-balancer, type2: load-balancer }
+    - { schema: ansible_test, template: Template1, name: sg1, type1: firewall, type2: firewall }
+    # - { schema: aws_ansible_test, template: Template1, name: sg1, type1: load-balancer, type2: load-balancer }
+    - { schema: azure_ansible_test, template: Template1, name: sg1, type1: load-balancer, type2: load-balancer }
+
+  - name: Create aws service graph at Template level
+    cisco.mso.mso_schema_template_service_graph:
+      <<: *mso_info
+      schema: aws_ansible_test
+      template: Template1
+      service_graph: sg1
+      display_name: sg1
+      service_nodes:
+        - type: load-balancer
+        # - type: '{{ item.type2 }}'
+      filter_after_first_node: allow_all
+      state: present
 
   - name: Add physical site to a schema
     cisco.mso.mso_schema_site:
@@ -235,16 +426,45 @@
   - name: Add cloud site to a schema
     cisco.mso.mso_schema_site:
       <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
+      schema: '{{ item.schema }}'
       site: '{{item.site}}'
       template: '{{item.template}}'
       state: present
     loop:
-    - { site: 'azure_{{ mso_site | default("ansible_test") }}', template: 'Template3' }
-    - { site: 'aws_{{ mso_site | default("ansible_test") }}', template: 'Template2' }
+    # - { schema: ansible_test, site: '{{ mso_site | default("ansible_test") }}', template: 'Template1' }
+    - { schema: azure_ansible_test, site: 'azure_{{ mso_site | default("ansible_test") }}', template: 'Template1' }
+    - { schema: aws_ansible_test, site: 'aws_{{ mso_site | default("ansible_test") }}', template: 'Template1' }
     when: version.current.version is version('3', '<') or version.current.version is version('3.2', '>=')
 
-  - name: Add a new Graph SG1 at site level (normal mode)
+  - name: Add BD1 at site level
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ item.schema }}'
+      site: '{{ item.site }}'
+      template: Template1
+      bd: BD1
+      state: present
+    loop:
+    - { schema: ansible_test, site: ansible_test}
+    - { schema: aws_ansible_test, site: aws_ansible_test }
+    - { schema: azure_ansible_test, site: azure_ansible_test }
+    register: nm_add_site_bd1
+
+  - name: Add BD2 at site level
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ item.schema }}'
+      site: '{{ item.site }}'
+      template: Template1
+      bd: BD2
+      state: present
+    loop:
+    - { schema: ansible_test, site: ansible_test}
+    - { schema: aws_ansible_test, site: aws_ansible_test }
+    - { schema: azure_ansible_test, site: azure_ansible_test }
+    register: nm_add_site_bd2
+
+  - name: Add a new Graph SG1 at physical site level (normal mode)
     cisco.mso.mso_schema_site_service_graph:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -258,120 +478,37 @@
       state: present
     register: nm_sg1
 
-  - name: Ensure Filter 1 exist
-    cisco.mso.mso_schema_template_filter_entry: &filter_present
+  - name: Add a Graph SG1 at AWS cloud site
+    cisco.mso.mso_schema_site_service_graph:
       <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: '{{ item.template }}'
-      filter: Filter 1
-      entry: Filter 1 entry
+      schema: aws_ansible_test
+      template: Template1
+      service_graph: sg1
+      site: 'aws_{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: ansible_test_device
       state: present
-    loop:
-    - { template: Template1 }
-    - { template: Template2 }
-    - { template: Template3 }
+    register: aws_sg1
 
-  - name: Ensure Contract_1 contract exist
-    mso_schema_template_contract_filter: &contract_present
+  - name: Add a Graph SG1 at Azure cloud site
+    cisco.mso.mso_schema_site_service_graph:
       <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: '{{ item.template }}'
-      contract: Contract 1
-      filter: Filter 1
+      schema: azure_ansible_test
+      template: Template1
+      service_graph: sg1
+      site: 'azure_{{ mso_site | default("ansible_test") }}'
+      tenant: ansible_test
+      devices:
+        - name: load-balancer
+        - name: load-balancer
       state: present
-    loop:
-    - { template: Template1 }
-    - { template: Template2 }
-    - { template: Template3 }
-
-  - name: Ensure VRF_1 vrf exist
-    mso_schema_template_vrf:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: '{{ item.template }}'
-      vrf: VRF1
-      layer3_multicast: true
-      state: present
-    loop:
-    - { template: Template1 }
-    - { template: Template2 }
-    - { template: Template3 }
-
-  - name: Ensure BD_1 bd exist
-    mso_schema_template_bd:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: '{{ item.template }}'
-      bd: BD1
-      vrf:
-        name: VRF1
-      state: present
-    loop:
-    - { template: Template1 }
-    - { template: Template2 }
-    - { template: Template3 }
-
-  - name: Ensure BD_2 bd exist
-    mso_schema_template_bd:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: '{{ item.template }}'
-      bd: BD2
-      vrf:
-        name: VRF1
-      state: present
-    loop:
-    - { template: Template1 }
-    - { template: Template2 }
-    - { template: Template3 }
-
-  - name: Ensure AP1 in Template 1 exists
-    mso_schema_template_anp:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: '{{ item.template }}'
-      anp: AP1
-      state: present
-    loop:
-    - { template: Template1 }
-    - { template: Template2 }
-    - { template: Template3 }
-
-  - name: Ensure EPG1 in AP1 in Template exists
-    mso_schema_template_anp_epg:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: '{{ item.template }}'
-      anp: AP1
-      epg: EPG1
-      bd:
-        name: BD1
-      state: present
-    loop:
-    - { template: Template1 }
-    - { template: Template2 }
-    - { template: Template3 }
-
-  - name: Add Contract 1 to EPG1 provider
-    mso_schema_template_anp_epg_contract:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: '{{ item.template }}'
-      anp: AP1
-      epg: EPG1
-      contract:
-        name: Contract 1
-        type: provider
-      state: present
-    loop:
-    - { template: Template1 }
-    - { template: Template2 }
-    - { template: Template3 }
+    register: azure_sg1
 
   - name: Add service graph 1 to contract 1
     mso_schema_template_contract_service_graph:
       <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
+      schema: '{{ item.schema }}'
       template: '{{ item.template }}'
       contract: Contract 1
       service_graph: sg1
@@ -383,15 +520,28 @@
       state: present
     register: nm_add_sg1_to_c1
     loop:
-    - { template: Template1 }
-    - { template: Template2 }
-    - { template: Template3 }
+    - { schema: ansible_test, template: Template1 }
+    # - { schema: aws_ansible_test, template: Template1 }
+    - { schema: azure_ansible_test, template: Template1 }
+
+  - name: Add service graph 1 to contract 1
+    mso_schema_template_contract_service_graph:
+      <<: *mso_info
+      schema: aws_ansible_test
+      template: Template1
+      contract: Contract 1
+      service_graph: sg1
+      service_nodes:
+        - consumer: BD1
+          provider: BD2
+      state: present
+    register: nm_add_sg1_to_c1_aws
 
   - name: Add service graph 1 to contract 1 at site level
     mso_schema_site_contract_service_graph:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      template: Template1
       site: '{{ mso_site | default("ansible_test") }}'
       contract: Contract 1
       service_graph: sg1
@@ -406,3 +556,48 @@
           provider_redirect_policy: 'uni/tn-ansible_test/svcCont/svcRedirectPol-redirect_policy2'
       state: present
     register: nm_add_sg1_to_c1
+
+  - name: Add service graph 1 to contract 1 at Azure site
+    mso_schema_site_contract_service_graph:
+      <<: *mso_info
+      schema: 'azure_{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      site: 'azure_{{ mso_site | default("ansible_test") }}'
+      contract: Contract 1
+      service_graph: sg1
+      service_nodes:
+        - listeners:
+          - name: lis_1
+            protocol: tcp
+            rules:
+              - name: default
+                action_type: forward
+                port: 80
+        - listeners:
+          - name: lis_2
+            protocol: tcp
+            rules:
+              - name: default
+                action_type: forward
+                protocol: https
+      state: present
+    register: nm_add_sg1_to_c1_azure
+
+  - name: Add service graph 1 to contract 1 at AWS site
+    mso_schema_site_contract_service_graph:
+      <<: *mso_info
+      schema: 'aws_{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      site: 'aws_{{ mso_site | default("ansible_test") }}'
+      contract: Contract 1
+      service_graph: sg1
+      service_nodes:
+        - listeners:
+          - name: lis_1
+            protocol: tcp
+            rules:
+              - name: default
+                action_type: forward
+                port: 80
+      state: present
+    register: nm_add_sg1_to_c1_aws

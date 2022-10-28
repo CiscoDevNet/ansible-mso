@@ -202,13 +202,16 @@ def main():
     templates = schema_obj.get('templates')
     template_names = [t.get('name') for t in templates]
     if template not in template_names:
-        mso.fail_json(msg="Provided template '{template}' does not exist. Existing templates: {templates}".format(template=template, templates=', '.join(template_names)))
+        mso.fail_json(
+            msg="Provided template '{template}' does not exist. Existing templates: {templates}"
+            .format(template=template, templates=', '.join(template_names))
+        )
 
     template_idx = template_names.index(template)
 
     # Get site
     site_obj = mso.query_site(site)
-    
+
     # Get site id
     site_id = site_obj.get('id')
 
@@ -249,7 +252,7 @@ def main():
             service_graph_schema = schema
         if service_graph_template is None:
             service_graph_template = template
-        service_graph_schema_id, _, _ = mso.query_schema(service_graph_schema)
+        service_graph_schema_id, path, obj = mso.query_schema(service_graph_schema)
         service_graph_ref = "/schemas/{0}/templates/{1}/serviceGraphs/{2}".format(service_graph_schema_id, service_graph_template, service_graph)
 
     # If contract not at site level but exists at template level
@@ -275,7 +278,7 @@ def main():
                 mso.update_site_service_graph_obj(service_obj)
                 mso.existing = service_obj
             else:
-                mso.fail_json(msg="Provided service graph {0} is not attached to given contract {1} at site level. Existing service graph is {1}".format(
+                mso.fail_json(msg="Provided service graph {0} is not attached to given contract {1} at site level. Existing service graph is {2}".format(
                     service_graph, contract, contract_service_graph_ref))
 
     if state == "query":
@@ -296,7 +299,10 @@ def main():
         if len(contract_service_nodes) != len(service_nodes):
             mso.fail_json(msg="Number of service graph nodes provided is inconsistent with current service graph")
         if template_contract_service_graph.get("serviceGraphRef") != service_graph_ref:
-            mso.fail_json(msg="Sevice graph '{0}' is not attached to contract {1}. Existing service graph is {2}".format(service_graph, contract, mso.existing.get("serviceGraphRef")))
+            mso.fail_json(
+                msg="Sevice graph '{0}' is not attached to contract {1}. Existing service graph is {2}"
+                .format(service_graph, contract, mso.existing.get("serviceGraphRef"))
+            )
         for node_id, service_node in enumerate(contract_service_nodes):
             contract_service_node = mso.dict_from_ref(service_node.get("serviceNodeRef"))
             node_content = {
@@ -305,19 +311,19 @@ def main():
             if site_type == "on-premise":
                 node_content['providerConnector'] = {
                     'clusterInterface': {
-                    'dn': service_nodes[node_id].get("provider_cluster_interface")
+                        'dn': service_nodes[node_id].get("provider_cluster_interface")
                     },
                     'subnets': []
                 }
                 node_content['consumerConnector'] = {
                     'clusterInterface': {
-                    'dn': service_nodes[node_id].get("consumer_cluster_interface")
+                        'dn': service_nodes[node_id].get("consumer_cluster_interface")
                     },
                     'subnets': []
                 }
                 if service_nodes[node_id].get("provider_redirect_policy"):
                     node_content['providerConnector']['redirectPolicy'] = {
-                        'dn' : service_nodes[node_id].get("provider_redirect_policy")
+                        'dn': service_nodes[node_id].get("provider_redirect_policy")
                     }
                 if service_nodes[node_id].get("consumer_redirect_policy"):
                     node_content['consumerConnector']['redirectPolicy'] = {
@@ -391,5 +397,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

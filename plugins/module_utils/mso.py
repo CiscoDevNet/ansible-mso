@@ -201,8 +201,8 @@ def mso_service_graph_node_spec():
 def mso_service_graph_node_device_spec():
     return dict(
         name=dict(type='str', required=True),
-        provider_connector_type=dict(type='str', default=False),
-        consumer_connector_type=dict(type='str', default=False),
+        provider_connector_type=dict(type='bool', default=False),
+        consumer_connector_type=dict(type='bool', default=False),
     )
 
 
@@ -221,29 +221,32 @@ def mso_service_graph_connector_spec():
         consumer_template=dict(type='str'),
     )
 
+
 def mso_contract_service_graph_spec():
     return dict(
         provider_cluster_interface=dict(type='str'),
         provider_redirect_policy=dict(type='str'),
         consumer_cluster_interface=dict(type='str'),
         consumer_redirect_policy=dict(type='str'),
-        index=dict(type='str'),
+        index=dict(type='int'),
         listeners=dict(type='list', elements='dict', options=mso_listener_spec()),
     )
+
 
 def mso_listener_spec():
     return dict(
         name=dict(type='str', required=True),
-        protocol=dict(type='str', default='tcp'),
+        protocol=dict(type='str', default='tcp', choices=['https', 'tls', 'inherit', 'tcp', 'udp', 'http']),
         port=dict(type='int', default=80),
         rules=dict(type='list', elements='dict', options=mso_listener_rule()),
     )
 
+
 def mso_listener_rule():
     return dict(
         name=dict(type='str', default='default'),
-        action_type=dict(type='str', default='forward', choices=[ 'fixedResponse', 'forward', 'redirect', 'haPort' ] ),
-        protocol=dict(type='str', default='tcp', choice=['https', 'tls', 'inherit', 'tcp', 'udp', 'http']),
+        action_type=dict(type='str', default='forward', choices=['fixedResponse', 'forward', 'redirect', 'haPort']),
+        protocol=dict(type='str', default='tcp', choices=['https', 'tls', 'inherit', 'tcp', 'udp', 'http']),
         port=dict(type='int', default=80),
     )
 

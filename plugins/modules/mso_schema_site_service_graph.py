@@ -258,7 +258,7 @@ def main():
                         funcType=query_device_data.get('funcType'),
                     ),
                     serviceNodeRef=dict(
-                        serviceNodeName='node{0}'.format(index+1),
+                        serviceNodeName='node{0}'.format(index + 1),
                         serviceGraphName=service_graph,
                         templateName=template,
                         schemaId=schema_id,

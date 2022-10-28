@@ -223,12 +223,12 @@ def mso_service_graph_connector_spec():
 
 def mso_contract_service_graph_spec():
     return dict(
-        provider_cluster_interface=dict(type='str', required=True),
+        provider_cluster_interface=dict(type='str'),
         provider_redirect_policy=dict(type='str'),
-        consumer_cluster_interface=dict(type='str', required=True),
+        consumer_cluster_interface=dict(type='str'),
         consumer_redirect_policy=dict(type='str'),
-        index=dict(type='str')
-        listeners=dict(type='list', elements='dict', options=mso_listener_spec())
+        index=dict(type='str'),
+        listeners=dict(type='list', elements='dict', options=mso_listener_spec()),
     )
 
 def mso_listener_spec():
@@ -236,7 +236,7 @@ def mso_listener_spec():
         name=dict(type='str', required=True),
         protocol=dict(type='str', default='tcp'),
         port=dict(type='int', default=80),
-        rules=dict(type='list', elements='dict', options=mso_listener_rule())
+        rules=dict(type='list', elements='dict', options=mso_listener_rule()),
     )
 
 def mso_listener_rule():
@@ -244,7 +244,7 @@ def mso_listener_rule():
         name=dict(type='str', default='default'),
         action_type=dict(type='str', default='forward', choices=[ 'fixedResponse', 'forward', 'redirect', 'haPort' ] ),
         protocol=dict(type='str', default='tcp', choice=['https', 'tls', 'inherit', 'tcp', 'udp', 'http']),
-        port=dict(type='int', default=80)
+        port=dict(type='int', default=80),
     )
 
 

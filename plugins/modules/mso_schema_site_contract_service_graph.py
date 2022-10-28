@@ -62,7 +62,6 @@ options:
       provider_cluster_interface:
         description:
         - The name of the cluster interface for provider connector.
-        required: true
         type: str
       provider_redirect_policy:
         description:
@@ -71,7 +70,6 @@ options:
       consumer_cluster_interface:
         description:
         - The name of the cluster interface for consumer connector.
-        required: true
         type: str
       consumer_redirect_policy:
         description:
@@ -273,7 +271,6 @@ def main():
         if contract_obj.get("serviceGraphRelationship"):
             service_obj = contract_obj.get("serviceGraphRelationship")
             contract_service_graph_ref = service_obj.get("serviceGraphRef")
-            contract_service_nodes_relationship = service_obj.get("serviceNodesRelationship")
             if service_graph_ref == "" or service_graph_ref == contract_service_graph_ref:
                 mso.update_site_service_graph_obj(service_obj)
                 mso.existing = service_obj

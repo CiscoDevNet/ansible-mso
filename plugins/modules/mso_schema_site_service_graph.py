@@ -258,7 +258,7 @@ def main():
                         funcType=query_device_data.get('funcType'),
                     ),
                     serviceNodeRef=dict(
-                        serviceNodeName=template_node_type,
+                        serviceNodeName='node{0}'.format(index+1),
                         serviceGraphName=service_graph,
                         templateName=template,
                         schemaId=schema_id,
@@ -267,12 +267,8 @@ def main():
                 if site_type == "azure":
                     if device.get('provider_connector_type') == "True":
                         device_payload['providerConnectorType'] = "redir"
-                    else:
-                        device_payload['providerConnectorType'] = "none"
                     if device.get('consumer_connector_type') == "True":
                         device_payload['consumerConnectorType'] = "redir"
-                    else:
-                        device_payload['consumerConnectorType'] = "none"
                 devices_payload.append(device_payload)
 
         payload = dict(

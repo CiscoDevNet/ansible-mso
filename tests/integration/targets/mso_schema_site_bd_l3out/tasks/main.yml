@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# Copyright: (c) 2022, Akini Ross (@akinross) <akinross@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -29,9 +30,12 @@
 - name: Remove schemas
   mso_schema:
     <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
+    schema: '{{ item }}'
     state: absent
+  ignore_errors: yes
   loop:
+    - '{{ mso_schema | default("ansible_test") }}_2'
+    - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure site exists
   mso_site:
@@ -54,7 +58,7 @@
     - '{{ mso_site | default("ansible_test") }}'
     state: present
 
-- name: Ensure schema with Template1 and Template3 exist
+- name: Ensure schema with Template1 and Template2 exist
   mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -63,7 +67,15 @@
     state: present
   loop:
   - { template: Template1}
-  - { template: Template3}
+  - { template: Template2}
+
+- name: Ensure schema 2 with Template3 exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    tenant: ansible_test
+    template: Template3
+    state: present
 
 - name: Add physical site to a schema
   mso_schema_site:
@@ -71,6 +83,14 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
+    state: present
+
+- name: Add physical site to a schema2
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template3
     state: present
 
 - name: Ensure VRF1 exists
@@ -112,6 +132,31 @@
     state: present
   register: nm_add_l3out
 
+- name: Add a new L3out2 to different template
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template2
+    l3out: L3out2
+    vrf:
+        name: VRF1
+        template: Template1
+    state: present
+  register: nm_add_l3out
+
+- name: Add a new L3out3 to different schema
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template3
+    l3out: L3out3
+    vrf:
+        name: VRF1
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template1
+    state: present
+  register: nm_add_l3out
+
 - name: Verify nm_add_l3out
   assert:
     that:
@@ -144,7 +189,8 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
     bd: ansible_test_1
-    l3out: L3out1
+    l3out:
+      name: L3out1
     state: present
   register: nm_bd_site_l3out
 
@@ -153,7 +199,7 @@
     that:
     - nm_bd_site_l3out is changed
     - nm_bd_site_l3out.previous == {}
-    - nm_bd_site_l3out.current == "L3out1"
+    - nm_bd_site_l3out.current.l3outName == "L3out1"
 
 - name: Query a specific BD site l3out
   mso_schema_site_bd_l3out:
@@ -162,7 +208,8 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
     bd: ansible_test_1
-    l3out: L3out1
+    l3out:
+      name: L3out1
     state: query
   register: query_result
 
@@ -170,7 +217,44 @@
   assert:
     that:
     - query_result is not changed
-    - query_result.current == "L3out1"
+    - nm_bd_site_l3out.current.l3outName == "L3out1"
+
+- name: Add l3out2 from different template to BD Site
+  mso_schema_site_bd_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
+    l3out:
+      name: L3out2
+      template: Template2
+    state: present
+  register: nm_bd_site_l3out2
+
+- name: Add l3out3 from different schema to BD Site
+  mso_schema_site_bd_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_1
+    l3out:
+      name: L3out3
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template3
+    state: present
+  register: nm_bd_site_l3out3
+
+- name: Verify nm_bd_site_l3out2 and nm_bd_site_l3out3
+  assert:
+    that:
+    - nm_bd_site_l3out2 is changed
+    - nm_bd_site_l3out2.previous == {}
+    - nm_bd_site_l3out2.current.l3outName == "L3out2"
+    - nm_bd_site_l3out3 is changed
+    - nm_bd_site_l3out3.previous == {}
+    - nm_bd_site_l3out3.current.l3outName == "L3out3"
 
 - name: Query all BD site l3outs
   mso_schema_site_bd_l3out:
@@ -179,7 +263,6 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
     bd: ansible_test_1
-    l3out: L3out1
     state: query
   register: query_all
 
@@ -187,7 +270,9 @@
   assert:
     that:
     - query_all is not changed
-    - query_all.current == "L3out1"
+    - query_all.current.0.l3outName == "L3out1"
+    - query_all.current.1.l3outName == "L3out2"
+    - query_all.current.2.l3outName == "L3out3"
 
 # Checking error conditions
 - name: Use non_existing template
@@ -197,7 +282,8 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: non_existing_template
     bd: ansible_test_1
-    l3out: L3out1
+    l3out:
+      name: L3out1
     state: query
   ignore_errors: yes
   register: non_existing_template
@@ -220,7 +306,8 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
     bd: ansible_test_1
-    l3out: non_existing_L3out
+    l3out:
+      name: non_existing_L3out
     state: query
   ignore_errors: yes
   register: non_existing_l3out
@@ -229,9 +316,9 @@
   assert:
     that:
     - non_existing_template is not changed
-    - non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates 'Template1, Template3'"
+    - non_existing_template.msg == "Provided template 'non_existing_template' not matching existing template(s): Template1, Template2"
     - non_existing_bd is not changed
-    - non_existing_bd.msg == "Provided BD 'BD1' does not exist. Existing BDs 'ansible_test_1'"
+    - non_existing_bd.msg == "Provided BD 'BD1' not matching existing bd(s): ansible_test_1"
     - non_existing_l3out is not changed
     - non_existing_l3out.msg == "L3out 'non_existing_L3out' not found"
 
@@ -243,7 +330,8 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
     bd: ansible_test_1
-    l3out: L3out1
+    l3out:
+      name: L3out1
     state: absent
   register: remove_bd_site_l3out
 
@@ -251,7 +339,7 @@
   assert:
     that:
     - remove_bd_site_l3out is changed
-    - remove_bd_site_l3out.previous == "L3out1"
+    - remove_bd_site_l3out.previous.l3outName == "L3out1"
     - remove_bd_site_l3out.current == {}
 
 - name: Remove BD from site
@@ -311,7 +399,8 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template1
     bd: ansible_bd
-    l3out: L3out1
+    l3out:
+      name: L3out1
     state: present
   register: add_bd_site_l3out
 
@@ -320,4 +409,4 @@
     that:
     - add_bd_site_l3out is changed
     - add_bd_site_l3out.previous == {}
-    - add_bd_site_l3out.current == "L3out1"
+    - add_bd_site_l3out.current.l3outName == "L3out1"

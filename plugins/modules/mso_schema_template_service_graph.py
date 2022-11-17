@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_template_service_graph
 short_description: Manage Service Graph in schema templates
@@ -68,9 +67,9 @@ options:
     choices: [ absent, present, query ]
     default: present
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a new Service Graph
   cisco.mso.mso_schema_template_service_graph:
     host: mso_host
@@ -117,10 +116,10 @@ EXAMPLES = r'''
     template: Template1
     state: query
   delegate_to: localhost
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_service_graph_node_spec
@@ -129,33 +128,33 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        service_graph=dict(type='str', aliases=['name']),
-        description=dict(type='str', default=''),
-        display_name=dict(type='str'),
-        service_nodes=dict(type='list', elements='dict', options=mso_service_graph_node_spec()),
-        filter_after_first_node=dict(type='str', choices=['allow_all', 'filters_from_contract']),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        schema=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        service_graph=dict(type="str", aliases=["name"]),
+        description=dict(type="str", default=""),
+        display_name=dict(type="str"),
+        service_nodes=dict(type="list", elements="dict", options=mso_service_graph_node_spec()),
+        filter_after_first_node=dict(type="str", choices=["allow_all", "filters_from_contract"]),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['service_graph']],
-            ['state', 'present', ['service_graph', 'service_nodes']],
+            ["state", "absent", ["service_graph"]],
+            ["state", "present", ["service_graph", "service_nodes"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    template = module.params.get('template').replace(' ', '')
-    service_graph = module.params.get('service_graph')
-    display_name = module.params.get('display_name')
-    description = module.params.get('description')
-    service_nodes = module.params.get('service_nodes')
-    filter_after_first_node = module.params.get('filter_after_first_node')
-    state = module.params.get('state')
+    schema = module.params.get("schema")
+    template = module.params.get("template").replace(" ", "")
+    service_graph = module.params.get("service_graph")
+    display_name = module.params.get("display_name")
+    description = module.params.get("description")
+    service_nodes = module.params.get("service_nodes")
+    filter_after_first_node = module.params.get("filter_after_first_node")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -163,75 +162,80 @@ def main():
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
-    templates = [t.get('name') for t in schema_obj.get('templates')]
+    templates = [t.get("name") for t in schema_obj.get("templates")]
     if template not in templates:
-        mso.fail_json(msg="Provided template '{template}' does not exist. Existing templates: {templates}".format(template=template,
-                                                                                                                  templates=', '.join(templates)))
+        mso.fail_json(
+            msg="Provided template '{template}' does not exist. Existing templates: {templates}".format(template=template, templates=", ".join(templates))
+        )
     template_idx = templates.index(template)
 
     mso.existing = {}
     service_graph_idx = None
 
     # Get Service Graphs
-    service_graphs = [f.get('name') for f in schema_obj.get('templates')[template_idx]['serviceGraphs']]
+    service_graphs = [f.get("name") for f in schema_obj.get("templates")[template_idx]["serviceGraphs"]]
     if service_graph in service_graphs:
         service_graph_idx = service_graphs.index(service_graph)
-        mso.existing = schema_obj.get('templates')[template_idx]['serviceGraphs'][service_graph_idx]
+        mso.existing = schema_obj.get("templates")[template_idx]["serviceGraphs"][service_graph_idx]
 
-    if state == 'query':
+    if state == "query":
         if service_graph is None:
-            mso.existing = schema_obj.get('templates')[template_idx]['serviceGraphs']
+            mso.existing = schema_obj.get("templates")[template_idx]["serviceGraphs"]
         if service_graph is not None and service_graph_idx is None:
             mso.fail_json(msg="Service Graph '{service_graph}' not found".format(service_graph=service_graph))
         mso.exit_json()
 
-    service_graphs_path = '/templates/{0}/serviceGraphs/-'.format(template)
-    service_graph_path = '/templates/{0}/serviceGraphs/{1}'.format(template, service_graph)
+    service_graphs_path = "/templates/{0}/serviceGraphs/-".format(template)
+    service_graph_path = "/templates/{0}/serviceGraphs/{1}".format(template, service_graph)
     ops = []
 
     mso.previous = mso.existing
-    if state == 'absent':
+    if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=service_graph_path))
+            ops.append(dict(op="remove", path=service_graph_path))
 
-    elif state == 'present':
+    elif state == "present":
         nodes_payload = []
         service_node_index = 0
 
-        if filter_after_first_node == 'allow_all':
-            filter_after_first_node = 'allow-all'
-        elif filter_after_first_node == 'filters_from_contract':
-            filter_after_first_node = 'filters-from-contract'
+        if filter_after_first_node == "allow_all":
+            filter_after_first_node = "allow-all"
+        elif filter_after_first_node == "filters_from_contract":
+            filter_after_first_node = "filters-from-contract"
 
         if display_name is None:
             display_name = service_graph
 
         # Get service nodes
         query_node_data = mso.query_service_node_types()
-        service_node_types = [f.get('name') for f in query_node_data]
+        service_node_types = [f.get("name") for f in query_node_data]
         if service_nodes is not None:
             for node in service_nodes:
-                node_name = node.get('type')
+                node_name = node.get("type")
                 if node_name in service_node_types:
                     service_node_index = service_node_index + 1
                     for node_data in query_node_data:
-                        if node_data['name'] == node_name:
-                            nodes_payload.append(dict(
-                                name=node_name,
-                                serviceNodeTypeId=node_data.get('id'),
-                                index=service_node_index,
-                                serviceNodeRef=dict(
-                                    serviceNodeName=node_name,
-                                    serviceGraphName=service_graph,
-                                    templateName=template,
-                                    schemaId=schema_id,
-                                )
-                            ),
+                        if node_data["name"] == node_name:
+                            nodes_payload.append(
+                                dict(
+                                    name=node_name,
+                                    serviceNodeTypeId=node_data.get("id"),
+                                    index=service_node_index,
+                                    serviceNodeRef=dict(
+                                        serviceNodeName=node_name,
+                                        serviceGraphName=service_graph,
+                                        templateName=template,
+                                        schemaId=schema_id,
+                                    ),
+                                ),
                             )
                 else:
-                    mso.fail_json("Provided service node type '{node_name}' does not exist. Existing service node types include: {node_types}"
-                                  .format(node_name=node_name, node_types=', '.join(service_node_types)))
+                    mso.fail_json(
+                        "Provided service node type '{node_name}' does not exist. Existing service node types include: {node_types}".format(
+                            node_name=node_name, node_types=", ".join(service_node_types)
+                        )
+                    )
 
         payload = dict(
             name=service_graph,
@@ -249,14 +253,14 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if not mso.existing:
-            ops.append(dict(op='add', path=service_graphs_path, value=payload))
+            ops.append(dict(op="add", path=service_graphs_path, value=payload))
         else:
-            ops.append(dict(op='replace', path=service_graph_path, value=mso.sent))
+            ops.append(dict(op="replace", path=service_graph_path, value=mso.sent))
 
         mso.existing = mso.proposed
 
     if not module.check_mode:
-        mso.request(schema_path, method='PATCH', data=ops)
+        mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
 

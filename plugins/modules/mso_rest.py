@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_rest
 short_description: Direct access to the Cisco MSO REST API
@@ -53,9 +52,9 @@ seealso:
 - module: cisco.mso.mso_tenant
 author:
 - Anvitha Jain (@anvitha-jain)
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add schema (JSON)
   cisco.mso.mso_rest:
     host: mso
@@ -121,14 +120,15 @@ EXAMPLES = r'''
     path: /api/v1/tenants
     content: "{{ lookup('template', 'mso/tenant.json.j2') }}"
   delegate_to: localhost
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 # Optional, only used for YAML validation
 try:
     import yaml
+
     HAS_YAML = True
 except Exception:
     HAS_YAML = False
@@ -141,17 +141,17 @@ from ansible.module_utils._text import to_text
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        path=dict(type='str', required=True, aliases=['uri']),
-        method=dict(type='str', default='get', choices=['delete', 'get', 'post', 'put', 'patch'], aliases=['action']),
-        content=dict(type='raw', aliases=['payload']),
+        path=dict(type="str", required=True, aliases=["uri"]),
+        method=dict(type="str", default="get", choices=["delete", "get", "post", "put", "patch"], aliases=["action"]),
+        content=dict(type="raw", aliases=["payload"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
     )
 
-    content = module.params.get('content')
-    path = module.params.get('path')
+    content = module.params.get("content")
+    path = module.params.get("path")
 
     mso = MSOModule(module)
 
@@ -161,26 +161,26 @@ def main():
             # Validate YAML/JSON string
             content = yaml.safe_load(content)
         except Exception as e:
-            module.fail_json(msg='Failed to parse provided JSON/YAML payload: %s' % to_text(e), exception=to_text(e), payload=content)
+            module.fail_json(msg="Failed to parse provided JSON/YAML payload: %s" % to_text(e), exception=to_text(e), payload=content)
 
-    mso.method = mso.params.get('method').upper()
+    mso.method = mso.params.get("method").upper()
 
     # Perform request
     if module.check_mode:
-        mso.result['jsondata'] = content
+        mso.result["jsondata"] = content
     else:
-        mso.result['jsondata'] = mso.request(path, method=mso.method, data=content, api_version=None)
+        mso.result["jsondata"] = mso.request(path, method=mso.method, data=content, api_version=None)
 
-    mso.result['status'] = mso.status
+    mso.result["status"] = mso.status
 
-    if mso.method != 'GET':
-        mso.result['changed'] = True
-        if mso.method == 'DELETE':
-            mso.result['jsondata'] = None
+    if mso.method != "GET":
+        mso.result["changed"] = True
+        if mso.method == "DELETE":
+            mso.result["jsondata"] = None
 
     # Report success
     mso.exit_json(**mso.result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

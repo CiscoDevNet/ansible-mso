@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_user
 short_description: Manage users
@@ -76,9 +75,9 @@ notes:
 - A default installation of ACI Multi-Site ships with admin password 'we1come!' which requires a password change on first login.
   See the examples of how to change the 'admin' password using Ansible.
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Update initial admin password
   cisco.mso.mso_user:
     host: mso_host
@@ -155,9 +154,9 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r''' # '''
+RETURN = r""" # """
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, issubset
@@ -166,73 +165,73 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        user=dict(type='str', aliases=['name']),
-        user_password=dict(type='str', no_log=True),
-        first_name=dict(type='str'),
-        last_name=dict(type='str'),
-        email=dict(type='str'),
-        phone=dict(type='str'),
+        user=dict(type="str", aliases=["name"]),
+        user_password=dict(type="str", no_log=True),
+        first_name=dict(type="str"),
+        last_name=dict(type="str"),
+        email=dict(type="str"),
+        phone=dict(type="str"),
         # TODO: What possible options do we have ?
-        account_status=dict(type='str', choices=['active', 'inactive']),
-        domain=dict(type='str'),
-        roles=dict(type='list', elements='str'),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        account_status=dict(type="str", choices=["active", "inactive"]),
+        domain=dict(type="str"),
+        roles=dict(type="list", elements="str"),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['user']],
-            ['state', 'present', ['user']],
+            ["state", "absent", ["user"]],
+            ["state", "present", ["user"]],
         ],
     )
 
-    user_name = module.params.get('user')
-    user_password = module.params.get('user_password')
-    first_name = module.params.get('first_name')
-    last_name = module.params.get('last_name')
-    email = module.params.get('email')
-    phone = module.params.get('phone')
-    account_status = module.params.get('account_status')
-    state = module.params.get('state')
+    user_name = module.params.get("user")
+    user_password = module.params.get("user_password")
+    first_name = module.params.get("first_name")
+    last_name = module.params.get("last_name")
+    email = module.params.get("email")
+    phone = module.params.get("phone")
+    account_status = module.params.get("account_status")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
-    roles = mso.lookup_roles(module.params.get('roles'))
-    domain = mso.lookup_domain(module.params.get('domain'))
+    roles = mso.lookup_roles(module.params.get("roles"))
+    domain = mso.lookup_domain(module.params.get("domain"))
 
     user_id = None
-    path = 'users'
+    path = "users"
 
     # Query for existing object(s)
     if user_name:
         if mso.module._socket_path and mso.connection.get_platform() == "cisco.nd":
-            mso.existing = mso.get_obj(path, loginID=user_name, api_version='v2')
+            mso.existing = mso.get_obj(path, loginID=user_name, api_version="v2")
             if mso.existing:
-                mso.existing['id'] = mso.existing.get('userID')
-                mso.existing['username'] = mso.existing.get('loginID')
+                mso.existing["id"] = mso.existing.get("userID")
+                mso.existing["username"] = mso.existing.get("loginID")
         else:
             mso.existing = mso.get_obj(path, username=user_name)
         if mso.existing:
-            user_id = mso.existing.get('id')
+            user_id = mso.existing.get("id")
             # If we found an existing object, continue with it
-            path = 'users/{id}'.format(id=user_id)
+            path = "users/{id}".format(id=user_id)
     else:
         mso.existing = mso.query_objs(path)
 
-    if state == 'query':
+    if state == "query":
         pass
 
-    elif state == 'absent':
+    elif state == "absent":
         mso.previous = mso.existing
         if mso.existing:
             if module.check_mode:
                 mso.existing = {}
             else:
-                mso.existing = mso.request(path, method='DELETE')
+                mso.existing = mso.request(path, method="DELETE")
 
-    elif state == 'present':
+    elif state == "present":
         mso.previous = mso.existing
 
         payload = dict(
@@ -254,20 +253,20 @@ def main():
 
         mso.sanitize(payload, collate=True)
 
-        if mso.sent.get('accountStatus') is None:
-            mso.sent['accountStatus'] = 'active'
+        if mso.sent.get("accountStatus") is None:
+            mso.sent["accountStatus"] = "active"
 
         if mso.existing:
             if not issubset(mso.sent, mso.existing):
                 # NOTE: Since MSO always returns '******' as password, we need to assume a change
-                if 'password' in mso.proposed:
+                if "password" in mso.proposed:
                     mso.module.warn("A password change is assumed, as the MSO REST API does not return passwords we do not know.")
-                    mso.result['changed'] = True
+                    mso.result["changed"] = True
 
                 if module.check_mode:
                     mso.existing = mso.proposed
                 else:
-                    mso.existing = mso.request(path, method='PUT', data=mso.sent)
+                    mso.existing = mso.request(path, method="PUT", data=mso.sent)
 
         else:
             if user_password is None:
@@ -275,7 +274,7 @@ def main():
             if module.check_mode:
                 mso.existing = mso.proposed
             else:
-                mso.existing = mso.request(path, method='POST', data=mso.sent)
+                mso.existing = mso.request(path, method="POST", data=mso.sent)
 
     mso.exit_json()
 

@@ -5,15 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {
-    'metadata_version': '1.1',
-    'status': ['preview'],
-    'supported_by': 'community'
-}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_template_contract_service_graph
 short_description: Manage the service graph association with a contract in schema template
@@ -99,9 +96,9 @@ options:
 seealso:
 - module: cisco.mso.mso_schema_template_contract_filter
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a new contract service graph
   cisco.mso.mso_schema_template_contract_service_graph:
     host: mso_host
@@ -141,10 +138,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_service_graph_connector_spec
@@ -155,34 +152,34 @@ def main():
 
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        contract=dict(type='str', required=True),
-        service_graph=dict(type='str'),
-        service_graph_template=dict(type='str'),
-        service_graph_schema=dict(type='str'),
-        service_nodes=dict(type='list', elements='dict', options=mso_service_graph_connector_spec()),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        schema=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        contract=dict(type="str", required=True),
+        service_graph=dict(type="str"),
+        service_graph_template=dict(type="str"),
+        service_graph_schema=dict(type="str"),
+        service_nodes=dict(type="list", elements="dict", options=mso_service_graph_connector_spec()),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['service_graph']],
-            ['state', 'present', ['service_graph', 'service_nodes']],
+            ["state", "absent", ["service_graph"]],
+            ["state", "present", ["service_graph", "service_nodes"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    template_name = module.params.get('template').replace(' ', '')
-    contract_name = module.params.get('contract')
-    service_graph_name = module.params.get('service_graph')
-    service_graph_template = module.params.get('service_graph_template')
-    service_graph_schema = module.params.get('service_graph_schema')
-    service_nodes = module.params.get('service_nodes')
+    schema = module.params.get("schema")
+    template_name = module.params.get("template").replace(" ", "")
+    contract_name = module.params.get("contract")
+    service_graph_name = module.params.get("service_graph")
+    service_graph_template = module.params.get("service_graph_template")
+    service_graph_schema = module.params.get("service_graph_schema")
+    service_nodes = module.params.get("service_nodes")
 
-    state = module.params.get('state')
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -191,120 +188,131 @@ def main():
     service_graph_obj = None
 
     # Set path defaults for create logic, if object (contract or filter) is found replace the "-" for specific value
-    base_contract_path = '/templates/{0}/contracts'.format(template_name)
-    service_graph_path = '{0}/{1}/serviceGraphRelationship'.format(base_contract_path, contract_name)
+    base_contract_path = "/templates/{0}/contracts".format(template_name)
+    service_graph_path = "{0}/{1}/serviceGraphRelationship".format(base_contract_path, contract_name)
 
     # Get schema
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
-    template_obj = next((item for item in schema_obj.get('templates') if item.get('name') == template_name), None)
+    template_obj = next((item for item in schema_obj.get("templates") if item.get("name") == template_name), None)
     if not template_obj:
-        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(
-            template_name, ', '.join([t.get('name') for t in schema_obj.get('templates')])))
+        mso.fail_json(
+            msg="Provided template '{0}' does not exist. Existing templates: {1}".format(
+                template_name, ", ".join([t.get("name") for t in schema_obj.get("templates")])
+            )
+        )
 
     # Get contract
-    contract_obj = next((item for item in template_obj.get('contracts') if item.get('name') == contract_name), None)
+    contract_obj = next((item for item in template_obj.get("contracts") if item.get("name") == contract_name), None)
     if contract_obj:
         # Get service graph if it exists in contract
-        if contract_obj.get('serviceGraphRelationship'):
-            service_graph_obj = contract_obj.get('serviceGraphRelationship')
+        if contract_obj.get("serviceGraphRelationship"):
+            service_graph_obj = contract_obj.get("serviceGraphRelationship")
             mso.update_service_graph_obj(service_graph_obj)
             mso.existing = service_graph_obj
     else:
-        mso.fail_json(msg="Provided contract '{0}' does not exist. Existing contracts: {1}".format(
-            contract_name, ', '.join([c.get('name') for c in template_obj.get('contracts')])))
+        mso.fail_json(
+            msg="Provided contract '{0}' does not exist. Existing contracts: {1}".format(
+                contract_name, ", ".join([c.get("name") for c in template_obj.get("contracts")])
+            )
+        )
 
-    if state == 'query':
+    if state == "query":
 
         mso.exit_json()
 
     mso.previous = mso.existing
 
-    if state == 'absent':
+    if state == "absent":
 
-        if contract_obj.get('serviceGraphRelationship'):
+        if contract_obj.get("serviceGraphRelationship"):
             mso.existing = {}
-            ops.append(dict(op='remove', path=service_graph_path))
+            ops.append(dict(op="remove", path=service_graph_path))
 
-    elif state == 'present':
+    elif state == "present":
 
         service_nodes_relationship = []
-        service_graph_template = service_graph_template.replace(' ', '') if service_graph_template else template_name
+        service_graph_template = service_graph_template.replace(" ", "") if service_graph_template else template_name
         service_graph_schema = service_graph_schema if service_graph_schema else schema
         service_graph_schema_id, service_graph_schema_path, service_graph_schema_obj = mso.query_schema(service_graph_schema)
 
         # Validation to check if amount of service graph nodes provided is matching the service graph template.
         # The API allows providing more or less service graph nodes behaviour but the GUI does not.
-        service_graph_template_obj = next((item for item in service_graph_schema_obj.get('templates') if item.get('name') == service_graph_template), None)
+        service_graph_template_obj = next((item for item in service_graph_schema_obj.get("templates") if item.get("name") == service_graph_template), None)
         if not service_graph_template_obj:
-            mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(
-                template_name, ', '.join([t.get('name') for t in service_graph_schema_obj.get('templates')])))
-        service_graph_schema_obj = next((item for item in service_graph_template_obj.get('serviceGraphs') if item.get('name') == service_graph_name), None)
+            mso.fail_json(
+                msg="Provided template '{0}' does not exist. Existing templates: {1}".format(
+                    template_name, ", ".join([t.get("name") for t in service_graph_schema_obj.get("templates")])
+                )
+            )
+        service_graph_schema_obj = next((item for item in service_graph_template_obj.get("serviceGraphs") if item.get("name") == service_graph_name), None)
         if service_graph_schema_obj:
-            if len(service_nodes) < len(service_graph_schema_obj.get('serviceNodes')):
-                mso.fail_json(msg="Not enough service nodes defined, {0} service node(s) provided when {1} needed.".format(
-                    len(service_nodes), len(service_graph_schema_obj.get('serviceNodes'))))
-            elif len(service_nodes) > len(service_graph_schema_obj.get('serviceNodes')):
-                mso.fail_json(msg="Too many service nodes defined, {0} service nodes provided when {1} needed.".format(
-                    len(service_nodes), len(service_graph_schema_obj.get('serviceNodes'))))
+            if len(service_nodes) < len(service_graph_schema_obj.get("serviceNodes")):
+                mso.fail_json(
+                    msg="Not enough service nodes defined, {0} service node(s) provided when {1} needed.".format(
+                        len(service_nodes), len(service_graph_schema_obj.get("serviceNodes"))
+                    )
+                )
+            elif len(service_nodes) > len(service_graph_schema_obj.get("serviceNodes")):
+                mso.fail_json(
+                    msg="Too many service nodes defined, {0} service nodes provided when {1} needed.".format(
+                        len(service_nodes), len(service_graph_schema_obj.get("serviceNodes"))
+                    )
+                )
         else:
             mso.fail_json(msg="Provided service graph '{0}' does not exist.".format(service_graph_name))
 
         for node_id, service_node in enumerate(service_nodes, 1):
             # Consumer and provider share connector details (so provider/consumer could have separate details in future)
-            connector_details = SERVICE_NODE_CONNECTOR_MAP.get(service_node.get('connector_object_type'))
-            provider_schema = mso.lookup_schema(service_node.get('provider_schema')) if service_node.get('provider_schema') else schema_id
-            provider_template = service_node.get('provider_template').replace(' ', '') if service_node.get('provider_template') else template_name
-            consumer_schema = mso.lookup_schema(service_node.get('consumer_schema')) if service_node.get('consumer_schema') else schema_id
-            consumer_template = service_node.get('consumer_template').replace(' ', '') if service_node.get('consumer_template') else template_name
+            connector_details = SERVICE_NODE_CONNECTOR_MAP.get(service_node.get("connector_object_type"))
+            provider_schema = mso.lookup_schema(service_node.get("provider_schema")) if service_node.get("provider_schema") else schema_id
+            provider_template = service_node.get("provider_template").replace(" ", "") if service_node.get("provider_template") else template_name
+            consumer_schema = mso.lookup_schema(service_node.get("consumer_schema")) if service_node.get("consumer_schema") else schema_id
+            consumer_template = service_node.get("consumer_template").replace(" ", "") if service_node.get("consumer_template") else template_name
 
             service_nodes_relationship.append(
                 {
-                    'serviceNodeRef': dict(
+                    "serviceNodeRef": dict(
                         schemaId=service_graph_schema_id,
                         templateName=service_graph_template,
                         serviceGraphName=service_graph_name,
-                        serviceNodeName="node{0}".format(node_id)
+                        serviceNodeName="node{0}".format(node_id),
                     ),
-                    'providerConnector': {
-                        'connectorType': connector_details.get('connector_type'),
-                        "{0}Ref".format(connector_details.get('id')): {
-                            'schemaId': provider_schema,
-                            'templateName': provider_template,
-                            "{0}Name".format(connector_details.get('id')): service_node.get('provider')
+                    "providerConnector": {
+                        "connectorType": connector_details.get("connector_type"),
+                        "{0}Ref".format(connector_details.get("id")): {
+                            "schemaId": provider_schema,
+                            "templateName": provider_template,
+                            "{0}Name".format(connector_details.get("id")): service_node.get("provider"),
                         },
                     },
-                    'consumerConnector': {
-                        'connectorType': connector_details.get('connector_type'),
-                        "{0}Ref".format(connector_details.get('id')): {
-                            'schemaId': consumer_schema,
-                            'templateName': consumer_template,
-                            "{0}Name".format(connector_details.get('id')): service_node.get('consumer')
+                    "consumerConnector": {
+                        "connectorType": connector_details.get("connector_type"),
+                        "{0}Ref".format(connector_details.get("id")): {
+                            "schemaId": consumer_schema,
+                            "templateName": consumer_template,
+                            "{0}Name".format(connector_details.get("id")): service_node.get("consumer"),
                         },
-                    }
+                    },
                 }
             )
 
         service_graph_payload = dict(
-            serviceGraphRef=dict(
-                serviceGraphName=service_graph_name,
-                templateName=service_graph_template,
-                schemaId=service_graph_schema_id
-            ),
-            serviceNodesRelationship=service_nodes_relationship
+            serviceGraphRef=dict(serviceGraphName=service_graph_name, templateName=service_graph_template, schemaId=service_graph_schema_id),
+            serviceNodesRelationship=service_nodes_relationship,
         )
 
         # If service graph exist the operation should be set to "replace" else operation is "add" to create new
         if service_graph_obj:
-            ops.append(dict(op='replace', path=service_graph_path, value=service_graph_payload))
+            ops.append(dict(op="replace", path=service_graph_path, value=service_graph_payload))
         else:
-            ops.append(dict(op='add', path=service_graph_path, value=service_graph_payload))
+            ops.append(dict(op="add", path=service_graph_path, value=service_graph_payload))
 
         mso.existing = mso.sent = service_graph_payload
 
     if not module.check_mode and mso.existing != mso.previous:
-        mso.request(schema_path, method='PATCH', data=ops)
+        mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
 

@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_template_deploy_status
 short_description: Check query of objects before deployment to site
@@ -40,9 +39,9 @@ options:
     choices: [ query ]
     default: query
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 
 - name: Query status of objects in a template
   cisco.mso.mso_schema_template_deploy_status:
@@ -87,10 +86,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
@@ -99,55 +98,55 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', aliases=['name']),
-        template=dict(type='str'),
-        site=dict(type='str'),
-        state=dict(type='str', default='query', choices=['query']),
+        schema=dict(type="str", aliases=["name"]),
+        template=dict(type="str"),
+        site=dict(type="str"),
+        state=dict(type="str", default="query", choices=["query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'query', ['schema']],
+            ["state", "query", ["schema"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    template = module.params.get('template')
+    schema = module.params.get("schema")
+    template = module.params.get("template")
     if template is not None:
-        template = template.replace(' ', '')
-    site = module.params.get('site')
-    state = module.params.get('state')
+        template = template.replace(" ", "")
+    site = module.params.get("site")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
     schema_id = None
-    path = 'schemas'
+    path = "schemas"
 
     get_schema = mso.get_obj(path, displayName=schema)
     if get_schema:
-        schema_id = get_schema.get('id')
-        path = 'schemas/{id}/policy-states'.format(id=schema_id)
+        schema_id = get_schema.get("id")
+        path = "schemas/{id}/policy-states".format(id=schema_id)
     else:
         mso.fail_json(msg="Schema '{0}' not found.".format(schema))
 
-    if state == 'query':
-        get_data = mso.request(path, method='GET')
+    if state == "query":
+        get_data = mso.request(path, method="GET")
         mso.existing = []
         if template:
-            for configuration_objects in get_data.get('policyStates'):
-                if configuration_objects.get('templateName') == template:
+            for configuration_objects in get_data.get("policyStates"):
+                if configuration_objects.get("templateName") == template:
                     mso.existing.append(configuration_objects)
             if not mso.existing:
                 mso.fail_json(msg="Template '{0}' not found.".format(template))
 
         if site:
             mso.existing.clear()
-            for configuration_objects in get_data.get('policyStates'):
-                if configuration_objects.get('siteId') == mso.lookup_site(site):
+            for configuration_objects in get_data.get("policyStates"):
+                if configuration_objects.get("siteId") == mso.lookup_site(site):
                     if template:
-                        if configuration_objects.get('templateName') == template:
+                        if configuration_objects.get("templateName") == template:
                             mso.existing = configuration_objects
                     else:
                         mso.existing.append(configuration_objects)

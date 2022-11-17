@@ -6,13 +6,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_site_vrf_region
 short_description: Manage site-local VRF regions in schema template
@@ -87,9 +86,9 @@ seealso:
 - module: cisco.mso.mso_schema_site_vrf
 - module: cisco.mso.mso_schema_template_vrf
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Remove VPN Gateway Router at site VRF Region
   cisco.mso.mso_schema_site_vrf_region:
     host: mso_host
@@ -143,10 +142,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
@@ -155,38 +154,41 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        site=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        vrf=dict(type='str', required=True),
-        region=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
-        vpn_gateway_router=dict(type='bool'),
-        container_overlay=dict(type='bool'),
-        underlay_context_profile=dict(type='dict', options=dict(
-            vrf=dict(type='str', required=True),
-            region=dict(type='str', required=True),
-        )),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        schema=dict(type="str", required=True),
+        site=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        vrf=dict(type="str", required=True),
+        region=dict(type="str", aliases=["name"]),  # This parameter is not required for querying all objects
+        vpn_gateway_router=dict(type="bool"),
+        container_overlay=dict(type="bool"),
+        underlay_context_profile=dict(
+            type="dict",
+            options=dict(
+                vrf=dict(type="str", required=True),
+                region=dict(type="str", required=True),
+            ),
+        ),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['region']],
-            ['state', 'present', ['region']],
+            ["state", "absent", ["region"]],
+            ["state", "present", ["region"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    site = module.params.get('site')
-    template = module.params.get('template').replace(' ', '')
-    vrf = module.params.get('vrf')
-    region = module.params.get('region')
-    vpn_gateway_router = module.params.get('vpn_gateway_router')
-    container_overlay = module.params.get('container_overlay')
-    underlay_context_profile = module.params.get('underlay_context_profile')
-    state = module.params.get('state')
+    schema = module.params.get("schema")
+    site = module.params.get("site")
+    template = module.params.get("template").replace(" ", "")
+    vrf = module.params.get("vrf")
+    region = module.params.get("region")
+    vpn_gateway_router = module.params.get("vpn_gateway_router")
+    container_overlay = module.params.get("container_overlay")
+    underlay_context_profile = module.params.get("underlay_context_profile")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -197,49 +199,49 @@ def main():
     site_id = mso.lookup_site(site)
 
     # Get site_idx
-    if 'sites' not in schema_obj:
+    if "sites" not in schema_obj:
         mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
-    sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
+    sites = [(s.get("siteId"), s.get("templateName")) for s in schema_obj.get("sites")]
     if (site_id, template) not in sites:
         mso.fail_json(msg="Provided site-template association '{0}-{1}' does not exist.".format(site, template))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
     # Path-based access uses site_id-template
-    site_template = '{0}-{1}'.format(site_id, template)
+    site_template = "{0}-{1}".format(site_id, template)
 
     # Get VRF
     vrf_ref = mso.vrf_ref(schema_id=schema_id, template=template, vrf=vrf)
-    vrfs = [v.get('vrfRef') for v in schema_obj.get('sites')[site_idx]['vrfs']]
-    vrfs_name = [mso.dict_from_ref(v).get('vrfName') for v in vrfs]
+    vrfs = [v.get("vrfRef") for v in schema_obj.get("sites")[site_idx]["vrfs"]]
+    vrfs_name = [mso.dict_from_ref(v).get("vrfName") for v in vrfs]
     if vrf_ref not in vrfs:
-        mso.fail_json(msg="Provided vrf '{0}' does not exist. Existing vrfs: {1}".format(vrf, ', '.join(vrfs_name)))
+        mso.fail_json(msg="Provided vrf '{0}' does not exist. Existing vrfs: {1}".format(vrf, ", ".join(vrfs_name)))
     vrf_idx = vrfs.index(vrf_ref)
 
     # Get Region
-    regions = [r.get('name') for r in schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions']]
+    regions = [r.get("name") for r in schema_obj.get("sites")[site_idx]["vrfs"][vrf_idx]["regions"]]
     if region is not None and region in regions:
         region_idx = regions.index(region)
-        region_path = '/sites/{0}/vrfs/{1}/regions/{2}'.format(site_template, vrf, region)
-        mso.existing = schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions'][region_idx]
+        region_path = "/sites/{0}/vrfs/{1}/regions/{2}".format(site_template, vrf, region)
+        mso.existing = schema_obj.get("sites")[site_idx]["vrfs"][vrf_idx]["regions"][region_idx]
 
-    if state == 'query':
+    if state == "query":
         if region is None:
-            mso.existing = schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['regions']
+            mso.existing = schema_obj.get("sites")[site_idx]["vrfs"][vrf_idx]["regions"]
         elif not mso.existing:
             mso.fail_json(msg="Region '{region}' not found".format(region=region))
         mso.exit_json()
 
-    regions_path = '/sites/{0}/vrfs/{1}/regions'.format(site_template, vrf)
+    regions_path = "/sites/{0}/vrfs/{1}/regions".format(site_template, vrf)
     ops = []
 
     mso.previous = mso.existing
-    if state == 'absent':
+    if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=region_path))
+            ops.append(dict(op="remove", path=region_path))
 
-    elif state == 'present':
+    elif state == "present":
 
         payload = dict(
             name=region,
@@ -247,28 +249,24 @@ def main():
         )
 
         if container_overlay:
-            payload['contextProfileType'] = 'container-overlay'
+            payload["contextProfileType"] = "container-overlay"
             if mso.existing:
                 underlay_dict = dict(
-                    vrfRef=dict(
-                        schemaId=schema_id,
-                        templateName=template,
-                        vrfName=underlay_context_profile['vrf']
-                    ),
-                    regionName=underlay_context_profile['region']
+                    vrfRef=dict(schemaId=schema_id, templateName=template, vrfName=underlay_context_profile["vrf"]),
+                    regionName=underlay_context_profile["region"],
                 )
-                payload['underlayCtxProfile'] = underlay_dict
+                payload["underlayCtxProfile"] = underlay_dict
 
         mso.sanitize(payload, collate=True)
         if mso.existing:
-            ops.append(dict(op='replace', path=region_path, value=mso.sent))
+            ops.append(dict(op="replace", path=region_path, value=mso.sent))
         else:
-            ops.append(dict(op='add', path=regions_path + '/-', value=mso.sent))
+            ops.append(dict(op="add", path=regions_path + "/-", value=mso.sent))
 
         mso.existing = mso.proposed
 
     if not module.check_mode:
-        mso.request(schema_path, method='PATCH', data=ops)
+        mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
 

@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_template_deploy
 short_description: Deploy schema templates to sites
@@ -47,9 +46,9 @@ seealso:
 - module: cisco.mso.mso_schema_site
 - module: cisco.mso.mso_schema_template
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Deploy a schema template
   cisco.mso.mso_schema_template_deploy:
     host: mso_host
@@ -81,10 +80,10 @@ EXAMPLES = r'''
     state: status
   delegate_to: localhost
   register: status_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
@@ -93,24 +92,24 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        template=dict(type='str', required=True, aliases=['name']),
-        site=dict(type='str'),
-        state=dict(type='str', default='deploy', choices=['deploy', 'status', 'undeploy']),
+        schema=dict(type="str", required=True),
+        template=dict(type="str", required=True, aliases=["name"]),
+        site=dict(type="str"),
+        state=dict(type="str", default="deploy", choices=["deploy", "status", "undeploy"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'undeploy', ['site']],
+            ["state", "undeploy", ["site"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    template = module.params.get('template').replace(' ', '')
-    site = module.params.get('site')
-    state = module.params.get('state')
+    schema = module.params.get("schema")
+    template = module.params.get("template").replace(" ", "")
+    site = module.params.get("site")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -123,17 +122,17 @@ def main():
     )
 
     qs = None
-    if state == 'deploy':
-        path = 'execute/schema/{0}/template/{1}'.format(schema_id, template)
-    elif state == 'status':
-        path = 'status/schema/{0}/template/{1}'.format(schema_id, template)
-    elif state == 'undeploy':
-        path = 'execute/schema/{0}/template/{1}'.format(schema_id, template)
+    if state == "deploy":
+        path = "execute/schema/{0}/template/{1}".format(schema_id, template)
+    elif state == "status":
+        path = "status/schema/{0}/template/{1}".format(schema_id, template)
+    elif state == "undeploy":
+        path = "execute/schema/{0}/template/{1}".format(schema_id, template)
         site_id = mso.lookup_site(site)
         qs = dict(undeploy=site_id)
 
     if not module.check_mode:
-        status = mso.request(path, method='GET', data=payload, qs=qs)
+        status = mso.request(path, method="GET", data=payload, qs=qs)
         mso.exit_json(**status)
     else:
         mso.exit_json()

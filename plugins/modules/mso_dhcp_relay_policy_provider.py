@@ -134,14 +134,14 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import (
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        dhcp_relay_policy=dict(type="str", required=True, aliases=['name']),
+        dhcp_relay_policy=dict(type="str", required=True, aliases=["name"]),
         ip=dict(type="str"),
         tenant=dict(type="str"),
         schema=dict(type="str"),
         template=dict(type="str"),
-        application_profile=dict(type="str", aliases=['anp']),
-        endpoint_group=dict(type="str", aliases=['epg']),
-        external_endpoint_group=dict(type="str", aliases=['ext_epg', 'external_epg']),
+        application_profile=dict(type="str", aliases=["anp"]),
+        endpoint_group=dict(type="str", aliases=["epg"]),
+        external_endpoint_group=dict(type="str", aliases=["ext_epg", "external_epg"]),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
     module = AnsibleModule(
@@ -159,7 +159,7 @@ def main():
     schema = module.params.get("schema")
     template = module.params.get("template")
     if template is not None:
-        template = template.replace(' ', '')
+        template = template.replace(" ", "")
     application_profile = module.params.get("application_profile")
     endpoint_group = module.params.get("endpoint_group")
     external_endpoint_group = module.params.get("external_endpoint_group")
@@ -175,41 +175,43 @@ def main():
 
     provider = dict(
         addr=ip,
-        externalEpgRef='',
-        epgRef='',
-        l3Ref='',
+        externalEpgRef="",
+        epgRef="",
+        l3Ref="",
         tenantId=tenant_id,
     )
     provider_index = None
     previous_provider = {}
 
     if application_profile is not None and endpoint_group is not None:
-        provider['epgRef'] = '/schemas/{schemaId}/templates/{templateName}/anps/{app}/epgs/{epg}'.format(
-            schemaId=schema_id, templateName=template, app=application_profile, epg=endpoint_group,
+        provider["epgRef"] = "/schemas/{schemaId}/templates/{templateName}/anps/{app}/epgs/{epg}".format(
+            schemaId=schema_id,
+            templateName=template,
+            app=application_profile,
+            epg=endpoint_group,
         )
     elif external_endpoint_group is not None:
-        provider['externalEpgRef'] = '/schemas/{schemaId}/templates/{templateName}/externalEpgs/{ext_epg}'.format(
+        provider["externalEpgRef"] = "/schemas/{schemaId}/templates/{templateName}/externalEpgs/{ext_epg}".format(
             schemaId=schema_id, templateName=template, ext_epg=external_endpoint_group
         )
 
     # Query for existing object(s)
     dhcp_relay_obj = mso.get_obj(path, name=dhcp_relay_policy, key="DhcpRelayPolicies")
-    if 'id' not in dhcp_relay_obj:
+    if "id" not in dhcp_relay_obj:
         mso.fail_json(msg="DHCP Relay Policy '{0}' is not a valid DHCP Relay Policy name.".format(dhcp_relay_policy))
     policy_id = dhcp_relay_obj.get("id")
     providers = []
     if "provider" in dhcp_relay_obj:
-        providers = dhcp_relay_obj.get('provider')
+        providers = dhcp_relay_obj.get("provider")
         for index, prov in enumerate(providers):
-            if (
-                (provider.get('epgRef') != '' and prov.get('epgRef') == provider.get('epgRef'))
-                or (provider.get('externalEpgRef') != '' and prov.get('externalEpgRef') == provider.get('externalEpgRef'))
+            if (provider.get("epgRef") != "" and prov.get("epgRef") == provider.get("epgRef")) or (
+                provider.get("externalEpgRef") != "" and prov.get("externalEpgRef") == provider.get("externalEpgRef")
             ):
                 previous_provider = prov
                 provider_index = index
 
     # If we found an existing object, continue with it
-    path = '{0}/{1}'.format(path, policy_id)
+    path = "{0}/{1}".format(path, policy_id)
 
     if state == "query":
         mso.existing = providers
@@ -241,10 +243,9 @@ def main():
         mso.sanitize(dhcp_relay_obj, collate=True)
         new_dhcp_relay_obj = mso.request(path, method="PUT", data=mso.sent)
         mso.existing = {}
-        for index, prov in enumerate(new_dhcp_relay_obj.get('provider')):
-            if (
-                (provider.get('epgRef') != '' and prov.get('epgRef') == provider.get('epgRef'))
-                or (provider.get('externalEpgRef') != '' and prov.get('externalEpgRef') == provider.get('externalEpgRef'))
+        for index, prov in enumerate(new_dhcp_relay_obj.get("provider")):
+            if (provider.get("epgRef") != "" and prov.get("epgRef") == provider.get("epgRef")) or (
+                provider.get("externalEpgRef") != "" and prov.get("externalEpgRef") == provider.get("externalEpgRef")
             ):
                 mso.existing = prov
 

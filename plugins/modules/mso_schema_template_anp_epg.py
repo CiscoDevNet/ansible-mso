@@ -6,13 +6,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_template_anp_epg
 short_description: Manage Endpoint Groups (EPGs) in schema templates
@@ -196,9 +195,9 @@ seealso:
 - module: cisco.mso.mso_schema_template_bd
 - module: cisco.mso.mso_schema_template_contract_filter
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a new EPG
   cisco.mso.mso_schema_template_anp_epg:
     host: mso_host
@@ -277,10 +276,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec, mso_epg_subnet_spec
@@ -289,61 +288,61 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        anp=dict(type='str', required=True),
-        epg=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
-        description=dict(type='str'),
-        bd=dict(type='dict', options=mso_reference_spec()),
-        vrf=dict(type='dict', options=mso_reference_spec()),
-        display_name=dict(type='str'),
-        useg_epg=dict(type='bool'),
-        intra_epg_isolation=dict(type='str', choices=['enforced', 'unenforced']),
-        intersite_multicast_source=dict(type='bool'),
-        proxy_arp=dict(type='bool'),
-        subnets=dict(type='list', elements='dict', options=mso_epg_subnet_spec()),
-        qos_level=dict(type='str'),
-        epg_type=dict(type='str', choices=['application', 'service']),
-        deployment_type=dict(type='str', choices=['cloud_native', 'cloud_native_managed', 'third_party']),
-        service_type=dict(type='str'),
-        access_type=dict(type='str', choices=['private', 'public', 'public_and_private']),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
-        preferred_group=dict(type='bool'),
+        schema=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        anp=dict(type="str", required=True),
+        epg=dict(type="str", aliases=["name"]),  # This parameter is not required for querying all objects
+        description=dict(type="str"),
+        bd=dict(type="dict", options=mso_reference_spec()),
+        vrf=dict(type="dict", options=mso_reference_spec()),
+        display_name=dict(type="str"),
+        useg_epg=dict(type="bool"),
+        intra_epg_isolation=dict(type="str", choices=["enforced", "unenforced"]),
+        intersite_multicast_source=dict(type="bool"),
+        proxy_arp=dict(type="bool"),
+        subnets=dict(type="list", elements="dict", options=mso_epg_subnet_spec()),
+        qos_level=dict(type="str"),
+        epg_type=dict(type="str", choices=["application", "service"]),
+        deployment_type=dict(type="str", choices=["cloud_native", "cloud_native_managed", "third_party"]),
+        service_type=dict(type="str"),
+        access_type=dict(type="str", choices=["private", "public", "public_and_private"]),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
+        preferred_group=dict(type="bool"),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['epg']],
-            ['state', 'present', ['epg']],
+            ["state", "absent", ["epg"]],
+            ["state", "present", ["epg"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    template = module.params.get('template').replace(' ', '')
-    anp = module.params.get('anp')
-    epg = module.params.get('epg')
-    description = module.params.get('description')
-    display_name = module.params.get('display_name')
-    bd = module.params.get('bd')
-    if bd is not None and bd.get('template') is not None:
-        bd['template'] = bd.get('template').replace(' ', '')
-    vrf = module.params.get('vrf')
-    if vrf is not None and vrf.get('template') is not None:
-        vrf['template'] = vrf.get('template').replace(' ', '')
-    useg_epg = module.params.get('useg_epg')
-    intra_epg_isolation = module.params.get('intra_epg_isolation')
-    intersite_multicast_source = module.params.get('intersite_multicast_source')
-    proxy_arp = module.params.get('proxy_arp')
-    subnets = module.params.get('subnets')
-    qos_level = module.params.get('qos_level')
-    epg_type = module.params.get('epg_type')
-    deployment_type = module.params.get('deployment_type')
-    service_type = module.params.get('service_type')
-    access_type = module.params.get('access_type')
-    state = module.params.get('state')
-    preferred_group = module.params.get('preferred_group')
+    schema = module.params.get("schema")
+    template = module.params.get("template").replace(" ", "")
+    anp = module.params.get("anp")
+    epg = module.params.get("epg")
+    description = module.params.get("description")
+    display_name = module.params.get("display_name")
+    bd = module.params.get("bd")
+    if bd is not None and bd.get("template") is not None:
+        bd["template"] = bd.get("template").replace(" ", "")
+    vrf = module.params.get("vrf")
+    if vrf is not None and vrf.get("template") is not None:
+        vrf["template"] = vrf.get("template").replace(" ", "")
+    useg_epg = module.params.get("useg_epg")
+    intra_epg_isolation = module.params.get("intra_epg_isolation")
+    intersite_multicast_source = module.params.get("intersite_multicast_source")
+    proxy_arp = module.params.get("proxy_arp")
+    subnets = module.params.get("subnets")
+    qos_level = module.params.get("qos_level")
+    epg_type = module.params.get("epg_type")
+    deployment_type = module.params.get("deployment_type")
+    service_type = module.params.get("service_type")
+    access_type = module.params.get("access_type")
+    state = module.params.get("state")
+    preferred_group = module.params.get("preferred_group")
 
     mso = MSOModule(module)
 
@@ -351,50 +350,50 @@ def main():
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
-    templates = [t.get('name') for t in schema_obj.get('templates')]
+    templates = [t.get("name") for t in schema_obj.get("templates")]
     if template not in templates:
-        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ", ".join(templates)))
     template_idx = templates.index(template)
 
     # Get ANP
-    anps = [a.get('name') for a in schema_obj.get('templates')[template_idx]['anps']]
+    anps = [a.get("name") for a in schema_obj.get("templates")[template_idx]["anps"]]
     if anp not in anps:
-        mso.fail_json(msg="Provided anp '{0}' does not exist. Existing anps: {1}".format(anp, ', '.join(anps)))
+        mso.fail_json(msg="Provided anp '{0}' does not exist. Existing anps: {1}".format(anp, ", ".join(anps)))
     anp_idx = anps.index(anp)
 
     # Get EPG
-    epgs = [e.get('name') for e in schema_obj.get('templates')[template_idx]['anps'][anp_idx]['epgs']]
+    epgs = [e.get("name") for e in schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"]]
     if epg is not None and epg in epgs:
         epg_idx = epgs.index(epg)
-        mso.existing = schema_obj.get('templates')[template_idx]['anps'][anp_idx]['epgs'][epg_idx]
+        mso.existing = schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"][epg_idx]
 
-    if state == 'query':
+    if state == "query":
         if epg is None:
-            mso.existing = schema_obj.get('templates')[template_idx]['anps'][anp_idx]['epgs']
+            mso.existing = schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"]
         elif not mso.existing:
             mso.fail_json(msg="EPG '{epg}' not found".format(epg=epg))
 
-        if 'bdRef' in mso.existing:
-            mso.existing['bdRef'] = mso.dict_from_ref(mso.existing['bdRef'])
-        if 'vrfRef' in mso.existing:
-            mso.existing['vrfRef'] = mso.dict_from_ref(mso.existing['vrfRef'])
+        if "bdRef" in mso.existing:
+            mso.existing["bdRef"] = mso.dict_from_ref(mso.existing["bdRef"])
+        if "vrfRef" in mso.existing:
+            mso.existing["vrfRef"] = mso.dict_from_ref(mso.existing["vrfRef"])
         mso.exit_json()
 
-    epgs_path = '/templates/{0}/anps/{1}/epgs'.format(template, anp)
-    epg_path = '/templates/{0}/anps/{1}/epgs/{2}'.format(template, anp, epg)
-    service_path = '{0}/cloudServiceEpgConfig'.format(epg_path)
+    epgs_path = "/templates/{0}/anps/{1}/epgs".format(template, anp)
+    epg_path = "/templates/{0}/anps/{1}/epgs/{2}".format(template, anp, epg)
+    service_path = "{0}/cloudServiceEpgConfig".format(epg_path)
     ops = []
     cloud_service_epg_config = {}
 
     mso.previous = mso.existing
-    if state == 'absent':
+    if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=epg_path))
+            ops.append(dict(op="remove", path=epg_path))
 
-    elif state == 'present':
-        bd_ref = mso.make_reference(bd, 'bd', schema_id, template)
-        vrf_ref = mso.make_reference(vrf, 'vrf', schema_id, template)
+    elif state == "present":
+        bd_ref = mso.make_reference(bd, "bd", schema_id, template)
+        vrf_ref = mso.make_reference(vrf, "vrf", schema_id, template)
         subnets = mso.make_subnets(subnets, is_bd_subnet=False)
 
         if display_name is None and not mso.existing:
@@ -425,47 +424,45 @@ def main():
 
         if mso.existing:
             # Clean contractRef to fix api issue
-            for contract in mso.sent.get('contractRelationships'):
-                contract['contractRef'] = mso.dict_from_ref(contract.get('contractRef'))
-            ops.append(dict(op='replace', path=epg_path, value=mso.sent))
+            for contract in mso.sent.get("contractRelationships"):
+                contract["contractRef"] = mso.dict_from_ref(contract.get("contractRef"))
+            ops.append(dict(op="replace", path=epg_path, value=mso.sent))
         else:
-            ops.append(dict(op='add', path=epgs_path + '/-', value=mso.sent))
+            ops.append(dict(op="add", path=epgs_path + "/-", value=mso.sent))
 
-        if epg_type == 'service':
+        if epg_type == "service":
             access_type_map = {
-                'private': 'Private',
-                'public': 'Public',
-                'public_and_private': 'PublicAndPrivate',
+                "private": "Private",
+                "public": "Public",
+                "public_and_private": "PublicAndPrivate",
             }
             deployment_type_map = {
-                'cloud_native': 'CloudNative',
-                'cloud_native_managed': 'CloudNativeManaged',
-                'third_party': 'Third-party',
+                "cloud_native": "CloudNative",
+                "cloud_native_managed": "CloudNativeManaged",
+                "third_party": "Third-party",
             }
             if cloud_service_epg_config != {}:
-                cloud_service_epg_config.update(dict(
-                    deploymentType=deployment_type_map[deployment_type],
-                    serviceType=service_type,
-                    accessType=access_type_map[access_type]))
-                ops.append(dict(op='replace', path=service_path, value=cloud_service_epg_config))
+                cloud_service_epg_config.update(
+                    dict(deploymentType=deployment_type_map[deployment_type], serviceType=service_type, accessType=access_type_map[access_type])
+                )
+                ops.append(dict(op="replace", path=service_path, value=cloud_service_epg_config))
             else:
-                cloud_service_epg_config.update(dict(
-                    deploymentType=deployment_type_map[deployment_type],
-                    serviceType=service_type,
-                    accessType=access_type_map[access_type]))
-                ops.append(dict(op='add', path=service_path, value=cloud_service_epg_config))
+                cloud_service_epg_config.update(
+                    dict(deploymentType=deployment_type_map[deployment_type], serviceType=service_type, accessType=access_type_map[access_type])
+                )
+                ops.append(dict(op="add", path=service_path, value=cloud_service_epg_config))
 
     mso.existing = mso.proposed
 
-    if 'epgRef' in mso.previous:
-        del mso.previous['epgRef']
-    if 'bdRef' in mso.previous and mso.previous['bdRef'] != '':
-        mso.previous['bdRef'] = mso.dict_from_ref(mso.previous['bdRef'])
-    if 'vrfRef' in mso.previous and mso.previous['bdRef'] != '':
-        mso.previous['vrfRef'] = mso.dict_from_ref(mso.previous['vrfRef'])
+    if "epgRef" in mso.previous:
+        del mso.previous["epgRef"]
+    if "bdRef" in mso.previous and mso.previous["bdRef"] != "":
+        mso.previous["bdRef"] = mso.dict_from_ref(mso.previous["bdRef"])
+    if "vrfRef" in mso.previous and mso.previous["bdRef"] != "":
+        mso.previous["vrfRef"] = mso.dict_from_ref(mso.previous["vrfRef"])
 
     if not module.check_mode and mso.proposed != mso.previous:
-        mso.request(schema_path, method='PATCH', data=ops)
+        mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
 

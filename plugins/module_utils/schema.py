@@ -9,12 +9,11 @@ __metaclass__ = type
 
 from collections import namedtuple
 
-KVPair = namedtuple('KVPair', 'key value')
-Item = namedtuple('Item', 'index details')
+KVPair = namedtuple("KVPair", "key value")
+Item = namedtuple("Item", "index details")
 
 
 class MSOSchema:
-
     def __init__(self, mso_module, schema_name, template_name=None, site_name=None):
 
         self.mso = mso_module
@@ -51,8 +50,7 @@ class MSOSchema:
         """
         for schema_object in required_schema_objects:
             if schema_object not in self.schema_objects.keys():
-                msg = "Required attribute '{0}' is not specified on schema instance with name {1}".format(
-                    schema_object, self.schema_name)
+                msg = "Required attribute '{0}' is not specified on schema instance with name {1}".format(schema_object, self.schema_name)
                 self.mso.fail_json(msg=msg)
 
     def set_template(self, template_name, fail_module=True):
@@ -63,13 +61,12 @@ class MSOSchema:
         :return: Template item. -> Item(Int, Dict) | None
         """
 
-        kv_list = [KVPair('name', template_name)]
-        match, existing = self.get_object_from_list(self.schema.get('templates'), kv_list)
+        kv_list = [KVPair("name", template_name)]
+        match, existing = self.get_object_from_list(self.schema.get("templates"), kv_list)
         if not match and fail_module:
-            msg = "Provided template '{0}' not matching existing template(s): {1}".format(
-                template_name, ', '.join(existing))
+            msg = "Provided template '{0}' not matching existing template(s): {1}".format(template_name, ", ".join(existing))
             self.mso.fail_json(msg=msg)
-        self.schema_objects['template'] = match
+        self.schema_objects["template"] = match
 
     def set_template_bd(self, bd, fail_module=True):
         """
@@ -79,12 +76,12 @@ class MSOSchema:
         :return: Template bd item. -> Item(Int, Dict) | None
         """
         self.validate_schema_objects_present(["template"])
-        kv_list = [KVPair('name', bd)]
-        match, existing = self.get_object_from_list(self.schema_objects['template'].details.get('bds'), kv_list)
+        kv_list = [KVPair("name", bd)]
+        match, existing = self.get_object_from_list(self.schema_objects["template"].details.get("bds"), kv_list)
         if not match and fail_module:
-            msg = "Provided BD '{0}' not matching existing bd(s): {1}".format(bd, ', '.join(existing))
+            msg = "Provided BD '{0}' not matching existing bd(s): {1}".format(bd, ", ".join(existing))
             self.mso.fail_json(msg=msg)
-        self.schema_objects['template_bd'] = match
+        self.schema_objects["template_bd"] = match
 
     def set_site(self, template_name, site_name, fail_module=True):
         """
@@ -94,18 +91,18 @@ class MSOSchema:
         :param fail_module: When match is not found fail the ansible module. -> Bool
         :return: Site item. -> Item(Int, Dict) | None
         """
-        if 'sites' not in self.schema:
+        if "sites" not in self.schema:
             msg = "No sites associated with schema '{0}'. Associate the site with the schema using (M) mso_schema_site.".format(self.schema_name)
             self.mso.fail_json(msg=msg)
 
-        kv_list = [KVPair('siteId', self.mso.lookup_site(site_name)), KVPair('templateName', template_name)]
-        match, existing = self.get_object_from_list(self.schema.get('sites'), kv_list)
+        kv_list = [KVPair("siteId", self.mso.lookup_site(site_name)), KVPair("templateName", template_name)]
+        match, existing = self.get_object_from_list(self.schema.get("sites"), kv_list)
         if not match and fail_module:
             msg = "Provided site '{0}' not associated with template '{1}'. Site is currently associated with template(s): {2}".format(
-                site_name, template_name, ', '.join(existing[1::2])
+                site_name, template_name, ", ".join(existing[1::2])
             )
             self.mso.fail_json(msg=msg)
-        self.schema_objects['site'] = match
+        self.schema_objects["site"] = match
 
     def set_site_bd(self, bd_name, fail_module=True):
         """
@@ -115,13 +112,12 @@ class MSOSchema:
         :return: Site bd item. -> Item(Int, Dict) | None
         """
         self.validate_schema_objects_present(["template", "site"])
-        kv_list = [KVPair('bdRef', self.mso.bd_ref(
-            schema_id=self.id, template=self.schema_objects['template'].details.get('name'), bd=bd_name))]
-        match, existing = self.get_object_from_list(self.schema_objects['site'].details.get('bds'), kv_list)
+        kv_list = [KVPair("bdRef", self.mso.bd_ref(schema_id=self.id, template=self.schema_objects["template"].details.get("name"), bd=bd_name))]
+        match, existing = self.get_object_from_list(self.schema_objects["site"].details.get("bds"), kv_list)
         if not match and fail_module:
-            msg = "Provided BD '{0}' not matching existing site bd(s): {1}".format(bd_name, ', '.join(existing))
+            msg = "Provided BD '{0}' not matching existing site bd(s): {1}".format(bd_name, ", ".join(existing))
             self.mso.fail_json(msg=msg)
-        self.schema_objects['site_bd'] = match
+        self.schema_objects["site_bd"] = match
 
     def set_site_bd_subnet(self, subnet, fail_module=True):
         """
@@ -131,9 +127,9 @@ class MSOSchema:
         :return: Site bd subnet item. -> Item(Int, Dict) | None
         """
         self.validate_schema_objects_present(["site_bd"])
-        kv_list = [KVPair('ip', subnet)]
-        match, existing = self.get_object_from_list(self.schema_objects['site_bd'].details.get('subnets'), kv_list)
+        kv_list = [KVPair("ip", subnet)]
+        match, existing = self.get_object_from_list(self.schema_objects["site_bd"].details.get("subnets"), kv_list)
         if not match and fail_module:
-            msg = "Provided subnet '{0}' not matching existing site bd subnet(s): {1}".format(subnet, ', '.join(existing))
+            msg = "Provided subnet '{0}' not matching existing site bd subnet(s): {1}".format(subnet, ", ".join(existing))
             self.mso.fail_json(msg=msg)
-        self.schema_objects['site_bd_subnet'] = match
+        self.schema_objects["site_bd_subnet"] = match

@@ -8,13 +8,9 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
-ANSIBLE_METADATA = {
-    'metadata_version': '1.1',
-    'status': ['preview'],
-    'supported_by': 'community'
-}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_backup_schedule
 short_description: Manages backup schedules
@@ -60,9 +56,9 @@ options:
     choices: [ absent, present, query ]
     default: present
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Get current backup schedule
   cisco.mso.mso_backup_schedule:
     host: mso_host
@@ -103,10 +99,10 @@ EXAMPLES = r'''
     password: SomeSecretPassword
     state: absent
   delegate_to: localhost
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
@@ -131,43 +127,39 @@ class UTC(tzinfo):
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        start_date=dict(type='str'),
-        start_time=dict(type='str'),
-        frequency_unit=dict(type='str', choices=['hours', 'days']),
-        frequency_length=dict(type='int'),
-        remote_location=dict(type='str'),
-        remote_path=dict(type='str'),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        start_date=dict(type="str"),
+        start_time=dict(type="str"),
+        frequency_unit=dict(type="str", choices=["hours", "days"]),
+        frequency_length=dict(type="int"),
+        remote_location=dict(type="str"),
+        remote_path=dict(type="str"),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
-        argument_spec=argument_spec,
-        supports_check_mode=True,
-        required_if=[
-            ['state', 'present', ['frequency_unit', 'frequency_length', 'remote_location']]
-        ]
+        argument_spec=argument_spec, supports_check_mode=True, required_if=[["state", "present", ["frequency_unit", "frequency_length", "remote_location"]]]
     )
 
-    start_date = module.params.get('start_date')
-    start_time = module.params.get('start_time')
-    frequency_unit = module.params.get('frequency_unit')
-    frequency_length = module.params.get('frequency_length')
-    remote_location = module.params.get('remote_location')
-    remote_path = module.params.get('remote_path')
-    state = module.params.get('state')
+    start_date = module.params.get("start_date")
+    start_time = module.params.get("start_time")
+    frequency_unit = module.params.get("frequency_unit")
+    frequency_length = module.params.get("frequency_length")
+    remote_location = module.params.get("remote_location")
+    remote_path = module.params.get("remote_path")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
-    api_path = 'backups/schedule'
-    mso.existing = mso.request(api_path, method='GET')
+    api_path = "backups/schedule"
+    mso.existing = mso.request(api_path, method="GET")
 
-    if state == 'absent':
+    if state == "absent":
         mso.previous = mso.existing
         if module.check_mode:
             mso.existing = {}
         else:
-            mso.existing = mso.request(api_path, method='DELETE')
+            mso.existing = mso.request(api_path, method="DELETE")
 
-    elif state == 'present':
+    elif state == "present":
         mso.previous = mso.existing
 
         remote_location_info = mso.lookup_remote_location(remote_location)
@@ -185,22 +177,22 @@ def main():
             module.fail_json(msg="Failed to parse date format 'YYYY-MM-DD' %s, %s" % (start_date, e))
 
         payload = dict(
-            startDate="{0}Z".format(datetime.combine(start_date, start_time).isoformat(timespec='milliseconds')),
+            startDate="{0}Z".format(datetime.combine(start_date, start_time).isoformat(timespec="milliseconds")),
             intervalTimeUnit=frequency_unit.upper(),
             intervalLength=frequency_length,
-            remoteLocationId=remote_location_info.get('id'),
-            locationType="remote"
+            remoteLocationId=remote_location_info.get("id"),
+            locationType="remote",
         )
 
         if remote_path:
-            payload.update(remotePath='{0}/{1}'.format(remote_location_info.get('path'), remote_path))
+            payload.update(remotePath="{0}/{1}".format(remote_location_info.get("path"), remote_path))
 
         mso.proposed = payload
 
         if module.check_mode:
             mso.existing = mso.proposed
         else:
-            mso.existing = mso.request(api_path, method='POST', data=payload)
+            mso.existing = mso.request(api_path, method="POST", data=payload)
 
     mso.exit_json()
 

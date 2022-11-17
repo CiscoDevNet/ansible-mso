@@ -94,7 +94,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        dhcp_relay_policy=dict(type="str", aliases=['name']),
+        dhcp_relay_policy=dict(type="str", aliases=["name"]),
         description=dict(type="str"),
         tenant=dict(type="str"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
@@ -103,8 +103,8 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['dhcp_relay_policy']],
-            ['state', 'present', ['dhcp_relay_policy', 'tenant']],
+            ["state", "absent", ["dhcp_relay_policy"]],
+            ["state", "present", ["dhcp_relay_policy", "tenant"]],
         ],
     )
 
@@ -123,7 +123,7 @@ def main():
         if mso.existing:
             policy_id = mso.existing.get("id")
             # If we found an existing object, continue with it
-            path = '{0}/{1}'.format(path, policy_id)
+            path = "{0}/{1}".format(path, policy_id)
     else:
         mso.existing = mso.query_objs(path, key="DhcpRelayPolicies")
 

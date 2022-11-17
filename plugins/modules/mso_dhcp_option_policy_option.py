@@ -108,7 +108,7 @@ def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
         dhcp_option_policy=dict(type="str", required=True),
-        name=dict(type="str", aliases=['option']),
+        name=dict(type="str", aliases=["option"]),
         id=dict(type="int"),
         data=dict(type="str"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
@@ -137,19 +137,19 @@ def main():
 
     # Query for existing object(s)
     dhcp_option_obj = mso.get_obj(path, name=dhcp_option_policy, key="DhcpRelayPolicies")
-    if 'id' not in dhcp_option_obj:
+    if "id" not in dhcp_option_obj:
         mso.fail_json(msg="DHCP Option Policy '{0}' is not a valid DHCP Option Policy name.".format(dhcp_option_policy))
     policy_id = dhcp_option_obj.get("id")
     options = []
     if "dhcpOption" in dhcp_option_obj:
-        options = dhcp_option_obj.get('dhcpOption')
+        options = dhcp_option_obj.get("dhcpOption")
         for index, opt in enumerate(options):
-            if opt.get('name') == name:
+            if opt.get("name") == name:
                 previous_option = opt
                 option_index = index
 
     # If we found an existing object, continue with it
-    path = '{0}/{1}'.format(path, policy_id)
+    path = "{0}/{1}".format(path, policy_id)
 
     if state == "query":
         mso.existing = options
@@ -182,8 +182,8 @@ def main():
         mso.sanitize(dhcp_option_obj, collate=True)
         new_dhcp_option_obj = mso.request(path, method="PUT", data=mso.sent)
         mso.existing = {}
-        for index, opt in enumerate(new_dhcp_option_obj.get('dhcpOption')):
-            if opt.get('name') == name:
+        for index, opt in enumerate(new_dhcp_option_obj.get("dhcpOption")):
+            if opt.get("name") == name:
                 mso.existing = opt
 
     mso.exit_json()

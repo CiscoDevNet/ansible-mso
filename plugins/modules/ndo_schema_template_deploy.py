@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: ndo_schema_template_deploy
 short_description: Deploy schema templates to sites for NDO v4.1 and higher
@@ -49,9 +48,9 @@ seealso:
 - module: cisco.mso.mso_schema_site
 - module: cisco.mso.mso_schema_template
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Deploy a schema template
   cisco.mso.ndo_schema_template_deploy:
     host: mso_host
@@ -92,10 +91,10 @@ EXAMPLES = r'''
     template: Template 1
     state: query
   delegate_to: localhost
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec

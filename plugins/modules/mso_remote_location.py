@@ -8,13 +8,9 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
-ANSIBLE_METADATA = {
-    'metadata_version': '1.1',
-    'status': ['preview'],
-    'supported_by': 'community'
-}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_remote_location
 short_description: Manages remote locations
@@ -84,9 +80,9 @@ options:
     choices: [ absent, present, query ]
     default: present
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Query all remote locations
   cisco.mso.mso_backup:
     host: mso_host
@@ -128,10 +124,10 @@ EXAMPLES = r'''
     remote_location: ansible_test
     state: absent
   delegate_to: localhost
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
@@ -140,90 +136,87 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        remote_location=dict(type='str', aliases=['name']),
-        description=dict(type='str'),
-        remote_protocol=dict(type='str', choices=['scp', 'sftp']),
-        remote_host=dict(type='str'),
-        remote_path=dict(type='str'),
-        remote_port=dict(type='int', default=22),
-        authentication_type=dict(type='str', choices=['password', 'ssh']),
-        remote_username=dict(type='str'),
-        remote_password=dict(type='str', no_log=True),
-        remote_ssh_key=dict(type='str', no_log=True),
-        remote_ssh_passphrase=dict(type='str', no_log=True),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        remote_location=dict(type="str", aliases=["name"]),
+        description=dict(type="str"),
+        remote_protocol=dict(type="str", choices=["scp", "sftp"]),
+        remote_host=dict(type="str"),
+        remote_path=dict(type="str"),
+        remote_port=dict(type="int", default=22),
+        authentication_type=dict(type="str", choices=["password", "ssh"]),
+        remote_username=dict(type="str"),
+        remote_password=dict(type="str", no_log=True),
+        remote_ssh_key=dict(type="str", no_log=True),
+        remote_ssh_passphrase=dict(type="str", no_log=True),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'present', ['remote_location', 'remote_protocol', 'remote_host', 'remote_path', 'authentication_type']],
-            ['state', 'absent', ['remote_location']],
-            ['authentication_type', 'password', ['remote_username', 'remote_password']],
-            ['authentication_type', 'ssh', ['remote_ssh_key']]
-        ]
+            ["state", "present", ["remote_location", "remote_protocol", "remote_host", "remote_path", "authentication_type"]],
+            ["state", "absent", ["remote_location"]],
+            ["authentication_type", "password", ["remote_username", "remote_password"]],
+            ["authentication_type", "ssh", ["remote_ssh_key"]],
+        ],
     )
 
-    location_name = module.params.get('remote_location')
-    description = module.params.get('description')
-    protocol = module.params.get('remote_protocol')
-    host = module.params.get('remote_host')
-    path = module.params.get('remote_path')
-    port = module.params.get('remote_port')
-    authentication_type = module.params.get('authentication_type')
-    username = module.params.get('remote_username')
-    password = module.params.get('remote_password')
-    ssh_key = module.params.get('remote_ssh_key')
-    passphrase = module.params.get('remote_ssh_passphrase')
-    state = module.params.get('state')
+    location_name = module.params.get("remote_location")
+    description = module.params.get("description")
+    protocol = module.params.get("remote_protocol")
+    host = module.params.get("remote_host")
+    path = module.params.get("remote_path")
+    port = module.params.get("remote_port")
+    authentication_type = module.params.get("authentication_type")
+    username = module.params.get("remote_username")
+    password = module.params.get("remote_password")
+    ssh_key = module.params.get("remote_ssh_key")
+    passphrase = module.params.get("remote_ssh_passphrase")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
-    api_path = 'platform/remote-locations'
-    mso.existing = mso.query_objs(api_path, key='remoteLocations')
+    api_path = "platform/remote-locations"
+    mso.existing = mso.query_objs(api_path, key="remoteLocations")
 
     remote_location_obj = None
     if location_name and mso.existing:
-        remote_location_obj = next((item for item in mso.existing if item.get('name') == location_name), None)
+        remote_location_obj = next((item for item in mso.existing if item.get("name") == location_name), None)
         if remote_location_obj:
             mso.existing = remote_location_obj
 
-    if state == 'query':
+    if state == "query":
         if location_name and not remote_location_obj:
-            existing_location_list = ', '.join([item.get('name') for item in mso.existing])
+            existing_location_list = ", ".join([item.get("name") for item in mso.existing])
             mso.module.fail_json(msg="Remote location {0} not found. Remote locations configured: {1}".format(location_name, existing_location_list))
 
-    elif state == 'absent':
+    elif state == "absent":
         mso.previous = mso.existing
 
         if module.check_mode:
             mso.existing = {}
         elif remote_location_obj:
-            mso.existing = mso.request('{0}/{1}'.format(api_path, remote_location_obj.get('id')), method='DELETE')
+            mso.existing = mso.request("{0}/{1}".format(api_path, remote_location_obj.get("id")), method="DELETE")
 
-    elif state == 'present':
+    elif state == "present":
         mso.previous = mso.existing
 
         credential = dict(
-            authType=authentication_type if authentication_type == 'password' else 'sshKey',
+            authType=authentication_type if authentication_type == "password" else "sshKey",
             hostname=host,
             port=port,
             protocolType=protocol,
             remotePath=path,
-            username=username
+            username=username,
         )
 
-        if authentication_type == 'password':
+        if authentication_type == "password":
             credential.update(password=password)
         else:
             credential.update(sshKey=ssh_key)
             if passphrase:
                 credential.update(passPhrase=passphrase)
 
-        payload = dict(
-            name=location_name,
-            credential=credential
-        )
+        payload = dict(name=location_name, credential=credential)
 
         if description:
             payload.update(description=description)
@@ -234,14 +227,14 @@ def main():
             mso.existing = mso.proposed
         else:
             if remote_location_obj:
-                payload.update(id=remote_location_obj.get('id'))
-                mso.existing = mso.request('{0}/{1}'.format(api_path, remote_location_obj.get('id')), method='PUT', data=payload)
+                payload.update(id=remote_location_obj.get("id"))
+                mso.existing = mso.request("{0}/{1}".format(api_path, remote_location_obj.get("id")), method="PUT", data=payload)
             else:
-                mso.existing = mso.request(api_path, method='POST', data=payload)
+                mso.existing = mso.request(api_path, method="POST", data=payload)
 
-        mso.existing['credential'].pop('password', None)
-        mso.existing['credential'].pop('sshKey', None)
-        mso.existing['credential'].pop('passPhrase', None)
+        mso.existing["credential"].pop("password", None)
+        mso.existing["credential"].pop("sshKey", None)
+        mso.existing["credential"].pop("passPhrase", None)
 
     mso.exit_json()
 

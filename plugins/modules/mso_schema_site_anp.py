@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_site_anp
 short_description: Manage site-local Application Network Profiles (ANPs) in schema template
@@ -52,9 +51,9 @@ seealso:
 - module: cisco.mso.mso_schema_site_anp_epg
 - module: cisco.mso.mso_schema_template_anp
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a new site ANP
   cisco.mso.mso_schema_site_anp:
     host: mso_host
@@ -103,10 +102,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
@@ -115,27 +114,27 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        site=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        anp=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        schema=dict(type="str", required=True),
+        site=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        anp=dict(type="str", aliases=["name"]),  # This parameter is not required for querying all objects
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['anp']],
-            ['state', 'present', ['anp']],
+            ["state", "absent", ["anp"]],
+            ["state", "present", ["anp"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    site = module.params.get('site')
-    template = module.params.get('template').replace(' ', '')
-    anp = module.params.get('anp')
-    state = module.params.get('state')
+    schema = module.params.get("schema")
+    site = module.params.get("site")
+    template = module.params.get("template").replace(" ", "")
+    anp = module.params.get("anp")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -146,36 +145,38 @@ def main():
     site_id = mso.lookup_site(site)
 
     # Get site_idx
-    if 'sites' not in schema_obj:
+    if "sites" not in schema_obj:
         mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
-    sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
-    sites_list = [s.get('siteId') + '/' + s.get('templateName') for s in schema_obj.get('sites')]
+    sites = [(s.get("siteId"), s.get("templateName")) for s in schema_obj.get("sites")]
+    sites_list = [s.get("siteId") + "/" + s.get("templateName") for s in schema_obj.get("sites")]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/siteId/template '{0}/{1}/{2}' does not exist. "
-                          "Existing siteIds/templates: {3}".format(site, site_id, template, ', '.join(sites_list)))
+        mso.fail_json(
+            msg="Provided site/siteId/template '{0}/{1}/{2}' does not exist. "
+            "Existing siteIds/templates: {3}".format(site, site_id, template, ", ".join(sites_list))
+        )
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
     # Path-based access uses site_id-template
-    site_template = '{0}-{1}'.format(site_id, template)
+    site_template = "{0}-{1}".format(site_id, template)
 
     # Get ANP
     anp_ref = mso.anp_ref(schema_id=schema_id, template=template, anp=anp)
-    anps = [a.get('anpRef') for a in schema_obj.get('sites')[site_idx]['anps']]
+    anps = [a.get("anpRef") for a in schema_obj.get("sites")[site_idx]["anps"]]
 
     if anp is not None and anp_ref in anps:
         anp_idx = anps.index(anp_ref)
-        anp_path = '/sites/{0}/anps/{1}'.format(site_template, anp)
-        mso.existing = schema_obj.get('sites')[site_idx]['anps'][anp_idx]
+        anp_path = "/sites/{0}/anps/{1}".format(site_template, anp)
+        mso.existing = schema_obj.get("sites")[site_idx]["anps"][anp_idx]
 
-    if state == 'query':
+    if state == "query":
         if anp is None:
-            mso.existing = schema_obj.get('sites')[site_idx]['anps']
+            mso.existing = schema_obj.get("sites")[site_idx]["anps"]
         elif not mso.existing:
             mso.fail_json(msg="ANP '{anp}' not found".format(anp=anp))
         mso.exit_json()
 
-    anps_path = '/sites/{0}/anps'.format(site_template)
+    anps_path = "/sites/{0}/anps".format(site_template)
     ops = []
 
     # Workaround due to inconsistency in attributes REQUEST/RESPONSE API
@@ -186,12 +187,12 @@ def main():
         mso.existing["anpRef"] = anp_ref
 
     mso.previous = mso.existing
-    if state == 'absent':
+    if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=anp_path))
+            ops.append(dict(op="remove", path=anp_path))
 
-    elif state == 'present':
+    elif state == "present":
 
         payload = dict(
             anpRef=dict(
@@ -201,21 +202,21 @@ def main():
             ),
         )
 
-        if 'epgs' in mso.existing:
-            for epg in mso.existing.get('epgs'):
+        if "epgs" in mso.existing:
+            for epg in mso.existing.get("epgs"):
                 epg = mso.recursive_dict_from_ref(epg)
 
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            ops.append(dict(op='replace', path=anp_path, value=mso.sent))
+            ops.append(dict(op="replace", path=anp_path, value=mso.sent))
         else:
-            ops.append(dict(op='add', path=anps_path + '/-', value=mso.sent))
+            ops.append(dict(op="add", path=anps_path + "/-", value=mso.sent))
 
         mso.existing = mso.proposed
 
     if not module.check_mode and mso.existing != mso.previous:
-        mso.request(schema_path, method='PATCH', data=ops)
+        mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
 

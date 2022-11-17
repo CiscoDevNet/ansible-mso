@@ -4,13 +4,12 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_template_external_epg_contract
 short_description: Manage Extrnal EPG contracts in schema templates
@@ -71,9 +70,9 @@ seealso:
 - module: cisco.mso.mso_schema_template_external_epg
 - module: cisco.mso.mso_schema_template_contract_filter
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a contract to an EPG
   cisco.mso.mso_schema_template_external_epg_contract:
     host: mso_host
@@ -125,10 +124,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_contractref_spec
@@ -137,107 +136,109 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        external_epg=dict(type='str', required=True),
-        contract=dict(type='dict', options=mso_contractref_spec()),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        schema=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        external_epg=dict(type="str", required=True),
+        contract=dict(type="dict", options=mso_contractref_spec()),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['contract']],
-            ['state', 'present', ['contract']],
+            ["state", "absent", ["contract"]],
+            ["state", "present", ["contract"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    template = module.params.get('template').replace(' ', '')
-    external_epg = module.params.get('external_epg')
-    contract = module.params.get('contract')
-    if contract is not None and contract.get('template') is not None:
-        contract['template'] = contract.get('template').replace(' ', '')
-    state = module.params.get('state')
+    schema = module.params.get("schema")
+    template = module.params.get("template").replace(" ", "")
+    external_epg = module.params.get("external_epg")
+    contract = module.params.get("contract")
+    if contract is not None and contract.get("template") is not None:
+        contract["template"] = contract.get("template").replace(" ", "")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
     if contract:
-        if contract.get('schema') is None:
-            contract['schema'] = schema
-        contract['schema_id'] = mso.lookup_schema(contract.get('schema'))
-        if contract.get('template') is None:
-            contract['template'] = template
+        if contract.get("schema") is None:
+            contract["schema"] = schema
+        contract["schema_id"] = mso.lookup_schema(contract.get("schema"))
+        if contract.get("template") is None:
+            contract["template"] = template
 
     # Get schema
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
-    templates = [t.get('name') for t in schema_obj.get('templates')]
+    templates = [t.get("name") for t in schema_obj.get("templates")]
     if template not in templates:
-        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ", ".join(templates)))
     template_idx = templates.index(template)
 
     # Get EPG
-    epgs = [e.get('name') for e in schema_obj.get('templates')[template_idx]['externalEpgs']]
+    epgs = [e.get("name") for e in schema_obj.get("templates")[template_idx]["externalEpgs"]]
     if external_epg not in epgs:
-        mso.fail_json(msg="Provided epg '{epg}' does not exist. Existing epgs: {epgs}".format(epg=external_epg, epgs=', '.join(epgs)))
+        mso.fail_json(msg="Provided epg '{epg}' does not exist. Existing epgs: {epgs}".format(epg=external_epg, epgs=", ".join(epgs)))
     epg_idx = epgs.index(external_epg)
 
     # Get Contract
     if contract:
-        contracts = [(c.get('contractRef'),
-                      c.get('relationshipType')) for c in schema_obj.get('templates')[template_idx]['externalEpgs'][epg_idx]['contractRelationships']]
+        contracts = [
+            (c.get("contractRef"), c.get("relationshipType"))
+            for c in schema_obj.get("templates")[template_idx]["externalEpgs"][epg_idx]["contractRelationships"]
+        ]
         contract_ref = mso.contract_ref(**contract)
-        if (contract_ref, contract.get('type')) in contracts:
-            contract_idx = contracts.index((contract_ref, contract.get('type')))
-            contract_path = '/templates/{0}/externalEpgs/{1}/contractRelationships/{2}'.format(template, external_epg, contract_idx)
-            mso.existing = schema_obj.get('templates')[template_idx]['externalEpgs'][epg_idx]['contractRelationships'][contract_idx]
+        if (contract_ref, contract.get("type")) in contracts:
+            contract_idx = contracts.index((contract_ref, contract.get("type")))
+            contract_path = "/templates/{0}/externalEpgs/{1}/contractRelationships/{2}".format(template, external_epg, contract_idx)
+            mso.existing = schema_obj.get("templates")[template_idx]["externalEpgs"][epg_idx]["contractRelationships"][contract_idx]
 
-    if state == 'query':
+    if state == "query":
         if not contract:
-            mso.existing = schema_obj.get('templates')[template_idx]['externalEpgs'][epg_idx]['contractRelationships']
+            mso.existing = schema_obj.get("templates")[template_idx]["externalEpgs"][epg_idx]["contractRelationships"]
         elif not mso.existing:
             mso.fail_json(msg="Contract '{0}' not found".format(contract_ref))
 
-        if 'contractRef' in mso.existing:
-            mso.existing['contractRef'] = mso.dict_from_ref(mso.existing.get('contractRef'))
+        if "contractRef" in mso.existing:
+            mso.existing["contractRef"] = mso.dict_from_ref(mso.existing.get("contractRef"))
         mso.exit_json()
 
-    contracts_path = '/templates/{0}/externalEpgs/{1}/contractRelationships'.format(template, external_epg)
+    contracts_path = "/templates/{0}/externalEpgs/{1}/contractRelationships".format(template, external_epg)
     ops = []
 
     mso.previous = mso.existing
-    if state == 'absent':
+    if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=contract_path))
+            ops.append(dict(op="remove", path=contract_path))
 
-    elif state == 'present':
+    elif state == "present":
         payload = dict(
-            relationshipType=contract.get('type'),
+            relationshipType=contract.get("type"),
             contractRef=dict(
-                contractName=contract.get('name'),
-                templateName=contract.get('template'),
-                schemaId=contract.get('schema_id'),
+                contractName=contract.get("name"),
+                templateName=contract.get("template"),
+                schemaId=contract.get("schema_id"),
             ),
         )
 
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            ops.append(dict(op='replace', path=contract_path, value=mso.sent))
+            ops.append(dict(op="replace", path=contract_path, value=mso.sent))
         else:
-            ops.append(dict(op='add', path=contracts_path + '/-', value=mso.sent))
+            ops.append(dict(op="add", path=contracts_path + "/-", value=mso.sent))
 
         mso.existing = mso.proposed
 
-    if 'contractRef' in mso.previous:
-        mso.previous['contractRef'] = mso.dict_from_ref(mso.previous.get('contractRef'))
+    if "contractRef" in mso.previous:
+        mso.previous["contractRef"] = mso.dict_from_ref(mso.previous.get("contractRef"))
 
     if not module.check_mode and mso.proposed != mso.previous:
-        mso.request(schema_path, method='PATCH', data=ops)
+        mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
 

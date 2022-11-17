@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_validate
 short_description: Validate the schema before deploying it to site
@@ -38,13 +37,13 @@ options:
 seealso:
 - module: cisco.mso.mso_schema_template_external_epg
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
-'''
+EXAMPLES = r"""
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
@@ -53,8 +52,8 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        state=dict(type='str', default='query', choices=['query']),
+        schema=dict(type="str", required=True),
+        state=dict(type="str", default="query", choices=["query"]),
     )
 
     module = AnsibleModule(
@@ -62,16 +61,16 @@ def main():
         supports_check_mode=True,
     )
 
-    schema = module.params.get('schema')
-    state = module.params.get('state')  # NOQA
+    schema = module.params.get("schema")
+    state = module.params.get("state")  # NOQA
 
     mso = MSOModule(module)
 
     # Get schema_id
     schema_id = mso.lookup_schema(schema)
 
-    path = 'schemas/{id}/validate'.format(id=schema_id)
-    mso.existing = mso.request(path, method='GET')
+    path = "schemas/{id}/validate".format(id=schema_id)
+    mso.existing = mso.request(path, method="GET")
 
     mso.exit_json()
 

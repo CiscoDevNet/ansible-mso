@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_clone
 short_description: Clone schemas
@@ -39,9 +38,9 @@ options:
 seealso:
 - module: cisco.mso.mso_schema
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Clone schema
   cisco.mso.mso_schema_clone:
     host: mso_host
@@ -51,10 +50,10 @@ EXAMPLES = r'''
     destination_schema: Destination_Schema
     state: clone
   delegate_to: localhost
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
@@ -64,22 +63,22 @@ import json
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        source_schema=dict(type='str'),
-        destination_schema=dict(type='str'),
-        state=dict(type='str', default='clone', choices=['clone']),
+        source_schema=dict(type="str"),
+        destination_schema=dict(type="str"),
+        state=dict(type="str", default="clone", choices=["clone"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'clone', ['destination_schema']],
+            ["state", "clone", ["destination_schema"]],
         ],
     )
 
-    source_schema = module.params.get('source_schema')
-    destination_schema = module.params.get('destination_schema')
-    state = module.params.get('state')
+    source_schema = module.params.get("source_schema")
+    destination_schema = module.params.get("destination_schema")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -87,10 +86,10 @@ def main():
     source_schema_path = "schemas/{0}".format(mso.lookup_schema(source_schema))
     source_schema_obj = mso.query_obj(source_schema_path, displayName=source_schema)
 
-    source_data = source_schema_obj.get('templates')
-    source_data = json.loads(json.dumps(source_data).replace('/{0}'.format(source_schema_path), ''))
+    source_data = source_schema_obj.get("templates")
+    source_data = json.loads(json.dumps(source_data).replace("/{0}".format(source_schema_path), ""))
 
-    path = 'schemas'
+    path = "schemas"
 
     # Check if source and destination schema are named differently
     if source_schema == destination_schema:
@@ -101,7 +100,7 @@ def main():
         if mso.existing:
             mso.fail_json(msg="Schema with the name '{0}' already exists. Please use another name.".format(destination_schema))
 
-    if state == 'clone':
+    if state == "clone":
         mso.previous = mso.existing
         payload = dict(
             displayName=destination_schema,
@@ -113,7 +112,7 @@ def main():
             if module.check_mode:
                 mso.existing = mso.proposed
             else:
-                mso.existing = mso.request(path, method='POST', data=mso.sent)
+                mso.existing = mso.request(path, method="POST", data=mso.sent)
 
     mso.exit_json()
 

@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_template_migrate
 short_description: Migrate Bridge Domains (BDs) and EPGs between templates
@@ -67,9 +66,9 @@ options:
     type: str
     default: present
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Migration of objects between templates of same schema
   mso_schema_template_migrate:
     host: mso_host
@@ -167,10 +166,10 @@ EXAMPLES = r'''
       anp: ANP2
     state: present
   delegate_to: localhost
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_object_migrate_spec
@@ -179,13 +178,13 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        bds=dict(type='list', elements='str'),
-        epgs=dict(type='list', elements='dict', options=mso_object_migrate_spec()),
-        target_schema=dict(type='str', required=True),
-        target_template=dict(type='str', required=True),
-        state=dict(type='str', default='present'),
+        schema=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        bds=dict(type="list", elements="str"),
+        epgs=dict(type="list", elements="dict", options=mso_object_migrate_spec()),
+        target_schema=dict(type="str", required=True),
+        target_template=dict(type="str", required=True),
+        state=dict(type="str", default="present"),
     )
 
     module = AnsibleModule(
@@ -193,13 +192,13 @@ def main():
         supports_check_mode=True,
     )
 
-    schema = module.params.get('schema')
-    template = module.params.get('template').replace(' ', '')
-    target_schema = module.params.get('target_schema')
-    target_template = module.params.get('target_template').replace(' ', '')
-    bds = module.params.get('bds')
-    epgs = module.params.get('epgs')
-    state = module.params.get('state')
+    schema = module.params.get("schema")
+    template = module.params.get("template").replace(" ", "")
+    target_schema = module.params.get("target_schema")
+    target_template = module.params.get("target_template").replace(" ", "")
+    bds = module.params.get("bds")
+    epgs = module.params.get("epgs")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -208,7 +207,7 @@ def main():
 
     target_schema_id = mso.lookup_schema(target_schema)
 
-    if state == 'present':
+    if state == "present":
         if schema_id is not None:
             bds_payload = []
             if bds is not None:
@@ -218,10 +217,10 @@ def main():
             anp_dict = {}
             if epgs is not None:
                 for epg in epgs:
-                    if epg.get('anp') in anp_dict:
-                        anp_dict[epg.get('anp')].append(dict(name=epg.get('epg')))
+                    if epg.get("anp") in anp_dict:
+                        anp_dict[epg.get("anp")].append(dict(name=epg.get("epg")))
                     else:
-                        anp_dict[epg.get('anp')] = [dict(name=epg.get('epg'))]
+                        anp_dict[epg.get("anp")] = [dict(name=epg.get("epg"))]
 
             anps_payload = []
             for anp, epgs_payload in anp_dict.items():
@@ -234,11 +233,11 @@ def main():
                 anps=anps_payload,
             )
 
-            template = template.replace(' ', '%20')
+            template = template.replace(" ", "%20")
 
-            target_template = target_template.replace(' ', '%20')  # removes API error for extra space
+            target_template = target_template.replace(" ", "%20")  # removes API error for extra space
 
-            mso.existing = mso.request(path='migrate/schema/{0}/template/{1}'.format(schema_id, template), method='POST', data=payload)
+            mso.existing = mso.request(path="migrate/schema/{0}/template/{1}".format(schema_id, template), method="POST", data=payload)
 
     mso.exit_json()
 

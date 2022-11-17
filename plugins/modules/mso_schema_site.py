@@ -6,13 +6,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_site
 short_description: Manage sites in schemas
@@ -47,9 +46,9 @@ seealso:
 - module: cisco.mso.mso_schema_template
 - module: cisco.mso.mso_site
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a new site to a schema
   cisco.mso.mso_schema_site:
     host: mso_host
@@ -93,10 +92,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
@@ -105,27 +104,27 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        site=dict(type='str', aliases=['name']),
-        template=dict(type='str'),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        schema=dict(type="str", required=True),
+        site=dict(type="str", aliases=["name"]),
+        template=dict(type="str"),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['site', 'template']],
-            ['state', 'present', ['site', 'template']],
+            ["state", "absent", ["site", "template"]],
+            ["state", "present", ["site", "template"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    site = module.params.get('site')
-    template = module.params.get('template')
+    schema = module.params.get("schema")
+    site = module.params.get("site")
+    template = module.params.get("template")
     if template is not None:
-        template = template.replace(' ', '')
-    state = module.params.get('state')
+        template = template.replace(" ", "")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -136,17 +135,17 @@ def main():
     site_id = mso.lookup_site(site)
 
     mso.existing = {}
-    if 'sites' in schema_obj:
-        sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
+    if "sites" in schema_obj:
+        sites = [(s.get("siteId"), s.get("templateName")) for s in schema_obj.get("sites")]
         if template:
             if (site_id, template) in sites:
                 site_idx = sites.index((site_id, template))
-                site_path = '/sites/{0}'.format(site_idx)
-                mso.existing = schema_obj.get('sites')[site_idx]
+                site_path = "/sites/{0}".format(site_idx)
+                mso.existing = schema_obj.get("sites")[site_idx]
         else:
-            mso.existing = schema_obj.get('sites')
+            mso.existing = schema_obj.get("sites")
 
-    if state == 'query':
+    if state == "query":
         if not mso.existing:
             if template:
                 mso.fail_json(msg="Template '{0}' not found".format(template))
@@ -154,17 +153,17 @@ def main():
                 mso.existing = []
         mso.exit_json()
 
-    sites_path = '/sites'
+    sites_path = "/sites"
     ops = []
 
     mso.previous = mso.existing
-    if state == 'absent':
+    if state == "absent":
         if mso.existing:
             # Remove existing site
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=site_path))
+            ops.append(dict(op="remove", path=site_path))
 
-    elif state == 'present':
+    elif state == "present":
         if not mso.existing:
             # Add new site
             payload = dict(
@@ -181,12 +180,12 @@ def main():
 
             mso.sanitize(payload, collate=True)
 
-            ops.append(dict(op='add', path=sites_path + '/-', value=mso.sent))
+            ops.append(dict(op="add", path=sites_path + "/-", value=mso.sent))
 
             mso.existing = mso.proposed
 
     if not module.check_mode:
-        mso.request(schema_path, method='PATCH', data=ops)
+        mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
 

@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_site_anp_epg_subnet
 short_description: Manage site-local EPG subnets in schema template
@@ -86,9 +85,9 @@ seealso:
 - module: cisco.mso.mso_schema_site_anp_epg
 - module: cisco.mso.mso_schema_template_anp_epg_subnet
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a new subnet to a site EPG
   cisco.mso.mso_schema_site_anp_epg_subnet:
     host: mso_host
@@ -144,10 +143,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_epg_subnet_spec
@@ -156,12 +155,12 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        site=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        anp=dict(type='str', required=True),
-        epg=dict(type='str', required=True),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        schema=dict(type="str", required=True),
+        site=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        anp=dict(type="str", required=True),
+        epg=dict(type="str", required=True),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
     argument_spec.update(mso_epg_subnet_spec())
 
@@ -169,22 +168,22 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['subnet']],
-            ['state', 'present', ['subnet']],
+            ["state", "absent", ["subnet"]],
+            ["state", "present", ["subnet"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    site = module.params.get('site')
-    template = module.params.get('template').replace(' ', '')
-    anp = module.params.get('anp')
-    epg = module.params.get('epg')
-    subnet = module.params.get('subnet')
-    description = module.params.get('description')
-    scope = module.params.get('scope')
-    shared = module.params.get('shared')
-    no_default_gateway = module.params.get('no_default_gateway')
-    state = module.params.get('state')
+    schema = module.params.get("schema")
+    site = module.params.get("site")
+    template = module.params.get("template").replace(" ", "")
+    anp = module.params.get("anp")
+    epg = module.params.get("epg")
+    subnet = module.params.get("subnet")
+    description = module.params.get("description")
+    scope = module.params.get("scope")
+    shared = module.params.get("shared")
+    no_default_gateway = module.params.get("no_default_gateway")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -195,61 +194,61 @@ def main():
     site_id = mso.lookup_site(site)
 
     # Get site_idx
-    if 'sites' not in schema_obj:
+    if "sites" not in schema_obj:
         mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
-    sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
+    sites = [(s.get("siteId"), s.get("templateName")) for s in schema_obj.get("sites")]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, ', '.join(sites)))
+        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, ", ".join(sites)))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
     # Path-based access uses site_id-template
-    site_template = '{0}-{1}'.format(site_id, template)
+    site_template = "{0}-{1}".format(site_id, template)
 
     # Get ANP
     anp_ref = mso.anp_ref(schema_id=schema_id, template=template, anp=anp)
-    anps = [a.get('anpRef') for a in schema_obj.get('sites')[site_idx]['anps']]
+    anps = [a.get("anpRef") for a in schema_obj.get("sites")[site_idx]["anps"]]
     if anp_ref not in anps:
-        mso.fail_json(msg="Provided anp '{0}' does not exist. Existing anps: {1}".format(anp, ', '.join(anps)))
+        mso.fail_json(msg="Provided anp '{0}' does not exist. Existing anps: {1}".format(anp, ", ".join(anps)))
     anp_idx = anps.index(anp_ref)
 
     # Get EPG
     epg_ref = mso.epg_ref(schema_id=schema_id, template=template, anp=anp, epg=epg)
-    epgs = [e.get('epgRef') for e in schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs']]
+    epgs = [e.get("epgRef") for e in schema_obj.get("sites")[site_idx]["anps"][anp_idx]["epgs"]]
     if epg_ref not in epgs:
-        mso.fail_json(msg="Provided epg '{0}' does not exist. Existing epgs: {1}".format(epg, ', '.join(epgs)))
+        mso.fail_json(msg="Provided epg '{0}' does not exist. Existing epgs: {1}".format(epg, ", ".join(epgs)))
     epg_idx = epgs.index(epg_ref)
 
     # Get Subnet
-    subnets = [s.get('ip') for s in schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs'][epg_idx]['subnets']]
+    subnets = [s.get("ip") for s in schema_obj.get("sites")[site_idx]["anps"][anp_idx]["epgs"][epg_idx]["subnets"]]
     if subnet in subnets:
         subnet_idx = subnets.index(subnet)
         # FIXME: Changes based on index are DANGEROUS
-        subnet_path = '/sites/{0}/anps/{1}/epgs/{2}/subnets/{3}'.format(site_template, anp, epg, subnet_idx)
-        mso.existing = schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs'][epg_idx]['subnets'][subnet_idx]
+        subnet_path = "/sites/{0}/anps/{1}/epgs/{2}/subnets/{3}".format(site_template, anp, epg, subnet_idx)
+        mso.existing = schema_obj.get("sites")[site_idx]["anps"][anp_idx]["epgs"][epg_idx]["subnets"][subnet_idx]
 
-    if state == 'query':
+    if state == "query":
         if subnet is None:
-            mso.existing = schema_obj.get('sites')[site_idx]['anps'][anp_idx]['epgs'][epg_idx]['subnets']
+            mso.existing = schema_obj.get("sites")[site_idx]["anps"][anp_idx]["epgs"][epg_idx]["subnets"]
         elif not mso.existing:
             mso.fail_json(msg="Subnet '{subnet}' not found".format(subnet=subnet))
         mso.exit_json()
 
-    subnets_path = '/sites/{0}/anps/{1}/epgs/{2}/subnets'.format(site_template, anp, epg)
+    subnets_path = "/sites/{0}/anps/{1}/epgs/{2}/subnets".format(site_template, anp, epg)
     ops = []
 
     mso.previous = mso.existing
-    if state == 'absent':
+    if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=subnet_path))
+            ops.append(dict(op="remove", path=subnet_path))
 
-    elif state == 'present':
+    elif state == "present":
         if not mso.existing:
             if description is None:
                 description = subnet
             if scope is None:
-                scope = 'private'
+                scope = "private"
             if shared is None:
                 shared = False
             if no_default_gateway is None:
@@ -266,14 +265,14 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            ops.append(dict(op='replace', path=subnet_path, value=mso.sent))
+            ops.append(dict(op="replace", path=subnet_path, value=mso.sent))
         else:
-            ops.append(dict(op='add', path=subnets_path + '/-', value=mso.sent))
+            ops.append(dict(op="add", path=subnets_path + "/-", value=mso.sent))
 
         mso.existing = mso.proposed
 
     if not module.check_mode:
-        mso.request(schema_path, method='PATCH', data=ops)
+        mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
 

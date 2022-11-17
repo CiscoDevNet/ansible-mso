@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_template_anp
 short_description: Manage Application Network Profiles (ANPs) in schema templates
@@ -54,9 +53,9 @@ seealso:
 - module: cisco.mso.mso_schema_template
 - module: cisco.mso.mso_schema_template_anp_epg
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a new ANP
   cisco.mso.mso_schema_template_anp:
     host: mso_host
@@ -100,10 +99,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
@@ -112,29 +111,29 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        anp=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
-        description=dict(type='str'),
-        display_name=dict(type='str'),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        schema=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        anp=dict(type="str", aliases=["name"]),  # This parameter is not required for querying all objects
+        description=dict(type="str"),
+        display_name=dict(type="str"),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['anp']],
-            ['state', 'present', ['anp']],
+            ["state", "absent", ["anp"]],
+            ["state", "present", ["anp"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    template = module.params.get('template').replace(' ', '')
-    anp = module.params.get('anp')
-    description = module.params.get('description')
-    display_name = module.params.get('display_name')
-    state = module.params.get('state')
+    schema = module.params.get("schema")
+    template = module.params.get("template").replace(" ", "")
+    anp = module.params.get("anp")
+    description = module.params.get("description")
+    display_name = module.params.get("display_name")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -142,36 +141,36 @@ def main():
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
-    templates = [t.get('name') for t in schema_obj.get('templates')]
+    templates = [t.get("name") for t in schema_obj.get("templates")]
     if template not in templates:
-        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ", ".join(templates)))
     template_idx = templates.index(template)
 
     # Get ANP
-    anps = [a.get('name') for a in schema_obj.get('templates')[template_idx]['anps']]
+    anps = [a.get("name") for a in schema_obj.get("templates")[template_idx]["anps"]]
 
     if anp is not None and anp in anps:
         anp_idx = anps.index(anp)
-        mso.existing = schema_obj.get('templates')[template_idx]['anps'][anp_idx]
+        mso.existing = schema_obj.get("templates")[template_idx]["anps"][anp_idx]
 
-    if state == 'query':
+    if state == "query":
         if anp is None:
-            mso.existing = schema_obj.get('templates')[template_idx]['anps']
+            mso.existing = schema_obj.get("templates")[template_idx]["anps"]
         elif not mso.existing:
             mso.fail_json(msg="ANP '{anp}' not found".format(anp=anp))
         mso.exit_json()
 
-    anps_path = '/templates/{0}/anps'.format(template)
-    anp_path = '/templates/{0}/anps/{1}'.format(template, anp)
+    anps_path = "/templates/{0}/anps".format(template)
+    anp_path = "/templates/{0}/anps/{1}".format(template, anp)
     ops = []
 
     mso.previous = mso.existing
-    if state == 'absent':
+    if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=anp_path))
+            ops.append(dict(op="remove", path=anp_path))
 
-    elif state == 'present':
+    elif state == "present":
 
         if display_name is None and not mso.existing:
             display_name = anp
@@ -193,17 +192,17 @@ def main():
 
         if mso.existing:
             if display_name is not None:
-                ops.append(dict(op='replace', path=anp_path + '/displayName', value=display_name))
+                ops.append(dict(op="replace", path=anp_path + "/displayName", value=display_name))
         else:
-            ops.append(dict(op='add', path=anps_path + '/-', value=mso.sent))
+            ops.append(dict(op="add", path=anps_path + "/-", value=mso.sent))
 
         mso.existing = mso.proposed
 
-    if 'anpRef' in mso.previous:
-        del mso.previous['anpRef']
+    if "anpRef" in mso.previous:
+        del mso.previous["anpRef"]
 
     if not module.check_mode:
-        mso.request(schema_path, method='PATCH', data=ops)
+        mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
 

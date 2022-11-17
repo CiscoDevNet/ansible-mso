@@ -6,13 +6,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_template_bd
 short_description: Manage Bridge Domains (BDs) in schema templates
@@ -237,9 +236,9 @@ options:
     choices: [ absent, present, query ]
     default: present
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a new BD
   cisco.mso.mso_schema_template_bd:
     host: mso_host
@@ -393,10 +392,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec, mso_bd_subnet_spec, mso_dhcp_spec
@@ -405,110 +404,110 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        bd=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
-        display_name=dict(type='str'),
-        description=dict(type='str'),
-        intersite_bum_traffic=dict(type='bool'),
-        optimize_wan_bandwidth=dict(type='bool'),
-        layer2_stretch=dict(type='bool', default='true'),
-        layer2_unknown_unicast=dict(type='str', choices=['flood', 'proxy']),
-        layer3_multicast=dict(type='bool'),
-        vrf=dict(type='dict', options=mso_reference_spec()),
-        dhcp_policy=dict(type='dict', options=mso_dhcp_spec()),
-        dhcp_policies=dict(type='list', elements='dict', options=mso_dhcp_spec()),
-        subnets=dict(type='list', elements='dict', options=mso_bd_subnet_spec()),
-        unknown_multicast_flooding=dict(type='str', choices=['optimized_flooding', 'flood']),
-        multi_destination_flooding=dict(type='str', choices=['flood_in_bd', 'drop', 'encap-flood']),
-        ipv6_unknown_multicast_flooding=dict(type='str', choices=['optimized_flooding', 'flood']),
-        arp_flooding=dict(type='bool'),
-        virtual_mac_address=dict(type='str'),
-        unicast_routing=dict(type='bool'),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        schema=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        bd=dict(type="str", aliases=["name"]),  # This parameter is not required for querying all objects
+        display_name=dict(type="str"),
+        description=dict(type="str"),
+        intersite_bum_traffic=dict(type="bool"),
+        optimize_wan_bandwidth=dict(type="bool"),
+        layer2_stretch=dict(type="bool", default="true"),
+        layer2_unknown_unicast=dict(type="str", choices=["flood", "proxy"]),
+        layer3_multicast=dict(type="bool"),
+        vrf=dict(type="dict", options=mso_reference_spec()),
+        dhcp_policy=dict(type="dict", options=mso_dhcp_spec()),
+        dhcp_policies=dict(type="list", elements="dict", options=mso_dhcp_spec()),
+        subnets=dict(type="list", elements="dict", options=mso_bd_subnet_spec()),
+        unknown_multicast_flooding=dict(type="str", choices=["optimized_flooding", "flood"]),
+        multi_destination_flooding=dict(type="str", choices=["flood_in_bd", "drop", "encap-flood"]),
+        ipv6_unknown_multicast_flooding=dict(type="str", choices=["optimized_flooding", "flood"]),
+        arp_flooding=dict(type="bool"),
+        virtual_mac_address=dict(type="str"),
+        unicast_routing=dict(type="bool"),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['bd']],
-            ['state', 'present', ['bd', 'vrf']],
+            ["state", "absent", ["bd"]],
+            ["state", "present", ["bd", "vrf"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    template = module.params.get('template').replace(' ', '')
-    bd = module.params.get('bd')
-    display_name = module.params.get('display_name')
-    description = module.params.get('description')
-    intersite_bum_traffic = module.params.get('intersite_bum_traffic')
-    optimize_wan_bandwidth = module.params.get('optimize_wan_bandwidth')
-    layer2_stretch = module.params.get('layer2_stretch')
-    layer2_unknown_unicast = module.params.get('layer2_unknown_unicast')
-    layer3_multicast = module.params.get('layer3_multicast')
-    vrf = module.params.get('vrf')
-    if vrf is not None and vrf.get('template') is not None:
-        vrf['template'] = vrf.get('template').replace(' ', '')
-    dhcp_policy = module.params.get('dhcp_policy')
-    dhcp_policies = module.params.get('dhcp_policies')
-    subnets = module.params.get('subnets')
-    unknown_multicast_flooding = module.params.get('unknown_multicast_flooding')
-    multi_destination_flooding = module.params.get('multi_destination_flooding')
-    ipv6_unknown_multicast_flooding = module.params.get('ipv6_unknown_multicast_flooding')
-    arp_flooding = module.params.get('arp_flooding')
-    virtual_mac_address = module.params.get('virtual_mac_address')
-    unicast_routing = module.params.get('unicast_routing')
-    state = module.params.get('state')
+    schema = module.params.get("schema")
+    template = module.params.get("template").replace(" ", "")
+    bd = module.params.get("bd")
+    display_name = module.params.get("display_name")
+    description = module.params.get("description")
+    intersite_bum_traffic = module.params.get("intersite_bum_traffic")
+    optimize_wan_bandwidth = module.params.get("optimize_wan_bandwidth")
+    layer2_stretch = module.params.get("layer2_stretch")
+    layer2_unknown_unicast = module.params.get("layer2_unknown_unicast")
+    layer3_multicast = module.params.get("layer3_multicast")
+    vrf = module.params.get("vrf")
+    if vrf is not None and vrf.get("template") is not None:
+        vrf["template"] = vrf.get("template").replace(" ", "")
+    dhcp_policy = module.params.get("dhcp_policy")
+    dhcp_policies = module.params.get("dhcp_policies")
+    subnets = module.params.get("subnets")
+    unknown_multicast_flooding = module.params.get("unknown_multicast_flooding")
+    multi_destination_flooding = module.params.get("multi_destination_flooding")
+    ipv6_unknown_multicast_flooding = module.params.get("ipv6_unknown_multicast_flooding")
+    arp_flooding = module.params.get("arp_flooding")
+    virtual_mac_address = module.params.get("virtual_mac_address")
+    unicast_routing = module.params.get("unicast_routing")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
     # Map choices
-    if unknown_multicast_flooding == 'optimized_flooding':
-        unknown_multicast_flooding = 'opt-flood'
-    if ipv6_unknown_multicast_flooding == 'optimized_flooding':
-        ipv6_unknown_multicast_flooding = 'opt-flood'
-    if multi_destination_flooding == 'flood_in_bd':
-        multi_destination_flooding = 'bd-flood'
+    if unknown_multicast_flooding == "optimized_flooding":
+        unknown_multicast_flooding = "opt-flood"
+    if ipv6_unknown_multicast_flooding == "optimized_flooding":
+        ipv6_unknown_multicast_flooding = "opt-flood"
+    if multi_destination_flooding == "flood_in_bd":
+        multi_destination_flooding = "bd-flood"
 
-    if layer2_unknown_unicast == 'flood':
+    if layer2_unknown_unicast == "flood":
         arp_flooding = True
 
     # Get schema objects
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
-    templates = [t.get('name') for t in schema_obj.get('templates')]
+    templates = [t.get("name") for t in schema_obj.get("templates")]
     if template not in templates:
-        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ", ".join(templates)))
     template_idx = templates.index(template)
 
     # Get BDs
-    bds = [b.get('name') for b in schema_obj.get('templates')[template_idx]['bds']]
+    bds = [b.get("name") for b in schema_obj.get("templates")[template_idx]["bds"]]
 
     if bd is not None and bd in bds:
         bd_idx = bds.index(bd)
-        mso.existing = schema_obj.get('templates')[template_idx]['bds'][bd_idx]
+        mso.existing = schema_obj.get("templates")[template_idx]["bds"][bd_idx]
 
-    if state == 'query':
+    if state == "query":
         if bd is None:
-            mso.existing = schema_obj.get('templates')[template_idx]['bds']
+            mso.existing = schema_obj.get("templates")[template_idx]["bds"]
         elif not mso.existing:
             mso.fail_json(msg="BD '{bd}' not found".format(bd=bd))
         mso.exit_json()
 
-    bds_path = '/templates/{0}/bds'.format(template)
-    bd_path = '/templates/{0}/bds/{1}'.format(template, bd)
+    bds_path = "/templates/{0}/bds".format(template)
+    bd_path = "/templates/{0}/bds/{1}".format(template, bd)
     ops = []
 
     mso.previous = mso.existing
-    if state == 'absent':
+    if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=bd_path))
+            ops.append(dict(op="remove", path=bd_path))
 
-    elif state == 'present':
-        vrf_ref = mso.make_reference(vrf, 'vrf', schema_id, template)
+    elif state == "present":
+        vrf_ref = mso.make_reference(vrf, "vrf", schema_id, template)
         subnets = mso.make_subnets(subnets)
         dhcp_label = mso.make_dhcp_label(dhcp_policy)
         dhcp_labels = mso.make_dhcp_label(dhcp_policies)
@@ -545,20 +544,20 @@ def main():
         if description:
             payload.update(description=description)
 
-        mso.sanitize(payload, collate=True, required=['dhcpLabel', 'dhcpLabels'])
+        mso.sanitize(payload, collate=True, required=["dhcpLabel", "dhcpLabels"])
         if mso.existing:
-            ops.append(dict(op='replace', path=bd_path, value=mso.sent))
+            ops.append(dict(op="replace", path=bd_path, value=mso.sent))
         else:
-            ops.append(dict(op='add', path=bds_path + '/-', value=mso.sent))
+            ops.append(dict(op="add", path=bds_path + "/-", value=mso.sent))
         mso.existing = mso.proposed
 
-    if 'bdRef' in mso.previous:
-        del mso.previous['bdRef']
-    if 'vrfRef' in mso.previous:
-        mso.previous['vrfRef'] = mso.vrf_dict_from_ref(mso.previous.get('vrfRef'))
+    if "bdRef" in mso.previous:
+        del mso.previous["bdRef"]
+    if "vrfRef" in mso.previous:
+        mso.previous["vrfRef"] = mso.vrf_dict_from_ref(mso.previous.get("vrfRef"))
 
     if not module.check_mode and mso.proposed != mso.previous:
-        mso.request(schema_path, method='PATCH', data=ops)
+        mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
 

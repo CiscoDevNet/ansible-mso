@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_site
 short_description: Manage sites
@@ -86,9 +85,9 @@ options:
     choices: [ absent, present, query ]
     default: present
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a new site
   cisco.mso.mso_site:
     host: mso_host
@@ -140,10 +139,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
@@ -151,99 +150,99 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 
 def main():
     location_arg_spec = dict(
-        latitude=dict(type='float'),
-        longitude=dict(type='float'),
+        latitude=dict(type="float"),
+        longitude=dict(type="float"),
     )
 
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        apic_password=dict(type='str', no_log=True),
-        apic_site_id=dict(type='str'),
-        apic_username=dict(type='str', default='admin'),
-        apic_login_domain=dict(type='str'),
-        labels=dict(type='list', elements='str'),
-        location=dict(type='dict', options=location_arg_spec),
-        site=dict(type='str', aliases=['name']),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
-        urls=dict(type='list', elements='str'),
+        apic_password=dict(type="str", no_log=True),
+        apic_site_id=dict(type="str"),
+        apic_username=dict(type="str", default="admin"),
+        apic_login_domain=dict(type="str"),
+        labels=dict(type="list", elements="str"),
+        location=dict(type="dict", options=location_arg_spec),
+        site=dict(type="str", aliases=["name"]),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
+        urls=dict(type="list", elements="str"),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['site']],
-            ['state', 'present', ['apic_site_id', 'site']],
+            ["state", "absent", ["site"]],
+            ["state", "present", ["apic_site_id", "site"]],
         ],
     )
 
-    apic_username = module.params.get('apic_username')
-    apic_password = module.params.get('apic_password')
-    apic_site_id = module.params.get('apic_site_id')
-    site = module.params.get('site')
-    location = module.params.get('location')
+    apic_username = module.params.get("apic_username")
+    apic_password = module.params.get("apic_password")
+    apic_site_id = module.params.get("apic_site_id")
+    site = module.params.get("site")
+    location = module.params.get("location")
     if location is not None:
-        latitude = module.params.get('location')['latitude']
-        longitude = module.params.get('location')['longitude']
-    state = module.params.get('state')
-    urls = module.params.get('urls')
-    apic_login_domain = module.params.get('apic_login_domain')
+        latitude = module.params.get("location")["latitude"]
+        longitude = module.params.get("location")["longitude"]
+    state = module.params.get("state")
+    urls = module.params.get("urls")
+    apic_login_domain = module.params.get("apic_login_domain")
 
     mso = MSOModule(module)
 
     site_id = None
-    path = 'sites'
-    api_version = 'v1'
-    if mso.platform == 'nd':
-        api_version = 'v2'
+    path = "sites"
+    api_version = "v1"
+    if mso.platform == "nd":
+        api_version = "v2"
 
     # Convert labels
-    labels = mso.lookup_labels(module.params.get('labels'), 'site')
+    labels = mso.lookup_labels(module.params.get("labels"), "site")
 
     # Query for mso.existing object(s)
     if site:
-        if mso.platform == 'nd':
+        if mso.platform == "nd":
             site_info = mso.get_obj(path, api_version=api_version, common=dict(name=site))
-            path = 'sites/manage'
+            path = "sites/manage"
             if site_info:
                 # If we found an existing object, continue with it
-                site_id = site_info.get('id')
-                if site_id is not None and site_id != '':
+                site_id = site_info.get("id")
+                if site_id is not None and site_id != "":
                     # Checking if site is managed by MSO
                     mso.existing = site_info
-                    path = 'sites/manage/{id}'.format(id=site_id)
+                    path = "sites/manage/{id}".format(id=site_id)
         else:
             mso.existing = mso.get_obj(path, name=site)
             if mso.existing:
                 # If we found an existing object, continue with it
-                site_id = mso.existing.get('id')
-                path = 'sites/{id}'.format(id=site_id)
+                site_id = mso.existing.get("id")
+                path = "sites/{id}".format(id=site_id)
 
     else:
         mso.existing = mso.query_objs(path, api_version=api_version)
 
-    if state == 'query':
+    if state == "query":
         pass
 
-    elif state == 'absent':
+    elif state == "absent":
         mso.previous = mso.existing
         if mso.existing:
             if module.check_mode:
                 mso.existing = {}
             else:
-                mso.request(path, method='DELETE', qs=dict(force='true'), api_version=api_version)
+                mso.request(path, method="DELETE", qs=dict(force="true"), api_version=api_version)
                 mso.existing = {}
 
-    elif state == 'present':
+    elif state == "present":
         mso.previous = mso.existing
 
-        if mso.platform == 'nd':
+        if mso.platform == "nd":
             if mso.existing:
                 payload = mso.existing
             else:
                 if site_info:
                     payload = site_info
-                    payload['common']['siteId'] = apic_site_id
+                    payload["common"]["siteId"] = apic_site_id
                 else:
                     mso.fail_json(msg="Site '{0}' is not a valid Site configured at ND-level. Add Site to ND first.".format(site))
 
@@ -259,13 +258,13 @@ def main():
             )
 
             if location is not None:
-                payload['location'] = dict(
+                payload["location"] = dict(
                     lat=latitude,
                     long=longitude,
                 )
 
-            if apic_login_domain is not None and apic_login_domain not in ['', 'local', 'Local']:
-                payload['username'] = 'apic#{0}\\{1}'.format(apic_login_domain, apic_username)
+            if apic_login_domain is not None and apic_login_domain not in ["", "local", "Local"]:
+                payload["username"] = "apic#{0}\\{1}".format(apic_login_domain, apic_username)
 
         mso.sanitize(payload, collate=True)
 
@@ -274,15 +273,15 @@ def main():
                 if module.check_mode:
                     mso.existing = mso.proposed
                 else:
-                    mso.existing = mso.request(path, method='PUT', data=mso.sent, api_version=api_version)
+                    mso.existing = mso.request(path, method="PUT", data=mso.sent, api_version=api_version)
         else:
             if module.check_mode:
                 mso.existing = mso.proposed
             else:
-                mso.existing = mso.request(path, method='POST', data=mso.sent, api_version=api_version)
+                mso.existing = mso.request(path, method="POST", data=mso.sent, api_version=api_version)
 
-    if 'password' in mso.existing:
-        mso.existing['password'] = '******'
+    if "password" in mso.existing:
+        mso.existing["password"] = "******"
 
     mso.exit_json()
 

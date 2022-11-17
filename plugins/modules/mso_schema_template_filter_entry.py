@@ -6,13 +6,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_template_filter_entry
 short_description: Manage filter entries in schema templates
@@ -121,9 +120,9 @@ seealso:
 notes:
 - Due to restrictions of the MSO REST API this module creates filters when needed, and removes them when the last entry has been removed.
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a new filter entry
   cisco.mso.mso_schema_template_filter_entry:
     host: mso_host
@@ -168,10 +167,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
@@ -180,57 +179,57 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        filter=dict(type='str', required=True),
-        filter_description=dict(type='str', default=''),
-        filter_display_name=dict(type='str'),
-        entry=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
-        filter_entry_description=dict(type='str', default='', aliases=['entry_description', 'description']),
-        display_name=dict(type='str', aliases=['entry_display_name']),
-        ethertype=dict(type='str', choices=['arp', 'fcoe', 'ip', 'ipv4', 'ipv6', 'mac-security', 'mpls-unicast', 'trill', 'unspecified']),
-        ip_protocol=dict(type='str', choices=['eigrp', 'egp', 'icmp', 'icmpv6', 'igmp', 'igp', 'l2tp', 'ospfigp', 'pim', 'tcp', 'udp', 'unspecified']),
-        tcp_session_rules=dict(type='list', elements='str', choices=['acknowledgement', 'established', 'finish', 'synchronize', 'reset', 'unspecified']),
-        source_from=dict(type='str'),
-        source_to=dict(type='str'),
-        destination_from=dict(type='str'),
-        destination_to=dict(type='str'),
-        arp_flag=dict(type='str', choices=['reply', 'request', 'unspecified']),
-        stateful=dict(type='bool'),
-        fragments_only=dict(type='bool'),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        schema=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        filter=dict(type="str", required=True),
+        filter_description=dict(type="str", default=""),
+        filter_display_name=dict(type="str"),
+        entry=dict(type="str", aliases=["name"]),  # This parameter is not required for querying all objects
+        filter_entry_description=dict(type="str", default="", aliases=["entry_description", "description"]),
+        display_name=dict(type="str", aliases=["entry_display_name"]),
+        ethertype=dict(type="str", choices=["arp", "fcoe", "ip", "ipv4", "ipv6", "mac-security", "mpls-unicast", "trill", "unspecified"]),
+        ip_protocol=dict(type="str", choices=["eigrp", "egp", "icmp", "icmpv6", "igmp", "igp", "l2tp", "ospfigp", "pim", "tcp", "udp", "unspecified"]),
+        tcp_session_rules=dict(type="list", elements="str", choices=["acknowledgement", "established", "finish", "synchronize", "reset", "unspecified"]),
+        source_from=dict(type="str"),
+        source_to=dict(type="str"),
+        destination_from=dict(type="str"),
+        destination_to=dict(type="str"),
+        arp_flag=dict(type="str", choices=["reply", "request", "unspecified"]),
+        stateful=dict(type="bool"),
+        fragments_only=dict(type="bool"),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['entry']],
-            ['state', 'present', ['entry']],
+            ["state", "absent", ["entry"]],
+            ["state", "present", ["entry"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    template = module.params.get('template').replace(' ', '')
-    filter_name = module.params.get('filter')
-    filter_display_name = module.params.get('filter_display_name')
-    filter_description = module.params.get('filter_description')
-    entry = module.params.get('entry')
-    display_name = module.params.get('display_name')
-    filter_entry_description = module.params.get('filter_entry_description')
-    ethertype = module.params.get('ethertype')
-    ip_protocol = module.params.get('ip_protocol')
-    tcp_session_rules = module.params.get('tcp_session_rules')
-    source_from = module.params.get('source_from')
-    source_to = module.params.get('source_to')
-    destination_from = module.params.get('destination_from')
-    destination_to = module.params.get('destination_to')
-    arp_flag = module.params.get('arp_flag')
-    if arp_flag == 'request':
-        arp_flag = 'req'
-    stateful = module.params.get('stateful')
-    fragments_only = module.params.get('fragments_only')
-    state = module.params.get('state')
+    schema = module.params.get("schema")
+    template = module.params.get("template").replace(" ", "")
+    filter_name = module.params.get("filter")
+    filter_display_name = module.params.get("filter_display_name")
+    filter_description = module.params.get("filter_description")
+    entry = module.params.get("entry")
+    display_name = module.params.get("display_name")
+    filter_entry_description = module.params.get("filter_entry_description")
+    ethertype = module.params.get("ethertype")
+    ip_protocol = module.params.get("ip_protocol")
+    tcp_session_rules = module.params.get("tcp_session_rules")
+    source_from = module.params.get("source_from")
+    source_to = module.params.get("source_to")
+    destination_from = module.params.get("destination_from")
+    destination_to = module.params.get("destination_to")
+    arp_flag = module.params.get("arp_flag")
+    if arp_flag == "request":
+        arp_flag = "req"
+    stateful = module.params.get("stateful")
+    fragments_only = module.params.get("fragments_only")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -238,42 +237,43 @@ def main():
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
-    templates = [t.get('name') for t in schema_obj.get('templates')]
+    templates = [t.get("name") for t in schema_obj.get("templates")]
     if template not in templates:
-        mso.fail_json(msg="Provided template '{template}' does not exist. Existing templates: {templates}".format(template=template,
-                                                                                                                  templates=', '.join(templates)))
+        mso.fail_json(
+            msg="Provided template '{template}' does not exist. Existing templates: {templates}".format(template=template, templates=", ".join(templates))
+        )
     template_idx = templates.index(template)
 
     # Get filters
     mso.existing = {}
     filter_idx = None
     entry_idx = None
-    filters = [f.get('name') for f in schema_obj.get('templates')[template_idx]['filters']]
+    filters = [f.get("name") for f in schema_obj.get("templates")[template_idx]["filters"]]
     if filter_name in filters:
         filter_idx = filters.index(filter_name)
 
-        entries = [f.get('name') for f in schema_obj.get('templates')[template_idx]['filters'][filter_idx]['entries']]
+        entries = [f.get("name") for f in schema_obj.get("templates")[template_idx]["filters"][filter_idx]["entries"]]
         if entry in entries:
             entry_idx = entries.index(entry)
-            mso.existing = schema_obj.get('templates')[template_idx]['filters'][filter_idx]['entries'][entry_idx]
+            mso.existing = schema_obj.get("templates")[template_idx]["filters"][filter_idx]["entries"][entry_idx]
 
-    if state == 'query':
+    if state == "query":
         if entry is None:
             if filter_idx is None:
                 mso.fail_json(msg="Filter '{filter}' not found".format(filter=filter_name))
-            mso.existing = schema_obj.get('templates')[template_idx]['filters'][filter_idx]['entries']
+            mso.existing = schema_obj.get("templates")[template_idx]["filters"][filter_idx]["entries"]
         elif not mso.existing:
             mso.fail_json(msg="Entry '{entry}' not found".format(entry=entry))
         mso.exit_json()
 
-    filters_path = '/templates/{0}/filters'.format(template)
-    filter_path = '/templates/{0}/filters/{1}'.format(template, filter_name)
-    entries_path = '/templates/{0}/filters/{1}/entries'.format(template, filter_name)
-    entry_path = '/templates/{0}/filters/{1}/entries/{2}'.format(template, filter_name, entry)
+    filters_path = "/templates/{0}/filters".format(template)
+    filter_path = "/templates/{0}/filters/{1}".format(template, filter_name)
+    entries_path = "/templates/{0}/filters/{1}/entries".format(template, filter_name)
+    entry_path = "/templates/{0}/filters/{1}/entries/{2}".format(template, filter_name, entry)
     ops = []
 
     mso.previous = mso.existing
-    if state == 'absent':
+    if state == "absent":
         mso.proposed = mso.sent = {}
 
         if filter_idx is None:
@@ -285,33 +285,33 @@ def main():
         elif len(entries) == 1:
             # There is only one entry, remove filter
             mso.existing = {}
-            ops.append(dict(op='remove', path=filter_path))
+            ops.append(dict(op="remove", path=filter_path))
 
         else:
             mso.existing = {}
-            ops.append(dict(op='remove', path=entry_path))
+            ops.append(dict(op="remove", path=entry_path))
 
-    elif state == 'present':
+    elif state == "present":
 
         if not mso.existing:
             if display_name is None:
                 display_name = entry
             if ethertype is None:
-                ethertype = 'unspecified'
+                ethertype = "unspecified"
             if ip_protocol is None:
-                ip_protocol = 'unspecified'
+                ip_protocol = "unspecified"
             if tcp_session_rules is None:
-                tcp_session_rules = ['unspecified']
+                tcp_session_rules = ["unspecified"]
             if source_from is None:
-                source_from = 'unspecified'
+                source_from = "unspecified"
             if source_to is None:
-                source_to = 'unspecified'
+                source_to = "unspecified"
             if destination_from is None:
-                destination_from = 'unspecified'
+                destination_from = "unspecified"
             if destination_to is None:
-                destination_to = 'unspecified'
+                destination_to = "unspecified"
             if arp_flag is None:
-                arp_flag = 'unspecified'
+                arp_flag = "unspecified"
             if stateful is None:
                 stateful = False
             if fragments_only is None:
@@ -347,21 +347,21 @@ def main():
                 entries=[mso.sent],
             )
 
-            ops.append(dict(op='add', path=filters_path + '/-', value=payload))
+            ops.append(dict(op="add", path=filters_path + "/-", value=payload))
 
         elif entry_idx is None:
             # Entry does not exist, so we have to add it
-            ops.append(dict(op='add', path=entries_path + '/-', value=mso.sent))
+            ops.append(dict(op="add", path=entries_path + "/-", value=mso.sent))
 
         else:
             # Entry exists, we have to update it
             for (key, value) in mso.sent.items():
-                ops.append(dict(op='replace', path=entry_path + '/' + key, value=value))
+                ops.append(dict(op="replace", path=entry_path + "/" + key, value=value))
 
         mso.existing = mso.proposed
 
     if not module.check_mode:
-        mso.request(schema_path, method='PATCH', data=ops)
+        mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
 

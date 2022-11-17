@@ -7,13 +7,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_site_bd_l3out
 short_description: Manage site-local BD l3out's in schema template
@@ -80,9 +79,9 @@ seealso:
 - module: cisco.mso.mso_schema_site_bd
 - module: cisco.mso.mso_schema_template_bd
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a new site BD l3out
   cisco.mso.mso_schema_site_bd_l3out:
     host: mso_host
@@ -154,10 +153,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec
@@ -167,29 +166,29 @@ from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        site=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        bd=dict(type='str', required=True),
-        l3out=dict(type='dict', options=mso_reference_spec(), aliases=['name']),  # This parameter is not required for querying all objects
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        schema=dict(type="str", required=True),
+        site=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        bd=dict(type="str", required=True),
+        l3out=dict(type="dict", options=mso_reference_spec(), aliases=["name"]),  # This parameter is not required for querying all objects
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['l3out']],
-            ['state', 'present', ['l3out']],
+            ["state", "absent", ["l3out"]],
+            ["state", "present", ["l3out"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    site = module.params.get('site')
-    template = module.params.get('template').replace(' ', '')
-    bd = module.params.get('bd')
-    l3out = module.params.get('l3out')
-    state = module.params.get('state')
+    schema = module.params.get("schema")
+    site = module.params.get("site")
+    template = module.params.get("template").replace(" ", "")
+    bd = module.params.get("bd")
+    l3out = module.params.get("l3out")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -199,7 +198,7 @@ def main():
     mso_schema.set_template_bd(bd)
     mso_schema.set_site_bd(bd, fail_module=False)
 
-    bd_path = '/sites/{0}-{1}/bds'.format(mso_objects.get('site').details.get('siteId'), template)
+    bd_path = "/sites/{0}-{1}/bds".format(mso_objects.get("site").details.get("siteId"), template)
     ops = []
     payload = dict()
 
@@ -207,58 +206,50 @@ def main():
         l3out_ref = mso.l3out_ref(
             schema_id=mso.lookup_schema(l3out.get("schema")) if l3out.get("schema") else mso_schema.id,
             template=l3out.get("template") if l3out.get("template") else template,
-            l3out=l3out.get("name")
+            l3out=l3out.get("name"),
         )
 
-    if not mso_objects.get('site_bd') and l3out:
-        payload = dict(
-            bdRef=dict(schemaId=mso_schema.id, templateName=template, bdName=bd),
-            l3Outs=[l3out.get("name")],
-            l3OutRefs=[l3out_ref]
-        )
+    if not mso_objects.get("site_bd") and l3out:
+        payload = dict(bdRef=dict(schemaId=mso_schema.id, templateName=template, bdName=bd), l3Outs=[l3out.get("name")], l3OutRefs=[l3out_ref])
     elif l3out:
-        mso_objects.get('site_bd').details["bdRef"] = dict(schemaId=mso_schema.id, templateName=template, bdName=bd)
-        l3out_refs = mso_objects.get('site_bd').details.get("l3OutRefs", [])
-        l3outs = mso_objects.get('site_bd').details.get("l3Outs", [])
+        mso_objects.get("site_bd").details["bdRef"] = dict(schemaId=mso_schema.id, templateName=template, bdName=bd)
+        l3out_refs = mso_objects.get("site_bd").details.get("l3OutRefs", [])
+        l3outs = mso_objects.get("site_bd").details.get("l3Outs", [])
         if l3out.get("name") in l3outs:
             mso.existing = mso.make_reference(l3out, "l3out", mso_schema.id, template)
 
-    if state == 'query':
+    if state == "query":
         if l3out is None:
-            if "l3OutRefs" in mso_objects.get('site_bd', {}).details.keys():
-                mso.existing = [
-                    mso.dict_from_ref(l3) for l3 in mso_objects.get('site_bd', {}).details.get("l3OutRefs", [])
-                ]
+            if "l3OutRefs" in mso_objects.get("site_bd", {}).details.keys():
+                mso.existing = [mso.dict_from_ref(l3) for l3 in mso_objects.get("site_bd", {}).details.get("l3OutRefs", [])]
             else:
-                mso.existing = [
-                    dict(l3outName=l3) for l3 in mso_objects.get('site_bd', {}).details.get("l3Outs", [])
-                ]
+                mso.existing = [dict(l3outName=l3) for l3 in mso_objects.get("site_bd", {}).details.get("l3Outs", [])]
         elif not mso.existing:
             mso.fail_json(msg="L3out '{0}' not found".format(l3out.get("name")))
         mso.exit_json()
 
     mso.previous = mso.existing
-    if state == 'absent':
+    if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
             if l3out.get("name") in l3outs:
                 del l3outs[l3outs.index(l3out.get("name"))]
             if l3out_ref in l3out_refs:
                 del l3out_refs[l3out_refs.index(l3out_ref)]
-            ops.append(dict(op='replace', path='{0}/{1}'.format(bd_path, bd), value=mso_objects.get('site_bd').details))
+            ops.append(dict(op="replace", path="{0}/{1}".format(bd_path, bd), value=mso_objects.get("site_bd").details))
 
-    elif state == 'present':
+    elif state == "present":
         if not payload:
             l3outs.append(l3out.get("name"))
             l3out_refs.append(l3out_ref)
-            ops.append(dict(op='replace', path='{0}/{1}'.format(bd_path, bd), value=mso_objects.get('site_bd').details))
+            ops.append(dict(op="replace", path="{0}/{1}".format(bd_path, bd), value=mso_objects.get("site_bd").details))
             mso.existing = mso.make_reference(l3out, "l3out", mso_schema.id, template)
         elif not mso.existing:
-            ops.append(dict(op='add', path='{0}/-'.format(bd_path), value=payload))
+            ops.append(dict(op="add", path="{0}/-".format(bd_path), value=payload))
             mso.existing = mso.make_reference(l3out, "l3out", mso_schema.id, template)
 
     if not module.check_mode:
-        mso.request(mso_schema.path, method='PATCH', data=ops)
+        mso.request(mso_schema.path, method="PATCH", data=ops)
 
     mso.exit_json()
 

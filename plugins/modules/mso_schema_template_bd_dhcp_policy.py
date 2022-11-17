@@ -5,13 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
-ANSIBLE_METADATA = {'metadata_version': '1.1',
-                    'status': ['preview'],
-                    'supported_by': 'community'}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: mso_schema_template_bd_dhcp_policy
 short_description: Manage BD DHCP Policy in schema templates
@@ -69,9 +68,9 @@ options:
 notes:
 - This module can only be used on versions of MSO that are 3.1.1h or greater.
 extends_documentation_fragment: cisco.mso.modules
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Add a new DHCP policy to a BD
   cisco.mso.mso_schema_template_bd_dhcp_policy:
     host: mso_host
@@ -125,10 +124,10 @@ EXAMPLES = r'''
     state: query
   delegate_to: localhost
   register: query_result
-'''
+"""
 
-RETURN = r'''
-'''
+RETURN = r"""
+"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_dhcp_option_spec
@@ -137,31 +136,31 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type='str', required=True),
-        template=dict(type='str', required=True),
-        bd=dict(type='str', required=True),
-        dhcp_policy=dict(type='str', aliases=['name']),
-        version=dict(type='int'),
-        dhcp_option_policy=dict(type='dict', options=mso_dhcp_option_spec()),
-        state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
+        schema=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        bd=dict(type="str", required=True),
+        dhcp_policy=dict(type="str", aliases=["name"]),
+        version=dict(type="int"),
+        dhcp_option_policy=dict(type="dict", options=mso_dhcp_option_spec()),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ['state', 'absent', ['dhcp_policy']],
-            ['state', 'present', ['dhcp_policy', 'version']],
+            ["state", "absent", ["dhcp_policy"]],
+            ["state", "present", ["dhcp_policy", "version"]],
         ],
     )
 
-    schema = module.params.get('schema')
-    template = module.params.get('template').replace(' ', '')
-    bd = module.params.get('bd')
-    dhcp_policy = module.params.get('dhcp_policy')
-    dhcp_option_policy = module.params.get('dhcp_option_policy')
-    version = module.params.get('version')
-    state = module.params.get('state')
+    schema = module.params.get("schema")
+    template = module.params.get("template").replace(" ", "")
+    bd = module.params.get("bd")
+    dhcp_policy = module.params.get("dhcp_policy")
+    dhcp_option_policy = module.params.get("dhcp_option_policy")
+    version = module.params.get("version")
+    state = module.params.get("state")
 
     mso = MSOModule(module)
 
@@ -169,15 +168,15 @@ def main():
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
-    templates = [t.get('name') for t in schema_obj.get('templates')]
+    templates = [t.get("name") for t in schema_obj.get("templates")]
     if template not in templates:
-        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ", ".join(templates)))
     template_idx = templates.index(template)
 
     # Get BD
-    bds = [b.get('name') for b in schema_obj.get('templates')[template_idx]['bds']]
+    bds = [b.get("name") for b in schema_obj.get("templates")[template_idx]["bds"]]
     if bd not in bds:
-        mso.fail_json(msg="Provided BD '{0}' does not exist. Existing BDs: {1}".format(bd, ', '.join(bds)))
+        mso.fail_json(msg="Provided BD '{0}' does not exist. Existing BDs: {1}".format(bd, ", ".join(bds)))
     bd_idx = bds.index(bd)
 
     # Check if DHCP policy already exists
@@ -190,37 +189,37 @@ def main():
 
     # Check if DHCP option policy already exists
     if dhcp_option_policy:
-        check_option_policy = mso.get_obj("policies/dhcp/option", name=dhcp_option_policy.get('name'), key="DhcpRelayPolicies")
+        check_option_policy = mso.get_obj("policies/dhcp/option", name=dhcp_option_policy.get("name"), key="DhcpRelayPolicies")
         if check_option_policy:
             pass
         else:
-            mso.fail_json(msg="DHCP option policy '{dhcp_option_policy}' does not exist".format(dhcp_option_policy=dhcp_option_policy.get('name')))
+            mso.fail_json(msg="DHCP option policy '{dhcp_option_policy}' does not exist".format(dhcp_option_policy=dhcp_option_policy.get("name")))
 
     # Get DHCP policies
-    dhcp_policies = [s.get('name') for s in schema_obj.get('templates')[template_idx]['bds'][bd_idx]['dhcpLabels']]
+    dhcp_policies = [s.get("name") for s in schema_obj.get("templates")[template_idx]["bds"][bd_idx]["dhcpLabels"]]
     if dhcp_policy in dhcp_policies:
         dhcp_idx = dhcp_policies.index(dhcp_policy)
         # FIXME: Changes based on index are DANGEROUS
-        dhcp_policy_path = '/templates/{0}/bds/{1}/dhcpLabels/{2}'.format(template, bd, dhcp_idx)
-        mso.existing = schema_obj.get('templates')[template_idx]['bds'][bd_idx]['dhcpLabels'][dhcp_idx]
+        dhcp_policy_path = "/templates/{0}/bds/{1}/dhcpLabels/{2}".format(template, bd, dhcp_idx)
+        mso.existing = schema_obj.get("templates")[template_idx]["bds"][bd_idx]["dhcpLabels"][dhcp_idx]
 
-    if state == 'query':
+    if state == "query":
         if dhcp_policy is None:
-            mso.existing = schema_obj.get('templates')[template_idx]['bds'][bd_idx]['dhcpLabels']
+            mso.existing = schema_obj.get("templates")[template_idx]["bds"][bd_idx]["dhcpLabels"]
         elif not mso.existing:
             mso.fail_json(msg="DHCP policy not associated with the bd")
         mso.exit_json()
 
-    dhcp_policy_paths = '/templates/{0}/bds/{1}/dhcpLabels'.format(template, bd)
+    dhcp_policy_paths = "/templates/{0}/bds/{1}/dhcpLabels".format(template, bd)
     ops = []
 
     mso.previous = mso.existing
-    if state == 'absent':
+    if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=dhcp_policy_path))
+            ops.append(dict(op="remove", path=dhcp_policy_path))
 
-    elif state == 'present':
+    elif state == "present":
         payload = dict(
             name=dhcp_policy,
             version=version,
@@ -230,14 +229,14 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            ops.append(dict(op='replace', path=dhcp_policy_path, value=mso.sent))
+            ops.append(dict(op="replace", path=dhcp_policy_path, value=mso.sent))
         else:
-            ops.append(dict(op='add', path=dhcp_policy_paths + '/-', value=mso.sent))
+            ops.append(dict(op="add", path=dhcp_policy_paths + "/-", value=mso.sent))
 
         mso.existing = mso.proposed
 
     if not module.check_mode:
-        mso.request(schema_path, method='PATCH', data=ops)
+        mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
 

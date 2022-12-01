@@ -39,7 +39,7 @@ options:
     description:
     - Use C(deploy) to deploy schema template.
     - Use C(redeploy) to redeploy schema template.
-    - Use C(undeploy) to deploy schema template from a site.
+    - Use C(undeploy) to undeploy schema template from a site.
     - Use C(query) to get deployment status.
     type: str
     choices: [ deploy, redeploy, undeploy, query ]
@@ -80,6 +80,16 @@ EXAMPLES = r'''
     template: Template 1
     sites: [ Site1, Site2 ]
     state: undeploy
+  delegate_to: localhost
+
+- name: Query a schema template deploy status
+  cisco.mso.ndo_schema_template_deploy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema 1
+    template: Template 1
+    state: query
   delegate_to: localhost
 '''
 

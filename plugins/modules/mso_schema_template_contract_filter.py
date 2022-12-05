@@ -239,10 +239,11 @@ def main():
     filter_schema_id = mso.lookup_schema(filter_schema)
     contract_filter_type = 'bothWay' if filter_type == 'both-way' else 'oneWay'
 
-    # Set path defaults for create logic, if object (contract or filter) is found replace the "-" for specific value.
+    # Set path defaults, when object (contract or filter) is found append /{name} to base paths
     base_contract_path = '/templates/{0}/contracts'.format(template_name)
+    base_filter_path = '{0}/{1}/{2}'.format(base_contract_path, contract_name, filter_key)
     contract_path = '{0}/-'.format(base_contract_path)
-    filter_path = '{0}/{1}/{2}/-'.format(base_contract_path, contract_name, filter_key)
+    filter_path = '{0}/-'.format(base_filter_path)
 
     # Get schema information.
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
@@ -261,14 +262,12 @@ def main():
         if contract_obj.get("filterType") != contract_filter_type:
             mso.fail_json(msg="Current filter type '{0}' for contract '{1}' is not allowed to change to '{2}'.".format(
                 contract_obj.get("filterType"), contract_name, contract_filter_type))
-        if contract_path[-1] == "-": # only replace the last "-" in the path
-            contract_path = "{0}{1}".format(contract_path[:-1], contract_name)
+        contract_path = "{0}/{1}".format(base_contract_path, contract_name)
         if filter_name:
             # Get filter by unique identifier "filterRef".
             filter_obj = next((item for item in contract_obj.get(filter_key) if item.get('filterRef') == filter_ref), None)
             if filter_obj:
-                if filter_path[-1] == "-": # only replace the last "-" in the path
-                    filter_path = "{0}{1}".format(filter_path[:-1], filter_name)
+                filter_path = '{0}/{1}'.format(base_filter_path, filter_name)
                 mso.update_filter_obj(contract_obj, filter_obj, filter_type)
                 mso.existing = filter_obj
 

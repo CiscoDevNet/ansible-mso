@@ -311,7 +311,7 @@ def main():
             if not filter_obj:
                 filter_directives = ['none']
             else:
-                filter_directives = filter_obj.get("directives", ["None"])
+                filter_directives = filter_obj.get('directives', ['none'])
 
         elif 'policy_compression' in filter_directives:
             filter_directives[filter_directives.index('policy_compression')] = 'no_stats'

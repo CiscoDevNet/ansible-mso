@@ -3,6 +3,7 @@
 
 # Copyright: (c) 2019, Dag Wieers (@dagwieers) <dag@wieers.com>
 # Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# Copyright: (c) 2022, Akini Ross (@akinross) <akinross@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -21,6 +22,7 @@ description:
 author:
 - Dag Wieers (@dagwieers)
 - Anvitha Jain (@anvitha-jain)
+- Akini Ross (@akinross)
 options:
   schema:
     description:
@@ -45,8 +47,24 @@ options:
     aliases: [ name ]
   l3out:
     description:
-    - The name of the l3out.
-    type: str
+    - The l3out associated to this BD.
+    type: dict
+    suboptions:
+      name:
+        description:
+        - The name of the l3out to associate with.
+        required: true
+        type: str
+      schema:
+        description:
+        - The schema that defines the referenced l3out.
+        - If this parameter is unspecified, it defaults to the current schema.
+        type: str
+      template:
+        description:
+        - The template that defines the referenced l3out.
+        - If this parameter is unspecified, it defaults to the current schema.
+        type: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -74,7 +92,24 @@ EXAMPLES = r'''
     site: Site1
     template: Template1
     bd: BD1
-    l3out: L3out1
+    l3out:
+      name: L3out1
+    state: present
+  delegate_to: localhost
+
+- name: Add a new site BD l3out with different schema and template
+  cisco.mso.mso_schema_site_bd_l3out:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema1
+    site: Site1
+    template: Template1
+    bd: BD1
+    l3out:
+      name: L3out1
+      schema: Schema2
+      template: Template2
     state: present
   delegate_to: localhost
 
@@ -87,7 +122,8 @@ EXAMPLES = r'''
     site: Site1
     template: Template1
     bd: BD1
-    l3out: L3out1
+    l3out:
+      name: L3out1
     state: absent
   delegate_to: localhost
 
@@ -100,7 +136,8 @@ EXAMPLES = r'''
     site: Site1
     template: Template1
     bd: BD1
-    l3out: L3out1
+    l3out:
+      name: L3out1
     state: query
   delegate_to: localhost
   register: query_result
@@ -123,7 +160,8 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec
+from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 
 
 def main():
@@ -133,7 +171,7 @@ def main():
         site=dict(type='str', required=True),
         template=dict(type='str', required=True),
         bd=dict(type='str', required=True),
-        l3out=dict(type='str', aliases=['name']),  # This parameter is not required for querying all objects
+        l3out=dict(type='dict', options=mso_reference_spec(), aliases=['name']),  # This parameter is not required for querying all objects
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -155,98 +193,72 @@ def main():
 
     mso = MSOModule(module)
 
-    # Get schema objects
-    schema_id, schema_path, schema_obj = mso.query_schema(schema)
+    mso_schema = MSOSchema(mso, schema, template, site)
+    mso_objects = mso_schema.schema_objects
 
-    # Get template
-    templates = [t.get('name') for t in schema_obj.get('templates')]
-    if template not in templates:
-        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates '{1}'".format(template, ', '.join(templates)))
-    template_idx = templates.index(template)
+    mso_schema.set_template_bd(bd)
+    mso_schema.set_site_bd(bd, fail_module=False)
 
-    # Get site
-    site_id = mso.lookup_site(site)
-
-    # Get site_idx
-    if 'sites' not in schema_obj:
-        mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
-    sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
-    if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates '{2}'".format(site, template, ', '.join(sites)))
-
-    # Schema-access uses indexes
-    site_idx = sites.index((site_id, template))
-    # Path-based access uses site_id-template
-    site_template = '{0}-{1}'.format(site_id, template)
-
-    payload = dict()
+    bd_path = '/sites/{0}-{1}/bds'.format(mso_objects.get('site').details.get('siteId'), template)
     ops = []
-    op_path = ''
+    payload = dict()
 
-    # Get BD
-    bd_ref = mso.bd_ref(schema_id=schema_id, template=template, bd=bd)
-    bds = [v.get('bdRef') for v in schema_obj.get('sites')[site_idx]['bds']]
-    bds_in_temp = [a.get('name') for a in schema_obj['templates'][template_idx]['bds']]
-    if bd not in bds_in_temp:
-        mso.fail_json(msg="Provided BD '{0}' does not exist. Existing BDs '{1}'".format(bd, ', '.join(bds_in_temp)))
-
-    # If bd not at site level but exists at template level
-    if bd_ref not in bds:
-        op_path = '/sites/{0}/bds'.format(site_template)
-        payload.update(
-            bdRef=dict(
-                schemaId=schema_id,
-                templateName=template,
-                bdName=bd,
-            ),
+    if l3out:
+        l3out_ref = mso.l3out_ref(
+            schema_id=mso.lookup_schema(l3out.get("schema")) if l3out.get("schema") else mso_schema.id,
+            template=l3out.get("template") if l3out.get("template") else template,
+            l3out=l3out.get("name")
         )
-    else:
-        # Get bd index at site level
-        bd_idx = bds.index(bd_ref)
 
-    # Get L3out
-    # If bd is at site level
-    if 'bdRef' not in payload:
-        l3outs = schema_obj.get('sites')[site_idx]['bds'][bd_idx]['l3Outs']
-        if l3out is not None and l3out in l3outs:
-            l3out_idx = l3outs.index(l3out)
-            # FIXME: Changes based on index are DANGEROUS
-            op_path = '/sites/{0}/bds/{1}/l3Outs/{2}'.format(site_template, bd, l3out_idx)
-            mso.existing = schema_obj.get('sites')[site_idx]['bds'][bd_idx]['l3Outs'][l3out_idx]
-        else:
-            op_path = '/sites/{0}/bds/{1}/l3Outs'.format(site_template, bd)
+    if not mso_objects.get('site_bd') and l3out:
+        payload = dict(
+            bdRef=dict(schemaId=mso_schema.id, templateName=template, bdName=bd),
+            l3Outs=[l3out.get("name")],
+            l3OutRefs=[l3out_ref]
+        )
+    elif l3out:
+        mso_objects.get('site_bd').details["bdRef"] = dict(schemaId=mso_schema.id, templateName=template, bdName=bd)
+        l3out_refs = mso_objects.get('site_bd').details.get("l3OutRefs", [])
+        l3outs = mso_objects.get('site_bd').details.get("l3Outs", [])
+        if l3out.get("name") in l3outs:
+            mso.existing = mso.make_reference(l3out, "l3out", mso_schema.id, template)
 
     if state == 'query':
         if l3out is None:
-            mso.existing = schema_obj.get('sites')[site_idx]['bds'][bd_idx]['l3Outs']
+            if "l3OutRefs" in mso_objects.get('site_bd', {}).details.keys():
+                mso.existing = [
+                    mso.dict_from_ref(l3) for l3 in mso_objects.get('site_bd', {}).details.get("l3OutRefs", [])
+                ]
+            else:
+                mso.existing = [
+                    dict(l3outName=l3) for l3 in mso_objects.get('site_bd', {}).details.get("l3Outs", [])
+                ]
         elif not mso.existing:
-            mso.fail_json(msg="L3out '{l3out}' not found".format(l3out=l3out))
+            mso.fail_json(msg="L3out '{0}' not found".format(l3out.get("name")))
         mso.exit_json()
-
-    ops = []
 
     mso.previous = mso.existing
     if state == 'absent':
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op='remove', path=op_path))
+            if l3out.get("name") in l3outs:
+                del l3outs[l3outs.index(l3out.get("name"))]
+            if l3out_ref in l3out_refs:
+                del l3out_refs[l3out_refs.index(l3out_ref)]
+            ops.append(dict(op='replace', path='{0}/{1}'.format(bd_path, bd), value=mso_objects.get('site_bd').details))
 
     elif state == 'present':
         if not payload:
-            payload = l3out
-        else:
-            # If bd in payload, add l3out to payload
-            payload['l3Outs'] = [l3out]
-
-        mso.sanitize(payload, collate=True)
-
-        if not mso.existing:
-            ops.append(dict(op='add', path=op_path + '/-', value=payload))
-
-        mso.existing = l3out
+            l3outs.append(l3out.get("name"))
+            l3out_refs.append(l3out_ref)
+            ops.append(dict(op='replace', path='{0}/{1}'.format(bd_path, bd), value=mso_objects.get('site_bd').details))
+            mso.existing = mso.make_reference(l3out, "l3out", mso_schema.id, template)
+        elif not mso.existing:
+            ops.append(dict(op='add', path='{0}/-'.format(bd_path), value=payload))
+            mso.existing = mso.make_reference(l3out, "l3out", mso_schema.id, template)
 
     if not module.check_mode:
-        mso.request(schema_path, method='PATCH', data=ops)
+        mso.request(mso_schema.path, method='PATCH', data=ops)
 
     mso.exit_json()
 

@@ -14,9 +14,10 @@ ANSIBLE_METADATA = {'metadata_version': '1.1',
 DOCUMENTATION = r'''
 ---
 module: ndo_schema_template_deploy
-short_description: Deploy schema templates to sites
+short_description: Deploy schema templates to sites for NDO v4.1 and higher
 description:
 - Deploy schema templates to sites.
+- Only supports NDO v4.1 and higher
 author:
 - Akini Ross (@akinross)
 options:

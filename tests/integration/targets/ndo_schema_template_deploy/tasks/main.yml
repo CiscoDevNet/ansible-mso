@@ -5,17 +5,17 @@
 
 - name: Test that we have an ACI MultiSite host, username and password
   ansible.builtin.fail:
-    msg: 'Please define the following variables: ndo_hostname, ndo_username and ndo_password.'
-  when: ndo_hostname is not defined or ndo_username is not defined or ndo_password is not defined
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
   ansible.builtin.set_fact:
     mso_info: &mso_info
-      host: '{{ ndo_hostname }}'
-      username: '{{ ndo_username }}'
-      password: '{{ ndo_password }}'
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
@@ -91,7 +91,7 @@
       <<: *mso_info
       tenant: ansible_test
       users:
-        - '{{ ndo_username }}'
+        - '{{ mso_username }}'
       sites:
       - '{{ mso_site | default("ansible_test") }}'
       state: present

@@ -239,10 +239,11 @@ def main():
     filter_schema_id = mso.lookup_schema(filter_schema)
     contract_filter_type = 'bothWay' if filter_type == 'both-way' else 'oneWay'
 
-    # Set path defaults for create logic, if object (contract or filter) is found replace the "-" for specific value.
+    # Set path defaults, when object (contract or filter) is found append /{name} to base paths
     base_contract_path = '/templates/{0}/contracts'.format(template_name)
+    base_filter_path = '{0}/{1}/{2}'.format(base_contract_path, contract_name, filter_key)
     contract_path = '{0}/-'.format(base_contract_path)
-    filter_path = '{0}/{1}/{2}/-'.format(base_contract_path, contract_name, filter_key)
+    filter_path = '{0}/-'.format(base_filter_path)
 
     # Get schema information.
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
@@ -253,16 +254,20 @@ def main():
         existing_templates = [t.get('name') for t in schema_obj.get('templates')]
         mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template_name, ', '.join(existing_templates)))
 
+    filter_ref = mso.filter_ref(schema_id=filter_schema_id, template=filter_template, filter=filter_name)
+
     # Get contract by unique identifier "name".
     contract_obj = next((item for item in template_obj.get('contracts') if item.get('name') == contract_name), None)
     if contract_obj:
-        contract_path = contract_path.replace("-", contract_name)
+        if contract_obj.get("filterType") != contract_filter_type:
+            mso.fail_json(msg="Current filter type '{0}' for contract '{1}' is not allowed to change to '{2}'.".format(
+                contract_obj.get("filterType"), contract_name, contract_filter_type))
+        contract_path = "{0}/{1}".format(base_contract_path, contract_name)
         if filter_name:
             # Get filter by unique identifier "filterRef".
-            filter_ref = mso.filter_ref(schema_id=filter_schema_id, template=filter_template, filter=filter_name)
             filter_obj = next((item for item in contract_obj.get(filter_key) if item.get('filterRef') == filter_ref), None)
             if filter_obj:
-                filter_path = filter_path.replace("-", filter_name)
+                filter_path = '{0}/{1}'.format(base_filter_path, filter_name)
                 mso.update_filter_obj(contract_obj, filter_obj, filter_type)
                 mso.existing = filter_obj
 
@@ -300,6 +305,29 @@ def main():
 
         contract_scope = 'context' if contract_scope == 'vrf' else contract_scope
 
+        # Initialize "present" state filter variables
+        if not filter_directives:
+            # Avoid validation error: "Bad Request: (0)(1)(0) 'directives' is undefined on object
+            if not filter_obj:
+                filter_directives = ['none']
+            else:
+                filter_directives = filter_obj.get('directives', ['none'])
+
+        elif 'policy_compression' in filter_directives:
+            filter_directives[filter_directives.index('policy_compression')] = 'no_stats'
+        filter_payload = dict(
+            filterRef=dict(
+                filterName=filter_name,
+                templateName=filter_template,
+                schemaId=filter_schema_id,
+            ),
+            directives=filter_directives,
+        )
+        if filter_action:
+            filter_payload.update(action=filter_action)
+        if filter_action == 'deny' and filter_priority:
+            filter_payload.update(priorityOverride=PRIORITY_MAP.get(filter_priority))
+
         # If contract exist the operation should be set to replace else operation is add to create new contract.
         if contract_obj:
             if contract_display_name:
@@ -320,50 +348,35 @@ def main():
             if contract_scope:
                 ops.append(dict(op='replace', path=contract_path + '/scope', value=contract_scope))
 
-            ops.append(dict(op='replace', path=contract_path + '/filterType', value=contract_filter_type))
+            # If filter exist the operation should be set to replace else operation is add to create new filter.
+            if filter_obj:
+                ops.append(dict(op='replace', path=filter_path, value=filter_payload))
+            else:
+                ops.append(dict(op='add', path=filter_path, value=filter_payload))
+
         else:
             contract_display_name = contract_display_name if contract_display_name else contract_name
             # If contract_scope is not provided default to context to match GUI behaviour on create new contract.
             contract_scope = 'context' if contract_scope is None else contract_scope
-            payload = dict(
+            contract_payload = dict(
                 name=contract_name,
                 displayName=contract_display_name,
                 filterType=contract_filter_type,
                 scope=contract_scope
             )
             if description:
-                payload.update(description=description)
+                contract_payload.update(description=description)
             if qos_level:
-                payload.update(prio=qos_level)
-            ops.append(dict(op='add', path=contract_path, value=payload))
+                contract_payload.update(prio=qos_level)
+            if filter_key == "filterRelationships":
+                contract_payload.update(filterRelationships=[filter_payload])
+            elif filter_key == "filterRelationshipsConsumerToProvider":
+                contract_payload.update(filterRelationshipsConsumerToProvider=[filter_payload])
+            elif filter_key == "filterRelationshipsProviderToConsumer":
+                contract_payload.update(filterRelationshipsProviderToConsumer=[filter_payload])
+            ops.append(dict(op='add', path=contract_path, value=contract_payload))
 
-        # Initialize "present" state filter variables
-        if not filter_directives:
-            filter_directives = ['none']
-        elif 'policy_compression' in filter_directives:
-            filter_directives[filter_directives.index('policy_compression')] = 'no_stats'
-
-        payload = dict(
-            filterRef=dict(
-                filterName=filter_name,
-                templateName=filter_template,
-                schemaId=filter_schema_id,
-            ),
-            directives=filter_directives,
-        )
-
-        if filter_action:
-            payload.update(action=filter_action)
-        if filter_action == 'deny' and filter_priority:
-            payload.update(priorityOverride=PRIORITY_MAP.get(filter_priority))
-
-        mso.sanitize(payload, collate=True, unwanted=['filterType', 'contractScope', 'contractFilterType'])
-
-        # If filter exist the operation should be set to replace else operation is add to create new filter.
-        if filter_obj:
-            ops.append(dict(op='replace', path=filter_path, value=mso.sent))
-        else:
-            ops.append(dict(op='add', path=filter_path, value=mso.sent))
+        mso.sanitize(filter_payload, collate=True, unwanted=['filterType', 'contractScope', 'contractFilterType'])
 
         # Update existing with filter (mso.sent) and contract information.
         mso.existing = mso.sent

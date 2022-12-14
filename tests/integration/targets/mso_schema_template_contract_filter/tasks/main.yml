@@ -1,4 +1,5 @@
 # Test code for the MSO modules
+# Copyright: (c) 2021, Akini Ross (@akinross) <akinross@cisco.com>
 # Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
@@ -115,11 +116,11 @@
     entry: Filter 5 entry
     state: present
 
-- name: Ensure Filter 6 exist
+- name: Ensure Filter-6 exist
   mso_schema_template_filter_entry:
     <<: *filter_present
-    filter: Filter 6
-    entry: Filter 6 entry
+    filter: Filter-6
+    entry: Filter-6 entry
     state: present
 
 - name: Ensure Contract_1 contract does not exist
@@ -163,7 +164,7 @@
 - name: Ensure Contract_6 contract does not exist
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 6
+    contract: Contract-6
     state: absent
 
 # ADD CONTRACT
@@ -373,9 +374,9 @@
 - name: Change Contract type one_way Filter type provider-to-consumer(normal_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 6
+    contract: Contract-6
     contract_filter_type: one-way
-    filter: Filter 6
+    filter: Filter-6
     filter_type: provider-to-consumer
     state: present
   register: nm_one_way_and_provider_to_consumer
@@ -386,7 +387,7 @@
     - nm_one_way_and_provider_to_consumer is changed
     - nm_one_way_and_provider_to_consumer.current.contractFilterType == "oneWay"
     - nm_one_way_and_provider_to_consumer.current.contractScope == "context"
-    - nm_one_way_and_provider_to_consumer.current.displayName == "Contract 6"
+    - nm_one_way_and_provider_to_consumer.current.displayName == "Contract-6"
     - nm_one_way_and_provider_to_consumer.current.filterType == "provider-to-consumer"
 
 # change contract display name
@@ -657,6 +658,8 @@
   when: version.current.version is version('3.3', '>=')
 
 - name: Change contract filter_type set to one-way with consumer-to-provider (normal mode)
+  # Test to check that filter type cannot be changed from two-way to one-way type
+  # changed behaviour due to error handling is now handled in code
   mso_schema_template_contract_filter:
     <<: *contract_present
     contract: Contract 1
@@ -664,50 +667,13 @@
     filter_type: consumer-to-provider
     state: present
   register: nm_contract_filter_consumer_to_provider
+  ignore_errors: yes
   when: version.current.version is version('3.3', '>=')
 
 - name: Verify nm_contract_filter_consumer_to_provider
   assert:
     that:
-    - nm_contract_filter_consumer_to_provider is changed
-    - nm_contract_filter_consumer_to_provider.current.contractFilterType == "oneWay"
-    - nm_contract_filter_consumer_to_provider.current.filterType == "consumer-to-provider"
-  when: version.current.version is version('3.3', '>=')
-
-- name: Change contract filter_type set to one-way with provider-to-consumer (normal mode)
-  mso_schema_template_contract_filter:
-    <<: *contract_present
-    contract: Contract 1
-    filter: Filter 1
-    filter_type: provider-to-consumer
-    state: present
-  register: nm_contract_filter_provider_to_consumer
-  when: version.current.version is version('3.3', '>=')
-
-- name: Verify nm_contract_filter_provider_to_consumer
-  assert:
-    that:
-    - nm_contract_filter_provider_to_consumer is changed
-    - nm_contract_filter_provider_to_consumer.current.contractFilterType == "oneWay"
-    - nm_contract_filter_provider_to_consumer.current.filterType == "provider-to-consumer"
-  when: version.current.version is version('3.3', '>=')
-
-- name: Change contract filter_type back to both-way (normal mode)
-  mso_schema_template_contract_filter:
-    <<: *contract_present
-    contract: Contract 1
-    filter: Filter 1
-    filter_type: both-way
-    state: present
-  register: nm_contract_filter_both_way_again
-  when: version.current.version is version('3.3', '>=')
-
-- name: Verify nm_contract_filter_both_way
-  assert:
-    that:
-    - nm_contract_filter_both_way_again is changed
-    - nm_contract_filter_both_way_again.current.contractFilterType == "bothWay"
-    - nm_contract_filter_both_way_again.current.filterType == "both-way"
+    - nm_contract_filter_consumer_to_provider.msg == "Current filter type 'bothWay' for contract 'Contract 1' is not allowed to change to 'oneWay'."
   when: version.current.version is version('3.3', '>=')
 
 # QUERY ALL CONTRACT
@@ -774,12 +740,12 @@
     filter_type: consumer-to-provider
   register: nm_contract5_query_result
 
-- name: Query contract 6 filters (normal_mode)
+- name: Query Contract-6 filters (normal_mode)
   mso_schema_template_contract_filter:
     <<: *Contract_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 6
+    contract: Contract-6
     contract_filter_type: one-way
     filter_type: provider-to-consumer
   register: nm_contract6_query_result
@@ -869,13 +835,13 @@
     state: query
   register: nm_contract5_filter5_query_result
 
-- name: Query contract 6 filter 6 (normal_mode)
+- name: Query Contract-6 Filter-6 (normal_mode)
   mso_schema_template_contract_filter:
     <<: *Contract_filter_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 6
-    filter: Filter 6
+    contract: Contract-6
+    filter: Filter-6
     contract_filter_type: one-way
     filter_type: provider-to-consumer
     state: query
@@ -885,7 +851,6 @@
   assert:
     that:
     - cm_contract1_filter1_query_result is not changed
-#     #- contract1_filter1_query_result.current.filterRef.
     - nm_contract1_filter4_query_result is not changed
     - nm_contract2_filter1_query_result is not changed
     - nm_contract3_filter1_query_result is not changed
@@ -1060,13 +1025,13 @@
     - cm_query_non_contract is not changed
     - nm_query_non_contract is not changed
     - nm_query_non_contract == cm_query_non_contract
-    - cm_query_non_contract.msg ==  nm_query_non_contract.msg == "Provided contract 'non-existing-contract' does not exist. Existing contracts{{':'}} Contract 4, Contract 5, Contract 6"
+    - cm_query_non_contract.msg ==  nm_query_non_contract.msg == "Provided contract 'non-existing-contract' does not exist. Existing contracts{{':'}} Contract 4, Contract 5, Contract-6"
   when: version.current.version is version('3.3', '<')
 
 - name: Verify query_non_contract when version greater than 3.3
   assert:
     that:
-    - cm_query_non_contract.msg ==  nm_query_non_contract.msg == "Provided contract 'non-existing-contract' does not exist. Existing contracts{{':'}} Contract 4, Contract 5, Contract 6, Contract 1"
+    - cm_query_non_contract.msg ==  nm_query_non_contract.msg == "Provided contract 'non-existing-contract' does not exist. Existing contracts{{':'}} Contract 4, Contract 5, Contract-6, Contract 1"
   when: version.current.version is version('3.3', '>=')
 
 # USE A NON-EXISTING SCHEMA

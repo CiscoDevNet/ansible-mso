@@ -165,7 +165,7 @@ def main():
     leafs = [r.get('switchSN') for r in schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['dcnmStaticLeafs']]
     if switch_serial_number is not None and switch_serial_number in leafs:
         leaf_idx = leafs.index(switch_serial_number)
-        leaf_path = '/sites/{0}/vrfs/{1}/dcnmStaticLeafs'.format(site_template, vrf)
+        leaf_path = '/sites/{0}/vrfs/{1}/dcnmStaticLeafs/{2}'.format(site_template, vrf, leaf_idx)
         mso.existing = schema_obj.get('sites')[site_idx]['vrfs'][vrf_idx]['dcnmStaticLeafs'][leaf_idx]
 
     if state == 'query':

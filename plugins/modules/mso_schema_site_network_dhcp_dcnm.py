@@ -123,6 +123,8 @@ def main():
         network=dict(type='str', required=True),
         dhcp_vrf=dict(type='str', required=True),
         dhcp_address=dict(type='str', required=True),
+        dhcp_vrf_schema=dict(type='str', required=True),
+        dhcp_vrf_template=dict(type='str', required=True),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -139,6 +141,8 @@ def main():
     site = module.params.get('site')
     template = module.params.get('template').replace(' ', '')
     network = module.params.get('network')
+    dhcp_vrf_schema = module.params.get('dhcp_vrf_schema')
+    dhcp_vrf_template = module.params.get('dhcp_vrf_template')
     dhcp_vrf = module.params.get('dhcp_vrf')
     dhcp_address = module.params.get('dhcp_address')
     state = module.params.get('state')
@@ -147,13 +151,16 @@ def main():
 
     # Get schema objects
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
+    vrf_schema_id, vrf_schema_path, vrf_schema_obj = mso.query_schema(dhcp_vrf_schema)
 
     # Get site
     site_id = mso.lookup_site(site)
 
     # Get site_idx
     if 'sites' not in schema_obj:
-        mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
+        mso.fail_json(
+            msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(
+                template))
     sites = [(s.get('siteId'), s.get('templateName')) for s in schema_obj.get('sites')]
     if (site_id, template) not in sites:
         mso.fail_json(msg="Provided site-template association '{0}-{1}' does not exist.".format(site, template))
@@ -165,27 +172,29 @@ def main():
 
     templates = [t.get('name') for t in schema_obj.get('templates')]
     if template not in templates:
-        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(templates)))
+        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ', '.join(
+            templates)))
     template_idx = templates.index(template)
 
-    vrf_path = '/schemas/{0}/templates/{1}/vrfs/{2}'.format(schema_id, template, dhcp_vrf)
-
+    vrf_path = '/schemas/{0}/templates/{1}/vrfs/{2}'.format(vrf_schema_id, dhcp_vrf_template, dhcp_vrf)
 
     # Get Network
-    network_ref = '/schemas/{schema_id}/templates/{template}/networks/{network}'.format(schema_id=schema_id, template=template, network=network)
+    network_ref = '/schemas/{schema_id}/templates/{template}/networks/{network}'.format(schema_id=schema_id,
+                                                                                        template=template,
+                                                                                        network=network)
     networks = [v.get('nwRef') for v in schema_obj.get('sites')[site_idx]['networks']]
     # networks_name = [mso.dict_from_ref(v).get('name') for v in networks]
     if network_ref not in networks:
-        mso.fail_json(msg="Provided Network '{0}' does not exist. Existing Networks: {1}".format(network, ', '.join(networks)))
+        mso.fail_json(
+            msg="Provided Network '{0}' does not exist. Existing Networks: {1}".format(network, ', '.join(networks)))
 
     network_idx = networks.index(network_ref)
-
 
     # Get DCNM Static Leafs
     dhcps = [r.get('dhcpServerAddr') for r in schema_obj.get('sites')[site_idx]['networks'][network_idx]['addrVrf']]
     if dhcp_address is not None and dhcp_address in dhcps:
         dhcp_idx = dhcps.index(dhcp_address)
-        dhcp_path = '/sites/{0}/networks/{1}/addrVrf'.format(site_template, network)
+        dhcp_path = '/sites/{0}/networks/{1}/addrVrf/{2}'.format(site_template, network, dhcp_idx)
         mso.existing = schema_obj.get('sites')[site_idx]['networks'][network_idx]['addrVrf'][dhcp_idx]
 
     if state == 'query':
@@ -211,11 +220,9 @@ def main():
             dhcpVrf=vrf_path
         )
 
-
         mso.sanitize(payload, collate=True)
         if mso.existing:
-            #ops.append(dict(op='replace', path=leaf_path, value=mso.sent))
-            mso.exit_json()
+            ops.append(dict(op='replace', path=dhcp_path, value=mso.sent))
         else:
             ops.append(dict(op='add', path=dhcps_path + '/-', value=mso.sent))
 

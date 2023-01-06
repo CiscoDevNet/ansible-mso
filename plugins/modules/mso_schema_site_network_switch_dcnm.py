@@ -171,7 +171,7 @@ def main():
     leafs = [r.get('switchSN') for r in schema_obj.get('sites')[site_idx]['networks'][network_idx]['dcnmStaticPorts']]
     if switch_serial_number is not None and switch_serial_number in leafs:
         leaf_idx = leafs.index(switch_serial_number)
-        leaf_path = '/sites/{0}/networks/{1}/dcnmStaticPorts'.format(site_template, network)
+        leaf_path = '/sites/{0}/networks/{1}/dcnmStaticPorts/{2}'.format(site_template, network, leaf_idx)
         mso.existing = schema_obj.get('sites')[site_idx]['networks'][network_idx]['dcnmStaticPorts'][leaf_idx]
 
     if state == 'query':

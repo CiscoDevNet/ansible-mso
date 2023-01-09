@@ -111,7 +111,7 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec
 
 
 def main():
@@ -121,10 +121,8 @@ def main():
         site=dict(type='str', required=True),
         template=dict(type='str', required=True),
         network=dict(type='str', required=True),
-        dhcp_vrf=dict(type='str', required=True),
         dhcp_address=dict(type='str', required=True),
-        dhcp_vrf_schema=dict(type='str', required=True),
-        dhcp_vrf_template=dict(type='str', required=True),
+        vrf=dict(type='dict', options=mso_reference_spec()),
         state=dict(type='str', default='present', choices=['absent', 'present', 'query']),
     )
 
@@ -141,9 +139,9 @@ def main():
     site = module.params.get('site')
     template = module.params.get('template').replace(' ', '')
     network = module.params.get('network')
-    dhcp_vrf_schema = module.params.get('dhcp_vrf_schema')
-    dhcp_vrf_template = module.params.get('dhcp_vrf_template')
-    dhcp_vrf = module.params.get('dhcp_vrf')
+    vrf = module.params.get('vrf')
+    if vrf is not None and vrf.get('template') is not None:
+        vrf['template'] = vrf.get('template').replace(' ', '')
     dhcp_address = module.params.get('dhcp_address')
     state = module.params.get('state')
 
@@ -151,7 +149,6 @@ def main():
 
     # Get schema objects
     schema_id, schema_path, schema_obj = mso.query_schema(schema)
-    vrf_schema_id, vrf_schema_path, vrf_schema_obj = mso.query_schema(dhcp_vrf_schema)
 
     # Get site
     site_id = mso.lookup_site(site)
@@ -176,7 +173,8 @@ def main():
             templates)))
     template_idx = templates.index(template)
 
-    vrf_path = '/schemas/{0}/templates/{1}/vrfs/{2}'.format(vrf_schema_id, dhcp_vrf_template, dhcp_vrf)
+    vrf_ref = mso.make_reference(vrf, 'vrf', schema_id, template)
+    vrf_path = '/schemas/{0}/templates/{1}/vrfs/{2}'.format(vrf_ref['schemaId'], vrf_ref['templateName'], vrf_ref['vrfName'])
 
     # Get Network
     network_ref = '/schemas/{schema_id}/templates/{template}/networks/{network}'.format(schema_id=schema_id,

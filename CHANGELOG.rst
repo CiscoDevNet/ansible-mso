@@ -6,6 +6,118 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.2.0
+======
+
+Release Summary
+---------------
+
+Release v2.2.0 of the ``ansible-mso`` collection on 2023-01-23.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.1.0.
+
+
+Minor Changes
+-------------
+
+- Add automatic creation of site bd when not existing in mso_schema_site_bd_subnet module (#263)
+- Add ndo_schema_template_deploy module, fix issues tests and prepare for NDO4.1 support (#291) [minor change] fix for displayName must be unique
+   
+   [ignore] ignore policy tests for ndo4.0
+   
+   [ignore] version check error message name resolution
+   
+   [ignore] template_anp_epg validation fixes
+   
+   [ignore] template_anp_epg_contract validation fixes
+   
+   [ignore] template_anp_epg_selector validation fixes
+   
+   [ignore] template_bd validation fixes
+   
+   [ignore] template_bd_dhcp_policy validation fixes
+   
+   [ignore] template_deploy and status validation fixes
+   
+   [ignore] template_external_epg_contract validation fixes
+   
+   [ignore] template_external_epg_subnet validation fixes
+   
+   [minor change] schema_validate deprecation ndo 4.0
+   
+   [ignore] mso_tenant error message fix
+   
+   [ignore] mso_tenant_site validation fixes
+   
+   [ignore] template_external_epg validation fixes
+   
+   [ignore] template_l3out validation fixes
+   
+   [ignore] template_service_graph validation fixes and uuid add
+   
+   [minor_change] reference service node name fix
+   
+   [ignore] avoid none value pushed for primary_micro_segment_vlan
+   
+   [ignore] remove ndo4 unique identifiers from payload
+   
+   [ignore] site check change for ndo4
+   
+   [ignore] template_migrate validation fixes
+   
+   [minor_change] NDO 4.0 deprecation description
+   
+   [minor_change] ensure removal of sites before test start
+   
+   [minor_change] site_anp validation fixes
+   
+   [minor_change] site_anp_epg validation fixes
+   
+   [minor_change] site_anp_epg_selector validation fixes
+   
+   [minor_change] site_bd validation fixes
+   
+   [minor_change] site_external_epg validation fixes
+   
+   [minor_change] site_l3out validation fixes
+   
+   [minor_change] site_service_graph validation fixes
+   
+   [minor_change] site_vrf_region validation fixes
+   
+   [minor_change] site_vrf_region_cidr_subnet validation fixes
+   
+   [minor change] site_bd_l3out validation fixes
+   
+   [minor change] site_external_epg_selector validation fixes
+   
+   [minor change] add ndo4 instance to inventory
+   
+   [minor_change] schema feedback fixes
+   
+   [minor_change] mso_rest error response 3.7 fix
+   
+   [minor_change] mso_site tests template connectivity restore
+   
+   [minor_change] fix wrong when statement for task execution
+   
+   [minor_change] template change for dynamic groupid and status remove
+   
+   [ignore] Improve mso_backup test, delete additional dhcp policies and other test case fixes
+   
+   [ignore] git changes after rebase
+   
+   [ignore] git changes after rebase
+- Add ndo_schema_template_deploy to support NDO 4+ deploy functionality (#305)
+- Add support for l3out from different template or schema in mso_schema_site_bd_l3out (#304)
+- Add support for orchestrator_only attribute for mso_tenant with state absent (#268)
+
+Bugfixes
+--------
+
+- Fix deploymentImmediacy key inconsistency in the API used by mso_schema_site_anp and mso_schema_site_anp_epg (#283)
+- Fix mso_schema_template_bd issue when created with unicast_routing as false (#278)
+- Fix to be able to add multiple filter and filters with "-" in their names (#306)
+
 v2.1.0
 ======
 

@@ -104,6 +104,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.constants import NDO_4_UNIQUE_IDENTIFIERS
 import json
 
 
@@ -199,6 +200,7 @@ def main():
                 new_template["displayName"] = destination_template_display_name
                 if destination_tenant_id is not None:
                     new_template["tenantId"] = destination_tenant_id
+                mso.delete_keys_from_dict(new_template, NDO_4_UNIQUE_IDENTIFIERS)
                 break
 
         if new_template is None:

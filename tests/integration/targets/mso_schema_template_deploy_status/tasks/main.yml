@@ -21,6 +21,12 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
 - name: Ensure site exist
   mso_site: &site_present
     <<: *mso_info
@@ -43,7 +49,7 @@
     - https://{{ aws_apic_hostname }}
     state: present
 
-- name: Undeploy templates if deployed to clean the environment
+- name: Undeploy templates if deployed to clean the environment before ndo 4.0
   mso_schema_template_deploy:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -54,12 +60,29 @@
   loop:
   - Template 1
   - Template 2
+  when: version.current.version is version('4.0', '<')
+
+#- name: Undeploy templates if deployed to clean the environment after ndo 4.0
+#  <TBD>:
+#    <<: *mso_info
+#    schema: '{{ mso_schema | default("ansible_test") }}'
+#    template: "{{ item }}"
+#    site: '{{ mso_site | default("ansible_test") }}'
+#    state: undeploy
+#  ignore_errors: yes
+#  loop:
+#  - Template 1
+#  - Template 2
+#  when: version.current.version is version('4.0', '>=')
 
 - name: Remove schemas
   mso_schema:
     <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
+    schema: '{{ item }}'
     state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exists
   mso_tenant: 
@@ -290,201 +313,315 @@
     - status3_temp1.current[0].bds[0].state == 'created'
     - status3_temp1.current[0].vrfs[0].state == 'created'
 
-- name: Deploy templates
-  mso_schema_template_deploy:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: "{{ item }}"
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: deploy
-  register: cm_deploy_template
-  loop:
-  - Template 1
-  - Template 2
+# mso_schema_template_deploy is deprecated in MSO/NDO v4.0+, different api endpoint thus different module
+# when new module created, remove block and do execution for each  mso_schema_template_deploy tasks
+- name: Execute tasks only for MSO version < 4.0
+  when: version.current.version is version('4.0', '<')
+  block:
+  - name: Deploy templates
+    mso_schema_template_deploy:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: "{{ item }}"
+      site: '{{ mso_site | default("ansible_test") }}'
+      state: deploy
+    register: cm_deploy_template
+    loop:
+    - Template 1
+    - Template 2
 
-- name: Change EPG
-  mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    epg: ansible_test_1
-    bd:
-      name: ansible_test_3
-    vrf:
-      name: VRF3
-    state: present
-
-- name: Check deployment status of Template 1
-  mso_schema_template_deploy_status:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    state: query
-  register: status_change_temp1
-
-- name: Verify status after changing EPG
-  assert:
-    that:
-    - status_change_temp1.current[0].anps[0].epgs[0].state == 'modified'
-
-- name: Delete ansible_test_1 BD
-  mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    vrf:
-      name: VRF1
+  - name: Change EPG
+    mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
-    state: absent
+      anp: ANP
+      epg: ansible_test_1
+      bd:
+        name: ansible_test_3
+      vrf:
+        name: VRF3
+      state: present
 
-- name: Delete VRF1
-  mso_schema_template_vrf:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    vrf: VRF1
-    state: absent
+  - name: Check deployment status of Template 1
+    mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      state: query
+    register: status_change_temp1
 
-- name: Check deployment status of Template 1
-  mso_schema_template_deploy_status:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    state: query
-  register: status4_temp1
+  - name: Verify status after changing EPG
+    assert:
+      that:
+      - status_change_temp1.current[0].anps[0].epgs[0].state == 'modified'
 
-- name: Verify status after deleting VRF1
-  assert:
-    that:
-    - status4_temp1.current[0].bds[0].state == 'deleted'
-    - status4_temp1.current[0].vrfs[0].state == 'deleted'
+  - name: Delete ansible_test_1 BD
+    mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_1
+      vrf:
+        name: VRF1
+        template: Template 1
+      state: absent
 
-- name: Deploy templates
-  mso_schema_template_deploy:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: "{{ item }}"
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: deploy
-  loop:
-  - Template 1
-  - Template 2
+  - name: Delete VRF1
+    mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      vrf: VRF1
+      state: absent
 
-- name: Check deployment status of Template 1
-  mso_schema_template_deploy_status:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}' 
-    template: Template 1
-    state: query
-  register: status5_temp1
+  - name: Check deployment status of Template 1
+    mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      state: query
+    register: status4_temp1
 
-- name: Check deployment status of Template 2
-  mso_schema_template_deploy_status:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 2
-    state: query
-  register: status5_temp2
-    
-- name: Verify status after deploying Templates to site
-  assert:
-    that:
-    - status5_temp1.current[0].anps == []
-    - status5_temp1.current[0].bds == []
-    - status5_temp1.current[0].vrfs == []
-    - status5_temp2.current[0].anps == []
-    - status5_temp2.current[0].bds == []
-    - status5_temp2.current[0].vrfs == []
+  - name: Verify status after deleting VRF1
+    assert:
+      that:
+      - status4_temp1.current[0].bds[0].state == 'deleted'
+      - status4_temp1.current[0].vrfs[0].state == 'deleted'
 
-- name: Check status of all templates
-  mso_schema_template_deploy_status:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    state: query
-  register: all_templates
+  - name: Try deploy and check results
+    block:
+    - name: Deploy templates Template 1
+      mso_schema_template_deploy:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 1
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: deploy
 
-- name: Verify all
-  assert:
-    that:
-    - all_templates.current.policyStates | length == 2
+    - name: Check deployment status of Template 1
+      mso_schema_template_deploy_status:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 1
+        state: query
+      register: status5_temp1
 
-- name: Check deployment status by querying site
-  mso_schema_template_deploy_status:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: query
-  register: status2_site
+    - name: Increment the retry count
+      set_fact:
+        retry_count: "{{ 0 if retry_count is undefined else retry_count | int + 1 }}"
 
-- name: Check deployment status by querying site and Template1
-  mso_schema_template_deploy_status:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template1
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: query
-  register: status2_site_temp1
+    rescue:
+    - fail:
+        msg: Status5_temp1 correct value retrieved continuing
+      when:
+      - status5_temp1.current[0] is defined
+      - status5_temp1.current[0].anps == []
 
-- name: Check deployment status by querying site and Template2
-  mso_schema_template_deploy_status:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template2
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: query
-  register: status2_site_temp2
+    - fail:
+        msg: Maximum retries of deploy and check group for status5_temp1 reached
+      when: retry_count | int == 10
 
-- name: Verify status after querying site post deployment
-  assert:
-    that:
-    - status2_site.current | length == 2
-    - status2_site_temp1.current.anps == []
-    - status2_site_temp1.current.bds == []
-    - status2_site_temp1.current.vrfs == []
-    - status2_site_temp2.current.anps == []
-    - status2_site_temp2.current.bds == []
-    - status2_site_temp2.current.vrfs == []
+    - debug:
+        msg: "Deploy and check group for status5_temp1 failed, let's give it another shot"
 
-- name: Check deployment status by querying site and non associated Template 1
-  mso_schema_template_deploy_status:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template1
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    state: query
-  ignore_errors: yes
-  register: status_site_temp3
+  - name: Reset the retry count
+    set_fact:
+      retry_count:
 
-- name: Verify status after querying site with non associated Template 1
-  assert:
-    that:
-    - status_site_temp3.msg == "Provided Template 'Template1' not associated with Site 'aws_ansible_test'."
+  - name: Try deploy and check results
+    block:
+    - name: Deploy templates Template 2
+      mso_schema_template_deploy:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 2
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: deploy
 
-- name: Check Non-existing schema
-  mso_schema_template_deploy_status:
-    <<: *mso_info
-    schema: non-existing-schema
-    state: query
-  ignore_errors: yes
-  register: non_schema
+    - name: Check deployment status of Template 2
+      mso_schema_template_deploy_status:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 2
+        state: query
+      register: status5_temp2
 
-- name: Verify non_existing_schema
-  assert:
-    that:
-    - non_schema.msg == "Schema 'non-existing-schema' not found."
+    - name: Increment the retry count
+      set_fact:
+        retry_count: "{{ 0 if retry_count is undefined else retry_count | int + 1 }}"
 
-- name: Check deployment status of non-existing-template
-  mso_schema_template_deploy_status:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: non-existing-template
-    state: query
-  ignore_errors: yes
-  register: non_temp
+    rescue:
+    - fail:
+        msg: status5_temp2 correct value retrieved continuing
+      when:
+      - status5_temp2.current[0] is defined
+      - status5_temp2.current[0].anps == []
 
-- name: Verify non_existing_template
-  assert:
-    that:
-    - non_temp.msg == "Template 'non-existing-template' not found."
+    - fail:
+        msg: Maximum retries of deploy and check group for status5_temp2 reached
+      when: retry_count | int == 10
+
+    - debug:
+        msg: "Deploy and check group for status5_temp2 failed, let's give it another shot"
+
+  - name: Verify status after deploying Templates to site
+    assert:
+      that:
+      - status5_temp1.current[0].anps == []
+      - status5_temp1.current[0].bds == []
+      - status5_temp1.current[0].vrfs == []
+      - status5_temp2.current[0].anps == []
+      - status5_temp2.current[0].bds == []
+      - status5_temp2.current[0].vrfs == []
+
+  - name: Check status of all templates
+    mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      state: query
+    register: all_templates
+
+  - name: Verify all
+    assert:
+      that:
+      - all_templates.current.policyStates | length == 2
+
+  - name: Check deployment status by querying site
+    mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      state: query
+    register: status2_site
+
+  - name: Reset the retry count
+    set_fact:
+      retry_count:
+
+  - name: Try deploy and check results for a site and Template1
+    block:
+    - name: Deploy templates Template1
+      mso_schema_template_deploy:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: deploy
+
+    - name: Check deployment status by querying site and Template1
+      mso_schema_template_deploy_status:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: query
+      register: status2_site_temp1
+
+    - name: Increment the retry count
+      set_fact:
+        retry_count: "{{ 0 if retry_count is undefined else retry_count | int + 1 }}"
+
+    rescue:
+    - fail:
+        msg: status2_site_temp1 correct value retrieved continuing
+      when:
+      - status2_site_temp1.current is defined
+      - status2_site_temp1.current.anps == []
+
+    - fail:
+        msg: Maximum retries of deploy and check group for status2_site_temp1 reached
+      when: retry_count | int == 10
+
+    - debug:
+        msg: "Deploy and check group for status2_site_temp1 failed, let's give it another shot"
+
+  - name: Try deploy and check results for a site and Template2
+    block:
+    - name: Deploy templates Template2
+      mso_schema_template_deploy:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template2
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: deploy
+
+    - name: Check deployment status by querying site and Template2
+      mso_schema_template_deploy_status:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template2
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: query
+      register: status2_site_temp2
+
+    - name: Increment the retry count
+      set_fact:
+        retry_count: "{{ 0 if retry_count is undefined else retry_count | int + 1 }}"
+
+    rescue:
+    - fail:
+        msg: status2_site_temp2 correct value retrieved continuing
+      when:
+      - status2_site_temp2.current is defined
+      - status2_site_temp2.current.anps == []
+
+    - fail:
+        msg: Maximum retries of deploy and check group for status2_site_temp2 reached
+      when: retry_count | int == 10
+
+    - debug:
+        msg: "Deploy and check group for status2_site_temp2 failed, let's give it another shot"
+
+  - name: Verify status after querying site post deployment
+    assert:
+      that:
+      - status2_site.current | length == 2
+      - status2_site_temp1.current.anps == []
+      - status2_site_temp1.current.bds == []
+      - status2_site_temp1.current.vrfs == []
+      - status2_site_temp2.current.anps == []
+      - status2_site_temp2.current.bds == []
+      - status2_site_temp2.current.vrfs == []
+
+  - name: Check deployment status by querying site and non associated Template 1
+    mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      site: 'aws_{{ mso_site | default("ansible_test") }}'
+      state: query
+    ignore_errors: yes
+    register: status_site_temp3
+
+  - name: Verify status after querying site with non associated Template 1
+    assert:
+      that:
+      - status_site_temp3.msg == "Provided Template 'Template1' not associated with Site 'aws_ansible_test'."
+
+  - name: Check Non-existing schema
+    mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: non-existing-schema
+      state: query
+    ignore_errors: yes
+    register: non_schema
+
+  - name: Verify non_existing_schema
+    assert:
+      that:
+      - non_schema.msg == "Schema 'non-existing-schema' not found."
+
+  - name: Check deployment status of non-existing-template
+    mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: non-existing-template
+      state: query
+    ignore_errors: yes
+    register: non_temp
+
+  - name: Verify non_existing_template
+    assert:
+      that:
+      - non_temp.msg == "Template 'non-existing-template' not found."

@@ -17,3 +17,5 @@ SERVICE_NODE_CONNECTOR_MAP = {
 }
 
 YES_OR_NO_TO_BOOL_STRING_MAP = {"yes": "true", "no": "false"}
+
+NDO_4_UNIQUE_IDENTIFIERS = ["templateID", "autoRouteTargetImport", "autoRouteTargetExport"]

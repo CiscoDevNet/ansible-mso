@@ -57,6 +57,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.constants import NDO_4_UNIQUE_IDENTIFIERS
 import json
 
 
@@ -88,6 +89,9 @@ def main():
 
     source_data = source_schema_obj.get("templates")
     source_data = json.loads(json.dumps(source_data).replace("/{0}".format(source_schema_path), ""))
+    # certain unique identifiers are present in NDO4.0> source which need to be deleted from source_data prior to POST
+    for template in source_data:
+        mso.delete_keys_from_dict(template, NDO_4_UNIQUE_IDENTIFIERS)
 
     path = "schemas"
 

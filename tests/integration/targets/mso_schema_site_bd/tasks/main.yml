@@ -23,6 +23,12 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Query MSO version
+  mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
 - name: Ensure site exists
   mso_site:
     <<: *mso_info
@@ -43,6 +49,17 @@
   loop:
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure sites removed from tenant ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ mso_site | default("ansible_test") }}'
+    - 'aws_{{ mso_site | default("ansible_test") }}'
+    - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exists
   mso_tenant: 
@@ -201,11 +218,16 @@
 - name: Verify cm_add_site_bd
   assert:
     that:
-    - cm_add_site_bd is changed
-    - cm_add_site_bd.previous == {}
     - cm_add_site_bd.current.bdRef.bdName == "ansible_test_1"
     - cm_add_site_bd.current.bdRef.templateName == "Template1"
     - cm_add_site_bd.current.hostBasedRouting == false
+
+- name: Verify cm_add_site_bd
+  assert:
+    that:
+    - cm_add_site_bd is changed
+    - cm_add_site_bd.previous == {}
+  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
 - name: Add site BD (normal_mode)
   mso_schema_site_bd:
@@ -220,12 +242,17 @@
 - name: Verify nm_add_site_bd
   assert:
     that:
-    - nm_add_site_bd is changed
-    - nm_add_site_bd.previous == {}
     - nm_add_site_bd.current.bdRef.bdName == "ansible_test_1"
     - nm_add_site_bd.current.bdRef.templateName == "Template1"
     - nm_add_site_bd.current.hostBasedRouting == false
     - cm_add_site_bd.current.bdRef.schemaId == nm_add_site_bd.current.bdRef.schemaId
+
+- name: Verify nm_add_site_bd
+  assert:
+    that:
+    - nm_add_site_bd is changed
+    - nm_add_site_bd.previous == {}
+  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
 - name: Add site BD again (check_mode)
   mso_schema_site_bd:
@@ -318,10 +345,15 @@
     that:
     - cm_add_site_bd_with_host_route is changed
     - nm_add_site_bd_with_host_route is changed
-    - cm_add_site_bd_with_host_route.previous == {}
-    - nm_add_site_bd_with_host_route.previous == {}
     - cm_add_site_bd_with_host_route.current.hostBasedRouting == true
     - nm_add_site_bd_with_host_route.current.hostBasedRouting == true
+
+- name: Verify cm_add_site_bd_with_host_route and nm_add_site_bd_with_host_route
+  assert:
+    that:
+    - cm_add_site_bd_with_host_route.previous == {}
+    - nm_add_site_bd_with_host_route.previous == {}
+  when: version.current.version is version('4.0', '<') # already present when template is defined, thus previous exists
 
 - name: Add site BD 3 (normal_mode)
   mso_schema_site_bd:
@@ -338,10 +370,15 @@
   assert:
     that:
     - nm_add_site_bd_3 is changed
-    - nm_add_site_bd_3.previous == {}
     - nm_add_site_bd_3.current.hostBasedRouting == true
     - nm_add_site_bd_3.current.bdRef.bdName == "ansible_test_3"
     - nm_add_site_bd_3.current.bdRef.templateName == "Template1"
+
+- name: Verify nm_add_site_bd_3
+  assert:
+    that:
+    - nm_add_site_bd_3.previous == {}
+  when: version.current.version is version('4.0', '<') # already be present when template is defined, thus previous exists
 
 - name: Add site BD 4 (normal_mode)
   mso_schema_site_bd:
@@ -358,10 +395,15 @@
   assert:
     that:
     - nm_add_site_bd_4 is changed
-    - nm_add_site_bd_4.previous == {}
     - nm_add_site_bd_4.current.mac == "00:22:23:F1:21:F9"
     - nm_add_site_bd_4.current.bdRef.bdName == "ansible_test_4"
     - nm_add_site_bd_4.current.bdRef.templateName == "Template1"
+
+- name: Verify nm_add_site_bd_4
+  assert:
+    that:
+    - nm_add_site_bd_4.previous == {}
+  when: version.current.version is version('4.0', '<') # already be present when template is defined, thus previous exists
 
 - name: Query a specific BD (check_mode)
   mso_schema_site_bd:
@@ -471,6 +513,7 @@
     that:
     - nm_remove_site_bd_2_again is not changed
     - nm_remove_site_bd_2_again.previous == nm_remove_site_bd_2_again.current == {}
+  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
 - name: Query site without BD (normal_mode)
   mso_schema_site_bd:
@@ -486,6 +529,8 @@
     that:
     - nm_query_without_bd is not changed
     - nm_query_without_bd.current == []
+  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
+
 
 # QUERY NON-EXISTING BD
 - name: Query non-existing BD (check_mode)

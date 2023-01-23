@@ -34,9 +34,10 @@
     backup: "{{ item.name }}"
     state: absent
   when:
-    - item.remoteLocationName is defined
-    - item.remoteLocationName == "ansible_test"
-  loop: "{{ backups.current }}"
+    - item.location is defined
+    - item.location.locationType is defined
+    - item.location.locationType == "remote"
+  loop: "{{ backups.current | sort(attribute='name', reverse=True) }}"
   delegate_to: localhost
 
 - name: Ensure remote location ansible_test is removed
@@ -51,11 +52,11 @@
     <<: *mso_info
     remote_location: ansible_test
     remote_protocol: scp
-    remote_host: '{{ apic_remote_location }}'
+    remote_host: '{{ mso_remote_location }}'
     remote_path: '{{ mso_remote_location_path | default("/tmp") }}'
     authentication_type: password
-    remote_username: '{{ mso_username }}'
-    remote_password: '{{ mso_password }}'
+    remote_username: '{{ mso_remote_location_user | default(mso_username) }}'
+    remote_password: '{{ mso_remote_location_password | default(mso_password) }}'
     state: present
   check_mode: yes
   delegate_to: localhost
@@ -75,17 +76,17 @@
       - cm_config_remote.current.credential.authType == "password"
       - cm_config_remote.current.credential.port == 22
       - cm_config_remote.current.credential.protocolType == "scp"
-      - cm_config_remote.current.credential.hostname == '{{ apic_remote_location }}'
+      - cm_config_remote.current.credential.hostname == '{{ mso_remote_location }}'
       - cm_config_remote.current.credential.remotePath == '/tmp'
-      - cm_config_remote.current.credential.username == '{{ mso_username }}'
+      - cm_config_remote.current.credential.username == '{{ mso_remote_location_user | default(mso_username) }}'
       - nm_config_remote is changed
       - nm_config_remote.current.name == "ansible_test"
       - nm_config_remote.current.credential.authType == "password"
       - nm_config_remote.current.credential.port == 22
       - nm_config_remote.current.credential.protocolType == "scp"
-      - nm_config_remote.current.credential.hostname == '{{ apic_remote_location }}'
+      - nm_config_remote.current.credential.hostname == '{{ mso_remote_location }}'
       - nm_config_remote.current.credential.remotePath == '/tmp'
-      - nm_config_remote.current.credential.username == '{{ mso_username }}'
+      - nm_config_remote.current.credential.username == '{{ mso_remote_location_user | default(mso_username) }}'
       - nm_config_remote.current.id is defined
 
 - name: Configure remote location again

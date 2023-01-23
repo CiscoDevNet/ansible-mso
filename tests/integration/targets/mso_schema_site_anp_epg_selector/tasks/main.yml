@@ -59,6 +59,17 @@
     - https://{{ aws_apic_hostname }}
     state: present
 
+- name: Ensure sites removed from tenant ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ mso_site | default("ansible_test") }}'
+    - 'aws_{{ mso_site | default("ansible_test") }}'
+    - 'azure_{{ mso_site | default("ansible_test") }}'
+
 - name: Ensure tenant ansible_test exists
   mso_tenant: 
     <<: *mso_info
@@ -246,10 +257,10 @@
 - name: Verify cm_add_site_selector_1
   assert:
     that:
-    - cm_add_site_selector_1 is changed
-    - cm_add_site_selector_1.previous == {}
     - cm_add_site_selector_1.current.name == "site_selector_1"
     - cm_add_site_selector_1.current.expressions == []
+    - cm_add_site_selector_1 is changed
+    - cm_add_site_selector_1.previous == {}
 
 - name: Add selector site_selector_1 to site EPG ansible_test_1 with ANP (normal_mode)
   mso_schema_site_anp_epg_selector:
@@ -266,10 +277,10 @@
 - name: Verify nm_add_site_selector_1
   assert:
     that:
-    - nm_add_site_selector_1 is changed
-    - nm_add_site_selector_1.previous == {}
     - nm_add_site_selector_1.current.name == "site_selector_1"
     - nm_add_site_selector_1.current.expressions == []
+    - nm_add_site_selector_1 is changed
+    - nm_add_site_selector_1.previous == {}
 
 # Add selector 1 again
 - name: Add selector site_selector_1 to site EPG ansible_test_1 with ANP again (normal_mode)
@@ -479,6 +490,7 @@
   assert:
     that:
     - query_site_ANP.msg == "ANP 'ANP' not found"
+  when: version.current.version is version('4.0', '<') # no error msg is returned in NDO4.0 because site will be present when template is defined
 
 # Query without site ANP
 - name: Query site_selectors without site ANP
@@ -498,6 +510,7 @@
     that:
     - query_without_site_ANP is not changed
     - query_without_site_ANP.msg == "Anp 'ANP' does not exist in site level."
+  when: version.current.version is version('4.0', '<') # no error msg is returned in NDO4.0 because site will be present when template is defined
 
 # - name: Add selector without ANP exist in site level
 - name: Add site selector 3 without site ANP exist (normal_mode)
@@ -555,6 +568,7 @@
     that:
     - query_without_site_EPG is not changed
     - query_without_site_EPG.msg == "Epg 'ansible_test_1' does not exist in site level."
+  when: version.current.version is version('4.0', '<') # no error msg is returned in NDO4.0 because site will be present when template is defined
 
 - name: Add site selector 1 without site EPG exist (normal_mode)
   mso_schema_site_anp_epg_selector:

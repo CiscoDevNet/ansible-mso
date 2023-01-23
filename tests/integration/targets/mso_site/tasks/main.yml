@@ -11,7 +11,8 @@
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact: 
+  set_fact:
+    site_dict: {}
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -537,3 +538,28 @@
     that:
     - nm_add_site_no_location.current.common.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '>=')
+
+- name: Execute tasks only for MSO version >= 4.0 to reset site connectivity
+  when: version.current.version is version('4.0', '>=')
+  block:
+  - name: Query all sites (check_mode)
+    mso_site:
+      <<: *mso_info
+      state: query
+    register: sites
+
+  - name: Add sites to dict
+    set_fact:
+      site_dict: "{{ site_dict | combine( { item.common.name : { 'id' : item.id, 'site_group_id' : item.common.siteGroup } } ) }}"
+    loop: "{{ sites.current }}"
+
+  - name: Render a connectivity jinja2 template
+    set_fact:
+      site_payload: "{{ lookup('template', 'connectivity.j2') }}"
+
+  - name: Configure site connectivity
+    cisco.mso.mso_rest:
+      <<: *mso_info
+      path: /mso/api/v2/sites/fabric-connectivity
+      method: put
+      content: "{{ site_payload }}"

@@ -54,6 +54,17 @@
       - '{{ mso_username }}'
     state: present
 
+- name: Ensure sites removed from tenant ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ mso_site | default("ansible_test") }}'
+    - 'aws_{{ mso_site | default("ansible_test") }}'
+    - 'azure_{{ mso_site | default("ansible_test") }}'
+
 - name: Associate non-cloud site with ansible_test again in normal mode
   mso_tenant_site:
     <<: *mso_info
@@ -182,6 +193,8 @@
       template: Template 1
     bd:
       name: BD1
+      schema: ansible_test
+      template: Template 1
     state: present
   loop:
   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', anp: 'ANP', epg: 'ansible_test_1' }
@@ -247,6 +260,7 @@
     - nm_add_epg.current.epgRef.anpName == 'ANP_3'
     - cm_add_epg.current.epgRef.epgName == 'ansible_test_3'
     - nm_add_epg.current.epgRef.epgName == 'ansible_test_3'
+  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
 - name: Add new EPG to site after adding ANP to site again
   mso_schema_site_anp_epg: &idempotency_vmm
@@ -306,6 +320,7 @@
     - add_epg_no_anp is changed
     - add_epg_no_anp.current.epgs.0.epgRef.anpName == 'ANP'
     - add_epg_no_anp.current.epgs.0.epgRef.epgName == 'ansible_test_1'
+  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
 - name: Add new EPG to site without adding ANPs to site again (ANP already exists from previous run)
   mso_schema_site_anp_epg:
@@ -374,6 +389,7 @@
     that:
     - delete_epg is changed
     - delete_epg.current == {}
+  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
 - name: Delete EPG1 again
   mso_schema_site_anp_epg:
@@ -429,6 +445,7 @@
     that:
     - query_non_epg is not changed
     - query_non_epg.msg == "EPG 'ansible_test_1' not found"
+  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
 - name: Delete anp
   mso_schema_site_anp:
@@ -475,6 +492,7 @@
     that:
     - nm_query_non_anp is not changed
     - nm_query_non_anp.msg == "Provided anp 'ANP_3' does not exist at site level."
+  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state (normal_mode)
@@ -603,6 +621,14 @@
 - name: Execute tasks only for MSO version >= 3.3
   when: version.current.version is version('3.3', '>=')
   block:
+  - name: Remove physical site from schema
+    mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: 'Template 1'
+      state: absent
+
   - name: Ensure region for VRF1 at site level exists
     mso_schema_site_vrf_region_cidr:
       <<: *mso_info

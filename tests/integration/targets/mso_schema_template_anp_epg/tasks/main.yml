@@ -146,11 +146,24 @@
     filter_template: Template 1
     state: present
 
+- name: Ensure Filter 2 exist
+  mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    filter: Filter2
+    entry: Filter2-Entry
+    state: present
+
 - name: Ensure Contract2 exist
-  mso_schema_template_contract_filter:
-    <<: *contract_present
+  mso_schema_template_contract_filter: &contract2_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
     contract: Contract2
+    filter: Filter2
+    filter_schema: '{{ mso_schema | default("ansible_test") }}'
+    filter_template: Template 2
     state: present
 
 - name: Ensure ansible_test_1 BD exist
@@ -289,20 +302,20 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     epg: ansible_test_2
 
-- name: Add EPG 3 (normal mode)
-  mso_schema_template_anp_epg:
+- name: Add EPG 3 in template of schema 1(normal mode)
+  mso_schema_template_anp_epg: &epg_schema_1_template_2
     <<: *epg_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
     anp: ANP2
     epg: ansible_test_3
     bd:
-      name: ansible_test_1
-      template: Template 1
+      name: ansible_test_3
+      template: Template 2
     vrf:
-      name: VRF
+      name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      template: Template 2
     useg_epg: true
     intra_epg_isolation: enforced
     intersite_multicast_source: true
@@ -324,21 +337,21 @@
       no_default_gateway: true
   register: nm_add_epg_3
 
-- name: Add EPG 4 (normal mode)
-  mso_schema_template_anp_epg:
+- name: Add EPG 4 in template3 of schema 2(normal mode)
+  mso_schema_template_anp_epg: &epg_schema_2_template_3
     <<: *epg_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
     anp: ANP3
     epg: ansible_test_4
     bd:
-      name: ansible_test_1
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      name: ansible_test_4
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
     vrf:
-      name: VRF
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      name: VRF4
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
   register: nm_add_epg_4
 
 - name: Verify nm_add_epg_3 and nm_add_epg_4
@@ -348,12 +361,14 @@
     - nm_add_epg_4 is changed
     - nm_add_epg_3.current.name == "ansible_test_3"
     - nm_add_epg_4.current.name == "ansible_test_4"
-    - nm_add_epg_3.current.vrfRef.templateName == nm_add_epg_4.current.vrfRef.templateName == "Template1"
-    - nm_add_epg_3.current.vrfRef.vrfName == nm_add_epg_4.current.vrfRef.vrfName == "VRF"
-    - nm_add_epg_3.current.vrfRef.schemaId == nm_add_epg.current.bdRef.schemaId
-    - nm_add_epg_3.current.bdRef.templateName == nm_add_epg_4.current.bdRef.templateName == "Template1"
-    - nm_add_epg_3.current.bdRef.bdName == nm_add_epg_4.current.bdRef.bdName == "ansible_test_1"
-    - nm_add_epg_3.current.bdRef.schemaId ==  nm_add_epg.current.bdRef.schemaId
+    - nm_add_epg_3.current.vrfRef.templateName == "Template2"
+    - nm_add_epg_4.current.vrfRef.templateName == "Template3"
+    - nm_add_epg_3.current.vrfRef.vrfName == "VRF3"
+    - nm_add_epg_4.current.vrfRef.vrfName == "VRF4"
+    - nm_add_epg_3.current.bdRef.templateName == "Template2"
+    - nm_add_epg_4.current.bdRef.templateName == "Template3"
+    - nm_add_epg_3.current.bdRef.bdName == "ansible_test_3"
+    - nm_add_epg_4.current.bdRef.bdName == "ansible_test_4"
     - nm_add_epg_3.current.uSegEpg == true
     - nm_add_epg_3.current.intraEpg == 'enforced'
     - nm_add_epg_3.current.mCastSource == true
@@ -464,20 +479,20 @@
     - nm_change_epg_again.current.bdRef.bdName == 'ansible_test_2'
     - nm_change_epg_again.current.bdRef.schemaId == nm_change_epg_again.previous.bdRef.schemaId
 
-- name: Change EPG to VRF3 (normal mode)
+- name: Change EPG to VRF in different template (normal mode)
   mso_schema_template_anp_epg:
-    <<: *epg_present
+    <<: *epg_schema_1_template_2
     vrf:
-      name: VRF3
-      template: Template 2
+      name: VRF
+      template: Template 1
     bd:
-      name: ansible_test_3
-      template: Template 2
+      name: ansible_test_1
+      template: Template 1
   register: nm_change_epg_vrf3
 
 - name: Change EPG 4 to VRF (normal mode)
   mso_schema_template_anp_epg:
-    <<: *epg_present
+    <<: *epg_schema_2_template_3
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
     anp: ANP3
@@ -496,11 +511,11 @@
   assert:
     that:
     - nm_change_epg_vrf3 is changed
-    - nm_change_epg_vrf3.current.name == 'ansible_test_1'
+    - nm_change_epg_vrf3.current.name == 'ansible_test_3'
     - nm_change_epg_vrf4.current.name == 'ansible_test_4'
-    - nm_change_epg_vrf3.current.vrfRef.vrfName == 'VRF3'
-    - nm_change_epg_vrf3.current.bdRef.bdName == 'ansible_test_3'
-    - nm_change_epg_vrf3.current.vrfRef.templateName == nm_change_epg_vrf3.current.bdRef.templateName == "Template2"
+    - nm_change_epg_vrf3.current.vrfRef.vrfName == 'VRF'
+    - nm_change_epg_vrf3.current.bdRef.bdName == 'ansible_test_1'
+    - nm_change_epg_vrf3.current.vrfRef.templateName == nm_change_epg_vrf3.current.bdRef.templateName == "Template1"
     - nm_change_epg_vrf4.current.vrfRef.vrfName == 'VRF'
     - nm_change_epg_vrf4.current.bdRef.bdName == 'ansible_test_1'
     - nm_change_epg_vrf4.current.vrfRef.templateName == nm_change_epg_vrf4.current.bdRef.templateName == "Template1"
@@ -798,7 +813,8 @@
 
 # Add EPG when MSO version >= 3.3
 - name: Execute tasks only for MSO version >= 3.3
-  when: version.current.version is version('3.3', '>=')
+  when:
+  - version.current.version is version('3.3', '>=')
   block:
   - name: Add EPG (for version greater than 3.3)
     mso_schema_template_anp_epg: &new_epg
@@ -814,10 +830,49 @@
   - name: Verify Add description
     assert:
       that:
-      - add_epg_desc is changed
-      - add_epg_desc.current.description == "Description of ANP EPG"
+        - add_epg_desc is changed
+        - add_epg_desc.current.description == "Description of ANP EPG"
+  
+  - name: Remove EPG (for version greater than 3.3)
+    mso_schema_template_anp_epg:
+      <<: *new_epg
+      state: absent
 
-  - name: Add EPG service type parameters (for version greater than 3.3)
+- name: Execute tasks only for MSO version >= 4.0
+  when:
+  - version.current.version is version('4.0', '>=')
+  block:
+  - name: Add EPG service type parameters (for version greater than 4.0)
+    mso_schema_template_anp_epg:
+      <<: *new_epg
+      epg_type: 'service'
+      deployment_type: 'third_party'
+      service_type: 'Azure-Storage'
+      access_type: 'private'
+    register: service_type_epg
+
+  - name: Add EPG service type parameters (for version greater than 4.0) with error
+    mso_schema_template_anp_epg:
+      <<: *new_epg
+      epg_type: 'service'
+      deployment_type: 'third_party'
+      service_type: 'Azure-Storage'
+      access_type: 'public_and_private'
+    ignore_errors: yes
+    register: service_type_epg_error
+
+  - name: Verify service type error
+    assert:
+      that:
+      - service_type_epg_error.msg == "MSO Error 400{{':'}} EPG{{':'}} ansible_test_1 in Schema{{':'}} ansible_test , Template{{':'}} Template1 DeploymentType{{':'}} saas, AccessType {{':'}}publicAndPrivateType, Combination is not supported"
+
+# Add EPG when MSO version >= 3.3 and < 4.0
+- name: Execute tasks only for MSO version >= 3.3 and < 4.0
+  when:
+  - version.current.version is version('3.3', '>=')
+  - version.current.version is version('4.0', '<')
+  block:
+  - name: Add EPG service type parameters (for version greater than 3.3 and less than 4.0)
     mso_schema_template_anp_epg:
       <<: *new_epg
       epg_type: 'service'
@@ -840,7 +895,7 @@
       - query_validate is not changed
       - query_validate.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} For Deployment type 'Third-party' access type 'PublicAndPrivate' is not supported exception while trying to update schema"
 
-  - name: Add EPG service type parameters (for version greater than 3.3)
+  - name: Add EPG service type parameters (for version greater than 3.3 and less than 4.0)
     mso_schema_template_anp_epg:
       <<: *new_epg
       epg_type: 'service'
@@ -863,7 +918,7 @@
       - query_validate is not changed
       - query_validate.current.result == "true"
 
-  - name: Add new EPG service type parameters (for version greater than 3.3)
+  - name: Add new EPG service type parameters (for version greater than 3.3 and less than 4.0)
     mso_schema_template_anp_epg:
       <<: *new_epg
       epg_type: 'service'
@@ -1090,6 +1145,11 @@
     - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
 
 # Checking if contract are removed after re-applying an EPG. (#13 | #62137)
+- name: Reset EPG 3 in template of schema 1 to avoid cyclic circles (normal mode)
+  mso_schema_template_anp_epg:
+    <<: *epg_schema_1_template_2
+  register: nm_add_epg_3
+
 - name: Add Contracts to EPG 2
   mso_schema_template_anp_epg_contract:
     <<: *mso_info
@@ -1118,7 +1178,6 @@
   assert:
     that:
     - nm_query_contract_epg.current.contractRelationships | length == 4
-
 
 - name: Add EPG 2 again (normal_mode)
   mso_schema_template_anp_epg:

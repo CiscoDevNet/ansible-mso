@@ -10,6 +10,16 @@
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(false) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
 
 # CLEAN ENVIRONMENT
 # - name: Ensure site exist
@@ -31,13 +41,7 @@
 
 - name: Remove schemas
   mso_schema:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ item }}'
     state: absent
   loop:
@@ -46,13 +50,7 @@
 
 - name: Ensure tenant ansible_test exist
   mso_tenant: &tenant_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     tenant: ansible_test
     users:
     - '{{ mso_username }}'
@@ -61,14 +59,8 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
-  mso_schema_template: &schema_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+  mso_schema_template:
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
     template: Template 1
@@ -76,7 +68,7 @@
 
 - name: Ensure schema 1 with Template 2 exist
   mso_schema_template:
-    <<: *schema_present
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
     template: Template 2
@@ -84,7 +76,7 @@
 
 - name: Ensure schema 2 with Template 3 exist
   mso_schema_template:
-    <<: *schema_present
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
     template: Template 3
@@ -92,13 +84,7 @@
 
 - name: Ensure ANP exist
   mso_schema_template_anp:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ item.schema }}'
     template: '{{ item.template }}'
     anp: ANP
@@ -109,13 +95,7 @@
 
 - name: Ensure Filter 1 exist
   mso_schema_template_filter_entry:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     filter: Filter1
@@ -124,13 +104,7 @@
 
 - name: Ensure Contract1 exist
   mso_schema_template_contract_filter: &contract_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     contract: Contract1
@@ -139,22 +113,29 @@
     filter_template: Template 1
     state: present
 
+- name: Ensure Filter 2 exist
+  mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    filter: Filter2
+    entry: Filter2-Entry
+    state: present
+
 - name: Ensure Contract2 exist
-  mso_schema_template_contract_filter:
-    <<: *contract_present
+  mso_schema_template_contract_filter: &contract2_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
     contract: Contract2
+    filter: Filter2
+    filter_schema: '{{ mso_schema | default("ansible_test") }}'
+    filter_template: Template 2
     state: present
 
 - name: Ensure EPGs exist
   mso_schema_template_anp_epg:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ item.schema }}'
     template: '{{ item.template }}'
     anp: ANP
@@ -167,13 +148,7 @@
 # ADD Contract to EPG
 - name: Add Contract1 to EPG (check_mode)
   mso_schema_template_anp_epg_contract: &contract_epg_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     anp: ANP
@@ -279,27 +254,21 @@
 - name: Verify nm_add_contract1_rel_provider, nm_add_contract2_rel_consumer and nm_add_contract3_rel_provider
   assert:
     that:
-    - nm_add_contract1_rel_provider is changed
-    - nm_add_contract2_rel_consumer is changed
-    - nm_add_contract3_rel_provider is changed
-    - nm_add_contract1_rel_provider.current.contractRef.contractName == nm_add_contract3_rel_provider.current.contractRef.contractName == "Contract1"
-    - nm_add_contract2_rel_consumer.current.contractRef.contractName == "Contract2"
-    - nm_add_contract1_rel_provider.current.contractRef.templateName == nm_add_contract3_rel_provider.current.contractRef.templateName == "Template1"
-    - nm_add_contract2_rel_consumer.current.contractRef.templateName == "Template2"
-    - nm_add_contract1_rel_provider.current.contractRef.schemaId == nm_add_contract2_rel_consumer.current.contractRef.schemaId == nm_add_contract3_rel_provider.current.contractRef.schemaId
-    - nm_add_contract2_rel_consumer.current.relationshipType == "consumer"
-    - nm_add_contract1_rel_provider.current.relationshipType == nm_add_contract3_rel_provider.current.relationshipType == "provider"
+      - nm_add_contract1_rel_provider is changed
+      - nm_add_contract2_rel_consumer is changed
+      - nm_add_contract3_rel_provider is changed
+      - nm_add_contract1_rel_provider.current.contractRef.contractName == nm_add_contract3_rel_provider.current.contractRef.contractName == "Contract1"
+      - nm_add_contract2_rel_consumer.current.contractRef.contractName == "Contract2"
+      - nm_add_contract1_rel_provider.current.contractRef.templateName == nm_add_contract3_rel_provider.current.contractRef.templateName == "Template1"
+      - nm_add_contract2_rel_consumer.current.contractRef.templateName == "Template2"
+      - nm_add_contract1_rel_provider.current.contractRef.schemaId == nm_add_contract2_rel_consumer.current.contractRef.schemaId == nm_add_contract3_rel_provider.current.contractRef.schemaId
+      - nm_add_contract2_rel_consumer.current.relationshipType == "consumer"
+      - nm_add_contract1_rel_provider.current.relationshipType == nm_add_contract3_rel_provider.current.relationshipType == "provider"
 
 # # QUERY ALL Contract to EPG
 - name: Query all contract relationship for EPG (check_mode)
   mso_schema_template_anp_epg_contract: &contract_epg_query
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     anp: ANP

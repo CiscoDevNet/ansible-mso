@@ -91,7 +91,7 @@ class MSOSchema:
         :param fail_module: When match is not found fail the ansible module. -> Bool
         :return: Site item. -> Item(Int, Dict) | None
         """
-        if "sites" not in self.schema:
+        if not self.schema.get("sites"):
             msg = "No sites associated with schema '{0}'. Associate the site with the schema using (M) mso_schema_site.".format(self.schema_name)
             self.mso.fail_json(msg=msg)
 

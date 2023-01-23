@@ -20,634 +20,643 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
-- name: Remove EXT_EPGs Providers from DHCP Relay Policy
-  mso_dhcp_relay_policy_provider:
+- name: Query MSO version
+  mso_version:
     <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
-    tenant: ansible_test
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    external_endpoint_group: "{{ item }}"
-    state: absent
-  ignore_errors: yes
-  loop:
-  - EXT_EPG_1
-  - EXT_EPG_2
+    state: query
+  register: version
 
-- name: Remove EXT_EPGs Providers from DHCP Relay Policy
-  mso_dhcp_relay_policy_provider:
-    <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
-    tenant: ansible_test
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    endpoint_group: "{{ item }}"
-    application_profile: "ANP_1"
-    state: absent
-  ignore_errors: yes
-  loop:
-  - EPG_1
-  - EPG_2
+- name: Execute tasks only for MSO version < 4.0
+  when: version.current.version is version('4.0', '<')
+  block:
+  - name: Remove EXT_EPGs Providers from DHCP Relay Policy
+    mso_dhcp_relay_policy_provider:
+      <<: *mso_info
+      dhcp_relay_policy: ansible_dhcp_relay_1
+      tenant: ansible_test
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      external_endpoint_group: "{{ item }}"
+      state: absent
+    ignore_errors: yes
+    loop:
+    - EXT_EPG_1
+    - EXT_EPG_2
 
-- name: Stop consuming DHCP Policy
-  mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: CLIENT_BD
-    vrf:
-      name: VRF1
-    state: present
-  ignore_errors: yes
+  - name: Remove EXT_EPGs Providers from DHCP Relay Policy
+    mso_dhcp_relay_policy_provider:
+      <<: *mso_info
+      dhcp_relay_policy: ansible_dhcp_relay_1
+      tenant: ansible_test
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      endpoint_group: "{{ item }}"
+      application_profile: "ANP_1"
+      state: absent
+    ignore_errors: yes
+    loop:
+    - EPG_1
+    - EPG_2
 
-- name: Remove DHCP Relay Policies
-  mso_dhcp_relay_policy:
-    <<: *mso_info
-    dhcp_relay_policy: '{{ item }}'
-    state: absent
-  ignore_errors: yes
-  loop:
-  - ansible_dhcp_relay_1
-  - ansible_dhcp_relay_2
-
-- name: Undeploy sites in schema 1 template 1
-  mso_schema_template_deploy:
-    <<: *mso_info
-    template: Template 1
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ item }}'
-    state: undeploy
-  ignore_errors: yes
-  loop:
-  - '{{ mso_site | default("ansible_test") }}'
-  - '{{ mso_site | default("ansible_test") }}_2'
-  - 'aws_{{ mso_site | default("ansible_test") }}'
-  - 'azure_{{ mso_site | default("ansible_test") }}'
-
-- name: Undeploy sites in schema 1 template 2
-  mso_schema_template_deploy:
-    <<: *mso_info
-    template: Template 2
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ item }}'
-    state: undeploy
-  ignore_errors: yes
-  loop:
-  - '{{ mso_site | default("ansible_test") }}'
-  - '{{ mso_site | default("ansible_test") }}_2'
-  - 'aws_{{ mso_site | default("ansible_test") }}'
-  - 'azure_{{ mso_site | default("ansible_test") }}'
-
-- name: Remove schemas
-  mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
-
-- name: Ensure tenant ansible_test exist
-  mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test
-    users:
-    - '{{ mso_username }}'
-    state: present
-  register: tenant_ansible
-
-- name: Ensure schema 1 with Template 1 exist
-  mso_schema_template:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    tenant: ansible_test
-    template: Template 1
-    state: present
-
-# CREATE EPG PROVIDER
-- name: Add a new VRF
-  mso_schema_template_vrf:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    vrf: VRF1
-    state: present
-
-- name: Add a new BD
-  mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: BD_1
-    vrf:
-      name: VRF1
-    state: present
-
-- name: Add 2nd BD
-  mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: CLIENT_BD
-    vrf:
-      name: VRF1
-    state: present
-
-- name: Add a new ANP
-  mso_schema_template_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP_1
-    state: present
-
-- name: Add a new EPG
-  mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP_1
-    epg: EPG_1
-    bd:
-      name: BD_1
-    vrf:
-      name: VRF1
-    state: present
-
-- name: Add 2nd EPG
-  mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP_1
-    epg: EPG_2
-    bd:
-      name: BD_1
-    vrf:
-      name: VRF1
-    state: present
-
-- name: Add a new L3out
-  mso_schema_template_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    l3out: L3OUT_1
-    vrf:
+  - name: Stop consuming DHCP Policy
+    mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      bd: CLIENT_BD
+      vrf:
         name: VRF1
-    state: present
+      state: present
+    ignore_errors: yes
 
-- name: Add a new external EPG
-  cisco.mso.mso_schema_template_external_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    external_epg: EXT_EPG_1
-    vrf:
-      name: VRF1
+  - name: Remove DHCP Relay Policies
+    mso_dhcp_relay_policy:
+      <<: *mso_info
+      dhcp_relay_policy: '{{ item }}'
+      state: absent
+    ignore_errors: yes
+    loop:
+    - ansible_dhcp_relay_1
+    - ansible_dhcp_relay_2
+
+  - name: Undeploy sites in schema 1 template 1
+    mso_schema_template_deploy:
+      <<: *mso_info
+      template: Template 1
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ item }}'
+      state: undeploy
+    ignore_errors: yes
+    loop:
+    - '{{ mso_site | default("ansible_test") }}'
+    - '{{ mso_site | default("ansible_test") }}_2'
+    - 'aws_{{ mso_site | default("ansible_test") }}'
+    - 'azure_{{ mso_site | default("ansible_test") }}'
+
+  - name: Undeploy sites in schema 1 template 2
+    mso_schema_template_deploy:
+      <<: *mso_info
+      template: Template 2
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ item }}'
+      state: undeploy
+    ignore_errors: yes
+    loop:
+    - '{{ mso_site | default("ansible_test") }}'
+    - '{{ mso_site | default("ansible_test") }}_2'
+    - 'aws_{{ mso_site | default("ansible_test") }}'
+    - 'azure_{{ mso_site | default("ansible_test") }}'
+
+  - name: Remove schemas
+    mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    loop:
+    - '{{ mso_schema | default("ansible_test") }}_2'
+    - '{{ mso_schema | default("ansible_test") }}'
+
+  - name: Ensure tenant ansible_test exist
+    mso_tenant:
+      <<: *mso_info
+      tenant: ansible_test
+      users:
+      - '{{ mso_username }}'
+      state: present
+    register: tenant_ansible
+
+  - name: Ensure schema 1 with Template 1 exist
+    mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      tenant: ansible_test
+      template: Template 1
+      state: present
+
+  # CREATE EPG PROVIDER
+  - name: Add a new VRF
+    mso_schema_template_vrf:
+      <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
-    l3out:
-      name: L3OUT_1
+      vrf: VRF1
+      state: present
+
+  - name: Add a new BD
+    mso_schema_template_bd:
+      <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
-    state: present
+      bd: BD_1
+      vrf:
+        name: VRF1
+      state: present
 
-- name: Add 2nd external EPG
-  cisco.mso.mso_schema_template_external_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    external_epg: EXT_EPG_2
-    vrf:
-      name: VRF1
+  - name: Add 2nd BD
+    mso_schema_template_bd:
+      <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
-    l3out:
-      name: L3OUT_1
+      bd: CLIENT_BD
+      vrf:
+        name: VRF1
+      state: present
+
+  - name: Add a new ANP
+    mso_schema_template_anp:
+      <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
-    state: present
+      anp: ANP_1
+      state: present
 
-# ADD DHCP RELAY POLICY
-- name: Add a new DHCP Relay Policy 1 (Normal mode)
-  mso_dhcp_relay_policy:
-    <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
-    description: "My Test DHCP Policy 1"
-    tenant: ansible_test
-    state: present
+  - name: Add a new EPG
+    mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      anp: ANP_1
+      epg: EPG_1
+      bd:
+        name: BD_1
+      vrf:
+        name: VRF1
+      state: present
 
-# ADD PROVIDER TO DHCP RELAY POLICY
-- name: Add Provider to DHCP Relay Policy (check mode)
-  mso_dhcp_relay_policy_provider: &create_provider
-    <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
-    ip: "1.1.1.1"
-    tenant: ansible_test
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    application_profile: ANP_1
-    endpoint_group: EPG_1
-    state: present
-  check_mode: yes
-  register: dhcp_pol1_prov1_cm
+  - name: Add 2nd EPG
+    mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      anp: ANP_1
+      epg: EPG_2
+      bd:
+        name: BD_1
+      vrf:
+        name: VRF1
+      state: present
 
-- name: Add Provider to DHCP Relay Policy (normal mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *create_provider
-  register: dhcp_pol1_prov1_nm
+  - name: Add a new L3out
+    mso_schema_template_l3out:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      l3out: L3OUT_1
+      vrf:
+          name: VRF1
+      state: present
 
-- name: Verify dhcp_pol1_prov1
-  assert:
-    that:
-    - dhcp_pol1_prov1_cm is changed
-    - dhcp_pol1_prov1_nm is changed
-    - dhcp_pol1_prov1_cm.current.addr == dhcp_pol1_prov1_nm.current.addr == '1.1.1.1'
-    - "'EPG_1' in dhcp_pol1_prov1_cm.current.epgRef"
-    - "'EPG_1' in dhcp_pol1_prov1_nm.current.epgRef"
-    - "'ANP_1' in dhcp_pol1_prov1_cm.current.epgRef"
-    - "'ANP_1' in dhcp_pol1_prov1_nm.current.epgRef"
-    - "'Template1' in dhcp_pol1_prov1_cm.current.epgRef"
-    - "'Template1' in dhcp_pol1_prov1_nm.current.epgRef"
-    - dhcp_pol1_prov1_cm.current.tenantId == tenant_ansible.current.id
-    - dhcp_pol1_prov1_nm.current.tenantId == tenant_ansible.current.id
+  - name: Add a new external EPG
+    cisco.mso.mso_schema_template_external_epg:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      external_epg: EXT_EPG_1
+      vrf:
+        name: VRF1
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 1
+      l3out:
+        name: L3OUT_1
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 1
+      state: present
 
-- name: Add Provider to DHCP Relay Policy again (check mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *create_provider
-  check_mode: yes
-  register: dhcp_pol1_prov1_again_cm
+  - name: Add 2nd external EPG
+    cisco.mso.mso_schema_template_external_epg:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      external_epg: EXT_EPG_2
+      vrf:
+        name: VRF1
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 1
+      l3out:
+        name: L3OUT_1
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 1
+      state: present
 
-- name: Add Provider to DHCP Relay Policy again (normal mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *create_provider
-  register: dhcp_pol1_prov1_again_nm
+  # ADD DHCP RELAY POLICY
+  - name: Add a new DHCP Relay Policy 1 (Normal mode)
+    mso_dhcp_relay_policy:
+      <<: *mso_info
+      dhcp_relay_policy: ansible_dhcp_relay_1
+      description: "My Test DHCP Policy 1"
+      tenant: ansible_test
+      state: present
 
-- name: Verify dhcp_pol1_prov1_again
-  assert:
-    that:
-    - dhcp_pol1_prov1_again_cm is not changed
-    - dhcp_pol1_prov1_again_nm is not changed
-    - dhcp_pol1_prov1_again_cm.current.addr == dhcp_pol1_prov1_again_nm.current.addr == '1.1.1.1'
-    - "'EPG_1' in dhcp_pol1_prov1_again_cm.current.epgRef"
-    - "'EPG_1' in dhcp_pol1_prov1_again_nm.current.epgRef"
-    - "'ANP_1' in dhcp_pol1_prov1_again_cm.current.epgRef"
-    - "'ANP_1' in dhcp_pol1_prov1_again_nm.current.epgRef"
-    - "'Template1' in dhcp_pol1_prov1_again_cm.current.epgRef"
-    - "'Template1' in dhcp_pol1_prov1_again_nm.current.epgRef"
-    - dhcp_pol1_prov1_again_cm.current.tenantId == tenant_ansible.current.id
-    - dhcp_pol1_prov1_again_nm.current.tenantId == tenant_ansible.current.id
+  # ADD PROVIDER TO DHCP RELAY POLICY
+  - name: Add Provider to DHCP Relay Policy (check mode)
+    mso_dhcp_relay_policy_provider: &create_provider
+      <<: *mso_info
+      dhcp_relay_policy: ansible_dhcp_relay_1
+      ip: "1.1.1.1"
+      tenant: ansible_test
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      application_profile: ANP_1
+      endpoint_group: EPG_1
+      state: present
+    check_mode: yes
+    register: dhcp_pol1_prov1_cm
 
-- name: Change Provider IP to DHCP Relay Policy (check mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *create_provider
-    ip: "2.2.2.2"
-  check_mode: yes
-  register: dhcp_pol1_prov1_change_cm
+  - name: Add Provider to DHCP Relay Policy (normal mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *create_provider
+    register: dhcp_pol1_prov1_nm
 
-- name: Change Provider IP to DHCP Relay Policy (normal mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *create_provider
-    ip: "2.2.2.2"
-  register: dhcp_pol1_prov1_change_nm
+  - name: Verify dhcp_pol1_prov1
+    assert:
+      that:
+      - dhcp_pol1_prov1_cm is changed
+      - dhcp_pol1_prov1_nm is changed
+      - dhcp_pol1_prov1_cm.current.addr == dhcp_pol1_prov1_nm.current.addr == '1.1.1.1'
+      - "'EPG_1' in dhcp_pol1_prov1_cm.current.epgRef"
+      - "'EPG_1' in dhcp_pol1_prov1_nm.current.epgRef"
+      - "'ANP_1' in dhcp_pol1_prov1_cm.current.epgRef"
+      - "'ANP_1' in dhcp_pol1_prov1_nm.current.epgRef"
+      - "'Template1' in dhcp_pol1_prov1_cm.current.epgRef"
+      - "'Template1' in dhcp_pol1_prov1_nm.current.epgRef"
+      - dhcp_pol1_prov1_cm.current.tenantId == tenant_ansible.current.id
+      - dhcp_pol1_prov1_nm.current.tenantId == tenant_ansible.current.id
 
-- name: Verify dhcp_pol1_prov1_change
-  assert:
-    that:
-    - dhcp_pol1_prov1_change_cm is changed
-    - dhcp_pol1_prov1_change_nm is changed
-    - dhcp_pol1_prov1_change_cm.current.addr == dhcp_pol1_prov1_change_nm.current.addr == '2.2.2.2'
-    - "'EPG_1' in dhcp_pol1_prov1_change_cm.current.epgRef"
-    - "'EPG_1' in dhcp_pol1_prov1_change_nm.current.epgRef"
-    - "'ANP_1' in dhcp_pol1_prov1_change_cm.current.epgRef"
-    - "'ANP_1' in dhcp_pol1_prov1_change_nm.current.epgRef"
-    - "'Template1' in dhcp_pol1_prov1_change_cm.current.epgRef"
-    - "'Template1' in dhcp_pol1_prov1_change_nm.current.epgRef"
-    - dhcp_pol1_prov1_change_cm.current.tenantId == tenant_ansible.current.id
-    - dhcp_pol1_prov1_change_nm.current.tenantId == tenant_ansible.current.id
+  - name: Add Provider to DHCP Relay Policy again (check mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *create_provider
+    check_mode: yes
+    register: dhcp_pol1_prov1_again_cm
 
-- name: Add 2nd Provider (EPG_2) to DHCP Relay Policy (check mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *create_provider
-    ip: "2.2.2.2"
-    endpoint_group: EPG_2
-  check_mode: yes
-  register: dhcp_pol1_prov2_cm
+  - name: Add Provider to DHCP Relay Policy again (normal mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *create_provider
+    register: dhcp_pol1_prov1_again_nm
 
-- name: Add 2nd Provider (EPG_2) to DHCP Relay Policy (normal mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *create_provider
-    ip: "2.2.2.2"
-    endpoint_group: EPG_2
-  register: dhcp_pol1_prov2_nm
+  - name: Verify dhcp_pol1_prov1_again
+    assert:
+      that:
+      - dhcp_pol1_prov1_again_cm is not changed
+      - dhcp_pol1_prov1_again_nm is not changed
+      - dhcp_pol1_prov1_again_cm.current.addr == dhcp_pol1_prov1_again_nm.current.addr == '1.1.1.1'
+      - "'EPG_1' in dhcp_pol1_prov1_again_cm.current.epgRef"
+      - "'EPG_1' in dhcp_pol1_prov1_again_nm.current.epgRef"
+      - "'ANP_1' in dhcp_pol1_prov1_again_cm.current.epgRef"
+      - "'ANP_1' in dhcp_pol1_prov1_again_nm.current.epgRef"
+      - "'Template1' in dhcp_pol1_prov1_again_cm.current.epgRef"
+      - "'Template1' in dhcp_pol1_prov1_again_nm.current.epgRef"
+      - dhcp_pol1_prov1_again_cm.current.tenantId == tenant_ansible.current.id
+      - dhcp_pol1_prov1_again_nm.current.tenantId == tenant_ansible.current.id
 
-- name: Add 3rd Provider (EXT_EPG_1) to DHCP Relay Policy (check mode)
-  mso_dhcp_relay_policy_provider: &create_provider_external_epg
-    <<: *create_provider
-    ip: "2.2.2.2"
-    external_endpoint_group: EXT_EPG_1
-    application_profile: null
-    endpoint_group: null
-  check_mode: yes
-  register: dhcp_pol1_prov3_cm
+  - name: Change Provider IP to DHCP Relay Policy (check mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *create_provider
+      ip: "2.2.2.2"
+    check_mode: yes
+    register: dhcp_pol1_prov1_change_cm
 
-- name: Add 3rd Provider (EXT_EPG_1) to DHCP Relay Policy (normal mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *create_provider_external_epg
-    external_endpoint_group: EXT_EPG_1
-  register: dhcp_pol1_prov3_nm
+  - name: Change Provider IP to DHCP Relay Policy (normal mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *create_provider
+      ip: "2.2.2.2"
+    register: dhcp_pol1_prov1_change_nm
 
-- name: Add 4th Provider (EXT_EPG_2) to DHCP Relay Policy (check mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *create_provider_external_epg
-    external_endpoint_group: EXT_EPG_2
-  check_mode: yes
-  register: dhcp_pol1_prov4_cm
+  - name: Verify dhcp_pol1_prov1_change
+    assert:
+      that:
+      - dhcp_pol1_prov1_change_cm is changed
+      - dhcp_pol1_prov1_change_nm is changed
+      - dhcp_pol1_prov1_change_cm.current.addr == dhcp_pol1_prov1_change_nm.current.addr == '2.2.2.2'
+      - "'EPG_1' in dhcp_pol1_prov1_change_cm.current.epgRef"
+      - "'EPG_1' in dhcp_pol1_prov1_change_nm.current.epgRef"
+      - "'ANP_1' in dhcp_pol1_prov1_change_cm.current.epgRef"
+      - "'ANP_1' in dhcp_pol1_prov1_change_nm.current.epgRef"
+      - "'Template1' in dhcp_pol1_prov1_change_cm.current.epgRef"
+      - "'Template1' in dhcp_pol1_prov1_change_nm.current.epgRef"
+      - dhcp_pol1_prov1_change_cm.current.tenantId == tenant_ansible.current.id
+      - dhcp_pol1_prov1_change_nm.current.tenantId == tenant_ansible.current.id
 
-- name: Add 4th Provider (EXT_EPG_2) to DHCP Relay Policy (normal mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *create_provider_external_epg
-    external_endpoint_group: EXT_EPG_2
-  register: dhcp_pol1_prov4_nm
+  - name: Add 2nd Provider (EPG_2) to DHCP Relay Policy (check mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *create_provider
+      ip: "2.2.2.2"
+      endpoint_group: EPG_2
+    check_mode: yes
+    register: dhcp_pol1_prov2_cm
 
-- name: Verify dhcp_pol1_prov2, dhcp_pol1_prov3 and dhcp_pol1_prov4
-  assert:
-    that:
-    - dhcp_pol1_prov2_cm is changed
-    - dhcp_pol1_prov2_nm is changed
-    - dhcp_pol1_prov3_cm is changed
-    - dhcp_pol1_prov3_nm is changed
-    - dhcp_pol1_prov4_cm is changed
-    - dhcp_pol1_prov4_nm is changed
-    - dhcp_pol1_prov2_cm.current.addr == dhcp_pol1_prov2_nm.current.addr == '2.2.2.2'
-    - dhcp_pol1_prov3_cm.current.addr == dhcp_pol1_prov3_nm.current.addr == '2.2.2.2'
-    - dhcp_pol1_prov4_cm.current.addr == dhcp_pol1_prov4_nm.current.addr == '2.2.2.2'
-    - "'EPG_2' in dhcp_pol1_prov2_cm.current.epgRef"
-    - "'EPG_2' in dhcp_pol1_prov2_nm.current.epgRef"
-    - "'ANP_1' in dhcp_pol1_prov2_cm.current.epgRef"
-    - "'ANP_1' in dhcp_pol1_prov2_nm.current.epgRef"
-    - "'Template1' in dhcp_pol1_prov2_cm.current.epgRef"
-    - "'Template1' in dhcp_pol1_prov2_nm.current.epgRef"
-    - "'EXT_EPG_1' in dhcp_pol1_prov3_cm.current.externalEpgRef"
-    - "'EXT_EPG_1' in dhcp_pol1_prov3_nm.current.externalEpgRef"
-    - "'EXT_EPG_2' in dhcp_pol1_prov4_cm.current.externalEpgRef"
-    - "'EXT_EPG_2' in dhcp_pol1_prov4_nm.current.externalEpgRef"
-    - dhcp_pol1_prov3_cm.current.tenantId == tenant_ansible.current.id
-    - dhcp_pol1_prov3_nm.current.tenantId == tenant_ansible.current.id
-    - dhcp_pol1_prov4_cm.current.tenantId == tenant_ansible.current.id
-    - dhcp_pol1_prov4_nm.current.tenantId == tenant_ansible.current.id
+  - name: Add 2nd Provider (EPG_2) to DHCP Relay Policy (normal mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *create_provider
+      ip: "2.2.2.2"
+      endpoint_group: EPG_2
+    register: dhcp_pol1_prov2_nm
 
-# ADD DHCP RELAY PROVIDER WITH WRONG Attributes
-- name: Add  Provider to DHCP Relay Policy - wrong tenant (Normal mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
-    ip: "2.2.2.2"
-    tenant: ansible_test_wrong
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    application_profile: ANP_1
-    endpoint_group: EPG_1
-    state: present
-  ignore_errors: yes
-  register: dhcp_pol1_prov2_nm_ten_wrong
+  - name: Add 3rd Provider (EXT_EPG_1) to DHCP Relay Policy (check mode)
+    mso_dhcp_relay_policy_provider: &create_provider_external_epg
+      <<: *create_provider
+      ip: "2.2.2.2"
+      external_endpoint_group: EXT_EPG_1
+      application_profile: null
+      endpoint_group: null
+    check_mode: yes
+    register: dhcp_pol1_prov3_cm
 
-- name: Add  Provider to DHCP Relay Policy - wrong Schema (Normal mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
-    ip: "2.2.2.2"
-    tenant: ansible_test
-    schema: schema_wrong
-    template: Template 1
-    application_profile: ANP_1
-    endpoint_group: EPG_1
-    state: present
-  ignore_errors: yes
-  register: dhcp_pol1_prov2_nm_sch_wrong
+  - name: Add 3rd Provider (EXT_EPG_1) to DHCP Relay Policy (normal mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *create_provider_external_epg
+      external_endpoint_group: EXT_EPG_1
+    register: dhcp_pol1_prov3_nm
 
-- name: Verify dhcp_pol1_prov2_nm_ten_wrong, dhcp_pol1_prov2_nm_sch_wrong & dhcp_pol1_prov2_nm_tmp_wrong
-  assert:
-    that:
-    - dhcp_pol1_prov2_nm_ten_wrong is not changed
-    - dhcp_pol1_prov2_nm_ten_wrong.msg == "Tenant 'ansible_test_wrong' is not valid tenant name."
-    - dhcp_pol1_prov2_nm_sch_wrong is not changed
-    - dhcp_pol1_prov2_nm_sch_wrong.msg == "Provided schema 'schema_wrong' does not exist."
-    # MSO API allows to create provider in non-existing/wrong templates/epgs/ext_epgs
+  - name: Add 4th Provider (EXT_EPG_2) to DHCP Relay Policy (check mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *create_provider_external_epg
+      external_endpoint_group: EXT_EPG_2
+    check_mode: yes
+    register: dhcp_pol1_prov4_cm
 
-# QUERY PROVIDER FROM DHCP RELAY POLICY
-- name: Query Provider from DHCP Relay Policy (check mode)
-  mso_dhcp_relay_policy_provider: &query_provider
-    <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
-    tenant: ansible_test
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    application_profile: ANP_1
-    endpoint_group: EPG_1
-    state: query
-  register: dhcp_pol1_prov1_query_cm
+  - name: Add 4th Provider (EXT_EPG_2) to DHCP Relay Policy (normal mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *create_provider_external_epg
+      external_endpoint_group: EXT_EPG_2
+    register: dhcp_pol1_prov4_nm
 
-- name: Query Provider from DHCP Relay Policy (normal mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *query_provider
-  register: dhcp_pol1_prov1_query_nm
+  - name: Verify dhcp_pol1_prov2, dhcp_pol1_prov3 and dhcp_pol1_prov4
+    assert:
+      that:
+      - dhcp_pol1_prov2_cm is changed
+      - dhcp_pol1_prov2_nm is changed
+      - dhcp_pol1_prov3_cm is changed
+      - dhcp_pol1_prov3_nm is changed
+      - dhcp_pol1_prov4_cm is changed
+      - dhcp_pol1_prov4_nm is changed
+      - dhcp_pol1_prov2_cm.current.addr == dhcp_pol1_prov2_nm.current.addr == '2.2.2.2'
+      - dhcp_pol1_prov3_cm.current.addr == dhcp_pol1_prov3_nm.current.addr == '2.2.2.2'
+      - dhcp_pol1_prov4_cm.current.addr == dhcp_pol1_prov4_nm.current.addr == '2.2.2.2'
+      - "'EPG_2' in dhcp_pol1_prov2_cm.current.epgRef"
+      - "'EPG_2' in dhcp_pol1_prov2_nm.current.epgRef"
+      - "'ANP_1' in dhcp_pol1_prov2_cm.current.epgRef"
+      - "'ANP_1' in dhcp_pol1_prov2_nm.current.epgRef"
+      - "'Template1' in dhcp_pol1_prov2_cm.current.epgRef"
+      - "'Template1' in dhcp_pol1_prov2_nm.current.epgRef"
+      - "'EXT_EPG_1' in dhcp_pol1_prov3_cm.current.externalEpgRef"
+      - "'EXT_EPG_1' in dhcp_pol1_prov3_nm.current.externalEpgRef"
+      - "'EXT_EPG_2' in dhcp_pol1_prov4_cm.current.externalEpgRef"
+      - "'EXT_EPG_2' in dhcp_pol1_prov4_nm.current.externalEpgRef"
+      - dhcp_pol1_prov3_cm.current.tenantId == tenant_ansible.current.id
+      - dhcp_pol1_prov3_nm.current.tenantId == tenant_ansible.current.id
+      - dhcp_pol1_prov4_cm.current.tenantId == tenant_ansible.current.id
+      - dhcp_pol1_prov4_nm.current.tenantId == tenant_ansible.current.id
 
-- name: Query non_existing Provider from DHCP Relay Policy
-  mso_dhcp_relay_policy_provider:
-    <<: *query_provider
-    endpoint_group: non_existing
-    state: query
-  register: dhcp_pol1_prov1_query_non_existing
+  # ADD DHCP RELAY PROVIDER WITH WRONG Attributes
+  - name: Add  Provider to DHCP Relay Policy - wrong tenant (Normal mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *mso_info
+      dhcp_relay_policy: ansible_dhcp_relay_1
+      ip: "2.2.2.2"
+      tenant: ansible_test_wrong
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      application_profile: ANP_1
+      endpoint_group: EPG_1
+      state: present
+    ignore_errors: yes
+    register: dhcp_pol1_prov2_nm_ten_wrong
 
-- name: Query all Providers from a DHCP Relay Policy
-  mso_dhcp_relay_policy_provider:
-    <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
-    state: query
-  register: dhcp_pol1_query_all
+  - name: Add  Provider to DHCP Relay Policy - wrong Schema (Normal mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *mso_info
+      dhcp_relay_policy: ansible_dhcp_relay_1
+      ip: "2.2.2.2"
+      tenant: ansible_test
+      schema: schema_wrong
+      template: Template 1
+      application_profile: ANP_1
+      endpoint_group: EPG_1
+      state: present
+    ignore_errors: yes
+    register: dhcp_pol1_prov2_nm_sch_wrong
 
-- name: Verify all query variables
-  assert:
-    that:
-    - dhcp_pol1_prov1_query_cm is not changed
-    - dhcp_pol1_prov1_query_nm is not changed
-    - dhcp_pol1_prov1_query_non_existing is not changed
-    - dhcp_pol1_query_all is not changed
-    - dhcp_pol1_prov1_query_cm.current.addr == dhcp_pol1_prov1_query_nm.current.addr == '2.2.2.2'
-    - "'EPG_1' in dhcp_pol1_prov1_query_cm.current.epgRef"
-    - "'EPG_1' in dhcp_pol1_prov1_query_nm.current.epgRef"
-    - "'ANP_1' in dhcp_pol1_prov1_query_cm.current.epgRef"
-    - "'ANP_1' in dhcp_pol1_prov1_query_nm.current.epgRef"
-    - "'Template1' in dhcp_pol1_prov1_query_cm.current.epgRef"
-    - "'Template1' in dhcp_pol1_prov1_query_nm.current.epgRef"
-    - dhcp_pol1_prov1_query_non_existing.current == {}
-    - dhcp_pol1_query_all.current | length == 4
+  - name: Verify dhcp_pol1_prov2_nm_ten_wrong, dhcp_pol1_prov2_nm_sch_wrong & dhcp_pol1_prov2_nm_tmp_wrong
+    assert:
+      that:
+      - dhcp_pol1_prov2_nm_ten_wrong is not changed
+      - dhcp_pol1_prov2_nm_ten_wrong.msg == "Tenant 'ansible_test_wrong' is not valid tenant name."
+      - dhcp_pol1_prov2_nm_sch_wrong is not changed
+      - dhcp_pol1_prov2_nm_sch_wrong.msg == "Provided schema 'schema_wrong' does not exist."
+      # MSO API allows to create provider in non-existing/wrong templates/epgs/ext_epgs
 
-# REMOVE PROVIDER FROM DHCP RELAY POLICY
-- name: Remove Provider (EXT_EPG) from DHCP Relay Policy (check mode)
-  mso_dhcp_relay_policy_provider: &delete_provider
-    <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
-    tenant: ansible_test
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    external_endpoint_group: EXT_EPG_1
-    state: absent
-  check_mode: yes
-  register: dhcp_pol1_prov1_del_cm
+  # QUERY PROVIDER FROM DHCP RELAY POLICY
+  - name: Query Provider from DHCP Relay Policy (check mode)
+    mso_dhcp_relay_policy_provider: &query_provider
+      <<: *mso_info
+      dhcp_relay_policy: ansible_dhcp_relay_1
+      tenant: ansible_test
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      application_profile: ANP_1
+      endpoint_group: EPG_1
+      state: query
+    register: dhcp_pol1_prov1_query_cm
 
-- name: Remove Provider (EXT_EPG) from DHCP Relay Policy (normal mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *delete_provider
-  register: dhcp_pol1_prov1_del_nm
+  - name: Query Provider from DHCP Relay Policy (normal mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *query_provider
+    register: dhcp_pol1_prov1_query_nm
 
-- name: Verify dhcp_pol1_prov1_del
-  assert:
-    that:
-    - dhcp_pol1_prov1_del_cm is changed
-    - dhcp_pol1_prov1_del_nm is changed
-    - dhcp_pol1_prov1_del_cm.current == dhcp_pol1_prov1_del_nm.current == {}
+  - name: Query non_existing Provider from DHCP Relay Policy
+    mso_dhcp_relay_policy_provider:
+      <<: *query_provider
+      endpoint_group: non_existing
+      state: query
+    register: dhcp_pol1_prov1_query_non_existing
 
-- name: Remove Provider (EXT_EPG) from DHCP Relay Policy again (check mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *delete_provider
-  check_mode: yes
-  register: dhcp_pol1_prov1_del_again_cm
+  - name: Query all Providers from a DHCP Relay Policy
+    mso_dhcp_relay_policy_provider:
+      <<: *mso_info
+      dhcp_relay_policy: ansible_dhcp_relay_1
+      state: query
+    register: dhcp_pol1_query_all
 
-- name: Remove Provider (EXT_EPG) from DHCP Relay Policy again (normal mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *delete_provider
-  register: dhcp_pol1_prov1_del_again_nm
+  - name: Verify all query variables
+    assert:
+      that:
+      - dhcp_pol1_prov1_query_cm is not changed
+      - dhcp_pol1_prov1_query_nm is not changed
+      - dhcp_pol1_prov1_query_non_existing is not changed
+      - dhcp_pol1_query_all is not changed
+      - dhcp_pol1_prov1_query_cm.current.addr == dhcp_pol1_prov1_query_nm.current.addr == '2.2.2.2'
+      - "'EPG_1' in dhcp_pol1_prov1_query_cm.current.epgRef"
+      - "'EPG_1' in dhcp_pol1_prov1_query_nm.current.epgRef"
+      - "'ANP_1' in dhcp_pol1_prov1_query_cm.current.epgRef"
+      - "'ANP_1' in dhcp_pol1_prov1_query_nm.current.epgRef"
+      - "'Template1' in dhcp_pol1_prov1_query_cm.current.epgRef"
+      - "'Template1' in dhcp_pol1_prov1_query_nm.current.epgRef"
+      - dhcp_pol1_prov1_query_non_existing.current == {}
+      - dhcp_pol1_query_all.current | length == 4
 
-- name: Verify dhcp_pol1_prov1_again_del
-  assert:
-    that:
-    - dhcp_pol1_prov1_del_again_cm is not changed
-    - dhcp_pol1_prov1_del_again_nm is not changed
-    - dhcp_pol1_prov1_del_again_cm.current == dhcp_pol1_prov1_del_again_nm.current == {}
+  # REMOVE PROVIDER FROM DHCP RELAY POLICY
+  - name: Remove Provider (EXT_EPG) from DHCP Relay Policy (check mode)
+    mso_dhcp_relay_policy_provider: &delete_provider
+      <<: *mso_info
+      dhcp_relay_policy: ansible_dhcp_relay_1
+      tenant: ansible_test
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      external_endpoint_group: EXT_EPG_1
+      state: absent
+    check_mode: yes
+    register: dhcp_pol1_prov1_del_cm
 
-- name: Remove Non-Existing Provider (EXT_EPG)
-  mso_dhcp_relay_policy_provider:
-    <<: *delete_provider
-    external_endpoint_group: non_existing
-  register: dhcp_pol1_prov1_del_nm_non_existing
+  - name: Remove Provider (EXT_EPG) from DHCP Relay Policy (normal mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *delete_provider
+    register: dhcp_pol1_prov1_del_nm
 
-- name: Remove Provider without epg or ext_epg
-  mso_dhcp_relay_policy_provider:
-    <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
-    tenant: ansible_test
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    state: absent
-  ignore_errors: yes
-  register: dhcp_pol1_prov1_del_none
+  - name: Verify dhcp_pol1_prov1_del
+    assert:
+      that:
+      - dhcp_pol1_prov1_del_cm is changed
+      - dhcp_pol1_prov1_del_nm is changed
+      - dhcp_pol1_prov1_del_cm.current == dhcp_pol1_prov1_del_nm.current == {}
 
-- name: Verify dhcp_pol1_prov1_del_nm_non_existing
-  assert:
-    that:
-    - dhcp_pol1_prov1_del_nm_non_existing is not changed
-    - dhcp_pol1_prov1_del_none is not changed
-    - dhcp_pol1_prov1_del_nm_non_existing.current == {}
-    - dhcp_pol1_prov1_del_none.msg == 'Missing either endpoint_group or external_endpoint_group required attribute.'
+  - name: Remove Provider (EXT_EPG) from DHCP Relay Policy again (check mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *delete_provider
+    check_mode: yes
+    register: dhcp_pol1_prov1_del_again_cm
 
-#  CONSUME DHCP POLICIES
-- name: Get DHCP Relay Policy version
-  mso_dhcp_relay_policy:
-    <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
-    state: query
-  register: dhcp_relay_policy_version
+  - name: Remove Provider (EXT_EPG) from DHCP Relay Policy again (normal mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *delete_provider
+    register: dhcp_pol1_prov1_del_again_nm
 
-- name: Consume DHCP Policy
-  mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: CLIENT_BD
-    vrf:
-      name: VRF1
-    dhcp_policy:
-      name: "{{ dhcp_relay_policy_version.current.name }}"
-      version: "{{ dhcp_relay_policy_version.current.version | int }}"
-    state: present
-  register: bd_dhcp_policy
+  - name: Verify dhcp_pol1_prov1_again_del
+    assert:
+      that:
+      - dhcp_pol1_prov1_del_again_cm is not changed
+      - dhcp_pol1_prov1_del_again_nm is not changed
+      - dhcp_pol1_prov1_del_again_cm.current == dhcp_pol1_prov1_del_again_nm.current == {}
 
-- name: Stop consuming DHCP Policy
-  mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: CLIENT_BD
-    vrf:
-      name: VRF1
-    state: present
-  register: bd_dhcp_policy
+  - name: Remove Non-Existing Provider (EXT_EPG)
+    mso_dhcp_relay_policy_provider:
+      <<: *delete_provider
+      external_endpoint_group: non_existing
+    register: dhcp_pol1_prov1_del_nm_non_existing
 
-# QUERY PROVIDER FROM non_existing DHCP RELAY POLICY
-- name: Query Provider from DHCP Relay Policy (check mode)
-  mso_dhcp_relay_policy_provider:
-    <<: *mso_info
-    dhcp_relay_policy: non_existing
-    state: query
-  ignore_errors: yes
-  register: dhcp_non_existing
+  - name: Remove Provider without epg or ext_epg
+    mso_dhcp_relay_policy_provider:
+      <<: *mso_info
+      dhcp_relay_policy: ansible_dhcp_relay_1
+      tenant: ansible_test
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      state: absent
+    ignore_errors: yes
+    register: dhcp_pol1_prov1_del_none
 
-- name: Verify dhcp_non_existing
-  assert:
-    that:
-    - dhcp_non_existing is not changed
-    - dhcp_non_existing.msg == "DHCP Relay Policy 'non_existing' is not a valid DHCP Relay Policy name."
+  - name: Verify dhcp_pol1_prov1_del_nm_non_existing
+    assert:
+      that:
+      - dhcp_pol1_prov1_del_nm_non_existing is not changed
+      - dhcp_pol1_prov1_del_none is not changed
+      - dhcp_pol1_prov1_del_nm_non_existing.current == {}
+      - dhcp_pol1_prov1_del_none.msg == 'Missing either endpoint_group or external_endpoint_group required attribute.'
 
-# CLEAN UP
-- name: Remove EXT_EPGs Providers from DHCP Relay Policy
-  mso_dhcp_relay_policy_provider:
-    <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
-    tenant: ansible_test
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    external_endpoint_group: "{{ item }}"
-    state: absent
-  ignore_errors: yes
-  loop:
-  - EXT_EPG_1
-  - EXT_EPG_2
+  #  CONSUME DHCP POLICIES
+  - name: Get DHCP Relay Policy version
+    mso_dhcp_relay_policy:
+      <<: *mso_info
+      dhcp_relay_policy: ansible_dhcp_relay_1
+      state: query
+    register: dhcp_relay_policy_version
 
-- name: Remove EXT_EPGs Providers from DHCP Relay Policy
-  mso_dhcp_relay_policy_provider:
-    <<: *mso_info
-    dhcp_relay_policy: ansible_dhcp_relay_1
-    tenant: ansible_test
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    endpoint_group: "{{ item }}"
-    application_profile: "ANP_1"
-    state: absent
-  ignore_errors: yes
-  loop:
-  - EPG_1
-  - EPG_2
+  - name: Consume DHCP Policy
+    mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      bd: CLIENT_BD
+      vrf:
+        name: VRF1
+      dhcp_policy:
+        name: "{{ dhcp_relay_policy_version.current.name }}"
+        version: "{{ dhcp_relay_policy_version.current.version | int }}"
+      state: present
+    register: bd_dhcp_policy
 
-- name: Stop consuming DHCP Policy
-  mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: CLIENT_BD
-    vrf:
-      name: VRF1
-    state: absent
-  ignore_errors: yes
+  - name: Stop consuming DHCP Policy
+    mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      bd: CLIENT_BD
+      vrf:
+        name: VRF1
+      state: present
+    register: bd_dhcp_policy
 
-- name: Remove DHCP Relay Policies
-  mso_dhcp_relay_policy:
-    <<: *mso_info
-    dhcp_relay_policy: '{{ item }}'
-    state: absent
-  ignore_errors: yes
-  loop:
-  - ansible_dhcp_relay_1
-  - ansible_dhcp_relay_2
+  # QUERY PROVIDER FROM non_existing DHCP RELAY POLICY
+  - name: Query Provider from DHCP Relay Policy (check mode)
+    mso_dhcp_relay_policy_provider:
+      <<: *mso_info
+      dhcp_relay_policy: non_existing
+      state: query
+    ignore_errors: yes
+    register: dhcp_non_existing
+
+  - name: Verify dhcp_non_existing
+    assert:
+      that:
+      - dhcp_non_existing is not changed
+      - dhcp_non_existing.msg == "DHCP Relay Policy 'non_existing' is not a valid DHCP Relay Policy name."
+
+  # CLEAN UP
+  - name: Remove EXT_EPGs Providers from DHCP Relay Policy
+    mso_dhcp_relay_policy_provider:
+      <<: *mso_info
+      dhcp_relay_policy: ansible_dhcp_relay_1
+      tenant: ansible_test
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      external_endpoint_group: "{{ item }}"
+      state: absent
+    ignore_errors: yes
+    loop:
+    - EXT_EPG_1
+    - EXT_EPG_2
+
+  - name: Remove EXT_EPGs Providers from DHCP Relay Policy
+    mso_dhcp_relay_policy_provider:
+      <<: *mso_info
+      dhcp_relay_policy: ansible_dhcp_relay_1
+      tenant: ansible_test
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      endpoint_group: "{{ item }}"
+      application_profile: "ANP_1"
+      state: absent
+    ignore_errors: yes
+    loop:
+    - EPG_1
+    - EPG_2
+
+  - name: Stop consuming DHCP Policy
+    mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      bd: CLIENT_BD
+      vrf:
+        name: VRF1
+      state: absent
+    ignore_errors: yes
+
+  - name: Remove DHCP Relay Policies
+    mso_dhcp_relay_policy:
+      <<: *mso_info
+      dhcp_relay_policy: '{{ item }}'
+      state: absent
+    ignore_errors: yes
+    loop:
+    - ansible_dhcp_relay_1
+    - ansible_dhcp_relay_2

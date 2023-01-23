@@ -55,6 +55,17 @@
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
+- name: Ensure sites removed from tenant ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ mso_site | default("ansible_test") }}'
+    - 'aws_{{ mso_site | default("ansible_test") }}'
+    - 'azure_{{ mso_site | default("ansible_test") }}'
+
 - name: Ensure tenant ansible_test exist
   mso_tenant:
     <<: *mso_info
@@ -247,7 +258,18 @@
     assert:
       that:
       - query_validate is not changed
+  
+  - name: Verify query_validate result < 4.0
+    assert:
+      that:
       - query_validate.current.result == "true"
+    when: version.current.version is version('4.0', '<')
+  
+  - name: Verify query_validate result => 4.0
+    assert:
+      that:
+      - query_validate.current.result == true
+    when: version.current.version is version('4.0', '>=')
 
 - name: Query all aws regions
   mso_schema_site_vrf_region:

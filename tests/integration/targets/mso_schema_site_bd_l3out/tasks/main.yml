@@ -48,6 +48,17 @@
     - https://{{ apic_hostname }}
     state: present
 
+- name: Ensure sites removed from tenant ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ mso_site | default("ansible_test") }}'
+    - 'aws_{{ mso_site | default("ansible_test") }}'
+    - 'azure_{{ mso_site | default("ansible_test") }}'
+
 - name: Ensure tenant ansible_test exists
   mso_tenant:
     <<: *mso_info
@@ -101,6 +112,22 @@
     vrf: VRF1
     state: present
 
+- name: Ensure VRF2 exists
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template2
+    vrf: VRF2
+    state: present
+
+- name: Ensure VRF3 exists
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template3
+    vrf: VRF3
+    state: present
+
 - name: Add template BD
   mso_schema_template_bd:
     <<: *mso_info
@@ -132,28 +159,25 @@
     state: present
   register: nm_add_l3out
 
-- name: Add a new L3out2 to different template
+- name: Add a new L3out2 in different template
   mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template2
     l3out: L3out2
     vrf:
-        name: VRF1
-        template: Template1
+        name: VRF2
     state: present
   register: nm_add_l3out
 
-- name: Add a new L3out3 to different schema
+- name: Add a new L3out3 in different schema
   mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template3
     l3out: L3out3
     vrf:
-        name: VRF1
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template1
+        name: VRF3
     state: present
   register: nm_add_l3out
 
@@ -176,11 +200,16 @@
 - name: Verify nm_add_site_bd
   assert:
     that:
-    - nm_add_site_bd is changed
-    - nm_add_site_bd.previous == {}
     - nm_add_site_bd.current.bdRef.bdName == "ansible_test_1"
     - nm_add_site_bd.current.bdRef.templateName == "Template1"
     - nm_add_site_bd.current.hostBasedRouting == false
+
+- name: Verify nm_add_site_bd
+  assert:
+    that:
+    - nm_add_site_bd is changed
+    - nm_add_site_bd.previous == {}
+  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
 - name: Add l3out to BD Site
   mso_schema_site_bd_l3out:

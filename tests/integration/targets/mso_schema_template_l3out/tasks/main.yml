@@ -29,8 +29,11 @@
 - name: Remove schemas
   mso_schema:
     <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
+    schema: '{{ item }}'
     state: absent
+  loop:
+    - '{{ mso_schema | default("ansible_test") }}_2'
+    - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exists
   mso_tenant: 

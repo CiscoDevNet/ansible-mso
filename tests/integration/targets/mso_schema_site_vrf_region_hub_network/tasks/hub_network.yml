@@ -50,6 +50,17 @@
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
+- name: Ensure sites removed from tenant ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ mso_site | default("ansible_test") }}'
+    - 'aws_{{ mso_site | default("ansible_test") }}'
+    - 'azure_{{ mso_site | default("ansible_test") }}'
+
 - name: Ensure tenant ansible_test exist
   mso_tenant: 
     <<: *mso_info

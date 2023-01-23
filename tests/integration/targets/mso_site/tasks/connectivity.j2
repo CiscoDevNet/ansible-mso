@@ -1,0 +1,489 @@
+{
+  "siteGroup": {
+    "name": "default",
+    "common": {
+      "peeringType": "full-mesh",
+      "ttl": 16,
+      "keepAliveInterval": 60,
+      "holdInterval": 180,
+      "staleInterval": 300,
+      "gracefulRestartEnabled": true,
+      "maxAsLimit": 0,
+      "externalSubnetPools": [
+        "169.254.0.0/16",
+        "10.104.0.0/16",
+        "20.253.0.0/16"
+      ]
+    },
+    "dcnm": {
+      "l2VniRange": "130000-149000",
+      "l3VniRange": "150000-159000",
+      "msiteAnycastTepPool": "10.10.0.0/24",
+      "msiteAnycastMac": "2020.0000.00aa",
+      "routeTargetPrefix": 23456,
+      "peeringType": ""
+    },
+    "apic": {
+      "gracefulRestartEnabled": false,
+      "ipns": [
+        {
+          "name": "test",
+          "ip": "2.2.2.2"
+        }
+      ],
+      "cloudsecUdpPortCtrl": false
+    },
+    "capic": {
+      "ospfAreaID": "0.0.0.0"
+    },
+    "externalDevices": {}
+  },
+  "sites": [
+    {
+      "id": "{{ site_dict.azure_ansible_test.id }}",
+      "siteId": "{{ azure_site_id }}",
+      "siteGroupId": "{{ site_dict.azure_ansible_test.site_group_id }}",
+      "siteType": "CloudApic",
+      "bgpAsn": 64701,
+      "msiteEnabled": true,
+      "health": {},
+      "apic": {
+        "srgbRange": {}
+      },
+      "dcnm": {
+        "fabricType": ""
+      },
+      "capic": {
+        "regions": [
+          {
+            "name": "westus",
+            "cloudRouters": [
+              {
+                "name": "ct_routerp_westus_1",
+                "routerType": "CSR",
+                "msiteControlPlaneTep": "10.253.254.116/28",
+                "bgpPeeringEnabled": true,
+                "routeReflectorEnabled": false
+              },
+              {
+                "name": "ct_routerp_westus_0",
+                "routerType": "CSR",
+                "bgpPeeringEnabled": true,
+                "routeReflectorEnabled": false
+              }
+            ],
+            "cApicDeployed": true
+          },
+          {
+            "name": "westus2",
+            "cloudRouters": [
+              {
+                "name": "ct_routerp_westus2_0",
+                "routerType": "CSR",
+                "bgpPeeringEnabled": true,
+                "routeReflectorEnabled": false
+              },
+              {
+                "name": "ct_routerp_westus2_1",
+                "routerType": "CSR",
+                "bgpPeeringEnabled": true,
+                "routeReflectorEnabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "status": {
+        "state": "success"
+      },
+      "deployed": true
+    },
+    {
+      "id": "{{ site_dict.aws_ansible_test.id }}",
+      "siteId": "{{ aws_site_id }}",
+      "siteGroupId": "{{ site_dict.aws_ansible_test.site_group_id }}",
+      "siteType": "CloudApic",
+      "bgpAsn": 200,
+      "msiteEnabled": true,
+      "health": {},
+      "apic": {
+        "srgbRange": {}
+      },
+      "dcnm": {
+        "fabricType": ""
+      },
+      "capic": {
+        "regions": [
+          {
+            "name": "us-west-1",
+            "cloudRouters": [],
+            "cApicDeployed": true
+          },
+          {
+            "name": "us-east-1",
+            "cloudRouters": []
+          },
+          {
+            "name": "us-east-2",
+            "cloudRouters": []
+          },
+          {
+            "name": "us-west-2",
+            "cloudRouters": []
+          }
+        ]
+      },
+      "status": {
+        "state": "success"
+      },
+      "deployed": true
+    },
+    {
+      "id": "{{ site_dict.ansible_test.id }}",
+      "siteId": "{{ apic_site_id }}",
+      "siteGroupId": "{{ site_dict.ansible_test.site_group_id }}",
+      "siteType": "Apic",
+      "bgpAsn": 100,
+      "msiteEnabled": true,
+      "ospfAreaID": "0.0.0.1",
+      "ospfAreaType": "nssa",
+      "ospfPolicies": [
+        {
+          "name": "default",
+          "networkType": "broadcast",
+          "priority": 1,
+          "interfaceCost": 0,
+          "interfaceControls": [],
+          "helloInterval": 10,
+          "deadInterval": 40,
+          "retransmitInterval": 5,
+          "transmitDelay": 1
+        },
+        {
+          "name": "msc-ospf-policy-default",
+          "networkType": "point-to-point",
+          "priority": 1,
+          "interfaceCost": 0,
+          "interfaceControls": [],
+          "helloInterval": 10,
+          "deadInterval": 40,
+          "retransmitInterval": 5,
+          "transmitDelay": 1
+        },
+        {
+          "name": "common/default",
+          "networkType": "unspecified",
+          "priority": 1,
+          "interfaceCost": 0,
+          "interfaceControls": [],
+          "helloInterval": 10,
+          "deadInterval": 40,
+          "retransmitInterval": 5,
+          "transmitDelay": 1
+        }
+      ],
+      "health": {},
+      "apic": {
+        "fabricID": 1,
+        "dpMcTep": "1.1.1.2",
+        "extRoutedDom": "uni/l3dom-L3out_Dom",
+        "srgbRange": {},
+        "pods": [
+          {
+            "podId": 1,
+            "name": "pod-1",
+            "msiteDataPlaneUnicastTep": "1.1.1.1",
+            "spines": [
+              {
+                "nodeId": 201,
+                "name": "lh-dmz1-spine201",
+                "ports": [
+                  {
+                    "portId": "1/5",
+                    "ipAddress": "10.1.0.202/12",
+                    "mtu": "inherit",
+                    "routingPolicy": "default",
+                    "ospfAuthType": "none",
+                    "ospfAuthKeyId": 1,
+                    "bgpPeer": {
+                      "ttl": 1,
+                      "adminStateEnabled": false
+                    }
+                  }
+                ],
+                "bgpPeeringEnabled": true,
+                "msiteControlPlaneTep": "1.2.2.2",
+                "routeReflectorEnabled": false,
+                "health": {}
+              }
+            ],
+            "msiteDataPlaneRoutableTEPPools": [
+              {
+                "pool": "192.168.1.0/24",
+                "reserveAddressCount": 2
+              }
+            ],
+            "health": {},
+            "podFabricTepPools": [
+              {
+                "pool": "10.0.0.0/16"
+              }
+            ]
+          }
+        ]
+      },
+      "dcnm": {
+        "fabricType": ""
+      },
+      "capic": {},
+      "status": {
+        "state": "success"
+      },
+      "deployed": true
+    }
+  ],
+  "sitesUc": [
+    {
+      "id": "{{ site_dict.azure_ansible_test.id }}",
+      "siteId": "{{ azure_site_id }}",
+      "siteType": "CloudApic",
+      "apic": {},
+      "capic": {
+        "provider": "Azure",
+        "accountID": "85ca999d-c9c7-484b-82b8-6854bc1e2af5",
+        "regions": [
+          {
+            "regionName": "westus",
+            "cloudProviderID": "/subscriptions/85ca999d-c9c7-484b-82b8-6854bc1e2af5/resourceGroups/cAPIC-02/providers/Microsoft.Network/virtualNetworks/overlay-1",
+            "cidrs": [
+              "10.253.253.128/25",
+              "10.253.253.0/25",
+              "10.253.254.0/25"
+            ]
+          },
+          {
+            "regionName": "westus2",
+            "cloudProviderID": "/subscriptions/85ca999d-c9c7-484b-82b8-6854bc1e2af5/resourceGroups/CAPIC_infra_overlay-1_westus2/providers/Microsoft.Network/virtualNetworks/overlay-1",
+            "cidrs": [
+              "10.253.255.0/25",
+              "10.253.255.128/25",
+              "10.253.254.128/25"
+            ]
+          }
+        ]
+      },
+      "dcnm": {},
+      "remoteSites": [
+        {
+          "remoteType": "",
+          "id": "{{ site_dict.aws_ansible_test.id }}",
+          "siteId": "{{ aws_site_id }}",
+          "siteType": "CloudApic",
+          "connections": [
+            {
+              "priority": 0,
+              "connectionType": "Public",
+              "ipsec": true,
+              "ikev": "ikev2",
+              "protocol": "BgpEvpn",
+              "nonEvpnConfig": {},
+              "bfdConfig": {
+                "name": "default"
+              },
+              "tunnels": [
+                {
+                  "ikev": "ikev2",
+                  "bgpPeer": {
+                    "asn": ""
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "remoteType": "",
+          "id": "{{ site_dict.ansible_test.id }}",
+          "siteId": "{{ apic_site_id }}",
+          "siteType": "Apic",
+          "connections": [
+            {
+              "priority": 0,
+              "connectionType": "Public",
+              "ipsec": true,
+              "ikev": "ikev2",
+              "protocol": "BgpEvpn",
+              "nonEvpnConfig": {},
+              "bfdConfig": {
+                "name": "default"
+              },
+              "tunnels": [
+                {
+                  "ikev": "ikev2",
+                  "bgpPeer": {
+                    "asn": ""
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": {
+        "state": "success"
+      },
+      "ecStatus": {
+        "state": "success"
+      }
+    },
+    {
+      "id": "{{ site_dict.aws_ansible_test.id }}",
+      "siteId": "{{ aws_site_id }}",
+      "siteType": "CloudApic",
+      "apic": {},
+      "capic": {
+        "provider": "Aws",
+        "accountID": "787820171958",
+        "regions": [
+          {
+            "regionName": "us-west-1",
+            "cloudProviderID": "vpc-01d3ce3ef88c18087",
+            "cloudDirectoryID": "787820171958",
+            "cidrs": [
+              "10.10.0.0/25"
+            ]
+          }
+        ]
+      },
+      "dcnm": {},
+      "remoteSites": [
+        {
+          "remoteType": "",
+          "id": "{{ site_dict.azure_ansible_test.id }}",
+          "siteId": "{{ azure_site_id }}",
+          "siteType": "CloudApic",
+          "connections": [
+            {
+              "priority": 0,
+              "connectionType": "Public",
+              "ipsec": true,
+              "ikev": "ikev2",
+              "protocol": "BgpEvpn",
+              "nonEvpnConfig": {},
+              "bfdConfig": {
+                "name": "default"
+              },
+              "tunnels": [
+                {
+                  "ikev": "ikev2",
+                  "bgpPeer": {
+                    "asn": ""
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "remoteType": "",
+          "id": "{{ site_dict.ansible_test.id }}",
+          "siteId": "{{ apic_site_id }}",
+          "siteType": "Apic",
+          "connections": [
+            {
+              "priority": 0,
+              "connectionType": "Public",
+              "ipsec": true,
+              "ikev": "ikev2",
+              "protocol": "BgpEvpn",
+              "nonEvpnConfig": {},
+              "bfdConfig": {
+                "name": "default"
+              },
+              "tunnels": [
+                {
+                  "ikev": "ikev2",
+                  "bgpPeer": {
+                    "asn": ""
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": {
+        "state": "success"
+      },
+      "ecStatus": {
+        "state": "success"
+      }
+    },
+    {
+      "id": "{{ site_dict.ansible_test.id }}",
+      "siteId": "{{ apic_site_id }}",
+      "siteType": "Apic",
+      "apic": {},
+      "capic": {},
+      "dcnm": {},
+      "remoteSites": [
+        {
+          "remoteType": "",
+          "id": "{{ site_dict.azure_ansible_test.id }}",
+          "siteId": "{{ azure_site_id }}",
+          "siteType": "CloudApic",
+          "connections": [
+            {
+              "priority": 0,
+              "connectionType": "Public",
+              "ipsec": true,
+              "ikev": "ikev2",
+              "protocol": "BgpEvpn",
+              "nonEvpnConfig": {},
+              "bfdConfig": {
+                "name": "default"
+              },
+              "tunnels": [
+                {
+                  "ikev": "ikev2",
+                  "bgpPeer": {
+                    "asn": ""
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "remoteType": "",
+          "id": "{{ site_dict.aws_ansible_test.id }}",
+          "siteId": "{{ aws_site_id }}",
+          "siteType": "CloudApic",
+          "connections": [
+            {
+              "priority": 0,
+              "connectionType": "Public",
+              "ipsec": true,
+              "ikev": "ikev2",
+              "protocol": "BgpEvpn",
+              "nonEvpnConfig": {},
+              "bfdConfig": {
+                "name": "default"
+              },
+              "tunnels": [
+                {
+                  "ikev": "ikev2",
+                  "bgpPeer": {
+                    "asn": ""
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "status": {},
+      "ecStatus": {}
+    }
+  ]
+}

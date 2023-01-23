@@ -102,6 +102,46 @@
     template: Template 3
     state: present
 
+- name: Ensure Filter 1 exist
+  mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    filter: Filter1
+    entry: Filter1-Entry
+    state: present
+
+- name: Ensure Contract1 exist
+  mso_schema_template_contract_filter: &contract_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    contract: Contract1
+    filter: Filter1
+    filter_schema: '{{ mso_schema | default("ansible_test") }}'
+    filter_template: Template 1
+    state: present
+
+- name: Ensure Filter 2 exist
+  mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    filter: Filter2
+    entry: Filter2-Entry
+    state: present
+
+- name: Ensure Contract2 exist
+  mso_schema_template_contract_filter: &contract2_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    contract: Contract2
+    filter: Filter2
+    filter_schema: '{{ mso_schema | default("ansible_test") }}'
+    filter_template: Template 2
+    state: present
+
 - name: Ensure VRF exist
   mso_schema_template_vrf:
     <<: *mso_info
@@ -159,7 +199,7 @@
   mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
+    template: Template 2
     l3out: L3out3
     vrf:
       name: VRF3
@@ -174,9 +214,9 @@
     template: Template 3
     l3out: L3out4
     vrf:
-      name: VRF
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      name: VRF4
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
     state: present
 
 - name: Ensure ANP exists
@@ -354,20 +394,20 @@
     - nm_add_epg_again.current.vrfRef.vrfName == "VRF"
     - nm_add_epg_again.previous.vrfRef.schemaId ==  nm_add_epg_again.current.vrfRef.schemaId
 
-- name: Add external EPG 2 (normal mode)
+- name: Add external EPG 2(normal mode)
   mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
     external_epg: ansible_test_2
     vrf:
-      name: VRF
+      name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      template: Template 2
     l3out:
-      name: L3out
+      name: L3out3
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      template: Template 2
     state: present
   register: nm_add_epg_2
 
@@ -378,13 +418,13 @@
     template: Template 3
     external_epg: ansible_test_3
     vrf:
-      name: VRF
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      name: VRF4
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
     l3out:
-      name: L3out
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
+      name: L3out4
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
     state: present
   register: nm_add_epg_3
 
@@ -406,9 +446,12 @@
     - nm_add_epg_3 is changed
     - nm_add_epg_2.current.name == "ansible_test_2" 
     - nm_add_epg_3.current.name == "ansible_test_3"
-    - nm_add_epg_2.current.vrfRef.templateName == nm_add_epg_3.current.vrfRef.templateName == "Template1"
-    - nm_add_epg_2.current.vrfRef.vrfName == nm_add_epg_3.current.vrfRef.vrfName == "VRF"
-    - nm_add_epg_2.current.vrfRef.schemaId ==  nm_add_epg_3.current.vrfRef.schemaId == nm_add_epg.current.vrfRef.schemaId
+    - nm_add_epg_2.current.vrfRef.templateName == "Template2"
+    - nm_add_epg_3.current.vrfRef.templateName == "Template3"
+    - nm_add_epg_2.current.vrfRef.vrfName == "VRF3"
+    - nm_add_epg_3.current.vrfRef.vrfName == "VRF4"
+    - nm_add_epg_2.current.vrfRef.schemaId == nm_add_epg.current.vrfRef.schemaId
+    - nm_add_epg_3.current.vrfRef.schemaId != nm_add_epg.current.vrfRef.schemaId
 
 - name: Add external EPG 5 (normal mode)
   mso_schema_template_external_epg:
@@ -587,62 +630,47 @@
     - nm_add_epg_7_again.current.name == "ansible_test_7"
 
 # CHANGE external EPG
-- name: Change epg (check_mode)
-  mso_schema_template_external_epg:
+- name: Change epg from different template (check_mode)
+  mso_schema_template_external_epg: &change_epg_template
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    external_epg: ansible_test_1
+    template: Template 2
+    external_epg: ansible_test_2
     vrf:
-      name: VRF3
+      name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 2
+      template: Template 1
     state: present
   check_mode: yes
   register: cm_change_epg
 
-- name: Verify cm_change_epg
+- name: Verify cm_change_epg from different template to own template
   assert:
     that:
     - cm_change_epg is changed
-    - cm_change_epg.current.name == 'ansible_test_1'
-    - cm_change_epg.current.vrfRef.vrfName == 'VRF3'
-    - cm_change_epg.current.vrfRef.templateName == "Template2"
+    - cm_change_epg.current.name == 'ansible_test_2'
+    - cm_change_epg.current.vrfRef.vrfName == 'VRF'
+    - cm_change_epg.current.vrfRef.templateName == "Template1"
     - cm_change_epg.current.vrfRef.schemaId == cm_change_epg.previous.vrfRef.schemaId
 
-- name: Change epg (normal_mode)
+- name: Change epg from different template to own template (normal_mode)
   mso_schema_template_external_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    external_epg: ansible_test_1
-    vrf:
-      name: VRF3
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 2
+    <<: *change_epg_template
     state: present
   register: nm_change_epg
 
-- name: Verify nm_change_epg
+- name: Verify nm_change_epg from different template to own template
   assert:
     that:
     - nm_change_epg is changed
-    - nm_change_epg.current.name == 'ansible_test_1'
-    - nm_change_epg.current.vrfRef.vrfName == 'VRF3'
-    - nm_change_epg.current.vrfRef.templateName == "Template2"
+    - nm_change_epg.current.name == 'ansible_test_2'
+    - nm_change_epg.current.vrfRef.vrfName == 'VRF'
+    - nm_change_epg.current.vrfRef.templateName == "Template1"
     - nm_change_epg.current.vrfRef.schemaId == nm_change_epg.previous.vrfRef.schemaId
 
-- name: Change epg again (check_mode)
+- name: Change epg again from different template (check_mode)
   mso_schema_template_external_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    external_epg: ansible_test_1
-    vrf:
-      name: VRF3
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 2
-    state: present
+    <<: *change_epg_template
   check_mode: yes
   register: cm_change_epg_again
 
@@ -650,96 +678,72 @@
   assert:
     that:
     - cm_change_epg_again is not changed
-    - cm_change_epg_again.current.name == 'ansible_test_1'
-    - cm_change_epg_again.current.vrfRef.vrfName == 'VRF3'
-    - cm_change_epg_again.current.vrfRef.templateName == "Template2"
+    - cm_change_epg_again.current.name == 'ansible_test_2'
+    - cm_change_epg_again.current.vrfRef.vrfName == 'VRF'
+    - cm_change_epg_again.current.vrfRef.templateName == "Template1"
     - cm_change_epg_again.current.vrfRef.schemaId == cm_change_epg_again.previous.vrfRef.schemaId
 
-- name: Change epg again (normal_mode)
+- name: Change epg again from different template (normal_mode)
   mso_schema_template_external_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    external_epg: ansible_test_1
-    vrf:
-      name: VRF3
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 2
+    <<: *change_epg_template
     state: present
   register: nm_change_epg_again
 
-- name: Verify nm_change_epg_again
+- name: Verify nm_change_epg_again from different template to own template
   assert:
     that:
     - nm_change_epg_again is not changed
-    - nm_change_epg_again.current.name == 'ansible_test_1'
-    - nm_change_epg_again.current.vrfRef.vrfName == 'VRF3'
-    - nm_change_epg_again.current.vrfRef.templateName == "Template2"
+    - nm_change_epg_again.current.name == 'ansible_test_2'
+    - nm_change_epg_again.current.vrfRef.vrfName == 'VRF'
+    - nm_change_epg_again.current.vrfRef.templateName == "Template1"
     - nm_change_epg_again.current.vrfRef.schemaId == nm_change_epg_again.previous.vrfRef.schemaId
 
-- name: Change epg to VRF4 (normal mode)
+- name: Change VRF from different schema (normal mode)
   mso_schema_template_external_epg:
     <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    external_epg: ansible_test_1
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    external_epg: ansible_test_3
     vrf:
-      name: VRF4
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template 3
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
     state: present
   register: nm_change_epg_vrf4
 
-- name: Change epg to VRF2 (normal mode)
-  mso_schema_template_external_epg:
+- name: Verify nm_change_epg_vrf4 and nm_change_epg_vrf2
+  assert:
+    that:
+    - nm_change_epg_vrf4 is changed
+    - nm_change_epg_vrf4.current.name == 'ansible_test_3'
+    - nm_change_epg_vrf4.current.vrfRef.vrfName == 'VRF'
+    - nm_change_epg_vrf4.current.vrfRef.templateName == "Template1"
+    - nm_change_epg_vrf4.current.vrfRef.schemaId != nm_change_epg_vrf4.previous.vrfRef.schemaId
+
+- name: Change epg 1 l3out(normal mode)
+  mso_schema_template_external_epg: &change_l3out
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     external_epg: ansible_test_1
     vrf:
       name: VRF2
-    state: present
-  register: nm_change_epg_vrf2
-
-- name: Verify nm_change_epg_vrf4 and nm_change_epg_vrf2
-  assert:
-    that:
-    - nm_change_epg_vrf4 is changed
-    - nm_change_epg_vrf4.current.name == nm_change_epg_vrf2.current.name == 'ansible_test_1'
-    - nm_change_epg_vrf4.current.vrfRef.vrfName == 'VRF4'
-    - nm_change_epg_vrf4.current.vrfRef.templateName == "Template3"
-    - nm_change_epg_vrf2 is changed
-    - nm_change_epg_vrf2.current.vrfRef.vrfName == 'VRF2'
-    - nm_change_epg_vrf2.current.vrfRef.templateName == "Template1"
-    - nm_change_epg_vrf4.current.vrfRef.schemaId != nm_change_epg_vrf2.current.vrfRef.schemaId
-
-- name: Change epg 1 l3out(normal mode)
-  mso_schema_template_external_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    external_epg: ansible_test_1
-    vrf:
-      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
     l3out:
-      name: L3out4
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template 3
+      name: L3out2
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
     state: present
   register: nm_change_epg_1_l3out
 
 - name: Change epg 1 settings(normal mode)
   mso_schema_template_external_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    external_epg: ansible_test_1
+    <<: *change_l3out
     vrf:
       name: VRF
     l3out:
       name: L3out
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
     state: present
   register: nm_change_epg_1_settings
 
@@ -747,20 +751,20 @@
   assert:
     that:
     - nm_change_epg_1_settings is changed
-    - nm_change_epg_1_settings.previous.vrfRef.vrfName == 'VRF'
+    - nm_change_epg_1_settings.previous.vrfRef.vrfName == 'VRF2'
     - nm_change_epg_1_settings.previous.vrfRef.templateName == 'Template1'
     - nm_change_epg_1_settings.current.vrfRef.vrfName == 'VRF'
     - nm_change_epg_1_settings.current.vrfRef.templateName == 'Template1'
     - nm_change_epg_1_settings.current.l3outRef.l3outName == 'L3out'
     - nm_change_epg_1_settings.current.l3outRef.templateName == 'Template1'
-    - nm_change_epg_1_settings.previous.l3outRef.schemaId != nm_change_epg_1_settings.current.l3outRef.schemaId
+    - nm_change_epg_1_settings.previous.l3outRef.schemaId == nm_change_epg_1_settings.current.l3outRef.schemaId
     - nm_change_epg_1_l3out is changed
-    - nm_change_epg_1_l3out.previous.vrfRef.vrfName == 'VRF2'
+    - nm_change_epg_1_l3out.previous.vrfRef.vrfName == 'VRF'
     - nm_change_epg_1_l3out.previous.vrfRef.templateName == 'Template1'
-    - nm_change_epg_1_l3out.current.vrfRef.vrfName == 'VRF'
+    - nm_change_epg_1_l3out.current.vrfRef.vrfName == 'VRF2'
     - nm_change_epg_1_l3out.current.vrfRef.templateName == 'Template1'
-    - nm_change_epg_1_l3out.current.l3outRef.l3outName == 'L3out4'
-    - nm_change_epg_1_l3out.current.l3outRef.templateName == 'Template3'
+    - nm_change_epg_1_l3out.current.l3outRef.l3outName == 'L3out2'
+    - nm_change_epg_1_l3out.current.l3outRef.templateName == 'Template1'
 
 - name: Change epg 4 preferredGroup(normal mode)
   mso_schema_template_external_epg:
@@ -1039,6 +1043,19 @@
     - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
 
 # Checking if contract are removed after re-applying an EPG. (#13 | #62137)
+- name: Remove EPG 2/5/6/7 to avoid circle errors (normal mode)
+  mso_schema_template_external_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    external_epg: '{{ item }}'
+    state: absent
+  loop:
+    - ansible_test_2
+    - ansible_test_5
+    - ansible_test_6
+    - ansible_test_7
+
 - name: Add Contracts to EPG 1
   mso_schema_template_external_epg_contract:
     <<: *mso_info

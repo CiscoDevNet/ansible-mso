@@ -27,207 +27,211 @@
     state: query
   register: version
 
-- name: Ensure site exist
-  mso_site: &site_present
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ apic_username }}'
-    apic_password: '{{ apic_password }}'
-    apic_site_id: '{{ apic_site_id | default(101) }}'
-    urls:
-    - https://{{ apic_hostname }}
-    state: present
-
-- name: Undeploy template from Schema 1
-  mso_schema_template_deploy:
-    <<: *mso_info
-    schema: ansible_test
-    template: Template 1
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: undeploy
-  ignore_errors: yes
-
-- name: Undeploy template from Schema 2
-  mso_schema_template_deploy:
-    <<: *mso_info
-    schema: ansible_test
-    template: Template 2
-    site: '{{ mso_site | default("ansible_test") }}_2'
-    state: undeploy
-  ignore_errors: yes
-
-- name: Remove schemas
-  mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
-
-- name: Ensure tenant ansible_test exists
-  mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test
-    users:
-      - '{{ mso_username }}'
-    sites:
-    - '{{ mso_site | default("ansible_test") }}'
-    state: present
-
-# Validate schema when MSO version >= 3.3
-- name: Execute tasks only for MSO version >= 3.3
-  when: version.current.version is version('3.3', '>=')
+# Validation is deprecated in MSO/NDO v4.0+, automatically done when REST call is made
+- name: Execute tasks only for MSO version < 4.0
+  when: version.current.version is version('4.0', '<')
   block:
-  - name: Ensure schema 1 with Template 1 exist
-    mso_schema_template:
+  - name: Ensure site exist
+    mso_site: &site_present
       <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      tenant: ansible_test
-      template: Template 1
-      state: present
-
-  - name: Ensure VRF exist
-    mso_schema_template_vrf:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
-      vrf: VRF_1
-      state: present
-
-  - name: Add bd
-    mso_schema_template_bd:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template1
-      bd: BD_1
-      vrf:
-        name: VRF_1
-      state: present
-
-  - name: Get Validation status
-    mso_schema_validate:
-      <<: *mso_info
-      schema: ansible_test
-      state: query
-    register: query_validate
-
-  - name: Verify query_validate
-    assert:
-      that:
-      - query_validate is not changed
-      - query_validate.current.result == "true"
-
-  - name: Add physical site to a schema
-    mso_schema_site:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
-      template: Template 1
+      apic_username: '{{ apic_username }}'
+      apic_password: '{{ apic_password }}'
+      apic_site_id: '{{ apic_site_id | default(101) }}'
+      urls:
+      - https://{{ apic_hostname }}
       state: present
 
-  - name: Get Validation status
-    mso_schema_validate:
-      <<: *mso_info
-      schema: ansible_test
-      state: query
-    register: query_validate_again
-
-  - name: Verify query_validate_again
-    assert:
-      that:
-      - query_validate_again is not changed
-      - query_validate_again.current.result == "true"
-
-  - name: Deploy templates (normal_mode)
+  - name: Undeploy template from Schema 1
     mso_schema_template_deploy:
       <<: *mso_info
       schema: ansible_test
       template: Template 1
       site: '{{ mso_site | default("ansible_test") }}'
-      state: deploy
-    register: nm_deploy_template
-
-  - name: Verify nm_deploy_template
-    assert:
-      that:
-      - nm_deploy_template is not changed
-      - nm_deploy_template.msg == "Successfully deployed"
-
-  - name: Ensure schema 2 with Template 2 exist
-    mso_schema_template:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      tenant: ansible_test
-      template: Template 2
-      state: present
-
-  - name: Ensure VRF exist
-    mso_schema_template_vrf:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template 2
-      vrf: VRF_2
-      state: present
-
-  - name: Ensure ext_EPG external EPG exists
-    mso_schema_template_external_epg:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template 2
-      external_epg: ext_EPG
-      vrf:
-        name: VRF_2
-      state: present
-
-  - name: Get Validation status
-    mso_schema_validate:
-      <<: *mso_info
-      schema: ansible_test_2
-      state: query
+      state: undeploy
     ignore_errors: yes
-    register: query_validate_2
 
-  - name: Verify query_validate_2
-    assert:
-      that:
-      - query_validate_2 is not changed
-      - query_validate_2.current.result == "true"
-
-  - name: Add physical site to a schema
-    mso_schema_site:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template 2
-      site: '{{ mso_site | default("ansible_test") }}'
-      state: present
-
-  - name: Get Validation status
-    mso_schema_validate:
-      <<: *mso_info
-      schema: ansible_test_2
-      state: query
-    ignore_errors: yes
-    register: query_validate_2_again
-
-  - name: Verify query_validate_2_again
-    assert:
-      that:
-      - query_validate_2_again is not changed
-      - query_validate_2_again.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} ExternalEpg ext_EPG is missing site local configuration on site ansible_test exception while trying to update schema"
-
-  - name: Deploy templates (normal_mode)
+  - name: Undeploy template from Schema 2
     mso_schema_template_deploy:
       <<: *mso_info
-      schema: ansible_test_2
+      schema: ansible_test
       template: Template 2
-      site: '{{ mso_site | default("ansible_test") }}'
-      state: deploy
+      site: '{{ mso_site | default("ansible_test") }}_2'
+      state: undeploy
     ignore_errors: yes
-    register: deploy_template
 
-  - name: Verify deploy_template
-    assert:
-      that:
-      - deploy_template is not changed
-      - deploy_template.msg == "MSO Error 400{{':'}} Bad Request{{':'}} External Epgs ext_EPG present in\ntemplate Template2 under tenant ansible_test and site ansible_test do not have l3outs"
+  - name: Remove schemas
+    mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    loop:
+    - '{{ mso_schema | default("ansible_test") }}_2'
+    - '{{ mso_schema | default("ansible_test") }}'
+
+  - name: Ensure tenant ansible_test exists
+    mso_tenant:
+      <<: *mso_info
+      tenant: ansible_test
+      users:
+        - '{{ mso_username }}'
+      sites:
+      - '{{ mso_site | default("ansible_test") }}'
+      state: present
+
+  # Validate schema when MSO version >= 3.3
+  - name: Execute tasks only for MSO version >= 3.3
+    when: version.current.version is version('3.3', '>=')
+    block:
+    - name: Ensure schema 1 with Template 1 exist
+      mso_schema_template:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: ansible_test
+        template: Template 1
+        state: present
+
+    - name: Ensure VRF exist
+      mso_schema_template_vrf:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 1
+        vrf: VRF_1
+        state: present
+
+    - name: Add bd
+      mso_schema_template_bd:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template1
+        bd: BD_1
+        vrf:
+          name: VRF_1
+        state: present
+
+    - name: Get Validation status
+      mso_schema_validate:
+        <<: *mso_info
+        schema: ansible_test
+        state: query
+      register: query_validate
+
+    - name: Verify query_validate
+      assert:
+        that:
+        - query_validate is not changed
+        - query_validate.current.result == "true"
+
+    - name: Add physical site to a schema
+      mso_schema_site:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        site: '{{ mso_site | default("ansible_test") }}'
+        template: Template 1
+        state: present
+
+    - name: Get Validation status
+      mso_schema_validate:
+        <<: *mso_info
+        schema: ansible_test
+        state: query
+      register: query_validate_again
+
+    - name: Verify query_validate_again
+      assert:
+        that:
+        - query_validate_again is not changed
+        - query_validate_again.current.result == "true"
+
+    - name: Deploy templates (normal_mode)
+      mso_schema_template_deploy:
+        <<: *mso_info
+        schema: ansible_test
+        template: Template 1
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: deploy
+      register: nm_deploy_template
+
+    - name: Verify nm_deploy_template
+      assert:
+        that:
+        - nm_deploy_template is not changed
+        - nm_deploy_template.msg == "Successfully deployed"
+
+    - name: Ensure schema 2 with Template 2 exist
+      mso_schema_template:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}_2'
+        tenant: ansible_test
+        template: Template 2
+        state: present
+
+    - name: Ensure VRF exist
+      mso_schema_template_vrf:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}_2'
+        template: Template 2
+        vrf: VRF_2
+        state: present
+
+    - name: Ensure ext_EPG external EPG exists
+      mso_schema_template_external_epg:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}_2'
+        template: Template 2
+        external_epg: ext_EPG
+        vrf:
+          name: VRF_2
+        state: present
+
+    - name: Get Validation status
+      mso_schema_validate:
+        <<: *mso_info
+        schema: ansible_test_2
+        state: query
+      ignore_errors: yes
+      register: query_validate_2
+
+    - name: Verify query_validate_2
+      assert:
+        that:
+        - query_validate_2 is not changed
+        - query_validate_2.current.result == "true"
+
+    - name: Add physical site to a schema
+      mso_schema_site:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}_2'
+        template: Template 2
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: present
+
+    - name: Get Validation status
+      mso_schema_validate:
+        <<: *mso_info
+        schema: ansible_test_2
+        state: query
+      ignore_errors: yes
+      register: query_validate_2_again
+
+    - name: Verify query_validate_2_again
+      assert:
+        that:
+        - query_validate_2_again is not changed
+        - query_validate_2_again.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} ExternalEpg ext_EPG is missing site local configuration on site ansible_test exception while trying to update schema"
+
+    - name: Deploy templates (normal_mode)
+      mso_schema_template_deploy:
+        <<: *mso_info
+        schema: ansible_test_2
+        template: Template 2
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: deploy
+      ignore_errors: yes
+      register: deploy_template
+
+    - name: Verify deploy_template
+      assert:
+        that:
+        - deploy_template is not changed
+        - deploy_template.msg == "MSO Error 400{{':'}} Bad Request{{':'}} External Epgs ext_EPG present in\ntemplate Template2 under tenant ansible_test and site ansible_test do not have l3outs"

@@ -38,11 +38,11 @@
     <<: *mso_info
     remote_location: ansible_test
     remote_protocol: scp
-    remote_host: '{{ apic_remote_location }}'
+    remote_host: '{{ mso_remote_location }}'
     remote_path: '{{ mso_remote_location_path | default("/tmp") }}'
     authentication_type: password
-    remote_username: '{{ mso_username }}'
-    remote_password: '{{ mso_password }}'
+    remote_username: '{{ mso_remote_location_user | default(mso_username) }}'
+    remote_password: '{{ mso_remote_location_password | default(mso_password) }}'
     state: present
 
 # Backup is not supported in MSO/NDO version < 3.2
@@ -60,7 +60,7 @@
       <<: *mso_info
       backup:  '{{ item.name }}'
       state: absent
-    loop: '{{ query_ansibleBackup_for_delete.current | list }}'
+    loop: '{{ query_ansibleBackup_for_delete.current | list | sort(attribute="name", reverse=True) }}'
 
   # Create Backups
   - name: Create ansibleBackup1 in check mode
@@ -102,7 +102,10 @@
       backup: ansibleBackup1
       state: query
     register: check_ansibleBackup1
-    until: check_ansibleBackup1.current[0].status.statusType == "success"
+    until:
+    - check_ansibleBackup1.current is defined
+    - check_ansibleBackup1.current[0] is defined
+    - check_ansibleBackup1.current[0].status.statusType == "success"
     retries: 50
     delay: 10
 
@@ -118,7 +121,10 @@
       backup: ansibleBackup2
       state: query
     register: check_ansibleBackup2
-    until: check_ansibleBackup2.current[0].status.statusType == "success"
+    until:
+    - check_ansibleBackup2.current is defined
+    - check_ansibleBackup2.current[0] is defined
+    - check_ansibleBackup2.current[0].status.statusType == "success"
     retries: 50
     delay: 10
 
@@ -143,6 +149,12 @@
       backup: ansibleBackup3
       state: query
     register: check_ansibleBackup3
+    until:
+    - check_ansibleBackup3.current is defined
+    - check_ansibleBackup3.current[0] is defined
+    - check_ansibleBackup3.current[0].status.statusType == "success"
+    retries: 50
+    delay: 10
 
   - name: Verify nm_add_ansibleBackup3
     assert:
@@ -159,10 +171,23 @@
       state: present
     register: nm_add_ansibleBackup3_again
 
+  - name: Query ansibleBackup3 to check if it exists again
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackup3
+      state: query
+    register: check_ansibleBackup3_again
+    until:
+    - check_ansibleBackup3_again.current is defined
+    - check_ansibleBackup3_again.current[0] is defined
+    - check_ansibleBackup3_again.current[0].status.statusType == "success"
+    retries: 50
+    delay: 10
+
   - name: Verify nm_add_ansibleBackup3_again
     assert:
       that:
-      - nm_add_ansibleBackup3_again.current.backupEntry.metadata.name is match ("ansibleBackup3_[0-9a-zA-Z]*")
+      - check_ansibleBackup3_again.current[0].backupEntry.metadata.name is match ("ansibleBackup3_[0-9a-zA-Z]*")
 
   - name: Create ansibleBackupRemote1 in normal mode
     mso_backup:
@@ -174,15 +199,23 @@
       state: present
     register: nm_add_ansibleBackupRemote1
 
-  - name: Verify nm_add_ansibleBackupRemote1
-    assert:
-      that:
-      - nm_add_ansibleBackupRemote1.current.backupEntry.metadata.name is match ("ansibleBackupRemote1_[0-9a-zA-Z]*")
+  - name: Query ansibleBackupRemote1 to check if it exists
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackupRemote1
+      state: query
+    register: check_ansibleBackupRemote1
+    until:
+    - check_ansibleBackupRemote1.current is defined
+    - check_ansibleBackupRemote1.current[0] is defined
+    - check_ansibleBackupRemote1.current[0].status.statusType == "success"
+    retries: 50
+    delay: 10
 
-  - name: Verify nm_add_ansibleBackupRemote1
+  - name: Verify check_ansibleBackupRemote1
     assert:
       that:
-      - nm_add_ansibleBackupRemote1.current.backupEntry.metadata.name is match ("ansibleBackupRemote1_[0-9a-zA-Z]*")
+      - check_ansibleBackupRemote1.current[0].backupEntry.metadata.name is match ("ansibleBackupRemote1_[0-9a-zA-Z]*")
 
   - name: Create ansibleBackupRemote2 in normal mode in a known path
     mso_backup:
@@ -195,10 +228,23 @@
       state: present
     register: nm_add_ansibleBackupRemote2_known_path
 
-  - name: Verify nm_add_ansibleBackupRemote2_known_path
+  - name: Query ansibleBackupRemote2 to check if it exists
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackupRemote2
+      state: query
+    register: check_ansibleBackupRemote2
+    until:
+    - check_ansibleBackupRemote2.current is defined
+    - check_ansibleBackupRemote2.current[0] is defined
+    - check_ansibleBackupRemote2.current[0].status.statusType == "success"
+    retries: 50
+    delay: 10
+
+  - name: Verify check_ansibleBackupRemote2
     assert:
       that:
-      - nm_add_ansibleBackupRemote2_known_path.current.backupEntry.metadata.name is match ("ansibleBackupRemote2_[0-9a-zA-Z]*")
+      - check_ansibleBackupRemote2.current[0].backupEntry.metadata.name is match ("ansibleBackupRemote2_[0-9a-zA-Z]*")
 
   - name: Create ansibleBackupMove in normal mode
     mso_backup:
@@ -207,6 +253,19 @@
       description: Local to Remote via Ansible
       location_type: local
       state: present
+
+  - name: Query ansibleBackupMove to check if it exists
+    mso_backup:
+      <<: *mso_info
+      backup: ansibleBackupMove
+      state: query
+    register: check_ansibleBackupMove
+    until:
+    - check_ansibleBackupMove.current is defined
+    - check_ansibleBackupMove.current[0] is defined
+    - check_ansibleBackupMove.current[0].status.statusType == "success"
+    retries: 50
+    delay: 10
     
   # Move Backup test
   - name: Move backup from local to remote location in check mode
@@ -217,7 +276,8 @@
       backup: ansibleBackupMove
       description: Local to Remote via Ansible
       state: move
-    check_mode: yes 
+    check_mode: yes
+    when: version.current.version is version('3', '>=')
     register: move_backup_cm
 
   - name: Move backup from local to remote location in normal mode
@@ -228,6 +288,7 @@
       backup: ansibleBackupMove
       description: Local to Remote via Ansible
       state: move
+    when: version.current.version is version('3', '>=')
     register: move_backup_nm
 
   - name: Move a non existent backup from local location to remote
@@ -237,6 +298,7 @@
       remote_location: ansible_test
       remote_path: test
       state: move
+    when: version.current.version is version('3', '>=')
     register: move_non_existent_backup
     ignore_errors: yes
 
@@ -247,6 +309,7 @@
       remote_location: ansible_test
       remote_path: test
       state: move
+    when: version.current.version is version('3', '>=')
     register: move_ansibleBackup3
     ignore_errors: yes
 
@@ -257,13 +320,20 @@
       - move_backup_nm is changed
       - move_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
       - move_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
+    when: version.current.version is version('3', '>=')
 
   # Download Backup
+  - name: Create a directory if it does not exist
+    ansible.builtin.file:
+      path: './{{mso_hostname}}'
+      state: directory
+      mode: '0755'
+
   - name: Download backup in check mode
     mso_backup:
       <<: *mso_info
       backup: ansibleBackup2
-      destination: ./
+      destination: './{{mso_hostname}}'
       state: download
     register: download_ansibleBackup2_cm
     check_mode: yes
@@ -272,7 +342,7 @@
     mso_backup:
       <<: *mso_info
       backup: ansibleBackup2
-      destination: ./
+      destination: './{{mso_hostname}}'
       state: download
     register: download_ansibleBackup2
 
@@ -280,7 +350,7 @@
     mso_backup:
       <<: *mso_info
       backup: non_existent_backup
-      destination: ./
+      destination: './{{mso_hostname}}'
       state: download
     ignore_errors: yes
     register: download_non_existent_backup
@@ -289,7 +359,7 @@
     mso_backup:
       <<: *mso_info
       backup: ansibleBackup3
-      destination: ./
+      destination: './{{mso_hostname}}'
       state: download
     ignore_errors: yes
     register: download_ansibleBackup3
@@ -311,7 +381,7 @@
   # Find Backup
   - name: Find backup
     find:
-      paths: ./
+      paths: './{{mso_hostname}}'
       patterns: "*.tar.gz"
     register: backup_match
 

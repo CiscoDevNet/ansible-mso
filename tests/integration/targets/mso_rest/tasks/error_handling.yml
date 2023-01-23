@@ -76,7 +76,13 @@
   assert:
     that:
     - error_on_name_resolution is failed
-    - error_on_name_resolution.msg.startswith("Authentication failed{{':'}} Request failed:")
+
+- name: Verify error_on_name_resolution
+  assert:
+    that:
+    - error_on_name_resolution.msg is search("Name or service not known")
+  when: 
+    - version.current.version is version('3.7', '>=')
 
 - name: Error on invalid path
   mso_rest:

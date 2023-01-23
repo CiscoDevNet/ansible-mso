@@ -50,6 +50,17 @@
       schema: '{{ mso_schema | default("ansible_test") }}'
       state: absent
 
+  - name: Ensure sites removed from tenant ansible_test
+    mso_tenant_site:
+      <<: *mso_info
+      tenant: ansible_test
+      site: '{{ item }}'
+      state: absent
+    loop:
+      - '{{ mso_site | default("ansible_test") }}'
+      - 'aws_{{ mso_site | default("ansible_test") }}'
+      - 'azure_{{ mso_site | default("ansible_test") }}'
+
   - name: Ensure tenant ansible_test exist
     cisco.mso.mso_tenant:
       <<: *mso_info
@@ -781,3 +792,4 @@
       - rm_sg_again is not changed
       - rm_sg_again.current == {}
       - rm_sg_again.previous == {}
+    when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined

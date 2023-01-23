@@ -16,6 +16,7 @@ module: mso_schema_template_deploy
 short_description: Deploy schema templates to sites
 description:
 - Deploy schema templates to sites.
+- DEPRECATED for NDO v4.0 and later. Use M(cisco.mso.ndo_schema_template_deploy) on NDO v4.0 and later.
 author:
 - Dag Wieers (@dagwieers)
 options:

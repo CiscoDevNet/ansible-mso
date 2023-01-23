@@ -6,6 +6,31 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.2.0
+======
+
+Release Summary
+---------------
+
+Release v2.2.0 of the ``ansible-mso`` collection on 2023-01-23.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.1.0.
+
+
+Minor Changes
+-------------
+
+- Add automatic creation of site bd when not existing in mso_schema_site_bd_subnet module (#263)
+- Add ndo_schema_template_deploy to support NDO 4+ deploy functionality (#305)
+- Add support for l3out from different template or schema in mso_schema_site_bd_l3out (#304)
+- Add support for orchestrator_only attribute for mso_tenant with state absent (#268)
+
+Bugfixes
+--------
+
+- Fix deploymentImmediacy key inconsistency in the API used by mso_schema_site_anp and mso_schema_site_anp_epg (#283)
+- Fix mso_schema_template_bd issue when created with unicast_routing as false (#278)
+- Fix to be able to add multiple filter and filters with "-" in their names (#306)
+
 v2.1.0
 ======
 

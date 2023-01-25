@@ -245,7 +245,7 @@ class HttpApi(HttpApiBase):
         if domain_name is None:
             return None
 
-        method="GET"
+        method = "GET"
         path = "/mso/api/v1/auth/login-domains"
         full_path = self.connection.get_option("host") + path
 

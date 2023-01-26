@@ -236,7 +236,7 @@ class HttpApi(HttpApiBase):
         # JSONDecodeError only available on Python 3.5+
         except Exception as e:
             # Expose RAW output for troubleshooting
-            self.error = dict(code=self.status, message="Unable to parse output as JSON, see 'raw' output. {0}".format(e))
+            self.error = dict(code=-1, message="Unable to parse output as JSON, see 'raw' output. {0}".format(e))
             self.info["raw"] = response_text
             return
 
@@ -261,13 +261,13 @@ class HttpApi(HttpApiBase):
                         if "id" in domain:
                             return domain.get("id")
                         else:
-                            self.error = dict(code=self.status, message="Login domain lookup failed for domain '{0}': {1}".format(domain_name, domain))
-                            raise ConnectionError(json.dumps(self._verify_response(response, method, full_path, data)))
-                self.error = dict(code=self.status, message="Login domain '{0}' is not a valid domain name.".format(domain_name))
-                raise ConnectionError(json.dumps(self._verify_response(response, method, full_path, data)))
+                            self.error = dict(code=-1, message="Login domain lookup failed for domain '{0}': {1}".format(domain_name, domain))
+                            raise ConnectionError(json.dumps(self._verify_response(None, method, full_path, None)))
+                self.error = dict(code=-1, message="Login domain '{0}' is not a valid domain name.".format(domain_name))
+                raise ConnectionError(json.dumps(self._verify_response(None, method, full_path, None)))
             else:
-                self.error = dict(code=self.status, message="Key 'domains' missing from data")
-                raise ConnectionError(json.dumps(self._verify_response(response, method, full_path, data)))
+                self.error = dict(code=-1, message="Key 'domains' missing from data")
+                raise ConnectionError(json.dumps(self._verify_response(None, method, full_path, None)))
 
     def _get_formated_info(self, response):
         """The code in this function is based out of Ansible fetch_url code

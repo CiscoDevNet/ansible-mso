@@ -244,25 +244,30 @@ class HttpApi(HttpApiBase):
         """Get a domain and return its id"""
         if domain_name is None:
             return None
+
+        method = "GET"
+        path = "/mso/api/v1/auth/login-domains"
+        full_path = self.connection.get_option("host") + path
+
         # TODO: Replace response by -
-        response, data = self.send_request("GET", "auth/login-domains")
+        response, data = self.connection.send(path, None, method=method, headers=self.headers)
 
         if data is not None:
             response_data = self._response_to_json(data)
             domains = response_data.get("domains")
             if domains is not None:
                 for domain in domains:
-                    if domain.get("name") != domain_name:
+                    if domain.get("name") == domain_name:
                         if "id" in domain:
                             return domain.get("id")
                         else:
-                            self.error = dict(code=-1, message="Login domain '{0}' is not a valid domain name.".format(domain))
-                            raise ConnectionError(self._verify_response(None, None, None, None))
-                self.error = dict(code=-1, message="Login domain lookup failed for domain '{0}': {1}".format(domain_name, domain))
-                raise ConnectionError(self._verify_response(None, None, None, None))
+                            self.error = dict(code=-1, message="Login domain lookup failed for domain '{0}': {1}".format(domain_name, domain))
+                            raise ConnectionError(json.dumps(self._verify_response(None, method, full_path, None)))
+                self.error = dict(code=-1, message="Login domain '{0}' is not a valid domain name.".format(domain_name))
+                raise ConnectionError(json.dumps(self._verify_response(None, method, full_path, None)))
             else:
                 self.error = dict(code=-1, message="Key 'domains' missing from data")
-                raise ConnectionError(self._verify_response(None, None, None, None))
+                raise ConnectionError(json.dumps(self._verify_response(None, method, full_path, None)))
 
     def _get_formated_info(self, response):
         """The code in this function is based out of Ansible fetch_url code

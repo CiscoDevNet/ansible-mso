@@ -19,6 +19,7 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
+    l3outs: [ "L3out1", "L3out2"]
 
 - name: Query MSO version
   mso_version:
@@ -100,14 +101,14 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
-    l3out: '{{item.l3out}}'
+    l3out: '{{ item }}'
     vrf:
         name: VRF1
     state: present
   register: add_l3out
   loop:
-  - { l3out: L3out1}
-  - { l3out: L3out2}
+  - "{{ l3outs[0] }}"
+  - "{{ l3outs[1] }}"
 
 - name: Verify add l3out (template level)
   assert:
@@ -242,7 +243,12 @@
       that:
       - cm_query_all_l3out is not changed
       - nm_query_all_l3out is not changed
-      - cm_query_all_l3out.current[0].l3outRef.l3outName == nm_query_all_l3out.current[0].l3outRef.l3outName == "L3out1"
+      - cm_query_all_l3out.current | length == 2
+      - nm_query_all_l3out.current | length == 2
+      - "'{{cm_query_all_l3out.current[0].l3outRef.l3outName}}' in l3outs"
+      - "'{{cm_query_all_l3out.current[1].l3outRef.l3outName}}' in l3outs"
+      - "'{{nm_query_all_l3out.current[0].l3outRef.l3outName}}' in l3outs"
+      - "'{{nm_query_all_l3out.current[1].l3outRef.l3outName}}' in l3outs"
       - cm_query_all_l3out.current[0].l3outRef.schemaId == nm_query_all_l3out.current[0].l3outRef.schemaId
       - cm_query_all_l3out.current[0].l3outRef.templateName == nm_query_all_l3out.current[0].l3outRef.templateName == "Template1"
 

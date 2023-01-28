@@ -1286,3 +1286,6 @@ class MSOModule(object):
                         self.remove_keys_from_dict_when_value_empty(entry, modified_target[key][entry_index])
 
         return modified_target
+
+    def validate_schema(self, schema_id):
+        return self.request("schemas/{id}/validate".format(id=schema_id), method="GET")

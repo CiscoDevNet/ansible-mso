@@ -11,7 +11,7 @@
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,7 +22,7 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
@@ -32,7 +32,7 @@
   when: version.current.version is version('4.0', '<')
   block:
   - name: Ensure site exist
-    mso_site:
+    cisco.mso.mso_site:
       <<: *mso_info
       site: '{{ mso_site | default("ansible_test") }}'
       apic_username: '{{ apic_username }}'
@@ -43,7 +43,7 @@
       state: present
 
   - name: Undeploy template
-    mso_schema_template_deploy:
+    cisco.mso.mso_schema_template_deploy:
       <<: *mso_info
       schema: ansible_test
       template: "{{ item }}"
@@ -60,7 +60,7 @@
       - Template5
 
   - name: Remove schemas
-    mso_schema:
+    cisco.mso.mso_schema:
       <<: *mso_info
       schema: '{{ item }}'
       state: absent
@@ -69,7 +69,7 @@
     - '{{ mso_schema | default("ansible_test") }}'
 
   - name: Ensure tenant ansible_test exists
-    mso_tenant:
+    cisco.mso.mso_tenant:
       <<: *mso_info
       tenant: ansible_test
       users:
@@ -79,7 +79,7 @@
       state: present
 
   - name: Ensure schema 1 with Template 1, and Template 2, Template 3 exist
-    mso_schema_template:
+    cisco.mso.mso_schema_template:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       tenant: ansible_test
@@ -93,7 +93,7 @@
     - Template_5
 
   - name: Add physical site to a schema
-    mso_schema_site:
+    cisco.mso.mso_schema_site:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -107,7 +107,7 @@
     - Template_5
 
   - name: Deploy templates (check_mode)
-    mso_schema_template_deploy: &schema_deploy
+    cisco.mso.mso_schema_template_deploy: &schema_deploy
       <<: *mso_info
       schema: ansible_test
       template: "{{ item }}"
@@ -123,13 +123,13 @@
     - Template_5
 
   - name: Verify cm_deploy_template
-    assert:
+    ansible.builtin.assert:
       that:
       - item is not changed
     loop: "{{ cm_deploy_template.results }}"
 
   - name: Deploy templates (normal_mode)
-    mso_schema_template_deploy:
+    cisco.mso.mso_schema_template_deploy:
       <<: *schema_deploy
       schema: ansible_test
       template: "{{ item }}"
@@ -144,14 +144,14 @@
     - Template_5
 
   - name: Verify nm_deploy_template
-    assert:
+    ansible.builtin.assert:
       that:
       - item is not changed
       - item.msg == "Successfully deployed"
     loop: "{{ nm_deploy_template.results }}"
 
   - name: Get deployment status
-    mso_schema_template_deploy:
+    cisco.mso.mso_schema_template_deploy:
       <<: *schema_deploy
       schema: ansible_test
       template: "{{ item }}"
@@ -165,14 +165,14 @@
     - Template_5
 
   - name: Verify query_deploy_status
-    assert:
+    ansible.builtin.assert:
       that:
       - item is not changed
       - item.status.0.status.siteStatus == "Succeeded"
     loop: "{{ query_deploy_status.results }}"
 
   - name: Undeploy templates
-    mso_schema_template_deploy:
+    cisco.mso.mso_schema_template_deploy:
       <<: *schema_deploy
       schema: ansible_test
       template: '{{ item }}'
@@ -187,7 +187,7 @@
       - Template_5
 
   - name: Verify undeploy_template
-    assert:
+    ansible.builtin.assert:
       that:
       - item is not changed
       - item.msg == "Successfully Un-deployed"
@@ -195,9 +195,43 @@
     when: version.current.version is version('3.1', '>=')
 
   - name: Verify undeploy_template
-    assert:
+    ansible.builtin.assert:
       that:
       - item is not changed
       - item.msg == "Successfully deployed"
     loop: "{{ undeploy_template.results }}"
     when: version.current.version is version('3.1', '<')
+  
+    # Validate schema when MSO version >= 3.3
+  - name: Execute tasks only for MSO version >= 3.3
+    when: version.current.version is version('3.3', '>=')
+    block:
+    - name: Add VRF1 with validation error
+      cisco.mso.mso_schema_template_vrf: &fail_validation
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 2
+        vrf: VRF1
+        layer3_multicast: true
+        vzany: true
+        state: present
+
+    - name: Deploy template with validation error
+      cisco.mso.mso_schema_template_deploy:
+        <<: *mso_info
+        schema: ansible_test
+        template: Template 2
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: deploy
+      register: failed_validaton_deploy
+      ignore_errors: yes
+
+    - name: Verify validation errors before deploy and redploy
+      ansible.builtin.assert:
+        that:
+        - failed_validaton_deploy.msg ==  "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} vzAny contract must be configured if vzAny flag is set. VRF(s) {{':'}} VRF1 exception while trying to update schema"
+
+    - name: Remove VRF1 with validation error
+      cisco.mso.mso_schema_template_vrf:
+        <<: *fail_validation
+        state: absent

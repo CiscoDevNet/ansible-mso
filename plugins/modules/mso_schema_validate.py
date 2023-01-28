@@ -62,15 +62,10 @@ def main():
     )
 
     schema = module.params.get("schema")
-    state = module.params.get("state")  # NOQA
 
     mso = MSOModule(module)
 
-    # Get schema_id
-    schema_id = mso.lookup_schema(schema)
-
-    path = "schemas/{id}/validate".format(id=schema_id)
-    mso.existing = mso.request(path, method="GET")
+    mso.existing = mso.validate_schema(schema_id=mso.lookup_schema(schema))
 
     mso.exit_json()
 

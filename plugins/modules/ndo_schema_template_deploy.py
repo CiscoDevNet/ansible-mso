@@ -13,10 +13,12 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_schema_template_deploy
-short_description: Deploy schema templates to sites for NDO v4.1 and higher
+short_description: Deploy schema templates to sites for NDO v3.7 and higher
 description:
 - Deploy schema templates to sites.
-- Only supports NDO v4.1 and higher
+- Prior to deploy or redeploy a schema validation is executed.
+- When schema validation fails, M(cisco.mso.ndo_schema_template_deploy) fails and deploy or redeploy will not be executed.
+- Only supports NDO v3.7 and higher
 author:
 - Akini Ross (@akinross)
 options:
@@ -134,8 +136,10 @@ def main():
         method = "POST"
         payload = dict(schemaId=schema_id, templateName=template)
         if state == "deploy":
+            mso.validate_schema(schema_id)
             payload.update(isRedeploy=False)
         elif state == "redeploy":
+            mso.validate_schema(schema_id)
             payload.update(isRedeploy=True)
         elif state == "undeploy":
             payload.update(undeploy=[site.get("siteId") for site in mso.lookup_sites(sites)])

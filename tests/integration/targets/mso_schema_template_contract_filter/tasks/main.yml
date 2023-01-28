@@ -74,53 +74,53 @@
     template: Template 3
     state: present
 
-- name: Ensure Filter 1 exist
+- name: Ensure Filter1 exist
   cisco.mso.mso_schema_template_filter_entry: &filter_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    filter: Filter 1
+    filter: Filter1
     #add filter entry
-    entry: Filter 1 entry
+    entry: Filter1Entry
     state: present
   register: add_filter
 
-- name: Ensure Filter 2 exist
+- name: Ensure Filter2 exist
   mso_schema_template_filter_entry:
     <<: *filter_present
     template: Template 2
-    filter: Filter 2
-    entry: Filter 2 entry
+    filter: Filter2
+    entry: Filter2Entry
     state: present
 
-- name: Ensure Filter 3 exist
+- name: Ensure Filter3 exist
   mso_schema_template_filter_entry:
     <<: *filter_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
-    filter: Filter 3
-    entry: Filter 3 entry
+    filter: Filter3
+    entry: Filter3Entry
     state: present
 
-- name: Ensure Filter 4 exist
+- name: Ensure Filter4 exist
   mso_schema_template_filter_entry:
     <<: *filter_present
-    filter: Filter 4
-    entry: Filter 4 entry
+    filter: Filter4
+    entry: Filter4Entry
     state: present
 
-- name: Ensure Filter 5 exist
+- name: Ensure Filter5 exist
   mso_schema_template_filter_entry:
     <<: *filter_present
-    filter: Filter 5
-    entry: Filter 5 entry
+    filter: Filter5
+    entry: Filter5Entry
     state: present
 
 - name: Ensure Filter-6 exist
   mso_schema_template_filter_entry:
     <<: *filter_present
     filter: Filter-6
-    entry: Filter-6 entry
+    entry: Filter-6Entry
     state: present
 
 - name: Ensure Contract_1 contract does not exist
@@ -128,8 +128,8 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
-    filter: Filter 1
+    contract: Contract1
+    filter: Filter1
     filter_schema: '{{ mso_schema | default("ansible_test") }}'
     filter_template: Template 1
     state: absent
@@ -138,7 +138,7 @@
   mso_schema_template_contract_filter:
     <<: *contract_present
     template: Template 2
-    contract: Contract 2
+    contract: Contract2
     state: absent
 
 - name: Ensure Contract_3 contract does not exist
@@ -146,19 +146,19 @@
     <<: *contract_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
-    contract: Contract 3
+    contract: Contract3
     state: absent
 
 - name: Ensure Contract_4 contract does not exist
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 4
+    contract: Contract4
     state: absent
 
 - name: Ensure Contract_5 contract does not exist
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 5
+    contract: Contract5
     state: absent
 
 - name: Ensure Contract_6 contract does not exist
@@ -171,8 +171,8 @@
 - name: Add contract (check_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
-    filter: Filter 1
+    contract: Contract1
+    filter: Filter1
     state: present
   check_mode: yes
   register: cm_add_contract
@@ -182,14 +182,14 @@
     that:
     - cm_add_contract is changed
     - cm_add_contract.previous == {}
-    - cm_add_contract.current.filterRef.filterName == "Filter 1"
+    - cm_add_contract.current.filterRef.filterName == "Filter1"
     - cm_add_contract.current.filterRef.templateName == "Template1"
 
 - name: Add contract (normal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
-    filter: Filter 1
+    contract: Contract1
+    filter: Filter1
     state: present
   register: nm_add_contract
 
@@ -198,15 +198,15 @@
     that:
     - nm_add_contract is changed
     - nm_add_contract.previous == {}
-    - nm_add_contract.current.filterRef.filterName == "Filter 1"
+    - nm_add_contract.current.filterRef.filterName == "Filter1"
     - nm_add_contract.current.filterRef.templateName == "Template1"
     - cm_add_contract.current.filterRef.schemaId ==  nm_add_contract.current.filterRef.schemaId
 
 - name: Add contract again (check_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
-    filter: Filter 1
+    contract: Contract1
+    filter: Filter1
     state: present
   check_mode: yes
   register: cm_add_contract_again
@@ -215,17 +215,17 @@
   assert:
     that:
     - cm_add_contract_again is not changed
-    - cm_add_contract_again.current.filterRef.filterName == "Filter 1"
+    - cm_add_contract_again.current.filterRef.filterName == "Filter1"
     - cm_add_contract_again.current.filterRef.templateName == "Template1"
-    - cm_add_contract_again.previous.filterRef.filterName == "Filter 1"
+    - cm_add_contract_again.previous.filterRef.filterName == "Filter1"
     - cm_add_contract_again.previous.filterRef.templateName == "Template1"
     - cm_add_contract_again.previous.filterRef.schemaId == cm_add_contract_again.current.filterRef.schemaId
 
 - name: Add contract again (normal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
-    filter: Filter 1
+    contract: Contract1
+    filter: Filter1
     state: present
   register: nm_add_contract_again
 
@@ -233,19 +233,19 @@
   assert:
     that:
     - nm_add_contract_again is not changed
-    - nm_add_contract_again.current.filterRef.filterName == "Filter 1"
+    - nm_add_contract_again.current.filterRef.filterName == "Filter1"
     - nm_add_contract_again.current.filterRef.templateName == "Template1"
     - nm_add_contract_again.current.filterRef.templateName == "Template1"
-    - nm_add_contract_again.previous.filterRef.filterName == "Filter 1"
+    - nm_add_contract_again.previous.filterRef.filterName == "Filter1"
     - nm_add_contract_again.previous.filterRef.templateName == "Template1"
     - nm_add_contract_again.previous.filterRef.schemaId == nm_add_contract_again.current.filterRef.schemaId
 
-- name: Add contract 2 (check_mode)
+- name: Add Contract2 (check_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
     template: Template 2
-    contract: Contract 2
-    filter: Filter 1
+    contract: Contract2
+    filter: Filter1
     filter_template: Template 1
     state: present
   check_mode: yes
@@ -255,15 +255,15 @@
   assert:
     that:
     - cm_add_contract_2 is changed
-    - cm_add_contract_2.current.filterRef.filterName == "Filter 1"
+    - cm_add_contract_2.current.filterRef.filterName == "Filter1"
     - cm_add_contract_2.current.filterRef.templateName == "Template1"
 
-- name: Add contract 2 (nomal mode)
+- name: Add Contract2 (nomal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
     template: Template 2
-    contract: Contract 2
-    filter: Filter 1
+    contract: Contract2
+    filter: Filter1
     filter_template: Template 1
     state: present
   register: nm_add_contract_2
@@ -272,17 +272,17 @@
   assert:
     that:
     - nm_add_contract_2 is changed
-    - nm_add_contract_2.current.filterRef.filterName == "Filter 1"
+    - nm_add_contract_2.current.filterRef.filterName == "Filter1"
     - nm_add_contract_2.current.filterRef.templateName == "Template1"
     - cm_add_contract_2.current.filterRef.schemaId == nm_add_contract_2.current.filterRef.schemaId
 
-- name: Add contract 3 (nomal mode)
+- name: Add Contract3 (nomal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
-    contract: Contract 3
-    filter: Filter 1
+    contract: Contract3
+    filter: Filter1
     filter_template: Template 1
     filter_schema: '{{ mso_schema | default("ansible_test") }}'
     state: present
@@ -292,15 +292,15 @@
   assert:
     that:
     - nm_add_contract_3 is changed
-    - nm_add_contract_3.current.filterRef.filterName == "Filter 1"
+    - nm_add_contract_3.current.filterRef.filterName == "Filter1"
     - nm_add_contract_3.current.filterRef.templateName == "Template1"
 
-- name: Add contract 4 (nomal mode)
+- name: Add Contract4 (nomal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 4
-    filter: Filter 1
-    contract_display_name: display name name for contract 4
+    contract: Contract4
+    filter: Filter1
+    contract_display_name: displayContract4
     state: present
   register: nm_add_contract_4
 
@@ -308,7 +308,7 @@
   assert:
     that:
     - nm_add_contract_4 is changed
-    - nm_add_contract_4.current.filterRef.filterName == "Filter 1"
+    - nm_add_contract_4.current.filterRef.filterName == "Filter1"
     - nm_add_contract_4.current.filterRef.templateName == "Template1"
     - nm_add_contract_3.current.filterRef.schemaId == nm_add_contract_4.current.filterRef.schemaId == nm_add_contract_2.current.filterRef.schemaId == nm_add_contract.current.filterRef.schemaId
 
@@ -316,9 +316,9 @@
 - name: Add Contract filter to both-way(check_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
+    contract: Contract1
     contract_filter_type: both-way
-    filter: Filter 4
+    filter: Filter4
     filter_type: both-way
     state: present
   check_mode: yes
@@ -327,9 +327,9 @@
 - name: Add Contract filter to both-way(normal_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
+    contract: Contract1
     contract_filter_type: both-way
-    filter: Filter 4
+    filter: Filter4
     filter_type: both-way
     state: present
   register: nm_add_contract_filter_both_way
@@ -341,22 +341,22 @@
     - nm_add_contract_filter_both_way is changed
     - cm_add_contract_filter_both_way.previous == {}
     - nm_add_contract_filter_both_way.previous == {}
-    - cm_add_contract_filter_both_way.current.filterRef.filterName == "Filter 4"
+    - cm_add_contract_filter_both_way.current.filterRef.filterName == "Filter4"
     - cm_add_contract_filter_both_way.current.filterRef.templateName == "Template1"
-    - nm_add_contract_filter_both_way.current.filterRef.filterName == "Filter 4"
+    - nm_add_contract_filter_both_way.current.filterRef.filterName == "Filter4"
     - nm_add_contract_filter_both_way.current.filterRef.templateName == "Template1"
     - cm_add_contract_filter_both_way.current.filterRef.schemaId == nm_add_contract_filter_both_way.current.filterRef.schemaId
     - cm_add_contract_filter_both_way.current.contractFilterType == "bothWay"
     - cm_add_contract_filter_both_way.current.contractScope == "context"
-    - cm_add_contract_filter_both_way.current.displayName == "Contract 1"
+    - cm_add_contract_filter_both_way.current.displayName == "Contract1"
     - cm_add_contract_filter_both_way.current.filterType == "both-way"
 
 - name: Change Contract type one_way Filter type consumer-to-provider(normal_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 5
+    contract: Contract5
     contract_filter_type: one-way
-    filter: Filter 5
+    filter: Filter5
     filter_type: consumer-to-provider
     state: present
   register: nm_one_way_and_consumer_to_provider
@@ -368,7 +368,7 @@
     - nm_one_way_and_consumer_to_provider.previous == {}
     - nm_one_way_and_consumer_to_provider.current.contractFilterType == "oneWay"
     - nm_one_way_and_consumer_to_provider.current.contractScope == "context"
-    - nm_one_way_and_consumer_to_provider.current.displayName == "Contract 5"
+    - nm_one_way_and_consumer_to_provider.current.displayName == "Contract5"
     - nm_one_way_and_consumer_to_provider.current.filterType == "consumer-to-provider"
 
 - name: Change Contract type one_way Filter type provider-to-consumer(normal_mode)
@@ -394,9 +394,9 @@
 - name: change contract display name
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 4
-    filter: Filter 1
-    contract_display_name: new display name for contract 4
+    contract: Contract4
+    filter: Filter1
+    contract_display_name: newDisplayContract4
     state: present
   register: nm_change_display_name
 
@@ -404,15 +404,15 @@
   assert:
     that:
     - nm_change_display_name is changed
-    - nm_change_display_name.current.displayName == "new display name for contract 4"
-    - nm_change_display_name.previous.displayName == "display name name for contract 4"
+    - nm_change_display_name.current.displayName == "newDisplayContract4"
+    - nm_change_display_name.previous.displayName == "displayContract4"
 
 # change contract filter_directives to log
 - name: change contract filter_directives to log(check_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 4
-    filter: Filter 1
+    contract: Contract4
+    filter: Filter1
     filter_directives: log
     state: present
   check_mode: yes
@@ -421,8 +421,8 @@
 - name: change contract filter_directives to log(normal_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 4
-    filter: Filter 1
+    contract: Contract4
+    filter: Filter1
     filter_directives: log
     state: present
   register: nm_change_filter_directives_log
@@ -440,8 +440,8 @@
 - name: change contract filter_directives to log and none(normal_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 4
-    filter: Filter 1
+    contract: Contract4
+    filter: Filter1
     filter_directives: ['log', 'none']
     state: present
   register: nm_change_filter_directives_log_and_none
@@ -457,8 +457,8 @@
 - name: change contract filter_directives to policy_compression (check_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 4
-    filter: Filter 1
+    contract: Contract4
+    filter: Filter1
     filter_directives: policy_compression
     state: present
   check_mode: yes
@@ -467,8 +467,8 @@
 - name: change contract filter_directives to policy_compression (normal_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 4
-    filter: Filter 1
+    contract: Contract4
+    filter: Filter1
     filter_directives: policy_compression
     state: present
   register: nm_change_filter_directives_pc
@@ -486,8 +486,8 @@
 - name: change contract filter_directives to log, none, policy compression (normal_mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 4
-    filter: Filter 1
+    contract: Contract4
+    filter: Filter1
     filter_directives: ['log', 'none', 'policy_compression']
     state: present
   register: nm_change_filter_directives_log_and_none_pc
@@ -499,10 +499,10 @@
     - nm_change_filter_directives_log_and_none_pc.previous.directives[0] == "no_stats"
     - nm_change_filter_directives_log_and_none_pc.current.directives == ["log", "none", "no_stats"]
 
-- name: Change contract 1 scope to global (normal mode)
+- name: Change Contract1 scope to global (normal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
+    contract: Contract1
     contract_scope: global
     state: present
   register: nm_change_contract_scope_global
@@ -514,10 +514,10 @@
     - nm_change_contract_scope_global.current.contractScope == "global"
     - nm_change_contract_scope_global.previous.contractScope == "context"
 
-- name: Change contract 1 scope to tenant(normal mode)
+- name: Change Contract1 scope to tenant(normal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
+    contract: Contract1
     contract_scope: tenant
     state: present
   register: nm_change_contract_scope_tenant
@@ -529,10 +529,10 @@
     - nm_change_contract_scope_tenant.previous.contractScope == "global"
     - nm_change_contract_scope_tenant.current.contractScope == "tenant"
 
-- name: Change contract 1 scope application_profile(normal mode)
+- name: Change Contract1 scope application_profile(normal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
+    contract: Contract1
     contract_scope: application-profile
     state: present
   register: nm_change_contract_scope_application_profile
@@ -544,10 +544,10 @@
     - nm_change_contract_scope_application_profile.previous.contractScope == "tenant"
     - nm_change_contract_scope_application_profile.current.contractScope == "application-profile"
 
-- name: Change contract 1 scope to vrf(normal mode)
+- name: Change Contract1 scope to vrf(normal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
+    contract: Contract1
     contract_scope: vrf
     state: present
   register: nm_change_contract_scope_vrf
@@ -559,10 +559,10 @@
     - nm_change_contract_scope_vrf.current.contractScope == "context"
     - nm_change_contract_scope_vrf.previous.contractScope == "application-profile"
 
-- name: Change contract 1 scope to default(normal mode)
+- name: Change Contract1 scope to default(normal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
+    contract: Contract1
     state: present
   register: nm_change_contract_scope_default
 
@@ -573,10 +573,10 @@
     - nm_change_contract_scope_default.current.contractScope == "context"
     - nm_change_contract_scope_default.previous.contractScope == "context"
 
-- name: Change contract 1 description (normal mode)
+- name: Change Contract1 description (normal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
+    contract: Contract1
     description: changed description
     state: present
   register: nm_change_contract_description
@@ -590,10 +590,10 @@
     - nm_change_contract_description.previous.description == ""
   when: version.current.version is version('3.3', '>=')
 
-- name: Change contract 1 description empty (normal mode)
+- name: Change Contract1 description empty (normal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
+    contract: Contract1
     description: ""
     state: present
   register: nm_change_contract_description_empty
@@ -607,10 +607,10 @@
     - nm_change_contract_description_empty.previous.description == "changed description"
   when: version.current.version is version('3.3', '>=')
 
-- name: Change contract 1 qos_level (normal mode)
+- name: Change Contract1 qos_level (normal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
+    contract: Contract1
     qos_level: level1
     state: present
   register: nm_change_contract_qos
@@ -623,10 +623,10 @@
     - nm_change_contract_qos.current.prio == "level1"
   when: version.current.version is version('3.3', '>=')
 
-- name: Change contract 1 qos_level unspecified (normal mode)
+- name: Change Contract1 qos_level unspecified (normal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
+    contract: Contract1
     qos_level: unspecified
     state: present
   register: nm_change_contract_qos_unspecified
@@ -643,8 +643,8 @@
 - name: Ensure contract filter_type set to both-way (normal mode)
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
-    filter: Filter 1
+    contract: Contract1
+    filter: Filter1
     filter_type: both-way
     state: present
   register: nm_contract_filter_both_way
@@ -662,8 +662,8 @@
   # changed behaviour due to error handling is now handled in code
   mso_schema_template_contract_filter:
     <<: *contract_present
-    contract: Contract 1
-    filter: Filter 1
+    contract: Contract1
+    filter: Filter1
     filter_type: consumer-to-provider
     state: present
   register: nm_contract_filter_consumer_to_provider
@@ -673,11 +673,11 @@
 - name: Verify nm_contract_filter_consumer_to_provider
   assert:
     that:
-    - nm_contract_filter_consumer_to_provider.msg == "Current filter type 'bothWay' for contract 'Contract 1' is not allowed to change to 'oneWay'."
+    - nm_contract_filter_consumer_to_provider.msg == "Current filter type 'bothWay' for contract 'Contract1' is not allowed to change to 'oneWay'."
   when: version.current.version is version('3.3', '>=')
 
 # QUERY ALL CONTRACT
-- name: Query contract 1 filters (check_mode)
+- name: Query Contract1 filters (check_mode)
   mso_schema_template_contract_filter:  &Contract_query
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
@@ -688,12 +688,12 @@
     output_level: '{{ mso_output_level | default("info") }}'
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     state: query
   check_mode: yes
   register: cm_contract1_query_result
 
-- name: Query contract 1 filters (normal_mode)
+- name: Query Contract1 filters (normal_mode)
   mso_schema_template_contract_filter:
     <<: *Contract_query
   register: nm_contract1_query_result
@@ -705,37 +705,37 @@
     - nm_contract1_query_result is not changed
     - cm_contract1_query_result.current | length == nm_contract1_query_result.current | length == 2
 
-- name: Query contract 2 filters (normal_mode)
+- name: Query Contract2 filters (normal_mode)
   mso_schema_template_contract_filter:
     <<: *Contract_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
-    contract: Contract 2
+    contract: Contract2
     state: query
   register: nm_contract2_query_result
 
-- name: Query contract 3 filters (normal_mode)
+- name: Query Contract3 filters (normal_mode)
   mso_schema_template_contract_filter:
     <<: *Contract_query
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
-    contract: Contract 3
+    contract: Contract3
   register: nm_contract3_query_result
 
-- name: Query contract 4 filters (normal_mode)
+- name: Query Contract4 filters (normal_mode)
   mso_schema_template_contract_filter:
     <<: *Contract_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 4
+    contract: Contract4
   register: nm_contract4_query_result
 
-- name: Query contract 5 filters (normal_mode)
+- name: Query Contract5 filters (normal_mode)
   mso_schema_template_contract_filter:
     <<: *Contract_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 5
+    contract: Contract5
     contract_filter_type: one-way
     filter_type: consumer-to-provider
   register: nm_contract5_query_result
@@ -763,7 +763,7 @@
     - nm_contract6_query_result.current | length == 1
 
 # QUERY A SPECIFIC CONTRACT FILTER
-- name: Query contract 1 filter 1 (check_mode)
+- name: Query Contract1 Filter1 (check_mode)
   mso_schema_template_contract_filter: &Contract_filter_query
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
@@ -774,62 +774,62 @@
     output_level: '{{ mso_output_level | default("info") }}'
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
-    filter: Filter 1
+    contract: Contract1
+    filter: Filter1
     state: query
   check_mode: yes
   register: cm_contract1_filter1_query_result
 
-- name: Query contract 1 filter 4 (normal_mode)
+- name: Query Contract1 Filter4 (normal_mode)
   mso_schema_template_contract_filter:
     <<: *Contract_filter_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
-    filter: Filter 4
+    contract: Contract1
+    filter: Filter4
     state: query
   register: nm_contract1_filter4_query_result
 
-- name: Query contract 2 filter 1 (normal_mode)
+- name: Query Contract2 Filter1 (normal_mode)
   mso_schema_template_contract_filter:
     <<: *Contract_filter_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
-    contract: Contract 2
+    contract: Contract2
     filter_template: Template 1
-    filter: Filter 1
+    filter: Filter1
     state: query
   register: nm_contract2_filter1_query_result
 
-- name: Query contract 3 filter 1 (normal_mode)
+- name: Query Contract3 Filter1 (normal_mode)
   mso_schema_template_contract_filter:
     <<: *Contract_filter_query
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
-    contract: Contract 3
-    filter: Filter 1
+    contract: Contract3
+    filter: Filter1
     filter_template: Template 1
     filter_schema: '{{ mso_schema | default("ansible_test") }}'
     state: query
   register: nm_contract3_filter1_query_result
 
-- name: Query contract 4 filter 1 (normal_mode)
+- name: Query Contract4 Filter1 (normal_mode)
   mso_schema_template_contract_filter:
     <<: *Contract_filter_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 4
-    filter: Filter 1
+    contract: Contract4
+    filter: Filter1
     state: query
   register: nm_contract4_filter1_query_result
 
-- name: Query contract 5 filter 5 (normal_mode)
+- name: Query Contract5 Filter5 (normal_mode)
   mso_schema_template_contract_filter:
     <<: *Contract_filter_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 5
-    filter: Filter 5
+    contract: Contract5
+    filter: Filter5
     contract_filter_type: one-way
     filter_type: consumer-to-provider
     state: query
@@ -870,8 +870,8 @@
     output_level: '{{ mso_output_level | default("info") }}'
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
-    filter: Filter 1
+    contract: Contract1
+    filter: Filter1
     state: absent
   check_mode: yes
   register: cm_remove_contract1_filter1
@@ -881,7 +881,7 @@
     that:
     - cm_remove_contract1_filter1 is changed
     - cm_remove_contract1_filter1.current == {}
-    - cm_remove_contract1_filter1.previous.filterRef.filterName == "Filter 1"
+    - cm_remove_contract1_filter1.previous.filterRef.filterName == "Filter1"
     - cm_remove_contract1_filter1.previous.filterRef.templateName == "Template1"
 
 - name: Remove contract1 filter1 (normal_mode)
@@ -894,7 +894,7 @@
     that:
     - nm_remove_contract1_filter1 is changed
     - nm_remove_contract1_filter1.current == {}
-    - nm_remove_contract1_filter1.previous.filterRef.filterName == "Filter 1"
+    - nm_remove_contract1_filter1.previous.filterRef.filterName == "Filter1"
     - nm_remove_contract1_filter1.previous.filterRef.templateName == "Template1"
 
 - name: Remove contract1 filter1 again (check_mode)
@@ -925,7 +925,7 @@
 - name: Remove contract1 filter4 (normal_mode)
   mso_schema_template_contract_filter:
     <<: *contract1_filter1_absent
-    filter: Filter 4
+    filter: Filter4
   register: nm_remove_contract1_filter4
 
 - name: Verify nm_remove_contract1_filter4
@@ -933,13 +933,13 @@
     that:
     - nm_remove_contract1_filter4 is changed
     - nm_remove_contract1_filter4.current == {}
-    - nm_remove_contract1_filter4.previous.filterRef.filterName == "Filter 4"
+    - nm_remove_contract1_filter4.previous.filterRef.filterName == "Filter4"
     - nm_remove_contract1_filter4.previous.filterRef.templateName == "Template1"
 
 - name: Remove contract1 filter4 again (normal_mode)
   mso_schema_template_contract_filter:
     <<: *contract1_filter1_absent
-    filter: Filter 4
+    filter: Filter4
   register: nm_remove_contract1_filter4_again
 
 - name: Verify nm_remove_contract1_filter4_again
@@ -954,7 +954,7 @@
     <<: *Contract_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 4
+    contract: Contract4
     filter: non-existing-filter
   check_mode: yes
   ignore_errors: yes
@@ -965,7 +965,7 @@
     <<: *Contract_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 4
+    contract: Contract4
     filter: non-existing-filter
   ignore_errors: yes
   register: nm_query_non_filter
@@ -981,9 +981,9 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     description: "This is contract description"
-    filter: Filter 1
+    filter: Filter1
     qos_level: level1
     action: deny
     priority: 'lowest_priority'
@@ -1025,13 +1025,13 @@
     - cm_query_non_contract is not changed
     - nm_query_non_contract is not changed
     - nm_query_non_contract == cm_query_non_contract
-    - cm_query_non_contract.msg ==  nm_query_non_contract.msg == "Provided contract 'non-existing-contract' does not exist. Existing contracts{{':'}} Contract 4, Contract 5, Contract-6"
+    - cm_query_non_contract.msg ==  nm_query_non_contract.msg == "Provided contract 'non-existing-contract' does not exist. Existing contracts{{':'}} Contract4, Contract5, Contract-6"
   when: version.current.version is version('3.3', '<')
 
 - name: Verify query_non_contract when version greater than 3.3
   assert:
     that:
-    - cm_query_non_contract.msg ==  nm_query_non_contract.msg == "Provided contract 'non-existing-contract' does not exist. Existing contracts{{':'}} Contract 4, Contract 5, Contract-6, Contract 1"
+    - cm_query_non_contract.msg ==  nm_query_non_contract.msg == "Provided contract 'non-existing-contract' does not exist. Existing contracts{{':'}} Contract4, Contract5, Contract-6, Contract1"
   when: version.current.version is version('3.3', '>=')
 
 # USE A NON-EXISTING SCHEMA

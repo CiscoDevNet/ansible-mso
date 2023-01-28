@@ -4,13 +4,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,13 +22,13 @@
     l3outs: [ "L3out1", "L3out2"]
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -40,7 +40,7 @@
   ignore_errors: yes
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -49,7 +49,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure sites removed from tenant ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ item }}'
@@ -60,7 +60,7 @@
     - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exists
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -70,7 +70,7 @@
     state: present
 
 - name: Ensure schema 1 with Template1, and Template2 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -81,7 +81,7 @@
   - { template: Template2}
 
 - name: Ensure schema 2 with  Template3 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -89,7 +89,7 @@
     state: present
 
 - name: Ensure VRF1 exists
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -97,7 +97,7 @@
     state: present
 
 - name: Add new L3Out
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -106,17 +106,15 @@
         name: VRF1
     state: present
   register: add_l3out
-  loop:
-  - "{{ l3outs[0] }}"
-  - "{{ l3outs[1] }}"
+  loop: '{{ l3outs }}'
 
 - name: Verify add l3out (template level)
-  assert:
+  ansible.builtin.assert:
     that:
     - add_l3out is changed
 
 - name: Add physical site to a schema
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -129,7 +127,7 @@
   block:
   # Add l3out to site
   - name: Add site L3Out (check_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -144,20 +142,20 @@
     register: cm_add_site_l3out
 
   - name: Verify cm_add_site_l3out
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_add_site_l3out.current.vrfRef.vrfName == "VRF1"
       - cm_add_site_l3out.current.vrfRef.templateName == "Template1"
 
   - name: Verify cm_add_site_l3out
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_add_site_l3out is changed
       - cm_add_site_l3out.previous == {}
     when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
   - name: Add site L3Out (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -171,21 +169,21 @@
     register: nm_add_site_l3out
 
   - name: Verify nm_add_site_l3out
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_site_l3out.current.vrfRef.vrfName == "VRF1"
       - nm_add_site_l3out.current.vrfRef.templateName == "Template1"
       - cm_add_site_l3out.current.vrfRef.schemaId == nm_add_site_l3out.current.vrfRef.schemaId
 
   - name: Verify nm_add_site_l3out
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_site_l3out is changed
       - nm_add_site_l3out.previous == {}
     when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
   - name: Add site L3Out 2 (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -198,7 +196,7 @@
       state: present
 
   - name: Add site L3Out again (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -212,7 +210,7 @@
     register: nm_add_site_l3out_again
 
   - name: Verify cm_add_site_l3out_again and nm_add_site_l3out_again
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_site_l3out_again is not changed
       - nm_add_site_l3out_again.current.vrfRef.vrfName == "VRF1"
@@ -220,7 +218,7 @@
   # No options to do changes in site level yet
 
   - name: Query all L3Outs (check_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -230,7 +228,7 @@
     register: cm_query_all_l3out
 
   - name: Query all L3Outs (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -239,7 +237,7 @@
     register: nm_query_all_l3out
 
   - name: Verify cm_query_all_l3out and cm_query_all_l3out
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_query_all_l3out is not changed
       - nm_query_all_l3out is not changed
@@ -253,7 +251,7 @@
       - cm_query_all_l3out.current[0].l3outRef.templateName == nm_query_all_l3out.current[0].l3outRef.templateName == "Template1"
 
   - name: Query a specific L3Out (check_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -268,7 +266,7 @@
     register: cm_query_l3out
 
   - name: Query a specific L3Out (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -278,13 +276,13 @@
     register: nm_query_l3out
 
   - name: Verify cm_query_l3out and nm_query_l3out
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_query_l3out is not changed
       - nm_query_l3out is not changed
 
   - name: Remove L3Out (check_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -295,7 +293,7 @@
     register: cm_remove_site_l3out
 
   - name: Remove L3Out (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -305,7 +303,7 @@
     register: nm_remove_site_l3out
 
   - name: Verify cm_remove_site_l3out and nm_remove_site_l3out
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_remove_site_l3out is changed
       - nm_remove_site_l3out is changed
@@ -313,7 +311,7 @@
     when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
   - name: Remove L3Out again(normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -323,7 +321,7 @@
     register: nm_remove_site_l3out_again
 
   - name: Verify nm_remove_site_l3out_again
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_remove_site_l3out_again is not changed
       - nm_remove_site_l3out_again.previous == nm_remove_site_l3out_again.current == {}
@@ -332,7 +330,7 @@
 
   # QUERY NON-EXISTING L3Out
   - name: Query non-existing L3Out (check_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -344,7 +342,7 @@
     register: cm_query_non_l3out
 
   - name: Query non-existing L3Out (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -355,7 +353,7 @@
     register: nm_query_non_l3out
 
   - name: Verify cm_query_non_l3out and nm_query_non_l3out
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_query_non_l3out is not changed
       - nm_query_non_l3out is not changed
@@ -363,7 +361,7 @@
 
   # USE NON-EXISTING STATE
   - name: non_existing_state state (check_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -378,7 +376,7 @@
     register: cm_non_existing_state
 
   - name: non_existing_state state (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -393,7 +391,7 @@
     register: nm_non_existing_state
 
   - name: Verify cm_non_existing_state and nm_non_existing_state
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_non_existing_state is not changed
       - nm_non_existing_state is not changed
@@ -401,7 +399,7 @@
 
   # USE A NON_EXISTING_TEMPLATE
   - name: non_existing_template (check_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -417,7 +415,7 @@
     register: cm_non_existing_template
 
   - name: non_existing_template (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -432,7 +430,7 @@
     register: nm_non_existing_template
 
   - name: Verify cm_non_existing_template and nm_non_existing_template
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_non_existing_template is not changed
       - nm_non_existing_template is not changed
@@ -440,7 +438,7 @@
 
   # USE A NON_EXISTING_SCHEMA
   - name: non_existing_schema (check_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: non_existing_schema
       site: '{{ mso_site | default("ansible_test") }}'
@@ -456,7 +454,7 @@
     register: cm_non_existing_schema
 
   - name: non_existing_schema (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: non_existing_schema
       site: '{{ mso_site | default("ansible_test") }}'
@@ -471,7 +469,7 @@
     register: nm_non_existing_schema
 
   - name: Verify cm_non_existing_schema and nm_non_existing_schema
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_non_existing_schema is not changed
       - nm_non_existing_schema is not changed
@@ -479,7 +477,7 @@
 
   # USE A NON_EXISTING_SITE
   - name: non_existing_site (check_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: non_existing_site
@@ -495,7 +493,7 @@
     register: cm_non_existing_site
 
   - name: non_existing_site (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: non_existing_site
@@ -510,7 +508,7 @@
     register: nm_non_existing_site
 
   - name: Verify cm_non_existing_site and nm_non_existing_site
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_non_existing_site is not changed
       - nm_non_existing_site is not changed
@@ -518,7 +516,7 @@
 
   # USE A NON_EXISTING_SITE_TEMPLATE
   - name: non_existing_site_template (check_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -534,7 +532,7 @@
     register: cm_non_existing_site_template
 
   - name: non_existing_site_template (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -549,14 +547,14 @@
     register: nm_non_existing_site_template
 
   - name: Verify cm_non_existing_site_template and nm_non_existing_site_template
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_non_existing_site_template is not changed
       - nm_non_existing_site_template is not changed
       - cm_non_existing_site_template.msg == nm_non_existing_site_template.msg == "Provided template 'Template5' does not exist. Existing templates{{':'}} Template1, Template2"
 
   - name: nm_non_existing_template_site (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -571,14 +569,14 @@
     register: nm_non_existing_template_site
 
   - name: Verify nm_non_existing_template_site
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_non_existing_template_site is not changed
       - nm_non_existing_template_site.msg == "Provided template 'Template2' is not associated to site"
 
   # USE A TEMPLATE WITHOUT ANY SITE
   - name: Add site L3Out to Schema Template3 without any site associated (check mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}_2'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -594,7 +592,7 @@
     register: cm_no_site_associated
 
   - name: Add site L3Out to Template3 without any site associated (normal mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}_2'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -609,7 +607,7 @@
     register: nm_no_site_associated
 
   - name: Verify cm_no_site_associated and nm_no_site_associated
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_no_site_associated is not changed
       - nm_no_site_associated is not changed

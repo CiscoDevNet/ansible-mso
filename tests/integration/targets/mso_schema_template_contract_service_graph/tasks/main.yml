@@ -63,29 +63,29 @@
     template: Template 1
     state: present
 
-- name: Ensure Filter 1 exist
+- name: Ensure Filter1 exist
   cisco.mso.mso_schema_template_filter_entry: &filter_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    filter: Filter 1
-    entry: Filter 1 entry
+    filter: Filter1
+    entry: Filter1Entry
     state: present
 
-- name: Ensure Filter 2 exist
+- name: Ensure Filter2 exist
   cisco.mso.mso_schema_template_filter_entry:
     <<: *filter_present
-    filter: Filter 2
-    entry: Filter 2 entry
+    filter: Filter2
+    entry: Filter2Entry
     state: present
 
-- name: Ensure Filter 3 exist
+- name: Ensure Filter3 exist
   cisco.mso.mso_schema_template_filter_entry:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
-    filter: Filter 3
-    entry: Filter 3 entry
+    filter: Filter3
+    entry: Filter3Entry
     state: present
 
 - name: Ensure Contract_1 contract exist
@@ -93,8 +93,8 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
-    filter: Filter 1
+    contract: Contract1
+    filter: Filter1
     state: present
 
 - name: Ensure Contract_2 contract exist
@@ -102,8 +102,8 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
-    contract: Contract 2
-    filter: Filter 3
+    contract: Contract2
+    filter: Filter3
     state: present
 
 - name: Ensure SG_1 service graph exist
@@ -204,7 +204,7 @@
       name: BD3
     state: present
 
-- name: Add Contract 1 to EPG1 provider
+- name: Add Contract1 to EPG1 provider
   mso_schema_template_anp_epg_contract:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -212,11 +212,11 @@
     anp: AP1
     epg: EPG1
     contract:
-      name: Contract 1
+      name: Contract1
       type: provider
     state: present
 
-- name: Add Contract 1 to EPG1 consumer
+- name: Add Contract1 to EPG1 consumer
   mso_schema_template_anp_epg_contract:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -224,11 +224,11 @@
     anp: AP1
     epg: EPG1
     contract:
-      name: Contract 1
+      name: Contract1
       type: consumer
     state: present
 
-- name: Add Contract 2 to EPG2 provider
+- name: Add Contract2 to EPG2 provider
   mso_schema_template_anp_epg_contract:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
@@ -236,11 +236,11 @@
     anp: AP2
     epg: EPG2
     contract:
-      name: Contract 2
+      name: Contract2
       type: provider
     state: present
 
-- name: Add Contract 2 to EPG2 consumer
+- name: Add Contract2 to EPG2 consumer
   mso_schema_template_anp_epg_contract:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
@@ -248,18 +248,18 @@
     anp: AP2
     epg: EPG2
     contract:
-      name: Contract 2
+      name: Contract2
       type: consumer
     state: present
 
 # TESTS
 
-- name: Add service graph 1 to contract 1 (check_mode)
+- name: Add service graph 1 to Contract1 (check_mode)
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     service_nodes:
       - consumer: BD1
@@ -270,12 +270,12 @@
   check_mode: yes
   register: cm_add_sg1_to_c1
 
-- name: Add service graph 1 to contract 1
+- name: Add service graph 1 to Contract1
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     service_nodes:
       - consumer: BD1
@@ -285,7 +285,7 @@
     state: present
   register: nm_add_sg1_to_c1
 
-- name: Verify service graph 1 is added to contract 1
+- name: Verify service graph 1 is added to Contract1
   assert:
     that:
     - cm_add_sg1_to_c1 is changed
@@ -311,12 +311,12 @@
     - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "firewall"
     - nm_add_sg1_to_c1.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
 
-- name: Add service graph 1 to contract 1 again (check_mode)
+- name: Add service graph 1 to Contract1 again (check_mode)
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     service_nodes:
       - consumer: BD1
@@ -327,12 +327,12 @@
   check_mode: yes
   register: cm_add_sg1_to_c1_again
 
-- name: Add service graph 1 to contract 1 again
+- name: Add service graph 1 to Contract1 again
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     service_nodes:
       - consumer: BD1
@@ -342,7 +342,7 @@
     state: present
   register: nm_add_sg1_to_c1_again
 
-- name: Verify service graph 1 is added to contract 1 again
+- name: Verify service graph 1 is added to Contract1 again
   assert:
     that:
     - cm_add_sg1_to_c1_again is not changed
@@ -366,12 +366,12 @@
     - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "firewall"
     - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
 
-- name: Change service graph 1 node to contract 1 (check_mode)
+- name: Change service graph 1 node to Contract1 (check_mode)
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     service_nodes:
       - consumer: BD2
@@ -382,12 +382,12 @@
   check_mode: yes
   register: cm_change_sg1_to_c1
 
-- name: Change service graph 1 node to contract 1
+- name: Change service graph 1 node to Contract1
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     service_nodes:
       - consumer: BD2
@@ -397,7 +397,7 @@
     state: present
   register: nm_change_sg1_to_c1
 
-- name: Verify service graph 1 is added to contract 1 again
+- name: Verify service graph 1 is added to Contract1 again
   assert:
     that:
     - cm_change_sg1_to_c1 is changed
@@ -419,22 +419,22 @@
     - nm_change_sg1_to_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
     - nm_change_sg1_to_c1.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
 
-- name: Query service graph 1 to contract 1 (check_mode)
+- name: Query service graph 1 to Contract1 (check_mode)
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     state: query
   register: cm_query_sg1_to_c1
 
-- name: Query service graph 1 to contract 1
+- name: Query service graph 1 to Contract1
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     state: query
   register: nm_query_sg1_to_c1
@@ -457,28 +457,28 @@
     - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
     - nm_query_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
 
-- name: Remove service graph 1 from contract 1 (check_mode)
+- name: Remove service graph 1 from Contract1 (check_mode)
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     state: absent
   check_mode: yes
   register: cm_remove_sg1_from_c1
 
-- name: Remove service graph 1 from contract 1
+- name: Remove service graph 1 from Contract1
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     state: absent
   register: nm_remove_sg1_from_c1
 
-- name: Verify service graph 1 is removed from contract 1
+- name: Verify service graph 1 is removed from Contract1
   assert:
     that:
     - cm_remove_sg1_from_c1 is changed
@@ -504,12 +504,12 @@
     - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "firewall"
     - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
 
-- name: Add service graph 2 to contract 2 with BD in other schema (check_mode)
+- name: Add service graph 2 to Contract2 with BD in other schema (check_mode)
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
-    contract: Contract 2
+    contract: Contract2
     service_graph: SG2
     service_nodes:
       - consumer: BD1
@@ -524,12 +524,12 @@
   check_mode: yes
   register: cm_add_sg2_to_c2
 
-- name: Add service graph 2 to contract 2 with BD in other schema
+- name: Add service graph 2 to Contract2 with BD in other schema
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
-    contract: Contract 2
+    contract: Contract2
     service_graph: SG2
     service_nodes:
       - consumer: BD1
@@ -543,7 +543,7 @@
     state: present
   register: nm_add_sg2_to_c2
 
-- name: Verify service graph 2 is added to contract 2
+- name: Verify service graph 2 is added to Contract2
   assert:
     that:
     - cm_add_sg2_to_c2 is changed
@@ -569,22 +569,22 @@
     - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "firewall"
     - nm_add_sg2_to_c2.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
 
-- name: Query service graph 2 to contract 2 (check_mode)
+- name: Query service graph 2 to Contract2 (check_mode)
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
-    contract: Contract 2
+    contract: Contract2
     service_graph: SG2
     state: query
   register: cm_query_sg2_to_c2
 
-- name: Query service graph 2 to contract 2
+- name: Query service graph 2 to Contract2
   mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
-    contract: Contract 2
+    contract: Contract2
     service_graph: SG2
     state: query
   register: nm_query_sg2_to_c2
@@ -616,7 +616,7 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template False
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     state: absent
   ignore_errors: yes
@@ -638,7 +638,7 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG False
     state: absent
   register: not_existing_service_graph_input_absent
@@ -648,7 +648,7 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG False
     state: query
   register: not_existing_service_graph_input_query
@@ -658,7 +658,7 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     service_graph_template: Template False
     service_nodes:
@@ -675,7 +675,7 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG False
     service_graph_template: Template 2
     service_nodes:
@@ -708,7 +708,7 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     service_nodes:
       - consumer: BD1
@@ -722,7 +722,7 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    contract: Contract 1
+    contract: Contract1
     service_graph: SG1
     service_nodes:
       - consumer: BD1

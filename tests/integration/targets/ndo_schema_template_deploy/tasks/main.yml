@@ -39,7 +39,7 @@
     state: present
 
 - name: Ensure aws site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: 'aws_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ aws_apic_username }}'
@@ -50,7 +50,7 @@
     state: present
 
 - name: Ensure azure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ azure_apic_username }}'
@@ -226,8 +226,59 @@
     - '"undeploy" in item.current.reqDetails'
   loop: "{{ undeploy_template.results }}"
 
+- name: Add VRF1 with validation error
+  cisco.mso.mso_schema_template_vrf: &fail_validation
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    vrf: VRF1
+    layer3_multicast: true
+    vzany: true
+    state: present
+
+- name: Deploy template with validation error
+  cisco.mso.ndo_schema_template_deploy:
+    <<: *mso_info
+    schema: ansible_test
+    template: Template 2
+    sites:
+      - '{{ mso_site | default("ansible_test") }}'
+    state: deploy
+  register: failed_validaton_deploy
+  ignore_errors: yes
+
+- name: Redeploy template with validation error
+  cisco.mso.ndo_schema_template_deploy:
+    <<: *mso_info
+    schema: ansible_test
+    template: Template 2
+    sites:
+      - '{{ mso_site | default("ansible_test") }}'
+    state: redeploy
+  register: failed_validaton_redeploy
+  ignore_errors: yes
+
+- name: Verify validation errors before deploy
+  ansible.builtin.assert:
+    that:
+    - failed_validaton_deploy.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} vzAny contract must be configured if vzAny flag is set. VRF(s) {{':'}} VRF1 exception while trying to update schema"
+    - failed_validaton_redeploy.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} vzAny contract must be configured if vzAny flag is set. VRF(s) {{':'}} VRF1 exception while trying to update schema"
+  when: version.current.version is version('4.0', '<')
+
+- name: Verify validation errors before deploy and redploy
+  ansible.builtin.assert:
+    that:
+    - failed_validaton_deploy.msg ==  "MSO Error 400{{':'}} VRF{{':'}} VRF1 in Schema{{':'}} ansible_test , Template{{':'}} Template2 has VzAnyEnabled flag enabled but is not consuming or providing contracts"
+    - failed_validaton_redeploy.msg ==  "MSO Error 400{{':'}} VRF{{':'}} VRF1 in Schema{{':'}} ansible_test , Template{{':'}} Template2 has VzAnyEnabled flag enabled but is not consuming or providing contracts"
+  when: version.current.version is version('4.0', '>=')
+
+- name: Remove VRF1 with validation error
+  cisco.mso.mso_schema_template_vrf:
+    <<: *fail_validation
+    state: absent
+
 - name: Ensure AWS site is present under tenant ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -237,7 +288,7 @@
     state: present
 
 - name: Ensure Azure site is present under tenant ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'

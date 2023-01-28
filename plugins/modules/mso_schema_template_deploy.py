@@ -16,7 +16,9 @@ module: mso_schema_template_deploy
 short_description: Deploy schema templates to sites
 description:
 - Deploy schema templates to sites.
-- DEPRECATED for NDO v4.0 and later. Use M(cisco.mso.ndo_schema_template_deploy) on NDO v4.0 and later.
+- Prior to deploy a schema validation is executed for MSO releases running on the ND platform.
+- When schema validation fails, M(cisco.mso.mso_schema_template_deploy) fails and deploy will not be executed.
+- DEPRECATED for NDO v4.1 and later. Use M(cisco.mso.ndo_schema_template_deploy) on NDO v4.1 and later.
 author:
 - Dag Wieers (@dagwieers)
 options:
@@ -124,6 +126,8 @@ def main():
 
     qs = None
     if state == "deploy":
+        if mso.platform == "nd":
+            mso.validate_schema(schema_id)
         path = "execute/schema/{0}/template/{1}".format(schema_id, template)
     elif state == "status":
         path = "status/schema/{0}/template/{1}".format(schema_id, template)

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+# Copyright: (c) 2023, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -18,6 +19,7 @@ description:
 - Manage backups on Cisco ACI Multi-Site.
 author:
 - Shreyas Srish (@shrsr)
+- Lionel Hercot (@lhercot)
 options:
   location_type:
     description:
@@ -28,8 +30,15 @@ options:
   backup:
     description:
     - The name given to the backup
+    - C(backup) is mutually exclusive with C(backup_id). Only use one of the two.
     type: str
     aliases: [ name ]
+  backup_id:
+    description:
+    - The id of a specific backup
+    - C(backup_id) is mutually exclusive with C(backup). Only use one of the two.
+    type: str
+    aliases: [ id ]
   remote_location:
     description:
     - The remote location's name where the backup should be stored
@@ -178,6 +187,7 @@ def main():
         location_type=dict(type="str", default="local", choices=["local", "remote"]),
         description=dict(type="str"),
         backup=dict(type="str", aliases=["name"]),
+        backup_id=dict(type="str", aliases=["id"]),
         remote_location=dict(type="str"),
         remote_path=dict(type="str"),
         state=dict(type="str", default="present", choices=["absent", "present", "query", "upload", "restore", "download", "move"]),
@@ -189,12 +199,17 @@ def main():
         supports_check_mode=True,
         required_if=[
             ["location_type", "remote", ["remote_location"]],
-            ["state", "absent", ["backup"]],
+            ["state", "absent", ["backup", "backup_id"], True],
             ["state", "present", ["backup"]],
-            ["state", "upload", ["backup"]],
-            ["state", "restore", ["backup"]],
-            ["state", "download", ["backup", "destination"]],
-            ["state", "move", ["backup", "remote_location", "remote_path"]],
+            ["state", "upload", ["backup", "backup_id"], True],
+            ["state", "restore", ["backup", "backup_id"], True],
+            ["state", "download", ["backup", "backup_id"], True],
+            ["state", "download", ["destination"]],
+            ["state", "move", ["backup", "backup_id"], True],
+            ["state", "move", ["remote_location", "remote_path"]],
+        ],
+        mutually_exclusive=[
+            ("backup", "backup_id"),
         ],
     )
 
@@ -202,6 +217,7 @@ def main():
     location_type = module.params.get("location_type")
     state = module.params.get("state")
     backup = module.params.get("backup")
+    backup_id = module.params.get("backup_id")
     remote_location = module.params.get("remote_location")
     remote_path = module.params.get("remote_path")
     destination = module.params.get("destination")
@@ -210,12 +226,14 @@ def main():
 
     backup_names = []
     mso.existing = mso.query_objs("backups/backupRecords", key="backupRecords")
-    if backup:
+    if backup or backup_id:
         if mso.existing:
             data = mso.existing
             mso.existing = []
             for backup_info in data:
-                if backup == backup_info.get("name").split("_")[0] or backup == backup_info.get("name"):
+                if (backup_id and backup_id == backup_info.get("id")) or (
+                    backup and (backup == backup_info.get("name").split("_")[0] or backup == backup_info.get("name"))
+                ):
                     mso.existing.append(backup_info)
                     backup_names.append(backup_info.get("name"))
 

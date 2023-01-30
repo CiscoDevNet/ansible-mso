@@ -1,5 +1,5 @@
 # Test code for the MSO modules
-# Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+# Copyright: (c) 2022, Akini Ross (@akinross) <akinross@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -163,7 +163,7 @@
       - no_schedule is not changed
       - no_schedule.current == {}
 
-- name: Set backup schedule incorrect time (normal mode)
+- name: Set backup schedule incorrect time to parse (normal mode)
   cisco.mso.mso_backup_schedule:
     <<: *mso_info
     start_time: no_time
@@ -175,7 +175,7 @@
   register: nm_schedule_incorrect_time
   ignore_errors: yes
 
-- name: Set backup schedule incorrect date (normal mode)
+- name: Set backup schedule incorrect date to parse (normal mode)
   cisco.mso.mso_backup_schedule:
     <<: *mso_info
     start_date: no_date
@@ -187,6 +187,30 @@
   register: nm_schedule_incorrect_date
   ignore_errors: yes
 
+- name: Set backup schedule incorrect date object create from start_date (normal mode)
+  cisco.mso.mso_backup_schedule:
+    <<: *mso_info
+    start_date: "2030-15-45"
+    frequency_unit: hours
+    frequency_length: 7
+    remote_location: ansible_test
+    state: present
+  delegate_to: localhost
+  register: nm_schedule_incorrect_date_from_start_date
+  ignore_errors: yes
+
+- name: Set backup schedule incorrect date object create from start_time (normal mode)
+  cisco.mso.mso_backup_schedule:
+    <<: *mso_info
+    start_time: "2030:15:45"
+    frequency_unit: hours
+    frequency_length: 7
+    remote_location: ansible_test
+    state: present
+  delegate_to: localhost
+  register: nm_schedule_incorrect_time_from_start_time
+  ignore_errors: yes
+
 - name: Verify error messages
   assert:
     that:
@@ -194,6 +218,10 @@
       - nm_schedule_incorrect_time.msg.startswith("Failed to parse time format")
       - nm_schedule_incorrect_date is failed
       - nm_schedule_incorrect_date.msg.startswith("Failed to parse date format")
+      - nm_schedule_incorrect_date_from_start_date is failed
+      - nm_schedule_incorrect_date_from_start_date.msg.startswith("Failed to create datetime object")
+      - nm_schedule_incorrect_time_from_start_time is failed
+      - nm_schedule_incorrect_time_from_start_time.msg.startswith("Failed to create datetime object")
 
 - name: Set backup schedule full (normal mode)
   cisco.mso.mso_backup_schedule:
@@ -207,7 +235,6 @@
     state: present
   delegate_to: localhost
   register: nm_schedule_full
-  ignore_errors: yes
 
 - name: Verify success set backup schedule
   assert:

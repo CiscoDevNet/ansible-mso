@@ -581,7 +581,7 @@
 - name: Verify non_existing_template
   assert:
     that:
-    - non_existing_template.msg == "Provided template 'non_existing_template' not matching existing template(s): Template1, Template2, Template4, Template5"
+    - non_existing_template.msg == "Provided template 'non_existing_template' not matching existing template(s){{':'}} Template1, Template2, Template4, Template5"
 
 # Use non_existing_template_bd
 - name: Query subnet by non_existing_template_bd
@@ -635,7 +635,7 @@
 - name: Verify non_existing_subnet
   assert:
     that:
-    - non_existing_subnet.msg.startswith("Provided subnet 'non_existing_subnet' not matching existing site bd subnet(s):")
+    - non_existing_subnet.msg.startswith("Provided subnet 'non_existing_subnet' not matching existing site bd subnet(s){{':'}}")
 
 # Use non_existing_site_template_association
 - name: Query with non_existing_site_template_association
@@ -653,7 +653,7 @@
 - name: Verify non_existing_site_template_association
   assert:
     that:
-    - non_existing_site_template_association.msg == "Provided site 'ansible_test' not associated with template 'Template4'. Site is currently associated with template(s): Template1, Template2, Template5"
+    - non_existing_site_template_association.msg == "Provided site 'ansible_test' not associated with template 'Template4'. Site is currently associated with template(s){{':'}} Template1, Template2, Template5"
 
 - name: Remove schemas for next ci test case
   mso_schema:

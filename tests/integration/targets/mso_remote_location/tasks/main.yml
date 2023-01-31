@@ -179,10 +179,16 @@
       - nm_delete_config_remote is changed
       - nm_delete_config_remote.current == {}
 
+- name: Create remote location different path directory if it does not exist
+  ansible.builtin.file:
+    path: '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
+    state: directory
+    mode: '0755'
+
 - name: Configure remote location different path (check mode)
   cisco.mso.mso_remote_location:
     <<: *remote_location
-    remote_path: "/home/{{ mso_username }}"
+    remote_path: '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
   check_mode: yes
   delegate_to: localhost
   register: cm_config_remote_different_path
@@ -190,7 +196,7 @@
 - name: Configure remote location different path
   cisco.mso.mso_remote_location:
     <<: *remote_location
-    remote_path: "/home/{{ mso_username }}"
+    remote_path: '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
   delegate_to: localhost
   register: nm_config_remote_different_path
 
@@ -198,9 +204,9 @@
   assert:
     that:
       - cm_config_remote_different_path is changed
-      - cm_config_remote_different_path.current.credential.remotePath == "/home/{{ mso_username }}"
+      - cm_config_remote_different_path.current.credential.remotePath == '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
       - nm_config_remote_different_path is changed
-      - nm_config_remote_different_path.current.credential.remotePath == "/home/{{ mso_username }}"
+      - nm_config_remote_different_path.current.credential.remotePath == '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
 
 - name: Remove remote location
   cisco.mso.mso_remote_location:

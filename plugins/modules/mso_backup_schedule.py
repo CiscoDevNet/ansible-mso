@@ -106,7 +106,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
-from datetime import date, datetime, time, tzinfo, timedelta
+from datetime import datetime, tzinfo, timedelta
 
 # UTC Timezone implementation as datetime.timezone is not supported in Python 2.7
 
@@ -164,20 +164,38 @@ def main():
 
         remote_location_info = mso.lookup_remote_location(remote_location)
 
-        # If no time has been provided default to midnight "00:00:00".
-        try:
-            start_time = time.fromisoformat(start_time) if start_time else time()
-        except Exception as e:
-            module.fail_json(msg="Failed to parse time format 'HH:MM:SS' %s, %s" % (start_time, e))
+        if start_date:
+            try:
+                y, m, d = start_date.split("-")
+                year = int(y)
+                month = int(m)
+                day = int(d)
+            except Exception as e:
+                module.fail_json(msg="Failed to parse date format 'YYYY-MM-DD' %s, %s" % (start_date, e))
+        else:
+            current_date = datetime.now(UTC()).date()
+            year = current_date.year
+            month = current_date.month
+            day = current_date.day
 
-        # If no date has been provided default to current date.
+        if start_time:
+            try:
+                h, m, s = start_time.split(":")
+                hours = int(h)
+                minutes = int(m)
+                seconds = int(s)
+            except Exception as e:
+                module.fail_json(msg="Failed to parse time format 'HH:MM:SS' %s, %s" % (start_time, e))
+        else:
+            hours = minutes = seconds = 0
+
         try:
-            start_date = date.fromisoformat(start_date) if start_date else datetime.now(UTC()).date()
+            set_date = datetime(year, month, day, hours, minutes, seconds)
         except Exception as e:
-            module.fail_json(msg="Failed to parse date format 'YYYY-MM-DD' %s, %s" % (start_date, e))
+            module.fail_json(msg="Failed to create datetime object with date '%s', and time '%s'. Error: %s" % (start_date, start_time, e))
 
         payload = dict(
-            startDate="{0}Z".format(datetime.combine(start_date, start_time).isoformat(timespec="milliseconds")),
+            startDate="{0}.000Z".format(set_date.isoformat()),
             intervalTimeUnit=frequency_unit.upper(),
             intervalLength=frequency_length,
             remoteLocationId=remote_location_info.get("id"),

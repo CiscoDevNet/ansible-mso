@@ -1,0 +1,230 @@
+# Test code for the MSO modules
+# Copyright: (c) 2023, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact: 
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+- name: Remove Schemas
+  mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Ensure site exists
+  mso_site:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    apic_username: '{{ apic_username }}'
+    apic_password: '{{ apic_password }}'
+    apic_site_id: '{{ apic_site_id | default(101) }}'
+    urls:
+    - https://{{ apic_hostname }}
+    state: present
+
+- name: Ensure sites removed from tenant ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ mso_site | default("ansible_test") }}'
+
+- name: Ensure tenant ansible_test exist
+  mso_tenant: 
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+    - '{{ mso_username }}'
+    sites:
+    - '{{ mso_site | default("ansible_test") }}'
+    state: present
+
+- name: Ensure schema 1 with Template 1 exists
+  mso_schema_template: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: '{{ item }}'
+    state: present
+  loop:
+  - Template 1
+
+
+- name: Add a new site to a schema
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    state: present
+
+- name: Ensure VRF1 exists
+  mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF1
+    state: present
+    
+- name: Add BD1
+  mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    bd: BD1
+    vrf:
+      name: VRF1
+    state: present
+
+- name: Ensure Template 1 with AP1 exists
+  mso_schema_template_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    state: present
+
+- name: Ensure Template 1 and AP1 with EPG1 exists
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    bd:
+      name: BD1
+    vrf:
+      name: VRF1
+    state: present
+
+
+- name: Add new EPG to site after adding ANP to site
+  mso_schema_site_anp_epg:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    state: present
+  register: cm_add_epg
+
+
+- name: Add new EPG to site after adding ANP to site
+  mso_schema_site_anp_epg:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    state: present
+  register: cm_add_epg
+
+- name: REMove anp epg site
+  mso_schema_site_anp_epg:
+    <<: *mso_info
+    site: '{{ mso_site | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    state: absent
+
+
+# ADD STATIC PORTS
+
+
+- name: Add static port 1 to site EPG1 of AP1 (normal mode)
+  mso_schema_site_anp_epg_bulk_staticport:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    pod: pod-1
+    leaf: 101
+    path: eth1/1
+    vlan: 126
+    mode: 'native'
+    deployment_immediacy: immediate
+    state: present
+  register: nm_add_stat1e1
+
+- name: Verify nm_add_stat1e1
+  assert:
+    that:
+    - nm_add_stat1e1 is changed
+    - nm_add_stat1e1.previous == {}
+    - nm_add_stat1e1.current.deploymentImmediacy == 'immediate'
+    - nm_add_stat1e1.current.portEncapVlan == 126
+    - nm_add_stat1e1.current.path == 'topology/pod-1/paths-101/pathep-[eth1/1]'
+    - nm_add_stat1e1.current.mode == 'native'
+    - nm_add_stat1e1.current.type == 'port'
+
+- name: Add static port 2 to site EPG1 of AP1 (normal mode)
+  mso_schema_site_anp_epg_bulk_staticport:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    pod: pod-2
+    leaf: 102
+    path: eth1/2
+    vlan: 100
+    mode: 'regular'
+    type: port
+    primary_micro_segment_vlan: 199
+    deployment_immediacy: immediate
+    state: present
+  register: nm_add_stat2e1
+
+- name: Verify nm_add_stat2e1
+  assert:
+    that:
+    - nm_add_stat2e1 is changed
+    - nm_add_stat2e1.previous == {}
+    - nm_add_stat2e1.current.deploymentImmediacy == 'immediate'
+    - nm_add_stat2e1.current.portEncapVlan == 100
+    - nm_add_stat2e1.current.path ==  'topology/pod-2/paths-102/pathep-[eth1/2]'
+    - nm_add_stat2e1.current.mode == 'regular'
+    - nm_add_stat2e1.current.type == 'port'
+
+# QUERY STATIC PORTS
+- name: Query STATIC PORTS of site EPG1 with AP1 (normal mode)
+  mso_schema_site_anp_epg_bulk_staticport:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP1
+    epg: EPG1
+    state: query
+  register: nm_query_statse1
+
+- name: Verify nm_query_statse1
+  assert:
+    that:
+    - nm_query_statse1 is not changed

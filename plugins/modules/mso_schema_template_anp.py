@@ -171,7 +171,6 @@ def main():
             ops.append(dict(op="remove", path=anp_path))
 
     elif state == "present":
-
         if display_name is None and not mso.existing:
             display_name = anp
 

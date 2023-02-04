@@ -279,7 +279,6 @@ def main():
             ops.append(dict(op="remove", path=epg_path))
 
     elif state == "present":
-
         if private_link_label is not None:
             payload["privateLinkLabel"] = dict(name=private_link_label)
 

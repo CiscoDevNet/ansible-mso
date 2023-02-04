@@ -303,6 +303,7 @@ class MSOModule(object):
         self.response = None
         self.status = None
         self.url = None
+        self.httpapi_logs = list()
 
         if self.module._debug:
             self.module.warn("Enable debug output because ANSIBLE_DEBUG was set.")
@@ -556,6 +557,7 @@ class MSOModule(object):
             try:
                 info = self.connection.send_request(method, uri, json.dumps(data))
                 self.url = info.get("url")
+                self.httpapi_logs.extend(self.connection.pop_messages())
                 info.pop("date")
             except Exception as e:
                 try:
@@ -1119,6 +1121,7 @@ class MSOModule(object):
             self.result["response"] = self.response
             self.result["status"] = self.status
             self.result["url"] = self.url
+            self.result["httpapi_logs"] = self.httpapi_logs
             self.result["socket"] = self.module._socket_path
 
             if self.params.get("state") in ("absent", "present"):
@@ -1158,6 +1161,7 @@ class MSOModule(object):
                 self.result["response"] = self.response
                 self.result["status"] = self.status
                 self.result["url"] = self.url
+                self.result["httpapi_logs"] = self.httpapi_logs
                 self.result["socket"] = self.module._socket_path
 
             if self.params.get("state") in ("absent", "present"):
@@ -1241,7 +1245,6 @@ class MSOModule(object):
     # Workaround function due to inconsistency in attributes REQUEST/RESPONSE API
     # Fix for MSO Error 400: Bad Request: (0)(0)(0)(0)/deploymentImmediacy error.path.missing
     def find_dicts_with_target_key(self, target_dict, target, replace, result=None):
-
         if result is None:
             result = []
 
@@ -1260,7 +1263,6 @@ class MSOModule(object):
     # Workaround function due to inconsistency in attributes REQUEST/RESPONSE API
     # Fix for MSO Error 400: Bad Request: (0)(0)(0)(0)/deploymentImmediacy error.path.missing
     def replace_keys_in_dict(self, target, replace, target_dict=None):
-
         if target_dict is None:
             target_dict = self.existing
 
@@ -1271,7 +1273,6 @@ class MSOModule(object):
 
     # Workaround function to remove null/None fields returned by API RESPONSE
     def remove_keys_from_dict_when_value_empty(self, target_dict, modified_target=None):
-
         if modified_target is None:
             modified_target = deepcopy(target_dict)
 

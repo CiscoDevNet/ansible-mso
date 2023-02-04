@@ -15,7 +15,6 @@ Item = namedtuple("Item", "index details")
 
 class MSOSchema:
     def __init__(self, mso_module, schema_name, template_name=None, site_name=None):
-
         self.mso = mso_module
         self.schema_name = schema_name
         self.id, self.path, self.schema = mso_module.query_schema(schema_name)

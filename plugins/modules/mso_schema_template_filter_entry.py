@@ -292,7 +292,6 @@ def main():
             ops.append(dict(op="remove", path=entry_path))
 
     elif state == "present":
-
         if not mso.existing:
             if display_name is None:
                 display_name = entry
@@ -355,7 +354,7 @@ def main():
 
         else:
             # Entry exists, we have to update it
-            for (key, value) in mso.sent.items():
+            for key, value in mso.sent.items():
                 ops.append(dict(op="replace", path=entry_path + "/" + key, value=value))
 
         mso.existing = mso.proposed

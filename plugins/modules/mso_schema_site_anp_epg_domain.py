@@ -330,7 +330,6 @@ def main():
 
         # EPG at template level but not at site level. Create payload at site level for EPG
         else:
-
             new_epg = dict(
                 epgRef=dict(
                     schemaId=schema_id,

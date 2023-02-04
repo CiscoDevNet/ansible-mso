@@ -149,7 +149,6 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import SERVICE
 
 
 def main():
-
     argument_spec = mso_argument_spec()
     argument_spec.update(
         schema=dict(type="str", required=True),
@@ -219,19 +218,16 @@ def main():
         )
 
     if state == "query":
-
         mso.exit_json()
 
     mso.previous = mso.existing
 
     if state == "absent":
-
         if contract_obj.get("serviceGraphRelationship"):
             mso.existing = {}
             ops.append(dict(op="remove", path=service_graph_path))
 
     elif state == "present":
-
         service_nodes_relationship = []
         service_graph_template = service_graph_template.replace(" ", "") if service_graph_template else template_name
         service_graph_schema = service_graph_schema if service_graph_schema else schema

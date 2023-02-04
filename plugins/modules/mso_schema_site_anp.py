@@ -193,7 +193,6 @@ def main():
             ops.append(dict(op="remove", path=anp_path))
 
     elif state == "present":
-
         payload = dict(
             anpRef=dict(
                 schemaId=schema_id,

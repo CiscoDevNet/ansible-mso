@@ -177,7 +177,6 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import FILTER_
 
 
 def main():
-
     argument_spec = mso_argument_spec()
     argument_spec.update(
         schema=dict(type="str", required=True),
@@ -274,7 +273,6 @@ def main():
                 mso.existing = filter_obj
 
     if state == "query":
-
         if not contract_obj:
             existing_contracts = [c.get("name") for c in template_obj.get("contracts")]
             mso.fail_json(msg="Provided contract '{0}' does not exist. Existing contracts: {1}".format(contract_name, ", ".join(existing_contracts)))
@@ -293,7 +291,6 @@ def main():
     mso.previous = mso.existing
 
     if state == "absent":
-
         # Contracts need at least one filter left, remove contract if remove would lead 0 filters remaining.
         if contract_obj:
             if len(contract_obj.get(filter_key)) == 1:
@@ -304,7 +301,6 @@ def main():
                 ops.append(dict(op="remove", path=filter_path))
 
     elif state == "present":
-
         contract_scope = "context" if contract_scope == "vrf" else contract_scope
 
         # Initialize "present" state filter variables

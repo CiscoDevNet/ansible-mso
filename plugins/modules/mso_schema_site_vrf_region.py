@@ -242,7 +242,6 @@ def main():
             ops.append(dict(op="remove", path=region_path))
 
     elif state == "present":
-
         payload = dict(
             name=region,
             isVpnGatewayRouter=vpn_gateway_router,

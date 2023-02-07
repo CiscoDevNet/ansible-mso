@@ -198,7 +198,7 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["location_type", "remote", ["remote_location"]],
+            ["location_type", "remote", ["remote_location", "remote_path"]],
             ["state", "absent", ["backup", "backup_id"], True],
             ["state", "present", ["backup"]],
             ["state", "upload", ["backup", "backup_id"], True],
@@ -278,10 +278,19 @@ def main():
             mso.existing = mso.proposed
         else:
             try:
-                payload = dict(name=(os.path.basename(backup), open(backup, "rb"), "application/x-gzip"))
-                mso.existing = mso.request_upload("backups/upload", fields=payload)
-            except Exception:
-                mso.module.fail_json(msg="Backup file '{0}' not found!".format(", ".join(backup.split("/")[-1:])))
+                request_url = "backups/upload"
+                payload = dict()
+                if mso.platform == "nd":
+                    if remote_location is None or remote_path is None:
+                        mso.module.fail_json(msg="NDO backup upload failed: remote_location and remote_path is required for NDO backup upload")
+                    remote_location_info = mso.lookup_remote_location(remote_location)
+                    request_url = "backups/remoteUpload/{0}".format(remote_location_info.get("id"))
+                else:
+                    payload = dict(name=(os.path.basename(backup), open(backup, "rb"), "application/x-gzip"))
+
+                mso.existing = mso.request_upload(request_url, fields=payload)
+            except Exception as error:
+                mso.module.fail_json(msg="Upload failed due to: {0}, Backup file: '{1}'".format(error, ", ".join(backup.split("/")[-1:])))
         mso.exit_json()
 
     if len(mso.existing) == 0:

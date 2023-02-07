@@ -239,16 +239,18 @@ def mso_site_anp_epg_bulk_staticport_spec():
 
 
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
-def write_file(module, url, dest, content, resp):
+def write_file(module, url, dest, content, resp, tmpsrc=None):
     # create a tempfile with some test content
-    fd, tmpsrc = tempfile.mkstemp(dir=module.tmpdir)
-    f = open(tmpsrc, "wb")
-    try:
-        f.write(content)
-    except Exception as e:
-        os.remove(tmpsrc)
-        module.fail_json(msg="Failed to create temporary content file: {0}".format(to_native(e)))
-    f.close()
+
+    if tmpsrc is None and content is not None:
+        fd, tmpsrc = tempfile.mkstemp(dir=module.tmpdir)
+        f = open(tmpsrc, "wb")
+        try:
+            f.write(content)
+        except Exception as e:
+            os.remove(tmpsrc)
+            module.fail_json(msg="Failed to create temporary content file: {0}".format(to_native(e)))
+        f.close()
 
     checksum_src = None
     checksum_dest = None
@@ -317,13 +319,27 @@ class MSOModule(object):
         self.response = None
         self.status = None
         self.url = None
+        self.nd_base_path = None
         self.httpapi_logs = list()
 
         if self.module._debug:
             self.module.warn("Enable debug output because ANSIBLE_DEBUG was set.")
             self.params["output_level"] = "debug"
 
+        # Ensure protocol is set
+        self.params["protocol"] = "https" if self.params.get("use_ssl", True) else "http"
+
+        if self.params.get("host") is None:
+            self.fail_json(msg="Parameter 'host' is required when not using the HTTP API connection plugin")
+
+        # Set base_uri
+        if self.params.get("port") is not None:
+            self.base_only_uri = "{protocol}://{host}:{port}/".format(**self.params)
+        else:
+            self.base_only_uri = "{protocol}://{host}/".format(**self.params)
+
         if self.module._socket_path is None:
+            # Set MSO params
             if self.params.get("use_ssl") is None:
                 self.params["use_ssl"] = True
             if self.params.get("use_proxy") is None:
@@ -331,19 +347,7 @@ class MSOModule(object):
             if self.params.get("validate_certs") is None:
                 self.params["validate_certs"] = True
 
-            # Ensure protocol is set
-            self.params["protocol"] = "https" if self.params.get("use_ssl", True) else "http"
-
-            # Set base_uri
-            if self.params.get("port") is not None:
-                self.base_only_uri = "{protocol}://{host}:{port}/".format(**self.params)
-                self.baseuri = "{0}api/v1/".format(self.base_only_uri)
-            else:
-                self.base_only_uri = "{protocol}://{host}/".format(**self.params)
-                self.baseuri = "{0}api/v1/".format(self.base_only_uri)
-
-            if self.params.get("host") is None:
-                self.fail_json(msg="Parameter 'host' is required when not using the HTTP API connection plugin")
+            self.baseuri = "{0}api/v1/".format(self.base_only_uri)
 
             if self.params.get("password"):
                 # Perform password-based authentication, log on using password
@@ -351,9 +355,14 @@ class MSOModule(object):
             else:
                 self.fail_json(msg="Parameter 'password' is required for authentication")
         else:
+            # Set NDO params
             self.connection = Connection(self.module._socket_path)
             if self.connection.get_platform() == "cisco.nd":
                 self.platform = "nd"
+                self.nd_base_path = "mso/api/v1/"
+
+            # Set base_uri
+            self.baseuri = "{0}mso/api/v1/".format(self.base_only_uri)
 
     def get_login_domain_id(self, domain):
         """Get a domain and return its id"""
@@ -415,6 +424,8 @@ class MSOModule(object):
         redirected = False
         redir_info = {}
         redirect = {}
+        content = None
+        info = dict()
 
         src = self.params.get("src")
         if src:
@@ -429,77 +440,111 @@ class MSOModule(object):
         data = None
 
         kwargs = {}
-        if destination is not None:
-            if os.path.isdir(destination):
-                # first check if we are redirected to a file download
+        if os.path.isdir(destination):
+            # first check if we are redirected to a file download
+            if self.platform != "nd":
                 check, redir_info = fetch_url(self.module, self.url, headers=self.headers, method="GET", timeout=self.params.get("timeout"))
-                # if we are redirected, update the url with the location header,
-                # and update dest with the new url filename
-                if redir_info["status"] in (301, 302, 303, 307):
-                    self.url = redir_info.get("location")
-                    redirected = True
-                destination = os.path.join(destination, check.headers.get("Content-Disposition").split("filename=")[1])
-            # if destination file already exist, only download if file newer
-            if os.path.exists(destination):
-                kwargs["last_mod_time"] = datetime.datetime.utcfromtimestamp(os.path.getmtime(destination))
+                file_name = check.headers.get("Content-Disposition").split("filename=")[1]
+            else:
+                redir_info = json.loads(
+                    json.dumps(self.connection.get_remote_file_io_stream("/{0}{1}".format(self.nd_base_path, path), self.module.tmpdir, "GET"))
+                )
+                if redir_info.get("content-disposition"):
+                    file_name = redir_info.get("content-disposition").split("filename=")[1]
+                else:
+                    self.fail_json(msg="Failed to fetch NDO: {0} backup information, response: {1}".format(self.params.get("backup"), redir_info))
 
-        resp, info = fetch_url(
-            self.module,
-            self.url,
-            data=data,
-            headers=self.headers,
-            method="GET",
-            timeout=self.params.get("timeout"),
-            unix_socket=self.params.get("unix_socket"),
-            **kwargs
-        )
+            # if we are redirected, update the url with the location header and update dest with the new url filename
+            if redir_info["status"] in (301, 302, 303, 307):
+                self.url = redir_info.get("location")
+                redirected = True
+            destination = os.path.join(destination, file_name)
 
-        try:
-            content = resp.read()
-        except AttributeError:
-            # there was no content, but the error read() may have been stored in the info as 'body'
-            content = info.pop("body", "")
+        # if destination file already exist, only download if file newer
+        if os.path.exists(destination):
+            kwargs["last_mod_time"] = datetime.datetime.utcfromtimestamp(os.path.getmtime(destination))
 
-        if src:
-            # Try to close the open file handle
+        if redir_info["status"] == 200 and redirected is False and self.platform == "nd":
+            info = redir_info
+        elif self.platform == "nd":
+            info = json.loads(json.dumps(self.connection.get_remote_file_io_stream("/mso{0}".format(self.url.split("mso", 1)), self.module.tmpdir, "GET")))
+
+        # Removing the raw byte string from the response - for ND platform
+        if info.get("raw"):
+            info.pop("raw")
+
+        if self.platform != "nd":
+            resp, info = fetch_url(
+                self.module,
+                self.url,
+                data=data,
+                headers=self.headers,
+                method="GET",
+                timeout=self.params.get("timeout"),
+                unix_socket=self.params.get("unix_socket"),
+                **kwargs
+            )
+
             try:
-                data.close()
-            except Exception:
-                pass
+                content = resp.read()
+            except AttributeError:
+                # there was no content, but the error read() may have been stored in the info as 'body'
+                content = info.pop("body", "")
+
+            if src:
+                # Try to close the open file handle
+                try:
+                    data.close()
+                except Exception:
+                    pass
 
         redirect["redirected"] = redirected or info.get("url") != self.url
         redirect.update(redir_info)
         redirect.update(info)
 
-        write_file(self.module, self.url, destination, content, redirect)
+        write_file(self.module, self.url, destination, content, redirect, info.get("tmpsrc"))
 
         return redirect, destination
 
-    def request_upload(self, path, fields=None):
+    def request_upload(self, path, fields=None, method="POST"):
         """Generic HTTP MultiPart POST method for MSO uploads."""
         self.path = path
         self.url = urljoin(self.baseuri, path)
+        info = dict()
+        if self.platform == "nd":
+            try:
+                if os.path.exists(self.params.get("backup")):
+                    info = json.loads(
+                        json.dumps(
+                            self.connection.send_file_request(
+                                method, "/{0}{1}".format(self.nd_base_path, path), file=self.params.get("backup"), remote_path=self.params.get("remote_path")
+                            )
+                        )
+                    )
+                else:
+                    self.fail_json(msg="Upload failed due to: No such file or directory, Backup file: '{0}'".format(self.params.get("backup")))
+            except Exception as error:
+                self.fail_json("NDO upload failed due to: {0}".format(error))
+        else:
+            if not HAS_MULTIPART_ENCODER:
+                self.fail_json(msg="requests-toolbelt is required for the upload state of this module")
 
-        if not HAS_MULTIPART_ENCODER:
-            self.fail_json(msg="requests-toolbelt is required for the upload state of this module")
+            mp_encoder = MultipartEncoder(fields=fields)
+            self.headers["Content-Type"] = mp_encoder.content_type
+            self.headers["Accept-Encoding"] = "gzip, deflate, br"
 
-        mp_encoder = MultipartEncoder(fields=fields)
-        self.headers["Content-Type"] = mp_encoder.content_type
-        self.headers["Accept-Encoding"] = "gzip, deflate, br"
-
-        resp, info = fetch_url(
-            self.module,
-            self.url,
-            headers=self.headers,
-            data=mp_encoder,
-            method="POST",
-            timeout=self.params.get("timeout"),
-            use_proxy=self.params.get("use_proxy"),
-        )
+            resp, info = fetch_url(
+                self.module,
+                self.url,
+                headers=self.headers,
+                data=mp_encoder,
+                method=method,
+                timeout=self.params.get("timeout"),
+                use_proxy=self.params.get("use_proxy"),
+            )
 
         self.response = info.get("msg")
         self.status = info.get("status")
-
         # Get change status from HTTP headers
         if "modified" in info:
             self.has_modified = True
@@ -510,26 +555,34 @@ class MSOModule(object):
 
         # 200: OK, 201: Created, 202: Accepted, 204: No Content
         if self.status in (200, 201, 202, 204):
-            output = resp.read()
-            if output:
-                return json.loads(output)
+            if self.platform == "nd":
+                return info
+            else:
+                output = resp.read()
+                if output:
+                    return json.loads(output)
 
         # 400: Bad Request, 401: Unauthorized, 403: Forbidden,
         # 405: Method Not Allowed, 406: Not Acceptable
         # 500: Internal Server Error, 501: Not Implemented
-        elif self.status >= 400:
-            try:
-                payload = json.loads(resp.read())
-            except (ValueError, AttributeError):
+        elif self.status:
+            if self.status >= 400:
                 try:
-                    payload = json.loads(info.get("body"))
-                except Exception:
-                    self.fail_json(msg="MSO Error:", info=info)
-            if "code" in payload:
-                self.fail_json(msg="MSO Error {code}: {message}".format(**payload), info=info, payload=payload)
-            else:
-                self.fail_json(msg="MSO Error:".format(**payload), info=info, payload=payload)
-
+                    if self.platform == "nd":
+                        payload = info.get("body")
+                    else:
+                        payload = json.loads(resp.read())
+                except (ValueError, AttributeError):
+                    try:
+                        payload = json.loads(info.get("body"))
+                    except Exception:
+                        self.fail_json(msg="MSO Error:", info=info)
+                if "code" in payload:
+                    self.fail_json(msg="MSO Error {code}: {message}".format(**payload), info=info, payload=payload)
+                else:
+                    self.fail_json(msg="MSO Error:".format(**payload), info=info, payload=payload)
+        else:
+            self.fail_json(msg="Backup file upload failed due to: {0}".format(info))
         return {}
 
     def request(self, path, method=None, data=None, qs=None, api_version="v1"):
@@ -569,7 +622,7 @@ class MSOModule(object):
                 uri = uri + update_qs(qs)
 
             try:
-                info = self.connection.send_request(method, uri, json.dumps(data))
+                info = json.loads(json.dumps(self.connection.send_request(method, uri, json.dumps(data))))
                 self.url = info.get("url")
                 self.httpapi_logs.extend(self.connection.pop_messages())
                 info.pop("date")
@@ -1137,6 +1190,7 @@ class MSOModule(object):
             self.result["url"] = self.url
             self.result["httpapi_logs"] = self.httpapi_logs
             self.result["socket"] = self.module._socket_path
+            self.result["httpapi_logs"] = self.httpapi_logs
 
             if self.params.get("state") in ("absent", "present"):
                 self.result["sent"] = self.sent
@@ -1177,6 +1231,7 @@ class MSOModule(object):
                 self.result["url"] = self.url
                 self.result["httpapi_logs"] = self.httpapi_logs
                 self.result["socket"] = self.module._socket_path
+                self.result["httpapi_logs"] = self.httpapi_logs
 
             if self.params.get("state") in ("absent", "present"):
                 self.result["sent"] = self.sent

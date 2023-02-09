@@ -224,7 +224,7 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_site_anp_epg_bulk_staticport_spec
 from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 
 
@@ -250,6 +250,7 @@ def main():
         primary_micro_segment_vlan=dict(type="int"),  # This parameter is not required for querying all objects
         deployment_immediacy=dict(type="str", default="lazy", choices=["immediate", "lazy"]),
         mode=dict(type="str", default="untagged", choices=["native", "regular", "untagged"]),
+        staticport_configs=dict(type="list", elements="dict", options=mso_site_anp_epg_bulk_staticport_spec()),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -267,24 +268,25 @@ def main():
     template = module.params.get("template").replace(" ", "")
     anp = module.params.get("anp")
     epg = module.params.get("epg")
-    path_type = module.params.get("type")
-    pod = module.params.get("pod")
-    leaf = module.params.get("leaf")
-    fex = module.params.get("fex")
-    path = module.params.get("path")
-    vlan = module.params.get("vlan")
-    primary_micro_segment_vlan = module.params.get("primary_micro_segment_vlan")
-    deployment_immediacy = module.params.get("deployment_immediacy")
-    mode = module.params.get("mode")
+    module_path_type = module.params.get("type")
+    module_pod = module.params.get("pod")
+    module_leaf = module.params.get("leaf")
+    module_fex = module.params.get("fex")
+    module_path = module.params.get("path")
+    module_vlan = module.params.get("vlan")
+    module_primary_micro_segment_vlan = module.params.get("primary_micro_segment_vlan")
+    module_deployment_immediacy = module.params.get("deployment_immediacy")
+    module_mode = module.params.get("mode")
+    staticport_configs = module.params.get("staticport_configs")
     state = module.params.get("state")
 
-    if path_type == "port" and fex is not None:
-        # Select port path for fex if fex param is used
-        portpath = "topology/{0}/paths-{1}/extpaths-{2}/pathep-[{3}]".format(pod, leaf, fex, path)
-    elif path_type == "vpc":
-        portpath = "topology/{0}/protpaths-{1}/pathep-[{2}]".format(pod, leaf, path)
-    else:
-        portpath = "topology/{0}/paths-{1}/pathep-[{2}]".format(pod, leaf, path)
+    # if module_path_type == "port" and module_fex is not None:
+    #     # Select port module_path for module_fex if module_fex param is used
+    #     portpath = "topology/{0}/paths-{1}/extpaths-{2}/pathep-[{3}]".format(module_pod, module_leaf, module_fex, module_path)
+    # elif module_path_type == "vpc":
+    #     portpath = "topology/{0}/protpaths-{1}/pathep-[{2}]".format(module_pod, module_leaf, module_path)
+    # else:
+    #     portpath = "topology/{0}/paths-{1}/pathep-[{2}]".format(module_pod, module_leaf, module_path)
 
     mso = MSOModule(module)
 
@@ -298,7 +300,6 @@ def main():
 
     # Verifies if ANP exists at site level 
     mso_schema.set_site_anp(anp , fail_module=False) 
-
 
     payload = dict()
     ops = []
@@ -339,51 +340,84 @@ def main():
                 # If anp in payload, anp exists at site level. Update payload with EPG payload
                 payload["epgs"] = [new_epg]
     else:
-		# If anp and epg exists at site level
+		    # If anp and epg exists at site level
         epg_path = "{0}/{1}/epgs".format(anp_path, anp)
 
+    port_path = ""
+    staticport_list = []
 
-    # Get Leaf
-    # If anp at site level and epg is at site level
-    if "anpRef" not in payload and "epgRef" not in payload:
-        portpaths = [p.get("path") for p in mso_objects.get("site_anp_epg").details.get("staticPorts")]
-        if portpath in portpaths:
-            portpath_idx = portpaths.index(portpath)
-            port_path = "{0}/{1}/staticPorts/{2}".format(epg_path, epg, portpath_idx)
-            mso.existing = mso_objects.get("site_anp_epg").details.get("staticPorts")[portpath_idx]
+    for staticport_config in staticport_configs:
+        path_type = staticport_config.get("type") or module_path_type
+        pod = staticport_config.get("pod") or module_pod
+        leaf = staticport_config.get("leaf") or module_leaf
+        fex = staticport_config.get("fex") or module_fex
+        path = staticport_config.get("path") or module_path # Note : path has to be diffent for every object in the list
+        vlan = staticport_config.get("vlan") or module_vlan
+        primary_micro_segment_vlan = staticport_config.get("primary_micro_segment_vlan") or module_primary_micro_segment_vlan
+        deployment_immediacy = staticport_config.get("deployment_immediacy") or module_deployment_immediacy
+        mode = staticport_config.get("mode") or module_mode
+
+        if path_type == "port" and fex is not None:
+        # Select port path for fex if fex param is used
+            portpath = "topology/{0}/paths-{1}/extpaths-{2}/pathep-[{3}]".format(pod, leaf, fex, path)
+        elif path_type == "vpc":
+            portpath = "topology/{0}/protpaths-{1}/pathep-[{2}]".format(pod, leaf, path)
+        else:
+            portpath = "topology/{0}/paths-{1}/pathep-[{2}]".format(pod, leaf, path)
+
+        # Get Leaf
+        # If anp at site level and epg is at site level
+        if "anpRef" not in payload and "epgRef" not in payload:
+            portpaths = [p.get("path") for p in mso_objects.get("site_anp_epg").details.get("staticPorts")]
+            if portpath in portpaths:
+                portpath_idx = portpaths.index(portpath)
+                port_path = "{0}/{1}/staticPorts/{2}".format(epg_path, epg, portpath_idx)
+                mso.existing = mso_objects.get("site_anp_epg").details.get("staticPorts")[portpath_idx]
 
 
 
-    if state == "query":
-        if leaf is None or vlan is None:
-            mso.existing = mso_objects.get("site_anp_epg").details.get("staticPorts")
-        elif not mso.existing:
-            mso.fail_json(msg="Static port '{portpath}' not found".format(portpath=portpath))
-        mso.exit_json()
+        if state == "query":
+            if leaf is None or vlan is None:
+                mso.existing = mso_objects.get("site_anp_epg").details.get("staticPorts")
+            elif not mso.existing:
+                mso.fail_json(msg="Static port '{portpath}' not found".format(portpath=portpath))
+            mso.exit_json()
 
-    ports_path = "{0}/{1}/staticPorts".format(epg_path, epg)
+        ports_path = "{0}/{1}/staticPorts".format(epg_path, epg)
 
-    new_leaf = dict(
-        deploymentImmediacy=deployment_immediacy,
-        mode=mode,
-        path=portpath,
-        portEncapVlan=vlan,
-        type=path_type,
-    )
-    if primary_micro_segment_vlan:
-        new_leaf.update(microSegVlan=primary_micro_segment_vlan)
+        new_leaf = dict(
+            deploymentImmediacy=deployment_immediacy,
+            mode=mode,
+            path=portpath,
+            portEncapVlan=vlan,
+            type=path_type,
+        )
+
+        if primary_micro_segment_vlan:
+            new_leaf.update(microSegVlan=primary_micro_segment_vlan)
+
+        # validate and append staticports to staticport_list if path variable is different
+        if staticport_list == []:
+          staticport_list.append(new_leaf)
+        else:
+            same_path = True
+            for i in range(len(staticport_list)):
+                if staticport_list[i]["path"] != path:
+                    same_path = False
+            if not same_path:
+              staticport_list.append(new_leaf)
+            # else error out saying path has to be unique for each  staticport
 
     # If payload is empty, anp and EPG already exist at site level
     if not payload:
-        op_path = ports_path + "/-"
-        payload = new_leaf
-    # If payload exists
+        op_path = ports_path
+        payload = staticport_list
     else:
         # If anp already exists at site level
         if "anpRef" not in payload:
-            payload["staticPorts"] = [new_leaf]
+            payload["staticPorts"] = [staticport_list]
         else:
-            payload["epgs"][0]["staticPorts"] = [new_leaf]
+            payload["epgs"][0]["staticPorts"] = [staticport_list]
 
     mso.previous = mso.existing
 
@@ -393,7 +427,6 @@ def main():
             ops.append(dict(op="remove", path=port_path))
 
     elif state == "present":
-
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
@@ -401,7 +434,7 @@ def main():
         else:
             ops.append(dict(op="add", path=op_path, value=mso.sent))
 
-        mso.existing = new_leaf
+        mso.existing = mso.proposed
 
     if not module.check_mode:
         mso.request(mso_schema.path, method="PATCH", data=ops)

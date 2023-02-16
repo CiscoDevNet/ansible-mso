@@ -223,6 +223,7 @@ def mso_service_graph_connector_spec():
         consumer_template=dict(type="str"),
     )
 
+
 def mso_site_anp_epg_bulk_staticport_spec():
     return dict(
         type=dict(type="str", choices=["port", "vpc", "dpc"]),

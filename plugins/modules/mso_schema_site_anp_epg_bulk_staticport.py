@@ -13,9 +13,9 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: mso_schema_site_anp_epg_bulk_staticport
-short_description: Manage site-local EPG static ports in schema template
+short_description: Manage site-local EPG static ports in bulk in schema template
 description:
-- Manage site-local EPG static ports in schema template on Cisco ACI Multi-Site.
+- Manage site-local EPG static ports in bulk in schema template on Cisco ACI Multi-Site.
 author:
 - Anvitha Jain (@anvjain)
 options:
@@ -94,6 +94,62 @@ options:
     description:
     - Primary micro-seg VLAN of static port.
     type: int
+  static_ports:
+    description:
+    - List of static port configurations and elements in the form of a dictionary.
+    - Module level attributes will be overridden by the path level attributes.
+    - Making changes to an item in the list will update the whole payload.
+    type: list
+    elements: dict
+    suboptions:
+      type:
+        description:
+        - The path type of the static port
+        - vpc is used for a Virtual Port Channel
+        - dpc is used for a Direct Port Channel
+        - port is used for a single interface
+        type: str
+        choices: [ port, vpc, dpc ]
+      pod:
+        description:
+        - The pod of the static port.
+        type: str
+      leaf:
+        description:
+        - The leaf of the static port.
+        type: str
+      fex:
+        description:
+        - The fex id of the static port.
+        type: str
+      path:
+        description:
+        - The path of the static port.
+        - Path has to be unique for each static port in a particular leaf.
+        type: str
+      vlan:
+        description:
+        - The port encap VLAN id of the static port.
+        type: int
+      deployment_immediacy:
+        description:
+        - The deployment immediacy of the static port.
+        - C(immediate) means B(Deploy immediate).
+        - C(lazy) means B(deploy on demand).
+        type: str
+        choices: [ immediate, lazy ]
+      mode:
+        description:
+        - The mode of the static port.
+        - C(native) means B(Access (802.1p)).
+        - C(regular) means B(Trunk).
+        - C(untagged) means B(Access (untagged)).
+        type: str
+        choices: [ native, regular, untagged ]
+      primary_micro_segment_vlan:
+        description:
+        - Primary micro-seg VLAN of the static port.
+        type: int
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -128,6 +184,11 @@ EXAMPLES = r"""
     path: eth1/1
     vlan: 126
     deployment_immediacy: immediate
+    static_ports:
+      - path: eth1/2
+        leaf: 102
+      - path: eth1/3
+        vlan: 124
     state: present
   delegate_to: localhost
 
@@ -144,10 +205,15 @@ EXAMPLES = r"""
     type: port
     pod: pod-1
     leaf: 101
-    fex: 151
     path: eth1/1
     vlan: 126
     deployment_immediacy: lazy
+    static_ports:
+      - path: eth1/2
+        leaf: 102
+      - path: eth1/3
+        vlan: 124
+      - fex: 151
     state: present
   delegate_to: localhost
 
@@ -161,17 +227,27 @@ EXAMPLES = r"""
     template: Template1
     anp: ANP1
     epg: EPG1
+    type: port
     pod: pod-1
-    leaf: 101-102
-    path: ansible_polgrp
-    vlan: 127
-    type: vpc
-    mode: untagged
-    deployment_immediacy: lazy
+    leaf: 101
+    path: eth1/1
+    vlan: 126
+    static_ports:
+      - path: eth1/2
+        leaf: 102
+      - path: eth1/3
+        vlan: 124
+      - fex: 151
+      - leaf: 101-102
+        path: ansible_polgrp
+        vlan: 127
+        type: vpc
+        mode: untagged
+        deployment_immediacy: lazy
     state: present
   delegate_to: localhost
 
-- name: Remove a static port from a site EPG
+- name: Remove static ports from a site EPG
   cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
     host: mso_host
     username: admin
@@ -181,30 +257,8 @@ EXAMPLES = r"""
     template: Template1
     anp: ANP1
     epg: EPG1
-    type: port
-    pod: pod-1
-    leaf: 101
-    path: eth1/1
     state: absent
   delegate_to: localhost
-
-- name: Query a specific site EPG static port
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    host: mso_host
-    username: admin
-    password: SomeSecretPassword
-    schema: Schema1
-    site: Site1
-    template: Template1
-    anp: ANP1
-    epg: EPG1
-    type: port
-    pod: pod-1
-    leaf: 101
-    path: eth1/1
-    state: query
-  delegate_to: localhost
-  register: query_result
 
 - name: Query all site EPG static ports
   cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
@@ -226,11 +280,6 @@ RETURN = r"""
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_site_anp_epg_bulk_staticport_spec
 from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
-
-
-
-# from ansible.module_utils.basic import AnsibleModule
-# from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 
 
 def main():
@@ -289,8 +338,8 @@ def main():
     mso_schema.set_template_anp(anp)
     mso_schema.set_template_anp_epg(epg)
 
-    # Verifies if ANP exists at site level 
-    mso_schema.set_site_anp(anp , fail_module=False) 
+    # Verifies if ANP exists at site level
+    mso_schema.set_site_anp(anp, fail_module=False)
 
     payload = dict()
     ops = []
@@ -306,13 +355,13 @@ def main():
                 anpName=anp,
             ),
         )
-    else :
+    else:
         anp_path = "/sites/{0}-{1}/anps".format(mso_objects.get("site").details.get("siteId"), template)
-        mso_schema.set_site_anp_epg(epg, fail_module=False) 
+        mso_schema.set_site_anp_epg(epg, fail_module=False)
 
     # If anp already at site level AND if epg not at site level (or) anp not at site level
     if mso_objects.get("site_anp") and not mso_objects.get("site_anp_epg") or "anpRef" in payload:
-		# EPG at template level but not at site level. Create payload at site level for EPG
+        # EPG at template level but not at site level. Create payload at site level for EPG
         if mso_objects.get("template_anp_epg"):
             new_epg = dict(
                 epgRef=dict(
@@ -331,70 +380,65 @@ def main():
                 # If anp in payload, anp exists at site level. Update payload with EPG payload
                 payload["epgs"] = [new_epg]
     else:
-		    # If anp and epg exists at site level
+        # If anp and epg exists at site level
         epg_path = "{0}/{1}/epgs".format(anp_path, anp)
 
     ports_path = "{0}/{1}/staticPorts".format(epg_path, epg)
     staticport_list = []
+    unique_paths = []
 
     if static_ports is not None:
-      for static_port in static_ports:
-          path_type = static_port.get("type") or module_path_type
-          pod = static_port.get("pod") or module_pod
-          leaf = static_port.get("leaf") or module_leaf
-          fex = static_port.get("fex") or module_fex
-          path = static_port.get("path") or module_path # Note : path has to be diffent for every object in the list
-          vlan = static_port.get("vlan") or module_vlan
-          primary_micro_segment_vlan = static_port.get("primary_micro_segment_vlan") or module_primary_micro_segment_vlan
-          deployment_immediacy = static_port.get("deployment_immediacy") or module_deployment_immediacy
-          mode = static_port.get("mode") or module_mode
+        for static_port in static_ports:
+            path_type = static_port.get("type") or module_path_type
+            pod = static_port.get("pod") or module_pod
+            leaf = static_port.get("leaf") or module_leaf
+            fex = static_port.get("fex") or module_fex
+            path = static_port.get("path") or module_path  # Note :path has to be diffent for every static port in the list
+            vlan = static_port.get("vlan") or module_vlan
+            primary_micro_segment_vlan = static_port.get("primary_micro_segment_vlan") or module_primary_micro_segment_vlan
+            deployment_immediacy = static_port.get("deployment_immediacy") or module_deployment_immediacy
+            mode = static_port.get("mode") or module_mode
 
-          if path_type == "port" and fex is not None:
-          # Select port path for fex if fex param is used
-              portpath = "topology/{0}/paths-{1}/extpaths-{2}/pathep-[{3}]".format(pod, leaf, fex, path)
-          elif path_type == "vpc":
-              portpath = "topology/{0}/protpaths-{1}/pathep-[{2}]".format(pod, leaf, path)
-          else:
-              portpath = "topology/{0}/paths-{1}/pathep-[{2}]".format(pod, leaf, path)
+            if path_type == "port" and fex is not None:
+                # Select port path for fex if fex param is used
+                portpath = "topology/{0}/paths-{1}/extpaths-{2}/pathep-[{3}]".format(pod, leaf, fex, path)
+            elif path_type == "vpc":
+                portpath = "topology/{0}/protpaths-{1}/pathep-[{2}]".format(pod, leaf, path)
+            else:
+                portpath = "topology/{0}/paths-{1}/pathep-[{2}]".format(pod, leaf, path)
 
-          # Get Leaf
-          # If anp at site level and epg is at site level
-          if "anpRef" not in payload and "epgRef" not in payload:
-              portpaths = [p.get("path") for p in mso_objects.get("site_anp_epg").details.get("staticPorts")]
-              if portpath in portpaths:
-                  portpath_idx = portpaths.index(portpath)
-                  mso.existing = mso_objects.get("site_anp_epg").details.get("staticPorts")[portpath_idx]
+            # Get Leaf
+            # If anp at site level and epg is at site level
+            if "anpRef" not in payload and "epgRef" not in payload:
+                portpaths = [p.get("path") for p in mso_objects.get("site_anp_epg").details.get("staticPorts")]
+                if portpath in portpaths:
+                    portpath_idx = portpaths.index(portpath)
+                    mso.existing = mso_objects.get("site_anp_epg").details.get("staticPorts")[portpath_idx]
 
-          if state == "query":
-              if leaf is None or vlan is None:
-                  mso.existing = mso_objects.get("site_anp_epg").details.get("staticPorts")
-              elif not mso.existing:
-                  mso.fail_json(msg="Static port '{portpath}' not found".format(portpath=portpath))
-              mso.exit_json()
+            if state == "query":
+                if leaf is None or vlan is None:
+                    mso.existing = mso_objects.get("site_anp_epg").details.get("staticPorts")
+                elif not mso.existing:
+                    mso.fail_json(msg="Static port '{portpath}' not found".format(portpath=portpath))
+                mso.exit_json()
 
-          new_leaf = dict(
-              deploymentImmediacy=deployment_immediacy,
-              mode=mode,
-              path=portpath,
-              portEncapVlan=vlan,
-              type=path_type,
-          )
+            new_leaf = dict(
+                deploymentImmediacy=deployment_immediacy,
+                mode=mode,
+                path=portpath,
+                portEncapVlan=vlan,
+                type=path_type,
+            )
 
-          if primary_micro_segment_vlan:
-              new_leaf.update(microSegVlan=primary_micro_segment_vlan)
+            if primary_micro_segment_vlan:
+                new_leaf.update(microSegVlan=primary_micro_segment_vlan)
 
-          # validate and append staticports to staticport_list if path variable is different
-          if staticport_list == []:
-            staticport_list.append(new_leaf)
-          else:
-              same_path = True
-              for i in range(len(staticport_list)):
-                  if staticport_list[i]["path"] != path:
-                      same_path = False
-              if not same_path:
+            # validate and append staticports to staticport_list if path variable is different
+            if path in unique_paths:
+                mso.fail_json(msg="Path should be unique for each Static Port")
+            else:
+                unique_paths.append(path)
                 staticport_list.append(new_leaf)
-              else:
-                  mso.fail_json(msg="Path should be unique for each Static Port")
 
     # If payload is empty, anp and EPG already exist at site level
     if not payload:
@@ -414,7 +458,6 @@ def main():
             mso.sent = mso.existing = {}
             ops.append(dict(op="remove", path=ports_path))
 
-
     elif state == "present":
         mso.sanitize(payload, collate=True)
 
@@ -425,7 +468,7 @@ def main():
 
         mso.existing = mso.proposed
 
-    if not module.check_mode:
+    if not module.check_mode and mso.proposed != mso.previous:
         mso.request(mso_schema.path, method="PATCH", data=ops)
 
     mso.exit_json()

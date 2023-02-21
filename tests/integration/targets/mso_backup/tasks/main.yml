@@ -285,6 +285,7 @@
     state: query
   register: query_ansibleBackup_for_delete
 
+<<<<<<< HEAD
 - name: Delete all backups except for one to handle "Multiple backups with same name" during the download
   mso_backup:
     <<: *mso_info
@@ -292,6 +293,155 @@
     state: absent
   loop: '{{ query_ansibleBackup_for_delete.current[0:-1] | list | sort(attribute="name", reverse=True) }}'
   when: query_ansibleBackup_for_delete.current | length >= 2
+=======
+- name: Verify check_ansibleBackupRemote2
+  assert:
+    that:
+    - check_ansibleBackupRemote2.current[0].backupEntry.metadata.name is match ("ansibleBackupRemote2_[0-9a-zA-Z]*")
+
+# Move Local backup to Remote - Only for version < 3.2
+- name: Execute tasks only for MSO version < 3.2
+  when: version.current.version is version('3.2', '<')
+  block:
+    - name: Create ansibleBackupMove in normal mode
+      mso_backup:
+        <<: *mso_info
+        backup: ansibleBackupMove
+        description: Local to Remote via Ansible
+        location_type: local
+        state: present
+
+    - name: Query ansibleBackupMove to check if it exists
+      mso_backup:
+        <<: *mso_info
+        backup: ansibleBackupMove
+        state: query
+      register: check_ansibleBackupMove
+      until:
+      - check_ansibleBackupMove.current is defined
+      - check_ansibleBackupMove.current[0] is defined
+      - check_ansibleBackupMove.current[0].status.statusType == "success"
+      retries: 50
+      delay: 10
+
+    - name: Move backup from local to remote location in check mode
+      mso_backup:
+        <<: *mso_info
+        remote_location: ansible_test
+        remote_path: test
+        backup: ansibleBackupMove
+        description: Local to Remote via Ansible
+        state: move
+      check_mode: yes
+      when: version.current.version is version('3', '>=')
+      register: move_backup_cm
+
+    - name: Move backup from local to remote location in normal mode
+      mso_backup:
+        <<: *mso_info
+        remote_location: ansible_test
+        remote_path: test
+        backup: ansibleBackupMove
+        description: Local to Remote via Ansible
+        state: move
+      when: version.current.version is version('3', '>=')
+      register: move_backup_nm
+
+    - name: Move a non existent backup from local location to remote
+      mso_backup:
+        <<: *mso_info
+        backup: non_existent_backup
+        remote_location: ansible_test
+        remote_path: test
+        state: move
+      when: version.current.version is version('3', '>=')
+      register: move_non_existent_backup
+      ignore_errors: yes
+
+    - name: Move a ansibleBackup3 from local location to remote
+      mso_backup:
+        <<: *mso_info
+        backup: ansibleBackup3
+        remote_location: ansible_test
+        remote_path: test
+        state: move
+      when: version.current.version is version('3', '>=')
+      register: move_ansibleBackup3
+      ignore_errors: yes
+
+    - name: Verify move function of backup
+      assert:
+        that:
+        - move_backup_cm is changed
+        - move_backup_nm is changed
+        - move_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
+        - move_ansibleBackup3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
+      when: version.current.version is version('3', '>=')
+
+
+# Create Backups only for NDO version >= 3.2
+- name: Create Backups only for NDO version >= 3.2
+  when: version.current.version is version('3.2', '>=')
+  block:
+    - name: Create remote ansibleBackup3 in normal mode
+      mso_backup:
+        <<: *mso_info
+        backup: ansibleBackup3
+        description: via Ansible
+        location_type: remote
+        remote_location: ansible_test
+        remote_path: /tmp
+        state: present
+      register: nm_add_ansibleBackup3
+
+    - name: Query ansibleBackup3 to check if it exists
+      mso_backup:
+        <<: *mso_info
+        backup: ansibleBackup3
+        state: query
+      register: check_ansibleBackup3
+      until:
+      - check_ansibleBackup3.current is defined
+      - check_ansibleBackup3.current[0] is defined
+      - check_ansibleBackup3.current[0].status.statusType == "success"
+      retries: 50
+      delay: 10
+
+    - name: Verify nm_add_ansibleBackup3
+      assert:
+        that:
+        - nm_add_ansibleBackup3 is changed
+        - check_ansibleBackup3.current[0].backupEntry.metadata.name is match ("ansibleBackup3_[0-9a-zA-Z]*")
+
+    - name: Create remote ansibleBackup3 in normal mode again
+      mso_backup:
+        <<: *mso_info
+        backup: ansibleBackup3
+        description: via Ansible
+        location_type: remote
+        remote_location: ansible_test
+        remote_path: /tmp
+        state: present
+      register: nm_add_ansibleBackup3_again
+
+    - name: Query ansibleBackup3 to check if it exists again
+      mso_backup:
+        <<: *mso_info
+        backup: ansibleBackup3
+        state: query
+      register: check_ansibleBackup3_again
+      until:
+      - check_ansibleBackup3_again.current is defined
+      - check_ansibleBackup3_again.current[0] is defined
+      - check_ansibleBackup3_again.current[0].status.statusType == "success"
+      retries: 50
+      delay: 10
+
+    - name: Verify nm_add_ansibleBackup3_again
+      assert:
+        that:
+        - check_ansibleBackup3_again.current[0].backupEntry.metadata.name is match ("ansibleBackup3_[0-9a-zA-Z]*")
+>>>>>>> b9de242 (Removed unwanted when statements)
 
 # Download Backup
 - name: Create a directory if it does not exist

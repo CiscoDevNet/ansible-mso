@@ -82,6 +82,36 @@ class MSOSchema:
             self.mso.fail_json(msg=msg)
         self.schema_objects["template_bd"] = match
 
+    def set_template_anp(self, anp, fail_module=True):
+        """
+        Get template application profile item that matches the name of an anp.
+        :param anp: Name of the anp to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template anp item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template"])
+        kv_list = [KVPair("name", anp)]
+        match, existing = self.get_object_from_list(self.schema_objects["template"].details.get("anps"), kv_list)
+        if not match and fail_module:
+            msg = "Provided ANP '{0}' not matching existing anp(s): {1}".format(anp, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["template_anp"] = match
+
+    def set_template_anp_epg(self, epg, fail_module=True):
+        """
+        Get template endpoint group item that matches the name of an epg.
+        :param epg: Name of the epg to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template epg item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template_anp"])
+        kv_list = [KVPair("name", epg)]
+        match, existing = self.get_object_from_list(self.schema_objects["template_anp"].details.get("epgs"), kv_list)
+        if not match and fail_module:
+            msg = "Provided EPG '{0}' not matching existing epg(s): {1}".format(epg, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["template_anp_epg"] = match
+
     def set_site(self, template_name, site_name, fail_module=True):
         """
         Get site item that matches the name of a site.
@@ -132,3 +162,33 @@ class MSOSchema:
             msg = "Provided subnet '{0}' not matching existing site bd subnet(s): {1}".format(subnet, ", ".join(existing))
             self.mso.fail_json(msg=msg)
         self.schema_objects["site_bd_subnet"] = match
+
+    def set_site_anp(self, anp_name, fail_module=True):
+        """
+        Get site application profile item that matches the name of a anp.
+        :param anp_name: Name of the anp to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Site anp item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template_anp", "site"])
+        kv_list = [KVPair("anpRef", self.schema_objects["template_anp"].details.get("anpRef"))]
+        match, existing = self.get_object_from_list(self.schema_objects["site"].details.get("anps"), kv_list)
+        if not match and fail_module:
+            msg = "Provided ANP '{0}' not matching existing site anp(s): {1}".format(anp_name, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["site_anp"] = match
+
+    def set_site_anp_epg(self, epg_name, fail_module=True):
+        """
+        Get site anp epg item that matches the epgs.
+        :param epg: epg to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Site anp epg item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["site_anp", "template_anp_epg"])
+        kv_list = [KVPair("epgRef", self.schema_objects["template_anp_epg"].details.get("epgRef"))]
+        match, existing = self.get_object_from_list(self.schema_objects["site_anp"].details.get("epgs"), kv_list)
+        if not match and fail_module:
+            msg = "Provided EPG '{0}' not matching existing site anp epg(s): {1}".format(epg_name, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["site_anp_epg"] = match

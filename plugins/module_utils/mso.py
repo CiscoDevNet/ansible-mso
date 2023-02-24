@@ -224,6 +224,20 @@ def mso_service_graph_connector_spec():
     )
 
 
+def mso_site_anp_epg_bulk_staticport_spec():
+    return dict(
+        type=dict(type="str", choices=["port", "vpc", "dpc"]),
+        pod=dict(type="str"),  # This parameter is not required for querying all objects
+        leaf=dict(type="str"),  # This parameter is not required for querying all objects
+        fex=dict(type="str"),  # This parameter is not required for querying all objects
+        path=dict(type="str"),  # This parameter is not required for querying all objects
+        vlan=dict(type="int"),  # This parameter is not required for querying all objects
+        primary_micro_segment_vlan=dict(type="int"),  # This parameter is not required for querying all objects
+        deployment_immediacy=dict(type="str", choices=["immediate", "lazy"]),
+        mode=dict(type="str", choices=["native", "regular", "untagged"]),
+    )
+
+
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp):
     # create a tempfile with some test content

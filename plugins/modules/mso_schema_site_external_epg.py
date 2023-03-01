@@ -64,6 +64,51 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
+- Add a Site External EPG
+  cisco.mso.mso_schema_site_external_epg:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: ansible_test
+    template: Template1
+    external_epg: ext_epg_1
+    l3out: L3out1
+    state: present
+  delegate_to: localhost
+
+- Remove a Site External EPG
+  cisco.mso.mso_schema_site_external_epg:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: ansible_test
+    template: Template1
+    external_epg: ext_epg_1
+    l3out: L3out1
+    state: absent
+  delegate_to: localhost
+
+- Query a Site External EPG
+  cisco.mso.mso_schema_site_external_epg:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: ansible_test
+    template: Template1
+    external_epg: ext_epg_1
+    l3out: L3out1
+    state: query
+  delegate_to: localhost
+
+- Qury all Site External EPGs
+  cisco.mso.mso_schema_site_external_epg:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: ansible_test
+    template: Template1
+    state: query
+  delegate_to: localhost
 """
 
 RETURN = r"""

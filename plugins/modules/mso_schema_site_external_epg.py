@@ -44,6 +44,13 @@ options:
     - The name of the site.
     type: str
     required: yes
+  route_reachability:
+    description:
+    - Configures the routing process
+    - Only available when mso_schema_template_external_epg argument 'type=cloud' and the template is associated with azure site.
+    type: str
+    choices: [ internet, site-ext ]
+    default: internet
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -74,6 +81,7 @@ def main():
         site=dict(type="str", required=True),
         l3out=dict(type="str"),
         external_epg=dict(type="str", aliases=["name"]),
+        route_reachability=dict(type="str", default="internet", choices=["internet", "site-ext"]),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -91,6 +99,7 @@ def main():
     site = module.params.get("site")
     external_epg = module.params.get("external_epg")
     l3out = module.params.get("l3out")
+    route_reachability = module.params.get("route_reachability")
     state = module.params.get("state")
 
     mso = MSOModule(module)
@@ -105,15 +114,14 @@ def main():
 
     # Get template
     templates = [t.get("name") for t in schema_obj.get("templates")]
-    if template:
-        if template in templates:
-            template_idx = templates.index(template)
-            path = "tenants/{0}".format(schema_obj.get("templates")[template_idx]["tenantId"])
-            tenant_name = mso.request(path, method="GET").get("name")
-    else:
+    if template not in templates:
         mso.fail_json(
             msg="Provided template '{template}' does not exist. Existing templates: {templates}".format(template=template, templates=", ".join(templates))
         )
+    else:
+        template_idx = templates.index(template)
+        path = "tenants/{0}".format(schema_obj.get("templates")[template_idx]["tenantId"])
+        tenant_name = mso.request(path, method="GET").get("name")
 
     # Get site
     site_id = mso.lookup_site(site)
@@ -122,8 +130,12 @@ def main():
     if not schema_obj.get("sites"):
         mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
     sites = [(s.get("siteId"), s.get("templateName")) for s in schema_obj.get("sites")]
+    sites_list = [s.get("siteId") + "/" + s.get("templateName") for s in schema_obj.get("sites")]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ", ".join(templates)))
+        mso.fail_json(
+            msg="Provided site/siteId/template '{0}/{1}/{2}' does not exist. "
+            "Existing siteIds/templates: {3}".format(site, site_id, template, ", ".join(sites_list))
+        )
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
@@ -173,6 +185,7 @@ def main():
                 templateName=template,
                 l3outName=l3out,
             ),
+            routeReachabilityInternetType=route_reachability,
         )
 
         mso.sanitize(payload, collate=True)

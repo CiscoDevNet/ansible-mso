@@ -19,7 +19,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   mso_version:
@@ -47,16 +47,16 @@
     - https://{{ apic_hostname }}
     state: present
 
-- name: Ensure sites removed from tenant ansible_test
-  mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: '{{ item }}'
-    state: absent
-  loop:
-    - '{{ mso_site | default("ansible_test") }}'
-    - 'aws_{{ mso_site | default("ansible_test") }}'
-    - 'azure_{{ mso_site | default("ansible_test") }}'
+# - name: Ensure sites removed from tenant ansible_test
+#   mso_tenant_site:
+#     <<: *mso_info
+#     tenant: ansible_test
+#     site: '{{ item }}'
+#     state: absent
+#   loop:
+#     - '{{ mso_site | default("ansible_test") }}'
+#     - 'aws_{{ mso_site | default("ansible_test") }}'
+#     - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
   mso_tenant:
@@ -67,7 +67,7 @@
     sites:
     - '{{ mso_site | default("ansible_test") }}'
     state: present
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Associate non-cloud site with ansible_test
   mso_tenant_site:
@@ -89,7 +89,7 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: '{{ item }}'
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - Template2
   - Template1
@@ -490,7 +490,7 @@
       l3out: L3out1
       state: query
     check_mode: yes
-    ignore_errors: yes
+    ignore_errors: true
     register: cm_query_non_external_epg
 
   - name: Query non-existing External EPG (normal_mode)
@@ -502,7 +502,7 @@
       external_epg: non_existing_epg
       l3out: L3out1
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_query_non_external_epg
 
   - name: Verify cm_query_non_external_epg and nm_query_non_external_epg
@@ -522,7 +522,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: non_existing_state
-    ignore_errors: yes
+    ignore_errors: true
     register: cm_non_existing_state
 
   - name: non_existing_state state (normal_mode)
@@ -534,7 +534,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: non_existing_state
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_state
 
   - name: Verify cm_non_existing_state and nm_non_existing_state
@@ -555,10 +555,10 @@
       l3out: L3out1
       state: query
     check_mode: yes
-    ignore_errors: yes
+    ignore_errors: true
     register: cm_non_existing_template
 
-  - name: non_existing_template (normal_mode)
+  - name: non_existing_template site association(normal_mode)
     mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -567,7 +567,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_template
 
   - name: Verify cm_non_existing_template and nm_non_existing_template
@@ -588,7 +588,7 @@
       l3out: L3out1
       state: query
     check_mode: yes
-    ignore_errors: yes
+    ignore_errors: true
     register: cm_non_existing_schema
 
   - name: non_existing_schema (normal_mode)
@@ -600,7 +600,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_schema
 
   - name: Verify cm_non_existing_schema and nm_non_existing_schema
@@ -621,7 +621,7 @@
       l3out: L3out1
       state: query
     check_mode: yes
-    ignore_errors: yes
+    ignore_errors: true
     register: cm_non_existing_site
 
   - name: non_existing_site (normal_mode)
@@ -633,7 +633,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_site
 
   - name: Verify cm_non_existing_site and nm_non_existing_site
@@ -654,7 +654,7 @@
       l3out: L3out1
       state: query
     check_mode: yes
-    ignore_errors: yes
+    ignore_errors: true
     register: cm_non_existing_site_template
 
   - name: non_existing_site_template (normal_mode)
@@ -666,7 +666,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_site_template
 
   - name: Verify cm_non_existing_site_template and nm_non_existing_site_template
@@ -674,7 +674,7 @@
       that:
       - cm_non_existing_site_template is not changed
       - nm_non_existing_site_template is not changed
-      - cm_non_existing_site_template.msg == nm_non_existing_site_template.msg == "Provided template 'Template3' does not exist. Existing templates{{':'}} Template1, Template2, Template3"
+      - cm_non_existing_site_template.msg == nm_non_existing_site_template.msg == "Provided site/siteId/template 'ansible_test/6398a4b9f1ca793733c7d609/Template3' does not exist. Existing siteIds/templates{{':'}} 6398a4b9f1ca793733c7d609/Template1, 6398a4b9f1ca793733c7d609/Template2"
 
   # USE A TEMPLATE WITHOUT ANY SITE
   - name: Add site L3Out to Schema Template2 without any site associated (check mode)
@@ -687,7 +687,7 @@
       l3out: L3out1
       state: present
     check_mode: yes
-    ignore_errors: yes
+    ignore_errors: true
     register: cm_no_site_associated
 
   - name: Add site L3Out to Template2 without any site associated (normal mode)
@@ -699,7 +699,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: present
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_no_site_associated
 
   - name: Verify cm_no_site_associated and nm_no_site_associated
@@ -707,4 +707,79 @@
       that:
       - cm_no_site_associated is not changed
       - nm_no_site_associated is not changed
-      - cm_no_site_associated.msg == nm_no_site_associated.msg == "Provided template 'Template3' does not exist. Existing templates{{':'}} Template1, Template2, Template3"
+      - cm_no_site_associated.msg == nm_no_site_associated.msg == "Provided site/siteId/template 'ansible_test/6398a4b9f1ca793733c7d609/Template3' does not exist. Existing siteIds/templates{{':'}} 6398a4b9f1ca793733c7d609/Template1, 6398a4b9f1ca793733c7d609/Template2"
+
+# Verify route_reachability argument when template_external_epg is associated with Azure site and
+# template_external_epg type argument is set to cloud
+
+- name: Ensure ANP exists
+  mso_schema_template_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template2
+    anp: ANP2
+    state: present
+
+- name: Ensure VRF3 exists
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template3
+    vrf: VRF3
+    state: present
+
+- name: Ensure L3Out3 Exists
+  mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template3
+    vrf:
+      name: VRF3
+    l3out: L3out3
+    state: present
+
+- name: Add external EPG4 at template4 level type cloud (normal mode)
+  mso_schema_template_external_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template3
+    external_epg: ext_epg_3
+    type: cloud
+    vrf:
+      name: VRF3
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template3
+    anp:
+      name: ANP3
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template3
+    state: present
+  register: nm_add_ext_epg_3
+
+- name: Add azure site to a schema Template3
+  mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    template: Template3
+    state: present
+  when: version.current.version is version('3.3', '>=')
+  register: add_cloud_site
+
+- name: Add external EPG to site (normal mode)
+  mso_schema_site_external_epg: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    template: Template3
+    external_epg: ext_epg_3
+    route_reachability: site-ext
+    l3out: L3out3
+    state: present
+  register: nm_add_ext_epg_site
+
+- name: Verify nm_add_ext_epg_site
+  assert:
+    that:
+    - nm_add_ext_epg_site.current.externalEpgRef.externalEpgName == "ext_epg_3"
+    - nm_add_ext_epg_site.current.routeReachabilityInternetType == "site-ext"

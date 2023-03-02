@@ -6,6 +6,8 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
+from copy import deepcopy
+
 __metaclass__ = type
 
 ANSIBLE_METADATA = {'metadata_version': '1.1',
@@ -131,10 +133,15 @@ def main():
     state = module.params.get('state')
 
     mso = MSOModule(module)
-
     # Convert sites and users
     sites = mso.lookup_sites(module.params.get('sites'))
-    users = mso.lookup_users(module.params.get('users'))
+    # users = mso.lookup_users(module.params.get('users'))
+    get_users = module.params.get('users')
+    if not get_users:
+        get_users = []
+        get_users.append(module.params.get('username'))
+
+    new_users = mso.lookup_users(get_users)
 
     tenant_id = None
     path = 'tenants'
@@ -163,6 +170,14 @@ def main():
     elif state == 'present':
         mso.previous = mso.existing
 
+        if mso.existing:
+            users = deepcopy(mso.existing['userAssociations'])
+            for new_user in new_users:
+                if new_user not in users:
+                    users.append(new_user)
+        else:
+            users = new_users
+
         payload = dict(
             description=description,
             id=tenant_id,
@@ -173,7 +188,6 @@ def main():
         )
 
         mso.sanitize(payload, collate=True)
-
         # Ensure displayName is not undefined
         if mso.sent.get('displayName') is None:
             mso.sent['displayName'] = tenant

@@ -47,16 +47,16 @@
     - https://{{ apic_hostname }}
     state: present
 
-# - name: Ensure sites removed from tenant ansible_test
-#   mso_tenant_site:
-#     <<: *mso_info
-#     tenant: ansible_test
-#     site: '{{ item }}'
-#     state: absent
-#   loop:
-#     - '{{ mso_site | default("ansible_test") }}'
-#     - 'aws_{{ mso_site | default("ansible_test") }}'
-#     - 'azure_{{ mso_site | default("ansible_test") }}'
+- name: Ensure sites removed from tenant ansible_test
+  mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ mso_site | default("ansible_test") }}'
+    - 'aws_{{ mso_site | default("ansible_test") }}'
+    - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
   mso_tenant:
@@ -397,6 +397,23 @@
       state: absent
     register: nm_remove_epg
 
+  - name: Add site external EPG without L3Out when template external EPG type is on-premise (normal_mode)
+    mso_schema_site_external_epg:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      external_epg: ansible_test_1
+      state: present
+    ignore_errors: true
+    register: nm_add_epg_no_l3out
+
+  - name: Verify nm_add_epg_no_l3out
+    assert:
+      that:
+      - nm_add_epg_no_l3out is not changed
+      - nm_add_epg_no_l3out.msg == "L3Out cannot be empty when template external EPG type is 'on-premise'."
+
   - name: Remove external EPG at template level
     mso_schema_template_external_epg:
       <<: *mso_info
@@ -711,7 +728,6 @@
 
 # Verify route_reachability argument when template_external_epg is associated with Azure site and
 # template_external_epg type argument is set to cloud
-
 - name: Ensure ANP exists
   mso_schema_template_anp:
     <<: *mso_info
@@ -738,7 +754,7 @@
     l3out: L3out3
     state: present
 
-- name: Add external EPG4 at template4 level type cloud (normal mode)
+- name: Add external EPG3 at template3 level type cloud (normal mode)
   mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -774,7 +790,6 @@
     template: Template3
     external_epg: ext_epg_3
     route_reachability: site-ext
-    l3out: L3out3
     state: present
   register: nm_add_ext_epg_site
 

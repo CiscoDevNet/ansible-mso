@@ -33,6 +33,7 @@ options:
   l3out:
     description:
     - The L3Out associated with the external epg.
+    - Required when site is of type on-premise.
     type: str
   external_epg:
     description:
@@ -46,8 +47,8 @@ options:
     required: yes
   route_reachability:
     description:
-    - Configures the routing process
-    - Only available when mso_schema_template_external_epg argument 'type=cloud' and the template is associated with azure site.
+    - Configures if an external EPG route is pointing to the internet or to an external remote network.
+    - Only available when associated with an azure site.
     type: str
     choices: [ internet, site-ext ]
     default: internet
@@ -64,49 +65,49 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-- Add a Site External EPG
+- name: Add a Site External EPG
   cisco.mso.mso_schema_site_external_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    schema: ansible_test
-    template: Template1
-    external_epg: ext_epg_1
+    schema: Schema 1
+    template: Template 1
+    external_epg: External EPG 1
     l3out: L3out1
     state: present
   delegate_to: localhost
 
-- Remove a Site External EPG
+- name: Remove a Site External EPG
   cisco.mso.mso_schema_site_external_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    schema: ansible_test
-    template: Template1
-    external_epg: ext_epg_1
+    schema: Schema 1
+    template: Template 1
+    external_epg: External EPG 1
     l3out: L3out1
     state: absent
   delegate_to: localhost
 
-- Query a Site External EPG
+- name: Query a Site External EPG
   cisco.mso.mso_schema_site_external_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    schema: ansible_test
-    template: Template1
-    external_epg: ext_epg_1
+    schema: Schema 1
+    template: Template 1
+    external_epg: External EPG 1
     l3out: L3out1
     state: query
   delegate_to: localhost
 
-- Qury all Site External EPGs
+- name: Query all Site External EPGs
   cisco.mso.mso_schema_site_external_epg:
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    schema: ansible_test
-    template: Template1
+    schema: Schema 1
+    template: Template 1
     state: query
   delegate_to: localhost
 """
@@ -135,7 +136,7 @@ def main():
         supports_check_mode=True,
         required_if=[
             ["state", "absent", ["external_epg"]],
-            ["state", "present", ["external_epg", "l3out"]],
+            ["state", "present", ["external_epg"]],
         ],
     )
 
@@ -149,13 +150,8 @@ def main():
 
     mso = MSOModule(module)
 
-    # Get schema_id
-    schema_obj = mso.get_obj("schemas", displayName=schema)
-    if not schema_obj:
-        mso.fail_json(msg="Provided schema '{0}' does not exist.".format(schema))
-
-    schema_path = "schemas/{id}".format(**schema_obj)
-    schema_id = schema_obj.get("id")
+    # Get schema
+    schema_id, schema_path, schema_obj = mso.query_schema(schema)
 
     # Get template
     templates = [t.get("name") for t in schema_obj.get("templates")]
@@ -201,6 +197,7 @@ def main():
         op_path = "/sites/{0}/externalEpgs/{1}".format(site_template, external_epg)
 
     ops = []
+    l3out_dn = ""
 
     if state == "query":
         if external_epg is None:
@@ -217,7 +214,17 @@ def main():
             ops.append(dict(op="remove", path=op_path))
 
     elif state == "present":
-        l3out_dn = "uni/tn-{0}/out-{1}".format(tenant_name, l3out)
+        # Get external EPGs type from template level
+        external_epgs = [e.get("name") for e in schema_obj.get("templates")[template_idx]["externalEpgs"]]
+        if external_epg is not None and external_epg in external_epgs:
+            external_epg_idx = external_epgs.index(external_epg)
+            ext_epg_type = schema_obj.get("templates")[template_idx]["externalEpgs"][external_epg_idx].get("extEpgType")
+            if ext_epg_type != "cloud":
+                if l3out is not None:
+                    l3out_dn = "uni/tn-{0}/out-{1}".format(tenant_name, l3out)
+                else:
+                    mso.fail_json(msg="L3Out cannot be empty when template external EPG type is 'on-premise'.")
+
         payload = dict(
             externalEpgRef=dict(
                 schemaId=schema_id,

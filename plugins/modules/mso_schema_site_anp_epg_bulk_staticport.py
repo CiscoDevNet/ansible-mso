@@ -307,7 +307,7 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "present", ["pod", "leaf", "path", "vlan"]],
+            ["state", "present", ["pod", "leaf", "path", "vlan", "static_ports"]],
         ],
     )
 

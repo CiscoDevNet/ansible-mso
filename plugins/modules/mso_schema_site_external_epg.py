@@ -117,6 +117,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 
 
 def main():
@@ -150,58 +151,34 @@ def main():
 
     mso = MSOModule(module)
 
-    # Get schema
-    schema_id, schema_path, schema_obj = mso.query_schema(schema)
+    mso_schema = MSOSchema(mso, schema, template, site)
+    mso_objects = mso_schema.schema_objects
 
-    # Get template
-    templates = [t.get("name") for t in schema_obj.get("templates")]
-    if template not in templates:
-        mso.fail_json(
-            msg="Provided template '{template}' does not exist. Existing templates: {templates}".format(template=template, templates=", ".join(templates))
-        )
-    else:
-        template_idx = templates.index(template)
-        path = "tenants/{0}".format(schema_obj.get("templates")[template_idx]["tenantId"])
-        tenant_name = mso.request(path, method="GET").get("name")
+    mso_schema.set_template_external_epg(external_epg, fail_module=False)
 
-    # Get site
-    site_id = mso.lookup_site(site)
-
-    # Get site_idx
-    if not schema_obj.get("sites"):
-        mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
-    sites = [(s.get("siteId"), s.get("templateName")) for s in schema_obj.get("sites")]
-    sites_list = [s.get("siteId") + "/" + s.get("templateName") for s in schema_obj.get("sites")]
-    if (site_id, template) not in sites:
-        mso.fail_json(
-            msg="Provided site/siteId/template '{0}/{1}/{2}' does not exist. "
-            "Existing siteIds/templates: {3}".format(site, site_id, template, ", ".join(sites_list))
-        )
-
-    # Schema-access uses indexes
-    site_idx = sites.index((site_id, template))
     # Path-based access uses site_id-template
-    site_template = "{0}-{1}".format(site_id, template)
+    site_template = "{0}-{1}".format(mso_objects.get("site").details.get("siteId"), template)
 
     payload = dict()
     op_path = "/sites/{0}/externalEpgs/-".format(site_template)
 
-    # Get External EPG
-    ext_epg_ref = mso.ext_epg_ref(schema_id=schema_id, template=template, external_epg=external_epg)
-    external_epgs = [e.get("externalEpgRef") for e in schema_obj.get("sites")[site_idx]["externalEpgs"]]
+    # Get template External EPG
+    if mso_objects.get("template_external_epg") is not None:
+        ext_epg_ref = mso_objects.get("template_external_epg").details.get("externalEpgRef")
+        external_epgs = [e.get("externalEpgRef") for e in mso_objects.get("site").details.get("externalEpgs")]
 
-    if ext_epg_ref in external_epgs:
-        external_epg_idx = external_epgs.index(ext_epg_ref)
-        # Get External EPG
-        mso.existing = schema_obj["sites"][site_idx]["externalEpgs"][external_epg_idx]
-        op_path = "/sites/{0}/externalEpgs/{1}".format(site_template, external_epg)
+        # Get Site External EPG
+        if ext_epg_ref in external_epgs:
+            external_epg_idx = external_epgs.index(ext_epg_ref)
+            mso.existing = mso_objects.get("site").details.get("externalEpgs")[external_epg_idx]
+            op_path = "/sites/{0}/externalEpgs/{1}".format(site_template, external_epg)
 
     ops = []
     l3out_dn = ""
 
     if state == "query":
         if external_epg is None:
-            mso.existing = schema_obj.get("sites")[site_idx]["externalEpgs"]
+            mso.existing = mso_objects.get("site").details.get("externalEpgs")
         elif not mso.existing:
             mso.fail_json(msg="External EPG '{external_epg}' not found".format(external_epg=external_epg))
         mso.exit_json()
@@ -214,26 +191,24 @@ def main():
             ops.append(dict(op="remove", path=op_path))
 
     elif state == "present":
-        # Get external EPGs type from template level
-        external_epgs = [e.get("name") for e in schema_obj.get("templates")[template_idx]["externalEpgs"]]
-        if external_epg is not None and external_epg in external_epgs:
-            external_epg_idx = external_epgs.index(external_epg)
-            ext_epg_type = schema_obj.get("templates")[template_idx]["externalEpgs"][external_epg_idx].get("extEpgType")
-            if ext_epg_type != "cloud":
-                if l3out is not None:
-                    l3out_dn = "uni/tn-{0}/out-{1}".format(tenant_name, l3out)
-                else:
-                    mso.fail_json(msg="L3Out cannot be empty when template external EPG type is 'on-premise'.")
+        # Get external EPGs type from template level and verify template_external_epg type.
+        if mso_objects.get("template_external_epg").details.get("extEpgType") != "cloud":
+            if l3out is not None:
+                path = "tenants/{0}".format(mso_objects.get("template").details.get("tenantId"))
+                tenant_name = mso.request(path, method="GET").get("name")
+                l3out_dn = "uni/tn-{0}/out-{1}".format(tenant_name, l3out)
+            else:
+                mso.fail_json(msg="L3Out cannot be empty when template external EPG type is 'on-premise'.")
 
         payload = dict(
             externalEpgRef=dict(
-                schemaId=schema_id,
+                schemaId=mso_schema.id,
                 templateName=template,
                 externalEpgName=external_epg,
             ),
             l3outDn=l3out_dn,
             l3outRef=dict(
-                schemaId=schema_id,
+                schemaId=mso_schema.id,
                 templateName=template,
                 l3outName=l3out,
             ),
@@ -250,7 +225,7 @@ def main():
         mso.existing = mso.proposed
 
     if not module.check_mode and mso.proposed != mso.previous:
-        mso.request(schema_path, method="PATCH", data=ops)
+        mso.request(mso_schema.path, method="PATCH", data=ops)
 
     mso.exit_json()
 

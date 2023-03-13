@@ -21,6 +21,7 @@ description:
 author:
 - Shreyas Srish (@shrsr)
 - Lionel Hercot (@lhercot)
+- Sabari Jaganathan (@sajagana)
 options:
   location_type:
     description:

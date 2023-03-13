@@ -420,7 +420,6 @@ class MSOModule(object):
         redir_info = {}
         redirect = {}
         content = None
-        info = dict()
 
         src = self.params.get("src")
         if src:
@@ -430,9 +429,7 @@ class MSOModule(object):
             except OSError:
                 self.fail_json(msg="Unable to open source file %s" % src, elapsed=0)
         else:
-            pass
-
-        data = None
+            data = None
 
         kwargs = {}
         if destination is not None and os.path.isdir(destination):
@@ -1181,7 +1178,6 @@ class MSOModule(object):
             self.result["url"] = self.url
             self.result["httpapi_logs"] = self.httpapi_logs
             self.result["socket"] = self.module._socket_path
-            self.result["httpapi_logs"] = self.httpapi_logs
 
             if self.params.get("state") in ("absent", "present"):
                 self.result["sent"] = self.sent
@@ -1222,7 +1218,6 @@ class MSOModule(object):
                 self.result["url"] = self.url
                 self.result["httpapi_logs"] = self.httpapi_logs
                 self.result["socket"] = self.module._socket_path
-                self.result["httpapi_logs"] = self.httpapi_logs
 
             if self.params.get("state") in ("absent", "present"):
                 self.result["sent"] = self.sent

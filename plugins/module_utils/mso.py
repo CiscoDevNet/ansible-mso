@@ -420,6 +420,7 @@ class MSOModule(object):
         redir_info = {}
         redirect = {}
         content = None
+        data = None
 
         src = self.params.get("src")
         if src:
@@ -428,8 +429,6 @@ class MSOModule(object):
                 data = open(src, "rb")
             except OSError:
                 self.fail_json(msg="Unable to open source file %s" % src, elapsed=0)
-        else:
-            data = None
 
         kwargs = {}
         if destination is not None and os.path.isdir(destination):

@@ -45,7 +45,10 @@
     remote_username: '{{ mso_remote_location_user | default(mso_username) }}'
     remote_password: '{{ mso_remote_location_password | default(mso_password) }}'
     state: absent
+<<<<<<< HEAD
   ignore_errors: true
+=======
+>>>>>>> 35873ae (Removed unwanted logics from mso.py)
 
 - name: Ensure remote location is present
   cisco.mso.mso_remote_location:
@@ -93,6 +96,18 @@
         state: present
       register: nm_add_ansibleBackup1
 
+<<<<<<< HEAD
+=======
+    - name: Create local ansibleBackup2 in normal mode
+      mso_backup: &local_ansibleBackup2_present
+        <<: *mso_info
+        backup: ansibleBackup2
+        description: via Ansible
+        location_type: local
+        state: present
+      register: nm_add_ansibleBackup2
+
+>>>>>>> 35873ae (Removed unwanted logics from mso.py)
     - name: Query ansibleBackup1 to check if it exists
       mso_backup:
         <<: *mso_info
@@ -112,6 +127,33 @@
         - nm_add_ansibleBackup1 is changed
         - check_ansibleBackup1.current[0].backupEntry.metadata.name is match("ansibleBackup1_[0-9a-zA-Z]*")
 
+<<<<<<< HEAD
+=======
+    - name: Query ansibleBackup2 to check if it exists
+      mso_backup:
+        <<: *mso_info
+        backup: ansibleBackup2
+        state: query
+      register: check_ansibleBackup2
+      until:
+      - check_ansibleBackup2.current is defined
+      - check_ansibleBackup2.current[0] is defined
+      - check_ansibleBackup2.current[0].status.statusType == "success"
+      retries: 50
+      delay: 10
+
+    - name: Verify nm_add_ansibleBackup2
+      assert:
+        that:
+        - nm_add_ansibleBackup2 is changed
+        - check_ansibleBackup2.current[0].backupEntry.metadata.name is match ("ansibleBackup2_[0-9a-zA-Z]*")
+
+    - name: Remove local ansibleBackup2 in normal mode
+      mso_backup:
+        <<: *local_ansibleBackup2_present
+        state: absent
+
+>>>>>>> 35873ae (Removed unwanted logics from mso.py)
     - name: Create local ansibleBackup3 in normal mode
       mso_backup:
         <<: *mso_info
@@ -450,6 +492,52 @@
     state: directory
     mode: '0755'
 
+<<<<<<< HEAD
+=======
+- name: Create remote ansibleBackup2 in normal mode
+  mso_backup:
+    <<: *mso_info
+    backup: ansibleBackup2
+    description: Remote backup via Ansible
+    location_type: remote
+    remote_location: ansible_test
+    remote_path: /tmp
+    state: present
+  register: nm_add_ansibleBackup2
+  when: version.current.version is version('3', '>=')
+
+- name: Query ansibleBackup2 to check if it exists
+  mso_backup:
+    <<: *mso_info
+    backup: ansibleBackup2
+    state: query
+  register: check_ansibleBackup2
+  until:
+  - check_ansibleBackup2.current is defined
+  - check_ansibleBackup2.current[0] is defined
+  - check_ansibleBackup2.current[0].status.statusType == "success"
+  retries: 50
+  delay: 10
+  when: version.current.version is version('3', '>=')
+
+- name: Download backup in check mode
+  mso_backup:
+    <<: *mso_info
+    backup: ansibleBackup2
+    destination: './{{mso_hostname}}'
+    state: download
+  check_mode: yes
+  register: download_ansibleBackup2_cm
+
+- name: Download backup
+  mso_backup:
+    <<: *mso_info
+    backup: ansibleBackup2
+    destination: './{{mso_hostname}}'
+    state: download
+  register: download_ansibleBackup2
+
+>>>>>>> 35873ae (Removed unwanted logics from mso.py)
 - name: Download non existent backup
   mso_backup:
     <<: *mso_info

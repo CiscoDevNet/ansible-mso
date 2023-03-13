@@ -3,6 +3,7 @@
 
 # Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
 # Copyright: (c) 2023, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+# Copyright: (c) 2023, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -198,7 +199,7 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["location_type", "remote", ["remote_location", "remote_path"]],
+            ["location_type", "remote", ["remote_location"]],
             ["state", "absent", ["backup", "backup_id"], True],
             ["state", "present", ["backup"]],
             ["state", "upload", ["backup", "backup_id"], True],

@@ -319,27 +319,13 @@ class MSOModule(object):
         self.response = None
         self.status = None
         self.url = None
-        self.nd_base_path = None
         self.httpapi_logs = list()
 
         if self.module._debug:
             self.module.warn("Enable debug output because ANSIBLE_DEBUG was set.")
             self.params["output_level"] = "debug"
 
-        # Ensure protocol is set
-        self.params["protocol"] = "https" if self.params.get("use_ssl", True) else "http"
-
-        if self.params.get("host") is None:
-            self.fail_json(msg="Parameter 'host' is required when not using the HTTP API connection plugin")
-
-        # Set base_uri
-        if self.params.get("port") is not None:
-            self.base_only_uri = "{protocol}://{host}:{port}/".format(**self.params)
-        else:
-            self.base_only_uri = "{protocol}://{host}/".format(**self.params)
-
         if self.module._socket_path is None:
-            # Set MSO params
             if self.params.get("use_ssl") is None:
                 self.params["use_ssl"] = True
             if self.params.get("use_proxy") is None:
@@ -347,7 +333,19 @@ class MSOModule(object):
             if self.params.get("validate_certs") is None:
                 self.params["validate_certs"] = True
 
-            self.baseuri = "{0}api/v1/".format(self.base_only_uri)
+            # Ensure protocol is set
+            self.params["protocol"] = "https" if self.params.get("use_ssl", True) else "http"
+
+            # Set base_uri
+            if self.params.get("port") is not None:
+                self.base_only_uri = "{protocol}://{host}:{port}/".format(**self.params)
+                self.baseuri = "{0}api/v1/".format(self.base_only_uri)
+            else:
+                self.base_only_uri = "{protocol}://{host}/".format(**self.params)
+                self.baseuri = "{0}api/v1/".format(self.base_only_uri)
+
+            if self.params.get("host") is None:
+                self.fail_json(msg="Parameter 'host' is required when not using the HTTP API connection plugin")
 
             if self.params.get("password"):
                 # Perform password-based authentication, log on using password
@@ -355,14 +353,9 @@ class MSOModule(object):
             else:
                 self.fail_json(msg="Parameter 'password' is required for authentication")
         else:
-            # Set NDO params
             self.connection = Connection(self.module._socket_path)
             if self.connection.get_platform() == "cisco.nd":
                 self.platform = "nd"
-                self.nd_base_path = "mso/api/v1/"
-
-            # Set base_uri
-            self.baseuri = "{0}mso/api/v1/".format(self.base_only_uri)
 
     def get_login_domain_id(self, domain):
         """Get a domain and return its id"""
@@ -419,8 +412,10 @@ class MSOModule(object):
         if self.status not in [200, 201, 202, 204]:
             self.error = self.jsondata
 
-    def request_download(self, path, destination=None):
-        self.url = urljoin(self.baseuri, path)
+    def request_download(self, path, destination=None, method="GET", api_version="v1"):
+        if self.platform != "nd":
+            self.url = urljoin(self.baseuri, path)
+
         redirected = False
         redir_info = {}
         redirect = {}
@@ -440,19 +435,19 @@ class MSOModule(object):
         data = None
 
         kwargs = {}
-        if os.path.isdir(destination):
+        if destination is not None and os.path.isdir(destination):
             # first check if we are redirected to a file download
             if self.platform != "nd":
-                check, redir_info = fetch_url(self.module, self.url, headers=self.headers, method="GET", timeout=self.params.get("timeout"))
+                check, redir_info = fetch_url(self.module, self.url, headers=self.headers, method=method, timeout=self.params.get("timeout"))
                 file_name = check.headers.get("Content-Disposition").split("filename=")[1]
             else:
-                redir_info = json.loads(
-                    json.dumps(self.connection.get_remote_file_io_stream("/{0}{1}".format(self.nd_base_path, path), self.module.tmpdir, "GET"))
-                )
+                redir_info = self.connection.get_remote_file_io_stream("/mso/api/{0}/{1}".format(api_version, path), self.module.tmpdir, method)
+
+                # In place of Content-Disposition, NDO get_remote_file_io_stream returns content-disposition.
                 if redir_info.get("content-disposition"):
                     file_name = redir_info.get("content-disposition").split("filename=")[1]
                 else:
-                    self.fail_json(msg="Failed to fetch NDO: {0} backup information, response: {1}".format(self.params.get("backup"), redir_info))
+                    self.fail_json(msg="Failed to fetch {0} backup information from NDO, response: {1}".format(self.params.get("backup"), redir_info))
 
             # if we are redirected, update the url with the location header and update dest with the new url filename
             if redir_info["status"] in (301, 302, 303, 307):
@@ -464,22 +459,18 @@ class MSOModule(object):
         if os.path.exists(destination):
             kwargs["last_mod_time"] = datetime.datetime.utcfromtimestamp(os.path.getmtime(destination))
 
-        if redir_info["status"] == 200 and redirected is False and self.platform == "nd":
-            info = redir_info
-        elif self.platform == "nd":
-            info = json.loads(json.dumps(self.connection.get_remote_file_io_stream("/mso{0}".format(self.url.split("mso", 1)), self.module.tmpdir, "GET")))
-
-        # Removing the raw byte string from the response - for ND platform
-        if info.get("raw"):
-            info.pop("raw")
-
-        if self.platform != "nd":
+        if self.platform == "nd":
+            if redir_info["status"] == 200 and redirected is False:
+                info = redir_info
+            else:
+                info = self.connection.get_remote_file_io_stream("/mso/{0}".format(self.url.split("/mso/", 1)), self.module.tmpdir, method)
+        else:
             resp, info = fetch_url(
                 self.module,
                 self.url,
                 data=data,
                 headers=self.headers,
-                method="GET",
+                method=method,
                 timeout=self.params.get("timeout"),
                 unix_socket=self.params.get("unix_socket"),
                 **kwargs
@@ -506,20 +497,19 @@ class MSOModule(object):
 
         return redirect, destination
 
-    def request_upload(self, path, fields=None, method="POST"):
+    def request_upload(self, path, fields=None, method="POST", api_version="v1"):
         """Generic HTTP MultiPart POST method for MSO uploads."""
         self.path = path
-        self.url = urljoin(self.baseuri, path)
+        if self.platform != "nd":
+            self.url = urljoin(self.baseuri, path)
+
         info = dict()
+
         if self.platform == "nd":
             try:
                 if os.path.exists(self.params.get("backup")):
-                    info = json.loads(
-                        json.dumps(
-                            self.connection.send_file_request(
-                                method, "/{0}{1}".format(self.nd_base_path, path), file=self.params.get("backup"), remote_path=self.params.get("remote_path")
-                            )
-                        )
+                    info = self.connection.send_file_request(
+                        method, "/mso/api/{0}/{1}".format(api_version, path), file=self.params.get("backup"), remote_path=self.params.get("remote_path")
                     )
                 else:
                     self.fail_json(msg="Upload failed due to: No such file or directory, Backup file: '{0}'".format(self.params.get("backup")))
@@ -545,6 +535,7 @@ class MSOModule(object):
 
         self.response = info.get("msg")
         self.status = info.get("status")
+
         # Get change status from HTTP headers
         if "modified" in info:
             self.has_modified = True
@@ -622,10 +613,10 @@ class MSOModule(object):
                 uri = uri + update_qs(qs)
 
             try:
-                info = json.loads(json.dumps(self.connection.send_request(method, uri, json.dumps(data))))
+                info = self.connection.send_request(method, uri, json.dumps(data))
                 self.url = info.get("url")
                 self.httpapi_logs.extend(self.connection.pop_messages())
-                info.pop("date")
+                info.pop("date", None)
             except Exception as e:
                 try:
                     error_obj = json.loads(to_text(e))

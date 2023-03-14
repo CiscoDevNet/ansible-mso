@@ -7,6 +7,7 @@ This collection has been tested and supports MSO 2.1+.
 Modules supporting new features introduced in MSO API in specific MSO versions might not be supported in earlier MSO releases.
 
 *Note: This collection is not compatible with versions of Ansible before v2.8.*
+*Note: The Nexus Dashboard (ND) HTTPAPI connection plugin should be used when Cisco ACI Multi-Site is installed on Nexus Dashboard (v3.2+) or when using this collection with Nexus Dashboard Orchestrator (v3.6+).*
 
 ## Requirements
 - Ansible v2.9 or newer
@@ -22,7 +23,12 @@ Install the collection
 ansible-galaxy collection install cisco.mso
 ```
 
-## Use
+Install the Nexus Dashboard (ND) collection when Cisco ACI Multi-Site is installed on Nexus Dashboard (v3.2+) or when using this collection with Nexus Dashboard Orchestrator (v3.6+)
+```
+ansible-galaxy collection install cisco.nd
+```
+
+## Usage
 Once the collection is installed, you can use it in a playbook by specifying the full namespace path to the module, plugin and/or role.
 ```yaml
 - hosts: mso
@@ -59,10 +65,11 @@ ansible_httpapi_use_ssl=True
 ansible_httpapi_use_proxy=True
 ```
 
-You can also use the Nexus Dashboard (ND) connection plugin available in the [cisco.nd](https://galaxy.ansible.com/cisco/nd) collection by changing the following variable.
+You should use the Nexus Dashboard (ND) collection plugin, which is available in the [cisco.nd](https://galaxy.ansible.com/cisco/nd) collection, when Cisco ACI Multi-Site is installed on Nexus Dashboard (v3.2+) or when using this collection with Nexus Dashboard Orchestrator (v3.6+) by changing the following variables.
 ```yaml
 ansible_connection=ansible.netcommon.httpapi
 ansible_network_os=cisco.nd.nd
+ansible_httpapi_use_ssl=True
 ```
 
 ## Update

@@ -47,9 +47,9 @@ options:
   timeout:
     description:
     - The socket level timeout in seconds.
+    - The default value is 30 seconds.
     - If the value is not specified in the task, the value of environment variable C(MSO_TIMEOUT) will be used instead.
     type: int
-    default: 30
   use_proxy:
     description:
     - If C(false), it will not use a proxy, even if one is defined in an environment variable on the target hosts.

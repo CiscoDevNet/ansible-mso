@@ -94,3 +94,10 @@
     - query_version_global_params.current.version == cm_query_version.current.version
     - query_version_global_params.current.timestamp == cm_query_version.current.timestamp
   when: ansible_connection != 'local'
+
+# INCLUDE TEST FOR HTTPAPI CONNECTION PLUGIN
+
+- name: Run tests for httpapi connection plugin
+  when: nm_query_version.current.version is version('3.2', '<')
+  include_tasks: connection.yml
+  tags: connection

@@ -103,7 +103,7 @@ def mso_argument_spec():
         username=dict(type="str", required=False, fallback=(env_fallback, ["MSO_USERNAME", "ANSIBLE_NET_USERNAME"])),
         password=dict(type="str", required=False, no_log=True, fallback=(env_fallback, ["MSO_PASSWORD", "ANSIBLE_NET_PASSWORD"])),
         output_level=dict(type="str", default="normal", choices=["debug", "info", "normal"], fallback=(env_fallback, ["MSO_OUTPUT_LEVEL"])),
-        timeout=dict(type="int", default=30, fallback=(env_fallback, ["MSO_TIMEOUT"])),
+        timeout=dict(type="int", fallback=(env_fallback, ["MSO_TIMEOUT"])),
         use_proxy=dict(type="bool", fallback=(env_fallback, ["MSO_USE_PROXY"])),
         use_ssl=dict(type="bool", fallback=(env_fallback, ["MSO_USE_SSL"])),
         validate_certs=dict(type="bool", fallback=(env_fallback, ["MSO_VALIDATE_CERTS"])),
@@ -296,7 +296,7 @@ class MSOModule(object):
         self.params = module.params
         self.result = dict(changed=False)
         self.headers = {"Content-Type": "text/json"}
-        self.platform = "mso"
+        self.platform = "local"
 
         # normal output
         self.existing = dict()
@@ -333,6 +333,8 @@ class MSOModule(object):
                 self.params["use_proxy"] = True
             if self.params.get("validate_certs") is None:
                 self.params["validate_certs"] = True
+            if self.params.get("timeout") is None:
+                self.params["timeout"] = 30
 
             # Ensure protocol is set
             self.params["protocol"] = "https" if self.params.get("use_ssl", True) else "http"
@@ -357,6 +359,10 @@ class MSOModule(object):
             self.connection = Connection(self.module._socket_path)
             if self.connection.get_platform() == "cisco.nd":
                 self.platform = "nd"
+            elif self.connection.get_platform() == "cisco.mso":
+                self.platform = "mso"
+            else:
+                self.fail_json(msg="Connection must be identified as platform 'cisco.nd' or 'cisco.mso'")
 
     def get_login_domain_id(self, domain):
         """Get a domain and return its id"""
@@ -608,7 +614,10 @@ class MSOModule(object):
         if self.module._socket_path:
             self.connection.set_params(self.params)
             if api_version is not None:
-                uri = NDO_API_VERSION_PATH_FORMAT.format(api_version=api_version, path=self.path)
+                if self.platform == "nd":
+                    uri = NDO_API_VERSION_PATH_FORMAT.format(api_version=api_version, path=self.path)
+                else:
+                    uri = "/api/{0}/{1}".format(api_version, self.path)
             else:
                 uri = self.path
 
@@ -628,6 +637,7 @@ class MSOModule(object):
                         error=dict(code=-1, message="Unable to parse error output as JSON. Raw error message: {0}".format(e), exception=to_text(e))
                     )
                     pass
+                self.httpapi_logs.extend(self.connection.pop_messages())
                 self.fail_json(msg=error_obj["error"]["message"])
 
         else:

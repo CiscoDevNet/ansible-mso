@@ -1,0 +1,135 @@
+# Test code for the MSO modules
+# Copyright: (c) 2023, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    plugin_query: &plugin_query
+      state: query
+      output_level: debug
+
+- name: Set ansible_connection to ansible.netcommon.httpapi with a wrong domain
+  ansible.builtin.set_fact:
+    ansible_connection: ansible.netcommon.httpapi
+    ansible_httpapi_login_domain: wrong_domain_from_plugin
+
+- name: Reset connection
+  ansible.builtin.meta: reset_connection
+
+- name: Query mso_version with domain from ansible_httpapi_login_domain (error with wrong_domain_from_plugin)
+  cisco.mso.mso_version:
+    <<: *plugin_query
+  register: nm_query_test_domain_plugin
+  ignore_errors: true
+
+- name: Query mso_version with domain overwrite in task (error with wrong_domain_from_task)
+  cisco.mso.mso_version:
+    <<: *plugin_query
+    login_domain: wrong_domain_from_task
+  register: nm_query_wrong_domain_overwrite
+  ignore_errors: true
+
+- name: Query mso_version with domain overwrite in task (test)
+  cisco.mso.mso_version:  
+    <<: *plugin_query
+    username: 'r_{{ mso_username }}'
+    login_domain: test
+  register: nm_query_login_domain_overwrite
+
+- name: Unset ansible_httpapi_login_domain
+  ansible.builtin.set_fact:
+    ansible_httpapi_login_domain:
+
+- name: Query mso_version to trigger new login
+  cisco.mso.mso_version: 
+    <<: *plugin_query
+
+- name: Query mso_version again thus skipping login
+  cisco.mso.mso_version: 
+    <<: *plugin_query
+  register: nm_query_skip_login
+
+- name: Query mso_version with username overwrite in task (error with wrong_username/password)
+  cisco.mso.mso_version: 
+    <<: *plugin_query
+    username: wrong_username
+    password: wrong_password
+  register: nm_query_wrong_username_password_overwrite
+  ignore_errors: true
+
+- name: Query mso_version and tigger new login because of changed username and password
+  cisco.mso.mso_version: &new_plugin_query
+    <<: *plugin_query
+  register: nm_query_login_new_username_password
+
+- name: Query mso_version again and tigger new login because of changed username and password
+  cisco.mso.mso_version:
+    <<: *new_plugin_query
+  register: nm_query_login_new_username_password_again
+
+- name: Query mso_version again and overwrite timeout
+  cisco.mso.mso_version:
+    <<: *new_plugin_query
+    timeout: 10
+  register: nm_query_login_new_timeout
+
+- name: Query mso_version again and overwrite use_proxy
+  cisco.mso.mso_version:
+    <<: *new_plugin_query
+    use_proxy: False
+  register: nm_query_login_new_use_proxy_false
+
+- name: Query mso_version again and overwrite use_ssl (error)
+  cisco.mso.mso_version:
+    <<: *new_plugin_query
+    use_ssl: False
+  register: nm_query_login_new_use_ssl_false
+  ignore_errors: true
+
+- name: Query mso_version again and validate_certs (error)
+  cisco.mso.mso_version:
+    <<: *new_plugin_query
+    validate_certs: True
+  register: nm_query_login_new_validate_certs_true
+  ignore_errors: true
+
+- name: Query mso_version again and timeout on with wrong host (error)
+  cisco.mso.mso_version:
+    <<: *new_plugin_query
+    host: '{{ apic_hostname }}'
+  register: nm_query_login_new_wrong_host
+  ignore_errors: true
+
+- name: Verify httpapi plugin tests
+  ansible.builtin.assert:
+    that:
+    - nm_query_login_new_use_ssl_false.msg is search("Connection refused")
+    - nm_query_login_new_validate_certs_true.msg is search("certificate verify failed")
+    - nm_query_login_new_wrong_host.current == {}
+
+- name: Verify httpapi plugin tests
+  ansible.builtin.assert:
+    that:
+    - nm_query_test_domain_plugin.msg == "Login domain 'wrong_domain_from_plugin' is not a valid domain name."
+    - nm_query_wrong_domain_overwrite.msg == "Login domain 'wrong_domain_from_task' is not a valid domain name."
+    - nm_query_login_domain_overwrite.httpapi_logs | length == 8
+    - nm_query_login_domain_overwrite.httpapi_logs.1.1.startswith("set_connection_parameters() - resetting connection due to 'username' change")
+    - nm_query_login_domain_overwrite.httpapi_logs.2.1.startswith("set_connection_parameters() - resetting connection due to 'login_domain' change")
+    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search("'username'{{':'}} 'r_ansible_github_ci'")
+    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search("'login_domain'{{':'}} 'test'")
+    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search("'use_proxy'{{':'}} True")
+    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search("'use_ssl'{{':'}} True")
+    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search("'timeout'{{':'}} 300")
+    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search("'validate_certs'{{':'}} False")
+    - nm_query_skip_login.httpapi_logs | length == 2
+    - nm_query_skip_login.httpapi_logs.1.1.startswith("send_request() - connection.send(/api/v1/platform/version")
+    - nm_query_wrong_username_password_overwrite.msg == "Authentication failed{{':'}} Request failed{{':'}} HTTP Error 401{{':'}} Unauthorized"
+    - nm_query_login_new_username_password.httpapi_logs | length == 8
+    - nm_query_login_new_username_password.httpapi_logs.1.1.startswith("set_connection_parameters() - resetting connection due to 'username' change")
+    - nm_query_login_new_username_password.httpapi_logs.2.1.startswith("set_connection_parameters() - resetting connection due to 'password' change")
+    - nm_query_login_new_username_password_again.httpapi_logs | length == 2
+    - nm_query_login_new_username_password_again.httpapi_logs.1.1.startswith("send_request() - connection.send(/api/v1/platform/version")
+    - nm_query_login_new_timeout.httpapi_logs | length == 3
+    - nm_query_login_new_timeout.httpapi_logs.1.1 is search("'timeout'{{':'}} 10")
+    - nm_query_login_new_use_proxy_false.httpapi_logs.1.1 is search("'use_proxy'{{':'}} False")

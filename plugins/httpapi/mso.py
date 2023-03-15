@@ -1,5 +1,6 @@
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
+# Copyright: (c) 2023, Akini Ross (@akinross) <akinross@cisco.com>
 #
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -16,19 +17,32 @@ description:
     a connection to MSO, send API requests and process the
     response.
 version_added: "1.2.0"
+options:
+  login_domain:
+    description:
+    - The login domain name to use for authentication.
+    - The default value is Local.
+    type: string
+    env:
+    - name: ANSIBLE_HTTPAPI_LOGIN_DOMAIN
+    vars:
+    - name: ansible_httpapi_login_domain
 """
 
 import json
 import re
-import pickle
-
-# import ipaddress
 import traceback
 
 from ansible.module_utils.six import PY3
 from ansible.module_utils._text import to_text
 from ansible.module_utils.connection import ConnectionError
 from ansible.plugins.httpapi import HttpApiBase
+from copy import copy
+
+
+CONNECTION_MAP = {"username": "remote_user", "timeout": "persistent_command_timeout"}
+RESET_KEYS = ["username", "password", "login_domain", "host", "port"]
+CONNECTION_KEYS = RESET_KEYS + ["use_proxy", "use_ssl", "timeout", "validate_certs"]
 
 
 class HttpApi(HttpApiBase):
@@ -46,6 +60,8 @@ class HttpApi(HttpApiBase):
         self.path = ""
         self.status = -1
         self.info = {}
+
+        self.connection_parameters = {}
 
     def get_platform(self):
         return self.platform
@@ -70,20 +86,14 @@ class HttpApi(HttpApiBase):
         path = "/mso/api/v1/auth/login"
         full_path = self.connection.get_option("host") + path
 
-        if (self.params.get("login_domain") is not None) and (self.params.get("login_domain") != "Local"):
-            domain_id = self._get_login_domain_id(self.params.get("login_domain"))
-            payload = {"username": self.connection.get_option("remote_user"), "password": self.connection.get_option("password"), "domainId": domain_id}
-        else:
-            payload = {"username": self.connection.get_option("remote_user"), "password": self.connection.get_option("password")}
+        payload = {"username": username, "password": password}
+        if self.connection_parameters["login_domain"] is not None and self.connection_parameters["login_domain"] != "Local":
+            payload["domainId"] = self._get_login_domain_id(self.connection_parameters["login_domain"])
 
-        # Override the global username/password with the ones specified per task
-        if self.params.get("username") is not None:
-            payload["username"] = self.params.get("username")
-        if self.params.get("password") is not None:
-            payload["password"] = self.params.get("password")
         data = json.dumps(payload)
         try:
-            self.connection.queue_message("vvvv", "login() - connection.send({0}, {1}, {2}, {3})".format(path, data, method, self.headers))
+            payload.pop("password")
+            self.connection.queue_message("vvvv", "login() - connection.send({0}, {1}, {2}, {3})".format(path, payload, method, self.headers))
             response, response_data = self.connection.send(path, data, method=method, headers=self.headers)
             # Handle MSO response
             self.status = response.getcode()
@@ -107,7 +117,7 @@ class HttpApi(HttpApiBase):
         path = "/mso/api/v1/auth/logout"
 
         try:
-            response, response_data = self.connection.send(path, {}, method=method, headers=self.headers)
+            self.connection.send(path, {}, method=method, headers=self.headers)
         except Exception as e:
             self.error = dict(code=self.status, message="Error on attempt to logout from MSO. {0}".format(e))
             raise ConnectionError(json.dumps(self._verify_response(None, method, self.connection.get_option("host") + path, None)))
@@ -126,47 +136,8 @@ class HttpApi(HttpApiBase):
             data = {}
 
         self.connection.queue_message("vvvv", "send_request method called")
-        # # Case1: List of hosts is provided
-        # self.backup_hosts = self.set_backup_hosts()
-        # if not self.backup_hosts:
-        if self.connection._connected is True and self.params.get("host") != self.connection.get_option("host"):
-            self.connection._connected = False
-            self.connection.queue_message(
-                "vvvv",
-                "send_request reseting connection as host has changed from {0} to {1}".format(self.connection.get_option("host"), self.params.get("host")),
-            )
 
-        if self.params.get("host") is not None:
-            self.connection.set_option("host", self.params.get("host"))
-
-        else:
-            try:
-                with open("my_hosts.pk", "rb") as fi:
-                    self.host_counter = pickle.load(fi)
-            except FileNotFoundError:
-                pass
-            try:
-                self.connection.set_option("host", self.backup_hosts[self.host_counter])
-            except (IndexError, TypeError):
-                pass
-
-        if self.params.get("port") is not None:
-            self.connection.set_option("port", self.params.get("port"))
-
-        if self.params.get("username") is not None:
-            self.connection.set_option("remote_user", self.params.get("username"))
-
-        if self.params.get("password") is not None:
-            self.connection.set_option("password", self.params.get("password"))
-
-        if self.params.get("use_proxy") is not None:
-            self.connection.set_option("use_proxy", self.params.get("use_proxy"))
-
-        if self.params.get("use_ssl") is not None:
-            self.connection.set_option("use_ssl", self.params.get("use_ssl"))
-
-        if self.params.get("validate_certs") is not None:
-            self.connection.set_option("validate_certs", self.params.get("validate_certs"))
+        self.set_connection_parameters()
 
         # Perform some very basic path input validation.
         path = str(path)
@@ -187,18 +158,26 @@ class HttpApi(HttpApiBase):
             raise ConnectionError(json.dumps(self._verify_response(None, method, full_path, None)))
         return self._verify_response(response, method, full_path, rdata)
 
-    def handle_error(self):
-        self.host_counter += 1
-        if self.host_counter == len(self.backup_hosts):
-            raise ConnectionError("No hosts left in cluster to continue operation")
-        with open("my_hosts.pk", "wb") as host_file:
-            pickle.dump(self.host_counter, host_file)
-        try:
-            self.connection.set_option("host", self.backup_hosts[self.host_counter])
-        except IndexError:
-            pass
-        self.login(self.connection.get_option("remote_user"), self.connection.get_option("password"))
-        return True
+    def set_connection_parameters(self):
+        connection_parameters = {}
+        for key in CONNECTION_KEYS:
+            if key == "login_domain":
+                value = self.params.get(key) if self.params.get(key) is not None else self.get_option(CONNECTION_MAP.get(key, key))
+                self.set_option(key, value)
+            else:
+                value = self.params.get(key) if self.params.get(key) is not None else self.connection.get_option(CONNECTION_MAP.get(key, key))
+                self.connection.set_option(CONNECTION_MAP.get(key, key), value)
+
+            connection_parameters[key] = value
+            if value != self.connection_parameters.get(key) and key in RESET_KEYS:
+                self.connection._connected = False
+                self.connection.queue_message("vvvv", "set_connection_parameters() - resetting connection due to '{0}' change".format(key))
+
+        if self.connection_parameters != connection_parameters:
+            self.connection_parameters = copy(connection_parameters)
+            connection_parameters.pop("password")
+            msg = "set_connection_parameters() - changed connection parameters {0}".format(connection_parameters)
+            self.connection.queue_message("vvvv", msg)
 
     def _verify_response(self, response, method, path, data):
         """Process the return code and response object from MSO"""

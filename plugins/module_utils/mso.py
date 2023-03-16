@@ -22,6 +22,7 @@ from ansible.module_utils.six.moves.urllib.parse import urlencode, urljoin
 from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_native, to_text
 from ansible.module_utils.connection import Connection
+from ansible_collections.cisco.mso.plugins.module_utils.constants import NDO_API_VERSION_PATH_FORMAT
 
 try:
     from requests_toolbelt.multipart.encoder import MultipartEncoder
@@ -433,17 +434,20 @@ class MSOModule(object):
         kwargs = {}
         if destination is not None and os.path.isdir(destination):
             # first check if we are redirected to a file download
-            if self.platform != "nd":
-                check, redir_info = fetch_url(self.module, self.url, headers=self.headers, method=method, timeout=self.params.get("timeout"))
-                file_name = check.headers.get("Content-Disposition").split("filename=")[1]
-            else:
-                redir_info = self.connection.get_remote_file_io_stream("/mso/api/{0}/{1}".format(api_version, path), self.module.tmpdir, method)
-
+            if self.platform == "nd":
+                redir_info = self.connection.get_remote_file_io_stream(
+                    NDO_API_VERSION_PATH_FORMAT.format(api_version=api_version, path=path), self.module.tmpdir, method
+                )
                 # In place of Content-Disposition, NDO get_remote_file_io_stream returns content-disposition.
-                if redir_info.get("content-disposition"):
-                    file_name = redir_info.get("content-disposition").split("filename=")[1]
-                else:
-                    self.fail_json(msg="Failed to fetch {0} backup information from NDO, response: {1}".format(self.params.get("backup"), redir_info))
+                content_disposition = redir_info.get("content-disposition")
+            else:
+                check, redir_info = fetch_url(self.module, self.url, headers=self.headers, method=method, timeout=self.params.get("timeout"))
+                content_disposition = check.headers.get("Content-Disposition")
+
+            if content_disposition:
+                file_name = content_disposition.split("filename=")[1]
+            else:
+                self.fail_json(msg="Failed to fetch {0} backup information from MSO/NDO, response: {1}".format(self.params.get("backup"), redir_info))
 
             # if we are redirected, update the url with the location header and update dest with the new url filename
             if redir_info["status"] in (301, 302, 303, 307):
@@ -505,7 +509,10 @@ class MSOModule(object):
             try:
                 if os.path.exists(self.params.get("backup")):
                     info = self.connection.send_file_request(
-                        method, "/mso/api/{0}/{1}".format(api_version, path), file=self.params.get("backup"), remote_path=self.params.get("remote_path")
+                        method,
+                        NDO_API_VERSION_PATH_FORMAT.format(api_version=api_version, path=path),
+                        file=self.params.get("backup"),
+                        remote_path=self.params.get("remote_path"),
                     )
                 else:
                     self.fail_json(msg="Upload failed due to: No such file or directory, Backup file: '{0}'".format(self.params.get("backup")))
@@ -601,7 +608,7 @@ class MSOModule(object):
         if self.module._socket_path:
             self.connection.set_params(self.params)
             if api_version is not None:
-                uri = "/mso/api/{0}/{1}".format(api_version, self.path)
+                uri = NDO_API_VERSION_PATH_FORMAT.format(api_version=api_version, path=self.path)
             else:
                 uri = self.path
 

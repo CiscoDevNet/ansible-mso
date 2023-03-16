@@ -46,9 +46,13 @@
     remote_password: '{{ mso_remote_location_password | default(mso_password) }}'
     state: absent
 <<<<<<< HEAD
+<<<<<<< HEAD
   ignore_errors: true
 =======
 >>>>>>> 35873ae (Removed unwanted logics from mso.py)
+=======
+  ignore_errors: yes
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
 
 - name: Ensure remote location is present
   cisco.mso.mso_remote_location:
@@ -97,6 +101,7 @@
       register: nm_add_ansibleBackup1
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
     - name: Create local ansibleBackup2 in normal mode
       mso_backup: &local_ansibleBackup2_present
@@ -108,6 +113,8 @@
       register: nm_add_ansibleBackup2
 
 >>>>>>> 35873ae (Removed unwanted logics from mso.py)
+=======
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
     - name: Query ansibleBackup1 to check if it exists
       mso_backup:
         <<: *mso_info
@@ -127,6 +134,7 @@
         - nm_add_ansibleBackup1 is changed
         - check_ansibleBackup1.current[0].backupEntry.metadata.name is match("ansibleBackup1_[0-9a-zA-Z]*")
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
     - name: Query ansibleBackup2 to check if it exists
@@ -154,6 +162,8 @@
         state: absent
 
 >>>>>>> 35873ae (Removed unwanted logics from mso.py)
+=======
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
     - name: Create local ansibleBackup3 in normal mode
       mso_backup:
         <<: *mso_info
@@ -276,6 +286,65 @@
           - move_backup_cm_ab3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
           - move_backup_nm_ab3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
 
+# Move Local backup to Remote - Only for version < 3.2
+- name: Execute tasks only for MSO version < 3.2
+  when: version.current.version is version('3.2', '<')
+  block:
+    - name: Move ansibleBackup1 from local to remote location in check mode
+      mso_backup: &move_ab1_cm
+        <<: *mso_info
+        remote_location: ansible_test
+        remote_path: /tmp
+        backup: ansibleBackup1
+        description: Local to Remote via Ansible
+        state: move
+      check_mode: yes
+      register: move_ab1_cm
+
+    - name: Move ansibleBackup1 from local to remote location in normal mode
+      mso_backup:
+        <<: *move_ab1_cm
+      register: move_ab1_nm
+
+    - name: Move a non existent backup from local location to remote
+      mso_backup:
+        <<: *mso_info
+        backup: non_existent_backup
+        remote_location: ansible_test
+        remote_path: /tmp
+        state: move
+      register: move_non_existent_backup
+      ignore_errors: yes
+
+    - name: Move a ansibleBackup3 from local location to remote - check mode
+      mso_backup:
+        <<: *mso_info
+        backup: ansibleBackup3
+        remote_location: ansible_test
+        remote_path: /tmp
+        state: move
+      register: move_backup_cm_ab3
+      ignore_errors: yes
+
+    - name: Move a ansibleBackup3 from local location to remote - normal mode
+      mso_backup:
+        <<: *mso_info
+        backup: ansibleBackup3
+        remote_location: ansible_test
+        remote_path: /tmp
+        state: move
+      register: move_backup_nm_ab3
+      ignore_errors: yes
+
+    - name: Assertions check for move a backup from local location to remote location
+      assert:
+        that:
+          - move_ab1_cm is changed
+          - move_ab1_nm is changed
+          - move_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
+          - move_backup_cm_ab3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
+          - move_backup_nm_ab3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
+
 # Create Remote backup - For all version
 - name: Create ansibleBackupRemote1 in check mode
   mso_backup:
@@ -284,9 +353,15 @@
     description: Remote via Ansible
     location_type: remote
     remote_location: ansible_test
+<<<<<<< HEAD
     remote_path: "tmp"
     state: present
   check_mode: true
+=======
+    remote_path: /tmp
+    state: present
+  check_mode: yes
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
   register: cm_add_ansibleBackupRemote1
 
 - name: Create ansibleBackupRemote1 in normal mode
@@ -328,6 +403,9 @@
   register: query_ansibleBackup_for_delete
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
 - name: Delete all backups except for one to handle "Multiple backups with same name" during the download
   mso_backup:
     <<: *mso_info
@@ -335,6 +413,7 @@
     state: absent
   loop: '{{ query_ansibleBackup_for_delete.current[0:-1] | list | sort(attribute="name", reverse=True) }}'
   when: query_ansibleBackup_for_delete.current | length >= 2
+<<<<<<< HEAD
 =======
 - name: Verify check_ansibleBackupRemote2
   assert:
@@ -484,6 +563,8 @@
         that:
         - check_ansibleBackup3_again.current[0].backupEntry.metadata.name is match ("ansibleBackup3_[0-9a-zA-Z]*")
 >>>>>>> b9de242 (Removed unwanted when statements)
+=======
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
 
 # Download Backup
 - name: Create a directory if it does not exist
@@ -492,6 +573,7 @@
     state: directory
     mode: '0755'
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 - name: Create remote ansibleBackup2 in normal mode
@@ -538,6 +620,8 @@
   register: download_ansibleBackup2
 
 >>>>>>> 35873ae (Removed unwanted logics from mso.py)
+=======
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
 - name: Download non existent backup
   mso_backup:
     <<: *mso_info
@@ -553,7 +637,11 @@
     backup: ansibleBackupRemote1
     destination: './{{mso_hostname}}'
     state: download
+<<<<<<< HEAD
   check_mode: true
+=======
+  check_mode: yes
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
   register: download_ab1_cm
 
 - name: Download ansibleBackupRemote1 in normal mode
@@ -585,7 +673,11 @@
         backup: "{{ backup_match.files[0].path }}"
         state: upload
       register: upload_backup_to_local_cm
+<<<<<<< HEAD
       check_mode: true
+=======
+      check_mode: yes
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
 
     - name: Upload a backup from local machine to local location in normal mode
       mso_backup:
@@ -620,16 +712,26 @@
     backup: "{{present_working_directory.stdout}}/{{ backup_match.files[0].path }}"
     location_type: remote
     remote_location: ansible_test
+<<<<<<< HEAD
     remote_path: "tmp"
     state: upload
   check_mode: true
+=======
+    remote_path: /tmp
+    state: upload
+  check_mode: yes
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
   register: upload_backup_cm
 
 - name: Upload an existing backup from local machine to remote location - normal mode
   mso_backup:
     <<: *upload_backup_cm
   register: upload_backup_nm
+<<<<<<< HEAD
   ignore_errors: true
+=======
+  ignore_errors: yes
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
 
 # Block to handle "Backup already existing issue"
 - name: Upload backup from local machine to remote again
@@ -661,10 +763,17 @@
     backup: non_existent_backup
     location_type: remote
     remote_location: ansible_test
+<<<<<<< HEAD
     remote_path: "tmp"
     state: upload
   register: upload_non_existent_backup
   ignore_errors: true
+=======
+    remote_path: /tmp
+    state: upload
+  register: upload_non_existent_backup
+  ignore_errors: yes
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
 
 - name: Assertions check for the upload a backup form local machine to remote location
   assert:
@@ -676,6 +785,7 @@
       - upload_backup_nm is changed
       - upload_backup_nm.current != {}
 
+<<<<<<< HEAD
 - name: Set Uploaded Backup Name for MSO
   when:
     - version.current.version is version('2.2.4e', '!=')
@@ -690,6 +800,8 @@
   set_fact:
     uploaded_backup_name: '{{ upload_backup_nm.current.body.backupEntry.metadata.name.split("_") | first }}'
 
+=======
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
 - name: Restore backup check
   when: version.current.version is version('2.2.4e', '!=')
   block:
@@ -699,7 +811,11 @@
         backup: non_existent_backup
         state: restore
         timeout: 1000
+<<<<<<< HEAD
       ignore_errors: true
+=======
+      ignore_errors: yes
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
       register: restore_non_existent_backup
 
     - name: Add a new tenant
@@ -708,6 +824,7 @@
         state: present
       register: tenant1_present
 
+<<<<<<< HEAD
     - name: Restore {{ uploaded_backup_name }} in check mode
       mso_backup: &restore_backup_cm
         <<: *mso_info
@@ -718,6 +835,18 @@
       register: restore_backup_cm
 
     - name: Restore {{ uploaded_backup_name }} in normal mode
+=======
+    - name: Restore {{ upload_backup_nm.current.body.backupEntry.metadata.name.split("_") | first }} in check mode
+      mso_backup: &restore_backup_cm
+        <<: *mso_info
+        backup: '{{ upload_backup_nm.current.body.backupEntry.metadata.name.split("_") | first }}'
+        state: restore
+        timeout: 1000
+      check_mode: yes
+      register: restore_backup_cm
+
+    - name: Restore {{ upload_backup_nm.current.body.backupEntry.metadata.name.split("_") | first }} in normal mode
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
       mso_backup:
         <<: *restore_backup_cm
       register: restore_backup_nm
@@ -728,7 +857,11 @@
         state: query
       register: query_tenant1
 
+<<<<<<< HEAD
     - name: Restore {{ uploaded_backup_name }} in normal mode - idempotency check
+=======
+    - name: Restore {{ upload_backup_nm.current.body.backupEntry.metadata.name.split("_") | first }} in normal mode - idempotency check
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
       mso_backup:
         <<: *restore_backup_cm
       register: idm_restore_backup_nm
@@ -739,7 +872,13 @@
           - restore_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
           - restore_backup_cm is changed
           - restore_backup_nm is changed
+<<<<<<< HEAD
           - idm_restore_backup_nm is changed
+=======
+          - "{{ upload_backup_nm.current.body.backupEntry.metadata.name.split('_') | first in restore_backup_nm.current.backupentry.metadata.name }}"
+          - idm_restore_backup_nm is changed
+          - "{{ upload_backup_nm.current.body.backupEntry.metadata.name.split('_') | first in idm_restore_backup_nm.current.backupentry.metadata.name }}"
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
           - tenant1_present.current != {}
           - query_tenant1 is not changed
           - query_tenant1.current == {}
@@ -781,4 +920,8 @@
 - name: Ensure Tenant1 is absent
   mso_tenant:
     <<: *tenant1_absent
+<<<<<<< HEAD
     state: absent
+=======
+    state: absent
+>>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)

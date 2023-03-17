@@ -226,6 +226,7 @@
           - query_ansibleBackup3_again.current.1.status.statusType == "success"
           - query_ansibleBackup3_again.current.1.backupEntry.metadata.name is match ("ansibleBackup3_[0-9a-zA-Z]*")
           - query_ansibleBackup3_again.current.1.location.locationType == "local"
+<<<<<<< HEAD
 
 # Move Local backup to Remote - Only for version < 3.2
 - name: Execute tasks only for MSO version < 3.2
@@ -285,6 +286,8 @@
           - move_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
           - move_backup_cm_ab3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
           - move_backup_nm_ab3.msg is match ("Multiple backups with same name found. Existing backups with similar names{{':'}} ansibleBackup3_[0-9]*, ansibleBackup3_[0-9]*")
+=======
+>>>>>>> 934609f (Fixed validation tasks)
 
 # Move Local backup to Remote - Only for version < 3.2
 - name: Execute tasks only for MSO version < 3.2
@@ -294,7 +297,7 @@
       mso_backup: &move_ab1_cm
         <<: *mso_info
         remote_location: ansible_test
-        remote_path: /tmp
+        remote_path: ""
         backup: ansibleBackup1
         description: Local to Remote via Ansible
         state: move
@@ -311,7 +314,7 @@
         <<: *mso_info
         backup: non_existent_backup
         remote_location: ansible_test
-        remote_path: /tmp
+        remote_path: ""
         state: move
       register: move_non_existent_backup
       ignore_errors: yes
@@ -321,7 +324,7 @@
         <<: *mso_info
         backup: ansibleBackup3
         remote_location: ansible_test
-        remote_path: /tmp
+        remote_path: ""
         state: move
       register: move_backup_cm_ab3
       ignore_errors: yes
@@ -331,7 +334,7 @@
         <<: *mso_info
         backup: ansibleBackup3
         remote_location: ansible_test
-        remote_path: /tmp
+        remote_path: ""
         state: move
       register: move_backup_nm_ab3
       ignore_errors: yes
@@ -354,11 +357,15 @@
     location_type: remote
     remote_location: ansible_test
 <<<<<<< HEAD
+<<<<<<< HEAD
     remote_path: "tmp"
     state: present
   check_mode: true
 =======
     remote_path: /tmp
+=======
+    remote_path: "tmp"
+>>>>>>> 934609f (Fixed validation tasks)
     state: present
   check_mode: yes
 >>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
@@ -713,11 +720,15 @@
     location_type: remote
     remote_location: ansible_test
 <<<<<<< HEAD
+<<<<<<< HEAD
     remote_path: "tmp"
     state: upload
   check_mode: true
 =======
     remote_path: /tmp
+=======
+    remote_path: "tmp"
+>>>>>>> 934609f (Fixed validation tasks)
     state: upload
   check_mode: yes
 >>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
@@ -764,12 +775,16 @@
     location_type: remote
     remote_location: ansible_test
 <<<<<<< HEAD
+<<<<<<< HEAD
     remote_path: "tmp"
     state: upload
   register: upload_non_existent_backup
   ignore_errors: true
 =======
     remote_path: /tmp
+=======
+    remote_path: "tmp"
+>>>>>>> 934609f (Fixed validation tasks)
     state: upload
   register: upload_non_existent_backup
   ignore_errors: yes
@@ -786,6 +801,9 @@
       - upload_backup_nm.current != {}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 934609f (Fixed validation tasks)
 - name: Set Uploaded Backup Name for MSO
   when:
     - version.current.version is version('2.2.4e', '!=')
@@ -800,8 +818,11 @@
   set_fact:
     uploaded_backup_name: '{{ upload_backup_nm.current.body.backupEntry.metadata.name.split("_") | first }}'
 
+<<<<<<< HEAD
 =======
 >>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
+=======
+>>>>>>> 934609f (Fixed validation tasks)
 - name: Restore backup check
   when: version.current.version is version('2.2.4e', '!=')
   block:
@@ -825,6 +846,7 @@
       register: tenant1_present
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     - name: Restore {{ uploaded_backup_name }} in check mode
       mso_backup: &restore_backup_cm
         <<: *mso_info
@@ -837,16 +859,23 @@
     - name: Restore {{ uploaded_backup_name }} in normal mode
 =======
     - name: Restore {{ upload_backup_nm.current.body.backupEntry.metadata.name.split("_") | first }} in check mode
+=======
+    - name: Restore {{ uploaded_backup_name }} in check mode
+>>>>>>> 934609f (Fixed validation tasks)
       mso_backup: &restore_backup_cm
         <<: *mso_info
-        backup: '{{ upload_backup_nm.current.body.backupEntry.metadata.name.split("_") | first }}'
+        backup: '{{ uploaded_backup_name }}'
         state: restore
         timeout: 1000
       check_mode: yes
       register: restore_backup_cm
 
+<<<<<<< HEAD
     - name: Restore {{ upload_backup_nm.current.body.backupEntry.metadata.name.split("_") | first }} in normal mode
 >>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
+=======
+    - name: Restore {{ uploaded_backup_name }} in normal mode
+>>>>>>> 934609f (Fixed validation tasks)
       mso_backup:
         <<: *restore_backup_cm
       register: restore_backup_nm
@@ -858,10 +887,14 @@
       register: query_tenant1
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     - name: Restore {{ uploaded_backup_name }} in normal mode - idempotency check
 =======
     - name: Restore {{ upload_backup_nm.current.body.backupEntry.metadata.name.split("_") | first }} in normal mode - idempotency check
 >>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
+=======
+    - name: Restore {{ uploaded_backup_name }} in normal mode - idempotency check
+>>>>>>> 934609f (Fixed validation tasks)
       mso_backup:
         <<: *restore_backup_cm
       register: idm_restore_backup_nm
@@ -873,12 +906,16 @@
           - restore_backup_cm is changed
           - restore_backup_nm is changed
 <<<<<<< HEAD
+<<<<<<< HEAD
           - idm_restore_backup_nm is changed
 =======
           - "{{ upload_backup_nm.current.body.backupEntry.metadata.name.split('_') | first in restore_backup_nm.current.backupentry.metadata.name }}"
           - idm_restore_backup_nm is changed
           - "{{ upload_backup_nm.current.body.backupEntry.metadata.name.split('_') | first in idm_restore_backup_nm.current.backupentry.metadata.name }}"
 >>>>>>> c934a7c (Updated mso_backup test file with new validation tasks)
+=======
+          - idm_restore_backup_nm is changed
+>>>>>>> 934609f (Fixed validation tasks)
           - tenant1_present.current != {}
           - query_tenant1 is not changed
           - query_tenant1.current == {}

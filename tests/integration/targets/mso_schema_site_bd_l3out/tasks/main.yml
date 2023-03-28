@@ -212,7 +212,7 @@
   when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
 - name: Add l3out to BD Site
-  mso_schema_site_bd_l3out:
+  mso_schema_site_bd_l3out:  &site_bd_l3out_again
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -223,12 +223,18 @@
     state: present
   register: nm_bd_site_l3out
 
+- name: Add l3out to BD Site again
+  mso_schema_site_bd_l3out:
+    <<: *site_bd_l3out_again
+  register: nm_bd_site_l3out_again
+
 - name: Verify nm_bd_site_l3out
   assert:
     that:
     - nm_bd_site_l3out is changed
     - nm_bd_site_l3out.previous == {}
     - nm_bd_site_l3out.current.l3outName == "L3out1"
+    - nm_bd_site_l3out_again is not changed
 
 - name: Query a specific BD site l3out
   mso_schema_site_bd_l3out:

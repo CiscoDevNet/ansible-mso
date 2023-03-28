@@ -203,20 +203,18 @@ def main():
     payload = dict()
 
     if l3out:
-        l3out_ref = mso.l3out_ref(
-            schema_id=mso.lookup_schema(l3out.get("schema")) if l3out.get("schema") else mso_schema.id,
-            template=l3out.get("template") if l3out.get("template") else template,
-            l3out=l3out.get("name"),
-        )
-
-    if not mso_objects.get("site_bd") and l3out:
-        payload = dict(bdRef=dict(schemaId=mso_schema.id, templateName=template, bdName=bd), l3Outs=[l3out.get("name")], l3OutRefs=[l3out_ref])
-    elif l3out:
-        mso_objects.get("site_bd").details["bdRef"] = dict(schemaId=mso_schema.id, templateName=template, bdName=bd)
-        l3out_refs = mso_objects.get("site_bd").details.get("l3OutRefs", [])
-        l3outs = mso_objects.get("site_bd").details.get("l3Outs", [])
-        if l3out.get("name") in l3outs:
-            mso.existing = mso.make_reference(l3out, "l3out", mso_schema.id, template)
+        l3out_schema_id = mso.lookup_schema(l3out.get("schema")) if l3out.get("schema") else mso_schema.id
+        l3out_template = l3out.get("template") if l3out.get("template") else template
+        l3out_ref = mso.l3out_ref(schema_id=l3out_schema_id, template=l3out_template, l3out=l3out.get("name"))
+        if not mso_objects.get("site_bd"):
+            payload = dict(bdRef=dict(schemaId=mso_schema.id, templateName=template, bdName=bd), l3Outs=[l3out.get("name")], l3OutRefs=[l3out_ref])
+        else:
+            mso_objects.get("site_bd").details["bdRef"] = dict(schemaId=mso_schema.id, templateName=template, bdName=bd)
+            l3out_refs = mso_objects.get("site_bd").details.get("l3OutRefs", [])
+            l3outs = mso_objects.get("site_bd").details.get("l3Outs", [])
+            # check on name because refs are handled differently between versions
+            if l3out.get("name") in l3outs:
+                mso.existing = mso.make_reference(l3out, "l3out", l3out_schema_id, l3out_template)
 
     if state == "query":
         if l3out is None:
@@ -239,14 +237,13 @@ def main():
             ops.append(dict(op="replace", path="{0}/{1}".format(bd_path, bd), value=mso_objects.get("site_bd").details))
 
     elif state == "present":
-        if not payload:
+        if payload:
+            ops.append(dict(op="add", path="{0}/-".format(bd_path), value=payload))
+        elif not mso.existing:
             l3outs.append(l3out.get("name"))
             l3out_refs.append(l3out_ref)
             ops.append(dict(op="replace", path="{0}/{1}".format(bd_path, bd), value=mso_objects.get("site_bd").details))
-            mso.existing = mso.make_reference(l3out, "l3out", mso_schema.id, template)
-        elif not mso.existing:
-            ops.append(dict(op="add", path="{0}/-".format(bd_path), value=payload))
-            mso.existing = mso.make_reference(l3out, "l3out", mso_schema.id, template)
+        mso.existing = mso.make_reference(l3out, "l3out", l3out_schema_id, l3out_template)
 
     if not module.check_mode:
         mso.request(mso_schema.path, method="PATCH", data=ops)

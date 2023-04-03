@@ -23,12 +23,12 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template.
     type: str
-    required: yes
+    required: true
   bds:
     description:
     - The name of the BDs to migrate.
@@ -44,22 +44,22 @@ options:
         description:
         - The name of the EPG to migrate.
         type: str
-        required: yes
+        required: true
       anp:
         description:
         - The name of the anp to migrate.
         type: str
-        required: yes
+        required: true
   target_schema:
     description:
     - The name of the target_schema.
     type: str
-    required: yes
+    required: true
   target_template:
     description:
     - The name of the target_template.
     type: str
-    required: yes
+    required: true
   state:
     description:
     - Use C(present) for adding.

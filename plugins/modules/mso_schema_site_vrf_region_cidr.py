@@ -25,27 +25,27 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   site:
     description:
     - The name of the site.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template.
     type: str
-    required: yes
+    required: true
   vrf:
     description:
     - The name of the VRF.
     type: str
-    required: yes
+    required: true
   region:
     description:
     - The name of the region.
     type: str
-    required: yes
+    required: true
   cidr:
     description:
     - The name of the region CIDR to manage.

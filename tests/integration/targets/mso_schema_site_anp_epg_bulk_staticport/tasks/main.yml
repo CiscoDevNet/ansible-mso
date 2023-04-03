@@ -506,7 +506,7 @@
   mso_schema_site_anp_epg_bulk_staticport:
     <<: *static_port_2
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_remove_again_stat2e2
 
 - name: Verify nm_remove_again_stat2e2
@@ -556,7 +556,7 @@
     anp: AP5
     epg: EPG5
     state: present
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_add_stat1e5
 
 - name: Verify nm_add_stat1e5
@@ -571,7 +571,7 @@
     anp: AP1
     epg: EPG6
     state: present
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_add_stat1e6
 
 - name: Verify nm_add_stat1e6
@@ -584,7 +584,7 @@
   mso_schema_site_anp_epg_bulk_staticport:
     <<: *add_static_port
     schema: non_existing_schema
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
@@ -598,7 +598,7 @@
   mso_schema_site_anp_epg_bulk_staticport:
     <<: *add_static_port
     template: non_existing_template
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
@@ -612,7 +612,7 @@
   mso_schema_site_anp_epg_bulk_staticport:
     <<: *add_static_port
     site: 'non_existing_site'
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_site
 
 - name: Verify non_existing_site
@@ -628,7 +628,7 @@
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template 3
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_no_site_associated
 
 - name: Verify cm_no_site_associated and nm_no_site_associated
@@ -756,11 +756,11 @@
     type: port
     deployment_immediacy: immediate
     state: present
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_add_no_static_port
 
 - name: Verify nm_add_no_static_port
   assert:
     that:
     - nm_add_no_static_port is not changed
-    - nm_no_site_associated.msg == "state is present but all of the following are missing{{':'}} static_ports"
+    - nm_add_no_static_port.msg == "state is present but all of the following are missing{{':'}} static_ports"

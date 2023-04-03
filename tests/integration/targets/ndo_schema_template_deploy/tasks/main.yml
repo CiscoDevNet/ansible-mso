@@ -68,7 +68,7 @@
     sites:
       - '{{ mso_site | default("ansible_test") }}'
     state: undeploy
-  ignore_errors: yes
+  ignore_errors: true
   loop:
     - Template 1
     - Template 2
@@ -122,7 +122,7 @@
     sites:
       - '{{ mso_site | default("ansible_test") }}'
     state: deploy
-  check_mode: yes
+  check_mode: true
   register: cm_deploy_template
   loop:
   - Template 1
@@ -245,7 +245,7 @@
       - '{{ mso_site | default("ansible_test") }}'
     state: deploy
   register: failed_validaton_deploy
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Redeploy template with validation error
   cisco.mso.ndo_schema_template_deploy:
@@ -256,7 +256,7 @@
       - '{{ mso_site | default("ansible_test") }}'
     state: redeploy
   register: failed_validaton_redeploy
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Verify validation errors before deploy
   ansible.builtin.assert:

@@ -157,7 +157,7 @@
       name: Contract1
       type: consumer
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_contract_rel
 
 - name: Verify cm_add_contract_rel
@@ -187,7 +187,7 @@
 - name: Add Contract to EPG again (check_mode)
   mso_schema_template_anp_epg_contract:
     <<: *contract_epg_present
-  check_mode: yes
+  check_mode: true
   register: cm_add_contract_rel_again
 
 - name: Verify cm_add_contract_rel_again
@@ -274,7 +274,7 @@
     anp: ANP
     epg: ansible_test_1
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_all_contract_rels
 
 - name: Query all contract relationship for EPG (normal mode)
@@ -297,7 +297,7 @@
     contract:
       name: Contract1
       type: consumer
-  check_mode: yes
+  check_mode: true
   register: cm_query_contract1_consumer_rel
 
 - name: Query Contract1 relationship for EPG - consumer (normal mode)
@@ -362,7 +362,7 @@
   mso_schema_template_anp_epg_contract:
     <<: *contract_epg_present
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_contract_rel
 
 - name: Verify cm_remove_contract_rel
@@ -387,7 +387,7 @@
   mso_schema_template_anp_epg_contract:
     <<: *contract_epg_present
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_contract_rel_again
 
 - name: Verify cm_remove_contract_rel_again
@@ -416,8 +416,8 @@
     contract:
       name: non_existing_contract
       type: provider
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_contract
 
 - name: Query non-existing contract (normal mode)
@@ -426,7 +426,7 @@
     contract:
       name: non_existing_contract
       type: provider
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_contract
 
 - name: Verify query_non_contract
@@ -443,15 +443,15 @@
   mso_schema_template_anp_epg_contract:
     <<: *contract_epg_query
     epg: non_existing_epg
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_epg
 
 - name: Query non-existing EPG (normal mode)
   mso_schema_template_anp_epg_contract:
     <<: *contract_epg_query
     epg: non_existing_epg
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_epg
 
 - name: Verify query_non_epg
@@ -467,15 +467,15 @@
   mso_schema_template_anp_epg_contract:
     <<: *contract_epg_query
     anp: non_existing_anp
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_anp
 
 - name: Query non-existing ANP (normal mode)
   mso_schema_template_anp_epg_contract:
     <<: *contract_epg_query
     anp: non_existing_anp
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_anp
 
 - name: Verify query_non_anp
@@ -491,15 +491,15 @@
   mso_schema_template_anp_epg_contract:
     <<: *contract_epg_query
     state: non-existing-state
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_state
 
 - name: Non-existing state for contract relationship (normal_mode)
   mso_schema_template_anp_epg_contract:
     <<: *contract_epg_query
     state: non-existing-state
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
@@ -515,15 +515,15 @@
   mso_schema_template_anp_epg_contract:
     <<: *contract_epg_query
     schema: non-existing-schema
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_schema
 
 - name: Non-existing schema for contract relationship (normal_mode)
   mso_schema_template_anp_epg_contract:
     <<: *contract_epg_query
     schema: non-existing-schema
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
@@ -542,8 +542,8 @@
       schema: non-existing-schema
       template: Template 1
       type: provider
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_contract_schema
 
 - name: Non-existing contract schema for contract relationship (normal_mode)
@@ -554,7 +554,7 @@
       schema: non-existing-schema
       template: Template 1
       type: provider
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_contract_schema
 
 - name: Verify non_existing_contract_schema
@@ -570,15 +570,15 @@
   mso_schema_template_anp_epg_contract:
     <<: *contract_epg_query
     template: non-existing-template
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_template
 
 - name: Non-existing template for contract relationship (normal_mode)
   mso_schema_template_anp_epg_contract:
     <<: *contract_epg_query
     template: non-existing-template
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
@@ -596,8 +596,8 @@
       name: Contract1
       template: non-existing-template
       type: provider
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_contract_template
 
 - name: Non-existing contract template for contract relationship (normal_mode)
@@ -607,7 +607,7 @@
       name: Contract1
       template: non-existing-template
       type: provider
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_contract_template
 
 - name: Verify non_existing_contract_template

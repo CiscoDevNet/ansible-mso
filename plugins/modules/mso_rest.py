@@ -34,7 +34,7 @@ options:
     description:
     - URI being used to execute API calls.
     type: str
-    required: yes
+    required: true
     aliases: [ uri ]
   content:
     description:

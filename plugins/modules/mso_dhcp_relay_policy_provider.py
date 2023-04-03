@@ -26,7 +26,7 @@ options:
     description:
     - Name of the DHCP Relay Policy
     type: str
-    required: yes
+    required: true
     aliases: [ name ]
   ip:
     description:

@@ -23,17 +23,17 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template to change.
     type: str
-    required: yes
+    required: true
   bd:
     description:
     - The name of the BD to manage.
     type: str
-    required: yes
+    required: true
   dhcp_policy:
     description:
     - The DHCP Policy
@@ -52,12 +52,12 @@ options:
         description:
         - The name of the DHCP Option Policy.
         type: str
-        required: yes
+        required: true
       version:
         description:
         - The version of the DHCP Option Policy.
         type: int
-        required: yes
+        required: true
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.

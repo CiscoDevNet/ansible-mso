@@ -25,19 +25,19 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template.
     type: str
-    required: yes
+    required: true
   filter:
     description:
     - The name of the filter to manage.
     - There should be no space in the filter name. APIC will throw an error if a space is provided in the filter name.
     - See the C(filter_display_name) attribute if you want the display name of the filter to contain a space.
     type: str
-    required: yes
+    required: true
   filter_description:
     description:
     - The description of this filter is supported on versions of MSO that are 3.3 or greater.

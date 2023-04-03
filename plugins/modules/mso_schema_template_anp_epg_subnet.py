@@ -23,22 +23,22 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template to change.
     type: str
-    required: yes
+    required: true
   anp:
     description:
     - The name of the ANP.
     type: str
-    required: yes
+    required: true
   epg:
     description:
     - The name of the EPG to manage.
     type: str
-    required: yes
+    required: true
   subnet:
     description:
     - The IP range in CIDR notation.

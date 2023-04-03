@@ -36,7 +36,7 @@
     urls:
     - https://{{ apic_hostname }}
     state: present
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Remove schemas
   mso_schema:
@@ -68,7 +68,7 @@
     tenant: ansible_test
     template: Template 1
     state: present
-  check_mode: yes
+  check_mode: true
   register: add_template1_schema1_cm
 
 - name: Ensure schema 1 with Template 1 exists
@@ -208,7 +208,7 @@
     tenant: ansible_test
     template: Template 1
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
   register: remove_template1_schema1
 
 - name: Remove Template 2 of Schema 1
@@ -227,7 +227,7 @@
     tenant: ansible_test
     template: non_existing_template
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
   register: remove_template_non_existing_template
 
 - name: Remove Template 3 in schema 2 in check mode
@@ -237,7 +237,7 @@
     tenant: ansible_test
     template: Template 3
     state: absent
-  check_mode: yes
+  check_mode: true
   register: remove_template3_schema2_cm
 
 - name: Remove Template 3 in schema 2 in normal mode
@@ -283,7 +283,7 @@
     tenant: ansible_test
     template: Template 4
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
   register: remove_template_non_existing_schema
 
 - name: Verify remove
@@ -313,7 +313,7 @@
     tenant: ansible_test
     template: Template 2
     state: non_existing_state
-  ignore_errors: yes
+  ignore_errors: true
   register: non_existing_state
 
 - name: Verify non_existing_state
@@ -330,7 +330,7 @@
     tenant: ansible_test
     template: non_existing_template
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: non_existing_template
 
 - name: Verify non_existing_template
@@ -345,7 +345,7 @@
     schema: non_schema
     tenant: ansible_test
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: absent_template
 
 - name: Verify absent_template

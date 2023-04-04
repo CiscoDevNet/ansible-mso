@@ -1,4 +1,5 @@
 # Test code for the MSO modules
+# Copyright: (c) 2023, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
@@ -174,6 +175,23 @@
     - vrf3_nm.current.name == 'VRF3'
     - vrf3_nm.current.displayName == 'VRF3'
 
+- name: Add preferred_group to VRF3 (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: Template 3
+    vrf: VRF3
+    preferred_group: true
+    state: present
+  register: vrf3_nm_change
+
+- name: Verify vrf3_nm_change
+  assert:
+    that:
+    - vrf3_nm_change is changed
+    - vrf3_nm_change.current.name == 'VRF3'
+    - vrf3_nm_change.current.preferredGroup == True
+
 # ADD EXISTING VRF
 - name: Add VRF2 again (normal mode)
   mso_schema_template_vrf:
@@ -190,21 +208,6 @@
   assert:
     that:
     - vrf2_nm_again is not changed
-
-# ADD VRF4 WITH NO STATE
-- name: Add VRF4 (normal mode)
-  mso_schema_template_vrf:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 2
-    vrf: VRF4
-  ignore_errors: true
-  register: vrf4_nm_stateless
-
-- name: Verify vrf4_nm_stateless
-  assert:
-    that:
-    - vrf4_nm_stateless is changed
 
 # CHANGE VRF SETTINGS
 - name: Change VRF1 settings (check mode)
@@ -238,6 +241,8 @@
     vrf: VRF2
     layer3_multicast: false
     vzany: false
+    preferred_group: true
+    ip_data_plane_learning: disabled
     state: present
   check_mode: true
   register: vrf2_change_cm
@@ -250,6 +255,8 @@
     vrf: VRF2
     layer3_multicast: false
     vzany: false
+    preferred_group: true
+    ip_data_plane_learning: disabled
     state: present
   register: vrf2_change_nm
 
@@ -266,6 +273,23 @@
     - vrf1_change_cm.current.vzAnyEnabled == vrf1_change_nm.current.l3MCast == True
     - vrf2_change_cm.current.vzAnyEnabled == vrf2_change_nm.current.vzAnyEnabled == False
     - vrf2_change_cm.current.vzAnyEnabled == vrf2_change_nm.current.l3MCast == False
+    - vrf2_change_cm.current.preferredGroup == vrf2_change_nm.current.preferredGroup == True
+    - vrf2_change_cm.current.ipDataPlaneLearning == vrf2_change_nm.current.ipDataPlaneLearning == 'disabled'
+
+# ADD VRF4 WITH NO STATE
+- name: Add VRF4 (normal mode)
+  mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 2
+    vrf: VRF4
+  ignore_errors: true
+  register: vrf4_nm_stateless
+
+- name: Verify vrf4_nm_stateless
+  assert:
+    that:
+    - vrf4_nm_stateless is changed
 
 # QUERY A VRF
 - name: Query VRF2 (normal mode)

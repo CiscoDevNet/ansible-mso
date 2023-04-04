@@ -12,7 +12,7 @@ v2.3.0
 Release Summary
 ---------------
 
-Release v2.3.0 of the ``ansible-mso`` collection on 2023-03-30.
+Release v2.3.0 of the ``ansible-mso`` collection on 2023-04-04.
 This changelog describes all changes made to the modules and plugins included in this collection since v2.2.1.
 
 

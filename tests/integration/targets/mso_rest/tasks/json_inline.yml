@@ -37,7 +37,7 @@
     template: Template 1
     external_endpoint_group: "{{ item }}"
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - EXT_EPG_1
   - EXT_EPG_2
@@ -52,7 +52,7 @@
     endpoint_group: "{{ item }}"
     application_profile: "ANP_1"
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - EPG_1
   - EPG_2
@@ -66,14 +66,14 @@
     vrf:
       name: VRF1
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Remove DHCP Relay Policies
   mso_dhcp_relay_policy:
     <<: *mso_info
     dhcp_relay_policy: '{{ item }}'
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - ansible_dhcp_relay_1
   - ansible_dhcp_relay_2
@@ -83,7 +83,7 @@
     <<: *mso_info
     dhcp_option_policy: '{{ item }}'
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - ansible_dhcp_option_1
   - ansible_dhcp_option_2
@@ -93,17 +93,19 @@
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
+  - 'aws_{{ mso_site | default("ansible_test") }}'
+  - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Remove tenant ansible_test
   mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
 
 # QUERY SCHEMAS
 - name: Query schema
@@ -124,7 +126,7 @@
     <<: *mso_info
     state: query
     user: '{{ mso_username }}'
-  check_mode: yes
+  check_mode: true
   register: query_user_id
 
 - name: Verify query_user_id

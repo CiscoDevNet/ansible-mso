@@ -25,17 +25,17 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template.
     type: str
-    required: yes
+    required: true
   contract:
     description:
     - The name of the contract to manage.
     type: str
-    required: yes
+    required: true
   description:
     description:
     - The description of contract is supported on versions of MSO/NDO that are 3.3 or greater.

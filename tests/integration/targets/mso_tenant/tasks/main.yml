@@ -42,7 +42,7 @@
     template: Template 1
     site: '{{ item }}'
     state: undeploy
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - '{{ mso_site | default("ansible_test") }}'
   - 'aws_{{ mso_site | default("ansible_test") }}'
@@ -53,7 +53,7 @@
     template: Template 2
     site: '{{ item }}'
     state: undeploy
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - '{{ mso_site | default("ansible_test") }}'
   - 'aws_{{ mso_site | default("ansible_test") }}'
@@ -65,7 +65,7 @@
     template: Template 3
     site: '{{ item }}'
     state: undeploy
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - '{{ mso_site | default("ansible_test") }}'
   - 'aws_{{ mso_site | default("ansible_test") }}'
@@ -98,7 +98,7 @@
     display_name: Ansible test title
     description: Ansible test tenant
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_tenant
 
 - name: Verify cm_add_tenant
@@ -127,7 +127,7 @@
 
 - name: Add tenant again (check_mode)
   mso_tenant: *tenant_present
-  check_mode: yes
+  check_mode: true
   register: cm_add_tenant_again
 
 - name: Verify cm_add_tenant_again
@@ -220,7 +220,7 @@
     - admin
     display_name: null
     state: present
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_add_tenant3_with_duplicate_admin
 
 - name: Verify nm_add_tenant3_with_duplicate_admin
@@ -237,7 +237,7 @@
     - invalid user
     display_name: null
     state: present
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_add_tenant3_with_invalid_user
 
 - name: nm_add_tenant3_with_invalid_user
@@ -279,7 +279,7 @@
     <<: *tenant_present
     tenant: ansible_test
     description: Ansible test tenant 2
-  check_mode: yes
+  check_mode: true
   register: cm_change_tenant
 
 - name: Verify cm_change_tenant
@@ -311,7 +311,7 @@
     <<: *tenant_present
     tenant: ansible_test
     description: Ansible test tenant 2
-  check_mode: yes
+  check_mode: true
   register: cm_change_tenant_again
 
 - name: Verify cm_change_tenant_again
@@ -343,7 +343,7 @@
   mso_tenant: &tenant_query
     <<: *mso_info
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_all_tenants
 
 - name: Query all tenants (normal mode)
@@ -364,7 +364,7 @@
   mso_tenant:
     <<: *tenant_query
     tenant: ansible_test
-  check_mode: yes
+  check_mode: true
   register: cm_query_tenant
 
 - name: Query our tenant
@@ -392,7 +392,7 @@
   mso_tenant:
     <<: *tenant_absent
     tenant: ansible_test
-  check_mode: yes
+  check_mode: true
   register: cm_remove_tenant
 
 - name: Verify cm_remove_tenant
@@ -417,7 +417,7 @@
   mso_tenant:
     <<: *tenant_absent
     tenant: ansible_test
-  check_mode: yes
+  check_mode: true
   register: cm_remove_tenant_again
 
 - name: Verify cm_remove_tenant_again
@@ -444,7 +444,7 @@
   mso_tenant:
     <<: *tenant_query
     tenant: ansible_test
-  check_mode: yes
+  check_mode: true
   register: cm_query_non_tenant
 
 - name: Query non-existing tenant (normal mode)
@@ -493,7 +493,7 @@
   mso_tenant:
     <<: *tenant_absent
     tenant: common
-  ignore_errors: yes
+  ignore_errors: true
   register: rm_common
 
 - name: Verify rm_common
@@ -531,7 +531,7 @@
     description: anstest_imp_tenant_description
     sites: '{{ mso_site | default("ansible_test") }}'
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_import_anstest_imp_tenant_present
 
 - name: Assertions check for import "anstest_imp_tenant" to the MSO with check mode
@@ -599,7 +599,7 @@
     tenant: anstest_imp_tenant
     orchestrator_only: yes
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_anstest_imp_tenant_absent_orchestrator_only_yes
 
 - name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value yes with check mode
@@ -658,7 +658,7 @@
   mso_tenant: &cm_update_anstest_imp_tenant
     <<: *nm_import_anstest_imp_tenant_present
     description: "updated_anstest_imp_tenant_description"
-  check_mode: yes
+  check_mode: true
   register: cm_update_anstest_imp_tenant
 
 - name: Assertions check for update "anstest_imp_tenant" tenant description with check mode
@@ -717,7 +717,7 @@
     tenant: anstest_imp_tenant
     orchestrator_only: no
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_anstest_imp_tenant_absent_orchestrator_only_no
 
 - name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value no with check mode

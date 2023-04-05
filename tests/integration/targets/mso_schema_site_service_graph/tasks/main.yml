@@ -42,7 +42,7 @@
       urls:
       - https://{{ apic_hostname }}
       state: present
-    ignore_errors: yes
+    ignore_errors: true
 
   - name: Remove schemas
     cisco.mso.mso_schema:
@@ -257,7 +257,7 @@
         - name: ansible_test_firewall1
       state: present
     register: cm_sg1
-    check_mode: yes
+    check_mode: true
 
   - name: Verify cm_sg1
     assert:
@@ -447,7 +447,7 @@
       devices:
         - name: ansible_test_other
       state: present
-    ignore_errors: yes
+    ignore_errors: true
     register: change2_sg4
 
   - name: Verify change2_sg4
@@ -467,7 +467,7 @@
       devices:
         - name: ansible_test_adc
       state: present
-    ignore_errors: yes
+    ignore_errors: true
     register: change3_sg4
 
   - name: Verify change3_sg4
@@ -487,7 +487,7 @@
       devices:
         - name: ansible_test_firewall1
       state: present
-    ignore_errors: yes
+    ignore_errors: true
     register: change4_sg4
 
   - name: Verify change4_sg4
@@ -508,7 +508,7 @@
         - name: ansible_test_other
         - name: ansible_test_adc
       state: present
-    ignore_errors: yes
+    ignore_errors: true
     register: change5_sg4
 
   - name: Verify change5_sg4
@@ -530,7 +530,7 @@
         - name: ansible_test_other
         - name: ansible_test_adc
       state: present
-    ignore_errors: yes
+    ignore_errors: true
     register: change6_sg4
 
   - name: Verify change6_sg4
@@ -657,7 +657,7 @@
       service_graph: non_existent
       tenant: ansible_test
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: query_non_existing_sg
 
   - name: Verify query_non_existing_sg
@@ -674,7 +674,7 @@
       tenant: ansible_test
       site: '{{ mso_site | default("ansible_test") }}'
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: query_non_existing_schema
 
   - name: Verify non_existing_schema
@@ -692,7 +692,7 @@
       tenant: ansible_test
       site: '{{ mso_site | default("ansible_test") }}'
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: query_non_existing_template
 
   - name: Verify query_non_existing_template
@@ -709,7 +709,7 @@
       template: Template2
       tenant: ansible_test
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_site_template
 
   - name: Verify cm_non_existing_site_template and nm_non_existing_site_template
@@ -729,7 +729,7 @@
       devices:
       - name: ansible_test_firewall2
       state: present
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_no_site_associated
 
   - name: Verify nm_no_site_associated
@@ -748,7 +748,7 @@
       tenant: ansible_test
       state: absent
     register: rm_sg_cm
-    check_mode: yes
+    check_mode: true
 
   - name: Verify rm_sg_cm
     assert:

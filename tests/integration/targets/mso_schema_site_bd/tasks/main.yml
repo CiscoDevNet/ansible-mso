@@ -39,7 +39,7 @@
     urls:
     - https://{{ apic_hostname }}
     state: present
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Remove schemas
   mso_schema:
@@ -212,7 +212,7 @@
     template: Template 1
     bd: ansible_test_1
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_site_bd
 
 - name: Verify cm_add_site_bd
@@ -262,7 +262,7 @@
     template: Template 1
     bd: ansible_test_1
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_site_bd_again
 
 - name: Add site BD again (normal_mode)
@@ -291,7 +291,7 @@
     bd: ansible_test_1
     host_route: true
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_change_site_bd
 
 - name: Change site BD (normal_mode)
@@ -326,7 +326,7 @@
     bd: ansible_test_2
     host_route: true
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_site_bd_with_host_route
 
 - name: Add site BD with host_route (normal_mode)
@@ -413,7 +413,7 @@
     template: Template 2
     bd: ansible_test_2
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_bd_2
 
 - name: Query a specific BD (normal_mode)
@@ -443,7 +443,7 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template 1
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_all_bd
 
 - name: Query all BDs (normal_mode)
@@ -475,7 +475,7 @@
     template: Template 2
     bd: ansible_test_2
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_site_bd_2
 
 - name: Remove BD 2 (normal_mode)
@@ -541,8 +541,8 @@
     template: Template 1
     bd: non_existing_bd
     state: query
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_bd
 
 - name: Query non-existing BD (normal_mode)
@@ -553,7 +553,7 @@
     template: Template 1
     bd: non_existing_bd
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_bd
 
 - name: Verify cm_query_non_bd and nm_query_non_bd
@@ -572,7 +572,7 @@
     template: Template 1
     bd: ansible_test_1
     state: non_existing_state
-  ignore_errors: yes
+  ignore_errors: true
   register: cm_non_existing_state
 
 - name: non_existing_state state (normal_mode)
@@ -583,7 +583,7 @@
     template: Template 1
     bd: ansible_test_1
     state: non_existing_state
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify cm_non_existing_state and nm_non_existing_state
@@ -602,8 +602,8 @@
     template: non_existing_template
     bd: ansible_test_1
     state: query
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_template
 
 - name: non_existing_template (normal_mode)
@@ -614,7 +614,7 @@
     template: non_existing_template
     bd: ansible_test_1
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify cm_non_existing_template and nm_non_existing_template
@@ -633,8 +633,8 @@
     template: Template 1
     bd: ansible_test_1
     state: query
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_schema
 
 - name: non_existing_schema (normal_mode)
@@ -645,7 +645,7 @@
     template: Template 1
     bd: ansible_test_1
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify cm_non_existing_schema and nm_non_existing_schema
@@ -664,8 +664,8 @@
     template: Template 1
     bd: ansible_test_1
     state: query
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_site
 
 - name: non_existing_site (normal_mode)
@@ -676,7 +676,7 @@
     template: Template 1
     bd: ansible_test_1
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_site
 
 - name: Verify cm_non_existing_site and nm_non_existing_site
@@ -695,8 +695,8 @@
     template: Template 3
     bd: ansible_test_1
     state: query
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_site_template
 
 - name: non_existing_site_template (normal_mode)
@@ -707,7 +707,7 @@
     template: Template 3
     bd: ansible_test_1
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_site_template
 
 - name: Verify cm_non_existing_site_template and nm_non_existing_site_template
@@ -726,8 +726,8 @@
     template: Template 3
     bd: ansible_test_1
     state: present
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_no_site_associated
 
 - name: Add site BD to Template 3 without any site associated (normal mode)
@@ -738,7 +738,7 @@
     template: Template 3
     bd: ansible_test_1
     state: present
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_no_site_associated
 
 - name: Verify cm_no_site_associated and nm_no_site_associated

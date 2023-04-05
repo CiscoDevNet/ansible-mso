@@ -228,7 +228,7 @@
     vrf:
       name: VRF
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_epg
 
 - name: Verify cm_add_epg
@@ -263,7 +263,7 @@
 - name: Add EPG again (check_mode)
   mso_schema_template_anp_epg:
     <<: *epg_present
-  check_mode: yes
+  check_mode: true
   register: cm_add_epg_again
 
 - name: Verify cm_add_epg_again
@@ -403,7 +403,7 @@
       name: VRF2
     bd:
       name: ansible_test_2
-  check_mode: yes
+  check_mode: true
   register: cm_change_epg
 
 - name: Verify cm_change_epg
@@ -445,7 +445,7 @@
       name: VRF2
     bd:
       name: ansible_test_2
-  check_mode: yes
+  check_mode: true
   register: cm_change_epg_again
 
 - name: Verify cm_change_epg_again
@@ -639,7 +639,7 @@
     template: Template 1
     anp: ANP
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_all_epgs
 
 - name: Query all EPGs (normal mode)
@@ -660,7 +660,7 @@
   mso_schema_template_anp_epg:
     <<: *epg_query
     epg: ansible_test_1
-  check_mode: yes
+  check_mode: true
   register: cm_query_epg_1
 
 - name: Query EPG 1 (normal mode)
@@ -755,7 +755,7 @@
   mso_schema_template_anp_epg:
     <<: *epg_present
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_epg
 
 - name: Verify cm_remove_epg
@@ -780,7 +780,7 @@
   mso_schema_template_anp_epg:
     <<: *epg_present
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_epg_again
 
 - name: Verify cm_remove_epg_again
@@ -809,7 +809,7 @@
     anp: ANP
     epg: ansible_test_1
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
 
 # Add EPG when MSO version >= 3.3
 - name: Execute tasks only for MSO version >= 3.3
@@ -858,7 +858,7 @@
       deployment_type: 'third_party'
       service_type: 'Azure-Storage'
       access_type: 'public_and_private'
-    ignore_errors: yes
+    ignore_errors: true
     register: service_type_epg_error
 
   - name: Verify service type error
@@ -886,7 +886,7 @@
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: query_validate
 
   - name: Verify validation
@@ -909,7 +909,7 @@
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: query_validate
 
   - name: Verify validation
@@ -932,7 +932,7 @@
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: query_validate
 
   - name: Verify validation
@@ -961,15 +961,15 @@
   mso_schema_template_anp_epg:
     <<: *epg_query
     epg: non_existing_epg
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_epg
 
 - name: Query non-existing EPG (normal mode)
   mso_schema_template_anp_epg:
     <<: *epg_query
     epg: non_existing_epg
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_epg
 
 - name: Verify query_non_epg
@@ -985,15 +985,15 @@
   mso_schema_template_anp_epg:
     <<: *epg_query
     anp: non_existing_anp
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_anp
 
 - name: Query non-existing ANP (normal mode)
   mso_schema_template_anp_epg:
     <<: *epg_query
     anp: non_existing_anp
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_anp
 
 - name: Verify query_non_anp
@@ -1010,8 +1010,8 @@
     <<: *epg_query
     epg: ansible_test_2
     state: non-existing-state
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_state
 
 - name: Non-existing state for EPG (normal_mode)
@@ -1019,7 +1019,7 @@
     <<: *epg_query
     epg: ansible_test_2
     state: non-existing-state
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
@@ -1036,8 +1036,8 @@
     <<: *epg_present
     schema: non-existing-schema
     epg: ansible_test_2
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_schema
 
 - name: Non-existing schema for EPG (normal_mode)
@@ -1045,7 +1045,7 @@
     <<: *epg_present
     schema: non-existing-schema
     epg: ansible_test_2
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
@@ -1064,8 +1064,8 @@
       name: ansible_test_1
       schema: non-existing-schema
       template: Template 1
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_bd_schema
 
 - name: Non-existing BD schema for EPG (normal_mode)
@@ -1076,7 +1076,7 @@
       name: ansible_test_1
       schema: non-existing-schema
       template: Template 1
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_bd_schema
 
 - name: Verify non_existing_bd_schema
@@ -1095,8 +1095,8 @@
       name: VRF
       schema: non-existing-schema
       template: Template 1
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_vrf_schema
 
 - name: Non-existing VRF schema for EPG (normal_mode)
@@ -1107,7 +1107,7 @@
       name: VRF
       schema: non-existing-schema
       template: Template 1
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_vrf_schema
 
 - name: Verify non_existing_vrf_schema
@@ -1124,8 +1124,8 @@
     <<: *epg_present
     template: non-existing-template
     epg: ansible_test_2
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_template
 
 - name: Non-existing template for EPG (normal_mode)
@@ -1133,7 +1133,7 @@
     <<: *epg_present
     template: non-existing-template
     epg: ansible_test_2
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify non_existing_template

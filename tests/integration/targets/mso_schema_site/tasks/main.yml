@@ -30,7 +30,7 @@
     urls:
     - https://{{ apic_hostname }}
     state: present
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Remove schemas
   mso_schema:
@@ -80,7 +80,7 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template 1
     state: present
-  check_mode: yes
+  check_mode: true
   register: add_site_cm
 
 - name: Verify add_site_cm
@@ -214,7 +214,7 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template 1
     state: non_existing_state
-  ignore_errors: yes
+  ignore_errors: true
   register: non_existing_state
 
 - name: Verify non_existing_state
@@ -231,7 +231,7 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template 1
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: non_existing_schema
 
 - name: Verify non_existing_schema
@@ -248,7 +248,7 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: non_existing_template
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: non_existing_template
 
 - name: Verify non_existing_template
@@ -263,7 +263,7 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: absent_template
 
 - name: Verify absent_template

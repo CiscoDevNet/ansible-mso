@@ -23,27 +23,27 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   site:
     description:
     - The name of the site.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template.
     type: str
-    required: yes
+    required: true
   anp:
     description:
     - The name of the ANP.
     type: str
-    required: yes
+    required: true
   epg:
     description:
     - The name of the EPG.
     type: str
-    required: yes
+    required: true
   domain_association_type:
     description:
     - The type of domain to associate.

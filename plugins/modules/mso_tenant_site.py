@@ -24,7 +24,7 @@ options:
     description:
     - The name of the tenant.
     type: str
-    required: yes
+    required: true
   site:
     description:
     - The name of the site.

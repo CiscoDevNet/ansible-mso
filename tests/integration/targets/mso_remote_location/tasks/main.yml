@@ -58,7 +58,7 @@
     remote_username: '{{ mso_remote_location_user | default(mso_username) }}'
     remote_password: '{{ mso_remote_location_password | default(mso_password) }}'
     state: present
-  check_mode: yes
+  check_mode: true
   delegate_to: localhost
   register: cm_config_remote
 
@@ -104,7 +104,7 @@
   cisco.mso.mso_remote_location:
     <<: *remote_location
     description: changed_description
-  check_mode: yes
+  check_mode: true
   delegate_to: localhost
   register: cm_change_config_remote_description
 
@@ -142,7 +142,7 @@
     <<: *mso_info
     remote_location: non_existing
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   delegate_to: localhost
   register: nm_query_non_existing
 
@@ -160,7 +160,7 @@
   cisco.mso.mso_remote_location:
     <<: *remote_location
     state: absent
-  check_mode: yes
+  check_mode: true
   delegate_to: localhost
   register: cm_delete_config_remote
 
@@ -189,7 +189,7 @@
   cisco.mso.mso_remote_location:
     <<: *remote_location
     remote_path: '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
-  check_mode: yes
+  check_mode: true
   delegate_to: localhost
   register: cm_config_remote_different_path
 
@@ -218,7 +218,7 @@
   cisco.mso.mso_remote_location:
     <<: *remote_location
     remote_protocol: sftp
-  check_mode: yes
+  check_mode: true
   delegate_to: localhost
   register: cm_config_remote_sftp
 
@@ -248,7 +248,7 @@
     <<: *remote_location
     authentication_type: ssh
     remote_ssh_key: "{{ lookup('file', 'pki/rsa') }}"
-  check_mode: yes
+  check_mode: true
   delegate_to: localhost
   register: cm_config_remote_ssh
 
@@ -278,7 +278,7 @@
     authentication_type: ssh
     remote_ssh_key: "{{ lookup('file', 'pki/rsa-passphrase') }}"
     remote_ssh_passphrase: '{{ mso_output_level | default("ansible") }}'
-  check_mode: yes
+  check_mode: true
   delegate_to: localhost
   register: cm_config_remote_ssh_pass
 

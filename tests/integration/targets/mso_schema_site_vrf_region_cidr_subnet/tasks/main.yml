@@ -163,7 +163,7 @@
     subnet: 10.0.0.0/24
     zone: us-west-1a
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_subnet
 
 - name: Verify cm_add_subnet
@@ -219,7 +219,7 @@
     cidr: 10.1.0.0/16
     subnet: 10.1.0.0/24
     zone: null
-  check_mode: yes
+  check_mode: true
   register: cm_add_subnet_2
 
 - name: Verify cm_add_subnet_2
@@ -257,7 +257,7 @@
     subnet: 10.1.1.0/24
     zone: null
     vgw: true
-  check_mode: yes
+  check_mode: true
   register: cm_add_subnet_3
 
 - name: Verify cm_add_subnet_3
@@ -323,7 +323,7 @@
     cidr: 10.0.0.0/16
     subnet: 10.0.0.0/24
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_subnet
 
 - name: Verify cm_query_subnet
@@ -354,7 +354,7 @@
     region: us-west-1
     cidr: 10.0.0.0/16
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_subnet_all_aws
 
 - name: Query all subnets to Azure CIDR in VRF1 at site level (check mode)
@@ -364,7 +364,7 @@
     region: westus
     cidr: 10.1.0.0/16
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_subnet_all_azure
 
 - name: Verify cm_query_subnet_all_aws and cm_query_subnet_all_azure
@@ -560,7 +560,7 @@
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_subnet
 
 - name: Verify cm_remove_subnet
@@ -585,7 +585,7 @@
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_subnet_again
 
 - name: Verify cm_remove_subnet_again
@@ -625,15 +625,15 @@
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     subnet: non_existing_subnet
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_subnet
 
 - name: Query non-existing subnet (normal mode)
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     subnet: non_existing_subnet
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_subnet
 
 - name: Verify query_non_subnet
@@ -650,15 +650,15 @@
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     cidr: non_existing_cidr
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_cidr
 
 - name: Query non-existing CIDR (normal mode)
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     cidr: non_existing_cidr
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_cidr
 
 - name: Verify query_non_cidr
@@ -685,15 +685,15 @@
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     region: non_existing_region
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_region
 
 - name: Query non-existing region (normal mode)
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     region: non_existing_region
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_region
 
 - name: Verify query_non_region
@@ -709,15 +709,15 @@
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     vrf: non_existing_vrf
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_vrf
 
 - name: Query non-existing VRF (normal mode)
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     vrf: non_existing_vrf
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_vrf
 
 - name: Verify query_non_vrf
@@ -733,15 +733,15 @@
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     state: non-existing-state
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_state
 
 - name: Non-existing state for site cidr subnet (normal_mode)
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     state: non-existing-state
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
@@ -757,15 +757,15 @@
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     schema: non-existing-schema
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_schema
 
 - name: Non-existing schema for site cidr subnet (normal_mode)
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     schema: non-existing-schema
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
@@ -781,15 +781,15 @@
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     template: non-existing-template
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_template
 
 - name: Non-existing template for site cidr subnet (normal_mode)
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     template: non-existing-template
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
@@ -805,15 +805,15 @@
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     template: Template 2
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_associated_template
 
 - name: Non-associated template for site cidr subnet (normal_mode)
   mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     template: Template 2
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_associated_template
 
 - name: Verify non_associated_template
@@ -831,8 +831,8 @@
     <<: *mso_query
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_no_site_associated
 
 - name: Add site cidr subnet to Template 3 without any site associated (normal mode)
@@ -840,7 +840,7 @@
     <<: *mso_query
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_no_site_associated
 
 - name: Verify cm_no_site_associated and nm_no_site_associated

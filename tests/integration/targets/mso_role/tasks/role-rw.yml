@@ -39,7 +39,7 @@
     read_permissions: view-sites
     write_permissions: manage-sites
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_role
 
 - name: Verify cm_add_role
@@ -66,7 +66,7 @@
 
 - name: Add role again (check_mode)
   mso_role: *role_present
-  check_mode: yes
+  check_mode: true
   register: cm_add_role_again
 
 - name: Verify cm_add_role_again
@@ -100,7 +100,7 @@
     <<: *role_present
     role: ansible_test
     description: Ansible test role 2
-  check_mode: yes
+  check_mode: true
   register: cm_change_role
 
 - name: Verify cm_change_role
@@ -132,7 +132,7 @@
     <<: *role_present
     role: ansible_test
     description: Ansible test role 2
-  check_mode: yes
+  check_mode: true
   register: cm_change_role_again
 
 - name: Verify cm_change_role_again
@@ -164,7 +164,7 @@
   mso_role: &role_query
     <<: *mso_info
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_all_roles
 
 - name: Query all roles (normal mode)
@@ -185,7 +185,7 @@
   mso_role:
     <<: *role_query
     role: ansible_test
-  check_mode: yes
+  check_mode: true
   register: cm_query_role
 
 - name: Query our role
@@ -211,7 +211,7 @@
 # REMOVE ROLE
 - name: Remove role (check_mode)
   mso_role: *role_absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_role
 
 - name: Verify cm_remove_role
@@ -232,7 +232,7 @@
 
 - name: Remove role again (check_mode)
   mso_role: *role_absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_role_again
 
 - name: Verify cm_remove_role_again
@@ -257,7 +257,7 @@
   mso_role:
     <<: *role_query
     role: non-existing-role
-  check_mode: yes
+  check_mode: true
   register: cm_query_non_role
 
 - name: Query non-existing role (normal mode)

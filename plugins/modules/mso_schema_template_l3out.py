@@ -23,12 +23,12 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template.
     type: str
-    required: yes
+    required: true
   l3out:
     description:
     - The name of the l3out to manage.

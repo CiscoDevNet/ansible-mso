@@ -174,7 +174,7 @@
     contract: Contract1
     filter: Filter1
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_contract
 
 - name: Verify cm_add_contract
@@ -208,7 +208,7 @@
     contract: Contract1
     filter: Filter1
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_contract_again
 
 - name: Verify cm_add_contract_again
@@ -248,7 +248,7 @@
     filter: Filter1
     filter_template: Template 1
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_contract_2
 
 - name: Verify cm_add_contract_2
@@ -321,7 +321,7 @@
     filter: Filter4
     filter_type: both-way
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_contract_filter_both_way
 
 - name: Add Contract filter to both-way(normal_mode)
@@ -415,7 +415,7 @@
     filter: Filter1
     filter_directives: log
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_change_filter_directives_log
 
 - name: change contract filter_directives to log(normal_mode)
@@ -461,7 +461,7 @@
     filter: Filter1
     filter_directives: policy_compression
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_change_filter_directives_pc
 
 - name: change contract filter_directives to policy_compression (normal_mode)
@@ -667,7 +667,7 @@
     filter_type: consumer-to-provider
     state: present
   register: nm_contract_filter_consumer_to_provider
-  ignore_errors: yes
+  ignore_errors: true
   when: version.current.version is version('3.3', '>=')
 
 - name: Verify nm_contract_filter_consumer_to_provider
@@ -690,7 +690,7 @@
     template: Template 1
     contract: Contract1
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_contract1_query_result
 
 - name: Query Contract1 filters (normal_mode)
@@ -777,7 +777,7 @@
     contract: Contract1
     filter: Filter1
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_contract1_filter1_query_result
 
 - name: Query Contract1 Filter4 (normal_mode)
@@ -873,7 +873,7 @@
     contract: Contract1
     filter: Filter1
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_contract1_filter1
 
 - name: Verify cm_remove_contract1_filter1
@@ -900,7 +900,7 @@
 - name: Remove contract1 filter1 again (check_mode)
   mso_schema_template_contract_filter:
     <<: *contract1_filter1_absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_contract1_filter1_again
 
 - name: Verify cm_remove_contract1_filter1_again
@@ -956,8 +956,8 @@
     template: Template 1
     contract: Contract4
     filter: non-existing-filter
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_filter
 
 - name: Query non-existing filter (normal_mode)
@@ -967,7 +967,7 @@
     template: Template 1
     contract: Contract4
     filter: non-existing-filter
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_filter
 
 - name: Verify query_non_filter
@@ -1006,8 +1006,8 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     contract: non-existing-contract
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_contract
 
 - name: Query non-existing contract (normal_mode)
@@ -1016,7 +1016,7 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     contract: non-existing-contract
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_contract
 
 - name: Verify query_non_contract
@@ -1040,8 +1040,8 @@
     <<: *Contract_query
     template: Template 1
     schema: non-existing-schema
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_schema
 
 - name: Non-existing schema for contrct (normal_mode)
@@ -1049,7 +1049,7 @@
     <<: *Contract_query
     template: Template 1
     schema: non-existing-schema
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_schema
 
 
@@ -1067,8 +1067,8 @@
     <<: *Contract_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_template
 
 - name: Non-existing template for contract (normal_mode)
@@ -1076,7 +1076,7 @@
     <<: *Contract_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_template
 
 - name: Verify non_existing_template

@@ -24,12 +24,12 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template to change.
     type: str
-    required: yes
+    required: true
   l3out:
     description:
     - The L3Out associated with the external epg.
@@ -44,7 +44,7 @@ options:
     description:
     - The name of the site.
     type: str
-    required: yes
+    required: true
   route_reachability:
     description:
     - Configures if an external EPG route is pointing to the internet or to an external remote network.

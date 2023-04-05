@@ -71,7 +71,7 @@
       location_type: local
       state: present
     register: cm_add_ansibleBackup1
-    check_mode: yes
+    check_mode: true
 
   - name: Verify cm_add_ansibleBackup1
     assert:
@@ -276,7 +276,7 @@
       backup: ansibleBackupMove
       description: Local to Remote via Ansible
       state: move
-    check_mode: yes
+    check_mode: true
     when: version.current.version is version('3', '>=')
     register: move_backup_cm
 
@@ -300,7 +300,7 @@
       state: move
     when: version.current.version is version('3', '>=')
     register: move_non_existent_backup
-    ignore_errors: yes
+    ignore_errors: true
 
   - name: Move a ansibleBackup3 from local location to remote
     mso_backup:
@@ -311,7 +311,7 @@
       state: move
     when: version.current.version is version('3', '>=')
     register: move_ansibleBackup3
-    ignore_errors: yes
+    ignore_errors: true
 
   - name: Verify move function of backup
     assert:
@@ -336,7 +336,7 @@
       destination: './{{mso_hostname}}'
       state: download
     register: download_ansibleBackup2_cm
-    check_mode: yes
+    check_mode: true
 
   - name: Download backup
     mso_backup:
@@ -352,7 +352,7 @@
       backup: non_existent_backup
       destination: './{{mso_hostname}}'
       state: download
-    ignore_errors: yes
+    ignore_errors: true
     register: download_non_existent_backup
 
   - name: Download backup ansibleBackup3
@@ -361,7 +361,7 @@
       backup: ansibleBackup3
       destination: './{{mso_hostname}}'
       state: download
-    ignore_errors: yes
+    ignore_errors: true
     register: download_ansibleBackup3
 
   - name: Verify download of backup
@@ -392,7 +392,7 @@
       backup: "{{ backup_match.files[0].path }}"
       state: upload
     register: upload_backup_cm
-    check_mode: yes
+    check_mode: true
 
   - name: Upload a backup from local location
     mso_backup:
@@ -407,7 +407,7 @@
       backup: non_existent_backup
       state: upload
     register: upload_non_existent_backup
-    ignore_errors: yes
+    ignore_errors: true
 
   - name: Verify upload of backup
     assert:
@@ -422,7 +422,7 @@
       <<: *mso_info
       backup: non_existent_backup
       state: restore
-    ignore_errors: yes
+    ignore_errors: true
     when: version.current.version is version('2.2.4e', '!=')
     register: restore_non_existent_backup
 
@@ -431,7 +431,7 @@
       <<: *mso_info
       backup: ansibleBackup3
       state: restore
-    ignore_errors: yes
+    ignore_errors: true
     when: version.current.version is version('2.2.4e', '!=')
     register: restore_ansibleBackup3
 
@@ -455,7 +455,7 @@
       <<: *mso_info
       backup: ansibleBackup1
       state: restore
-    check_mode: yes
+    check_mode: true
     when: version.current.version is version('2.2.4e', '!=')
     register: restore_cm
 
@@ -524,7 +524,7 @@
       <<: *mso_info
       backup: ansibleBackup1
       state: absent
-    check_mode: yes
+    check_mode: true
     register: cm_remove_ansibleBackup1
 
   - name: Verify cm_remove_ansibleBackup1
@@ -561,7 +561,7 @@
       <<: *mso_info
       backup: ansibleBackup3
       state: absent
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_remove_ansibleBackup3
 
   - name: Verify nm_remove_ansibleBackup3

@@ -25,7 +25,7 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   site:
     description:
     - The name of the site to manage.

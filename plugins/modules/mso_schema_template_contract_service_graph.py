@@ -24,17 +24,17 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template.
     type: str
-    required: yes
+    required: true
   contract:
     description:
     - The name of the contract.
     type: str
-    required: yes
+    required: true
   service_graph:
     description:
     - The service graph to associate with this contract.

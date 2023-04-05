@@ -47,7 +47,7 @@
       vrf:
         name: VRF1
       state: absent
-    ignore_errors: yes
+    ignore_errors: true
 
   - name: Remove DHCP Relay Policy 1
     mso_dhcp_relay_policy:
@@ -69,7 +69,7 @@
       description: "My Test DHCP Policy 1"
       tenant: ansible_test
       state: present
-    check_mode: yes
+    check_mode: true
     register: dhcp_pol1_cm
 
   - name: Add a new DHCP Relay Policy 1 (normal mode)
@@ -91,7 +91,7 @@
   - name: Add a new DHCP Relay Policy 1 again (check mode)
     mso_dhcp_relay_policy:
       <<: *create_dhcp
-    check_mode: yes
+    check_mode: true
     register: dhcp_pol1_again_cm
 
   - name: Add a new DHCP Relay Policy 1 again (normal mode)
@@ -119,7 +119,7 @@
     mso_dhcp_relay_policy:
       <<: *create_dhcp
       description: "My Changed Test DHCP Policy 1"
-    check_mode: yes
+    check_mode: true
     register: change_dhcp_pol1_cm
 
   - name: Change DHCP Relay Policy 1 description (normal mode)
@@ -145,7 +145,7 @@
       <<: *mso_info
       dhcp_relay_policy: ansible_dhcp_relay_1
       state: query
-    check_mode: yes
+    check_mode: true
     register: dhcp_pol1_query_cm
 
   - name: Query DHCP Relay Policy 1 (normal mode)
@@ -195,7 +195,7 @@
       <<: *mso_info
       dhcp_relay_policy: ansible_dhcp_relay_1
       state: absent
-    check_mode: yes
+    check_mode: true
     register: dhcp_pol1_removed_cm
 
   - name: Remove DHCP Relay Policy 1 (normal mode)
@@ -214,7 +214,7 @@
   - name: Remove DHCP Relay Policy 1 again (check mode)
     mso_dhcp_relay_policy:
       <<: *remove_dhcp
-    check_mode: yes
+    check_mode: true
     register: dhcp_pol1_removed_again_cm
 
   - name: Remove DHCP Relay Policy 1 again (normal mode)
@@ -239,7 +239,7 @@
       description: "My Test DHCP Policy 3"
       tenant: non_existing
       state: present
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_tenant
 
   - name: Verify nm_non_existing_tenant
@@ -258,7 +258,7 @@
       vrf:
         name: VRF1
       state: absent
-    ignore_errors: yes
+    ignore_errors: true
 
   - name: Remove DHCP Relay Policy 1
     mso_dhcp_relay_policy:

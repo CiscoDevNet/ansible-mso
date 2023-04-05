@@ -25,17 +25,17 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template to change.
     type: str
-    required: yes
+    required: true
   external_epg:
     description:
     - The name of the External EPG to manage.
     type: str
-    required: yes
+    required: true
   subnet:
     description:
     - The IP range in CIDR notation.

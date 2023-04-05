@@ -57,7 +57,7 @@
         access_type: write
       domain: Local
       state: present
-    check_mode: yes
+    check_mode: true
     register: cm_add_user
 
   - name: Verify cm_add_user
@@ -97,7 +97,7 @@
       <<: *user_present
       # NOTE: We need to modify the password for a new user
       user_password: 'S0m3!n3w!p455w0rd'
-    check_mode: yes
+    check_mode: true
     register: cm_add_user_again
 
   - name: Verify cm_add_user_again
@@ -139,7 +139,7 @@
         access_type: read
       domain: Local
       state: present
-    check_mode: yes
+    check_mode: true
     register: cm_add_user2
 
   - name: Verify cm_add_user2
@@ -177,7 +177,7 @@
     mso_user:
       <<: *user_present2
       user_password: '#123455#123455Aa'
-    check_mode: yes
+    check_mode: true
     register: cm_add_user2_again
 
   - name: Add user with read only role again (normal mode)
@@ -200,7 +200,7 @@
         access_type: read
       domain: Local
       state: present
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_add_user3
 
   - name: Verify nm_add_user2
@@ -240,7 +240,7 @@
       # FIXME: Add support for name change
       email: mso2@cisco.com
       phone: +32 478 436 300
-    check_mode: yes
+    check_mode: true
     register: cm_change_user
 
   - name: Verify cm_change_user
@@ -270,7 +270,7 @@
   - name: Change user again (check_mode)
     mso_user:
       <<: *user_change
-    check_mode: yes
+    check_mode: true
     register: cm_change_user_again
 
   - name: Verify cm_change_user_again
@@ -331,7 +331,7 @@
   mso_user: &user_query
     <<: *mso_info
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_all_users
 
 - name: Query all users (normal mode)
@@ -352,7 +352,7 @@
   mso_user:
     <<: *user_query
     user: '{{ mso_username }}'
-  check_mode: yes
+  check_mode: true
   register: cm_query_user
 
 - name: Query our user
@@ -393,7 +393,7 @@
       <<: *user_absent
       user: ansible_test
       state: absent
-    check_mode: yes
+    check_mode: true
     register: cm_remove_user
 
   - name: Verify cm_remove_user
@@ -420,7 +420,7 @@
       <<: *user_absent
       user: ansible_test
       state: absent
-    check_mode: yes
+    check_mode: true
     register: cm_remove_user_again
 
   - name: Verify cm_remove_user_again
@@ -447,7 +447,7 @@
   mso_user:
     <<: *user_query
     user: ansible_test
-  check_mode: yes
+  check_mode: true
   register: cm_query_non_user
 
 - name: Query non-existing user (normal mode)
@@ -471,7 +471,7 @@
     mso_user:
       <<: *user_present
       account_status: inactive
-    check_mode: yes
+    check_mode: true
     register: cm_inactive_user
 
   - name: inactive user (normal_mode)
@@ -493,7 +493,7 @@
     mso_user:
       <<: *user_present
       account_status: active
-    check_mode: yes
+    check_mode: true
     register: cm_active_user
 
   - name: active user (normal_mode)

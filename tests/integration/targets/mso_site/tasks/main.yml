@@ -35,7 +35,7 @@
     template: Template 1
     site: '{{ item }}'
     state: undeploy
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - '{{ mso_site | default("ansible_test") }}'
   - '{{ mso_site | default("ansible_test") }}_2'
@@ -46,7 +46,7 @@
     template: Template 2
     site: '{{ item }}'
     state: undeploy
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - '{{ mso_site | default("ansible_test") }}'
   - '{{ mso_site | default("ansible_test") }}_2'
@@ -58,7 +58,7 @@
     template: Template 3
     site: '{{ item }}'
     state: undeploy
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - '{{ mso_site | default("ansible_test") }}'
   - '{{ mso_site | default("ansible_test") }}_2'
@@ -117,7 +117,7 @@
     - EMEA
     - POD51
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_site
 
 - name: Verify cm_add_site
@@ -165,7 +165,7 @@
 
 - name: Add site again (check_mode)
   mso_site: *site_present
-  check_mode: yes
+  check_mode: true
   register: cm_add_site_again
 
 - name: Verify cm_add_site_again
@@ -225,7 +225,7 @@
     labels:
     - Charleroi
     - EMEA
-  check_mode: yes
+  check_mode: true
   register: cm_change_site
 
 - name: Verify cm_change_site
@@ -297,7 +297,7 @@
     labels:
     - Charleroi
     - EMEA
-  check_mode: yes
+  check_mode: true
   register: cm_change_site_again
 
 - name: Verify cm_change_site_again
@@ -363,7 +363,7 @@
   mso_site: &site_query
     <<: *mso_info
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_all_sites
 
 - name: Query all sites (normal mode)
@@ -384,7 +384,7 @@
   mso_site:
     <<: *site_query
     site: '{{ mso_site | default("ansible_test") }}'
-  check_mode: yes
+  check_mode: true
   register: cm_query_site
 
 - name: Query our site
@@ -419,7 +419,7 @@
 # REMOVE SITE
 - name: Remove site (check_mode)
   mso_site: *site_absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_site
 
 - name: Verify cm_remove_site
@@ -440,7 +440,7 @@
 
 - name: Remove site again (check_mode)
   mso_site: *site_absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_site_again
 
 - name: Verify cm_remove_site_again
@@ -465,7 +465,7 @@
   mso_site:
     <<: *site_query
     site: '{{ mso_site | default("ansible_test") }}'
-  check_mode: yes
+  check_mode: true
   register: cm_query_non_site
 
 - name: Query non-existing site (normal mode)
@@ -487,15 +487,15 @@
   mso_site:
     <<: *site_query
     state: non-existing-state
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_state
 
 - name: Non-existing state for bd (normal_mode)
   mso_site:
     <<: *site_query
     state: non-existing-state
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify non_existing_state

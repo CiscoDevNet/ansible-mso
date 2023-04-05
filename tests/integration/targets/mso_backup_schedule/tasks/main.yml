@@ -61,7 +61,7 @@
     frequency_length: 7
     remote_location: ansible_test
     state: present
-  check_mode: yes
+  check_mode: true
   delegate_to: localhost
   register: cm_schedule_create
 
@@ -96,7 +96,7 @@
     frequency_length: 1
     remote_location: ansible_test
     state: present
-  check_mode: yes
+  check_mode: true
   delegate_to: localhost
   register: cm_schedule_adjust
 
@@ -141,7 +141,7 @@
   cisco.mso.mso_backup_schedule:
     <<: *mso_info
     state: absent
-  check_mode: yes
+  check_mode: true
   delegate_to: localhost
 
 - name: Delete backup schedule (normal mode)
@@ -173,7 +173,7 @@
     state: present
   delegate_to: localhost
   register: nm_schedule_incorrect_time
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Set backup schedule incorrect date to parse (normal mode)
   cisco.mso.mso_backup_schedule:
@@ -185,7 +185,7 @@
     state: present
   delegate_to: localhost
   register: nm_schedule_incorrect_date
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Set backup schedule incorrect date object create from start_date (normal mode)
   cisco.mso.mso_backup_schedule:
@@ -197,7 +197,7 @@
     state: present
   delegate_to: localhost
   register: nm_schedule_incorrect_date_from_start_date
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Set backup schedule incorrect date object create from start_time (normal mode)
   cisco.mso.mso_backup_schedule:
@@ -209,7 +209,7 @@
     state: present
   delegate_to: localhost
   register: nm_schedule_incorrect_time_from_start_time
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Verify error messages
   assert:

@@ -52,23 +52,23 @@ options:
     default: 30
   use_proxy:
     description:
-    - If C(no), it will not use a proxy, even if one is defined in an environment variable on the target hosts.
+    - If C(false), it will not use a proxy, even if one is defined in an environment variable on the target hosts.
     - If the value is not specified in the task, the value of environment variable C(MSO_USE_PROXY) will be used instead.
-    - The default is C(yes).
+    - The default is C(true).
     type: bool
   use_ssl:
     description:
-    - If C(no), an HTTP connection will be used instead of the default HTTPS connection.
+    - If C(false), an HTTP connection will be used instead of the default HTTPS connection.
     - If the value is not specified in the task, the value of environment variable C(MSO_USE_SSL) will be used instead.
     - When using a HTTPAPI connection plugin the inventory variable C(ansible_httpapi_use_ssl) will be used if this attribute is not specified.
-    - The default is C(no) when using a HTTPAPI connection plugin (mso or nd) and C(yes) when using the legacy connection method (only for mso).
+    - The default is C(false) when using a HTTPAPI connection plugin (mso or nd) and C(true) when using the legacy connection method (only for mso).
     type: bool
   validate_certs:
     description:
-    - If C(no), SSL certificates will not be validated.
-    - This should only set to C(no) when used on personally controlled sites using self-signed certificates.
+    - If C(false), SSL certificates will not be validated.
+    - This should only set to C(false) when used on personally controlled sites using self-signed certificates.
     - If the value is not specified in the task, the value of environment variable C(MSO_VALIDATE_CERTS) will be used instead.
-    - The default is C(yes).
+    - The default is C(true).
     type: bool
   login_domain:
     description:

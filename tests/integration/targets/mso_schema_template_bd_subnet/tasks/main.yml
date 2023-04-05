@@ -177,7 +177,7 @@
     querier: true
     state: present
   register: cm_add_subnet
-  check_mode: yes
+  check_mode: true
 
 - name: Add subnet (normal mode)
   mso_schema_template_bd_subnet:
@@ -457,7 +457,7 @@
     template: Template1
     bd: ansible_test_1
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_all_subnet
 
 - name: Query all subnet (normal mode)
@@ -539,7 +539,7 @@
     <<: *subnet_query
     bd: ansible_test_1
     subnet: 172.16.0.3/24
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_subnet
 
 - name: Verify nm_query_non_subnet
@@ -553,7 +553,7 @@
   mso_schema_template_bd_subnet:
     <<: *subnet_query
     state: non-existing-state
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
@@ -567,7 +567,7 @@
   mso_schema_template_bd_subnet:
     <<: *subnet_query
     schema: non-existing-schema
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
@@ -581,7 +581,7 @@
   mso_schema_template_bd_subnet:
     <<: *subnet_query
     template: non-existing-template
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
@@ -611,7 +611,7 @@
   mso_schema_template_bd_subnet:
     <<: *subnet_query
     bd: non-existing-bd
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_bd
 
 - name: Verify non_existing_bd

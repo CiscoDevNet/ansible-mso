@@ -27,7 +27,7 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   state:
     description:
     - Use C(query) to validate deploying the schema.

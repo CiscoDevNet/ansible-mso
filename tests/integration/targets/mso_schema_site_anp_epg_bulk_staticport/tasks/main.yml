@@ -273,6 +273,9 @@
         leaf: 102
       - path: eth1/3
         vlan: 124
+      - leaf: 102
+        path: eth1/3
+        vlan: 124
     state: present
   register: nm_add_stat1e1
 
@@ -291,6 +294,7 @@
     - nm_add_stat1e1.current.epgs[0].staticPorts[1].path == 'topology/pod-1/paths-101/pathep-[eth1/3]'
     - nm_add_stat1e1.current.epgs[0].staticPorts[1].mode == 'native'
     - nm_add_stat1e1.current.epgs[0].staticPorts[1].type == 'port'
+    - nm_add_stat1e1.current.epgs[0].staticPorts[2].path == 'topology/pod-1/paths-102/pathep-[eth1/3]'
   when: version.current.version is version('4.0', '<')
 
 - name: Verify nm_add_stat1e1
@@ -308,6 +312,7 @@
     - nm_add_stat1e1.current[1].path == 'topology/pod-1/paths-101/pathep-[eth1/3]'
     - nm_add_stat1e1.current[1].mode == 'native'
     - nm_add_stat1e1.current[1].type == 'port'
+    - nm_add_stat1e1.current[2].path == 'topology/pod-1/paths-102/pathep-[eth1/3]'
   when: version.current.version is version('4.0', '>')
 
 # # mso4- - nm_add_stat1e1.current[0].type == 'port'
@@ -319,6 +324,9 @@
       - path: eth1/2
         leaf: 102
       - path: eth1/3
+        vlan: 124
+      - leaf: 102
+        path: eth1/3
         vlan: 124
       - path: ansible_polgrp
         type: vpc
@@ -332,11 +340,11 @@
     that:
     - nm_add_stat3e1 is changed
     - nm_add_stat3e1.previous != {}
-    - nm_add_stat3e1.current[2].deploymentImmediacy == 'immediate'
-    - nm_add_stat3e1.current[2].portEncapVlan == 105
-    - nm_add_stat3e1.current[2].path == 'topology/pod-1/protpaths-103-104/pathep-[ansible_polgrp]'
-    - nm_add_stat3e1.current[2].mode == 'native'
-    - nm_add_stat3e1.current[2].type == 'vpc'
+    - nm_add_stat3e1.current[3].deploymentImmediacy == 'immediate'
+    - nm_add_stat3e1.current[3].portEncapVlan == 105
+    - nm_add_stat3e1.current[3].path == 'topology/pod-1/protpaths-103-104/pathep-[ansible_polgrp]'
+    - nm_add_stat3e1.current[3].mode == 'native'
+    - nm_add_stat3e1.current[3].type == 'vpc'
 
 - name: Add static port 2 (dpc) to EPG6 of AP2 (normal mode)
   mso_schema_site_anp_epg_bulk_staticport:

@@ -434,10 +434,10 @@ def main():
                 new_leaf.update(microSegVlan=primary_micro_segment_vlan)
 
             # validate and append staticports to staticport_list if path variable is different
-            if path in unique_paths:
+            if portpath in unique_paths:
                 mso.fail_json(msg="Path should be unique for each Static Port")
             else:
-                unique_paths.append(path)
+                unique_paths.append(portpath)
                 staticport_list.append(new_leaf)
 
     # If payload is empty, anp and EPG already exist at site level

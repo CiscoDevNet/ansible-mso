@@ -144,7 +144,7 @@
     <<: *mso_info
     label: ansible_test
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_label
 
 - name: Verify cm_add_label
@@ -171,7 +171,7 @@
 
 - name: Add label again (check_mode)
   mso_label: *label_present
-  check_mode: yes
+  check_mode: true
   register: cm_add_label_again
 
 - name: Verify cm_add_label_again
@@ -205,7 +205,7 @@
 #     <<: *label_present
 #     label_id: '{{ nm_add_label.current.id }}'
 #     label: ansible_test2
-#   check_mode: yes
+#   check_mode: true
 #   register: cm_change_label
 
 # - name: Verify cm_change_label
@@ -237,7 +237,7 @@
 #     <<: *label_present
 #     label_id: '{{ nm_add_label.current.id }}'
 #     label: ansible_test2
-#   check_mode: yes
+#   check_mode: true
 #   register: cm_change_label_again
 
 # - name: Verify cm_change_label_again
@@ -269,7 +269,7 @@
   mso_label: &label_query
     <<: *mso_info
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_all_labels
 
 - name: Query all labels (normal mode)
@@ -291,7 +291,7 @@
   mso_label:
     <<: *label_query
     label: ansible_test
-  check_mode: yes
+  check_mode: true
   register: cm_query_label
 
 - name: Query our label (normal mode)
@@ -317,7 +317,7 @@
 # REMOVE LABEL
 - name: Remove label (check_mode)
   mso_label: *label_absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_label
 
 - name: Verify cm_remove_label
@@ -338,7 +338,7 @@
 
 - name: Remove label again (check_mode)
   mso_label: *label_absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_label_again
 
 - name: Verify cm_remove_label_again
@@ -363,7 +363,7 @@
   mso_label:
     <<: *label_query
     label: ansible_test
-  check_mode: yes
+  check_mode: true
   register: cm_query_non_label
 
 - name: Query non-existing label (normal mode)

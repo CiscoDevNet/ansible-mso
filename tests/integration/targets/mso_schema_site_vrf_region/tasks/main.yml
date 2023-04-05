@@ -340,7 +340,7 @@
     vrf: VRF1
     region: us-east-1
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_rm_aws_region
 
 - name: Remove aws VRF region (normal mode)
@@ -363,7 +363,7 @@
     vrf: VRF1
     region: us-west-1
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_rm_azure_region
 
 - name: Remove azure VRF region (normal mode)
@@ -433,7 +433,7 @@
     region: us-west-1
     vpn_gateway_router: false
     state: present
-  check_mode: yes
+  check_mode: true
   when: version.current.version is version('3.0.0a', '>=')
   register: cm_rm_vpn_gateway_router_aws
 
@@ -460,7 +460,7 @@
     region: us-east-1
     vpn_gateway_router: false
     state: present
-  check_mode: yes
+  check_mode: true
   when: version.current.version is version('3.0.0a', '>=')
   register: cm_rm_vpn_gateway_router_azure
 
@@ -500,7 +500,7 @@
     region: us-west-1
     state: query
   register: non_existing_schema
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Use non_existing site
   mso_schema_site_vrf_region:
@@ -512,7 +512,7 @@
     region: us-west-1
     state: query
   register: non_existing_site
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Use non_existing site/template association
   mso_schema_site_vrf_region:
@@ -524,7 +524,7 @@
     region: us-west-1
     state: query
   register: non_existing_site_template
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Use non_existing VRF
   mso_schema_site_vrf_region:
@@ -536,7 +536,7 @@
     region: us-west-1
     state: query
   register: non_existing_vrf
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Use non_existing region
   mso_schema_site_vrf_region:
@@ -548,7 +548,7 @@
     region: non_existing
     state: query
   register: non_existing_region
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Verify non_existing
   assert:

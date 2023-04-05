@@ -23,22 +23,22 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template to change.
     type: str
-    required: yes
+    required: true
   external_epg:
     description:
     - The name of the External EPG to be managed.
     type: str
-    required: yes
+    required: true
   site:
     description:
     - The name of the cloud site.
     type: str
-    required: yes
+    required: true
   selector:
     description:
     - The name of the selector.

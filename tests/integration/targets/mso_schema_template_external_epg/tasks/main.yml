@@ -54,7 +54,7 @@
     template: "{{ item }}"
     site: '{{ mso_site | default("ansible_test") }}'
     state: undeploy
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - Template 1
   - Template 2
@@ -309,7 +309,7 @@
     vrf:
       name: VRF
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_epg
 
 - name: Verify cm_add_epg
@@ -353,7 +353,7 @@
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_epg_again
 
 - name: Verify cm_add_epg_again
@@ -641,7 +641,7 @@
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_change_epg
 
 - name: Verify cm_change_epg from different template to own template
@@ -671,7 +671,7 @@
 - name: Change epg again from different template (check_mode)
   mso_schema_template_external_epg:
     <<: *change_epg_template
-  check_mode: yes
+  check_mode: true
   register: cm_change_epg_again
 
 - name: Verify cm_change_epg_again
@@ -805,7 +805,7 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_all_epgs
 
 - name: Query all EPG (normal mode)
@@ -831,7 +831,7 @@
     template: Template 1
     external_epg: ansible_test_1
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_epg_1
 
 - name: Query epg 1(normal_mode)
@@ -892,7 +892,7 @@
     template: Template 1
     external_epg: ansible_test_4
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_epg_4
 
 - name: Verify cm_remove_epg_4
@@ -964,8 +964,8 @@
     template: Template 1
     external_epg: non-existing-epg
     state: query
-  ignore_errors: yes
-  check_mode: yes
+  ignore_errors: true
+  check_mode: true
   register: cm_query_non_existing_epg
 
 - name: Query non-existing EPG (normal_mode)
@@ -975,7 +975,7 @@
     template: Template 1
     external_epg: non-existing-epg
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_existing_epg
 
 - name: Verify cm_query_non_existing_epg and nm_query_non_existing_epg
@@ -993,8 +993,8 @@
     schema: non-existing-schema
     template: Template 1
     state: query
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_schema
 
 - name: Non-existing schema for epg (normal_mode)
@@ -1003,7 +1003,7 @@
     schema: non-existing-schema
     template: Template 1
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
@@ -1021,8 +1021,8 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
     state: query
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_template
 
 - name: Non-existing template for epg (normal_mode)
@@ -1031,7 +1031,7 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify non_existing_template

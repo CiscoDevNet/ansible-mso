@@ -23,17 +23,17 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template to change.
     type: str
-    required: yes
+    required: true
   external_epg:
     description:
     - The name of the EPG to manage.
     type: str
-    required: yes
+    required: true
   contract:
     description:
     - A contract associated to this EPG.

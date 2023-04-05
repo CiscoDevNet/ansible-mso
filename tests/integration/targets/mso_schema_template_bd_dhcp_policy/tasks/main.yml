@@ -149,7 +149,7 @@
         name: ansible_test_dhcp_policy_option1
         version: 1
     register: cm_add_dhcp
-    check_mode: yes
+    check_mode: true
 
   - name: Add DHCP policy in normal mode
     mso_schema_template_bd_dhcp_policy:
@@ -248,7 +248,7 @@
       template: Template1
       bd: ansible_test_1
       state: query
-    check_mode: yes
+    check_mode: true
     register: cm_query_all_dhcp
 
 
@@ -286,7 +286,7 @@
       <<: *dhcp_query
       bd: ansible_test_2
       name: ansible_test_dhcp_policy1
-    ignore_errors: yes
+    ignore_errors: true
     register: non_dhcp
 
   - name: Verify non_dhcp
@@ -335,7 +335,7 @@
       dhcp_option_policy:
         name: ansible_test_dhcp_policy_option1
         version: 1
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_query_non_dhcp
 
   - name: Verify nm_query_non_dhcp
@@ -356,7 +356,7 @@
       dhcp_option_policy:
         name: non_option
         version: 1
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_query_non_dhcp_option
 
   - name: Verify nm_query_non_dhcp
@@ -370,7 +370,7 @@
     mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_query
       state: non-existing-state
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_state
 
   - name: Verify non_existing_state
@@ -384,7 +384,7 @@
     mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_query
       schema: non-existing-schema
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_schema
 
   - name: Verify non_existing_schema
@@ -398,7 +398,7 @@
     mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_query
       template: non-existing-template
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_template
 
   - name: Verify non_existing_template
@@ -412,7 +412,7 @@
     mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_query
       bd: non-existing-bd
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_bd
 
   - name: Verify non_existing_bd

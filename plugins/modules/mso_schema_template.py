@@ -23,12 +23,12 @@ options:
     description:
     - The tenant used for this template.
     type: str
-    required: yes
+    required: true
   schema:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   schema_description:
     description:
     - The description of Schema is supported on versions of MSO that are 3.3 or greater.

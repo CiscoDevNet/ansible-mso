@@ -67,7 +67,7 @@
     sites:
     - '{{ mso_site | default("ansible_test") }}'
     state: present
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Associate non-cloud site with ansible_test
   mso_tenant_site:
@@ -89,7 +89,7 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: '{{ item }}'
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - Template2
   - Template1
@@ -168,7 +168,7 @@
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_epg
 
 - name: Verify cm_add_epg
@@ -252,7 +252,7 @@
       external_epg: ansible_test_1
       l3out: L3out1
       state: present
-    check_mode: yes
+    check_mode: true
     register: cm_add_epg
 
   - name: Verify cm_add_epg
@@ -319,7 +319,7 @@
       site: '{{ mso_site | default("ansible_test") }}'
       template: Template1
       state: query
-    check_mode: yes
+    check_mode: true
     register: cm_query_all_epgs
 
   - name: Query all EPG (normal mode)
@@ -347,7 +347,7 @@
       external_epg: ansible_test_1
       l3out: L3out1
       state: query
-    check_mode: yes
+    check_mode: true
     register: cm_query_epg_1
 
   - name: Query epg 1(normal_mode)
@@ -392,7 +392,7 @@
       external_epg: ansible_test_1
       l3out: L3out1
       state: absent
-    check_mode: yes
+    check_mode: true
     register: cm_remove_epg
 
   - name: Verify cm_remove_epg
@@ -420,7 +420,7 @@
       template: Template1
       external_epg: ansible_test_1
       state: present
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_add_epg_no_l3out
 
   - name: Verify nm_add_epg_no_l3out
@@ -521,8 +521,8 @@
       external_epg: non_existing_epg
       l3out: L3out1
       state: query
-    check_mode: yes
-    ignore_errors: yes
+    check_mode: true
+    ignore_errors: true
     register: cm_query_non_external_epg
 
   - name: Query non-existing External EPG (normal_mode)
@@ -534,7 +534,7 @@
       external_epg: non_existing_epg
       l3out: L3out1
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_query_non_external_epg
 
   - name: Verify cm_query_non_external_epg and nm_query_non_external_epg
@@ -554,7 +554,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: non_existing_state
-    ignore_errors: yes
+    ignore_errors: true
     register: cm_non_existing_state
 
   - name: non_existing_state state (normal_mode)
@@ -566,7 +566,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: non_existing_state
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_state
 
   - name: Verify cm_non_existing_state and nm_non_existing_state
@@ -586,8 +586,8 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: query
-    check_mode: yes
-    ignore_errors: yes
+    check_mode: true
+    ignore_errors: true
     register: cm_non_existing_template
 
   - name: non_existing_template site association(normal_mode)
@@ -599,7 +599,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_template
 
   - name: Verify cm_non_existing_template and nm_non_existing_template
@@ -619,8 +619,8 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: query
-    check_mode: yes
-    ignore_errors: yes
+    check_mode: true
+    ignore_errors: true
     register: cm_non_existing_schema
 
   - name: non_existing_schema (normal_mode)
@@ -632,7 +632,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_schema
 
   - name: Verify cm_non_existing_schema and nm_non_existing_schema
@@ -652,8 +652,8 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: query
-    check_mode: yes
-    ignore_errors: yes
+    check_mode: true
+    ignore_errors: true
     register: cm_non_existing_site
 
   - name: non_existing_site (normal_mode)
@@ -665,7 +665,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_site
 
   - name: Verify cm_non_existing_site and nm_non_existing_site
@@ -685,8 +685,8 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: query
-    check_mode: yes
-    ignore_errors: yes
+    check_mode: true
+    ignore_errors: true
     register: cm_non_existing_site_template
 
   - name: non_existing_site_template (normal_mode)
@@ -698,7 +698,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_site_template
 
   - name: Verify cm_non_existing_site_template and nm_non_existing_site_template
@@ -718,8 +718,8 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: present
-    check_mode: yes
-    ignore_errors: yes
+    check_mode: true
+    ignore_errors: true
     register: cm_no_site_associated
 
   - name: Add site L3Out to Template2 without any site associated (normal mode)
@@ -731,7 +731,7 @@
       external_epg: ansible_test_2
       l3out: L3out1
       state: present
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_no_site_associated
 
   - name: Verify cm_no_site_associated and nm_no_site_associated

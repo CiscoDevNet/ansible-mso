@@ -37,7 +37,7 @@
     urls:
     - https://{{ apic_hostname }}
     state: present
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Remove schemas
   cisco.mso.mso_schema:
@@ -138,7 +138,7 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: present
-    check_mode: yes
+    check_mode: true
     register: cm_add_site_l3out
 
   - name: Verify cm_add_site_l3out
@@ -224,7 +224,7 @@
       site: '{{ mso_site | default("ansible_test") }}'
       template: Template1
       state: query
-    check_mode: yes
+    check_mode: true
     register: cm_query_all_l3out
 
   - name: Query all L3Outs (normal_mode)
@@ -262,7 +262,7 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    check_mode: yes
+    check_mode: true
     register: cm_query_l3out
 
   - name: Query a specific L3Out (normal_mode)
@@ -289,7 +289,7 @@
       template: Template1
       l3out: L3out1
       state: absent
-    check_mode: yes
+    check_mode: true
     register: cm_remove_site_l3out
 
   - name: Remove L3Out (normal_mode)
@@ -337,8 +337,8 @@
       template: Template1
       l3out: non_existing_l3out
       state: query
-    check_mode: yes
-    ignore_errors: yes
+    check_mode: true
+    ignore_errors: true
     register: cm_query_non_l3out
 
   - name: Query non-existing L3Out (normal_mode)
@@ -349,7 +349,7 @@
       template: Template1
       l3out: non_existing_l3out
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_query_non_l3out
 
   - name: Verify cm_query_non_l3out and nm_query_non_l3out
@@ -372,7 +372,7 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: non_existing_state
-    ignore_errors: yes
+    ignore_errors: true
     register: cm_non_existing_state
 
   - name: non_existing_state state (normal_mode)
@@ -387,7 +387,7 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: non_existing_state
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_state
 
   - name: Verify cm_non_existing_state and nm_non_existing_state
@@ -410,8 +410,8 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    check_mode: yes
-    ignore_errors: yes
+    check_mode: true
+    ignore_errors: true
     register: cm_non_existing_template
 
   - name: non_existing_template (normal_mode)
@@ -426,7 +426,7 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_template
 
   - name: Verify cm_non_existing_template and nm_non_existing_template
@@ -449,8 +449,8 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    check_mode: yes
-    ignore_errors: yes
+    check_mode: true
+    ignore_errors: true
     register: cm_non_existing_schema
 
   - name: non_existing_schema (normal_mode)
@@ -465,7 +465,7 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_schema
 
   - name: Verify cm_non_existing_schema and nm_non_existing_schema
@@ -488,8 +488,8 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    check_mode: yes
-    ignore_errors: yes
+    check_mode: true
+    ignore_errors: true
     register: cm_non_existing_site
 
   - name: non_existing_site (normal_mode)
@@ -504,7 +504,7 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_site
 
   - name: Verify cm_non_existing_site and nm_non_existing_site
@@ -527,8 +527,8 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    check_mode: yes
-    ignore_errors: yes
+    check_mode: true
+    ignore_errors: true
     register: cm_non_existing_site_template
 
   - name: non_existing_site_template (normal_mode)
@@ -543,7 +543,7 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_site_template
 
   - name: Verify cm_non_existing_site_template and nm_non_existing_site_template
@@ -565,7 +565,7 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_non_existing_template_site
 
   - name: Verify nm_non_existing_template_site
@@ -587,8 +587,8 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: present
-    check_mode: yes
-    ignore_errors: yes
+    check_mode: true
+    ignore_errors: true
     register: cm_no_site_associated
 
   - name: Add site L3Out to Template3 without any site associated (normal mode)
@@ -603,7 +603,7 @@
           template: Template1
           schema: '{{ mso_schema | default("ansible_test") }}'
       state: present
-    ignore_errors: yes
+    ignore_errors: true
     register: nm_no_site_associated
 
   - name: Verify cm_no_site_associated and nm_no_site_associated

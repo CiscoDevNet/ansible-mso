@@ -182,7 +182,7 @@
     cidr: 10.0.0.0/16
     primary: true
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_cidr
 
 - name: Verify cm_add_cidr
@@ -237,7 +237,7 @@
     region: westus
     cidr: 10.1.0.0/16
     primary: true
-  check_mode: yes
+  check_mode: true
   register: cm_add_cidr_2
 
 - name: Verify cm_add_cidr_2
@@ -272,7 +272,7 @@
     region: us-west-1
     cidr: 10.2.0.0/16
     primary: false
-  check_mode: yes
+  check_mode: true
   register: cm_add_cidr_3
 
 - name: Verify cm_add_cidr_3
@@ -303,7 +303,7 @@
     region: westus
     cidr: 10.3.0.0/16
     primary: false
-  check_mode: yes
+  check_mode: true
   register: cm_add_cidr_4
 
 - name: Verify cm_add_cidr_4
@@ -342,7 +342,7 @@
     region: us-west-1
     cidr: 10.0.0.0/16
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_cidr
 
 - name: Verify cm_query_cidr
@@ -367,7 +367,7 @@
     region: westus
     cidr: 10.1.0.0/16
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_cidr_2
 
 - name: Verify cm_query_cidr_2
@@ -399,7 +399,7 @@
     vrf: VRF1
     region: us-west-1
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_cidr_all_aws
 
 - name: Query CIDR in VRF1 at Azure site level (check mode)
@@ -408,7 +408,7 @@
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_cidr_all_azure
 
 - name: Verify cm_query_cidr_all_aws and cm_query_cidr_all_azure
@@ -455,7 +455,7 @@
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query_all
     vrf: VRF2
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_cidr_all_aws_2
 
 - name: Query CIDR in VRF1 (with VRF present a Site level) for Physical Site (normal mode)
@@ -463,7 +463,7 @@
     <<: *mso_query_all
     site: '{{ mso_site | default("ansible_test") }}'
     vrf: VRF1
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_cidr_all_aws_3
 
 - name: Verify nm_query_cidr_all_aws_2 and nm_query_cidr_all_aws_3
@@ -478,7 +478,7 @@
   mso_schema_site_vrf_region_cidr:
     <<: *mso_present_2
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_cidr
 
 - name: Verify cm_remove_cidr
@@ -503,7 +503,7 @@
   mso_schema_site_vrf_region_cidr:
     <<: *mso_present_2
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_cidr_again
 
 - name: Verify cm_remove_cidr_again
@@ -529,15 +529,15 @@
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     cidr: non_existing_cidr
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_cidr
 
 - name: Query non-existing CIDR (normal mode)
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     cidr: non_existing_cidr
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_cidr
 
 - name: Verify query_non_cidr
@@ -553,15 +553,15 @@
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     region: non_existing_region
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_region
 
 - name: Query non-existing region (normal mode)
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     region: non_existing_region
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_region
 
 - name: Verify query_non_region
@@ -577,15 +577,15 @@
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     vrf: non_existing_vrf
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_vrf
 
 - name: Query non-existing VRF (normal mode)
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     vrf: non_existing_vrf
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_vrf
 
 - name: Verify query_non_vrf
@@ -606,15 +606,15 @@
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     state: non-existing-state
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_state
 
 - name: Non-existing state for site cidr (normal_mode)
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     state: non-existing-state
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
@@ -630,15 +630,15 @@
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     schema: non-existing-schema
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_schema
 
 - name: Non-existing schema for site cidr (normal_mode)
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     schema: non-existing-schema
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
@@ -654,15 +654,15 @@
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     template: non-existing-template
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_template
 
 - name: Non-existing template for site cidr (normal_mode)
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     template: non-existing-template
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
@@ -678,15 +678,15 @@
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     template: Template 2
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_associated_template
 
 - name: Non-associated template for site cidr (normal_mode)
   mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     template: Template 2
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_associated_template
 
 - name: Verify non_associated_template
@@ -704,7 +704,7 @@
     <<: *mso_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
-  check_mode: yes
+  check_mode: true
   register: cm_no_site_associated
 
 - name: Add site VRF region cidr to Template 3 without any site associated (normal mode)

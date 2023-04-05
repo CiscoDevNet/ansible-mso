@@ -35,7 +35,7 @@
     template: "{{ item }}"
     site: '{{ mso_site | default("ansible_test") }}'
     state: undeploy
-  ignore_errors: yes
+  ignore_errors: true
   loop:
   - Template 1
   - Template 2
@@ -56,7 +56,7 @@
     template: Template 1
     external_epg: ansible_test_1
     state: absent
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Ensure tenant ansible_test exist
   mso_tenant:
@@ -119,7 +119,7 @@
     external_epg: ansible_test_1
     subnet: 10.0.0.0/24
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_epg_subnet
 
 - name: Verify cm_add_epg_subnet
@@ -154,7 +154,7 @@
     external_epg: ansible_test_1
     subnet: 10.0.0.0/24
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_epg_subnet_again
 
 - name: Verify cm_add_epg_subnet_again
@@ -205,7 +205,7 @@
     template: Template 1
     external_epg: ansible_test_1
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_all_epg_subnets
 
 - name: Query all EPG (normal mode)
@@ -233,7 +233,7 @@
     external_epg: ansible_test_1
     subnet: 10.0.0.0/24
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_epg_subnet_1
 
 - name: Query epg subnet 1(normal_mode)
@@ -262,7 +262,7 @@
     external_epg: ansible_test_1
     subnet: 10.0.0.0/24
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_epg_subnet_1
 
 - name: Verify cm_remove_epg_subnet_1
@@ -314,7 +314,7 @@
     scope: import-rtctrl
     aggregate: shared-rtctrl
     state: present
-  ignore_errors: yes
+  ignore_errors: true
   register: add_epg_subnet_no_ag
 
 - name: Verify add_epg_subnet_no_ag
@@ -353,7 +353,7 @@
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: query_validate
     when: version.current.version is version('3.6', '>=')
 
@@ -375,7 +375,7 @@
     scope: shared-rtctrl
     aggregate: shared-rtctrl
     state: present
-  ignore_errors: yes
+  ignore_errors: true
   register: add_epg_subnet_ag
 
 - name: Verify add_epg_subnet_ag
@@ -416,8 +416,8 @@
     external_epg: ansible_test_1
     subnet: 10.0.0.10/24
     state: query
-  ignore_errors: yes
-  check_mode: yes
+  ignore_errors: true
+  check_mode: true
   register: cm_query_non_existing_epg_subnet
 
 - name: Query non-existing EPG subnet(normal_mode)
@@ -428,7 +428,7 @@
     external_epg: ansible_test_1
     subnet: 10.0.0.10/24
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_existing_epg_subnet
 
 - name: Verify cm_query_non_existing_epg_subnet and nm_query_non_existing_epg_subnet
@@ -448,8 +448,8 @@
     external_epg: non_existing_epg
     subnet: 10.0.0.2/24
     state: query
-  ignore_errors: yes
-  check_mode: yes
+  ignore_errors: true
+  check_mode: true
   register: cm_query_non_existing_epg
 
 - name: Query non-existing EPG subnet(normal_mode)
@@ -460,7 +460,7 @@
     external_epg: non_existing_epg
     subnet: 10.0.0.2/24
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_existing_epg
 
 - name: Verify cm_query_non_existing_epg and nm_query_non_existing_epg
@@ -480,8 +480,8 @@
     external_epg: ansible_test_1
     subnet: 10.0.0.0/24
     state: query
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_schema
 
 - name: Non-existing schema for epg subnet(normal_mode)
@@ -492,7 +492,7 @@
     external_epg: ansible_test_1
     subnet: 10.0.0.0/24
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
@@ -512,8 +512,8 @@
     external_epg: ansible_test_1
     subnet: 10.0.0.0/24
     state: query
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_template
 
 - name: Non-existing template for epg subnet(normal_mode)
@@ -524,7 +524,7 @@
     external_epg: ansible_test_1
     subnet: 10.0.0.0/24
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify non_existing_template

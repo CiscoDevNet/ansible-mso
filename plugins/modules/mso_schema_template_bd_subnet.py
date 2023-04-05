@@ -23,17 +23,17 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template to change.
     type: str
-    required: yes
+    required: true
   bd:
     description:
     - The name of the BD to manage.
     type: str
-    required: yes
+    required: true
   subnet:
     description:
     - The IP range in CIDR notation.

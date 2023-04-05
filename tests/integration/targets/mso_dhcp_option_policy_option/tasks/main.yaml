@@ -39,7 +39,7 @@
     loop:
     - ansibletest
     - ansibletest2
-    ignore_errors: yes
+    ignore_errors: true
 
   - name: Stop consuming DHCP Policy
     mso_schema_template_bd:
@@ -50,7 +50,7 @@
       vrf:
         name: VRF1
       state: present
-    ignore_errors: yes
+    ignore_errors: true
 
   - name: Remove DHCP Relay Policy 1
     mso_dhcp_relay_policy:
@@ -66,7 +66,7 @@
       <<: *mso_info
       dhcp_option_policy: '{{ item }}'
       state: absent
-    ignore_errors: yes
+    ignore_errors: true
     loop:
     - ansible_dhcp_option_1
     - ansible_dhcp_option_2
@@ -78,7 +78,7 @@
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ item }}'
       state: undeploy
-    ignore_errors: yes
+    ignore_errors: true
     loop:
     - '{{ mso_site | default("ansible_test") }}'
     - '{{ mso_site | default("ansible_test") }}_2'
@@ -92,7 +92,7 @@
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ item }}'
       state: undeploy
-    ignore_errors: yes
+    ignore_errors: true
     loop:
     - '{{ mso_site | default("ansible_test") }}'
     - '{{ mso_site | default("ansible_test") }}_2'
@@ -169,7 +169,7 @@
       id: 1
       data: DHCP Data
       state: present
-    check_mode: yes
+    check_mode: true
     register: dhcp_pol1_opt1_cm
 
   - name: Add Option to DHCP Option Policy (normal mode)
@@ -189,7 +189,7 @@
   - name: Add Option to DHCP Option Policy again (check mode)
     mso_dhcp_option_policy_option:
       <<: *create_option
-    check_mode: yes
+    check_mode: true
     register: dhcp_pol1_opt1_again_cm
 
   - name: Add Option to DHCP Option Policy again (normal mode)
@@ -210,7 +210,7 @@
     mso_dhcp_option_policy_option:
       <<: *create_option
       data: Changed DHCP Data
-    check_mode: yes
+    check_mode: true
     register: dhcp_pol1_opt1_change_cm
 
   - name: Change Option IP to DHCP Option Policy (normal mode)
@@ -232,7 +232,7 @@
     mso_dhcp_option_policy_option:
       <<: *create_option
       name: ansibletest2
-    check_mode: yes
+    check_mode: true
     register: dhcp_pol1_opt2_cm
 
   - name: Add 2nd Option to DHCP Option Policy (normal mode)
@@ -298,7 +298,7 @@
       dhcp_option_policy: ansible_dhcp_option_1
       name: ansibletest
       state: absent
-    check_mode: yes
+    check_mode: true
     register: dhcp_pol1_opt1_del_cm
 
   - name: Remove Option from DHCP Option Policy (normal mode)
@@ -316,7 +316,7 @@
   - name: Remove Option from DHCP Option Policy again (check mode)
     mso_dhcp_option_policy_option:
       <<: *delete_option
-    check_mode: yes
+    check_mode: true
     register: dhcp_pol1_opt1_del_again_cm
 
   - name: Remove Option from DHCP Option Policy again (normal mode)
@@ -392,7 +392,7 @@
       <<: *mso_info
       dhcp_option_policy: nonexisting
       state: query
-    ignore_errors: yes
+    ignore_errors: true
     register: dhcp_non_existing
 
   - name: Verify dhcp_non_existing
@@ -411,7 +411,7 @@
     loop:
     - ansibletest
     - ansibletest2
-    ignore_errors: yes
+    ignore_errors: true
 
   - name: Stop consuming DHCP Policy
     mso_schema_template_bd:
@@ -422,7 +422,7 @@
       vrf:
         name: VRF1
       state: absent
-    ignore_errors: yes
+    ignore_errors: true
 
   - name: Remove DHCP Relay Policy 1
     mso_dhcp_relay_policy:
@@ -438,7 +438,7 @@
       <<: *mso_info
       dhcp_option_policy: '{{ item }}'
       state: absent
-    ignore_errors: yes
+    ignore_errors: true
     loop:
     - ansible_dhcp_option_1
     - ansible_dhcp_option_2

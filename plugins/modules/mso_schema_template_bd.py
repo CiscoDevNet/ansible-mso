@@ -25,14 +25,14 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template.
     - Display Name of template for operations can only be used in some versions of mso.
     - Use the name of template instead of Display Name to avoid discrepency.
     type: str
-    required: yes
+    required: true
   bd:
     description:
     - The name of the BD to manage.
@@ -75,12 +75,12 @@ options:
         description:
         - The name of the DHCP Relay Policy
         type: str
-        required: yes
+        required: true
       version:
         description:
         - The version of DHCP Relay Policy
         type: int
-        required: yes
+        required: true
       dhcp_option_policy:
         description:
         - The DHCP Option Policy
@@ -90,12 +90,12 @@ options:
             description:
             - The name of the DHCP Option Policy
             type: str
-            required: yes
+            required: true
           version:
             description:
             - The version of the DHCP Option Policy
             type: int
-            required: yes
+            required: true
   dhcp_policies:
     description:
     - A list DHCP Policies to be assciated with the BD
@@ -107,12 +107,12 @@ options:
         description:
         - The name of the DHCP Relay Policy
         type: str
-        required: yes
+        required: true
       version:
         description:
         - The version of DHCP Relay Policy
         type: int
-        required: yes
+        required: true
       dhcp_option_policy:
         description:
         - The DHCP Option Policy
@@ -122,12 +122,12 @@ options:
             description:
             - The name of the DHCP Option Policy
             type: str
-            required: yes
+            required: true
           version:
             description:
             - The version of the DHCP Option Policy
             type: int
-            required: yes
+            required: true
   subnets:
     description:
     - The subnets associated to this BD.

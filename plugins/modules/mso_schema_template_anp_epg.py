@@ -25,17 +25,17 @@ options:
     description:
     - The name of the schema.
     type: str
-    required: yes
+    required: true
   template:
     description:
     - The name of the template.
     type: str
-    required: yes
+    required: true
   anp:
     description:
     - The name of the ANP.
     type: str
-    required: yes
+    required: true
   epg:
     description:
     - The name of the EPG to manage.
@@ -224,7 +224,7 @@ EXAMPLES = r"""
     anp: ANP 1
     epg: EPG 1
     state: present
-    preferred_group: yes
+    preferred_group: true
   delegate_to: localhost
 
 - name: Remove an EPG

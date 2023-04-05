@@ -239,7 +239,7 @@
     vrf:
       name: VRF
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_add_bd
 
 - name: Verify cm_add_bd
@@ -269,7 +269,7 @@
 - name: Add bd again (check_mode)
   mso_schema_template_bd:
     <<: *bd_present
-  check_mode: yes
+  check_mode: true
   register: cm_add_bd_again
 
 - name: Verify cm_add_bd_again
@@ -618,7 +618,7 @@
       dhcp_option_policy:
         name: ansible_test_option
         version: 1
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_change_bd_5_2
 
 - name: Verify nm_change_bd_5_2 for a version that's before 3.1
@@ -661,7 +661,7 @@
       dhcp_option_policy:
         name: ansible_test_option
         version: 1
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_change_bd_5_3
 
 - name: Verify nm_change_bd_5_3 for a version that's before 3.1
@@ -698,7 +698,7 @@
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     state: query
-  ignore_errors: yes
+  ignore_errors: true
   register: query_validate
   when:
   - version.current.version is version('3.3', '>=')
@@ -763,7 +763,7 @@
     <<: *bd_present
     vrf:
       name: VRF2
-  check_mode: yes
+  check_mode: true
   register: cm_change_bd
 
 - name: Verify cm_change_bd
@@ -797,7 +797,7 @@
     <<: *bd_present
     vrf:
       name: VRF2
-  check_mode: yes
+  check_mode: true
   register: cm_change_bd_again
 
 - name: Verify cm_change_bd_again
@@ -1228,7 +1228,7 @@
       template: Template1
     state: present
   register: nm_bd_subnet_second_primary
-  ignore_errors: yes
+  ignore_errors: true
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify subnets in nm_bd_subnet_second_primary
@@ -1259,7 +1259,7 @@
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
     state: present
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_bd_new_encap_flood_non
   when: version.current.version is version('3.1.1g', '>')
 
@@ -1380,7 +1380,7 @@
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
     state: present
-  check_mode: yes
+  check_mode: true
   register: cm_ansible_test_unicast_false
   when: version.current.version is version('3.1.1g', '>')
 
@@ -1408,7 +1408,7 @@
     <<: *unicast_routing_false_present
     bd: ansible_test_unicast_true
     unicast_routing: true
-  check_mode: yes
+  check_mode: true
   register: cm_ansible_test_unicast_true
   when: version.current.version is version('3.1.1g', '>')
 
@@ -1477,7 +1477,7 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     state: query
-  check_mode: yes
+  check_mode: true
   register: cm_query_all_bds
 
 - name: Query all bd (normal mode)
@@ -1526,7 +1526,7 @@
   mso_schema_template_bd:
     <<: *bd_query
     bd: ansible_test_1
-  check_mode: yes
+  check_mode: true
   register: cm_query_bd
 
 - name: Query bd 1
@@ -1691,7 +1691,7 @@
     template: Template1
     bd: ansible_test_1
     state: absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_bd
 
 - name: Verify cm_remove_bd
@@ -1714,7 +1714,7 @@
 - name: Remove bd again (check_mode)
   mso_schema_template_bd:
     <<: *bd_absent
-  check_mode: yes
+  check_mode: true
   register: cm_remove_bd_again
 
 - name: Verify cm_remove_bd_again
@@ -1775,15 +1775,15 @@
   mso_schema_template_bd:
     <<: *bd_query
     bd: ansible_test_1
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_query_non_bd
 
 - name: Query non-existing bd (normal mode)
   mso_schema_template_bd:
     <<: *bd_query
     bd: ansible_test_1
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_query_non_bd
 
 - name: Verify query_non_bd
@@ -1800,15 +1800,15 @@
   mso_schema_template_bd:
     <<: *bd_query
     state: non-existing-state
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_state
 
 - name: Non-existing state for bd (normal_mode)
   mso_schema_template_bd:
     <<: *bd_query
     state: non-existing-state
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
@@ -1824,15 +1824,15 @@
   mso_schema_template_bd:
     <<: *bd_query
     schema: non-existing-schema
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_schema
 
 - name: Non-existing schema for bd (normal_mode)
   mso_schema_template_bd:
     <<: *bd_query
     schema: non-existing-schema
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
@@ -1848,15 +1848,15 @@
   mso_schema_template_bd:
     <<: *bd_query
     template: non-existing-template
-  check_mode: yes
-  ignore_errors: yes
+  check_mode: true
+  ignore_errors: true
   register: cm_non_existing_template
 
 - name: Non-existing template for bd (normal_mode)
   mso_schema_template_bd:
     <<: *bd_query
     template: non-existing-template
-  ignore_errors: yes
+  ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify non_existing_template

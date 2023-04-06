@@ -20,12 +20,6 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
 
-- name: Query MSO version
-  mso_version:
-    <<: *mso_info
-    state: query
-  register: version
-
 - name: Remove Schemas
   mso_schema:
     <<: *mso_info
@@ -214,6 +208,9 @@
         leaf: 102
       - path: eth1/3
         vlan: 124
+      - leaf: 102
+        path: eth1/3
+        vlan: 124
     state: present
   check_mode: true
   register: cm_add_stat1e1
@@ -222,25 +219,7 @@
   assert:
     that:
     - cm_add_stat1e1 is changed
-    - cm_add_stat1e1.previous == {}
-    - cm_add_stat1e1.current.epgs[0].staticPorts[0].deploymentImmediacy == 'immediate'
-    - cm_add_stat1e1.current.epgs[0].staticPorts[0].portEncapVlan == 126
-    - cm_add_stat1e1.current.epgs[0].staticPorts[0].path == 'topology/pod-1/paths-102/pathep-[eth1/2]'
-    - cm_add_stat1e1.current.epgs[0].staticPorts[0].mode == 'native'
-    - cm_add_stat1e1.current.epgs[0].staticPorts[0].type == 'port'
-    - cm_add_stat1e1.current.epgs[0].staticPorts[1].deploymentImmediacy == 'immediate'
-    - cm_add_stat1e1.current.epgs[0].staticPorts[1].portEncapVlan == 124
-    - cm_add_stat1e1.current.epgs[0].staticPorts[1].path == 'topology/pod-1/paths-101/pathep-[eth1/3]'
-    - cm_add_stat1e1.current.epgs[0].staticPorts[1].mode == 'native'
-    - cm_add_stat1e1.current.epgs[0].staticPorts[1].type == 'port'
-  when: version.current.version is version('4.0', '<')
-
-
-- name: Verify cm_add_stat1e1
-  assert:
-    that:
-    - cm_add_stat1e1 is changed
-    - cm_add_stat1e1.previous == {}
+    - cm_add_stat1e1.previous == []
     - cm_add_stat1e1.current[0].deploymentImmediacy == 'immediate'
     - cm_add_stat1e1.current[0].portEncapVlan == 126
     - cm_add_stat1e1.current[0].path == 'topology/pod-1/paths-102/pathep-[eth1/2]'
@@ -251,7 +230,9 @@
     - cm_add_stat1e1.current[1].path == 'topology/pod-1/paths-101/pathep-[eth1/3]'
     - cm_add_stat1e1.current[1].mode == 'native'
     - cm_add_stat1e1.current[1].type == 'port'
-  when: version.current.version is version('4.0', '>')
+    - cm_add_stat1e1.current[2].portEncapVlan == 124
+    - cm_add_stat1e1.current[2].path == 'topology/pod-1/paths-102/pathep-[eth1/3]'
+    - cm_add_stat1e1.current|length == 3
 
 - name: Add static port 1 to site EPG1 of AP1 (normal mode)
   mso_schema_site_anp_epg_bulk_staticport: &add_static_port_1
@@ -283,25 +264,7 @@
   assert:
     that:
     - nm_add_stat1e1 is changed
-    - nm_add_stat1e1.previous == {}
-    - nm_add_stat1e1.current.epgs[0].staticPorts[0].deploymentImmediacy == 'immediate'
-    - nm_add_stat1e1.current.epgs[0].staticPorts[0].portEncapVlan == 126
-    - nm_add_stat1e1.current.epgs[0].staticPorts[0].path == 'topology/pod-1/paths-102/pathep-[eth1/2]'
-    - nm_add_stat1e1.current.epgs[0].staticPorts[0].mode == 'native'
-    - nm_add_stat1e1.current.epgs[0].staticPorts[0].type == 'port'
-    - nm_add_stat1e1.current.epgs[0].staticPorts[1].deploymentImmediacy == 'immediate'
-    - nm_add_stat1e1.current.epgs[0].staticPorts[1].portEncapVlan == 124
-    - nm_add_stat1e1.current.epgs[0].staticPorts[1].path == 'topology/pod-1/paths-101/pathep-[eth1/3]'
-    - nm_add_stat1e1.current.epgs[0].staticPorts[1].mode == 'native'
-    - nm_add_stat1e1.current.epgs[0].staticPorts[1].type == 'port'
-    - nm_add_stat1e1.current.epgs[0].staticPorts[2].path == 'topology/pod-1/paths-102/pathep-[eth1/3]'
-  when: version.current.version is version('4.0', '<')
-
-- name: Verify nm_add_stat1e1
-  assert:
-    that:
-    - nm_add_stat1e1 is changed
-    - nm_add_stat1e1.previous == {}
+    - nm_add_stat1e1.previous == []
     - nm_add_stat1e1.current[0].deploymentImmediacy == 'immediate'
     - nm_add_stat1e1.current[0].portEncapVlan == 126
     - nm_add_stat1e1.current[0].path == 'topology/pod-1/paths-102/pathep-[eth1/2]'
@@ -312,10 +275,9 @@
     - nm_add_stat1e1.current[1].path == 'topology/pod-1/paths-101/pathep-[eth1/3]'
     - nm_add_stat1e1.current[1].mode == 'native'
     - nm_add_stat1e1.current[1].type == 'port'
+    - nm_add_stat1e1.current[2].portEncapVlan == 124
     - nm_add_stat1e1.current[2].path == 'topology/pod-1/paths-102/pathep-[eth1/3]'
-  when: version.current.version is version('4.0', '>')
-
-# # mso4- - nm_add_stat1e1.current[0].type == 'port'
+    - nm_add_stat1e1.current|length ==3
 
 - name: Add static port 3 (vpc) to site EPG1 of AP1 (normal mode)
   mso_schema_site_anp_epg_bulk_staticport:
@@ -335,16 +297,17 @@
     state: present
   register: nm_add_stat3e1
 
-- name: Verify nm_add_stat3e1
+- name: Verify nm_add_stat3e1 
   assert:
     that:
     - nm_add_stat3e1 is changed
-    - nm_add_stat3e1.previous != {}
+    - nm_add_stat3e1.previous != []
     - nm_add_stat3e1.current[3].deploymentImmediacy == 'immediate'
     - nm_add_stat3e1.current[3].portEncapVlan == 105
     - nm_add_stat3e1.current[3].path == 'topology/pod-1/protpaths-103-104/pathep-[ansible_polgrp]'
     - nm_add_stat3e1.current[3].mode == 'native'
     - nm_add_stat3e1.current[3].type == 'vpc'
+    - nm_add_stat3e1.current|length > nm_add_stat1e1.current|length   # verifying length of current task (nm_add_stat3e1) is greater than the previous task (nm_add_stat1e1)
 
 - name: Add static port 2 (dpc) to EPG6 of AP2 (normal mode)
   mso_schema_site_anp_epg_bulk_staticport:
@@ -374,27 +337,13 @@
   assert:
     that:
     - nm_add_stat2e6 is changed
-    - nm_add_stat2e6.previous == {}
-    - nm_add_stat2e6.current.epgs[0].staticPorts[0].deploymentImmediacy == 'lazy'
-    - nm_add_stat2e6.current.epgs[0].staticPorts[0].portEncapVlan == 100
-    - nm_add_stat2e6.current.epgs[0].staticPorts[0].microSegVlan == 199
-    - nm_add_stat2e6.current.epgs[0].staticPorts[0].path == 'topology/pod-2/paths-102/pathep-[eth1/2]'
-    - nm_add_stat2e6.current.epgs[0].staticPorts[0].mode == 'regular'
-    - nm_add_stat2e6.current.epgs[0].staticPorts[0].type == 'dpc'
-  when: version.current.version is version('4.0', '<')
-
-- name: Verify nm_add_stat2e6
-  assert:
-    that:
-    - nm_add_stat2e6 is changed
-    - nm_add_stat2e6.previous == {}
+    - nm_add_stat2e6.previous == []
     - nm_add_stat2e6.current[0].deploymentImmediacy == 'lazy'
     - nm_add_stat2e6.current[0].portEncapVlan == 100
     - nm_add_stat2e6.current[0].microSegVlan == 199
     - nm_add_stat2e6.current[0].path == 'topology/pod-2/paths-102/pathep-[eth1/2]'
     - nm_add_stat2e6.current[0].mode == 'regular'
     - nm_add_stat2e6.current[0].type == 'dpc'
-  when: version.current.version is version('4.0', '>')
 
 - name: Add static port 2 to site EPG2 (normal mode)
   mso_schema_site_anp_epg_bulk_staticport: &static_port_2
@@ -422,25 +371,12 @@
   assert:
     that:
     - nm_add_stat2e2 is changed
-    - nm_add_stat2e2.previous == {}
-    - nm_add_stat2e2.current.staticPorts[0].deploymentImmediacy == 'immediate'
-    - nm_add_stat2e2.current.staticPorts[0].portEncapVlan == 100
-    - nm_add_stat2e2.current.staticPorts[0].path == 'topology/pod-2/paths-102/pathep-[eth1/2]'
-    - nm_add_stat2e2.current.staticPorts[0].mode == 'regular'
-    - nm_add_stat2e2.current.staticPorts[0].type == 'port'
-  when: version.current.version is version('4.0', '<')
-
-- name: Verify nm_add_stat2e2
-  assert:
-    that:
-    - nm_add_stat2e2 is changed
-    - nm_add_stat2e2.previous == {}
+    - nm_add_stat2e2.previous == []
     - nm_add_stat2e2.current[0].deploymentImmediacy == 'immediate'
     - nm_add_stat2e2.current[0].portEncapVlan == 100
     - nm_add_stat2e2.current[0].path == 'topology/pod-2/paths-102/pathep-[eth1/2]'
     - nm_add_stat2e2.current[0].mode == 'regular'
     - nm_add_stat2e2.current[0].type == 'port'
-  when: version.current.version is version('4.0', '>')
 
 # ADD EXISTING STATIC PORT
 - name: Add static port 1 to site EPG1 again (normal mode)
@@ -474,7 +410,7 @@
   assert:
     that:
     - nm_add_statfex is changed
-    - nm_add_statfex.previous != {}
+    - nm_add_statfex.previous != []
     - nm_add_statfex.current[1].deploymentImmediacy == 'lazy'
     - nm_add_statfex.current[1].portEncapVlan == 126
     - nm_add_statfex.current[1].path == 'topology/pod-4/paths-101/extpaths-151/pathep-[eth1/1]'
@@ -499,7 +435,7 @@
     - nm_query_statse1 is not changed
 
 #REMOVE STATIC PORT
-- name: Remove static port 2 from EPG2 (normal mode)
+- name: Remove all static ports from EPG2 (normal mode)
   mso_schema_site_anp_epg_bulk_staticport:
     <<: *static_port_2
     state: absent
@@ -510,7 +446,7 @@
     that:
     - nm_remove_stat2e2 is changed
 
-- name: Remove static port 2 from EPG2 again(normal mode)
+- name: Remove all static ports from EPG2 again(normal mode)
   mso_schema_site_anp_epg_bulk_staticport:
     <<: *static_port_2
     state: absent
@@ -544,18 +480,82 @@
 - name: Verify nm_add_stat_no_di_type_mode
   assert:
     that:
-    - nm_add_stat_no_di_type_mode.current.staticPorts[0].deploymentImmediacy == 'lazy'
-    - nm_add_stat_no_di_type_mode.current.staticPorts[0].mode == 'untagged'
-    - nm_add_stat_no_di_type_mode.current.staticPorts[0].type == 'port'
-  when: version.current.version is version('4.0', '<')
-
-- name: Verify nm_add_stat_no_di_type_mode
-  assert:
-    that:
     - nm_add_stat_no_di_type_mode.current[0].deploymentImmediacy == 'lazy'
     - nm_add_stat_no_di_type_mode.current[0].mode == 'untagged'
     - nm_add_stat_no_di_type_mode.current[0].type == 'port'
-  when: version.current.version is version('4.0', '>')
+
+# VERIFY NON EXISTENT parent values.
+- name: Add static port 1 to site EPG4 with AP2 with no parent values (normal mode)
+  mso_schema_site_anp_epg_bulk_staticport:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG4
+    static_ports:
+      - path: eth1/2
+        pod: pod-4
+        leaf: 101
+        vlan: 126
+    state: present
+  register: nm_add_stat_no_parent
+
+- name: Verify nm_add_stat_no_parent
+  assert:
+    that:
+    - nm_add_stat_no_parent.current[0].deploymentImmediacy == 'lazy'
+    - nm_add_stat_no_parent.current[0].mode == 'untagged'
+    - nm_add_stat_no_parent.current[0].type == 'port'
+
+# VERIFY NON EXISTENT required values.
+- name: Add static port 1 to site EPG4 with AP2 with missing required values (normal mode)
+  mso_schema_site_anp_epg_bulk_staticport: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG4
+    static_ports:
+      - mode: regular
+    state: present
+  ignore_errors: true
+  register: nm_add_stat_no_req
+
+- name: Verify nm_add_stat_no_req
+  assert:
+    that:
+    - nm_add_stat_no_req is not changed
+    - nm_add_stat_no_req.msg == "state is present but all of the following are missing{{':'}} pod, leaf, path, vlan."
+
+# VERIFY path in each leaf within a pod is unique (pod->leaf->path)
+- name: Add static port 1 to site EPG4 with AP2 with missing required values (normal mode)
+  mso_schema_site_anp_epg_bulk_staticport: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG4
+    static_ports:
+      - path: eth1/2
+        pod: pod-1
+        leaf: 101
+        vlan: 126
+      - path: eth1/2
+        pod: pod-1
+        leaf: 101
+        vlan: 127
+    state: present
+  ignore_errors: true
+  register: nm_add_unique_path
+
+- name: Verify nm_add_unique_path
+  assert:
+    that:
+    - nm_add_unique_path is not changed
+    - nm_add_unique_path.msg == "Each leaf in a pod of a static port should have an unique path."
 
 # USE NON-EXISTING EPG and ANP AT TEMPLATE LEVEL
 - name: Add static port 1 to non-existent site EPG5 (normal mode)
@@ -741,7 +741,7 @@
   assert:
     that:
     - nm_add_stat3 is changed
-    - nm_add_stat3.previous == {}
+    - nm_add_stat3.previous == []
     - nm_add_stat3.current[0].deploymentImmediacy == 'immediate'
     - nm_add_stat3.current[0].portEncapVlan == 100
     - nm_add_stat3.current[0].path == 'topology/pod-2/paths-102/pathep-[eth1/2]'

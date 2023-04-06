@@ -1055,18 +1055,19 @@ class MSOModule(object):
         self.proposed = deepcopy(self.existing)
         self.sent = deepcopy(self.existing)
 
-        for key in self.existing:
-            # Remove References
-            if key.endswith("Ref"):
-                del self.proposed[key]
-                del self.sent[key]
-                continue
+        if isinstance(self.existing, dict):
+            for key in self.existing:
+                # Remove References
+                if key.endswith("Ref"):
+                    del self.proposed[key]
+                    del self.sent[key]
+                    continue
 
-            # Removed unwanted keys
-            elif key in unwanted:
-                del self.proposed[key]
-                del self.sent[key]
-                continue
+                # Removed unwanted keys
+                elif key in unwanted:
+                    del self.proposed[key]
+                    del self.sent[key]
+                    continue
 
         if isinstance(updates, dict):
             # Clean up self.sent

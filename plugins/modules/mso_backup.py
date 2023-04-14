@@ -284,7 +284,7 @@ def main():
                 payload = dict()
                 if mso.platform == "nd":
                     if remote_location is None or remote_path is None:
-                        mso.module.fail_json(msg="NDO backup upload failed: remote_location and remote_path is required for NDO backup upload")
+                        mso.module.fail_json(msg="NDO backup upload failed: remote_location and remote_path are required for NDO backup upload")
                     remote_location_info = mso.lookup_remote_location(remote_location)
                     request_url = "backups/remoteUpload/{0}".format(remote_location_info.get("id"))
                 else:

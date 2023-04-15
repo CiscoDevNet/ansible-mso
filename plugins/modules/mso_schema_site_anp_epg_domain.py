@@ -389,7 +389,8 @@ def main():
     new_domain = dict(
         dn=domain_dn,
         domainType=domain_association_type,
-        deploymentImmediacy=deployment_immediacy,
+        deploymentImmediacy=deployment_immediacy,  # keeping for backworths compatibility
+        deployImmediacy=deployment_immediacy,  # rename of deploymentImmediacy
         resolutionImmediacy=resolution_immediacy,
     )
 
@@ -432,6 +433,10 @@ def main():
 
         if vmmDomainProperties:
             new_domain["vmmDomainProperties"] = vmmDomainProperties
+            properties = ["allowMicroSegmentation", "epgLagPol", "switchType", "switchingMode", "vlanEncapMode", "portEncapVlan", "microSegVlan"]
+            for property in properties:
+                if property in vmmDomainProperties:
+                    new_domain[property] = vmmDomainProperties[property]
 
     # If payload is empty, anp and EPG already exist at site level
     if not payload:

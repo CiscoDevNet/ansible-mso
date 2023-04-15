@@ -52,6 +52,7 @@
     - '{{ mso_site | default("ansible_test") }}'
     - 'aws_{{ mso_site | default("ansible_test") }}'
     - 'azure_{{ mso_site | default("ansible_test") }}'
+  ignore_errors: true
 
 - name: Ensure tenant ansible_test exist
   mso_tenant: 
@@ -576,8 +577,8 @@
     - nm_add_domfc.current.deploymentImmediacy == 'lazy'
 
 # USE OTHER ATTRIBUTES OF VMM DOMAIN
-- name: Add domain vmm to site EPG2 with AP1 (normal mode)
-  mso_schema_site_anp_epg_domain:
+- name: Add domain vmm to site EPG2 with AP2 (normal mode)
+  mso_schema_site_anp_epg_domain: &domain_ap1_epg2
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -586,7 +587,7 @@
     epg: EPG2
     domain_association_type: vmmDomain
     domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
+    deployment_immediacy: immediate
     resolution_immediacy: lazy
     micro_seg_vlan_type: 'vlan'
     micro_seg_vlan: 100
@@ -596,17 +597,84 @@
     allow_micro_segmentation: true
     switch_type: 'default'
     switching_mode: native
-    enhanced_lagpolicy_name: 'ansible_check'
+    enhanced_lagpolicy_name: 'ansible_check_name'
     enhanced_lagpolicy_dn: 'ansible_check'
     state: present
-  ignore_errors: true
   register: nm_add_domvmprop
 
-- name: Verify nm_add_domvmprop
+- name: Query domain vmms attached to site EPG2 with AP2
+  mso_schema_site_anp_epg_domain:
+    <<: *domain_ap1_epg2
+    state: query
+  register: nm_query_domvmprop
+
+- name: Verify domain vmm to site EPG2 with AP2
   assert:
     that:
     - nm_add_domvmprop is changed
     - nm_add_domvmprop.previous == {}
+    - nm_add_domvmprop.current.allowMicroSegmentation == true
+    - nm_add_domvmprop.current.deploymentImmediacy == "immediate"
+    - nm_add_domvmprop.current.deployImmediacy == "immediate"
+    - nm_add_domvmprop.current.dn == "uni/vmmp-VMware/dom-VMware-VMM"
+    - nm_add_domvmprop.current.epgLagPol.enhancedLagPol.dn == "ansible_check"
+    - nm_add_domvmprop.current.epgLagPol.enhancedLagPol.name == "ansible_check_name"
+    - nm_add_domvmprop.current.microSegVlan.vlan == 100
+    - nm_add_domvmprop.current.microSegVlan.vlanType == "vlan"
+    - nm_add_domvmprop.current.portEncapVlan.vlan == 100
+    - nm_add_domvmprop.current.portEncapVlan.vlanType == "vlan"
+    - nm_add_domvmprop.current.resolutionImmediacy == "lazy"
+    - nm_add_domvmprop.current.switchType == "default"
+    - nm_add_domvmprop.current.switchingMode == "native"
+    - nm_add_domvmprop.current.vlanEncapMode == "static"
+    - nm_add_domvmprop.current.vmmDomainProperties.allowMicroSegmentation == true
+    - nm_add_domvmprop.current.vmmDomainProperties.epgLagPol.enhancedLagPol.dn == "ansible_check"
+    - nm_add_domvmprop.current.vmmDomainProperties.epgLagPol.enhancedLagPol.name == "ansible_check_name"
+    - nm_add_domvmprop.current.vmmDomainProperties.microSegVlan.vlan == 100
+    - nm_add_domvmprop.current.vmmDomainProperties.microSegVlan.vlanType == "vlan"
+    - nm_add_domvmprop.current.vmmDomainProperties.portEncapVlan.vlan == 100
+    - nm_add_domvmprop.current.vmmDomainProperties.portEncapVlan.vlanType == "vlan"
+    - nm_add_domvmprop.current.vmmDomainProperties.switchType == "default"
+    - nm_add_domvmprop.current.vmmDomainProperties.switchingMode == "native"
+    - nm_add_domvmprop.current.vmmDomainProperties.vlanEncapMode == "static"
+    - nm_query_domvmprop.current.allowMicroSegmentation == true
+    - nm_query_domvmprop.current.deployImmediacy == "immediate"
+    - nm_query_domvmprop.current.dn == "uni/vmmp-VMware/dom-VMware-VMM"
+    - nm_query_domvmprop.current.epgLagPol.enhancedLagPol.dn == "ansible_check"
+    - nm_query_domvmprop.current.epgLagPol.enhancedLagPol.name == "ansible_check_name"
+    - nm_query_domvmprop.current.microSegVlan.vlan == 100
+    - nm_query_domvmprop.current.microSegVlan.vlanType == "vlan"
+    - nm_query_domvmprop.current.portEncapVlan.vlan == 100
+    - nm_query_domvmprop.current.portEncapVlan.vlanType == "vlan"
+    - nm_query_domvmprop.current.resolutionImmediacy == "lazy"
+    - nm_query_domvmprop.current.switchType == "default"
+    - nm_query_domvmprop.current.switchingMode == "native"
+    - nm_query_domvmprop.current.vlanEncapMode == "static"
+
+- name: Add another domain vmm to site EPG2 with AP2 (normal mode)
+  mso_schema_site_anp_epg_domain:
+    <<: *domain_ap1_epg2
+    domain_profile: 'TEST'
+    state: present
+  register: nm_add_another_domvmprop
+
+- name: Query all domains vmms attached to site EPG2 with AP2
+  mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG2
+    state: query
+  register: nm_query_another_domvmprop
+
+- name: Verify domain vmm to site EPG2 with AP2
+  assert:
+    that:
+    - nm_add_another_domvmprop is changed
+    - nm_query_another_domvmprop is not changed
+    - nm_query_another_domvmprop.current | length == 2
 
 - name: Add domain vmm to site EPG4 with AP2 (normal mode)
   mso_schema_site_anp_epg_domain:

@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# Copyright: (c) 2023, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -17,6 +18,7 @@ short_description: Manage VRFs in schema templates
 description:
 - Manage VRFs in schema templates on Cisco ACI Multi-Site.
 author:
+- Anvitha Jain (@anvitha-jain)
 - Dag Wieers (@dagwieers)
 options:
   schema:
@@ -45,6 +47,17 @@ options:
   vzany:
     description:
     - Whether to enable vzAny.
+    type: bool
+  ip_data_plane_learning:
+    description:
+    - Whether IP data plane learning is enabled or disabled.
+    - The APIC defaults to C(enabled) when unset during creation.
+    type: str
+    choices: [ disabled, enabled ]
+  preferred_group:
+    description:
+    - Whether to enable preferred Endpoint Group.
+    - The APIC defaults to C(false) when unset during creation.
     type: bool
   state:
     description:
@@ -119,6 +132,8 @@ def main():
         display_name=dict(type="str"),
         layer3_multicast=dict(type="bool"),
         vzany=dict(type="bool"),
+        preferred_group=dict(type="bool"),
+        ip_data_plane_learning=dict(type="str", choices=["enabled", "disabled"]),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -137,6 +152,8 @@ def main():
     display_name = module.params.get("display_name")
     layer3_multicast = module.params.get("layer3_multicast")
     vzany = module.params.get("vzany")
+    ip_data_plane_learning = module.params.get("ip_data_plane_learning")
+    preferred_group = module.params.get("preferred_group")
     state = module.params.get("state")
 
     mso = MSOModule(module)
@@ -178,7 +195,14 @@ def main():
         if display_name is None and not mso.existing:
             display_name = vrf
 
-        payload = dict(name=vrf, displayName=display_name, l3MCast=layer3_multicast, vzAnyEnabled=vzany)
+        payload = dict(
+            name=vrf,
+            displayName=display_name,
+            l3MCast=layer3_multicast,
+            vzAnyEnabled=vzany,
+            preferredGroup=preferred_group,
+            ipDataPlaneLearning=ip_data_plane_learning,
+        )
 
         mso.sanitize(payload, collate=True)
 

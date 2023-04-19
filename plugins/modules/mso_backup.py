@@ -3,6 +3,7 @@
 
 # Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
 # Copyright: (c) 2023, Lionel Hercot (@lhercot) <lhercot@cisco.com>
+# Copyright: (c) 2023, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -20,6 +21,7 @@ description:
 author:
 - Shreyas Srish (@shrsr)
 - Lionel Hercot (@lhercot)
+- Sabari Jaganathan (@sajagana)
 options:
   location_type:
     description:
@@ -278,10 +280,19 @@ def main():
             mso.existing = mso.proposed
         else:
             try:
-                payload = dict(name=(os.path.basename(backup), open(backup, "rb"), "application/x-gzip"))
-                mso.existing = mso.request_upload("backups/upload", fields=payload)
-            except Exception:
-                mso.module.fail_json(msg="Backup file '{0}' not found!".format(", ".join(backup.split("/")[-1:])))
+                request_url = "backups/upload"
+                payload = dict()
+                if mso.platform == "nd":
+                    if remote_location is None or remote_path is None:
+                        mso.module.fail_json(msg="NDO backup upload failed: remote_location and remote_path are required for NDO backup upload")
+                    remote_location_info = mso.lookup_remote_location(remote_location)
+                    request_url = "backups/remoteUpload/{0}".format(remote_location_info.get("id"))
+                else:
+                    payload = dict(name=(os.path.basename(backup), open(backup, "rb"), "application/x-gzip"))
+
+                mso.existing = mso.request_upload(request_url, fields=payload)
+            except Exception as error:
+                mso.module.fail_json(msg="Upload failed due to: {0}, Backup file: '{1}'".format(error, ", ".join(backup.split("/")[-1:])))
         mso.exit_json()
 
     if len(mso.existing) == 0:

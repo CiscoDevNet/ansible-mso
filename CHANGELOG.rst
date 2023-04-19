@@ -6,6 +6,28 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.4.0
+======
+
+Release Summary
+---------------
+
+Release v2.4.0 of the ``ansible-mso`` collection on 2023-04-19.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.3.0.
+
+
+Minor Changes
+-------------
+
+- Add ip_data_plane_learning and preferred_group arguments to mso_schema_template_vrf module (#358)
+
+Bugfixes
+--------
+
+- Add attributes to payload for changed schema behaviour of deploymentImmediacy (deployImmediacy) and vmmDomainProperties (properties at domain level in payload) (#362)
+- Fix mso_backup for NDO and ND-based MSO v3.2+ (#333)
+- Fix validation condition for path in mso_schema_site_anp_epg_bulk_staticport module (#360)
+
 v2.3.0
 ======
 

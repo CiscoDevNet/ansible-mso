@@ -6,6 +6,21 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.3.1
+======
+
+Release Summary
+---------------
+
+Release v2.3.1 of the ``ansible-mso`` collection on 2023-04-19.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.3.0.
+
+
+Bugfixes
+--------
+
+- Fix validation condition for path in mso_schema_site_anp_epg_bulk_staticport module (#360)
+
 v2.3.0
 ======
 

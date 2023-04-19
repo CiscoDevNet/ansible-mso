@@ -22,6 +22,7 @@ from ansible.module_utils.six.moves.urllib.parse import urlencode, urljoin
 from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_native, to_text
 from ansible.module_utils.connection import Connection
+from ansible_collections.cisco.mso.plugins.module_utils.constants import NDO_API_VERSION_PATH_FORMAT
 
 try:
     from requests_toolbelt.multipart.encoder import MultipartEncoder
@@ -239,16 +240,18 @@ def mso_site_anp_epg_bulk_staticport_spec():
 
 
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
-def write_file(module, url, dest, content, resp):
+def write_file(module, url, dest, content, resp, tmpsrc=None):
     # create a tempfile with some test content
-    fd, tmpsrc = tempfile.mkstemp(dir=module.tmpdir)
-    f = open(tmpsrc, "wb")
-    try:
-        f.write(content)
-    except Exception as e:
-        os.remove(tmpsrc)
-        module.fail_json(msg="Failed to create temporary content file: {0}".format(to_native(e)))
-    f.close()
+
+    if tmpsrc is None and content is not None:
+        fd, tmpsrc = tempfile.mkstemp(dir=module.tmpdir)
+        f = open(tmpsrc, "wb")
+        try:
+            f.write(content)
+        except Exception as e:
+            os.remove(tmpsrc)
+            module.fail_json(msg="Failed to create temporary content file: {0}".format(to_native(e)))
+        f.close()
 
     checksum_src = None
     checksum_dest = None
@@ -410,11 +413,15 @@ class MSOModule(object):
         if self.status not in [200, 201, 202, 204]:
             self.error = self.jsondata
 
-    def request_download(self, path, destination=None):
-        self.url = urljoin(self.baseuri, path)
+    def request_download(self, path, destination=None, method="GET", api_version="v1"):
+        if self.platform != "nd":
+            self.url = urljoin(self.baseuri, path)
+
         redirected = False
         redir_info = {}
         redirect = {}
+        content = None
+        data = None
 
         src = self.params.get("src")
         if src:
@@ -423,79 +430,111 @@ class MSOModule(object):
                 data = open(src, "rb")
             except OSError:
                 self.fail_json(msg="Unable to open source file %s" % src, elapsed=0)
-        else:
-            pass
-
-        data = None
 
         kwargs = {}
-        if destination is not None:
-            if os.path.isdir(destination):
-                # first check if we are redirected to a file download
-                check, redir_info = fetch_url(self.module, self.url, headers=self.headers, method="GET", timeout=self.params.get("timeout"))
-                # if we are redirected, update the url with the location header,
-                # and update dest with the new url filename
-                if redir_info["status"] in (301, 302, 303, 307):
-                    self.url = redir_info.get("location")
-                    redirected = True
-                destination = os.path.join(destination, check.headers.get("Content-Disposition").split("filename=")[1])
-            # if destination file already exist, only download if file newer
-            if os.path.exists(destination):
-                kwargs["last_mod_time"] = datetime.datetime.utcfromtimestamp(os.path.getmtime(destination))
+        if destination is not None and os.path.isdir(destination):
+            # first check if we are redirected to a file download
+            if self.platform == "nd":
+                redir_info = self.connection.get_remote_file_io_stream(
+                    NDO_API_VERSION_PATH_FORMAT.format(api_version=api_version, path=path), self.module.tmpdir, method
+                )
+                # In place of Content-Disposition, NDO get_remote_file_io_stream returns content-disposition.
+                content_disposition = redir_info.get("content-disposition")
+            else:
+                check, redir_info = fetch_url(self.module, self.url, headers=self.headers, method=method, timeout=self.params.get("timeout"))
+                content_disposition = check.headers.get("Content-Disposition")
 
-        resp, info = fetch_url(
-            self.module,
-            self.url,
-            data=data,
-            headers=self.headers,
-            method="GET",
-            timeout=self.params.get("timeout"),
-            unix_socket=self.params.get("unix_socket"),
-            **kwargs
-        )
+            if content_disposition:
+                file_name = content_disposition.split("filename=")[1]
+            else:
+                self.fail_json(msg="Failed to fetch {0} backup information from MSO/NDO, response: {1}".format(self.params.get("backup"), redir_info))
 
-        try:
-            content = resp.read()
-        except AttributeError:
-            # there was no content, but the error read() may have been stored in the info as 'body'
-            content = info.pop("body", "")
+            # if we are redirected, update the url with the location header and update dest with the new url filename
+            if redir_info["status"] in (301, 302, 303, 307):
+                self.url = redir_info.get("location")
+                redirected = True
+            destination = os.path.join(destination, file_name)
 
-        if src:
-            # Try to close the open file handle
+        # if destination file already exist, only download if file newer
+        if os.path.exists(destination):
+            kwargs["last_mod_time"] = datetime.datetime.utcfromtimestamp(os.path.getmtime(destination))
+
+        if self.platform == "nd":
+            if redir_info["status"] == 200 and redirected is False:
+                info = redir_info
+            else:
+                info = self.connection.get_remote_file_io_stream("/mso/{0}".format(self.url.split("/mso/", 1)), self.module.tmpdir, method)
+        else:
+            resp, info = fetch_url(
+                self.module,
+                self.url,
+                data=data,
+                headers=self.headers,
+                method=method,
+                timeout=self.params.get("timeout"),
+                unix_socket=self.params.get("unix_socket"),
+                **kwargs
+            )
+
             try:
-                data.close()
-            except Exception:
-                pass
+                content = resp.read()
+            except AttributeError:
+                # there was no content, but the error read() may have been stored in the info as 'body'
+                content = info.pop("body", "")
+
+            if src:
+                # Try to close the open file handle
+                try:
+                    data.close()
+                except Exception:
+                    pass
 
         redirect["redirected"] = redirected or info.get("url") != self.url
         redirect.update(redir_info)
         redirect.update(info)
 
-        write_file(self.module, self.url, destination, content, redirect)
+        write_file(self.module, self.url, destination, content, redirect, info.get("tmpsrc"))
 
         return redirect, destination
 
-    def request_upload(self, path, fields=None):
+    def request_upload(self, path, fields=None, method="POST", api_version="v1"):
         """Generic HTTP MultiPart POST method for MSO uploads."""
         self.path = path
-        self.url = urljoin(self.baseuri, path)
+        if self.platform != "nd":
+            self.url = urljoin(self.baseuri, path)
 
-        if not HAS_MULTIPART_ENCODER:
-            self.fail_json(msg="requests-toolbelt is required for the upload state of this module")
+        info = dict()
 
-        mp_encoder = MultipartEncoder(fields=fields)
-        self.headers["Content-Type"] = mp_encoder.content_type
-        self.headers["Accept-Encoding"] = "gzip, deflate, br"
+        if self.platform == "nd":
+            try:
+                if os.path.exists(self.params.get("backup")):
+                    info = self.connection.send_file_request(
+                        method,
+                        NDO_API_VERSION_PATH_FORMAT.format(api_version=api_version, path=path),
+                        file=self.params.get("backup"),
+                        remote_path=self.params.get("remote_path"),
+                    )
+                else:
+                    self.fail_json(msg="Upload failed due to: No such file or directory, Backup file: '{0}'".format(self.params.get("backup")))
+            except Exception as error:
+                self.fail_json("NDO upload failed due to: {0}".format(error))
+        else:
+            if not HAS_MULTIPART_ENCODER:
+                self.fail_json(msg="requests-toolbelt is required for the upload state of this module")
 
-        resp, info = fetch_url(
-            self.module,
-            self.url,
-            headers=self.headers,
-            data=mp_encoder,
-            method="POST",
-            timeout=self.params.get("timeout"),
-            use_proxy=self.params.get("use_proxy"),
-        )
+            mp_encoder = MultipartEncoder(fields=fields)
+            self.headers["Content-Type"] = mp_encoder.content_type
+            self.headers["Accept-Encoding"] = "gzip, deflate, br"
+
+            resp, info = fetch_url(
+                self.module,
+                self.url,
+                headers=self.headers,
+                data=mp_encoder,
+                method=method,
+                timeout=self.params.get("timeout"),
+                use_proxy=self.params.get("use_proxy"),
+            )
 
         self.response = info.get("msg")
         self.status = info.get("status")
@@ -510,26 +549,34 @@ class MSOModule(object):
 
         # 200: OK, 201: Created, 202: Accepted, 204: No Content
         if self.status in (200, 201, 202, 204):
-            output = resp.read()
-            if output:
-                return json.loads(output)
+            if self.platform == "nd":
+                return info
+            else:
+                output = resp.read()
+                if output:
+                    return json.loads(output)
 
         # 400: Bad Request, 401: Unauthorized, 403: Forbidden,
         # 405: Method Not Allowed, 406: Not Acceptable
         # 500: Internal Server Error, 501: Not Implemented
-        elif self.status >= 400:
-            try:
-                payload = json.loads(resp.read())
-            except (ValueError, AttributeError):
+        elif self.status:
+            if self.status >= 400:
                 try:
-                    payload = json.loads(info.get("body"))
-                except Exception:
-                    self.fail_json(msg="MSO Error:", info=info)
-            if "code" in payload:
-                self.fail_json(msg="MSO Error {code}: {message}".format(**payload), info=info, payload=payload)
-            else:
-                self.fail_json(msg="MSO Error:".format(**payload), info=info, payload=payload)
-
+                    if self.platform == "nd":
+                        payload = info.get("body")
+                    else:
+                        payload = json.loads(resp.read())
+                except (ValueError, AttributeError):
+                    try:
+                        payload = json.loads(info.get("body"))
+                    except Exception:
+                        self.fail_json(msg="MSO Error:", info=info)
+                if "code" in payload:
+                    self.fail_json(msg="MSO Error {code}: {message}".format(**payload), info=info, payload=payload)
+                else:
+                    self.fail_json(msg="MSO Error:".format(**payload), info=info, payload=payload)
+        else:
+            self.fail_json(msg="Backup file upload failed due to: {0}".format(info))
         return {}
 
     def request(self, path, method=None, data=None, qs=None, api_version="v1"):
@@ -561,7 +608,7 @@ class MSOModule(object):
         if self.module._socket_path:
             self.connection.set_params(self.params)
             if api_version is not None:
-                uri = "/mso/api/{0}/{1}".format(api_version, self.path)
+                uri = NDO_API_VERSION_PATH_FORMAT.format(api_version=api_version, path=self.path)
             else:
                 uri = self.path
 
@@ -572,7 +619,7 @@ class MSOModule(object):
                 info = self.connection.send_request(method, uri, json.dumps(data))
                 self.url = info.get("url")
                 self.httpapi_logs.extend(self.connection.pop_messages())
-                info.pop("date")
+                info.pop("date", None)
             except Exception as e:
                 try:
                     error_obj = json.loads(to_text(e))

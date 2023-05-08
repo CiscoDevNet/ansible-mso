@@ -45,10 +45,21 @@
     site: '{{ item }}'
     state: absent
   loop:
+  - 'invalid_site_{{ mso_site | default("ansible_test") }}'
   - '{{ mso_site | default("ansible_test") }}'
   - 'aws_{{ mso_site | default("ansible_test") }}'
   - 'azure_{{ mso_site | default("ansible_test") }}'
-  ignore_errors: true
+  register: tenant_site_absent_check
+
+- name: Assertion check for the tenant site dissociation
+  assert:
+    that:
+    - tenant_site_absent_check.results.0.current == {}
+    - tenant_site_absent_check.warnings.0 == "Site 'invalid_site_ansible_test' is not a valid site name."
+    - tenant_site_absent_check.results.1.current == {}
+    - tenant_site_absent_check.results.2.current == {}
+    - tenant_site_absent_check.results.3.current == {}
+
 
 - name: Remove tenant ansible_test
   mso_tenant: 

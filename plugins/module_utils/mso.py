@@ -833,7 +833,8 @@ class MSOModule(object):
 
         s = self.get_obj("sites", name=site)
         if not s:
-            self.fail_json(msg="Site '%s' is not a valid site name." % site)
+            self.module.warn("Site '{0}' is not a valid site name.".format(site))
+            return None
         if "id" not in s:
             self.fail_json(msg="Site lookup failed for site '%s': %s" % (site, s))
         return s.get("id")

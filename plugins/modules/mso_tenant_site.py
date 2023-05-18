@@ -260,9 +260,13 @@ def main():
 
     # Get tenant_id and site_id
     tenant_id = mso.lookup_tenant(module.params.get("tenant"))
-    site_id = mso.lookup_site(module.params.get("site"))
-    if not site_id:
+
+    # To ignore the object not found issue for the lookup methods
+    site_id = mso.lookup_site(module.params.get("site"), True)
+
+    if state == "absent" and not site_id:
         mso.exit_json()
+
     tenants = [(t.get("id")) for t in mso.query_objs("tenants")]
     tenant_idx = tenants.index((tenant_id))
 

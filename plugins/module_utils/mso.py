@@ -776,15 +776,15 @@ class MSOModule(object):
             self.fail_json(msg="More than one object matches unique filter: {0}".format(kwargs))
         return objs[0]
 
-    def lookup_schema(self, schema, ignore_404=False):
+    def lookup_schema(self, schema, ignore_not_found_error=False):
         """Look up schema and return its id"""
         if schema is None:
             return schema
 
         schema_summary = self.query_objs("schemas/list-identity", key="schemas", displayName=schema)
-        if not schema_summary and not ignore_404:
+        if not schema_summary and not ignore_not_found_error:
             self.fail_json(msg="Provided schema '{0}' does not exist.".format(schema))
-        elif (not schema_summary or not schema_summary[0].get("id")) and ignore_404:
+        elif (not schema_summary or not schema_summary[0].get("id")) and ignore_not_found_error:
             self.module.warn("Provided schema '{0}' does not exist.".format(schema))
             return None
         schema_id = schema_summary[0].get("id")
@@ -792,22 +792,22 @@ class MSOModule(object):
             self.fail_json(msg="Schema lookup failed for schema '{0}': '{1}'".format(schema, schema_id))
         return schema_id
 
-    def lookup_domain(self, domain, ignore_404=False):
+    def lookup_domain(self, domain, ignore_not_found_error=False):
         """Look up a domain and return its id"""
         if domain is None:
             return domain
 
         d = self.get_obj("auth/domains", key="domains", name=domain)
-        if not d and not ignore_404:
+        if not d and not ignore_not_found_error:
             self.fail_json(msg="Domain '{0}' is not a valid domain name.".format(domain))
-        elif (not d or "id" not in d) and ignore_404:
+        elif (not d or "id" not in d) and ignore_not_found_error:
             self.module.warn("Domain '{0}' is not a valid domain name.".format(domain))
             return None
         if "id" not in d:
             self.fail_json(msg="Domain lookup failed for domain '{0}': {1}".format(domain, d))
         return d.get("id")
 
-    def lookup_roles(self, roles, ignore_404=False):
+    def lookup_roles(self, roles, ignore_not_found_error=False):
         """Look up roles and return their ids"""
         if roles is None:
             return roles
@@ -825,9 +825,9 @@ class MSOModule(object):
                 name = role
 
             r = self.get_obj("roles", name=name)
-            if not r and not ignore_404:
+            if not r and not ignore_not_found_error:
                 self.fail_json(msg="Role '{0}' is not a valid role name.".format(name))
-            elif (not r or "id" not in r) and ignore_404:
+            elif (not r or "id" not in r) and ignore_not_found_error:
                 self.module.warn("Role '{0}' is not a valid role name.".format(name))
                 return ids
             if "id" not in r:
@@ -835,22 +835,22 @@ class MSOModule(object):
             ids.append(dict(roleId=r.get("id"), accessType=access_type))
         return ids
 
-    def lookup_site(self, site, ignore_404=False):
+    def lookup_site(self, site, ignore_not_found_error=False):
         """Look up a site and return its id"""
         if site is None:
             return site
 
         s = self.get_obj("sites", name=site)
-        if not s and not ignore_404:
+        if not s and not ignore_not_found_error:
             self.fail_json(msg="Site '{0}' is not a valid site name.".format(site))
-        elif (not s or "id" not in s) and ignore_404:
+        elif (not s or "id" not in s) and ignore_not_found_error:
             self.module.warn("Site '{0}' is not a valid site name.".format(site))
             return None
         if "id" not in s:
             self.fail_json(msg="Site lookup failed for site '{0}': {1}".format(site, s))
         return s.get("id")
 
-    def lookup_sites(self, sites, ignore_404=False):
+    def lookup_sites(self, sites, ignore_not_found_error=False):
         """Look up sites and return their ids"""
         if sites is None:
             return sites
@@ -858,9 +858,9 @@ class MSOModule(object):
         ids = []
         for site in sites:
             s = self.get_obj("sites", name=site)
-            if not s and not ignore_404:
+            if not s and not ignore_not_found_error:
                 self.fail_json(msg="Site '{0}' is not a valid site name.".format(site))
-            elif (not s or "id" not in s) and ignore_404:
+            elif (not s or "id" not in s) and ignore_not_found_error:
                 self.module.warn("Site '{0}' is not a valid site name.".format(site))
                 return ids
             if "id" not in s:
@@ -868,36 +868,36 @@ class MSOModule(object):
             ids.append(dict(siteId=s.get("id"), securityDomains=[]))
         return ids
 
-    def lookup_tenant(self, tenant, ignore_404=False):
+    def lookup_tenant(self, tenant, ignore_not_found_error=False):
         """Look up a tenant and return its id"""
         if tenant is None:
             return tenant
 
         t = self.get_obj("tenants", key="tenants", name=tenant)
-        if not t and not ignore_404:
+        if not t and not ignore_not_found_error:
             self.fail_json(msg="Tenant '{0}' is not valid tenant name.".format(tenant))
-        elif (not t or "id" not in t) and ignore_404:
+        elif (not t or "id" not in t) and ignore_not_found_error:
             self.module.warn("Tenant '{0}' is not valid tenant name.".format(tenant))
             return None
         if "id" not in t:
             self.fail_json(msg="Tenant lookup failed for tenant '{0}': {1}".format(tenant, t))
         return t.get("id")
 
-    def lookup_remote_location(self, remote_location, ignore_404=False):
+    def lookup_remote_location(self, remote_location, ignore_not_found_error=False):
         """Look up a remote location and return its path and id"""
         if remote_location is None:
             return None
 
         remote = self.get_obj("platform/remote-locations", key="remoteLocations", name=remote_location)
-        if "id" not in remote and not ignore_404:
+        if "id" not in remote and not ignore_not_found_error:
             self.fail_json(msg="No remote location found for remote '{0}'".format(remote_location))
-        elif "id" not in remote and ignore_404:
+        elif "id" not in remote and ignore_not_found_error:
             self.module.warn("No remote location found for remote '{0}'".format(remote_location))
             return dict()
         remote_info = dict(id=remote.get("id"), path=remote.get("credential")["remotePath"])
         return remote_info
 
-    def lookup_users(self, users, ignore_404=False):
+    def lookup_users(self, users, ignore_not_found_error=False):
         """Look up users and return their ids"""
         # Ensure tenant has at least admin user
         if users is None:
@@ -911,9 +911,9 @@ class MSOModule(object):
                 u = self.get_obj("users", loginID=user, api_version="v2")
             else:
                 u = self.get_obj("users", username=user)
-            if not u and not ignore_404:
+            if not u and not ignore_not_found_error:
                 self.fail_json(msg="User '{0}' is not a valid user name.".format(user))
-            elif (not u or "id" not in u) and ignore_404:
+            elif (not u or "id" not in u) and ignore_not_found_error:
                 self.module.warn("User '{0}' is not a valid user name.".format(user))
                 return ids
             if "id" not in u:
@@ -932,7 +932,7 @@ class MSOModule(object):
         """Create a new label"""
         return self.request("labels", method="POST", data=dict(displayName=label, type=label_type))
 
-    def lookup_labels(self, labels, label_type, ignore_404=False):
+    def lookup_labels(self, labels, label_type, ignore_not_found_error=False):
         """Look up labels and return their ids (create if necessary)"""
         if labels is None:
             return None
@@ -942,9 +942,9 @@ class MSOModule(object):
             label_obj = self.get_obj("labels", displayName=label)
             if not label_obj:
                 label_obj = self.create_label(label, label_type)
-            if "id" not in label_obj and not ignore_404:
+            if "id" not in label_obj and not ignore_not_found_error:
                 self.fail_json(msg="Label lookup failed for label '{0}': {1}".format(label, label_obj))
-            elif "id" not in label_obj and ignore_404:
+            elif "id" not in label_obj and ignore_not_found_error:
                 self.module.warn("Label lookup failed for label '{0}': {1}".format(label, label_obj))
                 return ids
             ids.append(label_obj.get("id"))
@@ -1319,7 +1319,7 @@ class MSOModule(object):
             self.module.fail_json(msg="Service node types do not exist")
         return node_objs
 
-    def lookup_service_node_device(self, site_id, tenant, device_name=None, service_node_type=None, ignore_404=False):
+    def lookup_service_node_device(self, site_id, tenant, device_name=None, service_node_type=None, ignore_not_found_error=False):
         if service_node_type is None:
             node_devices = self.query_objs("sites/{0}/aci/tenants/{1}/devices".format(site_id, tenant), key="devices")
         else:
@@ -1328,7 +1328,7 @@ class MSOModule(object):
             for device in node_devices:
                 if device_name == device.get("name"):
                     return device
-            if ignore_404:
+            if ignore_not_found_error:
                 self.module.warn("Provided device '{0}' of type '{1}' does not exist.".format(device_name, service_node_type))
                 return node_devices
             else:

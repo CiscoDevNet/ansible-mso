@@ -6,6 +6,21 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.4.1
+======
+
+Release Summary
+---------------
+
+Release v2.4.1 of the ``ansible-mso`` collection on 2023-06-07.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.4.0.
+
+
+Bugfixes
+--------
+
+- Fix mso_tenant_site "site not found" issue on absent (#368)
+
 v2.4.0
 ======
 

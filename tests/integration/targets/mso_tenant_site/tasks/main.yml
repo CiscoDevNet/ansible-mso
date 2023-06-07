@@ -38,6 +38,15 @@
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
+- name: Ensure tenant ansible_test exists to validate the invalid_site_mso_site
+  mso_tenant:
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+      - '{{ mso_username }}'
+    state: present
+  register: ansible_test_tenant_present
+
 - name: Dissociate clouds that are associated with ansible_tenant
   mso_tenant_site:
     <<: *mso_info
@@ -45,10 +54,22 @@
     site: '{{ item }}'
     state: absent
   loop:
+  - 'invalid_site_{{ mso_site | default("ansible_test") }}'
   - '{{ mso_site | default("ansible_test") }}'
   - 'aws_{{ mso_site | default("ansible_test") }}'
   - 'azure_{{ mso_site | default("ansible_test") }}'
-  ignore_errors: true
+  register: tenant_site_absent_check
+  when: ansible_test_tenant_present.current != {}
+
+- name: Assertion check for the tenant site dissociation
+  assert:
+    that:
+    - tenant_site_absent_check.results.0.current == {}
+    - tenant_site_absent_check.warnings.0 == "Site 'invalid_site_ansible_test' is not a valid site name."
+    - tenant_site_absent_check.results.1.current == {}
+    - tenant_site_absent_check.results.2.current == {}
+    - tenant_site_absent_check.results.3.current == {}
+  when: ansible_test_tenant_present.current != {}
 
 - name: Remove tenant ansible_test
   mso_tenant: 

@@ -1,0 +1,283 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# Copyright: (c) 2023, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+from __future__ import absolute_import, division, print_function
+
+__metaclass__ = type
+
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
+
+DOCUMENTATION = r"""
+---
+module: mso_schema_template_anp_epg_useg_attribute
+short_description: Manage EPG subnets in schema templates
+description:
+- Manage uSeg Attributes in the schema template EPGs on Cisco ACI Multi-Site.
+author:
+- Sabari Jaganathan (@sajagana)
+options:
+  schema:
+    description:
+    - The name of the Schema.
+    type: str
+  template:
+    description:
+    - The name of the Template.
+    type: str
+  anp:
+    description:
+    - The name of the Application Profile.
+    type: str
+  epg:
+    description:
+    - The name of the EPG.
+    type: str
+  name:
+    description:
+    - The name and display name of the uSeg Attribute.
+    type: str
+    aliases: [ useg ]
+  description:
+    description:
+    - The description of the uSeg Attribute.
+    type: str
+    aliases: [ descr ]
+  attribute_type:
+    description:
+    - The type of the uSeg Attribute.
+    type: str
+    choices: [ vm_name, ip, mac, vmm_domain, vm_operating_system, vm_tag, vm_hypervisor_identifier, dns, vm_datacenter, vm_identifier, vnic_dn ]
+    aliases: [ attr_type ]
+  value:
+    description:
+    - The value the uSeg Attribute.
+    type: str
+  operator:
+    description:
+    - The operator type of the uSeg Attribute.
+    type: str
+    choices: [ equals, contains, starts_with, ends_with ]
+  useg_subnet:
+    description:
+    - The uSeg Subnet only used when the I(attribute_type) is IP.
+    - The C(false) used to set the custom uSeg Subnet IP address to the uSeg Attribute.
+    - The C(true) sets uSeg Subnet IP address to 0.0.0.0.
+    type: bool
+  state:
+    description:
+    - Use C(present) or C(absent) for adding or removing.
+    - Use C(query) for listing an object or multiple objects.
+    type: str
+    choices: [ absent, present, query ]
+    default: present
+notes:
+- Due to restrictions of the MSO REST API concurrent modifications to EPG subnets can be dangerous and corrupt data.
+extends_documentation_fragment: cisco.mso.modules
+"""
+
+EXAMPLES = r"""
+# Need to check
+- name: Add an uSeg attr with attribute_type - ip
+  cisco.mso.mso_schema_template_anp_epg_useg_attribute:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema 1
+    template: Template 1
+    anp: ANP 1
+    epg: EPG 1
+    name: useg_attr_ip
+    attribute_type: ip
+    useg_subnet: false
+    value: 10.0.0.0/24
+    state: present
+  delegate_to: localhost
+
+- name: Query a specific EPG uSeg attr with name
+  cisco.mso.mso_schema_template_anp_epg_useg_attribute:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema 1
+    template: Template 1
+    anp: ANP 1
+    epg: EPG 1
+    name: useg_attr_ip
+    state: query
+  delegate_to: localhost
+  register: query_result
+
+- name: Query all EPG uSeg attrs
+  cisco.mso.mso_schema_template_anp_epg_useg_attribute:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema 1
+    template: Template 1
+    anp: ANP 1
+    epg: EPG 1
+    state: query
+  delegate_to: localhost
+  register: query_result
+
+- name: Remove a uSeg attr from an EPG with name
+  cisco.mso.mso_schema_template_anp_epg_useg_attribute:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema 1
+    template: Template 1
+    anp: ANP 1
+    epg: EPG 1
+    name: useg_attr_ip
+    state: absent
+  delegate_to: localhost
+"""
+
+RETURN = r"""
+"""
+
+from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_epg_subnet_spec
+from ansible_collections.cisco.mso.plugins.module_utils.constants import EPG_U_SEG_ATTR_TYPE_MAP
+
+
+def main():
+    argument_spec = mso_argument_spec()
+    argument_spec.update(
+        schema=dict(type="str"),
+        template=dict(type="str"),
+        anp=dict(type="str"),
+        epg=dict(type="str"),
+        name=dict(type="str", aliases=["useg"]),
+        description=dict(type="str", aliases=["descr"]),
+        attribute_type=dict(type="str", aliases=["attr_type"], choices=list(EPG_U_SEG_ATTR_TYPE_MAP.keys())),
+        value=dict(type="str"),
+        operator=dict(type="str", choices=["equals", "contains", "starts_with", "ends_with"]),
+        useg_subnet=dict(type="bool"),
+        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
+    )
+
+    module = AnsibleModule(
+        argument_spec=argument_spec,
+        supports_check_mode=True,
+        required_if=[
+            ["state", "query", ["schema", "template", "anp", "epg"]],
+            ["state", "absent", ["schema", "template", "anp", "epg", "name"]],
+            ["state", "present", ["schema", "template", "anp", "epg", "name", "attribute_type"]],
+            ["useg_subnet", False, ["value"]],
+        ],
+    )
+
+    schema = module.params.get("schema")
+    template = module.params.get("template").replace(" ", "")
+    anp = module.params.get("anp")
+    epg = module.params.get("epg")
+
+    name = module.params.get("name")
+    description = module.params.get("description")
+
+    attribute_type = module.params.get("attribute_type")
+    value = module.params.get("value")
+    operator = module.params.get("operator")
+
+    useg_subnet = module.params.get("useg_subnet")
+
+    state = module.params.get("state")
+
+    mso = MSOModule(module)
+    if state == "present":
+        if attribute_type in ["mac", "dns"] and value is None:
+            mso.fail_json(msg="Failed due to invalid 'value' and the attribute_type is: {0}.".format(attribute_type))
+        elif attribute_type in [
+            "vm",
+            "vm_datacenter",
+            "vm_hypervisor_identifier",
+            "vm_operating_system",
+            "vm_tag",
+            "vm_identifier",
+            "vmm_domain",
+            "vnic_dn",
+            "vm_name",
+        ] and (value is None or operator is None):
+            mso.fail_json(msg="Failed due to invalid 'value' or 'operator' and the attribute_type is: {0}.".format(attribute_type))
+
+        if attribute_type == "ip" and useg_subnet is False:
+            fvSubnet = True
+        elif attribute_type == "ip" and useg_subnet is True:
+            value = "0.0.0.0"
+            fvSubnet = False
+
+    # Get schema
+    schema_id, schema_path, schema_obj = mso.query_schema(schema)
+
+    # Get template
+    templates = [t.get("name") for t in schema_obj.get("templates")]
+    if template not in templates:
+        mso.fail_json(msg="Provided Template: {0} does not exist.".format(template))
+    template_idx = templates.index(template)
+
+    # Get ANP
+    anps = [a.get("name") for a in schema_obj.get("templates")[template_idx]["anps"]]
+    if anp not in anps:
+        mso.fail_json(msg="Provided Application Profile: {0} does not exist.".format(anp))
+    anp_idx = anps.index(anp)
+
+    # Get EPG
+    epgs = [e.get("name") for e in schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"]]
+    if epg not in epgs:
+        mso.fail_json(msg="Provided EPG: {0} does not exist.".format(epg))
+    epg_idx = epgs.index(epg)
+
+    # Get uSeg
+    if schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"][epg_idx]["uSegEpg"]:
+        useg_attrs = [s.get("name") for s in schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"][epg_idx]["uSegAttrs"]]
+        if name in useg_attrs:
+            useg_attr_idx = useg_attrs.index(name)
+            useg_attr_path = "/templates/{0}/anps/{1}/epgs/{2}/uSegAttrs/{3}".format(template, anp, epg, useg_attr_idx)
+            mso.existing = schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"][epg_idx]["uSegAttrs"][useg_attr_idx]
+
+    if state == "query":
+        if name is None:
+            mso.existing = schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"][epg_idx]["uSegAttrs"]
+        elif not mso.existing:
+            mso.fail_json(msg="The uSeg Attribute: {0} not found.".format(name))
+        mso.exit_json()
+
+    useg_attrs_path = "/templates/{0}/anps/{1}/epgs/{2}/uSegAttrs".format(template, anp, epg)
+    ops = []
+
+    mso.previous = mso.existing
+    if state == "absent":
+        if mso.existing:
+            mso.existing = {}
+            ops.append(dict(op="remove", path=useg_attr_path))
+
+    elif state == "present":
+        if not mso.existing:
+            if description is None:
+                description = name
+
+        payload = dict(name=name, displayName=name, description=description, type=EPG_U_SEG_ATTR_TYPE_MAP[attribute_type], value=value)
+        if attribute_type == "ip":
+            payload["fvSubnet"] = fvSubnet
+        mso.sanitize(payload, collate=True)
+
+        if mso.existing:
+            ops.append(dict(op="replace", path=useg_attr_path, value=mso.sent))
+        else:
+            ops.append(dict(op="add", path=useg_attrs_path + "/-", value=mso.sent))
+
+        mso.existing = mso.proposed
+
+    if not module.check_mode:
+        mso.request(schema_path, method="PATCH", data=ops)
+
+    mso.exit_json()
+
+
+if __name__ == "__main__":
+    main()

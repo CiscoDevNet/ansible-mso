@@ -141,8 +141,9 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_epg_subnet_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.constants import EPG_U_SEG_ATTR_TYPE_MAP
+from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema, KVPair
 
 
 def main():
@@ -211,38 +212,22 @@ def main():
             value = "0.0.0.0"
             fvSubnet = False
 
-    # Get schema
-    schema_id, schema_path, schema_obj = mso.query_schema(schema)
+    mso_schema = MSOSchema(mso, schema, template)
+    mso_schema.set_template(template, fail_module=True)
+    mso_schema.set_template_anp(anp, fail_module=True)
+    mso_schema.set_template_anp_epg(epg, fail_module=True)
 
-    # Get template
-    templates = [t.get("name") for t in schema_obj.get("templates")]
-    if template not in templates:
-        mso.fail_json(msg="Provided Template: {0} does not exist.".format(template))
-    template_idx = templates.index(template)
-
-    # Get ANP
-    anps = [a.get("name") for a in schema_obj.get("templates")[template_idx]["anps"]]
-    if anp not in anps:
-        mso.fail_json(msg="Provided Application Profile: {0} does not exist.".format(anp))
-    anp_idx = anps.index(anp)
-
-    # Get EPG
-    epgs = [e.get("name") for e in schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"]]
-    if epg not in epgs:
-        mso.fail_json(msg="Provided EPG: {0} does not exist.".format(epg))
-    epg_idx = epgs.index(epg)
-
-    # Get uSeg
-    if schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"][epg_idx]["uSegEpg"]:
-        useg_attrs = [s.get("name") for s in schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"][epg_idx]["uSegAttrs"]]
-        if name in useg_attrs:
-            useg_attr_idx = useg_attrs.index(name)
-            useg_attr_path = "/templates/{0}/anps/{1}/epgs/{2}/uSegAttrs/{3}".format(template, anp, epg, useg_attr_idx)
-            mso.existing = schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"][epg_idx]["uSegAttrs"][useg_attr_idx]
+    if mso_schema.schema_objects["template_anp_epg"].details.get("uSegEpg"):
+        match_useg_attr, useg_attrs = mso_schema.get_object_from_list(
+            mso_schema.schema_objects["template_anp_epg"].details.get("uSegAttrs"), [KVPair("name", name)]
+        )
+        if match_useg_attr is not None:
+            useg_attr_path = "/templates/{0}/anps/{1}/epgs/{2}/uSegAttrs/{3}".format(template, anp, epg, match_useg_attr.index)
+            mso.existing = match_useg_attr.details
 
     if state == "query":
         if name is None:
-            mso.existing = schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"][epg_idx]["uSegAttrs"]
+            mso.existing = mso_schema.schema_objects["template_anp_epg"].details.get("uSegAttrs")
         elif not mso.existing:
             mso.fail_json(msg="The uSeg Attribute: {0} not found.".format(name))
         mso.exit_json()
@@ -264,6 +249,7 @@ def main():
         payload = dict(name=name, displayName=name, description=description, type=EPG_U_SEG_ATTR_TYPE_MAP[attribute_type], value=value)
         if attribute_type == "ip":
             payload["fvSubnet"] = fvSubnet
+
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
@@ -274,7 +260,7 @@ def main():
         mso.existing = mso.proposed
 
     if not module.check_mode:
-        mso.request(schema_path, method="PATCH", data=ops)
+        mso.request(mso_schema.path, method="PATCH", data=ops)
 
     mso.exit_json()
 

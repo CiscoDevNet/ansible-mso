@@ -22,12 +22,6 @@
       output_level: '{{ mso_output_level | default("info") }}'
     ignore_errors: true
 
-- name: Query MSO version
-  mso_version:
-    <<: *mso_info
-    state: query
-  register: version
-
 # Setup Part
 - name: Remove schemas
   mso_schema: &ans_test_schema_absent
@@ -696,11 +690,11 @@
   assert:
     that:
       - query_invalid_template is not changed
-      - query_invalid_template.msg == "Provided Template{{':'}} ans_test_template_123 does not exist."
+      - query_invalid_template.msg is match("Provided template 'ans_test_template_123' not matching existing template.+")
       - query_invalid_ap is not changed
-      - query_invalid_ap.msg == "Provided Application Profile{{':'}} ans_test_anp_123 does not exist."
+      - query_invalid_ap.msg is match("Provided ANP 'ans_test_anp_123' not matching existing anp.+")
       - query_invalid_epg is not changed
-      - query_invalid_epg.msg == "Provided EPG{{':'}} ans_test_epg_123 does not exist."
+      - query_invalid_epg.msg is match("Provided EPG 'ans_test_epg_123' not matching existing epg.+")
 
 - name: Remove ans_test_schema to delete all uSeg Attr objects
   mso_schema:

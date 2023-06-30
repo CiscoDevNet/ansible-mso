@@ -1,7 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2023, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
 #
-
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
@@ -66,6 +65,15 @@
     anp: ans_test_anp
     epg: ans_test_epg
     useg_epg: true
+    state: present
+
+- name: Ensure ans_test_epg_2 exist without useg_epg
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: ans_test_schema
+    template: ans_test_template
+    anp: ans_test_anp
+    epg: ans_test_epg_2
     state: present
 
 # Test Part
@@ -686,6 +694,16 @@
   ignore_errors: true
   register: query_invalid_epg
 
+- name: Invalid test - ans_test_anp_123 present under ans_test_epg_2
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    epg: ans_test_epg_2
+    name: ans_test_anp_123
+    attribute_type: mac
+    value: "AA:BB:CC:DD:EE:FF"
+  ignore_errors: true
+  register: ans_test_epg_2_nt
+
 - name: Assertions check for invalid inputs
   assert:
     that:
@@ -695,6 +713,8 @@
       - query_invalid_ap.msg is match("Provided ANP 'ans_test_anp_123' not matching existing anp.+")
       - query_invalid_epg is not changed
       - query_invalid_epg.msg is match("Provided EPG 'ans_test_epg_123' not matching existing epg.+")
+      - ans_test_epg_2_nt is not changed
+      - ans_test_epg_2_nt.msg is match("ans_test_epg_2{{':'}} is not a valid uSeg EPG.")
 
 - name: Remove ans_test_schema to delete all uSeg Attr objects
   mso_schema:

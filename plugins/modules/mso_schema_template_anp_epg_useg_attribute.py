@@ -143,7 +143,7 @@ RETURN = r"""
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.constants import EPG_U_SEG_ATTR_TYPE_MAP
-from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema, KVPair
+from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 
 
 def main():
@@ -177,53 +177,35 @@ def main():
     template = module.params.get("template").replace(" ", "")
     anp = module.params.get("anp")
     epg = module.params.get("epg")
-
     name = module.params.get("name")
     description = module.params.get("description")
-
     attribute_type = module.params.get("attribute_type")
     value = module.params.get("value")
     operator = module.params.get("operator")
-
     useg_subnet = module.params.get("useg_subnet")
-
     state = module.params.get("state")
-
     mso = MSOModule(module)
+
     if state == "present":
         if attribute_type in ["mac", "dns"] and value is None:
             mso.fail_json(msg="Failed due to invalid 'value' and the attribute_type is: {0}.".format(attribute_type))
-        elif attribute_type in [
-            "vm",
-            "vm_datacenter",
-            "vm_hypervisor_identifier",
-            "vm_operating_system",
-            "vm_tag",
-            "vm_identifier",
-            "vmm_domain",
-            "vnic_dn",
-            "vm_name",
-        ] and (value is None or operator is None):
+        elif attribute_type not in ["mac", "dns", "ip"] and (value is None or operator is None):
             mso.fail_json(msg="Failed due to invalid 'value' or 'operator' and the attribute_type is: {0}.".format(attribute_type))
 
-        if attribute_type == "ip" and useg_subnet is False:
-            fvSubnet = True
-        elif attribute_type == "ip" and useg_subnet is True:
-            value = "0.0.0.0"
-            fvSubnet = False
-
     mso_schema = MSOSchema(mso, schema, template)
-    mso_schema.set_template(template, fail_module=True)
-    mso_schema.set_template_anp(anp, fail_module=True)
-    mso_schema.set_template_anp_epg(epg, fail_module=True)
+    mso_schema.set_template(template)
+    mso_schema.set_template_anp(anp)
+    mso_schema.set_template_anp_epg(epg)
 
     if mso_schema.schema_objects["template_anp_epg"].details.get("uSegEpg"):
-        match_useg_attr, useg_attrs = mso_schema.get_object_from_list(
-            mso_schema.schema_objects["template_anp_epg"].details.get("uSegAttrs"), [KVPair("name", name)]
-        )
-        if match_useg_attr is not None:
-            useg_attr_path = "/templates/{0}/anps/{1}/epgs/{2}/uSegAttrs/{3}".format(template, anp, epg, match_useg_attr.index)
-            mso.existing = match_useg_attr.details
+        mso_schema.set_template_anp_epg_useg_attr(name, fail_module=False)
+        if mso_schema.schema_objects["template_anp_epg_usge_attribute"] is not None:
+            useg_attr_path = "/templates/{0}/anps/{1}/epgs/{2}/uSegAttrs/{3}".format(
+                template, anp, epg, mso_schema.schema_objects["template_anp_epg_usge_attribute"].index
+            )
+            mso.existing = mso_schema.schema_objects["template_anp_epg_usge_attribute"].details
+    else:
+        mso.fail_json(msg="{0}: is not a valid uSeg EPG.".format(epg))
 
     if state == "query":
         if name is None:
@@ -242,13 +224,16 @@ def main():
             ops.append(dict(op="remove", path=useg_attr_path))
 
     elif state == "present":
-        if not mso.existing:
-            if description is None:
-                description = name
+        if not mso.existing and description is None:
+            description = name
 
         payload = dict(name=name, displayName=name, description=description, type=EPG_U_SEG_ATTR_TYPE_MAP[attribute_type], value=value)
-        if attribute_type == "ip":
-            payload["fvSubnet"] = fvSubnet
+
+        if attribute_type == "ip" and useg_subnet is False:
+            payload["fvSubnet"] = True
+        elif attribute_type == "ip" and useg_subnet is True:
+            payload["fvSubnet"] = False
+            payload["value"] = "0.0.0.0"
 
         mso.sanitize(payload, collate=True)
 

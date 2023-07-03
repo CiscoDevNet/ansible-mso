@@ -53,7 +53,7 @@ options:
     aliases: [ attr_type ]
   value:
     description:
-    - The value the uSeg Attribute.
+    - The value of the uSeg Attribute.
     type: str
   operator:
     description:
@@ -62,9 +62,9 @@ options:
     choices: [ equals, contains, starts_with, ends_with ]
   useg_subnet:
     description:
-    - The uSeg Subnet only used when the I(attribute_type) is IP.
-    - The C(false) used to set the custom uSeg Subnet IP address to the uSeg Attribute.
-    - The C(true) sets uSeg Subnet IP address to 0.0.0.0.
+    - The uSeg Subnet can only be used when the I(attribute_type) is IP.
+    - Use C(false) to set the custom uSeg Subnet IP address to the uSeg Attribute.
+    - Use C(true) to set the uSeg Subnet IP address to 0.0.0.0.
     type: bool
   state:
     description:
@@ -79,7 +79,6 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-# Need to check
 - name: Add an uSeg attr with attribute_type - ip
   cisco.mso.mso_schema_template_anp_epg_useg_attribute:
     host: mso_host

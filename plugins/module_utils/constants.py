@@ -22,3 +22,17 @@ NDO_4_UNIQUE_IDENTIFIERS = ["templateID", "autoRouteTargetImport", "autoRouteTar
 
 NDO_API_VERSION_FORMAT = "/mso/api/{api_version}"
 NDO_API_VERSION_PATH_FORMAT = "/mso/api/{api_version}/{path}"
+
+EPG_U_SEG_ATTR_TYPE_MAP = {
+    "ip": "ip",
+    "mac": "mac",
+    "dns": "dns",
+    "vm_datacenter": "rootContName",
+    "vm_hypervisor_identifier": "hv",
+    "vm_operating_system": "guest-os",
+    "vm_tag": "tag",
+    "vm_identifier": "vm",
+    "vmm_domain": "domain",
+    "vm_name": "vm-name",
+    "vnic_dn": "vnic",
+}

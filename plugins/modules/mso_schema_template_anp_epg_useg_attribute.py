@@ -13,7 +13,7 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: mso_schema_template_anp_epg_useg_attribute
-short_description: Manage EPG subnets in schema templates
+short_description: Manage EPG uSeg Attributes in schema templates
 description:
 - Manage uSeg Attributes in the schema template EPGs on Cisco ACI Multi-Site.
 author:

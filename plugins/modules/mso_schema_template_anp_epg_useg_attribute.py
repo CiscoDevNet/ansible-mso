@@ -198,11 +198,11 @@ def main():
 
     if mso_schema.schema_objects["template_anp_epg"].details.get("uSegEpg"):
         mso_schema.set_template_anp_epg_useg_attr(name, fail_module=False)
-        if mso_schema.schema_objects["template_anp_epg_usge_attribute"] is not None:
+        if mso_schema.schema_objects["template_anp_epg_useg_attribute"] is not None:
             useg_attr_path = "/templates/{0}/anps/{1}/epgs/{2}/uSegAttrs/{3}".format(
-                template, anp, epg, mso_schema.schema_objects["template_anp_epg_usge_attribute"].index
+                template, anp, epg, mso_schema.schema_objects["template_anp_epg_useg_attribute"].index
             )
-            mso.existing = mso_schema.schema_objects["template_anp_epg_usge_attribute"].details
+            mso.existing = mso_schema.schema_objects["template_anp_epg_useg_attribute"].details
     else:
         mso.fail_json(msg="{0}: is not a valid uSeg EPG.".format(epg))
 

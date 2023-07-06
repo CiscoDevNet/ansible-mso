@@ -209,11 +209,15 @@ def main():
     mso_schema.set_template_anp_epg(epg)
 
     mso_schema.set_site(template, site)
-    mso_schema.set_site_anp(anp)
-    mso_schema.set_site_anp_epg(epg)
+    mso_schema.set_site_anp(anp, False)
+    mso_schema.set_site_anp_epg(epg, False)
+
+    if mso_schema.schema_objects["site_anp_epg"] is None:
+        mso_schema.schema_objects["site_anp_epg_useg_attribute"] = None
 
     if mso_schema.schema_objects["template_anp_epg"].details.get("uSegEpg"):
         mso_schema.set_site_anp_epg_useg_attr(name, fail_module=False)
+
         if mso_schema.schema_objects["site_anp_epg_useg_attribute"] is not None:
             site_useg_attr_path = "/sites/{0}-{1}/anps/{2}/epgs/{3}/uSegAttrs/{4}".format(
                 mso_schema.schema_objects["site"].details.get("siteId"), template, anp, epg, mso_schema.schema_objects["site_anp_epg_useg_attribute"].index
@@ -223,7 +227,7 @@ def main():
         mso.fail_json(msg="{0}: is not a valid uSeg EPG.".format(epg))
 
     if state == "query":
-        if name is None:
+        if name is None and mso_schema.schema_objects["site_anp_epg"] is not None:
             mso.existing = mso_schema.schema_objects["site_anp_epg"].details.get("uSegAttrs")
         elif not mso.existing:
             mso.fail_json(msg="The uSeg Attribute: {0} not found.".format(name))

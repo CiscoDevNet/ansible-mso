@@ -57,6 +57,24 @@
     anp: ans_test_anp
     state: present
 
+- name: Add a new VRF
+  cisco.mso.mso_schema_template_vrf:
+    <<: *mso_info
+    schema: ans_test_schema
+    template: ans_test_template
+    vrf: ans_test_vrf
+    state: present
+
+- name: Add a new BD
+  cisco.mso.mso_schema_template_bd:
+    <<: *mso_info
+    schema: ans_test_schema
+    template: ans_test_template
+    bd: ans_test_bd
+    vrf:
+      name: ans_test_vrf
+    state: present
+
 - name: Ensure ans_test_epg exist
   mso_schema_template_anp_epg:
     <<: *mso_info
@@ -65,6 +83,10 @@
     anp: ans_test_anp
     epg: ans_test_epg
     useg_epg: true
+    bd:
+     name: ans_test_bd
+    vrf:
+     name: ans_test_vrf
     state: present
 
 - name: Ensure ans_test_epg_2 exist without useg_epg
@@ -74,6 +96,10 @@
     template: ans_test_template
     anp: ans_test_anp
     epg: ans_test_epg_2
+    bd:
+     name: ans_test_bd
+    vrf:
+     name: ans_test_vrf
     state: present
 
 - name: Associate a ansible_test site with a ans_test_tenant
@@ -90,7 +116,23 @@
     site: ansible_test
     template: ans_test_template
     state: present
-  ignore_errors: true
+
+- name: Add ans_test_epg to the ansible_test site
+  mso_schema_site_anp_epg:
+    <<: *mso_info
+    site: ansible_test
+    schema: ans_test_schema
+    template: ans_test_template
+    anp: ans_test_anp
+    epg: ans_test_epg
+    state: present
+
+- name: Deploy a schema template
+  cisco.mso.ndo_schema_template_deploy:
+    <<: *mso_info
+    schema: ans_test_schema
+    template: ans_test_template
+    state: deploy
 
 # Test Part
 # Note: Ignore the below task, which is used to reference the attributes to other tasks
@@ -733,6 +775,15 @@
       - query_invalid_epg.msg is match("Provided EPG 'ans_test_epg_123' not matching existing epg.+")
       - ans_test_epg_2_nt is not changed
       - ans_test_epg_2_nt.msg is match("ans_test_epg_2{{':'}} is not a valid uSeg EPG.")
+
+- name: Deploy a schema template
+  cisco.mso.ndo_schema_template_deploy:
+    <<: *mso_info
+    sites:
+      - ansible_test
+    schema: ans_test_schema
+    template: ans_test_template
+    state: undeploy
 
 - name: Remove ans_test_schema to delete all uSeg Attr objects
   mso_schema:

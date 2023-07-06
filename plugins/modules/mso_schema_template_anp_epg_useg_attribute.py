@@ -141,7 +141,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
-from ansible_collections.cisco.mso.plugins.module_utils.constants import EPG_U_SEG_ATTR_TYPE_MAP
+from ansible_collections.cisco.mso.plugins.module_utils.constants import EPG_U_SEG_ATTR_TYPE_MAP, EPG_U_SEG_ATTR_OPERATOR_LIST
 from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 
 
@@ -156,7 +156,7 @@ def main():
         description=dict(type="str", aliases=["descr"]),
         attribute_type=dict(type="str", aliases=["attr_type"], choices=list(EPG_U_SEG_ATTR_TYPE_MAP.keys())),
         value=dict(type="str"),
-        operator=dict(type="str", choices=["equals", "contains", "starts_with", "ends_with"]),
+        operator=dict(type="str", choices=EPG_U_SEG_ATTR_OPERATOR_LIST),
         useg_subnet=dict(type="bool"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )

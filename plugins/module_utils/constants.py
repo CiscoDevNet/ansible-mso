@@ -36,3 +36,5 @@ EPG_U_SEG_ATTR_TYPE_MAP = {
     "vm_name": "vm-name",
     "vnic_dn": "vnic",
 }
+
+EPG_U_SEG_ATTR_OPERATOR_LIST = ["equals", "contains", "starts_with", "ends_with"]

@@ -23,18 +23,22 @@ options:
     description:
     - The name of the Schema.
     type: str
+    required: true
   template:
     description:
     - The name of the Template.
     type: str
+    required: true
   anp:
     description:
     - The name of the Application Profile.
     type: str
+    required: true
   epg:
     description:
     - The name of the EPG.
     type: str
+    required: true
   name:
     description:
     - The name and display name of the uSeg Attribute.
@@ -45,16 +49,17 @@ options:
     - The description of the uSeg Attribute.
     type: str
     aliases: [ descr ]
-  attribute_type:
+  type:
     description:
     - The type of the uSeg Attribute.
     type: str
     choices: [ vm_name, ip, mac, vmm_domain, vm_operating_system, vm_tag, vm_hypervisor_identifier, dns, vm_datacenter, vm_identifier, vnic_dn ]
-    aliases: [ attr_type ]
+    aliases: [ attribute_type ]
   value:
     description:
     - The value of the uSeg Attribute.
     type: str
+    aliases: [ attribute_value ]
   operator:
     description:
     - The operator type of the uSeg Attribute.
@@ -148,14 +153,14 @@ from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type="str"),
-        template=dict(type="str"),
-        anp=dict(type="str"),
-        epg=dict(type="str"),
+        schema=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        anp=dict(type="str", required=True),
+        epg=dict(type="str", required=True),
         name=dict(type="str", aliases=["useg"]),
         description=dict(type="str", aliases=["descr"]),
-        attribute_type=dict(type="str", aliases=["attr_type"], choices=list(EPG_U_SEG_ATTR_TYPE_MAP.keys())),
-        value=dict(type="str"),
+        type=dict(type="str", aliases=["attribute_type"], choices=list(EPG_U_SEG_ATTR_TYPE_MAP.keys())),
+        value=dict(type="str", aliases=["attribute_value"]),
         operator=dict(type="str", choices=EPG_U_SEG_ATTR_OPERATOR_LIST),
         useg_subnet=dict(type="bool"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
@@ -165,9 +170,8 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "query", ["schema", "template", "anp", "epg"]],
-            ["state", "absent", ["schema", "template", "anp", "epg", "name"]],
-            ["state", "present", ["schema", "template", "anp", "epg", "name", "attribute_type"]],
+            ["state", "absent", ["name"]],
+            ["state", "present", ["name", "type"]],
             ["useg_subnet", False, ["value"]],
         ],
     )
@@ -178,7 +182,7 @@ def main():
     epg = module.params.get("epg")
     name = module.params.get("name")
     description = module.params.get("description")
-    attribute_type = module.params.get("attribute_type")
+    attribute_type = module.params.get("type")
     value = module.params.get("value")
     operator = module.params.get("operator")
     useg_subnet = module.params.get("useg_subnet")
@@ -222,7 +226,7 @@ def main():
             mso.existing = {}
             ops.append(dict(op="remove", path=useg_attr_path))
 
-    elif state == "present":
+    if state == "present":
         if not mso.existing and description is None:
             description = name
 

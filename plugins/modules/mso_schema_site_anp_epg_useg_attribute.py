@@ -54,16 +54,17 @@ options:
     - The description of the uSeg Attribute.
     type: str
     aliases: [ descr ]
-  attribute_type:
+  type:
     description:
     - The type of the uSeg Attribute.
     type: str
     choices: [ vm_name, ip, mac, vmm_domain, vm_operating_system, vm_tag, vm_hypervisor_identifier, dns, vm_datacenter, vm_identifier, vnic_dn ]
-    aliases: [ attr_type ]
+    aliases: [ attribute_type ]
   value:
     description:
     - The value of the uSeg Attribute.
     type: str
+    aliases: [ attribute_value ]
   operator:
     description:
     - The operator type of the uSeg Attribute.
@@ -166,8 +167,8 @@ def main():
         epg=dict(type="str", required=True),
         name=dict(type="str", aliases=["useg"]),
         description=dict(type="str", aliases=["descr"]),
-        attribute_type=dict(type="str", aliases=["attr_type"], choices=list(EPG_U_SEG_ATTR_TYPE_MAP.keys())),
-        value=dict(type="str"),
+        type=dict(type="str", aliases=["attribute_type"], choices=list(EPG_U_SEG_ATTR_TYPE_MAP.keys())),
+        value=dict(type="str", aliases=["attribute_value"]),
         operator=dict(type="str", choices=EPG_U_SEG_ATTR_OPERATOR_LIST),
         useg_subnet=dict(type="bool"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
@@ -178,7 +179,7 @@ def main():
         supports_check_mode=True,
         required_if=[
             ["state", "absent", ["name"]],
-            ["state", "present", ["name", "attribute_type"]],
+            ["state", "present", ["name", "type"]],
             ["useg_subnet", False, ["value"]],
         ],
     )
@@ -190,7 +191,7 @@ def main():
     epg = module.params.get("epg")
     name = module.params.get("name")
     description = module.params.get("description")
-    attribute_type = module.params.get("attribute_type")
+    attribute_type = module.params.get("type")
     value = module.params.get("value")
     operator = module.params.get("operator")
     useg_subnet = module.params.get("useg_subnet")
@@ -212,6 +213,7 @@ def main():
     mso_schema.set_site_anp(anp, False)
     mso_schema.set_site_anp_epg(epg, False)
 
+    # Only for NDO less than or equal to 3.7
     if mso_schema.schema_objects["site_anp_epg"] is None:
         mso_schema.schema_objects["site_anp_epg_useg_attribute"] = None
 

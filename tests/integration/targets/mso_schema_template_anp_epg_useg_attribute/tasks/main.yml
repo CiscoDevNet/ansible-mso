@@ -23,36 +23,36 @@
 
 # Setup Part
 - name: Remove schemas
-  mso_schema: &ans_test_schema_absent
+  mso_schema: &ansible_schema_absent
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     state: absent
 
-- name: Ensure ans_test_tenant absent
-  mso_tenant: &ans_test_tenant_absent
+- name: Ensure ansible_test tenant absent
+  mso_tenant: &ansible_tenant_absent
     <<: *mso_info
-    tenant: ans_test_tenant
+    tenant: ansible_test
     users:
       - "{{ mso_username }}"
     state: absent
 
-- name: Ensure ans_test_tenant present
-  mso_tenant: &ans_test_tenant_present
-    <<: *ans_test_tenant_absent
+- name: Ensure ansible_test tenant present
+  mso_tenant: &ansible_tenant_present
+    <<: *ansible_tenant_absent
     state: present
 
-- name: Ensure ans_test_schema with ans_test_template exist
+- name: Ensure ansible_test schema with ans_test_template exist
   mso_schema_template:
     <<: *mso_info
-    schema: ans_test_schema
-    tenant: ans_test_tenant
+    schema: ansible_test
+    tenant: ansible_test
     template: ans_test_template
     state: present
 
 - name: Ensure ans_test_anp exist
   mso_schema_template_anp:
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     anp: ans_test_anp
     state: present
@@ -60,7 +60,7 @@
 - name: Ensure ans_test_epg exist
   mso_schema_template_anp_epg:
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     anp: ans_test_anp
     epg: ans_test_epg
@@ -70,7 +70,7 @@
 - name: Ensure ans_test_epg_2 exist without useg_epg
   mso_schema_template_anp_epg:
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     anp: ans_test_anp
     epg: ans_test_epg_2
@@ -81,7 +81,7 @@
 - name: Invalid test - check for missing required attributes error message
   mso_schema_template_anp_epg_useg_attribute: &useg_attribute_present
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     anp: ans_test_anp
     epg: ans_test_epg
@@ -93,7 +93,7 @@
 - name: ans_test_uSeg_1 present - attribute_type - ip, useg_subnet - true, without value
   mso_schema_template_anp_epg_useg_attribute:
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     anp: ans_test_anp
     epg: ans_test_epg
@@ -716,10 +716,10 @@
       - ans_test_epg_2_nt is not changed
       - ans_test_epg_2_nt.msg is match("ans_test_epg_2{{':'}} is not a valid uSeg EPG.")
 
-- name: Remove ans_test_schema to delete all uSeg Attr objects
+- name: Remove ansible_test schema to delete all uSeg Attr objects
   mso_schema:
-    <<: *ans_test_schema_absent
-    schema: ans_test_schema
+    <<: *ansible_schema_absent
+    schema: ansible_test
     state: absent
 
 # To check all uSeg Attrs removed from the machine
@@ -736,8 +736,8 @@
       - query_useg_absent_check is not changed
       - query_useg_absent_check.current == {}
 
-- name: Remove ans_test_tenant
+- name: Remove ansible_test tenant
   mso_tenant:
-    <<: *ans_test_tenant_present
+    <<: *ansible_tenant_present
     state: absent
     <<: *mso_info

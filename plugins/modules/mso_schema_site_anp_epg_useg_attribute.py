@@ -250,11 +250,12 @@ def main():
 
         payload = dict(name=name, displayName=name, description=description, type=EPG_U_SEG_ATTR_TYPE_MAP[attribute_type], value=value)
 
-        if attribute_type == "ip" and useg_subnet is False:
-            payload["fvSubnet"] = True
-        elif attribute_type == "ip" and useg_subnet is True:
-            payload["fvSubnet"] = False
-            payload["value"] = "0.0.0.0"
+        if attribute_type == "ip":
+            if useg_subnet is False:
+                payload["fvSubnet"] = True
+            else:
+                payload["fvSubnet"] = False
+                payload["value"] = "0.0.0.0"
 
         mso.sanitize(payload, collate=True)
 

@@ -18,41 +18,41 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("debug") }}'
+      output_level: '{{ mso_output_level | default("info") }}'
     ignore_errors: true
 
 # Setup Part
 - name: Remove schemas
-  mso_schema: &ans_test_schema_absent
+  mso_schema: &ansible_test_schema_absent
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     state: absent
 
-- name: Ensure ans_test_tenant absent
-  mso_tenant: &ans_test_tenant_absent
+- name: Ensure ansible_test tenant absent
+  mso_tenant: &ansible_test_tenant_absent
     <<: *mso_info
-    tenant: ans_test_tenant
+    tenant: ansible_test
     users:
       - "{{ mso_username }}"
     state: absent
 
-- name: Ensure ans_test_tenant present
-  mso_tenant: &ans_test_tenant_present
-    <<: *ans_test_tenant_absent
+- name: Ensure ansible_test tenant present
+  mso_tenant: &ansible_test_tenant_present
+    <<: *ansible_test_tenant_absent
     state: present
 
-- name: Ensure ans_test_schema with ans_test_template exist
+- name: Ensure ansible_test schema with ans_test_template exist
   mso_schema_template:
     <<: *mso_info
-    schema: ans_test_schema
-    tenant: ans_test_tenant
+    schema: ansible_test
+    tenant: ansible_test
     template: ans_test_template
     state: present
 
 - name: Ensure ans_test_anp exist
   mso_schema_template_anp:
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     anp: ans_test_anp
     state: present
@@ -60,7 +60,7 @@
 - name: Add a new VRF
   cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     vrf: ans_test_vrf
     state: present
@@ -68,7 +68,7 @@
 - name: Add a new BD
   cisco.mso.mso_schema_template_bd:
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     bd: ans_test_bd
     vrf:
@@ -78,7 +78,7 @@
 - name: Ensure ans_test_epg exist
   mso_schema_template_anp_epg:
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     anp: ans_test_anp
     epg: ans_test_epg
@@ -92,7 +92,7 @@
 - name: Ensure ans_test_epg_2 exist without useg_epg
   mso_schema_template_anp_epg:
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     anp: ans_test_anp
     epg: ans_test_epg_2
@@ -102,17 +102,17 @@
      name: ans_test_vrf
     state: present
 
-- name: Associate a ansible_test site with a ans_test_tenant
+- name: Associate a ansible_test site with a ansible_test tenant
   mso_tenant_site:
     <<: *mso_info
-    tenant: ans_test_tenant
+    tenant: ansible_test
     site: ansible_test
     state: present
 
-- name: Ensure ansible_test site associated with ans_test_schema
+- name: Ensure ansible_test site associated with ansible_test schema
   mso_schema_site:
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     site: ansible_test
     template: ans_test_template
     state: present
@@ -121,7 +121,7 @@
   mso_schema_site_anp_epg:
     <<: *mso_info
     site: ansible_test
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     anp: ans_test_anp
     epg: ans_test_epg
@@ -130,7 +130,7 @@
 - name: Deploy a schema template
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     state: deploy
 
@@ -139,7 +139,7 @@
 - name: Invalid test - check for missing required attributes error message
   mso_schema_site_anp_epg_useg_attribute: &useg_attribute_present
     <<: *mso_info
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     anp: ans_test_anp
     epg: ans_test_epg
@@ -153,7 +153,7 @@
   mso_schema_site_anp_epg_useg_attribute:
     <<: *mso_info
     site: ansible_test
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     anp: ans_test_anp
     epg: ans_test_epg
@@ -781,14 +781,14 @@
     <<: *mso_info
     sites:
       - ansible_test
-    schema: ans_test_schema
+    schema: ansible_test
     template: ans_test_template
     state: undeploy
 
-- name: Remove ans_test_schema to delete all uSeg Attr objects
+- name: Remove ansible_test schema to delete all uSeg Attr objects
   mso_schema:
-    <<: *ans_test_schema_absent
-    schema: ans_test_schema
+    <<: *ansible_test_schema_absent
+    schema: ansible_test
     state: absent
 
 # To check all uSeg Attrs removed from the machine
@@ -805,8 +805,8 @@
       - query_useg_absent_check is not changed
       - query_useg_absent_check.current == {}
 
-- name: Remove ans_test_tenant
+- name: Remove ansible_test tenant
   mso_tenant:
-    <<: *ans_test_tenant_present
+    <<: *ansible_test_tenant_present
     state: absent
     <<: *mso_info

@@ -13,9 +13,9 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: mso_schema_site_anp_epg_useg_attribute
-short_description: Manage EPG Site uSeg Attributes in schema templates
+short_description: Manage EPG Site uSeg Attributes in schema sites
 description:
-- Manage Site uSeg Attributes in the schema template EPGs on Cisco ACI Multi-Site.
+- Manage Site uSeg Attributes in the schema site EPGs on Cisco ACI Multi-Site.
 author:
 - Sabari Jaganathan (@sajagana)
 options:
@@ -90,7 +90,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r"""
 - name: Add an uSeg attr with attribute_type - ip
-  cisco.mso.mso_schema_template_anp_epg_useg_attribute:
+  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -107,7 +107,7 @@ EXAMPLES = r"""
   delegate_to: localhost
 
 - name: Query a specific EPG uSeg attr with name
-  cisco.mso.mso_schema_template_anp_epg_useg_attribute:
+  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -121,7 +121,7 @@ EXAMPLES = r"""
   delegate_to: localhost
 
 - name: Query all EPG uSeg attrs
-  cisco.mso.mso_schema_template_anp_epg_useg_attribute:
+  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -134,7 +134,7 @@ EXAMPLES = r"""
   delegate_to: localhost
 
 - name: Remove a uSeg attr from an EPG with name
-  cisco.mso.mso_schema_template_anp_epg_useg_attribute:
+  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
     host: mso_host
     username: admin
     password: SomeSecretPassword

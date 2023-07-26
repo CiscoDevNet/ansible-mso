@@ -1,0 +1,743 @@
+# Test code for the MSO modules
+# Copyright: (c) 2023, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+#
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+    ignore_errors: true
+
+# Setup Part
+- name: Remove schemas
+  mso_schema: &ansible_schema_absent
+    <<: *mso_info
+    schema: ansible_test
+    state: absent
+
+- name: Ensure ansible_test tenant absent
+  mso_tenant: &ansible_tenant_absent
+    <<: *mso_info
+    tenant: ansible_test
+    users:
+      - "{{ mso_username }}"
+    state: absent
+
+- name: Ensure ansible_test tenant present
+  mso_tenant: &ansible_tenant_present
+    <<: *ansible_tenant_absent
+    state: present
+
+- name: Ensure ansible_test schema with ans_test_template exist
+  mso_schema_template:
+    <<: *mso_info
+    schema: ansible_test
+    tenant: ansible_test
+    template: ans_test_template
+    state: present
+
+- name: Ensure ans_test_anp exist
+  mso_schema_template_anp:
+    <<: *mso_info
+    schema: ansible_test
+    template: ans_test_template
+    anp: ans_test_anp
+    state: present
+
+- name: Ensure ans_test_epg exist
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: ansible_test
+    template: ans_test_template
+    anp: ans_test_anp
+    epg: ans_test_epg
+    useg_epg: true
+    state: present
+
+- name: Ensure ans_test_epg_2 exist without useg_epg
+  mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: ansible_test
+    template: ans_test_template
+    anp: ans_test_anp
+    epg: ans_test_epg_2
+    state: present
+
+# Test Part
+# Note: Ignore the below task, which is used to reference the attributes to other tasks
+- name: Invalid test - check for missing required attributes error message
+  mso_schema_template_anp_epg_useg_attribute: &useg_attribute_present
+    <<: *mso_info
+    schema: ansible_test
+    template: ans_test_template
+    anp: ans_test_anp
+    epg: ans_test_epg
+    description: "uSeg Attr object created using Ansible"
+    state: present
+  ignore_errors: true
+  register: ans_test_uSeg_1_nt
+
+- name: ans_test_uSeg_1 present - attribute_type - ip, useg_subnet - true, without value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *mso_info
+    schema: ansible_test
+    template: ans_test_template
+    anp: ans_test_anp
+    epg: ans_test_epg
+    name: ans_test_uSeg_1
+    attribute_type: ip
+    useg_subnet: true
+  register: ans_test_uSeg_1
+
+- name: Invalid test - ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, without value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_2
+    attribute_type: ip
+    useg_subnet: false
+  ignore_errors: true
+  register: ans_test_uSeg_2_nt
+
+- name: ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, with value - check mode
+  mso_schema_template_anp_epg_useg_attribute: &ans_test_uSeg_2_cm_present
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_2
+    attribute_type: ip
+    useg_subnet: false
+    value: 11.22.33.44/24
+  check_mode: true
+  register: ans_test_uSeg_2_cm_present
+
+- name: ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, with value - normal mode
+  mso_schema_template_anp_epg_useg_attribute: &ans_test_uSeg_2_nm_present
+    <<: *ans_test_uSeg_2_cm_present
+  register: ans_test_uSeg_2_nm_present
+
+- name: ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, with value - normal mode again
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *ans_test_uSeg_2_nm_present
+  register: ans_test_uSeg_2_nm_present_again
+
+- name: Assertions check for add ans_test_uSeg_1 and ans_test_uSeg_2 object
+  assert:
+    that:
+      - ans_test_uSeg_1 is changed
+      - ans_test_uSeg_1.current != {}
+      - ans_test_uSeg_1.current.name == "ans_test_uSeg_1"
+      - ans_test_uSeg_1.current.type == "ip"
+      - ans_test_uSeg_1.current.value == "0.0.0.0"
+      - ans_test_uSeg_1.current.fvSubnet == false
+      - ans_test_uSeg_1.current.description == "ans_test_uSeg_1"
+      - ans_test_uSeg_2_nt is not changed
+      - ans_test_uSeg_2_nt.msg == "useg_subnet is False but all of the following are missing{{':'}} value"
+      - ans_test_uSeg_2_cm_present is changed
+      - ans_test_uSeg_2_cm_present.current != {}
+      - ans_test_uSeg_2_cm_present.previous == {}
+      - ans_test_uSeg_2_cm_present.current.name == "ans_test_uSeg_2"
+      - ans_test_uSeg_2_cm_present.current.type == "ip"
+      - ans_test_uSeg_2_cm_present.current.value == "11.22.33.44/24"
+      - ans_test_uSeg_2_cm_present.current.fvSubnet == true
+      - ans_test_uSeg_2_cm_present.current.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_2_nm_present is changed
+      - ans_test_uSeg_2_nm_present.current != {}
+      - ans_test_uSeg_2_nm_present.previous == {}
+      - ans_test_uSeg_2_nm_present.current.name == "ans_test_uSeg_2"
+      - ans_test_uSeg_2_nm_present.current.type == "ip"
+      - ans_test_uSeg_2_nm_present.current.value == "11.22.33.44/24"
+      - ans_test_uSeg_2_nm_present.current.fvSubnet == true
+      - ans_test_uSeg_2_nm_present.current.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_2_nm_present_again is not changed
+      - ans_test_uSeg_2_nm_present_again.current != {}
+      - ans_test_uSeg_2_nm_present_again.previous != {}
+      - ans_test_uSeg_2_nm_present_again.current.name == "ans_test_uSeg_2"
+      - ans_test_uSeg_2_nm_present_again.current.type == "ip"
+      - ans_test_uSeg_2_nm_present_again.current.value == "11.22.33.44/24"
+      - ans_test_uSeg_2_nm_present_again.current.fvSubnet == true
+      - ans_test_uSeg_2_nm_present_again.current.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_2_nm_present_again.previous.name == "ans_test_uSeg_2"
+      - ans_test_uSeg_2_nm_present_again.previous.type == "ip"
+      - ans_test_uSeg_2_nm_present_again.previous.value == "11.22.33.44/24"
+      - ans_test_uSeg_2_nm_present_again.previous.fvSubnet == true
+      - ans_test_uSeg_2_nm_present_again.previous.description == "uSeg Attr object created using Ansible"
+
+- name: Invalid test - ans_test_uSeg_3 present - attribute_type - mac and without value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_3
+    attribute_type: mac
+  ignore_errors: true
+  register: ans_test_uSeg_3_nt
+
+- name: ans_test_uSeg_3 present - attribute_type - mac and with value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_3
+    attribute_type: mac
+    value: "aa:bb:cc:dd:ee:ff"
+  register: ans_test_uSeg_3
+
+- name: Assertions check for add ans_test_uSeg_3 object
+  assert:
+    that:
+      - ans_test_uSeg_3_nt is not changed
+      - ans_test_uSeg_3_nt.msg == "Failed due to invalid 'value' and the attribute_type is{{':'}} mac."
+      - ans_test_uSeg_3 is changed
+      - ans_test_uSeg_3.current != {}
+      - ans_test_uSeg_3.previous == {}
+      - ans_test_uSeg_3.current.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_3.current.name == "ans_test_uSeg_3"
+      - ans_test_uSeg_3.current.type == "mac"
+      - ans_test_uSeg_3.current.value == "aa:bb:cc:dd:ee:ff"
+
+- name: Invalid test - ans_test_uSeg_4 present - attribute_type - dns and without value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_4
+    attribute_type: dns
+  ignore_errors: true
+  register: ans_test_uSeg_4_nt
+
+- name: ans_test_uSeg_4 present - attribute_type - dns and with value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_4
+    attribute_type: dns
+    value: "test_dns_value"
+  register: ans_test_uSeg_4
+
+- name: Assertions check for add ans_test_uSeg_4 object
+  assert:
+    that:
+      - ans_test_uSeg_4_nt is not changed
+      - ans_test_uSeg_4_nt.msg == "Failed due to invalid 'value' and the attribute_type is{{':'}} dns."
+      - ans_test_uSeg_4 is changed
+      - ans_test_uSeg_4.current != {}
+      - ans_test_uSeg_4.previous == {}
+      - ans_test_uSeg_4.current.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_4.current.name == "ans_test_uSeg_4"
+      - ans_test_uSeg_4.current.type == "dns"
+      - ans_test_uSeg_4.current.value == "test_dns_value"
+
+- name: Invalid test - ans_test_uSeg_6 present - attribute_type - vm_datacenter and without operator
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_6
+    attribute_type: vm_datacenter
+    value: test_vm_datacenter_value
+  ignore_errors: true
+  register: ans_test_uSeg_6_nt
+
+- name: Invalid test - ans_test_uSeg_6 present - attribute_type - vm_datacenter, operator - equals and without value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_6
+    attribute_type: vm_datacenter
+    operator: equals
+  ignore_errors: true
+  register: ans_test_uSeg_6_nt1
+
+- name: ans_test_uSeg_6 present - attribute_type - vm_datacenter, operator - equals and value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_6
+    attribute_type: vm_datacenter
+    operator: equals
+    value: test_vm_datacenter_value
+  register: ans_test_uSeg_6
+
+- name: Assertions check for add ans_test_uSeg_6 object
+  assert:
+    that:
+      - ans_test_uSeg_6_nt is not changed
+      - ans_test_uSeg_6_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_datacenter."
+      - ans_test_uSeg_6_nt1 is not changed
+      - ans_test_uSeg_6_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_datacenter."
+      - ans_test_uSeg_6 is changed
+      - ans_test_uSeg_6.current != {}
+      - ans_test_uSeg_6.previous == {}
+      - ans_test_uSeg_6.current.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_6.current.name == "ans_test_uSeg_6"
+      - ans_test_uSeg_6.current.type == "rootContName"
+      - ans_test_uSeg_6.current.value == "test_vm_datacenter_value"
+
+- name: Invalid test - ans_test_uSeg_7 present - attribute_type - vm_hypervisor_identifier and without operator
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_7
+    attribute_type: vm_hypervisor_identifier
+    value: test_vm_hypervisor_identifier_value
+  ignore_errors: true
+  register: ans_test_uSeg_7_nt
+
+- name: Invalid test - ans_test_uSeg_7 present - attribute_type - vm_hypervisor_identifier, operator - equals and without value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_7
+    attribute_type: vm_hypervisor_identifier
+    operator: equals
+  ignore_errors: true
+  register: ans_test_uSeg_7_nt1
+
+- name: ans_test_uSeg_7 present - attribute_type - vm_hypervisor_identifier, operator - equals and value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_7
+    attribute_type: vm_hypervisor_identifier
+    operator: equals
+    value: test_vm_hypervisor_identifier_value
+  register: ans_test_uSeg_7
+
+- name: Assertions check for add ans_test_uSeg_7 object
+  assert:
+    that:
+      - ans_test_uSeg_7_nt is not changed
+      - ans_test_uSeg_7_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_hypervisor_identifier."
+      - ans_test_uSeg_7_nt1 is not changed
+      - ans_test_uSeg_7_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_hypervisor_identifier."
+      - ans_test_uSeg_7 is changed
+      - ans_test_uSeg_7.current != {}
+      - ans_test_uSeg_7.previous == {}
+      - ans_test_uSeg_7.current.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_7.current.name == "ans_test_uSeg_7"
+      - ans_test_uSeg_7.current.type == "hv"
+      - ans_test_uSeg_7.current.value == "test_vm_hypervisor_identifier_value"
+
+- name: Invalid test - ans_test_uSeg_8 present - attribute_type - vm_operating_system and without operator
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_8
+    attribute_type: vm_operating_system
+    value: test_vm_operating_system_value
+  ignore_errors: true
+  register: ans_test_uSeg_8_nt
+
+- name: Invalid test - ans_test_uSeg_8 present - attribute_type - vm_operating_system, operator - equals and without value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_8
+    attribute_type: vm_operating_system
+    operator: equals
+  ignore_errors: true
+  register: ans_test_uSeg_8_nt1
+
+- name: ans_test_uSeg_8 present - attribute_type - vm_operating_system, operator - equals and value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_8
+    attribute_type: vm_operating_system
+    operator: equals
+    value: test_vm_operating_system_value
+  register: ans_test_uSeg_8
+
+- name: Assertions check for add ans_test_uSeg_8 object
+  assert:
+    that:
+      - ans_test_uSeg_8_nt is not changed
+      - ans_test_uSeg_8_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_operating_system."
+      - ans_test_uSeg_8_nt1 is not changed
+      - ans_test_uSeg_8_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_operating_system."
+      - ans_test_uSeg_8 is changed
+      - ans_test_uSeg_8.current != {}
+      - ans_test_uSeg_8.previous == {}
+      - ans_test_uSeg_8.current.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_8.current.name == "ans_test_uSeg_8"
+      - ans_test_uSeg_8.current.type == "guest-os"
+      - ans_test_uSeg_8.current.value == "test_vm_operating_system_value"
+
+- name: Invalid test - ans_test_uSeg_9 present - attribute_type - vm_tag and without operator
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_9
+    attribute_type: vm_tag
+    value: test_vm_tag_value
+  ignore_errors: true
+  register: ans_test_uSeg_9_nt
+
+- name: Invalid test - ans_test_uSeg_9 present - attribute_type - vm_tag, operator - equals and without value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_9
+    attribute_type: vm_tag
+    operator: equals
+  ignore_errors: true
+  register: ans_test_uSeg_9_nt1
+
+- name: ans_test_uSeg_9 present - attribute_type - vm_tag, operator - equals and value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_9
+    attribute_type: vm_tag
+    operator: equals
+    value: test_vm_tag_value
+  register: ans_test_uSeg_9
+
+- name: Assertions check for add ans_test_uSeg_9 object
+  assert:
+    that:
+      - ans_test_uSeg_9_nt is not changed
+      - ans_test_uSeg_9_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_tag."
+      - ans_test_uSeg_9_nt1 is not changed
+      - ans_test_uSeg_9_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_tag."
+      - ans_test_uSeg_9 is changed
+      - ans_test_uSeg_9.current != {}
+      - ans_test_uSeg_9.previous == {}
+      - ans_test_uSeg_9.current.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_9.current.name == "ans_test_uSeg_9"
+      - ans_test_uSeg_9.current.type == "tag"
+      - ans_test_uSeg_9.current.value == "test_vm_tag_value"
+
+- name: Invalid test - ans_test_uSeg_10 present - attribute_type - vm_identifier and without operator
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_10
+    attribute_type: vm_identifier
+    value: test_vm_identifier_value
+  ignore_errors: true
+  register: ans_test_uSeg_10_nt
+
+- name: Invalid test - ans_test_uSeg_10 present - attribute_type - vm_identifier, operator - equals and without value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_10
+    attribute_type: vm_identifier
+    operator: equals
+  ignore_errors: true
+  register: ans_test_uSeg_10_nt1
+
+- name: ans_test_uSeg_10 present - attribute_type - vm_identifier, operator - equals and value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_10
+    attribute_type: vm_identifier
+    operator: equals
+    value: test_vm_identifier_value
+  register: ans_test_uSeg_10
+
+- name: Assertions check for add ans_test_uSeg_10 object
+  assert:
+    that:
+      - ans_test_uSeg_10_nt is not changed
+      - ans_test_uSeg_10_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_identifier."
+      - ans_test_uSeg_10_nt1 is not changed
+      - ans_test_uSeg_10_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_identifier."
+      - ans_test_uSeg_10 is changed
+      - ans_test_uSeg_10.current != {}
+      - ans_test_uSeg_10.previous == {}
+      - ans_test_uSeg_10.current.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_10.current.name == "ans_test_uSeg_10"
+      - ans_test_uSeg_10.current.type == "vm"
+      - ans_test_uSeg_10.current.value == "test_vm_identifier_value"
+
+- name: Invalid test - ans_test_uSeg_11 present - attribute_type - vmm_domain and without operator
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_11
+    attribute_type: vmm_domain
+    value: test_vmm_domain_value
+  ignore_errors: true
+  register: ans_test_uSeg_11_nt
+
+- name: Invalid test - ans_test_uSeg_11 present - attribute_type - vmm_domain, operator - equals and without value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_11
+    attribute_type: vmm_domain
+    operator: equals
+  ignore_errors: true
+  register: ans_test_uSeg_11_nt1
+
+- name: ans_test_uSeg_11 present - attribute_type - vmm_domain, operator - equals and value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_11
+    attribute_type: vmm_domain
+    operator: equals
+    value: test_vmm_domain_value
+  register: ans_test_uSeg_11
+
+- name: Assertions check for add ans_test_uSeg_11 object
+  assert:
+    that:
+      - ans_test_uSeg_11_nt is not changed
+      - ans_test_uSeg_11_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vmm_domain."
+      - ans_test_uSeg_11_nt1 is not changed
+      - ans_test_uSeg_11_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vmm_domain."
+      - ans_test_uSeg_11 is changed
+      - ans_test_uSeg_11.current != {}
+      - ans_test_uSeg_11.previous == {}
+      - ans_test_uSeg_11.current.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_11.current.name == "ans_test_uSeg_11"
+      - ans_test_uSeg_11.current.type == "domain"
+      - ans_test_uSeg_11.current.value == "test_vmm_domain_value"
+
+- name: Invalid test - ans_test_uSeg_12 present - attribute_type - vm_name and without operator
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_12
+    attribute_type: vm_name
+    value: test_vm_value
+  ignore_errors: true
+  register: ans_test_uSeg_12_nt
+
+- name: Invalid test - ans_test_uSeg_12 present - attribute_type - vm_name, operator - equals and without value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_12
+    attribute_type: vm_name
+    operator: equals
+  ignore_errors: true
+  register: ans_test_uSeg_12_nt1
+
+- name: ans_test_uSeg_12 present - attribute_type - vm_name, operator - equals and value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_12
+    attribute_type: vm_name
+    operator: equals
+    value: test_vm_value
+  register: ans_test_uSeg_12
+
+- name: Assertions check for add ans_test_uSeg_12 object
+  assert:
+    that:
+      - ans_test_uSeg_12_nt is not changed
+      - ans_test_uSeg_12_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_name."
+      - ans_test_uSeg_12_nt1 is not changed
+      - ans_test_uSeg_12_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_name."
+      - ans_test_uSeg_12 is changed
+      - ans_test_uSeg_12.current != {}
+      - ans_test_uSeg_12.previous == {}
+      - ans_test_uSeg_12.current.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_12.current.name == "ans_test_uSeg_12"
+      - ans_test_uSeg_12.current.type == "vm-name"
+      - ans_test_uSeg_12.current.value == "test_vm_value"
+
+- name: Invalid test - ans_test_uSeg_13 present - attribute_type - vnic_dn and without operator
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_13
+    attribute_type: vnic_dn
+    value: test_vnic_dn_value
+  ignore_errors: true
+  register: ans_test_uSeg_13_nt
+
+- name: Invalid test - ans_test_uSeg_13 present - attribute_type - vnic_dn, operator - equals and without value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_13
+    attribute_type: vnic_dn
+    operator: equals
+  ignore_errors: true
+  register: ans_test_uSeg_13_nt1
+
+- name: ans_test_uSeg_13 present - attribute_type - vnic_dn, operator - equals and value
+  mso_schema_template_anp_epg_useg_attribute: &ans_test_uSeg_13_present
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_13
+    attribute_type: vnic_dn
+    operator: equals
+    value: test_vnic_dn_value
+  register: ans_test_uSeg_13
+
+- name: Assertions check for add ans_test_uSeg_12 object
+  assert:
+    that:
+      - ans_test_uSeg_13_nt is not changed
+      - ans_test_uSeg_13_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vnic_dn."
+      - ans_test_uSeg_13_nt1 is not changed
+      - ans_test_uSeg_13_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vnic_dn."
+      - ans_test_uSeg_13 is changed
+      - ans_test_uSeg_13.current != {}
+      - ans_test_uSeg_13.previous == {}
+      - ans_test_uSeg_13.current.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_13.current.name == "ans_test_uSeg_13"
+      - ans_test_uSeg_13.current.type == "vnic"
+      - ans_test_uSeg_13.current.value == "test_vnic_dn_value"
+
+# Query Part
+- name: Invalid test - Query an uSeg Attr with name - invalid_useg_attr
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: invalid_useg_attr
+    state: query
+  register: invalid_useg_attr
+  ignore_errors: true
+
+- name: Query an uSeg Attr with name - ans_test_uSeg_1
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_6
+    state: query
+  register: query_a_useg_6
+
+- name: Query all uSeg Attrs
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    state: query
+  register: query_all_useg_objects
+
+- name: Assertions check for query uSeg Attr objects
+  assert:
+    that:
+      - invalid_useg_attr is not changed
+      - invalid_useg_attr.msg == "The uSeg Attribute{{':'}} invalid_useg_attr not found."
+      - query_a_useg_6 is not changed
+      - query_a_useg_6.current != {}
+      - query_a_useg_6.current.name == "ans_test_uSeg_6"
+      - query_a_useg_6.current.type == "rootContName"
+      - query_a_useg_6.current.value == "test_vm_datacenter_value"
+      - query_all_useg_objects is not changed
+      - query_all_useg_objects.current | length >= 12
+
+# Update Part
+- name: Update ans_test_uSeg_13 object description and value
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *ans_test_uSeg_13_present
+    description: "ans_test_uSeg_13 updated!"
+    value: test_vnic_dn_value_updated
+  register: ans_test_uSeg_13_update
+
+- name: Query an uSeg Attr with name - ans_test_uSeg_13 to check the updated changes
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_13
+    state: query
+  register: query_a_useg_object_with_name
+
+- name: Assertions check for update ans_test_uSeg_13 object
+  assert:
+    that:
+      - ans_test_uSeg_13_update is changed
+      - ans_test_uSeg_13_update.current != {}
+      - ans_test_uSeg_13_update.current.description == "ans_test_uSeg_13 updated!"
+      - ans_test_uSeg_13_update.current.name == "ans_test_uSeg_13"
+      - ans_test_uSeg_13_update.current.type == "vnic"
+      - ans_test_uSeg_13_update.current.value == "test_vnic_dn_value_updated"
+      - ans_test_uSeg_13_update.previous != {}
+      - ans_test_uSeg_13_update.previous.description == "uSeg Attr object created using Ansible"
+      - ans_test_uSeg_13_update.previous.name == "ans_test_uSeg_13"
+      - ans_test_uSeg_13_update.previous.type == "vnic"
+      - ans_test_uSeg_13_update.previous.value == "test_vnic_dn_value"
+      - query_a_useg_object_with_name is not changed
+      - query_a_useg_object_with_name.current != {}
+      - query_a_useg_object_with_name.current.description == "ans_test_uSeg_13 updated!"
+      - query_a_useg_object_with_name.current.name == "ans_test_uSeg_13"
+      - query_a_useg_object_with_name.current.type == "vnic"
+      - query_a_useg_object_with_name.current.value == "test_vnic_dn_value_updated"
+
+# Cleanup Part
+- name: ans_test_uSeg_1 absent with check mode
+  mso_schema_template_anp_epg_useg_attribute: &ans_test_uSeg_1_cm_absent
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_1
+    state: absent
+  check_mode: true
+  register: ans_test_uSeg_1_cm_absent
+
+- name: ans_test_uSeg_1 absent with normal mode
+  mso_schema_template_anp_epg_useg_attribute: &ans_test_uSeg_1_nm_absent
+    <<: *ans_test_uSeg_1_cm_absent
+  register: ans_test_uSeg_1_nm_absent
+
+- name: ans_test_uSeg_1 absent with normal mode again
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *ans_test_uSeg_1_nm_absent
+  register: ans_test_uSeg_1_nm_absent_again
+
+- name: Assertions check for ans_test_uSeg_1 absent
+  assert:
+    that:
+      - ans_test_uSeg_1_cm_absent is changed
+      - ans_test_uSeg_1_cm_absent.current == {}
+      - ans_test_uSeg_1_cm_absent.previous != {}
+      - ans_test_uSeg_1_nm_absent is changed
+      - ans_test_uSeg_1_nm_absent.current == {}
+      - ans_test_uSeg_1_nm_absent.previous != {}
+      - ans_test_uSeg_1_nm_absent_again is not changed
+      - ans_test_uSeg_1_nm_absent_again.current == {}
+      - ans_test_uSeg_1_nm_absent_again.previous == {}
+
+- name: Query all uSeg Attrs - invalid template name
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    template: ans_test_template_123
+    state: query
+  ignore_errors: true
+  register: query_invalid_template
+
+- name: Query all uSeg Attrs - invalid Application Profile name
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    anp: ans_test_anp_123
+    state: query
+  ignore_errors: true
+  register: query_invalid_ap
+
+- name: Query all uSeg Attrs - invalid EPG name
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    epg: ans_test_epg_123
+    state: query
+  ignore_errors: true
+  register: query_invalid_epg
+
+- name: Invalid test - ans_test_anp_123 present under ans_test_epg_2
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    epg: ans_test_epg_2
+    name: ans_test_anp_123
+    attribute_type: mac
+    value: "AA:BB:CC:DD:EE:FF"
+  ignore_errors: true
+  register: ans_test_epg_2_nt
+
+- name: Assertions check for invalid inputs
+  assert:
+    that:
+      - query_invalid_template is not changed
+      - query_invalid_template.msg is match("Provided template 'ans_test_template_123' not matching existing template.+")
+      - query_invalid_ap is not changed
+      - query_invalid_ap.msg is match("Provided ANP 'ans_test_anp_123' not matching existing anp.+")
+      - query_invalid_epg is not changed
+      - query_invalid_epg.msg is match("Provided EPG 'ans_test_epg_123' not matching existing epg.+")
+      - ans_test_epg_2_nt is not changed
+      - ans_test_epg_2_nt.msg is match("ans_test_epg_2{{':'}} is not a valid uSeg EPG.")
+
+- name: Remove ansible_test schema to delete all uSeg Attr objects
+  mso_schema:
+    <<: *ansible_schema_absent
+    schema: ansible_test
+    state: absent
+
+# To check all uSeg Attrs removed from the machine
+- name: Query all uSeg Attrs - Cleanup Part
+  mso_schema_template_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    state: query
+  ignore_errors: true
+  register: query_useg_absent_check
+
+- name: Assertions check for query all uSeg Attrs - Cleanup Part
+  assert:
+    that:
+      - query_useg_absent_check is not changed
+      - query_useg_absent_check.current == {}
+
+- name: Remove ansible_test tenant
+  mso_tenant:
+    <<: *ansible_tenant_present
+    state: absent
+    <<: *mso_info

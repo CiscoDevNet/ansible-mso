@@ -6,6 +6,27 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.5.0
+======
+
+Release Summary
+---------------
+
+Release v2.5.0 of the ``ansible-mso`` collection on 2023-07-26.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.4.0.
+
+
+Minor Changes
+-------------
+
+- Add module mso_schema_template_anp_epg_useg_attribute to manage EPG uSeg attributes (#370)
+- Add mso_schema_site_anp_epg_useg_attribute module to manage site useg attrs
+
+Bugfixes
+--------
+
+- Fix mso_tenant_site "site not found" issue on absent (#368)
+
 v2.4.0
 ======
 

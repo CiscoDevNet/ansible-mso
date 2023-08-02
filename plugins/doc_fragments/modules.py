@@ -75,6 +75,7 @@ options:
     - The login domain name to use for authentication.
     - The default value is Local.
     - If the value is not specified in the task, the value of environment variable C(MSO_LOGIN_DOMAIN) will be used instead.
+    - When using a HTTPAPI connection plugin the inventory variable C(ansible_httpapi_login_domain) will be used if this attribute is not specified.
     type: str
 requirements:
 - Multi Site Orchestrator v2.1 or newer

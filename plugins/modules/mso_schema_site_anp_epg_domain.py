@@ -109,6 +109,47 @@ options:
     description:
     - Distinguished name of EPG lagpolicy. This attribute can only be used with vmmDomain domain association.
     type: str
+  delimeter:
+    description:
+    - Which delimeter to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    type: str
+  binding_type:
+    description:
+    - Which binding_type to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    type: str
+    choices: [ static, dynamic, none, ephemeral ]
+  num_ports:
+    description:
+    - Number of ports for the binding type. This attribute can only be used with vmmDomain domain association.
+    type: str
+  port_allocation:
+    description:
+    - Port allocation for the binding type. This attribute can only be used with vmmDomain domain association and binding type in static.
+    type: str
+  netflow_pref:
+    description:
+    - Which netflow_pref to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    type: str
+    choices: [ enabled, disabled ]
+  allow_promiscuous:
+    description:
+    - Which allow_promiscuous to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    type: str
+    choices: [ accept, reject ]
+  forged_transmits:
+    description:
+    - Which forged_transmits to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    type: str
+    choices: [ accept, reject ]
+  mac_changes:
+    description:
+    - Which mac_changes to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    type: str
+    choices: [ accept, reject ]
+  custom_epg_name:
+    description:
+    - Which custom_epg_name to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    type: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -222,6 +263,15 @@ def main():
         switching_mode=dict(type="str"),
         enhanced_lagpolicy_name=dict(type="str"),
         enhanced_lagpolicy_dn=dict(type="str"),
+        binding_type=dict(type="str", default="none", choices=["dynamic", "ephemeral", "none", "static"]),
+        port_allocation=dict(type="str", choices=["elastic", "fixed"]),
+        num_ports=dict(type="int", default=0, min=0, max=65535),
+        netflow_pref=dict(type="str", default="disabled", choices=["enabled", "disabled"]),
+        allow_promiscuous=dict(type="str", default="reject", choices=["accept", "reject"]),
+        forged_transmits=dict(type="str", default="reject", choices=["accept", "reject"]),
+        mac_changes=dict(type="str", default="reject", choices=["accept", "reject"]),
+        delimiter=dict(type="str", choices=["+", "|", "~", "!", "@", "^", "="]),
+        custom_epg_name=dict(type="str"),
     )
 
     module = AnsibleModule(
@@ -229,7 +279,7 @@ def main():
         supports_check_mode=True,
         required_if=[
             ["state", "absent", ["domain_association_type", "domain_profile", "deployment_immediacy", "resolution_immediacy"]],
-            ["state", "present", ["domain_association_type", "domain_profile", "deployment_immediacy", "resolution_immediacy"]],
+            ["state", "present", ["domain_association_type", "domain_profile", "deployment_immediacy", "resolution_immediacy", "binding_type", "netflow_pref", "allow_promiscuous", "forged_transmits", "mac_changes"]],
         ],
     )
 
@@ -253,6 +303,15 @@ def main():
     switching_mode = module.params.get("switching_mode")
     enhanced_lagpolicy_name = module.params.get("enhanced_lagpolicy_name")
     enhanced_lagpolicy_dn = module.params.get("enhanced_lagpolicy_dn")
+    binding_type = module.params.get("binding_type")
+    port_allocation = module.params.get("port_allocation")
+    num_ports = module.params.get("num_ports")
+    netflow_pref = module.params.get("netflow_pref")
+    allow_promiscuous = module.params.get("allow_promiscuous")
+    forged_transmits = module.params.get("forged_transmits")
+    mac_changes = module.params.get("mac_changes")
+    delimiter = module.params.get("delimiter")
+    custom_epg_name = module.params.get("custom_epg_name")
 
     mso = MSOModule(module)
 
@@ -392,7 +451,13 @@ def main():
         deploymentImmediacy=deployment_immediacy,  # keeping for backworths compatibility
         deployImmediacy=deployment_immediacy,  # rename of deploymentImmediacy
         resolutionImmediacy=resolution_immediacy,
+        bindingType=binding_type,
+        netflowPref=netflow_pref,
+        allowPromiscuous=allow_promiscuous,
+        forgedTransmits=forged_transmits,
+        macChanges=mac_changes
     )
+
 
     if domain_association_type == "vmmDomain":
         vmmDomainProperties = {}
@@ -414,11 +479,27 @@ def main():
 
         if vlan_encap_mode:
             vmmDomainProperties["vlanEncapMode"] = vlan_encap_mode
+        
 
+        if binding_type == "dynamic" and not port_allocation:
+            vmmDomainProperties["numPorts"] = num_ports
+        elif binding_type == "static" and port_allocation:
+            vmmDomainProperties["numPorts"] = num_ports
+            vmmDomainProperties["portAllocation"] = port_allocation
+        elif binding_type == "static" and not port_allocation:
+            mso.fail_json(msg="port_allocation is required when binding_type is static.")
+
+    
         if allow_micro_segmentation:
             vmmDomainProperties["allowMicroSegmentation"] = allow_micro_segmentation
         if switch_type:
             vmmDomainProperties["switchType"] = switch_type
+        
+        if delimiter:
+            vmmDomainProperties["delimiter"] = delimiter
+        if custom_epg_name:
+            vmmDomainProperties["customEpgName"] = custom_epg_name
+
         if switching_mode:
             vmmDomainProperties["switchingMode"] = switching_mode
 
@@ -433,7 +514,7 @@ def main():
 
         if vmmDomainProperties:
             new_domain["vmmDomainProperties"] = vmmDomainProperties
-            properties = ["allowMicroSegmentation", "epgLagPol", "switchType", "switchingMode", "vlanEncapMode", "portEncapVlan", "microSegVlan"]
+            properties = ["allowMicroSegmentation", "epgLagPol", "switchType", "switchingMode", "vlanEncapMode", "portEncapVlan", "microSegVlan", "delimiter", "customEpgName", "portAllocation", "numPorts"]
             for property in properties:
                 if property in vmmDomainProperties:
                     new_domain[property] = vmmDomainProperties[property]

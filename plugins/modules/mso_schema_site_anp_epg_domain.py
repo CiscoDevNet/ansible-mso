@@ -117,34 +117,41 @@ options:
   binding_type:
     description:
     - Which binding_type to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - Defaults to C(none) when unset during creation.
     type: str
     choices: [ static, dynamic, none, ephemeral ]
   num_ports:
     description:
     - Number of ports for the binding type. This attribute can only be used with vmmDomain domain association.
+    - Must be defined if binding is set to static or dynamic.
     type: str
   port_allocation:
     description:
     - Port allocation for the binding type. This attribute can only be used with vmmDomain domain association and binding type in static.
+    - Must be defined if binding is set to static.
     type: str
   netflow_pref:
     description:
     - Which netflow_pref to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - Defaults to C(disabled) when unset during creation.
     type: str
     choices: [ enabled, disabled ]
   allow_promiscuous:
     description:
     - Which allow_promiscuous to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - Defaults to C(reject) when unset during creation.
     type: str
     choices: [ accept, reject ]
   forged_transmits:
     description:
     - Which forged_transmits to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - Defaults to C(reject) when unset during creation.
     type: str
     choices: [ accept, reject ]
   mac_changes:
     description:
     - Which mac_changes to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - Defaults to C(reject) when unset during creation.
     type: str
     choices: [ accept, reject ]
   custom_epg_name:

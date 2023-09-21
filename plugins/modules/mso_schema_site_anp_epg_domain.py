@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Nirav Katarmal (@nkatarmal-crest) <nirav.katarmal@crestdatasys.com>
+# Copyright: (c) 2023, Mabille Florent (@fmabille09) <florent.mabille@smals.be>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -279,7 +280,7 @@ def main():
         supports_check_mode=True,
         required_if=[
             ["state", "absent", ["domain_association_type", "domain_profile", "deployment_immediacy", "resolution_immediacy"]],
-            ["state", "present", ["domain_association_type", "domain_profile", "deployment_immediacy", "resolution_immediacy", "binding_type", "netflow_pref", "allow_promiscuous", "forged_transmits", "mac_changes"]],
+            ["state", "present", ["domain_association_type", "domain_profile", "deployment_immediacy", "resolution_immediacy"]],
         ],
     )
 
@@ -458,7 +459,6 @@ def main():
         macChanges=mac_changes
     )
 
-
     if domain_association_type == "vmmDomain":
         vmmDomainProperties = {}
         if micro_seg_vlan_type and micro_seg_vlan:
@@ -479,7 +479,6 @@ def main():
 
         if vlan_encap_mode:
             vmmDomainProperties["vlanEncapMode"] = vlan_encap_mode
-        
 
         if binding_type == "dynamic" and not port_allocation:
             vmmDomainProperties["numPorts"] = num_ports

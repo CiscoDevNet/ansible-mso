@@ -239,10 +239,11 @@ def mso_site_anp_epg_bulk_staticport_spec():
         mode=dict(type="str", choices=["native", "regular", "untagged"]),
     )
 
+
 def ndo_remote_user_spec():
     return dict(
-        name=dict(type="str"),
-        login_domain=dict(type="str"),  # This parameter is not required for querying all objects
+        name=dict(type="str", required=True),
+        login_domain=dict(type="str", required=True),  # This parameter is not required for querying all objects
     )
 
 
@@ -929,39 +930,62 @@ class MSOModule(object):
             local_users = nd.request("/nexus/infra/api/aaa/v4/localusers", method="GET")
 
         for user in users:
-            u = dict()
+            user_dict = dict()
             if self.platform == "nd":
-                local_user = self.get_user_from_list_of_users(user, local_users)
-                u = local_user
-                if local_user is None:
-                    remote_user = self.get_user_from_list_of_users(user, remote_users)
-                    u = remote_user
+                user_dict = self.get_user_from_list_of_users(user, local_users)
+                if user_dict is None:
+                    user_dict = self.get_user_from_list_of_users(user, remote_users)
 
-            # u = self.get_obj("users", loginID=user, api_version="v2")
+            # user_dict = self.get_obj("users", loginID=user, api_version="v2")
             else:
-                u = self.get_obj("users", username=user)
-            if not u and not ignore_not_found_error:
+                user_dict = self.get_obj("users", username=user)
+            if not user_dict and not ignore_not_found_error:
                 self.fail_json(msg="User '{0}' is not a valid user name.".format(user))
-            elif (not u or "id" not in u) and ignore_not_found_error:
+            elif (not user_dict or "id" not in user_dict) and ignore_not_found_error:
                 self.module.warn("User '{0}' is not a valid user name.".format(user))
                 return ids
-            if "id" not in u:
-                if "userID" not in u:
-                    self.fail_json(msg="User lookup failed for user '{0}': {1}".format(user, u))
-                id = dict(userId=u.get("userID"))
+            if "id" not in user_dict:
+                if "userID" not in user_dict:
+                    self.fail_json(msg="User lookup failed for user '{0}': {1}".format(user, user_dict))
+                id = dict(userId=user_dict.get("userID"))
             else:
-                id = dict(userId=u.get("id"))
+                id = dict(userId=user_dict.get("id"))
             if id in ids:
                 self.fail_json(msg="User '{0}' is duplicate.".format(user))
             ids.append(id)
         return ids
-    
-    def get_user_from_list_of_users(self, user_name, list_of_users):
+
+    def get_user_from_list_of_users(self, user_name, list_of_users, login_domain=""):
         """Get user from list of users"""
         for user in list_of_users.get("items"):
-            if user.get("spec").get("loginID") == user_name:
+            if user.get("spec").get("loginID") == user_name and (login_domain == "" or user.get("spec").get("loginDomain") == login_domain):
                 return user.get("spec")
         return None
+
+    def lookup_remote_users(self, remote_users, ignore_not_found_error=False):
+        ids = []
+        if self.platform == "nd":
+            nd = NDModule(self.module)
+            remote_users_data = nd.request("/nexus/infra/api/aaa/v4/remoteusers", method="GET")
+        for remote_user in remote_users:
+            user_dict = dict()
+            if self.platform == "nd":
+                user_dict = self.get_user_from_list_of_users(remote_user.get("name"), remote_users_data, remote_user.get("login_domain"))
+            if not user_dict and not ignore_not_found_error:
+                self.fail_json(msg="User '{0}' is not a valid user name.".format(remote_user.get("name")))
+            elif (not user_dict or "id" not in user_dict) and ignore_not_found_error:
+                self.module.warn("User '{0}' is not a valid user name.".format(remote_user.get("name")))
+                return ids
+            if "id" not in user_dict:
+                if "userID" not in user_dict:
+                    self.fail_json(msg="User lookup failed for user '{0}': {1}".format(remote_user.get("name"), user_dict))
+                id = dict(userId=user_dict.get("userID"))
+            else:
+                id = dict(userId=user_dict.get("id"))
+            if id in ids:
+                self.fail_json(msg="User '{0}' is duplicate.".format(remote_user.get("name")))
+            ids.append(id)
+        return ids
 
     def create_label(self, label, label_type):
         """Create a new label"""

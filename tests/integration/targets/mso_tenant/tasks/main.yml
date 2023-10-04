@@ -21,19 +21,19 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
-- name: Ensure sites exists
-  mso_site:
-    <<: *mso_info
-    site: '{{ item.site }}'
-    apic_username: '{{ item.username }}'
-    apic_password: '{{ item.password }}'
-    apic_site_id: '{{ item.id }}'
-    urls:
-    - https://{{ item.urls }}
-    state: present
-  loop:
-  - { site: '{{ mso_site | default("ansible_test") }}', username: '{{ apic_username }}', password: '{{ apic_password }}', id: '{{ apic_site_id | default(101) }}', urls: '{{ apic_hostname }}' }
-  - { site: 'aws_{{ mso_site | default("ansible_test") }}', username: '{{ aws_apic_username }}', password: '{{ aws_apic_password }}', id: '{{ aws_site_id | default(102) }}', urls: '{{ aws_apic_hostname }}' }
+# - name: Ensure sites exists
+#   mso_site:
+#     <<: *mso_info
+#     site: '{{ item.site }}'
+#     apic_username: '{{ item.username }}'
+#     apic_password: '{{ item.password }}'
+#     apic_site_id: '{{ item.id }}'
+#     urls:
+#     - https://{{ item.urls }}
+#     state: present
+#   loop:
+#   - { site: '{{ mso_site | default("ansible_test") }}', username: '{{ apic_username }}', password: '{{ apic_password }}', id: '{{ apic_site_id | default(101) }}', urls: '{{ apic_hostname }}' }
+#   - { site: 'aws_{{ mso_site | default("ansible_test") }}', username: '{{ aws_apic_username }}', password: '{{ aws_apic_password }}', id: '{{ aws_site_id | default(102) }}', urls: '{{ aws_apic_hostname }}' }
 
 - name: Undeploy a schema 1 template 1
   mso_schema_template_deploy: &schema_undeploy
@@ -211,6 +211,42 @@
     - nm_add_tenant2_again.current.userAssociations | length == 1
   when: mso_username == 'admin'
 
+# ADD TENANT WITH REMOTE USERS
+- name: Add tenant 3 (check_mode)
+  mso_tenant:
+    <<: *tenant_present
+    tenant: ansible_test3
+    display_name: null
+    remote_users:
+    - name: ansible_github_ci
+      login_domain: test_2
+    state: present
+  check_mode: true
+  register: cm_add_rmt_usr_tenant3
+
+- name: Verify cm_add_rmt_usr_tenant3
+  assert:
+    that:
+    - cm_add_rmt_usr_tenant3 is changed
+
+- name: Add tenant 3 (normal_mode)
+  mso_tenant:
+    <<: *tenant_present
+    tenant: ansible_test3
+    display_name: null
+    remote_users:
+    - name: ansible_github_ci
+      login_domain: test
+    state: present
+  check_mode: true
+  register: nm_add_rmt_usr_tenant3
+
+- name: Verify cm_add_rmt_usr_tenant3
+  assert:
+    that:
+    - nm_add_rmt_usr_tenant3 is changed
+    - nm_add_rmt_usr_tenant3.current.name == 'ansible_test3'
+
 - name: Add tenant 3 with duplicate admin user (normal mode)
   mso_tenant:
     <<: *tenant_present
@@ -252,6 +288,9 @@
     tenant: ansible_test3
     users:
     - '{{ mso_username }}'
+    remote_users:
+    - name: ansible_github_ci
+      login_domain: test
     display_name: null
     state: present
   register: nm_add_tenant3
@@ -264,7 +303,7 @@
 - name: Verify nm_add_tenant3 (when mso_username != admin)
   assert:
     that:
-    - nm_add_tenant3.current.userAssociations | length == 2
+    - nm_add_tenant3.current.userAssociations | length == 3
   when: mso_username != 'admin'
 
 - name: Verify nm_add_tenant3 (when mso_username == admin)

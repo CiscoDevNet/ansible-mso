@@ -23,6 +23,7 @@ from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_native, to_text
 from ansible.module_utils.connection import Connection
 from ansible_collections.cisco.mso.plugins.module_utils.constants import NDO_API_VERSION_PATH_FORMAT
+from ansible_collections.cisco.nd.plugins.module_utils.nd import NDModule
 
 try:
     from requests_toolbelt.multipart.encoder import MultipartEncoder
@@ -236,6 +237,12 @@ def mso_site_anp_epg_bulk_staticport_spec():
         primary_micro_segment_vlan=dict(type="int"),  # This parameter is not required for querying all objects
         deployment_immediacy=dict(type="str", choices=["immediate", "lazy"]),
         mode=dict(type="str", choices=["native", "regular", "untagged"]),
+    )
+
+def ndo_remote_user_spec():
+    return dict(
+        name=dict(type="str"),
+        login_domain=dict(type="str"),  # This parameter is not required for querying all objects
     )
 
 
@@ -916,9 +923,21 @@ class MSOModule(object):
             users.append("admin")
 
         ids = []
+        if self.platform == "nd":
+            nd = NDModule(self.module)
+            remote_users = nd.request("/nexus/infra/api/aaa/v4/remoteusers", method="GET")
+            local_users = nd.request("/nexus/infra/api/aaa/v4/localusers", method="GET")
+
         for user in users:
+            u = dict()
             if self.platform == "nd":
-                u = self.get_obj("users", loginID=user, api_version="v2")
+                local_user = self.get_user_from_list_of_users(user, local_users)
+                u = local_user
+                if local_user is None:
+                    remote_user = self.get_user_from_list_of_users(user, remote_users)
+                    u = remote_user
+
+            # u = self.get_obj("users", loginID=user, api_version="v2")
             else:
                 u = self.get_obj("users", username=user)
             if not u and not ignore_not_found_error:
@@ -935,8 +954,14 @@ class MSOModule(object):
             if id in ids:
                 self.fail_json(msg="User '{0}' is duplicate.".format(user))
             ids.append(id)
-
         return ids
+    
+    def get_user_from_list_of_users(self, user_name, list_of_users):
+        """Get user from list of users"""
+        for user in list_of_users.get("items"):
+            if user.get("spec").get("loginID") == user_name:
+                return user.get("spec")
+        return None
 
     def create_label(self, label, label_type):
         """Create a new label"""

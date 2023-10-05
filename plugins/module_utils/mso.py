@@ -51,7 +51,7 @@ def issubset(subset, superset):
         return True
 
     # Both objects have a different type
-    if type(subset) != type(superset):
+    if type(subset) is not type(superset):
         return False
 
     for key, value in subset.items():
@@ -243,7 +243,7 @@ def mso_site_anp_epg_bulk_staticport_spec():
 def ndo_remote_user_spec():
     return dict(
         name=dict(type="str", required=True),
-        login_domain=dict(type="str", required=True),  # This parameter is not required for querying all objects
+        login_domain=dict(type="str", required=True),
     )
 
 
@@ -935,8 +935,6 @@ class MSOModule(object):
                 user_dict = self.get_user_from_list_of_users(user, local_users)
                 if user_dict is None:
                     user_dict = self.get_user_from_list_of_users(user, remote_users)
-
-            # user_dict = self.get_obj("users", loginID=user, api_version="v2")
             else:
                 user_dict = self.get_obj("users", username=user)
             if not user_dict and not ignore_not_found_error:
@@ -1161,7 +1159,7 @@ class MSOModule(object):
         """Create a DHCP policy from input"""
         if data is None:
             return None
-        if type(data) == list:
+        if isinstance(data, list):
             dhcps = []
             for dhcp in data:
                 if "dhcp_option_policy" in dhcp:

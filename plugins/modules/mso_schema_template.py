@@ -52,7 +52,7 @@ options:
     description:
     - Use C(present) or C(absent) for adding or removing.
     - Use C(query) for listing an object or multiple objects.
-    - Using C(present) on empty schemas M(cisco.mso.mso_schema) is supported on versions of MSO that are 4.2 or greater. 
+    - Using C(present) on empty schemas M(cisco.mso.mso_schema) is supported on versions of MSO that are 4.2 or greater.
     type: str
     choices: [ absent, present, query ]
     default: present

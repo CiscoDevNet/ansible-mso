@@ -389,3 +389,83 @@
     <<: *mso_info
     tenant: ansible_test_2
     state: absent
+
+# TEST BLOCK FOR MSO VERSION >= 4.1 WHICH ALLOW FOR SCHEMA WITHOUT TEMPLATES
+- name: Execute tasks only for MSO version >= 4.1
+  when: version.current.version is version('4.1', '>=')
+  block:
+
+    - name: Ensure empty schema is not present
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: empty_schema
+        state: absent
+
+    - name: Create a empty schema
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: empty_schema
+        state: present
+
+    - name: Query all templates in empty schema
+      cisco.mso.mso_schema_template:
+        <<: *mso_info
+        schema: empty_schema
+        state: query
+      register: query_all_templates_empty_schema
+
+    - name: Verify empty schema creation has no templates
+      ansible.builtin.assert:
+        that:
+          - query_all_templates_empty_schema.current == []
+
+    # Templates are not allowed to do PATCH add operation on empty schema in earlier versions
+    # Error would be: "message": "add operation does not apply: doc is missing path: \"/templates/-\": missing value"
+    - name: Create a template in empty schema
+      cisco.mso.mso_schema_template: &empty_schema_template
+        <<: *mso_info
+        schema: empty_schema
+        tenant: ansible_test
+        template: template_1
+        state: present
+      register: create_template_in_empty_schema
+      when: version.current.version is version('4.2', '>=')
+
+    - name: Verify creation of template in empty schema for version >= 4.2
+      ansible.builtin.assert:
+        that:
+          - create_template_in_empty_schema is changed
+          - create_template_in_empty_schema.current.displayName == "template_1"
+      when: version.current.version is version('4.2', '>=')
+
+    - name: Remove a template in empty schema
+      cisco.mso.mso_schema_template:
+        <<: *empty_schema_template
+        state: absent
+      register: remove_template_in_empty_schema
+
+    - name: Remove empty schema
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: empty_schema
+        state: absent
+      register: remove_empty_schema
+
+    - name: Verify empty schema creation is removed
+      ansible.builtin.assert:
+        that:
+          - remove_template_in_empty_schema is not changed
+          - remove_template_in_empty_schema.current == {}
+          - remove_empty_schema is changed
+      when: version.current.version is version('4.2', '<')
+
+    - name: Verify empty schema creation is removed
+      ansible.builtin.assert:
+        that:
+          - remove_template_in_empty_schema is changed
+          - remove_template_in_empty_schema.current == {}
+          - remove_empty_schema is not changed
+      when: version.current.version is version('4.2', '>=')
+
+      
+    

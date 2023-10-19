@@ -24,12 +24,22 @@ options:
     - The name of the schema.
     type: str
     aliases: [ name ]
+  id:
+    description:
+    - The id of the schema.
+    - This parameter is required when the C(schema) needs to be updated.
+    type: str
+  description:
+    description:
+    - The description of the schema.
+    type: str
   state:
     description:
     - Use C(absent) for removing.
     - Use C(query) for listing an object or multiple objects.
+    - Use C(present) for creating or updating. Only supported on versions of MSO that are 4.1 or greater.
     type: str
-    choices: [ absent, query ]
+    choices: [ absent, query, present ]
     default: query
 notes:
 - Due to restrictions of the MSO REST API this module cannot create empty schemas (i.e. schemas without templates).
@@ -41,6 +51,15 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
+- name: Create schema
+  cisco.mso.mso_schema:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema 1
+    state: present
+  delegate_to: localhost
+
 - name: Remove schemas
   cisco.mso.mso_schema:
     host: mso_host
@@ -81,12 +100,9 @@ def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
         schema=dict(type="str", aliases=["name"]),
-        # messages=dict(type='dict'),
-        # associations=dict(type='list'),
-        # health_faults=dict(type='list'),
-        # references=dict(type='dict'),
-        # policy_states=dict(type='list'),
-        state=dict(type="str", default="query", choices=["absent", "query"]),
+        id=dict(type="str"),
+        description=dict(type="str"),
+        state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
 
     module = AnsibleModule(
@@ -94,28 +110,49 @@ def main():
         supports_check_mode=True,
         required_if=[
             ["state", "absent", ["schema"]],
+            ["state", "present", ["schema"]],
         ],
     )
 
     schema = module.params.get("schema")
+    schema_id = module.params.get("id")
+    description = module.params.get("description")
     state = module.params.get("state")
 
     mso = MSOModule(module)
-
-    schema_id = None
     path = "schemas"
 
     # Query for existing object(s)
     if schema:
-        mso.existing = mso.get_obj(path, displayName=schema)
+        if schema_id:
+            mso.existing = mso.get_obj(path, id=schema_id)
+        else:
+            mso.existing = mso.get_obj(path, displayName=schema)
+        
         if mso.existing:
-            schema_id = mso.existing.get("id")
+            if not schema_id:
+              schema_id = mso.existing.get("id")
             path = "schemas/{id}".format(id=schema_id)
     else:
         mso.existing = mso.query_objs(path)
 
-    if state == "query":
-        pass
+    mso.previous = mso.existing
+    if state == "present":
+        mso.sanitize(dict(displayName=schema, id=schema_id, description=description), collate=True)
+        if mso.existing:
+            ops = []
+            if mso.existing.get("displayName") != schema:
+                ops.append(dict(op="replace", path="/displayName", value=schema))
+            if mso.existing.get("description") != description and description is not None:
+                ops.append(dict(op="replace", path="/description", value=description))
+            
+            if not module.check_mode:
+                mso.request(path, method="PATCH", data=ops)
+        else:
+            if not module.check_mode:
+                # Initialize templates as empty list, otherwise mso_schema_template will fail to add templates
+                mso.request(path, method="POST", data=dict(displayName=schema, description=description, templates=[]))
+        mso.existing = mso.proposed
 
     elif state == "absent":
         mso.previous = mso.existing

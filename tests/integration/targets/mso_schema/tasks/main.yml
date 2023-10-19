@@ -18,8 +18,14 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+  
 - name: Remove schemas
   cisco.mso.mso_schema:
     <<: *mso_info
@@ -115,3 +121,131 @@
     that:
     - query_non_existing is not changed
     - query_non_existing.current == {}
+
+# TEST BLOCK FOR MSO VERSION >= 4.1 WHICH ALLOW FOR SCHEMA WITHOUT TEMPLATES
+- name: Execute tasks only for MSO version >= 4.1
+  when: version.current.version is version('4.1', '>=')
+  block:
+
+    - name: Ensure empty schemas are not present
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: '{{ item }}'
+        state: absent
+      loop:
+      - "empty_schema"
+      - "empty_schema_changed"
+
+    - name: Create a empty schema (check_mode)
+      cisco.mso.mso_schema: &empty_schema
+        <<: *mso_info
+        schema: empty_schema
+        description: empty_schema_descr
+        state: present
+      check_mode: true
+      register: cm_create_empty_schema
+
+    - name: Create a empty schema
+      cisco.mso.mso_schema:
+        <<: *empty_schema
+      register: nm_create_empty_schema
+
+    - name: Create a empty schema again
+      cisco.mso.mso_schema:
+        <<: *empty_schema
+      register: nm_create_empty_schema_again
+
+    - name: Verify empty schema creation
+      ansible.builtin.assert:
+        that:
+          - cm_create_empty_schema is changed
+          - cm_create_empty_schema.current.displayName == 'empty_schema'
+          - cm_create_empty_schema.current.description == 'empty_schema_descr'
+          - cm_create_empty_schema.proposed.displayName == 'empty_schema'
+          - cm_create_empty_schema.proposed.description == 'empty_schema_descr'
+          - cm_create_empty_schema.previous == {}
+          - nm_create_empty_schema is changed
+          - nm_create_empty_schema.current.displayName == 'empty_schema'
+          - nm_create_empty_schema.current.description == 'empty_schema_descr'
+          - nm_create_empty_schema.proposed.displayName == 'empty_schema'
+          - nm_create_empty_schema.proposed.description == 'empty_schema_descr'
+          # Commented due to description bug in schema where description is set on id specific but not schemas endpoint
+          # - nm_create_empty_schema_again is not changed 
+          - nm_create_empty_schema_again.current.displayName == 'empty_schema'
+          - nm_create_empty_schema_again.current.description == 'empty_schema_descr'
+          - nm_create_empty_schema_again.previous.displayName == 'empty_schema'
+          # - nm_create_empty_schema_again.previous.description == 'empty_schema_descr'
+
+    - name: Change a empty schema display name (check_mode)
+      cisco.mso.mso_schema: &empty_schema_changed
+        <<: *mso_info
+        schema: empty_schema_changed
+        id: "{{ nm_create_empty_schema_again.current.id }}"
+        description: empty_schema_descr_changed
+        state: present
+      check_mode: true
+      register: cm_change_empty_schema
+
+    - name: Change a empty schema display name
+      cisco.mso.mso_schema:
+        <<: *empty_schema_changed
+      register: nm_change_empty_schema
+
+    - name: Change a empty schema display name again
+      cisco.mso.mso_schema:
+        <<: *empty_schema_changed
+      register: nm_change_empty_schema_again
+
+    - name: Verify empty schema change
+      ansible.builtin.assert:
+        that:
+          - cm_change_empty_schema is changed
+          - cm_change_empty_schema.current.displayName == 'empty_schema_changed'
+          - cm_change_empty_schema.current.description == 'empty_schema_descr_changed'
+          - cm_change_empty_schema.proposed.displayName == 'empty_schema_changed'
+          - cm_change_empty_schema.proposed.description == 'empty_schema_descr_changed'
+          - cm_change_empty_schema.previous.displayName == 'empty_schema'
+          # - cm_change_empty_schema.previous.description == 'empty_schema_descr'
+          - nm_change_empty_schema is changed
+          - nm_change_empty_schema.current.displayName == 'empty_schema_changed'
+          - nm_change_empty_schema.current.description == 'empty_schema_descr_changed'
+          - nm_change_empty_schema.previous.displayName == 'empty_schema'
+          # - nm_change_empty_schema.previous.description == 'empty_schema_descr'
+          - nm_change_empty_schema_again is not changed
+          - nm_change_empty_schema_again.current.displayName == 'empty_schema_changed'
+          - nm_change_empty_schema_again.current.description == 'empty_schema_descr_changed'
+          - nm_change_empty_schema_again.previous.displayName == 'empty_schema_changed'
+          # - nm_change_empty_schema_again.previous.description == 'empty_schema_descr_changed'
+
+    - name: Remove a empty schema (check_mode)
+      cisco.mso.mso_schema: &empty_schema_remove
+        <<: *mso_info
+        schema: empty_schema_changed
+        state: absent
+      check_mode: true
+      register: cm_remove_empty_schema
+
+    - name: Remove a empty schema
+      cisco.mso.mso_schema:
+        <<: *empty_schema_remove
+      register: nm_remove_empty_schema
+
+    - name: Remove a empty schema again
+      cisco.mso.mso_schema:
+        <<: *empty_schema_remove
+      register: nm_remove_empty_schema_again
+
+    - name: Verify empty schema removal
+      ansible.builtin.assert:
+        that:
+          - cm_remove_empty_schema is changed
+          - cm_remove_empty_schema.current == {}
+          - cm_remove_empty_schema.previous.displayName == 'empty_schema_changed'
+          # - cm_remove_empty_schema.previous.description == 'empty_schema_descr_changed'
+          - nm_remove_empty_schema is changed
+          - nm_remove_empty_schema.current == {}
+          - nm_remove_empty_schema.previous.displayName == 'empty_schema_changed'
+          # - nm_remove_empty_schema.previous.description == 'empty_schema_descr_changed'
+          - nm_remove_empty_schema_again is not changed
+          - nm_remove_empty_schema_again.current == {}
+          - nm_remove_empty_schema_again.previous == {}

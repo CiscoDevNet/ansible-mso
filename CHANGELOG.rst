@@ -6,6 +6,23 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.6.0
+======
+
+Release Summary
+---------------
+
+Release v2.6.0 of the ``ansible-mso`` collection on 2023-10-19.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.5.0.
+
+
+Minor Changes
+-------------
+
+- Added ND plugin installation in sanity
+- Added functionality to resolve same name in remote and local user.
+- Added new parameter remote_user to add multiple remote users associated with multiple login domains
+
 v2.5.0
 ======
 

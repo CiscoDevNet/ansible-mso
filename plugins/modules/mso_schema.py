@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
+# Copyright: (c) 2023, Akini Ross (@akinross) <akinross@cisco.com>
+
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -18,6 +20,7 @@ description:
 - Manage schemas on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
+- Akini Ross (@akinross)
 options:
   schema:
     description:
@@ -128,10 +131,10 @@ def main():
             mso.existing = mso.get_obj(path, id=schema_id)
         else:
             mso.existing = mso.get_obj(path, displayName=schema)
-        
+
         if mso.existing:
             if not schema_id:
-              schema_id = mso.existing.get("id")
+                schema_id = mso.existing.get("id")
             path = "schemas/{id}".format(id=schema_id)
     else:
         mso.existing = mso.query_objs(path)
@@ -145,7 +148,7 @@ def main():
                 ops.append(dict(op="replace", path="/displayName", value=schema))
             if mso.existing.get("description") != description and description is not None:
                 ops.append(dict(op="replace", path="/description", value=description))
-            
+
             if not module.check_mode:
                 mso.request(path, method="PATCH", data=ops)
         else:

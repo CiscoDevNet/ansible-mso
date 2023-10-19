@@ -23,7 +23,6 @@ options:
     description:
     - The tenant used for this template.
     type: str
-    required: true
   schema:
     description:
     - The name of the schema.
@@ -50,6 +49,7 @@ options:
     description:
     - Use C(present) or C(absent) for adding or removing.
     - Use C(query) for listing an object or multiple objects.
+    - Using C(present) on empty schemas M(cisco.mso.mso_schema) is supported on versions of MSO that are 4.2 or greater. 
     type: str
     choices: [ absent, present, query ]
     default: present
@@ -118,7 +118,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        tenant=dict(type="str", required=True),
+        tenant=dict(type="str"),
         schema=dict(type="str", required=True),
         schema_description=dict(type="str"),
         template_description=dict(type="str"),
@@ -132,7 +132,7 @@ def main():
         supports_check_mode=True,
         required_if=[
             ["state", "absent", ["template"]],
-            ["state", "present", ["template"]],
+            ["state", "present", ["template", "tenant"]],
         ],
     )
 
@@ -157,13 +157,11 @@ def main():
         schema_path = "schemas/{id}".format(**schema_obj)
 
         # Get template
-        templates = [t.get("name") for t in schema_obj.get("templates")]
+        templates = schema_obj.get("templates") if schema_obj.get("templates") is not None else []
         if template:
-            if template in templates:
-                template_idx = templates.index(template)
-                mso.existing = schema_obj.get("templates")[template_idx]
+            mso.existing = next((item for item in templates if item.get("name") == template), {})
         else:
-            mso.existing = schema_obj.get("templates")
+            mso.existing = templates
     else:
         schema_path = "schemas"
 

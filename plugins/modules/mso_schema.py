@@ -45,7 +45,7 @@ options:
     choices: [ absent, query, present ]
     default: query
 notes:
-- Due to restrictions of the MSO REST API this module cannot create empty schemas (i.e. schemas without templates).
+- Due to restrictions of the MSO REST API this module can only create empty schemas (i.e. schemas without templates) on versions of MSO that are 4.1 or greater.
   Use the M(cisco.mso.mso_schema_template) to automatically create schemas with templates.
 seealso:
 - module: cisco.mso.mso_schema_site
@@ -153,8 +153,7 @@ def main():
                 mso.request(path, method="PATCH", data=ops)
         else:
             if not module.check_mode:
-                # Initialize templates as empty list, otherwise mso_schema_template will fail to add templates
-                mso.request(path, method="POST", data=dict(displayName=schema, description=description, templates=[]))
+                mso.request(path, method="POST", data=dict(displayName=schema, description=description))
         mso.existing = mso.proposed
 
     elif state == "absent":

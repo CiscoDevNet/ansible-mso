@@ -134,119 +134,119 @@
         schema: '{{ item }}'
         state: absent
       loop:
-      - "empty_schema"
-      - "empty_schema_changed"
+      - "ansible_test"
+      - "ansible_test_2"
 
     - name: Create a empty schema (check_mode)
-      cisco.mso.mso_schema: &empty_schema
+      cisco.mso.mso_schema: &ansible_test
         <<: *mso_info
-        schema: empty_schema
-        description: empty_schema_descr
+        schema: ansible_test
+        description: ansible_test_descr
         state: present
       check_mode: true
-      register: cm_create_empty_schema
+      register: cm_create_ansible_test
 
     - name: Create a empty schema
       cisco.mso.mso_schema:
-        <<: *empty_schema
-      register: nm_create_empty_schema
+        <<: *ansible_test
+      register: nm_create_ansible_test
 
     - name: Create a empty schema again
       cisco.mso.mso_schema:
-        <<: *empty_schema
-      register: nm_create_empty_schema_again
+        <<: *ansible_test
+      register: nm_create_ansible_test_again
 
     - name: Verify empty schema creation
       ansible.builtin.assert:
         that:
-          - cm_create_empty_schema is changed
-          - cm_create_empty_schema.current.displayName == 'empty_schema'
-          - cm_create_empty_schema.current.description == 'empty_schema_descr'
-          - cm_create_empty_schema.proposed.displayName == 'empty_schema'
-          - cm_create_empty_schema.proposed.description == 'empty_schema_descr'
-          - cm_create_empty_schema.previous == {}
-          - nm_create_empty_schema is changed
-          - nm_create_empty_schema.current.displayName == 'empty_schema'
-          - nm_create_empty_schema.current.description == 'empty_schema_descr'
-          - nm_create_empty_schema.proposed.displayName == 'empty_schema'
-          - nm_create_empty_schema.proposed.description == 'empty_schema_descr'
+          - cm_create_ansible_test is changed
+          - cm_create_ansible_test.current.displayName == 'ansible_test'
+          - cm_create_ansible_test.current.description == 'ansible_test_descr'
+          - cm_create_ansible_test.proposed.displayName == 'ansible_test'
+          - cm_create_ansible_test.proposed.description == 'ansible_test_descr'
+          - cm_create_ansible_test.previous == {}
+          - nm_create_ansible_test is changed
+          - nm_create_ansible_test.current.displayName == 'ansible_test'
+          - nm_create_ansible_test.current.description == 'ansible_test_descr'
+          - nm_create_ansible_test.proposed.displayName == 'ansible_test'
+          - nm_create_ansible_test.proposed.description == 'ansible_test_descr'
           # Commented due to description bug in schema where description is set on id specific but not schemas endpoint
-          # - nm_create_empty_schema_again is not changed 
-          - nm_create_empty_schema_again.current.displayName == 'empty_schema'
-          - nm_create_empty_schema_again.current.description == 'empty_schema_descr'
-          - nm_create_empty_schema_again.previous.displayName == 'empty_schema'
-          # - nm_create_empty_schema_again.previous.description == 'empty_schema_descr'
+          # - nm_create_ansible_test_again is not changed 
+          - nm_create_ansible_test_again.current.displayName == 'ansible_test'
+          - nm_create_ansible_test_again.current.description == 'ansible_test_descr'
+          - nm_create_ansible_test_again.previous.displayName == 'ansible_test'
+          # - nm_create_ansible_test_again.previous.description == 'ansible_test_descr'
 
     - name: Change a empty schema display name (check_mode)
-      cisco.mso.mso_schema: &empty_schema_changed
+      cisco.mso.mso_schema: &ansible_test_2
         <<: *mso_info
-        schema: empty_schema_changed
-        id: "{{ nm_create_empty_schema_again.current.id }}"
-        description: empty_schema_descr_changed
+        schema: ansible_test_2
+        id: "{{ nm_create_ansible_test_again.current.id }}"
+        description: ansible_test_descr_changed
         state: present
       check_mode: true
-      register: cm_change_empty_schema
+      register: cm_change_ansible_test
 
     - name: Change a empty schema display name
       cisco.mso.mso_schema:
-        <<: *empty_schema_changed
-      register: nm_change_empty_schema
+        <<: *ansible_test_2
+      register: nm_change_ansible_test
 
     - name: Change a empty schema display name again
       cisco.mso.mso_schema:
-        <<: *empty_schema_changed
-      register: nm_change_empty_schema_again
+        <<: *ansible_test_2
+      register: nm_change_ansible_test_again
 
     - name: Verify empty schema change
       ansible.builtin.assert:
         that:
-          - cm_change_empty_schema is changed
-          - cm_change_empty_schema.current.displayName == 'empty_schema_changed'
-          - cm_change_empty_schema.current.description == 'empty_schema_descr_changed'
-          - cm_change_empty_schema.proposed.displayName == 'empty_schema_changed'
-          - cm_change_empty_schema.proposed.description == 'empty_schema_descr_changed'
-          - cm_change_empty_schema.previous.displayName == 'empty_schema'
-          # - cm_change_empty_schema.previous.description == 'empty_schema_descr'
-          - nm_change_empty_schema is changed
-          - nm_change_empty_schema.current.displayName == 'empty_schema_changed'
-          - nm_change_empty_schema.current.description == 'empty_schema_descr_changed'
-          - nm_change_empty_schema.previous.displayName == 'empty_schema'
-          # - nm_change_empty_schema.previous.description == 'empty_schema_descr'
-          - nm_change_empty_schema_again is not changed
-          - nm_change_empty_schema_again.current.displayName == 'empty_schema_changed'
-          - nm_change_empty_schema_again.current.description == 'empty_schema_descr_changed'
-          - nm_change_empty_schema_again.previous.displayName == 'empty_schema_changed'
-          # - nm_change_empty_schema_again.previous.description == 'empty_schema_descr_changed'
+          - cm_change_ansible_test is changed
+          - cm_change_ansible_test.current.displayName == 'ansible_test_2'
+          - cm_change_ansible_test.current.description == 'ansible_test_descr_changed'
+          - cm_change_ansible_test.proposed.displayName == 'ansible_test_2'
+          - cm_change_ansible_test.proposed.description == 'ansible_test_descr_changed'
+          - cm_change_ansible_test.previous.displayName == 'ansible_test'
+          # - cm_change_ansible_test.previous.description == 'ansible_test_descr'
+          - nm_change_ansible_test is changed
+          - nm_change_ansible_test.current.displayName == 'ansible_test_2'
+          - nm_change_ansible_test.current.description == 'ansible_test_descr_changed'
+          - nm_change_ansible_test.previous.displayName == 'ansible_test'
+          # - nm_change_ansible_test.previous.description == 'ansible_test_descr'
+          - nm_change_ansible_test_again is not changed
+          - nm_change_ansible_test_again.current.displayName == 'ansible_test_2'
+          - nm_change_ansible_test_again.current.description == 'ansible_test_descr_changed'
+          - nm_change_ansible_test_again.previous.displayName == 'ansible_test_2'
+          # - nm_change_ansible_test_again.previous.description == 'ansible_test_descr_changed'
 
     - name: Remove a empty schema (check_mode)
-      cisco.mso.mso_schema: &empty_schema_remove
+      cisco.mso.mso_schema: &ansible_test_remove
         <<: *mso_info
-        schema: empty_schema_changed
+        schema: ansible_test_2
         state: absent
       check_mode: true
-      register: cm_remove_empty_schema
+      register: cm_remove_ansible_test
 
     - name: Remove a empty schema
       cisco.mso.mso_schema:
-        <<: *empty_schema_remove
-      register: nm_remove_empty_schema
+        <<: *ansible_test_remove
+      register: nm_remove_ansible_test
 
     - name: Remove a empty schema again
       cisco.mso.mso_schema:
-        <<: *empty_schema_remove
-      register: nm_remove_empty_schema_again
+        <<: *ansible_test_remove
+      register: nm_remove_ansible_test_again
 
     - name: Verify empty schema removal
       ansible.builtin.assert:
         that:
-          - cm_remove_empty_schema is changed
-          - cm_remove_empty_schema.current == {}
-          - cm_remove_empty_schema.previous.displayName == 'empty_schema_changed'
-          # - cm_remove_empty_schema.previous.description == 'empty_schema_descr_changed'
-          - nm_remove_empty_schema is changed
-          - nm_remove_empty_schema.current == {}
-          - nm_remove_empty_schema.previous.displayName == 'empty_schema_changed'
-          # - nm_remove_empty_schema.previous.description == 'empty_schema_descr_changed'
-          - nm_remove_empty_schema_again is not changed
-          - nm_remove_empty_schema_again.current == {}
-          - nm_remove_empty_schema_again.previous == {}
+          - cm_remove_ansible_test is changed
+          - cm_remove_ansible_test.current == {}
+          - cm_remove_ansible_test.previous.displayName == 'ansible_test_2'
+          # - cm_remove_ansible_test.previous.description == 'ansible_test_descr_changed'
+          - nm_remove_ansible_test is changed
+          - nm_remove_ansible_test.current == {}
+          - nm_remove_ansible_test.previous.displayName == 'ansible_test_2'
+          # - nm_remove_ansible_test.previous.description == 'ansible_test_descr_changed'
+          - nm_remove_ansible_test_again is not changed
+          - nm_remove_ansible_test_again.current == {}
+          - nm_remove_ansible_test_again.previous == {}

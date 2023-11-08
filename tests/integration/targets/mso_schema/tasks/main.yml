@@ -128,7 +128,7 @@
   when: version.current.version is version('4.1', '>=')
   block:
 
-    - name: Ensure empty schemas are not present
+    - name: Ensure schema without templatess are not present
       cisco.mso.mso_schema:
         <<: *mso_info
         schema: '{{ item }}'
@@ -137,7 +137,7 @@
       - "ansible_test"
       - "ansible_test_2"
 
-    - name: Create a empty schema (check_mode)
+    - name: Create a schema without templates (check_mode)
       cisco.mso.mso_schema: &ansible_test
         <<: *mso_info
         schema: ansible_test
@@ -146,17 +146,17 @@
       check_mode: true
       register: cm_create_ansible_test
 
-    - name: Create a empty schema
+    - name: Create a schema without templates
       cisco.mso.mso_schema:
         <<: *ansible_test
       register: nm_create_ansible_test
 
-    - name: Create a empty schema again
+    - name: Create a schema without templates again
       cisco.mso.mso_schema:
         <<: *ansible_test
       register: nm_create_ansible_test_again
 
-    - name: Verify empty schema creation
+    - name: Verify schema without templates creation
       ansible.builtin.assert:
         that:
           - cm_create_ansible_test is changed
@@ -177,7 +177,7 @@
           - nm_create_ansible_test_again.previous.displayName == 'ansible_test'
           # - nm_create_ansible_test_again.previous.description == 'ansible_test_descr'
 
-    - name: Change a empty schema display name (check_mode)
+    - name: Change a schema without templates display name (check_mode)
       cisco.mso.mso_schema: &ansible_test_2
         <<: *mso_info
         schema: ansible_test_2
@@ -187,17 +187,17 @@
       check_mode: true
       register: cm_change_ansible_test
 
-    - name: Change a empty schema display name
+    - name: Change a schema without templates display name
       cisco.mso.mso_schema:
         <<: *ansible_test_2
       register: nm_change_ansible_test
 
-    - name: Change a empty schema display name again
+    - name: Change a schema without templates display name again
       cisco.mso.mso_schema:
         <<: *ansible_test_2
       register: nm_change_ansible_test_again
 
-    - name: Verify empty schema change
+    - name: Verify schema without templates change
       ansible.builtin.assert:
         that:
           - cm_change_ansible_test is changed
@@ -218,7 +218,7 @@
           - nm_change_ansible_test_again.previous.displayName == 'ansible_test_2'
           # - nm_change_ansible_test_again.previous.description == 'ansible_test_descr_changed'
 
-    - name: Remove a empty schema (check_mode)
+    - name: Remove a schema without templates (check_mode)
       cisco.mso.mso_schema: &ansible_test_remove
         <<: *mso_info
         schema: ansible_test_2
@@ -226,17 +226,17 @@
       check_mode: true
       register: cm_remove_ansible_test
 
-    - name: Remove a empty schema
+    - name: Remove a schema without templates
       cisco.mso.mso_schema:
         <<: *ansible_test_remove
       register: nm_remove_ansible_test
 
-    - name: Remove a empty schema again
+    - name: Remove a schema without templates again
       cisco.mso.mso_schema:
         <<: *ansible_test_remove
       register: nm_remove_ansible_test_again
 
-    - name: Verify empty schema removal
+    - name: Verify schema without templates removal
       ansible.builtin.assert:
         that:
           - cm_remove_ansible_test is changed

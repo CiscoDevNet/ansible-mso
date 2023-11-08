@@ -396,74 +396,74 @@
   when: version.current.version is version('4.1', '>=')
   block:
 
-    - name: Ensure empty schema is not present
+    - name: Ensure schema without templates is not present
       cisco.mso.mso_schema:
         <<: *mso_info
-        schema: empty_schema
+        schema: ansible_test
         state: absent
 
-    - name: Create a empty schema
+    - name: Create a schema without templates
       cisco.mso.mso_schema:
         <<: *mso_info
-        schema: empty_schema
+        schema: ansible_test
         state: present
 
-    - name: Query all templates in empty schema
+    - name: Query all templates in schema without templates
       cisco.mso.mso_schema_template:
         <<: *mso_info
-        schema: empty_schema
+        schema: ansible_test
         state: query
-      register: query_all_templates_empty_schema
+      register: query_all_templates_ansible_test
 
-    - name: Verify empty schema creation has no templates
+    - name: Verify schema without templates creation has no templates
       ansible.builtin.assert:
         that:
-          - query_all_templates_empty_schema.current == []
+          - query_all_templates_ansible_test.current == []
 
-    # Templates are not allowed to do PATCH add operation on empty schema in earlier versions
+    # Templates are not allowed to do PATCH add operation on schema without templates in earlier versions
     # Error would be: "message": "add operation does not apply: doc is missing path: \"/templates/-\": missing value"
-    - name: Create a template in empty schema for version >= 4.2
-      cisco.mso.mso_schema_template: &empty_schema_template
+    - name: Create a template in schema without templates for version >= 4.2
+      cisco.mso.mso_schema_template: &ansible_test_template
         <<: *mso_info
-        schema: empty_schema
+        schema: ansible_test
         tenant: ansible_test
         template: template_1
         state: present
-      register: create_template_in_empty_schema
+      register: create_template_in_ansible_test
       when: version.current.version is version('4.2', '>=')
 
-    - name: Verify creation of template in empty schema for version >= 4.2
+    - name: Verify creation of template in schema without templates for version >= 4.2
       ansible.builtin.assert:
         that:
-          - create_template_in_empty_schema is changed
-          - create_template_in_empty_schema.current.displayName == "template_1"
+          - create_template_in_ansible_test is changed
+          - create_template_in_ansible_test.current.displayName == "template_1"
       when: version.current.version is version('4.2', '>=')
 
-    - name: Remove a template in empty schema
+    - name: Remove a template in schema without templates
       cisco.mso.mso_schema_template:
-        <<: *empty_schema_template
+        <<: *ansible_test_template
         state: absent
-      register: remove_template_in_empty_schema
+      register: remove_template_in_ansible_test
 
-    - name: Remove empty schema
+    - name: Remove schema without templates
       cisco.mso.mso_schema:
         <<: *mso_info
-        schema: empty_schema
+        schema: ansible_test
         state: absent
-      register: remove_empty_schema
+      register: remove_ansible_test
 
-    - name: Verify empty schema creation is removed
+    - name: Verify schema without templates creation is removed
       ansible.builtin.assert:
         that:
-          - remove_template_in_empty_schema is not changed
-          - remove_template_in_empty_schema.current == {}
-          - remove_empty_schema is changed
+          - remove_template_in_ansible_test is not changed
+          - remove_template_in_ansible_test.current == {}
+          - remove_ansible_test is changed
       when: version.current.version is version('4.2', '<')
 
-    - name: Verify empty schema creation is removed
+    - name: Verify schema without templates creation is removed
       ansible.builtin.assert:
         that:
-          - remove_template_in_empty_schema is changed
-          - remove_template_in_empty_schema.current == {}
-          - remove_empty_schema is not changed
+          - remove_template_in_ansible_test is changed
+          - remove_template_in_ansible_test.current == {}
+          - remove_ansible_test is not changed
       when: version.current.version is version('4.2', '>=')

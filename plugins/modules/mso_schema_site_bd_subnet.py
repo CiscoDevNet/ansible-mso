@@ -111,7 +111,6 @@ EXAMPLES = r"""
     bd: BD1
     subnet: 11.11.11.0/24
     state: present
-  delegate_to: localhost
 
 - name: Remove a site BD subnet
   cisco.mso.mso_schema_site_bd_subnet:
@@ -124,7 +123,6 @@ EXAMPLES = r"""
     bd: BD1
     subnet: 11.11.11.0/24
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific site BD subnet
   cisco.mso.mso_schema_site_bd_subnet:
@@ -137,7 +135,6 @@ EXAMPLES = r"""
     bd: BD1
     subnet: 11.11.11.0/24
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all site BD subnets
@@ -150,7 +147,6 @@ EXAMPLES = r"""
     template: Template1
     bd: BD1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

@@ -65,7 +65,6 @@ EXAMPLES = r"""
     template: Template 1
     anp: ANP 1
     state: present
-  delegate_to: localhost
 
 - name: Remove an ANP
   cisco.mso.mso_schema_template_anp:
@@ -76,7 +75,6 @@ EXAMPLES = r"""
     template: Template 1
     anp: ANP 1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific ANPs
   cisco.mso.mso_schema_template_anp:
@@ -86,7 +84,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all ANPs
@@ -97,7 +94,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

@@ -142,7 +142,6 @@ EXAMPLES = r"""
     deployment_immediacy: lazy
     resolution_immediacy: pre-provision
     state: present
-  delegate_to: localhost
 
 - name: Remove a domain from a site EPG
   cisco.mso.mso_schema_site_anp_epg_domain:
@@ -159,7 +158,6 @@ EXAMPLES = r"""
     deployment_immediacy: lazy
     resolution_immediacy: pre-provision
     state: absent
-  delegate_to: localhost
 
 - name: Query a domain associated with a specific site EPG
   cisco.mso.mso_schema_site_anp_epg_domain:
@@ -174,7 +172,6 @@ EXAMPLES = r"""
     domain_association_type: vmmDomain
     domain_profile: 'VMware-VMM'
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all domains associated with a site EPG
@@ -188,7 +185,6 @@ EXAMPLES = r"""
     anp: ANP1
     epg: EPG1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

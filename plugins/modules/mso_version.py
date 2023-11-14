@@ -35,7 +35,6 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

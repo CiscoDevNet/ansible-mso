@@ -84,7 +84,6 @@ EXAMPLES = r"""
     - epg: EPG1
       anp: ANP
     state: present
-  delegate_to: localhost
 
 - name: Migration of objects between templates of different schema
   mso_schema_template_migrate:
@@ -101,7 +100,6 @@ EXAMPLES = r"""
     - epg: EPG1
       anp: ANP
     state: present
-  delegate_to: localhost
 
 - name: Migration of BD object between templates of same schema
   mso_schema_template_migrate:
@@ -116,7 +114,6 @@ EXAMPLES = r"""
     - BD
     - BD1
     state: present
-  delegate_to: localhost
 
 - name: Migration of BD object between templates of different schema
   mso_schema_template_migrate:
@@ -131,7 +128,6 @@ EXAMPLES = r"""
     - BD
     - BD1
     state: present
-  delegate_to: localhost
 
 - name: Migration of EPG objects between templates of same schema
   mso_schema_template_migrate:
@@ -148,7 +144,6 @@ EXAMPLES = r"""
     - epg: EPG2
       anp: ANP2
     state: present
-  delegate_to: localhost
 
 - name: Migration of EPG objects between templates of different schema
   mso_schema_template_migrate:
@@ -165,7 +160,6 @@ EXAMPLES = r"""
     - epg: EPG2
       anp: ANP2
     state: present
-  delegate_to: localhost
 """
 
 RETURN = r"""

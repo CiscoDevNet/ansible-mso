@@ -128,7 +128,6 @@ EXAMPLES = r"""
     contract_scope: global
     filter: Filter 1
     state: present
-  delegate_to: localhost
 
 - name: Remove a contract filter
   cisco.mso.mso_schema_template_contract_filter:
@@ -140,7 +139,6 @@ EXAMPLES = r"""
     contract: Contract 1
     filter: Filter 1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific contract filter
   cisco.mso.mso_schema_template_contract_filter:
@@ -152,7 +150,6 @@ EXAMPLES = r"""
     contract: Contract 1
     filter: Filter 1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all contract filters
@@ -164,7 +161,6 @@ EXAMPLES = r"""
     template: Template 1
     contract: Contract 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

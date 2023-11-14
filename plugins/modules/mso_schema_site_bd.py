@@ -73,7 +73,6 @@ EXAMPLES = r"""
     template: Template1
     bd: BD1
     state: present
-  delegate_to: localhost
 
 - name: Remove a site BD
   cisco.mso.mso_schema_site_bd:
@@ -85,7 +84,6 @@ EXAMPLES = r"""
     template: Template1
     bd: BD1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific site BD
   cisco.mso.mso_schema_site_bd:
@@ -97,7 +95,6 @@ EXAMPLES = r"""
     template: Template1
     bd: BD1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all site BDs
@@ -109,7 +106,6 @@ EXAMPLES = r"""
     site: Site1
     template: Template1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

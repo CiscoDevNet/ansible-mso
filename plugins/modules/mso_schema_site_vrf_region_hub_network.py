@@ -93,7 +93,6 @@ EXAMPLES = r"""
       name: hub-default
       tenant: infra
     state: present
-  delegate_to: localhost
 
 - name: Remove a site VRF region hub network
   cisco.mso.mso_schema_site_vrf_region_hub_network:
@@ -105,7 +104,6 @@ EXAMPLES = r"""
     template: Template1
     vrf: VRF1
     state: absent
-  delegate_to: localhost
 
 - name: Query site VRF region hub network
   cisco.mso.mso_schema_site_vrf_region_hub_network:
@@ -118,7 +116,6 @@ EXAMPLES = r"""
     vrf: VRF1
     region: us-west-1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

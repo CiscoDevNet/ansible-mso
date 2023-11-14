@@ -114,7 +114,6 @@ EXAMPLES = r"""
     tenant: tenant_name
     site: site_name
     state: present
-  delegate_to: localhost
 
 - name: Associate AWS site with a tenant, with aws_trusted set to true
   cisco.mso.mso_tenant_site:
@@ -126,7 +125,6 @@ EXAMPLES = r"""
     cloud_account: '000000000000'
     aws_trusted: true
     state: present
-  delegate_to: localhost
 
 - name: Associate AWS site with a tenant, with aws_trusted set to false
   cisco.mso.mso_tenant_site:
@@ -141,7 +139,6 @@ EXAMPLES = r"""
     secret_key: '0'
     aws_account_org: false
     state: present
-  delegate_to: localhost
 
 - name: Associate Azure site in managed mode
   mso.cisco.mso_tenant_site:
@@ -155,7 +152,6 @@ EXAMPLES = r"""
     azure_subscription_id: '9'
     azure_application_id: '100'
     state: present
-  delegate_to: localhost
 
 - name: Associate Azure site in unmanaged mode
   mso.cisco.mso_tenant_site:
@@ -173,7 +169,6 @@ EXAMPLES = r"""
     azure_active_directory_id: '32'
     azure_active_directory_name: CiscoINSBUAd
     state: present
-  delegate_to: localhost
 
 - name: Dissociate a site
   cisco.mso.mso_tenant_site:
@@ -183,7 +178,6 @@ EXAMPLES = r"""
     tenant: tenant_name
     site: site_name
     state: absent
-  delegate_to: localhost
 
 - name: Query a site
   cisco.mso.mso_tenant_site:
@@ -193,7 +187,7 @@ EXAMPLES = r"""
     tenant: tenant_name
     site: site_name
     state: query
-  delegate_to: localhost
+  register: query_result
 
 - name: Query all sites of a tenant
   cisco.mso.mso_tenant_site:
@@ -202,7 +196,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     tenant: tenant_name
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

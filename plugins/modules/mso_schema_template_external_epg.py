@@ -138,7 +138,6 @@ EXAMPLES = r"""
       schema: Schema 1
       template: Template 1
     state: present
-  delegate_to: localhost
 
 - name: Add a new external EPG with external epg in cloud
   cisco.mso.mso_schema_template_external_epg:
@@ -158,7 +157,6 @@ EXAMPLES = r"""
       schema: Schema 1
       template: Template 1
     state: present
-  delegate_to: localhost
 
 - name: Remove an external EPG
   cisco.mso.mso_schema_template_external_epg:
@@ -169,7 +167,6 @@ EXAMPLES = r"""
     template: Template 1
     external_epg: external EPG1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific external EPGs
   cisco.mso.mso_schema_template_external_epg:
@@ -180,7 +177,6 @@ EXAMPLES = r"""
     template: Template 1
     external_epg: external EPG1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all external EPGs
@@ -191,7 +187,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

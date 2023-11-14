@@ -212,7 +212,6 @@ EXAMPLES = r"""
     vrf:
      name: vrf1
     state: present
-  delegate_to: localhost
 
 - name: Add a new EPG with preferred group.
   cisco.mso.mso_schema_template_anp_epg:
@@ -225,7 +224,6 @@ EXAMPLES = r"""
     epg: EPG 1
     state: present
     preferred_group: true
-  delegate_to: localhost
 
 - name: Remove an EPG
   cisco.mso.mso_schema_template_anp_epg:
@@ -241,7 +239,6 @@ EXAMPLES = r"""
     vrf:
      name: vrf1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific EPG
   cisco.mso.mso_schema_template_anp_epg:
@@ -257,7 +254,6 @@ EXAMPLES = r"""
     vrf:
      name: vrf1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all EPGs
@@ -274,7 +270,6 @@ EXAMPLES = r"""
     vrf:
      name: vrf1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

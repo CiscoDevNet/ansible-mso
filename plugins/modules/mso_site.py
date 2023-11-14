@@ -110,7 +110,6 @@ EXAMPLES = r"""
       latitude: 50.887318
       longitude: 4.447084
     state: present
-  delegate_to: localhost
 
 - name: Remove a site
   cisco.mso.mso_site:
@@ -119,7 +118,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     site: north_europe
     state: absent
-  delegate_to: localhost
 
 - name: Query a site
   cisco.mso.mso_site:
@@ -128,7 +126,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     site: north_europe
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all sites
@@ -137,7 +134,6 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

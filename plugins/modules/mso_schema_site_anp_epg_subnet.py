@@ -100,7 +100,6 @@ EXAMPLES = r"""
     epg: EPG1
     subnet: 10.0.0.0/24
     state: present
-  delegate_to: localhost
 
 - name: Remove a subnet from a site EPG
   cisco.mso.mso_schema_site_anp_epg_subnet:
@@ -114,7 +113,6 @@ EXAMPLES = r"""
     epg: EPG1
     subnet: 10.0.0.0/24
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific site EPG subnet
   cisco.mso.mso_schema_site_anp_epg_subnet:
@@ -128,7 +126,6 @@ EXAMPLES = r"""
     epg: EPG1
     subnet: 10.0.0.0/24
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all site EPG subnets
@@ -141,7 +138,6 @@ EXAMPLES = r"""
     template: Template1
     anp: ANP1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

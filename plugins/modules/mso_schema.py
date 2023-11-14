@@ -70,7 +70,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     schema: Schema 1
     state: absent
-  delegate_to: localhost
 
 - name: Query a schema
   cisco.mso.mso_schema:
@@ -79,7 +78,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     schema: Schema 1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all schemas
@@ -88,7 +86,6 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

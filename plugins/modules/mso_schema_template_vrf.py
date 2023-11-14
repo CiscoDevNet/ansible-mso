@@ -79,7 +79,6 @@ EXAMPLES = r"""
     template: Template 1
     vrf: VRF 1
     state: present
-  delegate_to: localhost
 
 - name: Remove an VRF
   cisco.mso.mso_schema_template_vrf:
@@ -90,7 +89,6 @@ EXAMPLES = r"""
     template: Template 1
     vrf: VRF1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific VRFs
   cisco.mso.mso_schema_template_vrf:
@@ -101,7 +99,6 @@ EXAMPLES = r"""
     template: Template 1
     vrf: VRF1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all VRFs
@@ -112,7 +109,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

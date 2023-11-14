@@ -115,7 +115,6 @@ EXAMPLES = r"""
     - manage-tenant-schemas
     - manage-users
     state: present
-  delegate_to: localhost
 
 - name: Remove a role
   cisco.mso.mso_role:
@@ -124,7 +123,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     role: readOnly
     state: absent
-  delegate_to: localhost
 
 - name: Query a role
   cisco.mso.mso_role:
@@ -133,7 +131,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     role: readOnly
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all roles
@@ -142,7 +139,6 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

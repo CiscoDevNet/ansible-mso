@@ -81,7 +81,6 @@ EXAMPLES = r"""
       - name: ansible_test_adc
       - name: ansible_test_other
     state: present
-  delegate_to: localhost
 
 - name: Remove a Service Graph
   cisco.mso.mso_schema_site_service_graph_node:
@@ -93,7 +92,6 @@ EXAMPLES = r"""
     service_graph: SG1
     site: site1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific Service Graph
   cisco.mso.mso_schema_site_service_graph_node:
@@ -105,7 +103,7 @@ EXAMPLES = r"""
     service_graph: SG1
     site: site1
     state: query
-  delegate_to: localhost
+  register: query_result
 
 - name: Query all Service Graphs
   cisco.mso.mso_schema_site_service_graph_node:
@@ -116,7 +114,7 @@ EXAMPLES = r"""
     template: Template1
     site: site1
     state: query
-  delegate_to: localhost
+  register: query_result
 """
 
 RETURN = r"""

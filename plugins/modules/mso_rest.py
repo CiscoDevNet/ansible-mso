@@ -83,7 +83,7 @@ EXAMPLES = r"""
           "sites": [],
           "_updateVersion": 0
       }
-  delegate_to: localhost
+  
 
 - name: Query schema
   cisco.mso.mso_rest:
@@ -92,7 +92,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     path: /mso/api/v1/schemas
     method: get
-  delegate_to: localhost
+  register: query_result
 
 - name: Patch schema (YAML)
   cisco.mso.mso_rest:
@@ -109,7 +109,6 @@ EXAMPLES = r"""
           displayName: AP2
           epgs: []
         _updateVersion: 0
-  delegate_to: localhost
 
 - name: Add a tenant from a templated payload file from templates
   cisco.mso.mso_rest:
@@ -119,7 +118,6 @@ EXAMPLES = r"""
     method: post
     path: /api/v1/tenants
     content: "{{ lookup('template', 'mso/tenant.json.j2') }}"
-  delegate_to: localhost
 """
 
 RETURN = r"""

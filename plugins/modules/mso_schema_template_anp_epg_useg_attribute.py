@@ -98,7 +98,6 @@ EXAMPLES = r"""
     useg_subnet: false
     value: 10.0.0.0/24
     state: present
-  delegate_to: localhost
 
 - name: Query a specific EPG uSeg attr with name
   cisco.mso.mso_schema_template_anp_epg_useg_attribute:
@@ -111,7 +110,6 @@ EXAMPLES = r"""
     epg: EPG 1
     name: useg_attr_ip
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all EPG uSeg attrs
@@ -124,7 +122,6 @@ EXAMPLES = r"""
     anp: ANP 1
     epg: EPG 1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Remove a uSeg attr from an EPG with name
@@ -138,7 +135,6 @@ EXAMPLES = r"""
     epg: EPG 1
     name: useg_attr_ip
     state: absent
-  delegate_to: localhost
 """
 
 RETURN = r"""

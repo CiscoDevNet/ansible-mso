@@ -103,7 +103,6 @@ EXAMPLES = r"""
         operator: in
         value: test
     state: present
-  delegate_to: localhost
 
 - name: Remove a Selector from a site EPG
   cisco.mso.mso_schema_site_anp_epg_selector:
@@ -117,7 +116,6 @@ EXAMPLES = r"""
     epg: EPG 1
     selector: selector_1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific Selector
   cisco.mso.mso_schema_site_anp_epg_selector:
@@ -131,7 +129,6 @@ EXAMPLES = r"""
     epg: EPG 1
     selector: selector_1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all Selectors
@@ -145,7 +142,6 @@ EXAMPLES = r"""
     anp: ANP 1
     epg: EPG 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

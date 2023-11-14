@@ -51,7 +51,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query status of objects using site
@@ -62,7 +61,6 @@ EXAMPLES = r"""
     schema: Schema 1
     site: ansible_test
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query status of objects in a template associated with a site
@@ -74,7 +72,6 @@ EXAMPLES = r"""
     template: Template 1
     site: ansible_test
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query status of objects in all templates
@@ -84,7 +81,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     schema: Schema 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

@@ -113,7 +113,6 @@ EXAMPLES = r"""
     subnet: 14.14.14.2/24
     zone: us-west-1a
     state: present
-  delegate_to: localhost
 
 - name: Remove a site VRF region CIDR subnet
   cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
@@ -128,7 +127,6 @@ EXAMPLES = r"""
     cidr: 14.14.14.1/24
     subnet: 14.14.14.2/24
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific site VRF region CIDR subnet
   cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
@@ -143,7 +141,6 @@ EXAMPLES = r"""
     cidr: 14.14.14.1/24
     subnet: 14.14.14.2/24
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all site VRF region CIDR subnet
@@ -158,7 +155,6 @@ EXAMPLES = r"""
     region: us-west-1
     cidr: 14.14.14.1/24
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

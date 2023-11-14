@@ -132,7 +132,6 @@ EXAMPLES = r"""
     template: Template 1
     filter: Filter 1
     state: present
-  delegate_to: localhost
 
 - name: Remove a filter entry
   cisco.mso.mso_schema_template_filter_entry:
@@ -143,7 +142,6 @@ EXAMPLES = r"""
     template: Template 1
     filter: Filter 1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific filter entry
   cisco.mso.mso_schema_template_filter_entry:
@@ -154,7 +152,6 @@ EXAMPLES = r"""
     template: Template 1
     filter: Filter 1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all filter entries
@@ -165,7 +162,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

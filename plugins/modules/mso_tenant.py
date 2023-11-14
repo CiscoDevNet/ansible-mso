@@ -90,7 +90,6 @@ EXAMPLES = r"""
     display_name: North European Datacenter
     description: This tenant manages the NEDC environment.
     state: present
-  delegate_to: localhost
 
 - name: Remove a tenant from MSO and Site/APIC
   cisco.mso.mso_tenant:
@@ -100,7 +99,6 @@ EXAMPLES = r"""
     tenant: north_europe
     orchestrator_only: no
     state: absent
-  delegate_to: localhost
 
 - name: Remove a tenant from MSO only
   cisco.mso.mso_tenant:
@@ -110,7 +108,6 @@ EXAMPLES = r"""
     tenant: north_europe
     orchestrator_only: yes
     state: absent
-  delegate_to: localhost
 
 - name: Query a tenant
   cisco.mso.mso_tenant:
@@ -119,7 +116,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     tenant: north_europe
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all tenants
@@ -128,7 +124,6 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

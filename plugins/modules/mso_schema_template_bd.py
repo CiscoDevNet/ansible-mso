@@ -250,7 +250,6 @@ EXAMPLES = r"""
     vrf:
       name: VRF1
     state: present
-  delegate_to: localhost
 
 - name: Add a new BD from another Schema
   mso_schema_template_bd:
@@ -265,7 +264,6 @@ EXAMPLES = r"""
       schema: Schema Origin
       template: Template Origin
     state: present
-  delegate_to: localhost
 
 - name: Add bd with options available on version 3.1
   mso_schema_template_bd:
@@ -357,7 +355,6 @@ EXAMPLES = r"""
           name: ansible_test_option
           version: 1
     state: present
-  delegate_to: localhost
 
 - name: Remove a BD
   cisco.mso.mso_schema_template_bd:
@@ -368,7 +365,6 @@ EXAMPLES = r"""
     template: Template 1
     bd: BD1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific BD
   cisco.mso.mso_schema_template_bd:
@@ -379,7 +375,6 @@ EXAMPLES = r"""
     template: Template 1
     bd: BD1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all BDs
@@ -390,7 +385,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

@@ -83,7 +83,6 @@ EXAMPLES = r"""
     description: via Ansible
     location_type: local
     state: present
-  delegate_to: localhost
 
 - name: Create a new remote backup
   cisco.mso.mso_backup:
@@ -95,7 +94,6 @@ EXAMPLES = r"""
     location_type: remote
     remote_location: ansible_test
     state: present
-  delegate_to: localhost
 
 - name: Move backup to remote location
   cisco.mso.mso_backup:
@@ -106,7 +104,6 @@ EXAMPLES = r"""
     remote_location: ansible_test
     remote_path: test
     state: move
-  delegate_to: localhost
 
 - name: Download a backup
   cisco.mso.mso_backup:
@@ -116,7 +113,6 @@ EXAMPLES = r"""
     backup: Backup
     destination: ./
     state: download
-  delegate_to: localhost
 
 - name: Upload a backup
   cisco.mso.mso_backup:
@@ -125,7 +121,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     backup: ./Backup
     state: upload
-  delegate_to: localhost
 
 - name: Restore a backup
   cisco.mso.mso_backup:
@@ -134,7 +129,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     backup: Backup
     state: restore
-  delegate_to: localhost
 
 - name: Remove a Backup
   cisco.mso.mso_backup:
@@ -143,7 +137,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     backup: Backup
     state: absent
-  delegate_to: localhost
 
 - name: Query a backup
   cisco.mso.mso_backup:
@@ -152,7 +145,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     backup: Backup
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query a backup with its complete name
@@ -162,7 +154,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     backup: Backup_20200721220043
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all backups
@@ -171,7 +162,6 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

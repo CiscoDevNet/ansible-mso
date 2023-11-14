@@ -89,7 +89,6 @@ EXAMPLES = r"""
         template: TemplateName
         schema: schemaName
     state: present
-  delegate_to: localhost
 
 - name: Remove a site L3Out
   cisco.mso.mso_schema_site_l3out:
@@ -101,7 +100,6 @@ EXAMPLES = r"""
     template: Template1
     l3out: L3out1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific site L3Out
   cisco.mso.mso_schema_site_l3out:
@@ -113,7 +111,6 @@ EXAMPLES = r"""
     template: Template1
     l3out: L3out1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all site l3outs
@@ -125,7 +122,6 @@ EXAMPLES = r"""
     site: Site1
     template: Template1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

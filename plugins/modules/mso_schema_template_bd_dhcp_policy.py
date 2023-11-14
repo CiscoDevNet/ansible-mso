@@ -85,7 +85,6 @@ EXAMPLES = r"""
       name: ansible_test_option
       version: 1
     state: present
-  delegate_to: localhost
 
 - name: Remove a DHCP policy from a BD
   cisco.mso.mso_schema_template_bd_dhcp_policy:
@@ -98,7 +97,6 @@ EXAMPLES = r"""
     name: ansible_test
     version: 1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific BD DHCP Policy
   cisco.mso.mso_schema_template_bd_dhcp_policy:
@@ -110,7 +108,6 @@ EXAMPLES = r"""
     bd: BD 1
     name: ansible_test
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all BD DHCP Policies
@@ -122,7 +119,6 @@ EXAMPLES = r"""
     template: Template 1
     bd: BD 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

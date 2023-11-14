@@ -190,7 +190,6 @@ EXAMPLES = r"""
       - path: eth1/3
         vlan: 124
     state: present
-  delegate_to: localhost
 
 - name: Add a new static fex port to a site EPG
   cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
@@ -215,7 +214,6 @@ EXAMPLES = r"""
         vlan: 124
       - fex: 151
     state: present
-  delegate_to: localhost
 
 - name: Add a new static VPC to a site EPG
   cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
@@ -245,7 +243,6 @@ EXAMPLES = r"""
         mode: untagged
         deployment_immediacy: lazy
     state: present
-  delegate_to: localhost
 
 - name: Remove static ports from a site EPG
   cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
@@ -258,7 +255,6 @@ EXAMPLES = r"""
     anp: ANP1
     epg: EPG1
     state: absent
-  delegate_to: localhost
 
 - name: Query all site EPG static ports
   cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
@@ -270,7 +266,6 @@ EXAMPLES = r"""
     template: Template1
     anp: ANP1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

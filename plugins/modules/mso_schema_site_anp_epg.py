@@ -75,7 +75,6 @@ EXAMPLES = r"""
     anp: ANP1
     epg: EPG1
     state: present
-  delegate_to: localhost
 
 - name: Remove a site EPG
   cisco.mso.mso_schema_site_anp_epg:
@@ -88,7 +87,6 @@ EXAMPLES = r"""
     anp: ANP1
     epg: EPG1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific site EPGs
   cisco.mso.mso_schema_site_anp_epg:
@@ -101,7 +99,6 @@ EXAMPLES = r"""
     anp: ANP1
     epg: EPG1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all site EPGs
@@ -114,7 +111,6 @@ EXAMPLES = r"""
     template: Template1
     anp: ANP1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

@@ -113,7 +113,6 @@ EXAMPLES = r"""
         consumer: b2
     filter: Filter 1
     state: present
-  delegate_to: localhost
 
 - name: Remove a contract service graph
   cisco.mso.mso_schema_template_contract_service_graph:
@@ -125,7 +124,6 @@ EXAMPLES = r"""
     contract: Contract 1
     service_graph: SG1
     state: absent
-  delegate_to: localhost
 
 - name: Query a contract service graph
   cisco.mso.mso_schema_template_contract_service_graph:
@@ -136,7 +134,6 @@ EXAMPLES = r"""
     template: Template 1
     contract: Contract 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

@@ -83,7 +83,6 @@ EXAMPLES = r"""
           "sites": [],
           "_updateVersion": 0
       }
-  
 
 - name: Query schema
   cisco.mso.mso_rest:

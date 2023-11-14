@@ -46,7 +46,6 @@ Once the collection is installed, you can use it in a playbook by specifying the
       anp: ANP1
       epg: EPG1
       state: present
-    delegate_to: localhost
 ```
 
 You can also use the MSO HTTPAPI connection plugin by setting the following variables in your inventory file (cisco.mso collection v1.2+).

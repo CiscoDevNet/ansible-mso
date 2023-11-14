@@ -25,7 +25,6 @@
   cisco.mso.mso_backup_schedule:
     <<: *mso_info
     state: absent
-  delegate_to: localhost
 
 - name: Ensure remote location is present
   cisco.mso.mso_remote_location:
@@ -45,7 +44,6 @@
   cisco.mso.mso_backup_schedule:
     <<: *mso_info
     state: query
-  delegate_to: localhost
   register: no_schedule
 
 - name: Verify empty backup schedule
@@ -62,7 +60,6 @@
     remote_location: ansible_test
     state: present
   check_mode: true
-  delegate_to: localhost
   register: cm_schedule_create
 
 - name: Set backup schedule (normal mode)
@@ -72,7 +69,6 @@
     frequency_length: 7
     remote_location: ansible_test
     state: present
-  delegate_to: localhost
   register: nm_schedule_create
 
 # add date tests
@@ -97,7 +93,6 @@
     remote_location: ansible_test
     state: present
   check_mode: true
-  delegate_to: localhost
   register: cm_schedule_adjust
 
 - name: Adjust backup schedule (normal mode)
@@ -107,7 +102,6 @@
     frequency_length: 1
     remote_location: ansible_test
     state: present
-  delegate_to: localhost
   register: nm_schedule_adjust
 
 - name: Verify success set backup schedule
@@ -126,7 +120,6 @@
   cisco.mso.mso_backup_schedule:
     <<: *mso_info
     state: query
-  delegate_to: localhost
   register: schedule
 
 - name: Verify success get backup schedule
@@ -142,19 +135,16 @@
     <<: *mso_info
     state: absent
   check_mode: true
-  delegate_to: localhost
 
 - name: Delete backup schedule (normal mode)
   cisco.mso.mso_backup_schedule:
     <<: *mso_info
     state: absent
-  delegate_to: localhost
 
 - name: Get empty backup schedule
   cisco.mso.mso_backup_schedule:
     <<: *mso_info
     state: query
-  delegate_to: localhost
   register: no_schedule
 
 - name: Verify empty backup schedule
@@ -171,7 +161,6 @@
     frequency_length: 7
     remote_location: ansible_test
     state: present
-  delegate_to: localhost
   register: nm_schedule_incorrect_time
   ignore_errors: true
 
@@ -183,7 +172,6 @@
     frequency_length: 7
     remote_location: ansible_test
     state: present
-  delegate_to: localhost
   register: nm_schedule_incorrect_date
   ignore_errors: true
 
@@ -195,7 +183,6 @@
     frequency_length: 7
     remote_location: ansible_test
     state: present
-  delegate_to: localhost
   register: nm_schedule_incorrect_date_from_start_date
   ignore_errors: true
 
@@ -207,7 +194,6 @@
     frequency_length: 7
     remote_location: ansible_test
     state: present
-  delegate_to: localhost
   register: nm_schedule_incorrect_time_from_start_time
   ignore_errors: true
 
@@ -233,7 +219,6 @@
     remote_location: ansible_test
     remote_path: remote_add
     state: present
-  delegate_to: localhost
   register: nm_schedule_full
 
 - name: Verify success set backup schedule
@@ -250,13 +235,11 @@
   cisco.mso.mso_backup_schedule:
     <<: *mso_info
     state: absent
-  delegate_to: localhost
 
 - name: Get empty backup schedule
   cisco.mso.mso_backup_schedule:
     <<: *mso_info
     state: query
-  delegate_to: localhost
   register: no_schedule
 
 - name: Verify empty backup schedule

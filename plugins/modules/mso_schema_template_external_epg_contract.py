@@ -85,7 +85,6 @@ EXAMPLES = r"""
       name: Contract 1
       type: consumer
     state: present
-  delegate_to: localhost
 
 - name: Remove a Contract
   cisco.mso.mso_schema_template_external_epg_contract:
@@ -98,7 +97,6 @@ EXAMPLES = r"""
     contract:
       name: Contract 1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific Contract
   cisco.mso.mso_schema_template_external_epg_contract:
@@ -111,7 +109,6 @@ EXAMPLES = r"""
     contract:
       name: Contract 1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all Contracts
@@ -122,7 +119,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

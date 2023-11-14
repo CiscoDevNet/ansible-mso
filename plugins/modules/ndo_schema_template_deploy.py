@@ -61,7 +61,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: deploy
-  delegate_to: localhost
 
 - name: Redeploy a schema template
   cisco.mso.ndo_schema_template_deploy:
@@ -71,7 +70,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: redeploy
-  delegate_to: localhost
 
 - name: Undeploy a schema template
   cisco.mso.ndo_schema_template_deploy:
@@ -82,7 +80,6 @@ EXAMPLES = r"""
     template: Template 1
     sites: [ Site1, Site2 ]
     state: undeploy
-  delegate_to: localhost
 
 - name: Query a schema template deploy status
   cisco.mso.ndo_schema_template_deploy:
@@ -92,7 +89,7 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: query
-  delegate_to: localhost
+  register: query_result
 """
 
 RETURN = r"""

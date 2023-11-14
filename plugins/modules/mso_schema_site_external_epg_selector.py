@@ -94,7 +94,6 @@ EXAMPLES = r"""
         operator: equals
         value: 10.0.0.0
     state: present
-  delegate_to: localhost
 
 - name: Remove a Selector
   cisco.mso.mso_schema_site_external_epg_selector:
@@ -107,7 +106,6 @@ EXAMPLES = r"""
     external_epg: ext1
     selector: test
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific Selector
   cisco.mso.mso_schema_site_external_epg_selector:
@@ -120,7 +118,6 @@ EXAMPLES = r"""
     external_epg: ext1
     selector: selector_1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all Selectors
@@ -133,7 +130,6 @@ EXAMPLES = r"""
     site: azure_ansible_test
     external_epg: ext1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

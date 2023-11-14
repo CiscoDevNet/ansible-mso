@@ -71,7 +71,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: present
-  delegate_to: localhost
 
 - name: Remove a template from a schema
   cisco.mso.mso_schema_template:
@@ -82,7 +81,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: absent
-  delegate_to: localhost
 
 - name: Query a template
   cisco.mso.mso_schema_template:
@@ -93,7 +91,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all templates
@@ -104,7 +101,6 @@ EXAMPLES = r"""
     tenant: Tenant 1
     schema: Schema 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

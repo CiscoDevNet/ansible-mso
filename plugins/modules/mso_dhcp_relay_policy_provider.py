@@ -82,7 +82,6 @@ EXAMPLES = r"""
     application_profile: ansible_test
     endpoint_group: ansible_test
     state: present
-  delegate_to: localhost
 
 - name: Remove a provider to a DHCP Relay Policy
   cisco.mso.mso_dhcp_relay_policy_provider:
@@ -96,7 +95,6 @@ EXAMPLES = r"""
     application_profile: ansible_test
     endpoint_group: ansible_test
     state: absent
-  delegate_to: localhost
 
 - name: Query a provider to a DHCP Relay Policy
   cisco.mso.mso_dhcp_relay_policy_provider:
@@ -110,7 +108,7 @@ EXAMPLES = r"""
     application_profile: ansible_test
     endpoint_group: ansible_test
     state: query
-  delegate_to: localhost
+  register: query_result
 
 - name: Query all provider of a DHCP Relay Policy
   cisco.mso.mso_dhcp_relay_policy_provider:
@@ -119,7 +117,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     dhcp_relay_policy: my_test_dhcp_policy
     state: query
-  delegate_to: localhost
+  register: query_result
 """
 
 RETURN = r"""

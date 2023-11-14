@@ -69,7 +69,6 @@ EXAMPLES = r"""
     destination_template_name: Template1_clone
     destination_template_display_name: Template1_clone
     state: clone
-  delegate_to: localhost
 
 - name: Clone template to different schema
   cisco.mso.mso_schema_template_clone:
@@ -83,7 +82,6 @@ EXAMPLES = r"""
     destination_template_name: Cloned_template_1
     destination_template_display_name: Cloned_template_1
     state: clone
-  delegate_to: localhost
 
 - name: Clone template in the same schema but different tenant attached
   cisco.mso.mso_schema_template_clone:
@@ -96,7 +94,6 @@ EXAMPLES = r"""
     source_template_name: Template1_clone
     destination_template_name: Template1_clone_2
     state: clone
-  delegate_to: localhost
 """
 
 RETURN = r"""

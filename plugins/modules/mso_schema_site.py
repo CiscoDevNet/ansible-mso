@@ -58,7 +58,6 @@ EXAMPLES = r"""
     site: Site1
     template: Template 1
     state: present
-  delegate_to: localhost
 
 - name: Remove a site from a schema
   cisco.mso.mso_schema_site:
@@ -69,7 +68,6 @@ EXAMPLES = r"""
     site: Site1
     template: Template 1
     state: absent
-  delegate_to: localhost
 
 - name: Query a schema site
   cisco.mso.mso_schema_site:
@@ -80,7 +78,6 @@ EXAMPLES = r"""
     site: Site1
     template: Template 1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all schema sites
@@ -90,7 +87,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     schema: Schema 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

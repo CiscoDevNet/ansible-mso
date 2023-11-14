@@ -75,7 +75,6 @@ EXAMPLES = r"""
     external_epg: External EPG 1
     l3out: L3out1
     state: present
-  delegate_to: localhost
 
 - name: Remove a Site External EPG
   cisco.mso.mso_schema_site_external_epg:
@@ -87,7 +86,6 @@ EXAMPLES = r"""
     external_epg: External EPG 1
     l3out: L3out1
     state: absent
-  delegate_to: localhost
 
 - name: Query a Site External EPG
   cisco.mso.mso_schema_site_external_epg:
@@ -99,7 +97,7 @@ EXAMPLES = r"""
     external_epg: External EPG 1
     l3out: L3out1
     state: query
-  delegate_to: localhost
+  register: query_result
 
 - name: Query all Site External EPGs
   cisco.mso.mso_schema_site_external_epg:
@@ -109,7 +107,7 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: query
-  delegate_to: localhost
+  register: query_result
 """
 
 RETURN = r"""

@@ -91,7 +91,6 @@ EXAMPLES = r"""
       name: Contract 1
       type: consumer
     state: present
-  delegate_to: localhost
 
 - name: Remove a Contract
   cisco.mso.mso_schema_template_anp_epg_contract:
@@ -105,7 +104,6 @@ EXAMPLES = r"""
     contract:
       name: Contract 1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific Contract
   cisco.mso.mso_schema_template_anp_epg_contract:
@@ -119,7 +117,6 @@ EXAMPLES = r"""
     contract:
       name: Contract 1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all Contracts
@@ -131,7 +128,6 @@ EXAMPLES = r"""
     template: Template 1
     anp: ANP 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

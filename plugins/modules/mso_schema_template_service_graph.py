@@ -83,7 +83,6 @@ EXAMPLES = r"""
       - type: other
       - type: load-balancer
     state: present
-  delegate_to: localhost
 
 - name: Remove a Service Graph
   cisco.mso.mso_schema_template_service_graph:
@@ -94,7 +93,6 @@ EXAMPLES = r"""
     template: Template1
     service_graph: graph1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific Service Graph
   cisco.mso.mso_schema_template_service_graph:
@@ -105,7 +103,7 @@ EXAMPLES = r"""
     template: Template1
     service_graph: graph1
     state: query
-  delegate_to: localhost
+  register: query_result
 
 - name: Query all Service Graphs
   cisco.mso.mso_schema_template_service_graph:
@@ -115,7 +113,7 @@ EXAMPLES = r"""
     schema: Schema1
     template: Template1
     state: query
-  delegate_to: localhost
+  register: query_result
 """
 
 RETURN = r"""

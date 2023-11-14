@@ -87,7 +87,6 @@ EXAMPLES = r"""
     user: admin
     user_password: newPassword
     state: present
-  delegate_to: localhost
 
 - name: Add a new user
   cisco.mso.mso_user:
@@ -107,7 +106,6 @@ EXAMPLES = r"""
     - name: schemaManager
       access_type: read
     state: present
-  delegate_to: localhost
 
 - name: Add a new user
   cisco.mso.mso_user:
@@ -122,7 +120,6 @@ EXAMPLES = r"""
     phone: +32 478 436 299
     roles:
     - powerUser
-  delegate_to: localhost
 
 - name: Remove a user
   cisco.mso.mso_user:
@@ -132,7 +129,6 @@ EXAMPLES = r"""
     validate_certs: false
     user: dag
     state: absent
-  delegate_to: localhost
 
 - name: Query a user
   cisco.mso.mso_user:
@@ -142,7 +138,6 @@ EXAMPLES = r"""
     validate_certs: false
     user: dag
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all users
@@ -152,7 +147,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     validate_certs: false
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

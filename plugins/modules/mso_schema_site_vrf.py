@@ -63,7 +63,6 @@ EXAMPLES = r"""
     template: Template1
     vrf: VRF1
     state: present
-  delegate_to: localhost
 
 - name: Remove a site VRF
   cisco.mso.mso_schema_site_vrf:
@@ -75,7 +74,6 @@ EXAMPLES = r"""
     template: Template1
     vrf: VRF1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific site VRF
   cisco.mso.mso_schema_site_vrf:
@@ -87,7 +85,6 @@ EXAMPLES = r"""
     template: Template1
     vrf: VRF1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all site VRFs
@@ -99,7 +96,6 @@ EXAMPLES = r"""
     site: Site1
     template: Template1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

@@ -49,7 +49,6 @@ EXAMPLES = r"""
     source_schema: Source_Schema
     destination_schema: Destination_Schema
     state: clone
-  delegate_to: localhost
 """
 
 RETURN = r"""

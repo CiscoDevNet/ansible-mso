@@ -46,7 +46,6 @@ EXAMPLES = r"""
     name: ips
     display_name: ips
     state: present
-  delegate_to: localhost
 
 - name: Remove a Service Node Type
   cisco.mso.mso_schema_service_node:
@@ -55,7 +54,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     name: ips
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific Service Node Type
   cisco.mso.mso_schema_service_node:
@@ -64,7 +62,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     name: ips
     state: query
-  delegate_to: localhost
+  register: query_result
 
 - name: Query all Service Node Types
   cisco.mso.mso_schema_service_node:
@@ -72,7 +70,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     state: query
-  delegate_to: localhost
+  register: query_result
 """
 
 RETURN = r"""

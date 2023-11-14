@@ -49,7 +49,6 @@ EXAMPLES = r"""
     label: Belgium
     type: site
     state: present
-  delegate_to: localhost
 
 - name: Remove a label
   cisco.mso.mso_label:
@@ -58,7 +57,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     label: Belgium
     state: absent
-  delegate_to: localhost
 
 - name: Query a label
   cisco.mso.mso_label:
@@ -67,7 +65,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     label: Belgium
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all labels
@@ -76,7 +73,6 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

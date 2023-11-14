@@ -35,11 +35,19 @@ options:
     default: query
     choices: [ query ]
 seealso:
-- module: cisco.mso.mso_schema_template_external_epg
+- module: cisco.mso.mso_schema
 extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
+  - name: Get Validation status
+    mso_schema_validate:
+      host: mso_host
+      username: admin
+      password: SomeSecretPassword
+      schema: Schema 1
+      state: query
+    register: query_validate
 """
 
 RETURN = r"""

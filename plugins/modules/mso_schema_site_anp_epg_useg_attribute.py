@@ -104,7 +104,6 @@ EXAMPLES = r"""
     useg_subnet: false
     value: 10.0.0.0/24
     state: present
-  delegate_to: localhost
 
 - name: Query a specific EPG uSeg attr with name
   cisco.mso.mso_schema_site_anp_epg_useg_attribute:
@@ -118,7 +117,7 @@ EXAMPLES = r"""
     name: useg_attr_ip
     site: ansible_test
     state: query
-  delegate_to: localhost
+  register: query_result
 
 - name: Query all EPG uSeg attrs
   cisco.mso.mso_schema_site_anp_epg_useg_attribute:
@@ -131,7 +130,7 @@ EXAMPLES = r"""
     epg: EPG 1
     site: ansible_test
     state: query
-  delegate_to: localhost
+  register: query_result
 
 - name: Remove a uSeg attr from an EPG with name
   cisco.mso.mso_schema_site_anp_epg_useg_attribute:
@@ -145,7 +144,6 @@ EXAMPLES = r"""
     site: ansible_test
     name: useg_attr_ip
     state: absent
-  delegate_to: localhost
 """
 
 RETURN = r"""

@@ -65,7 +65,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     state: query
-  delegate_to: localhost
+  register: query_result
 
 - name: Set backup schedule
   cisco.mso.mso_backup_schedule:
@@ -76,7 +76,6 @@ EXAMPLES = r"""
     frequency_length: 7
     remote_location: ansible_test
     state: present
-  delegate_to: localhost
 
 - name: Set backup schedule with date and time
   cisco.mso.mso_backup_schedule:
@@ -90,7 +89,6 @@ EXAMPLES = r"""
     start_time: 20:57:36
     start_date: 2023-04-09
     state: present
-  delegate_to: localhost
 
 - name: Delete backup schedule
   cisco.mso.mso_backup_schedule:
@@ -98,7 +96,6 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     state: absent
-  delegate_to: localhost
 """
 
 RETURN = r"""

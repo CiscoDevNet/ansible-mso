@@ -88,7 +88,6 @@ EXAMPLES = r"""
     leaf: Leaf1
     vlan: 123
     state: present
-  delegate_to: localhost
 
 - name: Remove a static leaf from a site EPG
   cisco.mso.mso_schema_site_anp_epg_staticleaf:
@@ -102,7 +101,6 @@ EXAMPLES = r"""
     epg: EPG1
     leaf: Leaf1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific site EPG static leaf
   cisco.mso.mso_schema_site_anp_epg_staticleaf:
@@ -116,7 +114,6 @@ EXAMPLES = r"""
     epg: EPG1
     leaf: Leaf1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all site EPG static leafs
@@ -129,7 +126,6 @@ EXAMPLES = r"""
     template: Template1
     anp: ANP1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

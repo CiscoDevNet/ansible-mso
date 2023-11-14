@@ -80,7 +80,6 @@ EXAMPLES = r"""
     external_epg: EPG 1
     subnet: 10.0.0.0/24
     state: present
-  delegate_to: localhost
 
 - name: Remove a subnet from an External EPG
   cisco.mso.mso_schema_template_external_epg_subnet:
@@ -92,7 +91,6 @@ EXAMPLES = r"""
     external_epg: EPG 1
     subnet: 10.0.0.0/24
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific External EPG subnet
   cisco.mso.mso_schema_template_external_epg_subnet:
@@ -104,7 +102,6 @@ EXAMPLES = r"""
     external_epg: EPG 1
     subnet: 10.0.0.0/24
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all External EPGs subnets
@@ -115,7 +112,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

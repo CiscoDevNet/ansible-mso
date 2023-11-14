@@ -87,7 +87,6 @@ EXAMPLES = r"""
         schema: vrfSchema
         template: vrfTemplate
     state: present
-  delegate_to: localhost
 
 - name: Remove an L3out
   cisco.mso.mso_schema_template_l3out:
@@ -98,7 +97,6 @@ EXAMPLES = r"""
     template: Template 1
     l3out: L3out 1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific L3outs
   cisco.mso.mso_schema_template_l3out:
@@ -110,7 +108,6 @@ EXAMPLES = r"""
     template: Template 1
     l3out: L3out 1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all L3outs
@@ -122,7 +119,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

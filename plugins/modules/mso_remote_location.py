@@ -89,7 +89,6 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     state: query
-  delegate_to: localhost
   register: backups
 
 - name: Query a remote location
@@ -99,7 +98,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     remote_location: ansible_test
     state: query
-  delegate_to: localhost
+  register: query_result
 
 - name: Configure a remote location
   cisco.mso.mso_remote_location:
@@ -114,7 +113,6 @@ EXAMPLES = r"""
     remote_username: username
     remote_password: password
     state: present
-  delegate_to: localhost
 
 - name: Delete a remote location
   cisco.mso.mso_remote_location:
@@ -123,7 +121,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     remote_location: ansible_test
     state: absent
-  delegate_to: localhost
 """
 
 RETURN = r"""

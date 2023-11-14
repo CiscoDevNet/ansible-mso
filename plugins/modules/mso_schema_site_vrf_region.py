@@ -101,7 +101,6 @@ EXAMPLES = r"""
     region: us-west-1
     vpn_gateway_router: false
     state: present
-  delegate_to: localhost
 
 - name: Remove a site VRF region
   cisco.mso.mso_schema_site_vrf_region:
@@ -114,7 +113,6 @@ EXAMPLES = r"""
     vrf: VRF1
     region: us-west-1
     state: absent
-  delegate_to: localhost
 
 - name: Query a specific site VRF region
   cisco.mso.mso_schema_site_vrf_region:
@@ -127,7 +125,6 @@ EXAMPLES = r"""
     vrf: VRF1
     region: us-west-1
     state: query
-  delegate_to: localhost
   register: query_result
 
 - name: Query all site VRF regions
@@ -140,7 +137,6 @@ EXAMPLES = r"""
     template: Template1
     vrf: VRF1
     state: query
-  delegate_to: localhost
   register: query_result
 """
 

@@ -63,7 +63,6 @@ EXAMPLES = r"""
     id: 1
     data: Data stored in the option
     state: present
-  delegate_to: localhost
 
 - name: Remove a option to a DHCP Option Policy
   cisco.mso.mso_dhcp_option_policy_option:
@@ -73,7 +72,6 @@ EXAMPLES = r"""
     dhcp_option_policy: my_test_dhcp_policy
     name: ansible_test
     state: absent
-  delegate_to: localhost
 
 - name: Query a option to a DHCP Option Policy
   cisco.mso.mso_dhcp_option_policy_option:
@@ -83,7 +81,7 @@ EXAMPLES = r"""
     dhcp_option_policy: my_test_dhcp_policy
     name: ansible_test
     state: query
-  delegate_to: localhost
+  register: query_result
 
 - name: Query all option of a DHCP Option Policy
   cisco.mso.mso_dhcp_option_policy_option:
@@ -92,7 +90,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     dhcp_option_policy: my_test_dhcp_policy
     state: query
-  delegate_to: localhost
+  register: query_result
 """
 
 RETURN = r"""

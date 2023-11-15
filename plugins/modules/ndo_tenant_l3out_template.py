@@ -123,12 +123,8 @@ def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
         tenant=dict(type="str", required=True),
-        schema=dict(type="str", required=True),
-        schema_description=dict(type="str"),
-        template_description=dict(type="str"),
-        template=dict(type="str", aliases=["name"]),
-        display_name=dict(type="str"),
-        template_type=dict(type="str", default="stretched-template", choices=["stretched-template", "non-stretched-template"]),
+        template=dict(type="str", aliases=["name"], required=True),
+        site=dict(type="str", required=True),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -142,37 +138,38 @@ def main():
     )
 
     tenant = module.params.get("tenant")
-    schema = module.params.get("schema")
-    schema_description = module.params.get("schema_description")
-    template_description = module.params.get("template_description")
     template = module.params.get("template")
     if template is not None:
         template = template.replace(" ", "")
-    display_name = module.params.get("display_name")
     state = module.params.get("state")
-    template_type = module.params.get("template_type")
+    site = module.params.get("site")
 
     mso = MSOModule(module)
 
 
-    # Get schema
-    schema_obj = mso.get_obj("schemas", displayName=schema)
+    #get template
+    # mso.get_obj("templates", displayName=template)
+    tenant_id = mso.lookup_tenant(tenant)
+    site_id = mso.lookup_site(site)
+    template_type = "l3out"
+
+
+    if tenant_id:
+        templates = mso.request(path=f"tenants/{tenant_id}/templates", method="GET", api_version="v1")
+    else:
+        mso.fail_json(msg="Tenant '{tenant}' not found".format(tenant=tenant))
 
     mso.existing = {}
-    if schema_obj:
-        # Schema exists
-        schema_path = "schemas/{id}".format(**schema_obj)
 
-        # Get template
-        templates = [t.get("name") for t in schema_obj.get("templates")]
-        if template:
-            if template in templates:
-                template_idx = templates.index(template)
-                mso.existing = schema_obj.get("templates")[template_idx]
-        else:
-            mso.existing = schema_obj.get("templates")
-    else:
-        schema_path = "schemas"
+    if templates:
+        for temp in templates:
+            if temp['displayName'] == template and temp['templateType'] == template_type:
+                mso.existing = temp
+
+
+
+
+
 
     if state == "query":
         if not mso.existing:
@@ -182,89 +179,42 @@ def main():
                 mso.existing = []
         mso.exit_json()
 
-    template_path = "/templates/{0}".format(template)
+    template_path = "templates"
     ops = []
 
     mso.previous = mso.existing
     if state == "absent":
         mso.proposed = mso.sent = {}
-        if not schema_obj:
-            # There was no schema to begin with
-            pass
-        elif len(templates) == 1 and mso.existing:
-            # There is only one tenant, remove schema
+        if templates and mso.existing:
             mso.existing = {}
+            delete_template_path = "templates/{0}".format(temp['templateId'])
             if not module.check_mode:
-                mso.request(schema_path, method="DELETE")
-        elif mso.existing:
-            # Remove existing template
-            mso.existing = {}
-            ops.append(dict(op="remove", path=template_path))
+                mso.request(delete_template_path, method="DELETE")
+
+        
 
     elif state == "present":
-        tenant_id = mso.lookup_tenant(tenant)
 
-        if display_name is None:
-            display_name = mso.existing.get("displayName", template)
 
-        if not schema_obj:
-            # Schema does not exist, so we have to create it
-            payload = dict(
-                displayName=schema,
-                templates=[
-                    dict(
-                        name=template,
-                        displayName=display_name,
-                        tenantId=tenant_id,
-                        templateType=template_type
-                    )
-                ],
-                sites=[],
-            )
-
-            if schema_description is not None:
-                payload.update(description=schema_description)
-            if template_description is not None:
-                payload["templates"][0].update(description=template_description)
-
-            mso.existing = payload.get("templates")[0]
-
-            if not module.check_mode:
-                mso.request(schema_path, method="POST", data=payload)
-
-        elif mso.existing:
-            # Template exists, so we have to update it
-            payload = dict(
-                name=template,
-                displayName=display_name,
-                description=template_description,
-                tenantId=tenant_id,
-            )
-
-            mso.sanitize(payload, collate=True)
-
-            ops.append(dict(op="replace", path=template_path + "/displayName", value=display_name))
-            ops.append(dict(op="replace", path=template_path + "/tenantId", value=tenant_id))
-
-            mso.existing = mso.proposed
-        else:
+        if not mso.existing:
             # Template does not exist, so we have to add it
             payload = dict(
-                name=template,
-                displayName=display_name,
-                tenantId=tenant_id,
-                templateType=template_type
-
+                displayName=template,
+                templateType=template_type,
+                l3outTemplate=dict(
+                    tenantId=tenant_id,
+                    siteId=site_id
+                ),
             )
-
             mso.sanitize(payload, collate=True)
+            if not module.check_mode:
+                mso.request(template_path, method="POST", data=payload)
+        mso.existing = mso.proposed
 
-            ops.append(dict(op="add", path="/templates/-", value=payload))
+        
 
-            mso.existing = mso.proposed
 
-    if not module.check_mode:
-        mso.request(schema_path, method="PATCH", data=ops)
+
 
     mso.exit_json()
 

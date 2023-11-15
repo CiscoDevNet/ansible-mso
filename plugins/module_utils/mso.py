@@ -23,7 +23,6 @@ from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_native, to_text
 from ansible.module_utils.connection import Connection
 from ansible_collections.cisco.mso.plugins.module_utils.constants import NDO_API_VERSION_PATH_FORMAT
-from ansible_collections.cisco.nd.plugins.module_utils.nd import NDModule
 
 try:
     from requests_toolbelt.multipart.encoder import MultipartEncoder
@@ -51,7 +50,7 @@ def issubset(subset, superset):
         return True
 
     # Both objects have a different type
-    if type(subset) is not type(superset):
+    if type(subset) != type(superset):
         return False
 
     for key, value in subset.items():
@@ -240,13 +239,6 @@ def mso_site_anp_epg_bulk_staticport_spec():
     )
 
 
-def ndo_remote_user_spec():
-    return dict(
-        name=dict(type="str", required=True),
-        login_domain=dict(type="str", required=True),
-    )
-
-
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp, tmpsrc=None):
     # create a tempfile with some test content
@@ -297,6 +289,10 @@ def write_file(module, url, dest, content, resp, tmpsrc=None):
 
     os.remove(tmpsrc)
 
+def diff_dicts(dict1, dict2):
+    diff_keys = [k for k in dict1 if dict1[k] != dict2.get(k)]
+    diff = {k: (dict1[k], dict2[k]) for k in diff_keys}
+    return diff
 
 class MSOModule(object):
     def __init__(self, module):
@@ -549,7 +545,7 @@ class MSOModule(object):
                 timeout=self.params.get("timeout"),
                 use_proxy=self.params.get("use_proxy"),
             )
-
+        
         self.response = info.get("msg")
         self.status = info.get("status")
 
@@ -678,6 +674,8 @@ class MSOModule(object):
                 self.result["changed"] = True
 
         # 200: OK, 201: Created, 202: Accepted
+        if method == 'PATCH':
+            self.fail_json(msg=info)
         if self.status in (200, 201, 202):
             try:
                 output = resp.read()
@@ -703,6 +701,7 @@ class MSOModule(object):
         # 405: Method Not Allowed, 406: Not Acceptable
         # 500: Internal Server Error, 501: Not Implemented
         elif self.status >= 400:
+            self.fail_json(msg=json.dumps(data))
             self.result["status"] = self.status
             body = info.get("body")
             if body is not None:
@@ -924,65 +923,26 @@ class MSOModule(object):
             users.append("admin")
 
         ids = []
-        if self.platform == "nd":
-            nd = NDModule(self.module)
-            remote_users = nd.request("/nexus/infra/api/aaa/v4/remoteusers", method="GET")
-            local_users = nd.request("/nexus/infra/api/aaa/v4/localusers", method="GET")
-
         for user in users:
-            user_dict = dict()
             if self.platform == "nd":
-                user_dict = self.get_user_from_list_of_users(user, local_users)
-                if user_dict is None:
-                    user_dict = self.get_user_from_list_of_users(user, remote_users)
+                u = self.get_obj("users", loginID=user, api_version="v2")
             else:
-                user_dict = self.get_obj("users", username=user)
-            if not user_dict and not ignore_not_found_error:
+                u = self.get_obj("users", username=user)
+            if not u and not ignore_not_found_error:
                 self.fail_json(msg="User '{0}' is not a valid user name.".format(user))
-            elif (not user_dict or "id" not in user_dict) and ignore_not_found_error:
+            elif (not u or "id" not in u) and ignore_not_found_error:
                 self.module.warn("User '{0}' is not a valid user name.".format(user))
                 return ids
-            if "id" not in user_dict:
-                if "userID" not in user_dict:
-                    self.fail_json(msg="User lookup failed for user '{0}': {1}".format(user, user_dict))
-                id = dict(userId=user_dict.get("userID"))
+            if "id" not in u:
+                if "userID" not in u:
+                    self.fail_json(msg="User lookup failed for user '{0}': {1}".format(user, u))
+                id = dict(userId=u.get("userID"))
             else:
-                id = dict(userId=user_dict.get("id"))
+                id = dict(userId=u.get("id"))
             if id in ids:
                 self.fail_json(msg="User '{0}' is duplicate.".format(user))
             ids.append(id)
-        return ids
 
-    def get_user_from_list_of_users(self, user_name, list_of_users, login_domain=""):
-        """Get user from list of users"""
-        for user in list_of_users.get("items"):
-            if user.get("spec").get("loginID") == user_name and (login_domain == "" or user.get("spec").get("loginDomain") == login_domain):
-                return user.get("spec")
-        return None
-
-    def lookup_remote_users(self, remote_users, ignore_not_found_error=False):
-        ids = []
-        if self.platform == "nd":
-            nd = NDModule(self.module)
-            remote_users_data = nd.request("/nexus/infra/api/aaa/v4/remoteusers", method="GET")
-        for remote_user in remote_users:
-            user_dict = dict()
-            if self.platform == "nd":
-                user_dict = self.get_user_from_list_of_users(remote_user.get("name"), remote_users_data, remote_user.get("login_domain"))
-            if not user_dict and not ignore_not_found_error:
-                self.fail_json(msg="User '{0}' is not a valid user name.".format(remote_user.get("name")))
-            elif (not user_dict or "id" not in user_dict) and ignore_not_found_error:
-                self.module.warn("User '{0}' is not a valid user name.".format(remote_user.get("name")))
-                return ids
-            if "id" not in user_dict:
-                if "userID" not in user_dict:
-                    self.fail_json(msg="User lookup failed for user '{0}': {1}".format(remote_user.get("name"), user_dict))
-                id = dict(userId=user_dict.get("userID"))
-            else:
-                id = dict(userId=user_dict.get("id"))
-            if id in ids:
-                self.fail_json(msg="User '{0}' is duplicate.".format(remote_user.get("name")))
-            ids.append(id)
         return ids
 
     def create_label(self, label, label_type):
@@ -1159,7 +1119,7 @@ class MSOModule(object):
         """Create a DHCP policy from input"""
         if data is None:
             return None
-        if isinstance(data, list):
+        if type(data) == list:
             dhcps = []
             for dhcp in data:
                 if "dhcp_option_policy" in dhcp:
@@ -1440,3 +1400,4 @@ class MSOModule(object):
 
     def validate_schema(self, schema_id):
         return self.request("schemas/{id}/validate".format(id=schema_id), method="GET")
+

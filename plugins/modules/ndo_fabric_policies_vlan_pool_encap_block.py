@@ -122,13 +122,10 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        tenant=dict(type="str", required=True),
-        schema=dict(type="str", required=True),
-        schema_description=dict(type="str"),
-        template_description=dict(type="str"),
-        template=dict(type="str", aliases=["name"]),
-        display_name=dict(type="str"),
-        template_type=dict(type="str", default="stretched-template", choices=["stretched-template", "non-stretched-template"]),
+        template=dict(type="str", required=True),
+        pool=dict(type="str", aliases=["pool_name"]),  # Not required for querying all objects
+        block_end=dict(type="int", aliases=["end"]),  # Not required for querying all objects
+        block_start=dict(type="int", aliases=["start"]),  # Not required for querying all objects
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -141,38 +138,56 @@ def main():
         ],
     )
 
-    tenant = module.params.get("tenant")
-    schema = module.params.get("schema")
-    schema_description = module.params.get("schema_description")
-    template_description = module.params.get("template_description")
     template = module.params.get("template")
     if template is not None:
         template = template.replace(" ", "")
-    display_name = module.params.get("display_name")
     state = module.params.get("state")
-    template_type = module.params.get("template_type")
+    pool = module.params.get("pool")
+    block_end = module.params.get("block_end")
+    block_start = module.params.get("block_start")
 
     mso = MSOModule(module)
 
+    template_type = "fabricPolicy"
 
-    # Get schema
-    schema_obj = mso.get_obj("schemas", displayName=schema)
+
+    templates = mso.request(path="templates/summaries", method="GET", api_version="v1")
+
 
     mso.existing = {}
-    if schema_obj:
-        # Schema exists
-        schema_path = "schemas/{id}".format(**schema_obj)
 
-        # Get template
-        templates = [t.get("name") for t in schema_obj.get("templates")]
-        if template:
-            if template in templates:
-                template_idx = templates.index(template)
-                mso.existing = schema_obj.get("templates")[template_idx]
-        else:
-            mso.existing = schema_obj.get("templates")
-    else:
-        schema_path = "schemas"
+    if templates:
+        for temp in templates:
+            if temp['templateName'] == template and temp['templateType'] == template_type:
+                template_id = temp['templateId']
+
+    if not template_id:
+        mso.fail_json(msg="Template '{template}' not found".format(template=template))
+
+
+    ##get the template
+
+    mso.existing = mso.request(path=f"templates/{template_id}", method="GET", api_version="v1")
+
+    pool_exist = False
+    block_exist = False
+
+    if 'template' in mso.existing['fabricPolicyTemplate'] and 'vlanPools' in mso.existing['fabricPolicyTemplate']['template']:
+        #try to find if the vlan pool exist
+        for count, v in enumerate(mso.existing['fabricPolicyTemplate']['template']['vlanPools']):
+            if v['name'] == pool:
+                pool_exist = True
+                pool_index = count
+
+    if pool_exist:
+        #case the vlan pool exist, verify if the vlan is already on the pool
+        if 'encapBlocks' in mso.existing['fabricPolicyTemplate']['template']['vlanPools'][pool_index]:
+            for count, e in enumerate(mso.existing['fabricPolicyTemplate']['template']['vlanPools'][pool_index]['encapBlocks']):
+                if int(e['range']['from']) == block_start and int(e['range']['to']) == block_end:
+                    block_exist = True
+                    block_index = count
+
+
 
     if state == "query":
         if not mso.existing:
@@ -182,89 +197,55 @@ def main():
                 mso.existing = []
         mso.exit_json()
 
-    template_path = "/templates/{0}".format(template)
+    template_path = f"templates/{template_id}"
     ops = []
 
     mso.previous = mso.existing
     if state == "absent":
         mso.proposed = mso.sent = {}
-        if not schema_obj:
-            # There was no schema to begin with
-            pass
-        elif len(templates) == 1 and mso.existing:
-            # There is only one tenant, remove schema
-            mso.existing = {}
+        if block_exist:
+            del mso.existing['fabricPolicyTemplate']['template']['vlanPools'][pool_index]['encapBlocks'][block_index]
+            if len(mso.existing['fabricPolicyTemplate']['template']['vlanPools'][pool_index]['encapBlocks']) == 0:
+                del mso.existing['fabricPolicyTemplate']['template']['vlanPools'][pool_index]
             if not module.check_mode:
-                mso.request(schema_path, method="DELETE")
-        elif mso.existing:
-            # Remove existing template
+                mso.request(template_path, method="PUT", data=mso.existing)
             mso.existing = {}
-            ops.append(dict(op="remove", path=template_path))
 
     elif state == "present":
-        tenant_id = mso.lookup_tenant(tenant)
 
-        if display_name is None:
-            display_name = mso.existing.get("displayName", template)
 
-        if not schema_obj:
-            # Schema does not exist, so we have to create it
-            payload = dict(
-                displayName=schema,
-                templates=[
-                    dict(
-                        name=template,
-                        displayName=display_name,
-                        tenantId=tenant_id,
-                        templateType=template_type
-                    )
-                ],
-                sites=[],
+
+        if not block_exist:
+            #block doesnt exist, need be created
+            if not pool_exist:
+                #case pool doesn't need, need be created
+                if not 'vlanPools' in mso.existing['fabricPolicyTemplate']['template']:
+                    mso.existing['fabricPolicyTemplate']['template'].update({'vlanPools': []})
+                mso.existing['fabricPolicyTemplate']['template']['vlanPools'].append(
+                    {
+                        "name": pool,
+                        "allocMode": "static",
+                        'encapBlocks': []
+                    }
+                )
+                pool_index = len(mso.existing['fabricPolicyTemplate']['template']['vlanPools']) -1
+
+
+            mso.existing['fabricPolicyTemplate']['template']['vlanPools'][pool_index]['encapBlocks'].append(
+                {
+                    "range":
+                        {
+                            "from": block_start,
+                            "to": block_end,
+                            "allocMode": "static"
+                        }
+                }
             )
 
-            if schema_description is not None:
-                payload.update(description=schema_description)
-            if template_description is not None:
-                payload["templates"][0].update(description=template_description)
-
-            mso.existing = payload.get("templates")[0]
-
+            # mso.sanitize(payload, collate=True)
             if not module.check_mode:
-                mso.request(schema_path, method="POST", data=payload)
-
-        elif mso.existing:
-            # Template exists, so we have to update it
-            payload = dict(
-                name=template,
-                displayName=display_name,
-                description=template_description,
-                tenantId=tenant_id,
-            )
-
-            mso.sanitize(payload, collate=True)
-
-            ops.append(dict(op="replace", path=template_path + "/displayName", value=display_name))
-            ops.append(dict(op="replace", path=template_path + "/tenantId", value=tenant_id))
-
+                mso.request(template_path, method="PUT", data=mso.existing)
             mso.existing = mso.proposed
-        else:
-            # Template does not exist, so we have to add it
-            payload = dict(
-                name=template,
-                displayName=display_name,
-                tenantId=tenant_id,
-                templateType=template_type
-
-            )
-
-            mso.sanitize(payload, collate=True)
-
-            ops.append(dict(op="add", path="/templates/-", value=payload))
-
-            mso.existing = mso.proposed
-
-    if not module.check_mode:
-        mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
 

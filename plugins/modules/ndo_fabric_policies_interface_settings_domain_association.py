@@ -116,19 +116,15 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, diff_dicts
 
 
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        tenant=dict(type="str", required=True),
-        schema=dict(type="str", required=True),
-        schema_description=dict(type="str"),
-        template_description=dict(type="str"),
-        template=dict(type="str", aliases=["name"]),
-        display_name=dict(type="str"),
-        template_type=dict(type="str", default="stretched-template", choices=["stretched-template", "non-stretched-template"]),
+        domain=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+        interface=dict(type="str", required=True),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -141,38 +137,70 @@ def main():
         ],
     )
 
-    tenant = module.params.get("tenant")
-    schema = module.params.get("schema")
-    schema_description = module.params.get("schema_description")
-    template_description = module.params.get("template_description")
     template = module.params.get("template")
     if template is not None:
         template = template.replace(" ", "")
-    display_name = module.params.get("display_name")
     state = module.params.get("state")
-    template_type = module.params.get("template_type")
+    interface = module.params.get("interface")
+    domain = module.params.get("domain")
+
+
 
     mso = MSOModule(module)
 
+    template_type = "fabricPolicy"
 
-    # Get schema
-    schema_obj = mso.get_obj("schemas", displayName=schema)
+
+    templates = mso.request(path="templates/summaries", method="GET", api_version="v1")
+
 
     mso.existing = {}
-    if schema_obj:
-        # Schema exists
-        schema_path = "schemas/{id}".format(**schema_obj)
 
-        # Get template
-        templates = [t.get("name") for t in schema_obj.get("templates")]
-        if template:
-            if template in templates:
-                template_idx = templates.index(template)
-                mso.existing = schema_obj.get("templates")[template_idx]
-        else:
-            mso.existing = schema_obj.get("templates")
-    else:
-        schema_path = "schemas"
+    if templates:
+        for temp in templates:
+            if temp['templateName'] == template and temp['templateType'] == template_type:
+                template_id = temp['templateId']
+
+    if not template_id:
+        mso.fail_json(msg="Template '{template}' not found".format(template=template))
+
+
+    ##get the template
+
+    mso.existing = mso.request(path=f"templates/{template_id}", method="GET", api_version="v1")
+
+    domain_uuid = ''
+
+    domain_list = ['domains', 'l3Domains']
+
+    # try to find if the domain exist
+    for entry in domain_list:
+        if 'template' in mso.existing['fabricPolicyTemplate'] and entry in mso.existing['fabricPolicyTemplate']['template']:
+            for count, d in enumerate(mso.existing['fabricPolicyTemplate']['template'][entry]):
+                if d['name'] == domain:
+                    domain_type = entry
+                    domain_uuid = d['uuid']
+
+    if not domain_uuid:
+        mso.fail_json(msg="Domain '{domain}' not found".format(domain=domain))
+
+    interface_exist = False
+    if 'template' in mso.existing['fabricPolicyTemplate'] and 'interfacePolicyGroups' in mso.existing['fabricPolicyTemplate']['template']:
+        for count, ipg in enumerate(mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups']):
+            if ipg['name'] == interface:
+                interface_index = count
+                interface_exist = True
+
+    if not interface_exist:
+        mso.fail_json(msg="Interface '{interface}' not found".format(interface=interface))
+
+
+    domain_associated = False
+    if 'domains' in mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]:
+        for count, d in enumerate(mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]['domains']):
+                if d == domain_uuid:
+                    domain_associated = True
+                    domain_index = count
 
     if state == "query":
         if not mso.existing:
@@ -182,89 +210,35 @@ def main():
                 mso.existing = []
         mso.exit_json()
 
-    template_path = "/templates/{0}".format(template)
-    ops = []
+    template_path = f"templates/{template_id}"
 
     mso.previous = mso.existing
     if state == "absent":
         mso.proposed = mso.sent = {}
-        if not schema_obj:
-            # There was no schema to begin with
-            pass
-        elif len(templates) == 1 and mso.existing:
-            # There is only one tenant, remove schema
-            mso.existing = {}
+        if domain_associated:
+            del mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]['domains'][domain_index]
+            if len(mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]['domains']) == 0:
+                del mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]['domains']
             if not module.check_mode:
-                mso.request(schema_path, method="DELETE")
-        elif mso.existing:
-            # Remove existing template
+                mso.request(template_path, method="PUT", data=mso.existing)
             mso.existing = {}
-            ops.append(dict(op="remove", path=template_path))
 
     elif state == "present":
-        tenant_id = mso.lookup_tenant(tenant)
 
-        if display_name is None:
-            display_name = mso.existing.get("displayName", template)
+        #domain doesn't exitst, need be created
+        if not domain_associated:
+            if not 'domains' in mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]:
+                mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index].update({'domains': []})
+            mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]['domains'].append(domain_uuid)
 
-        if not schema_obj:
-            # Schema does not exist, so we have to create it
-            payload = dict(
-                displayName=schema,
-                templates=[
-                    dict(
-                        name=template,
-                        displayName=display_name,
-                        tenantId=tenant_id,
-                        templateType=template_type
-                    )
-                ],
-                sites=[],
-            )
-
-            if schema_description is not None:
-                payload.update(description=schema_description)
-            if template_description is not None:
-                payload["templates"][0].update(description=template_description)
-
-            mso.existing = payload.get("templates")[0]
-
+            # mso.sanitize(payload, collate=True)
             if not module.check_mode:
-                mso.request(schema_path, method="POST", data=payload)
-
-        elif mso.existing:
-            # Template exists, so we have to update it
-            payload = dict(
-                name=template,
-                displayName=display_name,
-                description=template_description,
-                tenantId=tenant_id,
-            )
-
-            mso.sanitize(payload, collate=True)
-
-            ops.append(dict(op="replace", path=template_path + "/displayName", value=display_name))
-            ops.append(dict(op="replace", path=template_path + "/tenantId", value=tenant_id))
-
-            mso.existing = mso.proposed
-        else:
-            # Template does not exist, so we have to add it
-            payload = dict(
-                name=template,
-                displayName=display_name,
-                tenantId=tenant_id,
-                templateType=template_type
-
-            )
-
-            mso.sanitize(payload, collate=True)
-
-            ops.append(dict(op="add", path="/templates/-", value=payload))
-
+                mso.request(template_path, method="PUT", data=mso.existing)
             mso.existing = mso.proposed
 
-    if not module.check_mode:
-        mso.request(schema_path, method="PATCH", data=ops)
+    
+    
+    
 
     mso.exit_json()
 

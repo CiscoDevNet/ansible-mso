@@ -116,15 +116,21 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, diff_dicts
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, diff_dicts, update_payload
 
 
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        domain=dict(type="str", required=True),
+        server=dict(type="str", required=True),
+        datetime_pol_name=dict(type="str", required=True),
         template=dict(type="str", required=True),
-        interface=dict(type="str", required=True),
+        min_poll=dict(type="int", default=4),
+        max_poll=dict(type="int", default=6),
+        is_preferred=dict(type="bool", default=False),
+        key_id=dict(type="int"),
+        management_epg=dict(type="str", choices=["inb", "oob"], required=True),
+        management_epg_name=dict(type="str", default="default"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -141,9 +147,14 @@ def main():
     if template is not None:
         template = template.replace(" ", "")
     state = module.params.get("state")
-    interface = module.params.get("interface")
-    domain = module.params.get("domain")
-
+    server = module.params.get("server")
+    datetime_pol_name = module.params.get("datetime_pol_name")
+    min_poll = module.params.get("min_poll")
+    max_poll = module.params.get("max_poll")
+    is_preferred = module.params.get("is_preferred")
+    key_id = module.params.get("key_id")
+    management_epg = module.params.get("management_epg")
+    management_epg_name = module.params.get("management_epg_name")
 
 
     mso = MSOModule(module)
@@ -155,6 +166,7 @@ def main():
 
 
     mso.existing = {}
+
     template_id = ''
     if templates:
         for temp in templates:
@@ -164,43 +176,30 @@ def main():
     if not template_id:
         mso.fail_json(msg="Template '{template}' not found".format(template=template))
 
-
-    ##get the template
-
+    
     mso.existing = mso.request(path=f"templates/{template_id}", method="GET", api_version="v1")
 
-    domain_uuid = ''
+    ntp_pol_exist = False
+    # try to find if the ntp policy exist
+    if 'template' in mso.existing['fabricPolicyTemplate'] and 'ntpPolicies' in mso.existing['fabricPolicyTemplate']['template']:
+        for count, n in enumerate(mso.existing['fabricPolicyTemplate']['template']['ntpPolicies']):
+            if n['name'] == datetime_pol_name:
+                ntp_pol_index = count
+                ntp_pol_exist = True
+                
 
-    domain_list = ['domains', 'l3Domains']
-
-    # try to find if the domain exist
-    for entry in domain_list:
-        if 'template' in mso.existing['fabricPolicyTemplate'] and entry in mso.existing['fabricPolicyTemplate']['template']:
-            for count, d in enumerate(mso.existing['fabricPolicyTemplate']['template'][entry]):
-                if d['name'] == domain:
-                    domain_type = entry
-                    domain_uuid = d['uuid']
-
-    if not domain_uuid:
-        mso.fail_json(msg="Domain '{domain}' not found".format(domain=domain))
-
-    interface_exist = False
-    if 'template' in mso.existing['fabricPolicyTemplate'] and 'interfacePolicyGroups' in mso.existing['fabricPolicyTemplate']['template']:
-        for count, ipg in enumerate(mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups']):
-            if ipg['name'] == interface:
-                interface_index = count
-                interface_exist = True
-
-    if not interface_exist:
-        mso.fail_json(msg="Interface '{interface}' not found".format(interface=interface))
+    if not ntp_pol_exist:
+        mso.fail_json(msg="NTP '{ntp_pol}' not found".format(ntp_pol=datetime_pol_name))
 
 
-    domain_associated = False
-    if 'domains' in mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]:
-        for count, d in enumerate(mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]['domains']):
-                if d == domain_uuid:
-                    domain_associated = True
-                    domain_index = count
+    ntp_prov_exist = False
+    # try to find if the ntp provide exist
+    if 'ntpProviders' in mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_pol_index]:
+        for count, n in enumerate(mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_pol_index]['ntpProviders']):
+            if n['host'] == server:
+                ntp_prov_index = count
+                ntp_prov_exist = True
+                
 
     if state == "query":
         if not mso.existing:
@@ -215,28 +214,49 @@ def main():
     mso.previous = mso.existing
     if state == "absent":
         mso.proposed = mso.sent = {}
-        if domain_associated:
-            del mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]['domains'][domain_index]
-            if len(mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]['domains']) == 0:
-                del mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]['domains']
+        if ntp_prov_exist:
+            del mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_pol_index]['ntpProviders'][ntp_prov_index]
+            if len(mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_pol_index]['ntpProviders']) == 0:
+                del mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_pol_index]['ntpProviders']
             if not module.check_mode:
                 mso.request(template_path, method="PUT", data=mso.existing)
             mso.existing = {}
 
     elif state == "present":
-
+        new_ntp_prov = {
+            "host": server,
+            "preferred": is_preferred,
+            "minPollInterval": min_poll,
+            "maxPollInterval": max_poll,
+            "mgmtEpgType": management_epg,
+            "mgmtEpgName": management_epg_name
+        }
+        if key_id:
+            new_ntp_prov.update(
+                {
+                    "authKeyID": key_id
+                }
+            )
         #domain doesn't exitst, need be created
-        if not domain_associated:
-            if not 'domains' in mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]:
-                mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index].update({'domains': []})
-            mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index]['domains'].append(domain_uuid)
+        if not ntp_prov_exist:
+            if not 'ntpProviders' in mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_pol_index]:
+                mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_pol_index].update({'ntpProviders': []})
+            mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_pol_index]['ntpProviders'].append(new_ntp_prov)
 
             # mso.sanitize(payload, collate=True)
             if not module.check_mode:
                 mso.request(template_path, method="PUT", data=mso.existing)
             mso.existing = mso.proposed
+        else:
+            #domain exist check if need be updated
+            current = mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_pol_index]['ntpProviders'][ntp_prov_index].copy()
+            diff = diff_dicts(new_ntp_prov,current)
+            if diff:
+                mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_pol_index]['ntpProviders'][ntp_prov_index] = update_payload(diff=diff, payload=mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_pol_index]['ntpProviders'][ntp_prov_index])
+                if not module.check_mode:
+                    mso.request(template_path, method="PUT", data=mso.existing)
+                mso.existing = mso.proposed
 
-    
     
     
 

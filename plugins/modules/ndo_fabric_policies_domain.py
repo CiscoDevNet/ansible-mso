@@ -116,7 +116,7 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, diff_dicts
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, diff_dicts, update_payload
 
 
 def main():
@@ -159,17 +159,17 @@ def main():
 
 
     mso.existing = {}
-
+    template_id = ''
     if templates:
         for temp in templates:
             if temp['templateName'] == template and temp['templateType'] == template_type:
                 template_id = temp['templateId']
-    else:
+    if not template_id:
         mso.fail_json(msg="Template '{template}' not found".format(template=template))
 
 
     ##get the template
-
+    
     mso.existing = mso.request(path=f"templates/{template_id}", method="GET", api_version="v1")
 
     vlan_pool_uuid = ''
@@ -233,18 +233,13 @@ def main():
 
     elif state == "present":
         new_domain = {
-            "name": domain
+            "name": domain,
+            "description": ""
         }
         if description:
             new_domain.update(
                 {
                     "description": description
-                }
-            )
-        else:
-            new_domain.update(
-                {
-                    "description": ""
                 }
             )
 
@@ -276,22 +271,18 @@ def main():
             #domain exist check if need be updated
             if domain_type == 'phys':
                 current = mso.existing['fabricPolicyTemplate']['template']['domains'][domain_index].copy()
-                current.pop('uuid')
-                diff = diff_dicts(current, new_domain)
+                diff = diff_dicts(new_domain, current)
                 if diff:
-                    for item in diff:
-                        mso.existing['fabricPolicyTemplate']['template']['domains'][domain_index][item] = diff[item][1]
+                    mso.existing['fabricPolicyTemplate']['template']['domains'][domain_index] = update_payload(diff=diff, payload=mso.existing['fabricPolicyTemplate']['template']['domains'][domain_index])
 
                     if not module.check_mode:
-                        mso.request(template_path, method="PUT", data=mso.existing)
+                            mso.request(template_path, method="PUT", data=mso.existing)
                     mso.existing = mso.proposed
             else:
                 current = mso.existing['fabricPolicyTemplate']['template']['l3Domains'][domain_index].copy()
-                current.pop('uuid')
-                diff = diff_dicts(current, new_domain)
+                diff = diff_dicts(new_domain, current)
                 if diff:
-                    for item in diff:
-                        mso.existing['fabricPolicyTemplate']['template']['l3Domains'][domain_index][item] = diff[item][1]
+                    mso.existing['fabricPolicyTemplate']['template']['l3Domains'][domain_index] = update_payload(diff=diff, payload=mso.existing['fabricPolicyTemplate']['template']['l3Domains'][domain_index])
                     if not module.check_mode:
                         mso.request(template_path, method="PUT", data=mso.existing)
                     mso.existing = mso.proposed

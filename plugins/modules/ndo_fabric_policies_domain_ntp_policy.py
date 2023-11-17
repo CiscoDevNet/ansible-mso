@@ -116,14 +116,20 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, diff_dicts, update_payload
 
 
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        template=dict(type="str", aliases=["name"], required=True),
-        template_type=dict(type="str", choices=["fabricPolicy", "fabricResource"], required=True),
+        ntp=dict(type="str", aliases=["name"], required=True),
+        description=dict(type="str", aliases=["descr"]),
+        template=dict(type="str", required=True),
+        admin_state=dict(type="str", choices=["enabled", "disabled"], default="enabled"),
+        server_state=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
+        master_mode=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
+        authentication_state=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
+        stratum_value=dict(type="int", default=4),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -140,27 +146,50 @@ def main():
     if template is not None:
         template = template.replace(" ", "")
     state = module.params.get("state")
-    template_type = module.params.get("template_type")
+    description = module.params.get("description")
+    ntp = module.params.get("ntp")
+    admin_state = module.params.get("admin_state")
+    server_state = module.params.get("server_state")
+    master_mode = module.params.get("master_mode")
+    authentication_state = module.params.get("authentication_state")
+    stratum_value = module.params.get("stratum_value")
+
+
 
     mso = MSOModule(module)
 
-
-    #get template
-    # mso.get_obj("templates", displayName=template)
-
-
+    template_type = "fabricPolicy"
 
 
     templates = mso.request(path="templates/summaries", method="GET", api_version="v1")
 
 
     mso.existing = {}
+    
+    
 
     if templates:
         for temp in templates:
             if temp['templateName'] == template and temp['templateType'] == template_type:
-                mso.existing = temp
+                template_id = temp['templateId']
+
+    if not template_id:
+        mso.fail_json(msg="Template '{template}' not found".format(template=template))
+
+    ntp_exist = False
     
+    mso.existing = mso.request(path=f"templates/{template_id}", method="GET", api_version="v1")
+
+
+    # try to find if the ntp policy exist
+    if 'template' in mso.existing['fabricPolicyTemplate'] and 'ntpPolicies' in mso.existing['fabricPolicyTemplate']['template']:
+        for count, n in enumerate(mso.existing['fabricPolicyTemplate']['template']['ntpPolicies']):
+            if n['name'] == ntp:
+                ntp_exist = True
+                ntp_index = count
+
+
+
 
     if state == "query":
         if not mso.existing:
@@ -170,77 +199,66 @@ def main():
                 mso.existing = []
         mso.exit_json()
 
-    template_path = "templates"
-    ops = []
+    template_path = f"templates/{template_id}"
 
     mso.previous = mso.existing
     if state == "absent":
         mso.proposed = mso.sent = {}
-        if templates and mso.existing:
-            delete_template_path = "templates/{0}".format(mso.existing['templateId'])
-            mso.existing = {}
+        if ntp_exist:
+            del mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_index]
+            if len(mso.existing['fabricPolicyTemplate']['template']['ntpPolicies']) == 0:
+                del mso.existing['fabricPolicyTemplate']['template']['ntpPolicies']
             if not module.check_mode:
-                mso.request(delete_template_path, method="DELETE")
-
-        
+                mso.request(template_path, method="PUT", data=mso.existing)
+            mso.existing = {}
 
     elif state == "present":
-
-
-        if not mso.existing:
-            # Template does not exist, so we have to add it
-            if template_type == 'fabricPolicy':
-                payload = dict(
-                    name=template,
-                    sites=[],
-                    displayName=template,
-                    policyStates=[],
-                    templateType=template_type,
-                    originalSites=[],
-                    changeControlDetail= dict(
-                        status="EDIT_CONFIG",
-                        designDetails= dict(
-                            user=dict()
-                        ),
-                        designApprovalDetails=[],
-                        deployApprovalDetails=[]
-                    ),
-                    fabricPolicyTemplate=dict(
-                        template=dict(
-                            vlanPools=[],
-                            domains=[],
-                            l3Domains=[],
-                            syncEthIntfPolicies=[],
-                            interfacePolicyGroups=[],
-                            nodePolicyGroups=[],
-                            podPolicyGroups=[],
-                            macsecPolicies=[],
-                            ntpPolicies=[],
-                            qosMpls=[],
-                        ),
-                        sites=[]
-                    ),
-                )
-            else:
-                payload = {
-                    "displayName": template,
-                    "fabricResourceTemplate": {
-                        "template": {
-                            "interfaceProfiles": [],
-                            "podProfiles": [],
-                            "portChannels": [],
-                            "virtualPortChannels": []
-                        }
-                    },
-                    "templateType": "fabricResource",
+        new_ntp = {
+            "adminState": admin_state,
+            "authState": authentication_state,
+            "description": description,
+            "masterMode": master_mode,
+            "name": ntp,
+            "serverState": server_state,
+            "stratum": stratum_value
+        }
+        if description:
+            new_ntp.update(
+                {
+                    "description": description
                 }
+            )
+        else:
+            new_ntp.update(
+                {
+                    "description": ""
+                }
+            )
+
+        #domain doesn't exitst, need be created
+        if not ntp_exist:
+            if not 'ntpPolicies' in mso.existing['fabricPolicyTemplate']['template']:
+                mso.existing['fabricPolicyTemplate']['template'].update({'ntpPolicies': []})
+            mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'].append(new_ntp)
 
 
 
-            mso.sanitize(payload, collate=True)
+            # mso.sanitize(payload, collate=True)
             if not module.check_mode:
-                mso.request(template_path, method="POST", data=payload)
+                mso.request(template_path, method="PUT", data=mso.existing)
             mso.existing = mso.proposed
+        else:
+            #domain exist check if need be updated
+            current = mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_index].copy()
+            diff = diff_dicts(new_ntp, current, exclude_key='ntpProviders')
+            if diff:
+                mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_index] = update_payload(diff=diff, payload= mso.existing['fabricPolicyTemplate']['template']['ntpPolicies'][ntp_index])
+                if not module.check_mode:
+                    mso.request(template_path, method="PUT", data=mso.existing)
+                mso.existing = mso.proposed
+
+    
+    
 
     mso.exit_json()
 

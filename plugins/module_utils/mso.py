@@ -23,6 +23,7 @@ from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_native, to_text
 from ansible.module_utils.connection import Connection
 from ansible_collections.cisco.mso.plugins.module_utils.constants import NDO_API_VERSION_PATH_FORMAT
+from deepdiff import DeepDiff
 
 try:
     from requests_toolbelt.multipart.encoder import MultipartEncoder
@@ -289,10 +290,40 @@ def write_file(module, url, dest, content, resp, tmpsrc=None):
 
     os.remove(tmpsrc)
 
-def diff_dicts(dict1, dict2):
-    diff_keys = [k for k in dict1 if dict1[k] != dict2.get(k)]
-    diff = {k: (dict1[k], dict2[k]) for k in diff_keys}
-    return diff
+def diff_dicts(dict1, dict2, exclude_key=None):
+    keys_to_exclude = {'uuid'}
+    if exclude_key:
+        keys_to_exclude.update({exclude_key})
+    keys1 = set(dict1.keys()) - keys_to_exclude
+    keys2 = set(dict2.keys()) - keys_to_exclude
+    common_keys = keys1 & keys2
+    update = {key: dict1[key] for key in common_keys if dict1[key] != dict2[key]}
+    add = ({key: dict1[key] for key in keys1 - keys2})
+    remove = ({key: dict2[key] for key in keys2 - keys1})
+    result = {}
+    if update:
+    	result['update'] = update
+    if add:
+        result['add'] = add
+    if remove:
+   		result['remove'] = remove
+
+    return result
+
+def update_payload(diff, payload):
+    if 'update' in diff:
+        for item in diff['update']:
+            payload[item] = diff['update'][item]
+    if 'add' in diff:
+        for item in diff['add']:
+            payload.update({item: diff['add'][item]})
+    if 'remove' in diff:
+        for item in diff['remove']:
+            payload.pop(item)
+    return payload
+    
+
+    
 
 class MSOModule(object):
     def __init__(self, module):

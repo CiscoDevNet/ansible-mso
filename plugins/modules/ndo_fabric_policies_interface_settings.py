@@ -117,30 +117,29 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, diff_dicts
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, diff_dicts, update_payload
 
 
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        interface=dict(type="str", aliases=["domain_name", "domain_profile", "name"]),
+        interface=dict(type="str", aliases=["name"]),
         description=dict(type="str", aliases=["descr"]),
         template=dict(type="str", required=True),
-        interface_type=dict(type="str", choices=["physical", "port-channel"], required=True),
+        interface_type=dict(type="str", choices=["physical", "portchannel"], required=True),
         speed=dict(type="str", choices=["inherit", "100M", "1G", "10G", "25G", "40G", "50G", "100G", "400G"], default="inherit"),
         auto_negotiation=dict(type="str", choices=["on", "off", "on-enforce"], default="on"),
         vlan_scope=dict(type="str", choices=["global", "port_local"], default="global"),
         cdp=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
         lldp_transmit=dict(type="str", choices=["enabled", "disabled"], default="enabled"),
         lldp_receive=dict(type="str", choices=["enabled", "disabled"], default="enabled"),
-        domain=dict(type="str", aliases=["domain_name", "domain_profile",]),
         debounce=dict(type="int", default=100),
         bring_up_delay=dict(type="int", default=0),
         bpdu_filter=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
         bpdu_guard=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
         mcp=dict(type="str", choices=["enabled", "disabled"], default="enabled"),
         mcp_strict_mode=dict(type="str", choices=["on", "off"], default="off"),
-        port_channel_mode=dict(type="str", choices=["active", "passive", "mac-pin" , "mac-pin-nicload", "off", "explicit-failover"]),
+        port_channel_mode=dict(type="str", choices=["active", "passive", "mac-pin" , "mac-pin-nicload", "off", "explicit-failover"], default='active'),
         port_channel_control=dict(type="list", elements="str", choices=["fast-sel-hot-stdby", "graceful-conv", "load-defer", "susp-individual", "symmetric-hash"], default=["fast-sel-hot-stdby", "graceful-conv", "susp-individual" ]),
         min_links=dict(type="int", default=1),
         max_links=dict(type="int", default=16),
@@ -358,11 +357,9 @@ def main():
         else:
             #domain exist check if need be updated
             current = mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index].copy()
-            current.pop('uuid')
-            diff = diff_dicts(current, new_interface)
+            diff = diff_dicts(new_interface, current, exclude_key='domains')
             if diff:
-                for item in diff:
-                    mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index][item] = diff[item][1]
+                mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index] = update_payload(diff=diff, payload=mso.existing['fabricPolicyTemplate']['template']['interfacePolicyGroups'][interface_index])
                 if not module.check_mode:
                     mso.request(template_path, method="PUT", data=mso.existing)
                 mso.existing = mso.proposed

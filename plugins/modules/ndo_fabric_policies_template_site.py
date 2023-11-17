@@ -124,6 +124,7 @@ def main():
     argument_spec.update(
         template=dict(type="str", aliases=["name"], required=True),
         site=dict(type="str", required=True),
+        template_type=dict(type="str", choices=["fabricPolicy", "fabricResource"], required=True),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -141,18 +142,22 @@ def main():
         template = template.replace(" ", "")
     state = module.params.get("state")
     site = module.params.get("site")
+    template_type = module.params.get("template_type")
+
 
 
     mso = MSOModule(module)
 
-    template_type = "fabricPolicy"
-
+    template_types_dict={
+        "fabricPolicy": "fabricPolicyTemplate",
+        "fabricResource": "fabricResourceTemplate"
+    }
 
     templates = mso.request(path="templates/summaries", method="GET", api_version="v1")
 
 
     mso.existing = {}
-
+    template_id = ''
     if templates:
         for temp in templates:
             if temp['templateName'] == template and temp['templateType'] == template_type:
@@ -174,11 +179,12 @@ def main():
 
     site_associated = False
 
-    if 'sites' in mso.existing['fabricPolicyTemplate']:
-        for count, s in enumerate(mso.existing['fabricPolicyTemplate']['sites']):
+    if template_types_dict[template_type] in mso.existing and 'sites' in mso.existing[template_types_dict[template_type]]:
+        for count, s in enumerate(mso.existing[template_types_dict[template_type]]['sites']):
             if s['siteId'] == site_id:
                 site_associated = True
                 site_index = count
+
 
     if state == "query":
         if not mso.existing:
@@ -195,7 +201,7 @@ def main():
     if state == "absent":
         mso.proposed = mso.sent = {}
         if site_associated:
-            del mso.existing['fabricPolicyTemplate']['sites'][site_index]
+            del mso.existing[template_types_dict[template_type]]['sites'][site_index]
             if not module.check_mode:
                 mso.request(template_path, method="PUT", data=mso.existing)
             mso.existing = {}
@@ -207,9 +213,9 @@ def main():
 
         if not site_associated:
             #site not associated
-            if 'sites' not in mso.existing['fabricPolicyTemplate']:
-                mso.existing['fabricPolicyTemplate'].update({'sites': []})
-            mso.existing['fabricPolicyTemplate']['sites'].append(
+            if 'sites' not in mso.existing[template_types_dict[template_type]]:
+                mso.existing[template_types_dict[template_type]].update({'sites': []})
+            mso.existing[template_types_dict[template_type]]['sites'].append(
                 {
                     "siteId": site_id
                 }

@@ -116,14 +116,16 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, diff_dicts, update_payload
 
 
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        template=dict(type="str", aliases=["name"], required=True),
-        template_type=dict(type="str", choices=["fabricPolicy", "fabricResource"], required=True),
+        pod_policy=dict(type="str", aliases=["name"], required=True),
+        template=dict(type="str", required=True),
+        description=dict(type="str", aliases=["descr"]),
+        ntp_policy=dict(type="str" ),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -140,15 +142,13 @@ def main():
     if template is not None:
         template = template.replace(" ", "")
     state = module.params.get("state")
-    template_type = module.params.get("template_type")
+    description = module.params.get("description")
+    pod_policy =  module.params.get("pod_policy")
+    ntp_policy =  module.params.get("ntp_policy")
 
     mso = MSOModule(module)
 
-
-    #get template
-    # mso.get_obj("templates", displayName=template)
-
-
+    template_type = "fabricPolicy"
 
 
     templates = mso.request(path="templates/summaries", method="GET", api_version="v1")
@@ -159,8 +159,36 @@ def main():
     if templates:
         for temp in templates:
             if temp['templateName'] == template and temp['templateType'] == template_type:
-                mso.existing = temp
-    
+                template_id = temp['templateId']
+
+    if not template_id:
+        mso.fail_json(msg="Template '{template}' not found".format(template=template))
+
+
+    ##get the template
+
+    mso.existing = mso.request(path=f"templates/{template_id}", method="GET", api_version="v1")
+
+
+    ntp_pol_uuid = ''
+    # try to find if the ntp policy exist
+    if 'template' in mso.existing['fabricPolicyTemplate'] and 'ntpPolicies' in mso.existing['fabricPolicyTemplate']['template']:
+        for count, n in enumerate(mso.existing['fabricPolicyTemplate']['template']['ntpPolicies']):
+            if n['name'] == ntp_policy:
+                ntp_pol_uuid = n['uuid']
+
+
+
+
+    pol_policy_exist = False
+    # try to find if the pod policy exist
+    if 'podPolicyGroups' in mso.existing['fabricPolicyTemplate']['template']:
+        for count, p in enumerate(mso.existing['fabricPolicyTemplate']['template']['podPolicyGroups']):
+            if p['name'] == pod_policy:
+                pod_policy_index = count
+                pol_policy_exist = True
+
+
 
     if state == "query":
         if not mso.existing:
@@ -170,77 +198,58 @@ def main():
                 mso.existing = []
         mso.exit_json()
 
-    template_path = "templates"
+    template_path = f"templates/{template_id}"
     ops = []
 
     mso.previous = mso.existing
     if state == "absent":
         mso.proposed = mso.sent = {}
-        if templates and mso.existing:
-            delete_template_path = "templates/{0}".format(mso.existing['templateId'])
-            mso.existing = {}
+        if pol_policy_exist:
+            del mso.existing['fabricPolicyTemplate']['template']['podPolicyGroups'][pod_policy_index]
+            if len(mso.existing['fabricPolicyTemplate']['template']['podPolicyGroups']) == 0:
+                del mso.existing['fabricPolicyTemplate']['template']['podPolicyGroups']
             if not module.check_mode:
-                mso.request(delete_template_path, method="DELETE")
-
-        
+                mso.request(template_path, method="PUT", data=mso.existing)
+            mso.existing = {}
 
     elif state == "present":
-
-
-        if not mso.existing:
-            # Template does not exist, so we have to add it
-            if template_type == 'fabricPolicy':
-                payload = dict(
-                    name=template,
-                    sites=[],
-                    displayName=template,
-                    policyStates=[],
-                    templateType=template_type,
-                    originalSites=[],
-                    changeControlDetail= dict(
-                        status="EDIT_CONFIG",
-                        designDetails= dict(
-                            user=dict()
-                        ),
-                        designApprovalDetails=[],
-                        deployApprovalDetails=[]
-                    ),
-                    fabricPolicyTemplate=dict(
-                        template=dict(
-                            vlanPools=[],
-                            domains=[],
-                            l3Domains=[],
-                            syncEthIntfPolicies=[],
-                            interfacePolicyGroups=[],
-                            nodePolicyGroups=[],
-                            podPolicyGroups=[],
-                            macsecPolicies=[],
-                            ntpPolicies=[],
-                            qosMpls=[],
-                        ),
-                        sites=[]
-                    ),
-                )
-            else:
-                payload = {
-                    "displayName": template,
-                    "fabricResourceTemplate": {
-                        "template": {
-                            "interfaceProfiles": [],
-                            "podProfiles": [],
-                            "portChannels": [],
-                            "virtualPortChannels": []
-                        }
-                    },
-                    "templateType": "fabricResource",
+        new_pod_policy = {
+                "name": pod_policy,
+                "description": ""
+        }
+        if ntp_pol_uuid:
+            new_pod_policy.update(
+                {
+                    "ntp": ntp_pol_uuid
                 }
+            )
+        
 
+        if description:
+            new_pod_policy['description'] = description
+        # mso.sanitize(new_pod_policy, collate=True)
 
+        if not pol_policy_exist:
+            #pod policy doesnt exist, need be created
+            if not pol_policy_exist:
+                if not 'podPolicyGroups' in mso.existing['fabricPolicyTemplate']['template']:
+                    mso.existing['fabricPolicyTemplate']['template'].update({'podPolicyGroups': []})
+                mso.existing['fabricPolicyTemplate']['template']['podPolicyGroups'].append(new_pod_policy)
 
-            mso.sanitize(payload, collate=True)
+            # mso.sanitize(payload, collate=True)
             if not module.check_mode:
-                mso.request(template_path, method="POST", data=payload)
+                mso.request(template_path, method="PUT", data=mso.existing)
             mso.existing = mso.proposed
+        else:
+            #pod policy exist, need be updated
+            current = mso.existing['fabricPolicyTemplate']['template']['podPolicyGroups'][pod_policy_index].copy()
+            diff = diff_dicts(new_pod_policy,current)
+            if diff:
+                mso.existing['fabricPolicyTemplate']['template']['podPolicyGroups'][pod_policy_index] = update_payload(diff=diff,  payload=mso.existing['fabricPolicyTemplate']['template']['podPolicyGroups'][pod_policy_index])
+                if not module.check_mode:
+                    mso.request(template_path, method="PUT", data=mso.existing)
+                mso.existing = mso.proposed
+
 
     mso.exit_json()
 

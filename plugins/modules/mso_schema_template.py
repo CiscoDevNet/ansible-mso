@@ -239,12 +239,15 @@ def main():
                 displayName=display_name,
                 description=template_description,
                 tenantId=tenant_id,
+                templateType=template_type
             )
 
             mso.sanitize(payload, collate=True)
 
             ops.append(dict(op="replace", path=template_path + "/displayName", value=display_name))
             ops.append(dict(op="replace", path=template_path + "/tenantId", value=tenant_id))
+            
+            
 
             mso.existing = mso.proposed
         else:

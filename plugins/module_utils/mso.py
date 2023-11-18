@@ -695,6 +695,7 @@ class MSOModule(object):
 
         self.response = info.get("msg")
         self.status = info.get("status", -1)
+        
 
         # Get change status from HTTP headers
         if "modified" in info:
@@ -705,8 +706,6 @@ class MSOModule(object):
                 self.result["changed"] = True
 
         # 200: OK, 201: Created, 202: Accepted
-        if method == 'PATCH':
-            self.fail_json(msg=info)
         if self.status in (200, 201, 202):
             try:
                 output = resp.read()

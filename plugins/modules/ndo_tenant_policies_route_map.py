@@ -116,16 +116,16 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, diff_dicts, update_payload
 
 
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        template=dict(type="str", aliases=["name"], required=True),
-        site=dict(type="str", required=True),
-        template_type=dict(type="str", choices=["fabricPolicy", "fabricResource", "tenantPolicy"], required=True),
-        state=dict(type="str", default="present", choices=["absent", "present", "query"]),
+        route_map=dict(type="str", aliases=["name"], required=True),
+        description=dict(type="str", aliases=["descr"]),
+        template=dict(type="str", required=True),
+        state = dict(type="str", default="present", choices=["absent", "present", "query"])
     )
 
     module = AnsibleModule(
@@ -141,23 +141,23 @@ def main():
     if template is not None:
         template = template.replace(" ", "")
     state = module.params.get("state")
-    site = module.params.get("site")
-    template_type = module.params.get("template_type")
+    description = module.params.get("description")
+    route_map = module.params.get("route_map")
+
+
 
 
 
     mso = MSOModule(module)
 
-    template_types_dict={
-        "fabricPolicy": "fabricPolicyTemplate",
-        "fabricResource": "fabricResourceTemplate",
-        "tenantPolicy":  "tenantPolicyTemplate"
-    }
+    template_type = "tenantPolicy"
+
 
     templates = mso.request(path="templates/summaries", method="GET", api_version="v1")
 
 
     mso.existing = {}
+
     template_id = ''
     if templates:
         for temp in templates:
@@ -167,24 +167,19 @@ def main():
     if not template_id:
         mso.fail_json(msg="Template '{template}' not found".format(template=template))
 
-
-    site_id = mso.lookup_site(site)
-
-    if not site_id:
-        mso.fail_json(msg="Site '{site}' not found".format(site=site))
-
-
-    ##get the template
-
+    rm_exist = False
+    
     mso.existing = mso.request(path=f"templates/{template_id}", method="GET", api_version="v1")
 
-    site_associated = False
 
-    if template_types_dict[template_type] in mso.existing and 'sites' in mso.existing[template_types_dict[template_type]]:
-        for count, s in enumerate(mso.existing[template_types_dict[template_type]]['sites']):
-            if s['siteId'] == site_id:
-                site_associated = True
-                site_index = count
+    # try to find if the rm policy exist
+    if 'template' in mso.existing['tenantPolicyTemplate'] and 'routeMapPolicies' in mso.existing['tenantPolicyTemplate']['template']:
+        for count, r in enumerate(mso.existing['tenantPolicyTemplate']['template']['routeMapPolicies']):
+            if r['name'] == route_map:
+                rm_exist = True
+                rm_index = count
+
+
 
 
     if state == "query":
@@ -196,37 +191,57 @@ def main():
         mso.exit_json()
 
     template_path = f"templates/{template_id}"
-    ops = []
 
     mso.previous = mso.existing
     if state == "absent":
         mso.proposed = mso.sent = {}
-        if site_associated:
-            del mso.existing[template_types_dict[template_type]]['sites'][site_index]
+        if rm_exist:
+            del mso.existing['tenantPolicyTemplate']['template']['routeMapPolicies'][rm_index]
+            if len(mso.existing['tenantPolicyTemplate']['template']['routeMapPolicies']) == 0:
+                del mso.existing['tenantPolicyTemplate']['template']['routeMapPolicies']
             if not module.check_mode:
                 mso.request(template_path, method="PUT", data=mso.existing)
             mso.existing = {}
 
-        
-
     elif state == "present":
 
-
-        if not site_associated:
-            #site not associated
-            if 'sites' not in mso.existing[template_types_dict[template_type]]:
-                mso.existing[template_types_dict[template_type]].update({'sites': []})
-            mso.existing[template_types_dict[template_type]]['sites'].append(
+        new_rm = {
+            'name' : route_map,
+            'description': ''
+        }
+        if description:
+            new_rm.update(
                 {
-                    "siteId": site_id
+                    "description": description
                 }
             )
 
 
+        #rm doesn't exitst, need be created
+        if not rm_exist:
+            if not 'routeMapPolicies' in mso.existing['tenantPolicyTemplate']['template']:
+                mso.existing['tenantPolicyTemplate']['template'].update({'routeMapPolicies': []})
+            mso.existing['tenantPolicyTemplate']['template']['routeMapPolicies'].append(new_rm)
+            
             # mso.sanitize(payload, collate=True)
             if not module.check_mode:
                 mso.request(template_path, method="PUT", data=mso.existing)
             mso.existing = mso.proposed
+
+        else:
+            #rm exist, check if need be udpated
+            current = mso.existing['tenantPolicyTemplate']['template']['routeMapPolicies'][rm_index].copy()
+            diff = diff_dicts(new_rm, current, exclude_key='rtMapEntryList')
+            if diff:
+                mso.existing['tenantPolicyTemplate']['template']['routeMapPolicies'][rm_index] = update_payload(diff=diff, payload=current)
+                if not module.check_mode:
+                    mso.request(template_path, method="PUT", data=mso.existing)
+                mso.existing = mso.proposed
+
+
+
+    
+    
 
     mso.exit_json()
 

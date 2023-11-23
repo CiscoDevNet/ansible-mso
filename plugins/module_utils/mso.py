@@ -293,7 +293,8 @@ def write_file(module, url, dest, content, resp, tmpsrc=None):
 def diff_dicts(dict1, dict2, exclude_key=None):
     keys_to_exclude = {'uuid'}
     if exclude_key:
-        keys_to_exclude.update({exclude_key})
+        for key in str(exclude_key).split(','):
+            keys_to_exclude.update({key})
     keys1 = set(dict1.keys()) - keys_to_exclude
     keys2 = set(dict2.keys()) - keys_to_exclude
     common_keys = keys1 & keys2

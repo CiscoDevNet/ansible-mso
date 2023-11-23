@@ -124,7 +124,8 @@ def main():
     argument_spec.update(
         tenant=dict(type="str", required=True),
         template=dict(type="str", aliases=["name"], required=True),
-        site=dict(type="str", required=True),
+        template_type=dict(type="str", choices=["tenantPolicy", "l3out"], required=True),
+        site=dict(type="str"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -143,6 +144,7 @@ def main():
         template = template.replace(" ", "")
     state = module.params.get("state")
     site = module.params.get("site")
+    template_type = module.params.get("template_type")
 
     mso = MSOModule(module)
 
@@ -151,13 +153,16 @@ def main():
     # mso.get_obj("templates", displayName=template)
     tenant_id = mso.lookup_tenant(tenant)
     site_id = mso.lookup_site(site)
-    template_type = "l3out"
 
-
-    if tenant_id:
-        templates = mso.request(path=f"tenants/{tenant_id}/templates", method="GET", api_version="v1")
-    else:
+    if not tenant_id:
         mso.fail_json(msg="Tenant '{tenant}' not found".format(tenant=tenant))
+
+    if template_type == 'l3out' and not site_id:
+        mso.fail_json(msg="Site '{site}' not found".format(site=site))
+
+    templates = mso.request(path=f"tenants/{tenant_id}/templates", method="GET", api_version="v1")
+
+
 
     mso.existing = {}
 
@@ -165,11 +170,6 @@ def main():
         for temp in templates:
             if temp['displayName'] == template and temp['templateType'] == template_type:
                 mso.existing = temp
-
-
-
-
-
 
     if state == "query":
         if not mso.existing:
@@ -180,7 +180,6 @@ def main():
         mso.exit_json()
 
     template_path = "templates"
-    ops = []
 
     mso.previous = mso.existing
     if state == "absent":
@@ -201,21 +200,34 @@ def main():
             payload = dict(
                 displayName=template,
                 templateType=template_type,
-                l3outTemplate=dict(
-                    tenantId=tenant_id,
-                    siteId=site_id
-                ),
+
             )
+            if template_type == 'l3out':
+                payload.update(
+                    {
+                        'l3outTemplate': {
+                            'tenantId': tenant_id,
+                            'siteId': site_id
+                        },
+                    }
+                )
+            else:
+                payload.update(
+                    {
+                        'tenantPolicyTemplate': {
+                           'template': {
+                                'tenantId': tenant_id
+                             },
+                        }
+                    }
+                )
+                
             mso.sanitize(payload, collate=True)
             if not module.check_mode:
                 mso.request(template_path, method="POST", data=payload)
-        mso.existing = mso.proposed
+            mso.existing = mso.proposed
 
         
-
-
-
-
     mso.exit_json()
 
 

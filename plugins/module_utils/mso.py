@@ -23,7 +23,8 @@ from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_native, to_text
 from ansible.module_utils.connection import Connection
 from ansible_collections.cisco.mso.plugins.module_utils.constants import NDO_API_VERSION_PATH_FORMAT
-from deepdiff import DeepDiff
+import socket
+import struct
 
 try:
     from requests_toolbelt.multipart.encoder import MultipartEncoder
@@ -322,9 +323,26 @@ def update_payload(diff, payload):
         for item in diff['remove']:
             payload.pop(item)
     return payload
-    
 
-    
+def int_to_ipv4(int_value):
+    return socket.inet_ntoa(struct.pack('!I', int_value))
+
+def get_template_id(template_name, template_type, template_dict):
+    try:
+        for temp in template_dict:
+            if temp['templateName'] == template_name and temp['templateType'] == template_type:
+                return temp['templateId']
+    except:
+        return None
+
+def get_route_map_uuid(template_dict, route_map):
+    try:
+        for count, r in enumerate(template_dict['tenantPolicyTemplate']['template']['routeMapPolicies']):
+            if r['name'] == route_map:
+                return r['uuid']
+    except:
+        return None
+
 
 class MSOModule(object):
     def __init__(self, module):

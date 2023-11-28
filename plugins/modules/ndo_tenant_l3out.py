@@ -318,8 +318,8 @@ def main():
         if outbound_route_map and new_l3out['routingProtocol'] != "none":
             template_id = get_template_id(template_name=outbound_route_map_template, template_type='tenantPolicy', template_dict=templates)
             rm_template = mso.request(path=f"templates/{template_id}", method="GET", api_version="v1")
-            outbound_route_map_uuid = get_route_map_uuid(route_map=inbound_route_map, template_dict=rm_template)
-            if inbound_route_map_uuid:
+            outbound_route_map_uuid = get_route_map_uuid(route_map=outbound_route_map, template_dict=rm_template)
+            if outbound_route_map_uuid:
                 new_l3out['exportRouteMapRef'] = outbound_route_map_uuid
             else:
                 mso.fail_json(msg=f"Route-map {outbound_route_map} not found")

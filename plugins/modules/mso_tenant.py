@@ -3,7 +3,6 @@
 
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
 # Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
-# Copyright: (c) 2023, Anvitha Jain (@anvjain) <anvjain@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -41,22 +40,6 @@ options:
     - Admin user is always added to the associated user list irrespective of this parameter being used.
     type: list
     elements: str
-  remote_users:
-    description:
-    - A list of associated remote users for this tenant.
-    type: list
-    elements: dict
-    suboptions:
-      name:
-        description:
-        - The name of the associated remote user for this tenant.
-        required: true
-        type: str
-      login_domain:
-        description:
-        - Domain name of the associated remote user for this tenant.
-        required: true
-        type: str
   sites:
     description:
     - A list of associated sites for this tenant.
@@ -136,7 +119,7 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, ndo_remote_user_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.constants import YES_OR_NO_TO_BOOL_STRING_MAP
 
 
@@ -147,7 +130,6 @@ def main():
         display_name=dict(type="str"),
         tenant=dict(type="str", aliases=["name"]),
         users=dict(type="list", elements="str"),
-        remote_users=dict(type="list", elements="dict", options=ndo_remote_user_spec()),
         sites=dict(type="list", elements="str"),
         orchestrator_only=dict(type="str", default="yes", choices=["yes", "no"]),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
@@ -167,9 +149,12 @@ def main():
     tenant = module.params.get("tenant")
     orchestrator_only = module.params.get("orchestrator_only")
     state = module.params.get("state")
-    remote_users = module.params.get("remote_users")
 
     mso = MSOModule(module)
+
+    # Convert sites and users
+    sites = mso.lookup_sites(module.params.get("sites"))
+    users = mso.lookup_users(module.params.get("users"))
 
     tenant_id = None
     path = "tenants"
@@ -197,12 +182,6 @@ def main():
                 mso.existing = mso.request(path, method="DELETE")
 
     elif state == "present":
-        # Convert sites and users
-        sites = mso.lookup_sites(module.params.get("sites"))
-        users = mso.lookup_users(module.params.get("users"))
-        if remote_users is not None:
-            users += mso.lookup_remote_users(remote_users)
-
         mso.previous = mso.existing
 
         payload = dict(

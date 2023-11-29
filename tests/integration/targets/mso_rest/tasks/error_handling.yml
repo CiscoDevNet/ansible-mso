@@ -5,14 +5,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # SET VARs
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -23,7 +23,7 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
@@ -45,7 +45,7 @@
   register: error_on_missing_required_param
 
 - name: Verify error_on_missing_required_param
-  assert:
+  ansible.builtin.assert:
     that:
     - error_on_missing_required_param is failed
     - 'error_on_missing_required_param.msg == "missing required arguments: path"'
@@ -73,19 +73,19 @@
   register: error_on_name_resolution
 
 - name: Verify error_on_name_resolution
-  assert:
+  ansible.builtin.assert:
     that:
     - error_on_name_resolution is failed
 
 - name: Verify error_on_name_resolution
-  assert:
+  ansible.builtin.assert:
     that:
     - error_on_name_resolution.msg is search("Name or service not known")
   when: 
     - version.current.version is version('3.7', '>=')
 
 - name: Error on invalid path
-  mso_rest:
+  cisco.mso.mso_rest:
     <<: *mso_info
     path: /mso/api/v1/tenant
     method: post
@@ -100,14 +100,14 @@
   register: error_on_invalid_path
 
 - name: Verify error_on_invalid_path
-  assert:
+  ansible.builtin.assert:
     that:
     - error_on_invalid_path is failed
     - error_on_invalid_path.status == 404
   when: version.current.version is version('3.0.0a', '<') or version.current.version is version('3.2', '>=')
 
 - name: Verify error_on_invalid_path
-  assert:
+  ansible.builtin.assert:
     that:
     - error_on_invalid_path is failed
     - error_on_invalid_path.status == 405
@@ -126,7 +126,7 @@
   register: error_on_missing_attributes
 
 - name: Verify error_on_missing_attributes
-  assert:
+  ansible.builtin.assert:
     that:
     - error_on_missing_attributes is failed
     - error_on_missing_attributes.status == 400
@@ -147,7 +147,7 @@
   register: error_on_input_validation
 
 - name: Verify error_on_input_validation
-  assert:
+  ansible.builtin.assert:
     that:
     - error_on_input_validation is failed
     - error_on_input_validation.status == 400

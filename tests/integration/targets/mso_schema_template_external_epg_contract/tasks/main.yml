@@ -6,14 +6,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 # - name: Ensure site exist
-#   mso_site: &site_present
+#   cisco.mso.mso_site: &site_present
 #     host: '{{ mso_hostname }}'
 #     username: '{{ mso_username }}'
 #     password: '{{ mso_password }}'
@@ -30,7 +30,7 @@
 #     state: present
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -45,7 +45,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant: &tenant_present
+  cisco.mso.mso_tenant: &tenant_present
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -61,7 +61,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
-  mso_schema_template: &schema_present
+  cisco.mso.mso_schema_template: &schema_present
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -75,7 +75,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 2 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *schema_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -83,7 +83,7 @@
     state: present
 
 - name: Ensure schema 2 with Template 3 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *schema_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -91,7 +91,7 @@
     state: present
 
 - name: Ensure VRF exist
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -105,7 +105,7 @@
     state: present
 
 - name: Ensure Filter 1 exist
-  mso_schema_template_filter_entry:
+  cisco.mso.mso_schema_template_filter_entry:
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -120,7 +120,7 @@
     state: present
 
 - name: Ensure Filter 2 exist
-  mso_schema_template_filter_entry:
+  cisco.mso.mso_schema_template_filter_entry:
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -135,7 +135,7 @@
     state: present
 
 - name: Ensure Contract1 exist
-  mso_schema_template_contract_filter: &contract_present
+  cisco.mso.mso_schema_template_contract_filter: &contract_present
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -152,7 +152,7 @@
     state: present
 
 - name: Ensure Contract2 exist
-  mso_schema_template_contract_filter:
+  cisco.mso.mso_schema_template_contract_filter:
     <<: *contract_present
     template: Template 2
     contract: Contract2
@@ -162,7 +162,7 @@
     state: present
 
 - name: Ensure external EPGs exist
-  mso_schema_template_externalepg:
+  cisco.mso.mso_schema_template_externalepg:
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -184,7 +184,7 @@
 
 # ADD Contract to External EPG
 - name: Add Contract1 to External EPG (check_mode)
-  mso_schema_template_external_epg_contract: &contract_ext_epg_present
+  cisco.mso.mso_schema_template_external_epg_contract: &contract_ext_epg_present
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -203,7 +203,7 @@
   register: cm_add_contract_rel
 
 - name: Verify cm_add_contract_rel
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_contract_rel is changed
     - cm_add_contract_rel.previous == {}
@@ -212,12 +212,12 @@
     - cm_add_contract_rel.current.relationshipType == "consumer"
 
 - name: Add Contract to External EPG (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_present
   register: nm_add_contract_rel
 
 - name: Verify nm_add_contract_rel
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_contract_rel is changed
     - nm_add_contract_rel.previous == {}
@@ -227,13 +227,13 @@
     - cm_add_contract_rel.current.contractRef.schemaId ==  nm_add_contract_rel.current.contractRef.schemaId
 
 - name: Add Contract to External EPG again (check_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_present
   check_mode: true
   register: cm_add_contract_rel_again
 
 - name: Verify cm_add_contract_rel_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_contract_rel_again is not changed
     - cm_add_contract_rel_again.previous.contractRef.templateName == "Template1"
@@ -246,12 +246,12 @@
 
 
 - name: Add Contract to External EPG again (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_present
   register: nm_add_contract_rel_again
 
 - name: Verify nm_add_contract_rel_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_contract_rel_again is not changed
     - nm_add_contract_rel_again.previous.contractRef.templateName == "Template1"
@@ -263,7 +263,7 @@
     - nm_add_contract_rel_again.previous.contractRef.schemaId ==  nm_add_contract_rel_again.current.contractRef.schemaId
 
 - name: Add Contract1 to External EPG - provider (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_present
     contract:
       name: Contract1
@@ -271,7 +271,7 @@
   register: nm_add_contract1_rel_provider
 
 - name: Add Contract2 to External EPG - consumer (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_present
     contract:
       name: Contract2
@@ -280,7 +280,7 @@
   register: nm_add_contract2_rel_consumer
 
 - name: Add Contract1 to External EPG 3 - provider (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: 'Template 3'
@@ -293,7 +293,7 @@
   register: nm_add_contract3_rel_provider
 
 - name: Verify nm_add_contract1_rel_provider, nm_add_contract2_rel_consumer and nm_add_contract3_rel_provider
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_contract1_rel_provider is changed
     - nm_add_contract2_rel_consumer is changed
@@ -310,7 +310,7 @@
 
 # # QUERY ALL Contract to External EPG
 - name: Query all contract relationship for External EPG (check_mode)
-  mso_schema_template_external_epg_contract: &contract_ext_epg_query
+  cisco.mso.mso_schema_template_external_epg_contract: &contract_ext_epg_query
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -326,12 +326,12 @@
   register: cm_query_all_contract_rels
 
 - name: Query all contract relationship for External EPG (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
   register: nm_query_all_contract_rels
 
 - name: Verify query_all_contract_rels
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_all_contract_rels is not changed
     - nm_query_all_contract_rels is not changed
@@ -340,7 +340,7 @@
 
 # QUERY A Contract to External EPG
 - name: Query Contract1 relationship for External EPG - consumer (check_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     contract:
       name: Contract1
@@ -349,7 +349,7 @@
   register: cm_query_contract1_consumer_rel
 
 - name: Query Contract1 relationship for External EPG - consumer (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     contract:
       name: Contract1
@@ -357,7 +357,7 @@
   register: nm_query_contract1_consumer_rel
 
 - name: Query Contract1 relationship for External EPG - provider (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     contract:
       name: Contract1
@@ -365,7 +365,7 @@
   register: nm_query_contract1_provider_rel
 
 - name: Query Contract1 relationship for External EPG - consumer (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     contract:
       name: Contract2
@@ -374,7 +374,7 @@
   register: nm_query_contract2_consumer_rel
 
 - name: Query Contract1 relationship for External EPG - provider (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -387,7 +387,7 @@
   register: nm_query_contract3_provider_rel
 
 - name: Verify query_contractX_YYYYY_rel
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_contract1_consumer_rel is not changed
     - nm_query_contract1_consumer_rel is not changed
@@ -408,51 +408,51 @@
 
 # REMOVE Contract to External EPG
 - name: Remove Contract to External EPG (check_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_present
     state: absent
   check_mode: true
   register: cm_remove_contract_rel
 
 - name: Verify cm_remove_contract_rel
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_contract_rel is changed
     - cm_remove_contract_rel.current == {}
 
 - name: Remove Contract to External EPG (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_present
     state: absent
   register: nm_remove_contract_rel
 
 - name: Verify nm_remove_contract_rel
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_contract_rel is changed
     - nm_remove_contract_rel.current == {}
 
 - name: Remove Contract to External EPG again (check_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_present
     state: absent
   check_mode: true
   register: cm_remove_contract_rel_again
 
 - name: Verify cm_remove_contract_rel_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_contract_rel_again is not changed
     - cm_remove_contract_rel_again.current == {}
 
 - name: Remove Contract to External EPG again (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_present
     state: absent
   register: nm_remove_contract_rel_again
 
 - name: Verify nm_remove_contract_rel_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_contract_rel_again is not changed
     - nm_remove_contract_rel_again.current == {}
@@ -460,7 +460,7 @@
 
 # QUERY NON-EXISTING Contract to External EPG
 - name: Query non-existing contract (check_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     contract:
       name: non_existing_contract
@@ -470,7 +470,7 @@
   register: cm_query_non_contract
 
 - name: Query non-existing contract (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     contract:
       name: non_existing_contract
@@ -479,7 +479,7 @@
   register: nm_query_non_contract
 
 - name: Verify query_non_contract
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_contract is not changed
     - nm_query_non_contract is not changed
@@ -489,7 +489,7 @@
 
 # QUERY NON-EXISTING ExtEPG
 - name: Query non-existing ExtEPG (check_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     external_epg: non_existing_ext_epg
   check_mode: true
@@ -497,14 +497,14 @@
   register: cm_query_non_ext_epg
 
 - name: Query non-existing ExtEPG (normal mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     external_epg: non_existing_ext_epg
   ignore_errors: true
   register: nm_query_non_ext_epg
 
 - name: Verify query_non_ext_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_ext_epg is not changed
     - nm_query_non_ext_epg is not changed
@@ -513,7 +513,7 @@
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for contract relationship (check_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     state: non-existing-state
   check_mode: true
@@ -521,14 +521,14 @@
   register: cm_non_existing_state
 
 - name: Non-existing state for contract relationship (normal_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     state: non-existing-state
   ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
@@ -537,7 +537,7 @@
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for contract relationship (check_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     schema: non-existing-schema
   check_mode: true
@@ -545,14 +545,14 @@
   register: cm_non_existing_schema
 
 - name: Non-existing schema for contract relationship (normal_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     schema: non-existing-schema
   ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_schema is not changed
     - nm_non_existing_schema is not changed
@@ -560,7 +560,7 @@
     - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
 
 - name: Non-existing contract schema for contract relationship (check_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     contract:
       name: Contract1
@@ -572,7 +572,7 @@
   register: cm_non_existing_contract_schema
 
 - name: Non-existing contract schema for contract relationship (normal_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     contract:
       name: Contract1
@@ -583,7 +583,7 @@
   register: nm_non_existing_contract_schema
 
 - name: Verify non_existing_contract_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_contract_schema is not changed
     - nm_non_existing_contract_schema is not changed
@@ -592,7 +592,7 @@
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template for contract relationship (check_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     template: non-existing-template
   check_mode: true
@@ -600,14 +600,14 @@
   register: cm_non_existing_template
 
 - name: Non-existing template for contract relationship (normal_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     template: non-existing-template
   ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
@@ -615,7 +615,7 @@
     - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
 
 - name: Non-existing contract template for contract relationship (check_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     contract:
       name: Contract1
@@ -626,7 +626,7 @@
   register: cm_non_existing_contract_template
 
 - name: Non-existing contract template for contract relationship (normal_mode)
-  mso_schema_template_external_epg_contract:
+  cisco.mso.mso_schema_template_external_epg_contract:
     <<: *contract_ext_epg_query
     contract:
       name: Contract1
@@ -636,7 +636,7 @@
   register: nm_non_existing_contract_template
 
 - name: Verify non_existing_contract_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_contract_template is not changed
     - nm_non_existing_contract_template is not changed

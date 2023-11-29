@@ -4,12 +4,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -20,7 +20,7 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
@@ -30,7 +30,7 @@
   block:
   # CLEAN ENVIRONMENT
   - name: Remove user ansible_test
-    mso_user: &user_absent
+    cisco.mso.mso_user: &user_absent
       <<: *mso_info
       user: '{{ item }}'
       state: absent
@@ -42,7 +42,7 @@
 
   # ADD USER
   - name: Add user (check_mode)
-    mso_user: &user_present
+    cisco.mso.mso_user: &user_present
       <<: *mso_info
       user: ansible_test
       user_password: 'S0m3!1n1t14l!p455w0rd'
@@ -61,7 +61,7 @@
     register: cm_add_user
 
   - name: Verify cm_add_user
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_add_user is changed
       - cm_add_user.previous == {}
@@ -75,11 +75,11 @@
       - cm_add_user.current.roles[0].accessType == 'readWrite'
 
   - name: Add user (normal mode)
-    mso_user: *user_present
+    cisco.mso.mso_user: *user_present
     register: nm_add_user
 
   - name: Verify nm_add_user
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_user is changed
       - nm_add_user.previous == {}
@@ -93,7 +93,7 @@
       - nm_add_user.current.roles[0].accessType == 'readWrite'
 
   - name: Add user again (check_mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_present
       # NOTE: We need to modify the password for a new user
       user_password: 'S0m3!n3w!p455w0rd'
@@ -101,7 +101,7 @@
     register: cm_add_user_again
 
   - name: Verify cm_add_user_again
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_add_user_again is changed
       - cm_add_user_again.previous.username == 'ansible_test'
@@ -109,14 +109,14 @@
       - cm_add_user_again.current.username == 'ansible_test'
 
   - name: Add user again (normal mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_present
       # NOTE: We need to modify the password for a new user
       user_password: 'S0m3!n3w!p455w0rd'
     register: nm_add_user_again
 
   - name: Verify nm_add_user_again
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_user_again is changed
       - nm_add_user_again.previous.username == 'ansible_test'
@@ -124,7 +124,7 @@
       - nm_add_user_again.current.username == 'ansible_test'
 
   - name: Add user with read only role (check_mode)
-    mso_user: &user_present2
+    cisco.mso.mso_user: &user_present2
       <<: *mso_info
       user: ansible_test_read
       user_password: '#123455#123455Aa'
@@ -143,7 +143,7 @@
     register: cm_add_user2
 
   - name: Verify cm_add_user2
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_add_user2 is changed
       - cm_add_user2.previous == {}
@@ -157,11 +157,11 @@
       - cm_add_user2.current.roles[0].accessType == 'readOnly'
 
   - name: Add user with read only role (normal mode)
-    mso_user: *user_present2
+    cisco.mso.mso_user: *user_present2
     register: nm_add_user2
 
   - name: Verify nm_add_user2
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_user2 is changed
       - nm_add_user2.current.id is defined
@@ -174,18 +174,18 @@
       - nm_add_user2.current.roles[0].accessType == 'readOnly'
 
   - name: Add user with read only role again (check mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_present2
       user_password: '#123455#123455Aa'
     check_mode: true
     register: cm_add_user2_again
 
   - name: Add user with read only role again (normal mode)
-    mso_user: *user_present2
+    cisco.mso.mso_user: *user_present2
     register: nm_add_user2
 
   - name: Add user3 with read only role and no password (check_mode)
-    mso_user:  &user_present3
+    cisco.mso.mso_user:  &user_present3
       <<: *mso_info
       user: ansible_test_read_2
       # NOTE: First name, last name, phone and email are mandatory on creation
@@ -204,18 +204,18 @@
     register: nm_add_user3
 
   - name: Verify nm_add_user2
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_user3.msg ==  "The user ansible_test_read_2 does not exist. The 'user_password' attribute is required to create a new user."
 
   - name: Add user3 with read only role and with password (normal mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_present3
       user_password: '#123455#123455Aa'
     register: nm_add_user3_again
 
   - name: Verify nm_add_user3_again
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_user3_again is changed
       - nm_add_user3_again.current.id is defined
@@ -229,7 +229,7 @@
 
   # CHANGE USER
   - name: Change user (check_mode)
-    mso_user: &user_change
+    cisco.mso.mso_user: &user_change
       <<: *mso_info
       user: ansible_test
       roles:
@@ -244,7 +244,7 @@
     register: cm_change_user
 
   - name: Verify cm_change_user
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_change_user is changed
       - cm_change_user.current.id == nm_add_user.current.id
@@ -253,13 +253,13 @@
       - cm_change_user.current.phoneNumber == '+32 478 436 300'
 
   - name: Change user (normal mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_change
       output_level: debug
     register: nm_change_user
 
   - name: Verify nm_change_user
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_change_user is changed
       - nm_change_user.current.id == nm_add_user.current.id
@@ -268,13 +268,13 @@
       - nm_change_user.current.phoneNumber == '+32 478 436 300'
 
   - name: Change user again (check_mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_change
     check_mode: true
     register: cm_change_user_again
 
   - name: Verify cm_change_user_again
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_change_user_again is not changed
       - cm_change_user_again.current.id == nm_add_user.current.id
@@ -283,12 +283,12 @@
       - cm_change_user_again.current.phoneNumber == '+32 478 436 300'
 
   - name: Change user again (normal mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_change
     register: nm_change_user_again
 
   - name: Verify nm_change_user_again
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_change_user_again is not changed
       - nm_change_user_again.current.id == nm_add_user.current.id
@@ -297,7 +297,7 @@
       - nm_change_user_again.current.phoneNumber == '+32 478 436 300'
 
   - name: Add second user
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_change
       user: ansible_test2
       user_password: 'S0m3!1n1t14l!p455w0rd'
@@ -309,7 +309,7 @@
     register: nm_add_user_2
 
   - name: Change user 2 again (normal mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_change
       user: ansible_test2
       user_password: null
@@ -318,7 +318,7 @@
     register: nm_change_user_2_again
 
   - name: Verify nm_change_user_2_again
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_change_user_2_again is not changed
       - nm_change_user_2_again.current.id == nm_add_user_2.current.id
@@ -328,18 +328,18 @@
 
 # QUERY ALL USERS
 - name: Query all users (check_mode)
-  mso_user: &user_query
+  cisco.mso.mso_user: &user_query
     <<: *mso_info
     state: query
   check_mode: true
   register: cm_query_all_users
 
 - name: Query all users (normal mode)
-  mso_user: *user_query
+  cisco.mso.mso_user: *user_query
   register: nm_query_all_users
 
 - name: Verify query_all_users
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_all_users is not changed
     - nm_query_all_users is not changed
@@ -349,20 +349,20 @@
 
 # QUERY A USER
 - name: Query our user
-  mso_user:
+  cisco.mso.mso_user:
     <<: *user_query
     user: '{{ mso_username }}'
   check_mode: true
   register: cm_query_user
 
 - name: Query our user
-  mso_user:
+  cisco.mso.mso_user:
     <<: *user_query
     user: '{{ mso_username }}'
   register: nm_query_user
 
 - name: Verify query_user
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_user is not changed
     - cm_query_user.current.id is defined
@@ -376,20 +376,20 @@
   when: version.current.version is version('3.2', '<')
   block:
   - name: Query our read-only user
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_query
       user: ansible_test_read
     register: nm_query_user2
 
   - name: Verify query_user2
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_query_user2 is not changed
       - nm_query_user2.current.roles[0].accessType == 'readOnly'
 
   # REMOVE USER
   - name: Remove user (check_mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_absent
       user: ansible_test
       state: absent
@@ -397,26 +397,26 @@
     register: cm_remove_user
 
   - name: Verify cm_remove_user
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_remove_user is changed
       - cm_remove_user.current == {}
 
   - name: Remove user (normal mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_absent
       user: ansible_test
       state: absent
     register: nm_remove_user
 
   - name: Verify nm_remove_user
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_remove_user is changed
       - nm_remove_user.current == {}
 
   - name: Remove user again (check_mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_absent
       user: ansible_test
       state: absent
@@ -424,41 +424,41 @@
     register: cm_remove_user_again
 
   - name: Verify cm_remove_user_again
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_remove_user_again is not changed
       - cm_remove_user_again.current == {}
 
   - name: Remove user again (normal mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_absent
       user: ansible_test
       state: absent
     register: nm_remove_user_again
 
   - name: Verify nm_remove_user_again
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_remove_user_again is not changed
       - nm_remove_user_again.current == {}
 
 # QUERY NON-EXISTING USER
 - name: Query non-existing user (check_mode)
-  mso_user:
+  cisco.mso.mso_user:
     <<: *user_query
     user: ansible_test
   check_mode: true
   register: cm_query_non_user
 
 - name: Query non-existing user (normal mode)
-  mso_user:
+  cisco.mso.mso_user:
     <<: *user_query
     user: ansible_test
   register: nm_query_non_user
 
 # TODO: Implement more tests
 - name: Verify query_non_user
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_user is not changed
     - nm_query_non_user is not changed
@@ -468,42 +468,41 @@
   when: version.current.version is version('3.2', '<')
   block:
   - name: inactive user (check_mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_present
       account_status: inactive
     check_mode: true
     register: cm_inactive_user
 
   - name: inactive user (normal_mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_present
       account_status: inactive
     register: nm_inactive_user
 
   - name: Verify cm_inactive_user and nm_inactive_user
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_inactive_user is changed
       - nm_inactive_user is changed
       - cm_inactive_user.current.accountStatus == "inactive"
       - nm_inactive_user.current.accountStatus == "inactive"
 
-
   - name: active user (check_mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_present
       account_status: active
     check_mode: true
     register: cm_active_user
 
   - name: active user (normal_mode)
-    mso_user:
+    cisco.mso.mso_user:
       <<: *user_present
       account_status: active
     register: nm_active_user
 
   - name: Verify cm_active_user and nm_active_user
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_active_user is changed
       - nm_active_user is changed

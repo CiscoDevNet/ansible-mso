@@ -4,13 +4,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -21,7 +21,7 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -33,7 +33,7 @@
   ignore_errors: true
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -42,7 +42,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure sites removed from tenant ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ item }}'
@@ -53,7 +53,7 @@
     - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exists
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -63,7 +63,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 and Template 2 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -74,7 +74,7 @@
   - { template: Template 2}
 
 - name: Add a new site to a schema with Template 1 in check mode
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -84,13 +84,13 @@
   register: add_site_cm
 
 - name: Verify add_site_cm
-  assert:
+  ansible.builtin.assert:
     that:
     - add_site_cm.current.siteId is match ("[0-9a-zA-Z]*")
     - add_site_cm.current.templateName == "Template1"
 
 - name: Add a new site to a schema with Template 1 in normal mode
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -99,13 +99,13 @@
   register: add_site_nm
 
 - name: Verify add_site_nm
-  assert:
+  ansible.builtin.assert:
     that:
     - add_site_nm.current.siteId is match ("[0-9a-zA-Z]*")
     - add_site_nm.current.templateName == "Template1"
 
 - name: Add a new site to a schema in normal mode again
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -114,13 +114,13 @@
   register: add_site_nm_again
 
 - name: Verify add_site_nm_again
-  assert:
+  ansible.builtin.assert:
     that:
     - add_site_nm_again is not changed
     - add_site_nm_again.current.siteId is match ("[0-9a-zA-Z]*")
 
 - name: Add a new site to a schema with Template 2 in normal mode
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -130,7 +130,7 @@
   register: add_site_temp2_nm
 
 - name: Verify add_site_temp2_nm
-  assert:
+  ansible.builtin.assert:
     that:
     - add_site_temp2_nm.current.siteId is match ("[0-9a-zA-Z]*")
     - add_site_temp2_nm.current.templateName == "Template2"
@@ -144,7 +144,7 @@
     - add_site_temp2_nm.sent.templateName == "Template2"
 
 - name: Query a schema site
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -153,21 +153,21 @@
   register: query_site
 
 - name: Query all schema sites
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     state: query
   register: query_all_sites
 
 - name: Verify query_site and query_all_sites
-  assert:
+  ansible.builtin.assert:
     that:
     - query_site is not changed
     - query_all_sites is not changed
     - query_all_sites.current | length == 2
 
 - name: Remove a site from a schema with Template1
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -176,7 +176,7 @@
   register: rm_site_temp1
 
 - name: Remove a site from a schema with Template2
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -185,7 +185,7 @@
   register: rm_site_temp2
 
 - name: Verify rm_site_temp1 and rm_site_temp2
-  assert:
+  ansible.builtin.assert:
     that:
     - rm_site_temp1 is changed
     - rm_site_temp1.current == {}
@@ -193,7 +193,7 @@
     - rm_site_temp2.current == {}
 
 - name: Remove a site from a schema with Template2 again
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -202,13 +202,13 @@
   register: rm_site_again
 
 - name: Verify rm_site_again
-  assert:
+  ansible.builtin.assert:
     that:
     - rm_site_again is not changed
 
 # USE NON-EXISTING STATE
 - name: non_existing_state state
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -218,14 +218,14 @@
   register: non_existing_state
 
 - name: Verify non_existing_state
-  assert:
+  ansible.builtin.assert:
     that:
     - non_existing_state is not changed
     - non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non_existing_state"
 
 # USE A NON_EXISTING_SCHEMA
 - name: non_existing_schema
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: non_existing_schema
     site: '{{ mso_site | default("ansible_test") }}'
@@ -235,14 +235,14 @@
   register: non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - non_existing_schema is not changed
     - non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
 
 # USE A NON_EXISTING_TEMPLATE
 - name: non_existing_template
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -252,13 +252,13 @@
   register: non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - non_existing_template is not changed
     - non_existing_template.msg == "Template 'non_existing_template' not found"
 
 - name: Template attribute absent in task
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -267,7 +267,7 @@
   register: absent_template
 
 - name: Verify absent_template
-  assert:
+  ansible.builtin.assert:
     that:
     - absent_template is not changed
     - absent_template.current == []

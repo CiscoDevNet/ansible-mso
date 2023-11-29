@@ -6,14 +6,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact: 
+  ansible.builtin.set_fact: 
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -24,13 +24,13 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -39,7 +39,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exists to validate the invalid_site_mso_site
-  mso_tenant:
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -48,7 +48,7 @@
   register: ansible_test_tenant_present
 
 - name: Dissociate clouds that are associated with ansible_tenant
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ item }}'
@@ -62,7 +62,7 @@
   when: ansible_test_tenant_present.current != {}
 
 - name: Assertion check for the tenant site dissociation
-  assert:
+  ansible.builtin.assert:
     that:
     - tenant_site_absent_check.results.0.current == {}
     - tenant_site_absent_check.warnings.0 == "Site 'invalid_site_ansible_test' is not a valid site name."
@@ -72,7 +72,7 @@
   when: ansible_test_tenant_present.current != {}
 
 - name: Remove tenant ansible_test
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -80,7 +80,7 @@
     state: absent
 
 - name: Ensure non-cloud site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -91,7 +91,7 @@
     state: present
 
 - name: Ensure azure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ azure_apic_username }}'
@@ -102,7 +102,7 @@
     state: present
 
 - name: Ensure aws site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: 'aws_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ aws_apic_username }}'
@@ -113,7 +113,7 @@
     state: present
 
 - name: Ensure tenant ansible_test exists
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -121,7 +121,7 @@
     state: present
 
 - name: Associate non-cloud site with ansible_test in check mode
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ mso_site | default("ansible_test") }}'
@@ -130,12 +130,12 @@
   register: ncs_cm
 
 - name: Verify ncs_cm
-  assert:
+  ansible.builtin.assert:
     that:
     - ncs_cm is changed
 
 - name: Associate non-cloud site with ansible_test in normal mode
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ mso_site | default("ansible_test") }}'
@@ -143,12 +143,12 @@
   register: ncs_nm
 
 - name: Verify ncs_nm
-  assert:
+  ansible.builtin.assert:
     that:
     - ncs_nm is changed
 
 - name: Associate non-cloud site with ansible_test again in normal mode
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ mso_site | default("ansible_test") }}'
@@ -156,12 +156,12 @@
   register: ncs_nm_again
 
 - name: Verify ncs_nm_again
-  assert:
+  ansible.builtin.assert:
     that:
     - ncs_nm_again is not changed
 
 - name: Associate aws site with ansible_test in check mode
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -174,7 +174,7 @@
   register: aaws_cm
 
 - name: Verify aaws_cm
-  assert:
+  ansible.builtin.assert:
     that:
     - aaws_cm is changed
     - aaws_cm.current.awsAccount != 'null'
@@ -182,7 +182,7 @@
     - aaws_cm.current.awsAccount[0].isTrusted == false
 
 - name: Associate aws site with ansible_test in normal mode
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -194,7 +194,7 @@
   register: aaws_nm
 
 - name: Verify aaws_nm
-  assert:
+  ansible.builtin.assert:
     that:
     - aaws_nm is changed
     - aaws_nm.current.awsAccount != 'null'
@@ -202,7 +202,7 @@
     - aaws_nm.current.awsAccount[0].isTrusted == false
 
 - name: Associate aws site with ansible_test again in normal mode
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -214,12 +214,12 @@
   register: aaws_nm_again
 
 - name: Verify aaws_nm_again
-  assert:
+  ansible.builtin.assert:
     that:
     - aaws_nm_again is not changed
 
 - name: Associate aws site with ansible_test in normal mode when aws_trusted is false and aws_access_key is missing
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -231,12 +231,12 @@
   register: aaws_nm_ak
 
 - name: Verify aaws_nm_ak
-  assert:
+  ansible.builtin.assert:
     that:
     - aaws_nm_ak.msg is match ("aws_access_key is a required field in untrusted mode.")
 
 - name: Associate aws site with ansible_test in normal mode when aws_trusted is true
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -246,12 +246,12 @@
   register: aws_nm_trusted
 
 - name: Verify aws_nm_trusted
-  assert:
+  ansible.builtin.assert:
     that:
     - aws_nm_trusted is changed
 
 - name: Associate aws site with ansible_test in normal mode when aws_trusted is false and secret_key is missing
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -263,12 +263,12 @@
   register: aaws_nm_sk
 
 - name: Verify aaws_nm_sk
-  assert:
+  ansible.builtin.assert:
     that:
     - aaws_nm_sk.msg is match ("secret_key is a required field in untrusted mode.")
 
 - name: Associate aws site with ansible_test, with organization mode true
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -281,12 +281,12 @@
   register: aaws_nm_om
 
 - name: Verify aaws_nm_om
-  assert:
+  ansible.builtin.assert:
     that:
     - aaws_nm_om.current.awsAccount[0].isAccountInOrg == true
 
 - name: Associate azure site with access_type not present, with ansible_test in normal mode
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -295,12 +295,12 @@
   register: aazure_shared_nm
 
 - name: Verify aazure_shared_nm
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_shared_nm is changed
 
 - name: Associate azure site in shared mode with ansible_test in normal mode
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -310,12 +310,12 @@
   register: aazure_shared_nm
 
 - name: Verify aazure_shared_nm
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_shared_nm is not changed
 
 - name: Associate azure site with managed mode, with ansible_test in normal mode having no application_id
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -327,12 +327,12 @@
   register: aazure_managed_nm_app
 
 - name: Verify aazure_managed_nm_app
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_managed_nm_app.msg is match ("azure_application_id is required when in managed mode.")
 
 - name: Associate azure site with managed mode, with ansible_test in normal mode having no subscription_id
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -344,12 +344,12 @@
   register: aazure_managed_nm_si
 
 - name: Verify aazure_managed_nm_si
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_managed_nm_si.msg is match ("azure_susbscription_id is required when in managed mode.")
 
 - name: Associate azure site with managed mode, with ansible_test in normal mode
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -362,7 +362,7 @@
   register: aazure_managed_nm
 
 - name: Verify aazure_managed_nm
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_managed_nm is changed
     - aazure_managed_nm.current.azureAccount != 'null'
@@ -372,7 +372,7 @@
     - aazure_managed_nm.current.azureAccount[0].cloudActiveDirectory == []
 
 - name: Associate azure site with credentials mode, with ansible_test in normal mode having no azure_subscription_id
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -388,12 +388,12 @@
   register: aazure_credentials_nm_si
 
 - name: Verify aazure_credentials_nm_si
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_credentials_nm_si.msg is match ("azure_subscription_id is required when in unmanaged mode.")
 
 - name: Associate azure site with credentials mode, with ansible_test in normal mode having no azure_application_id
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -409,12 +409,12 @@
   register: aazure_credentials_nm_app
 
 - name: Verify aazure_credentials_nm_app
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_credentials_nm_app.msg is match ("azure_application_id is required when in unmanaged mode.")
 
 - name: Associate azure site with credentials mode, with ansible_test in normal mode having no secret_key
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -430,12 +430,12 @@
   register: aazure_credentials_nm_secret
 
 - name: Verify aazure_credentials_nm_secret
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_credentials_nm_secret.msg is match ("secret_key is required when in unmanaged mode.")
 
 - name: Associate azure site with credentials mode, with ansible_test in normal mode having no azure_active_directory_id
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -451,12 +451,12 @@
   register: aazure_credentials_nm_ad
 
 - name: Verify aazure_credentials_nm_ad
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_credentials_nm_ad.msg is match ("azure_active_directory_id is required when in unmanaged mode.")
 
 - name: Associate azure site with credentials mode, with ansible_test in normal mode having no azure_active_directory_name
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -472,12 +472,12 @@
   register: aazure_credentials_nm_adn
 
 - name: Verify aazure_credentials_nm_adn
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_credentials_nm_adn.msg is match ("azure_active_directory_name is required when in unmanaged mode.")
 
 - name: Associate azure site with credentials mode, with ansible_test in normal mode having no azure_credential_name
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -493,12 +493,12 @@
   register: aazure_credentials_nm_cdn
 
 - name: Verify aazure_credentials_nm_cdn
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_credentials_nm_cdn.msg is match ("azure_credential_name is required when in unmanaged mode.")
 
 - name: Associate azure site with credentials mode, with ansible_test in normal mode
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -514,7 +514,7 @@
   register: aazure_credentials_nm
 
 - name: Verify aazure_credentials_nm
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_credentials_nm is changed
     - aazure_credentials_nm.current.azureAccount[0].cloudSubscription.cloudApplicationId == '100'
@@ -526,7 +526,7 @@
     - aazure_credentials_nm.current.azureAccount[0].cloudApplication[0].cloudCredentialName == 'cApicApp'
 
 - name: Associate azure site with credentials mode, with ansible_test again in normal mode
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -542,12 +542,12 @@
   register: aazure_credentials_nm_again
 
 - name: Verify aazure_credentials_nm_again
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_credentials_nm_again is not changed
 
 - name: Query associated non-cloud site of a tenant
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ mso_site | default("ansible_test") }}'
@@ -555,12 +555,12 @@
   register: anc_query
 
 - name: Verify anc_query
-  assert:
+  ansible.builtin.assert:
     that:
     - anc_query is not changed
 
 - name: Query associated azure site of a tenant
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -576,12 +576,12 @@
   register: aazure_query
 
 - name: Verify aazure_query
-  assert:
+  ansible.builtin.assert:
     that:
     - aazure_query is not changed
 
 - name: Query associated aws site of a tenant
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -589,24 +589,24 @@
   register: aaws_query
 
 - name: Verify aaws_query
-  assert:
+  ansible.builtin.assert:
     that:
     - aaws_query is not changed
 
 - name: Query all associated sites of a tenant
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     state: query  
   register: all_sites_query
 
 - name: Verify all_sites_query
-  assert:
+  ansible.builtin.assert:
     that:
     - all_sites_query is not changed
 
 - name: Dissociate non-cloud site with ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ mso_site | default("ansible_test") }}'
@@ -614,12 +614,12 @@
   register: dnc
 
 - name: Verify dnc
-  assert:
+  ansible.builtin.assert:
     that:
     - dnc is changed
 
 - name: Query dissociated non-cloud site of a tenant
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ mso_site | default("ansible_test") }}'
@@ -628,12 +628,12 @@
   register: dnc_query
 
 - name: Verify dnc_query
-  assert:
+  ansible.builtin.assert:
     that:
     - dnc_query.msg is match ("Site Id [0-9a-zA-Z]* not associated with tenant Id [0-9a-zA-Z]*")
 
 - name: Dissociate azure site with ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -641,12 +641,12 @@
   register: dazure
 
 - name: Verify dazure
-  assert:
+  ansible.builtin.assert:
     that:
     - dazure is changed
 
 - name: Query dissociated azure site of a tenant
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -655,12 +655,12 @@
   register: dazure_query
 
 - name: Verify dnc_query
-  assert:
+  ansible.builtin.assert:
     that:
     - dazure_query.msg is match ("Site Id [0-9a-zA-Z]* not associated with tenant Id [0-9a-zA-Z]*")
 
 - name: Dissociate aws site with ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -668,12 +668,12 @@
   register: daaws
 
 - name: Verify daaws
-  assert:
+  ansible.builtin.assert:
     that:
     - daaws is changed
 
 - name: Query dissociated aws site of a tenant
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -682,12 +682,12 @@
   register: daaws_query
 
 - name: Verify daaws_query
-  assert:
+  ansible.builtin.assert:
     that:
     - daaws_query.msg is match ("No site associated with tenant Id [0-9a-zA-Z]*")
 
 - name: Query all
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     state: query 
@@ -695,6 +695,6 @@
   register: query_all
 
 - name: Verify query_all
-  assert:
+  ansible.builtin.assert:
     that:
     - query_all.msg is match ("No site associated with tenant Id [0-9a-zA-Z]*")

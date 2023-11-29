@@ -5,13 +5,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,13 +22,13 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -37,7 +37,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -48,7 +48,7 @@
     state: present
 
 - name: Ensure sites removed from tenant ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ item }}'
@@ -59,7 +59,7 @@
     - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant:
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -70,7 +70,7 @@
   ignore_errors: true
 
 - name: Associate non-cloud site with ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ mso_site | default("ansible_test") }}'
@@ -78,12 +78,12 @@
   register: add_ncs
 
 - name: Verify add_ncs
-  assert:
+  ansible.builtin.assert:
     that:
     - add_ncs is not changed
 
 - name: Remove a site from a schema with Template1 and Template2
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -95,7 +95,7 @@
   - Template1
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -105,7 +105,7 @@
 
 # Ensure pre requisites exist
 - name: Ensure schema 1 with Template1 and 2 exists
-  mso_schema_template: 
+  cisco.mso.mso_schema_template: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -117,7 +117,7 @@
   - Template3
 
 - name: Ensure VRF1 exists
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -125,7 +125,7 @@
     state: present
 
 - name: Ensure VRF2 exists
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template2
@@ -133,7 +133,7 @@
     state: present
 
 - name: Ensure L3Out1 Exists
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -143,7 +143,7 @@
     state: present
 
 - name: Ensure L3Out2 Exists
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template2
@@ -154,7 +154,7 @@
 
 # ADD external EPG to template
 - name: Add external EPG at template level(check_mode)
-  mso_schema_template_external_epg:
+  cisco.mso.mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -172,7 +172,7 @@
   register: cm_add_epg
 
 - name: Verify cm_add_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_epg is changed
     - cm_add_epg.previous == {}
@@ -181,7 +181,7 @@
     - cm_add_epg.current.vrfRef.vrfName == "VRF1"
 
 - name: Add external EPG at template level(normal mode)
-  mso_schema_template_external_epg:
+  cisco.mso.mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -198,7 +198,7 @@
   register: nm_add_epg
 
 - name: Verify nm_add_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_epg is changed
     - nm_add_epg.previous == {}
@@ -213,7 +213,7 @@
   block:
   # Associate site to schema/template after creating External EPG
   - name: Add non-cloud site to a schema
-    mso_schema_site:
+    cisco.mso.mso_schema_site:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -222,13 +222,13 @@
     register: add_site
 
   - name: Verify add_site
-    assert:
+    ansible.builtin.assert:
       that:
       - add_site.current.siteId is match ("[0-9a-zA-Z]*")
       - add_site.current.templateName == "Template1"
 
   - name: Add site L3Out (normal_mode)
-    mso_schema_site_l3out:
+    cisco.mso.mso_schema_site_l3out:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -244,7 +244,7 @@
 
   # ADD External EPGs to site
   - name: ADD External EPG1 to site (check_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       site: '{{ mso_site | default("ansible_test") }}'
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -256,20 +256,20 @@
     register: cm_add_epg
 
   - name: Verify cm_add_epg
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_add_epg.current.externalEpgRef.externalEpgName == "ansible_test_1"
       - cm_add_epg.current.externalEpgRef.templateName == "Template1"
 
   - name: Verify cm_add_epg
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_add_epg is changed
       - cm_add_epg.previous == {}
     when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
   - name: Add external EPG to site (normal mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       site: '{{ mso_site | default("ansible_test") }}'
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -280,21 +280,21 @@
     register: nm_add_epg
 
   - name: Verify nm_add_epg
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_epg.current.externalEpgRef.externalEpgName == "ansible_test_1"
       - nm_add_epg.current.externalEpgRef.templateName == "Template1"
       - cm_add_epg.current.externalEpgRef.schemaId ==  nm_add_epg.current.externalEpgRef.schemaId
 
   - name: Verify nm_add_epg
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_epg is changed
       - nm_add_epg.previous == {}
     when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
   - name: ADD External EPG1 to site again
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       site: '{{ mso_site | default("ansible_test") }}'
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -305,7 +305,7 @@
     register: add_epg_again
 
   - name: Verify add_epg_again
-    assert:
+    ansible.builtin.assert:
       that:
       - add_epg_again is not changed
       - add_epg_again.current.externalEpgRef.externalEpgName == "ansible_test_1"
@@ -313,7 +313,7 @@
 
   # QUERY ALL EPG
   - name: Query all external EPGs in site (check_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -323,7 +323,7 @@
     register: cm_query_all_epgs
 
   - name: Query all EPG (normal mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -332,14 +332,14 @@
     register: nm_query_all_epgs
 
   - name: Verify query_all_epgs
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_query_all_epgs is not changed
       - nm_query_all_epgs is not changed
 
   # QUERY AN EPG
   - name: Query epg 1(check_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -351,7 +351,7 @@
     register: cm_query_epg_1
 
   - name: Query epg 1(normal_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -362,13 +362,13 @@
     register: nm_query_epg_1
 
   - name: Verify cm_query_epg_1 and nm_query_epg_1
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_query_epg_1 is not changed
       - nm_query_epg_1 is not changed
 
   - name: Query epg 1 without l3Out
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -378,13 +378,13 @@
     register: nm_query_epg_l3out
 
   - name: Verify nm_query_epg_l3out
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_query_epg_l3out is not changed
 
   # REMOVE EPG
   - name: Remove EPG (check_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -396,13 +396,13 @@
     register: cm_remove_epg
 
   - name: Verify cm_remove_epg
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_remove_epg is changed
       - cm_remove_epg.current == {}
 
   - name: Remove EPG (normal_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -413,7 +413,7 @@
     register: nm_remove_epg
 
   - name: Add site external EPG without L3Out when template external EPG type is on-premise (normal_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -424,13 +424,13 @@
     register: nm_add_epg_no_l3out
 
   - name: Verify nm_add_epg_no_l3out
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_epg_no_l3out is not changed
       - nm_add_epg_no_l3out.msg == "L3Out cannot be empty when template external EPG type is 'on-premise'."
 
   - name: Remove external EPG at template level
-    mso_schema_template_external_epg:
+    cisco.mso.mso_schema_template_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
@@ -439,14 +439,14 @@
     register: nm_remove_epg
 
   - name: Verify nm_remove_epg
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_remove_epg is changed
       - nm_remove_epg.current == {}
 
   # Associate site to schema/template before creating External EPG
   - name: Add non-cloud site to a schema
-    mso_schema_site:
+    cisco.mso.mso_schema_site:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -456,14 +456,14 @@
     register: add_site
 
   - name: Verify add_site
-    assert:
+    ansible.builtin.assert:
       that:
       - add_site.current.siteId is match ("[0-9a-zA-Z]*")
       - add_site.current.templateName == "Template2"
 
   # Create template External EPG after site association
   - name: Add external EPG (at template level)
-    mso_schema_template_external_epg:
+    cisco.mso.mso_schema_template_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template2
@@ -480,7 +480,7 @@
     register: nm_add_ex_epg
 
   - name: Verify nm_add_ex_epg
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_ex_epg is changed
       - nm_add_ex_epg.previous == {}
@@ -488,7 +488,7 @@
       - nm_add_ex_epg.current.vrfRef.vrfName == "VRF2"
 
   - name: Add external EPG to site (normal mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       site: '{{ mso_site | default("ansible_test") }}'
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -499,13 +499,13 @@
     register: nm_add_epg
 
   - name: Verify nm_add_epg
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_epg.current.externalEpgRef.externalEpgName == "ansible_test_2"
       - nm_add_epg.current.externalEpgRef.templateName == "Template2"
 
   - name: Verify nm_add_epg
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_epg is changed
       - nm_add_epg.previous == {}
@@ -513,7 +513,7 @@
 
   # QUERY NON-EXISTING external EPG
   - name: Query non-existing External EPG (check_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -526,7 +526,7 @@
     register: cm_query_non_external_epg
 
   - name: Query non-existing External EPG (normal_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -538,7 +538,7 @@
     register: nm_query_non_external_epg
 
   - name: Verify cm_query_non_external_epg and nm_query_non_external_epg
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_query_non_external_epg is not changed
       - nm_query_non_external_epg is not changed
@@ -546,7 +546,7 @@
 
   # USE NON-EXISTING STATE
   - name: non_existing_state state (check_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -558,7 +558,7 @@
     register: cm_non_existing_state
 
   - name: non_existing_state state (normal_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -570,7 +570,7 @@
     register: nm_non_existing_state
 
   - name: Verify cm_non_existing_state and nm_non_existing_state
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_non_existing_state is not changed
       - nm_non_existing_state is not changed
@@ -578,7 +578,7 @@
 
   # USE A NON_EXISTING_TEMPLATE
   - name: non_existing_template (check_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -591,7 +591,7 @@
     register: cm_non_existing_template
 
   - name: non_existing_template site association(normal_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -603,7 +603,7 @@
     register: nm_non_existing_template
 
   - name: Verify cm_non_existing_template and nm_non_existing_template
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_non_existing_template is not changed
       - nm_non_existing_template is not changed
@@ -611,7 +611,7 @@
 
   # USE A NON_EXISTING_SCHEMA
   - name: non_existing_schema (check_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: non_existing_schema
       site: '{{ mso_site | default("ansible_test") }}'
@@ -624,7 +624,7 @@
     register: cm_non_existing_schema
 
   - name: non_existing_schema (normal_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: non_existing_schema
       site: '{{ mso_site | default("ansible_test") }}'
@@ -636,7 +636,7 @@
     register: nm_non_existing_schema
 
   - name: Verify cm_non_existing_schema and nm_non_existing_schema
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_non_existing_schema is not changed
       - nm_non_existing_schema is not changed
@@ -644,7 +644,7 @@
 
   # USE A NON_EXISTING_SITE
   - name: non_existing_site (check_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: non_existing_site
@@ -657,7 +657,7 @@
     register: cm_non_existing_site
 
   - name: non_existing_site (normal_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: non_existing_site
@@ -669,7 +669,7 @@
     register: nm_non_existing_site
 
   - name: Verify cm_non_existing_site and nm_non_existing_site
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_non_existing_site is not changed
       - nm_non_existing_site is not changed
@@ -677,7 +677,7 @@
 
   # USE A NON_EXISTING_SITE_TEMPLATE
   - name: non_existing_site_template (check_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -690,7 +690,7 @@
     register: cm_non_existing_site_template
 
   - name: non_existing_site_template (normal_mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -702,7 +702,7 @@
     register: nm_non_existing_site_template
 
   - name: Verify cm_non_existing_site_template and nm_non_existing_site_template
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_non_existing_site_template is not changed
       - nm_non_existing_site_template is not changed
@@ -710,7 +710,7 @@
 
   # USE A TEMPLATE WITHOUT ANY SITE
   - name: Add site L3Out to Schema Template2 without any site associated (check mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -723,7 +723,7 @@
     register: cm_no_site_associated
 
   - name: Add site L3Out to Template2 without any site associated (normal mode)
-    mso_schema_site_external_epg:
+    cisco.mso.mso_schema_site_external_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       site: '{{ mso_site | default("ansible_test") }}'
@@ -735,7 +735,7 @@
     register: nm_no_site_associated
 
   - name: Verify cm_no_site_associated and nm_no_site_associated
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_no_site_associated is not changed
       - nm_no_site_associated is not changed
@@ -744,7 +744,7 @@
 # Verify route_reachability argument when template_external_epg is associated with Azure site and
 # template_external_epg type argument is set to cloud
 - name: Ensure ANP exists
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template2
@@ -752,7 +752,7 @@
     state: present
 
 - name: Ensure VRF3 exists
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template3
@@ -760,7 +760,7 @@
     state: present
 
 - name: Ensure L3Out3 Exists
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template3
@@ -770,7 +770,7 @@
     state: present
 
 - name: Add external EPG3 at template3 level type cloud (normal mode)
-  mso_schema_template_external_epg:
+  cisco.mso.mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template3
@@ -788,7 +788,7 @@
   register: nm_add_ext_epg_3
 
 - name: Add azure site to a schema Template3
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -798,7 +798,7 @@
   register: add_cloud_site
 
 - name: Add external EPG to site (normal mode)
-  mso_schema_site_external_epg: 
+  cisco.mso.mso_schema_site_external_epg: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -809,13 +809,13 @@
   register: nm_add_ext_epg_site
 
 - name: Verify nm_add_ext_epg_site
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_ext_epg_site.current.externalEpgRef.externalEpgName == "ext_epg_3"
     - nm_add_ext_epg_site.current.routeReachabilityInternetType == "site-ext"
 
 - name: Add external EPG to site again(normal mode)
-  mso_schema_site_external_epg: 
+  cisco.mso.mso_schema_site_external_epg: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -826,7 +826,7 @@
   register: nm_add_ext_epg_site_again
 
 - name: Verify nm_add_ext_epg_site_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_ext_epg_site_again is not changed
     - nm_add_ext_epg_site_again.current.externalEpgRef.externalEpgName == "ext_epg_3"

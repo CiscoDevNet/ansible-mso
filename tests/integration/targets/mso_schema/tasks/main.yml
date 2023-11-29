@@ -5,13 +5,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -78,7 +78,7 @@
   register: query_one
 
 - name: Verify query_all and query_one
-  assert:
+  ansible.builtin.assert:
     that:
     - query_all is not changed
     - query_one is not changed
@@ -101,7 +101,7 @@
   register: nm_rm_schema
 
 - name: Verify rm_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_rm_schema is changed
     - cm_rm_schema.previous.displayName == "ansible_test"
@@ -118,7 +118,7 @@
   register: query_non_existing
 
 - name: Verify query_non_existing
-  assert:
+  ansible.builtin.assert:
     that:
     - query_non_existing is not changed
     - query_non_existing.current == {}

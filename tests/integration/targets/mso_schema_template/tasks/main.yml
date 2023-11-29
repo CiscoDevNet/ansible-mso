@@ -5,13 +5,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,13 +22,13 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -40,7 +40,7 @@
   ignore_errors: true
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -50,7 +50,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exists
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: '{{ item }}'
     users:
@@ -63,7 +63,7 @@
   - 'ansible_test_2'
 
 - name: Ensure schema 1 with Template 1 exists in check mode
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -73,7 +73,7 @@
   register: add_template1_schema1_cm
 
 - name: Ensure schema 1 with Template 1 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -82,7 +82,7 @@
   register: add_template1_schema1
 
 - name: Ensure schema 1 with Template 2 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -91,7 +91,7 @@
   register: add_template2_schema1
 
 - name: Ensure schema 2 with Template 3 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -100,7 +100,7 @@
   register: add_template3_schema2
 
 - name: Ensure schema 2 with Template 3 exists again
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -109,7 +109,7 @@
   register: add_template3_schema2_again
 
 - name: Ensure schema 3 with Template 1 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_3'
     tenant: ansible_test
@@ -118,7 +118,7 @@
   register: add_template1_schema3
 
 - name: Ensure schema 3 with Template 2 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_3'
     tenant: ansible_test_2
@@ -127,7 +127,7 @@
   register: add_template2_schema3
 
 - name: Update display name of Template 3 in schema 2
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -137,7 +137,7 @@
   register: update_template3_schema2
 
 - name: Verify add
-  assert:
+  ansible.builtin.assert:
     that:
     - add_template1_schema1_cm is changed
     - add_template1_schema1_cm.current.name == 'Template1'
@@ -156,7 +156,7 @@
     - update_template3_schema2.current.displayName == 'Temp 3'
 
 - name: Query Template 1 in Schema 1
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -165,7 +165,7 @@
   register: query_template1_schema1
 
 - name: Query all Templates in Schema 1
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -173,7 +173,7 @@
   register: query_all_templates_schema1
 
 - name: Query Template 1 in Schema 3
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_3'
     tenant: ansible_test
@@ -182,7 +182,7 @@
   register: query_template1_schema3
 
 - name: Query Template 2 in Schema 3
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_3'
     tenant: ansible_test_2
@@ -191,7 +191,7 @@
   register: query_template2_schema3
 
 - name: Verify query
-  assert:
+  ansible.builtin.assert:
     that:
     - query_template1_schema1 is not changed
     - query_template1_schema1.current.name == 'Template1'
@@ -203,7 +203,7 @@
     - query_template2_schema3.current.name == 'Template2'
 
 - name: Remove Template 1 of Schema 1
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -213,7 +213,7 @@
   register: remove_template1_schema1
 
 - name: Remove Template 2 of Schema 1
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -222,7 +222,7 @@
   register: remove_template2_schema1
 
 - name: Remove non_existing_template
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -232,7 +232,7 @@
   register: remove_template_non_existing_template
 
 - name: Remove Template 3 in schema 2 in check mode
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -242,7 +242,7 @@
   register: remove_template3_schema2_cm
 
 - name: Remove Template 3 in schema 2 in normal mode
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -251,7 +251,7 @@
   register: remove_template3_schema2_nm
 
 - name: Remove Template 3 in schema 2 again
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -260,7 +260,7 @@
   register: remove_template3_schema2_nm_again
 
 - name: Remove Template 1 of Schema 3
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_3'
     tenant: ansible_test
@@ -269,7 +269,7 @@
   register: remove_template1_schema3
 
 - name: Remove Template 2 of Schema 3
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_3'
     tenant: ansible_test_2
@@ -278,7 +278,7 @@
   register: remove_template2_schema3
 
 - name: non_existing_schema
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: non_schema
     tenant: ansible_test
@@ -288,7 +288,7 @@
   register: remove_template_non_existing_schema
 
 - name: Verify remove
-  assert:
+  ansible.builtin.assert:
     that:
     - remove_template1_schema1.current == {}
     - remove_template1_schema1.previous.name == 'Template1'
@@ -308,7 +308,7 @@
 
 # USE NON-EXISTING STATE
 - name: non_existing_state state
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -318,14 +318,14 @@
   register: non_existing_state
 
 - name: Verify non_existing_state
-  assert:
+  ansible.builtin.assert:
     that:
     - non_existing_state is not changed
     - non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non_existing_state"
 
 # USE A NON_EXISTING_TEMPLATE
 - name: non_existing_template
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -335,13 +335,13 @@
   register: non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - non_existing_template is not changed
     - non_existing_template.msg == "Template 'non_existing_template' not found"
 
 - name: Template attribute absent in task
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: non_schema
     tenant: ansible_test
@@ -350,13 +350,13 @@
   register: absent_template
 
 - name: Verify absent_template
-  assert:
+  ansible.builtin.assert:
     that:
     - absent_template is not changed
     - absent_template.current == []
 
 - name: Update description schema 1 with Template 1 when version is greater than 3.3
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     schema_description: "this is schema"
@@ -368,14 +368,14 @@
   when: version.current.version is version('3.3', '>=')
 
 - name: Verify add description
-  assert:
+  ansible.builtin.assert:
     that:
     - add_description is changed
   when: version.current.version is version('3.3', '>=')
 
 # REMOVE Schemas for next CI Run
 - name: Remove schemas for next ci test
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -386,7 +386,7 @@
 
 # REMOVE Tenant2 specific to this test case
 - name: Remove tenant2
-  mso_tenant:
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test_2
     state: absent

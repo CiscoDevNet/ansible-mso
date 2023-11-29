@@ -4,14 +4,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,19 +22,19 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Remove schema 2
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     state: absent
 
 - name: Remove schema 1
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     state: absent
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant:
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -42,7 +42,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
-  mso_schema_template: &schema_present
+  cisco.mso.mso_schema_template: &schema_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -50,13 +50,13 @@
     state: present
 
 - name: Ensure schema 1 with Template 2 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *schema_present
     template: Template 2
     state: present
 
 - name: Ensure schema 2 with Template 1 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -89,7 +89,7 @@
     state: present
 
 - name: Ensure Contract_1 contract exist
-  mso_schema_template_contract_filter: &contract_present
+  cisco.mso.mso_schema_template_contract_filter: &contract_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -98,7 +98,7 @@
     state: present
 
 - name: Ensure Contract_2 contract exist
-  mso_schema_template_contract_filter:
+  cisco.mso.mso_schema_template_contract_filter:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -131,7 +131,7 @@
     state: present
 
 - name: Ensure VRF_1 vrf exist
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -140,7 +140,7 @@
     state: present
 
 - name: Ensure BD_1 bd exist
-  mso_schema_template_bd: &bd_present
+  cisco.mso.mso_schema_template_bd: &bd_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -150,13 +150,13 @@
     state: present
 
 - name: Ensure BD_2 bd exist
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     bd: BD2
     state: present
 
 - name: Ensure BD_3 bd exist
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -167,7 +167,7 @@
     state: present
 
 - name: Ensure AP1 in Template 1 exists
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -175,7 +175,7 @@
     state: present
 
 - name: Ensure AP1 in Template 1 exists
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -183,7 +183,7 @@
     state: present
 
 - name: Ensure EPG1 in AP1 in Template 1 exists
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -194,7 +194,7 @@
     state: present
 
 - name: Ensure EPG2 in AP1 in Template 1 exists
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -205,7 +205,7 @@
     state: present
 
 - name: Add Contract1 to EPG1 provider
-  mso_schema_template_anp_epg_contract:
+  cisco.mso.mso_schema_template_anp_epg_contract:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -217,7 +217,7 @@
     state: present
 
 - name: Add Contract1 to EPG1 consumer
-  mso_schema_template_anp_epg_contract:
+  cisco.mso.mso_schema_template_anp_epg_contract:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -229,7 +229,7 @@
     state: present
 
 - name: Add Contract2 to EPG2 provider
-  mso_schema_template_anp_epg_contract:
+  cisco.mso.mso_schema_template_anp_epg_contract:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -241,7 +241,7 @@
     state: present
 
 - name: Add Contract2 to EPG2 consumer
-  mso_schema_template_anp_epg_contract:
+  cisco.mso.mso_schema_template_anp_epg_contract:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -255,7 +255,7 @@
 # TESTS
 
 - name: Add service graph 1 to Contract1 (check_mode)
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -271,7 +271,7 @@
   register: cm_add_sg1_to_c1
 
 - name: Add service graph 1 to Contract1
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -286,7 +286,7 @@
   register: nm_add_sg1_to_c1
 
 - name: Verify service graph 1 is added to Contract1
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_sg1_to_c1 is changed
     - cm_add_sg1_to_c1.previous == {}
@@ -312,7 +312,7 @@
     - nm_add_sg1_to_c1.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
 
 - name: Add service graph 1 to Contract1 again (check_mode)
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -328,7 +328,7 @@
   register: cm_add_sg1_to_c1_again
 
 - name: Add service graph 1 to Contract1 again
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -343,7 +343,7 @@
   register: nm_add_sg1_to_c1_again
 
 - name: Verify service graph 1 is added to Contract1 again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_sg1_to_c1_again is not changed
     - cm_add_sg1_to_c1_again.previous.serviceGraphRef.serviceGraphName == "SG1"
@@ -367,7 +367,7 @@
     - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
 
 - name: Change service graph 1 node to Contract1 (check_mode)
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -383,7 +383,7 @@
   register: cm_change_sg1_to_c1
 
 - name: Change service graph 1 node to Contract1
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -398,7 +398,7 @@
   register: nm_change_sg1_to_c1
 
 - name: Verify service graph 1 is added to Contract1 again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_change_sg1_to_c1 is changed
     - cm_change_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
@@ -420,7 +420,7 @@
     - nm_change_sg1_to_c1.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
 
 - name: Query service graph 1 to Contract1 (check_mode)
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -430,7 +430,7 @@
   register: cm_query_sg1_to_c1
 
 - name: Query service graph 1 to Contract1
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -440,7 +440,7 @@
   register: nm_query_sg1_to_c1
 
 - name: Verify queried service graph 1
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_sg1_to_c1 is not changed
     - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
@@ -458,7 +458,7 @@
     - nm_query_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
 
 - name: Remove service graph 1 from Contract1 (check_mode)
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -469,7 +469,7 @@
   register: cm_remove_sg1_from_c1
 
 - name: Remove service graph 1 from Contract1
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -479,7 +479,7 @@
   register: nm_remove_sg1_from_c1
 
 - name: Verify service graph 1 is removed from Contract1
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_sg1_from_c1 is changed
     - cm_remove_sg1_from_c1.current == {}
@@ -505,7 +505,7 @@
     - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
 
 - name: Add service graph 2 to Contract2 with BD in other schema (check_mode)
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -525,7 +525,7 @@
   register: cm_add_sg2_to_c2
 
 - name: Add service graph 2 to Contract2 with BD in other schema
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -544,7 +544,7 @@
   register: nm_add_sg2_to_c2
 
 - name: Verify service graph 2 is added to Contract2
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_sg2_to_c2 is changed
     - cm_add_sg2_to_c2.previous == {}
@@ -570,7 +570,7 @@
     - nm_add_sg2_to_c2.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
 
 - name: Query service graph 2 to Contract2 (check_mode)
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -580,7 +580,7 @@
   register: cm_query_sg2_to_c2
 
 - name: Query service graph 2 to Contract2
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -590,7 +590,7 @@
   register: nm_query_sg2_to_c2
 
 - name: Verify queried service graph 1
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_sg2_to_c2 is not changed
     - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
@@ -612,7 +612,7 @@
 # NOT EXISTING INPUT
 
 - name: Not existing template provided for absent
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template False
@@ -623,7 +623,7 @@
   register: not_existing_template_input_absent
 
 - name: Not existing contract provided for absent
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -634,7 +634,7 @@
   register: not_existing_contract_input_absent
 
 - name: Not existing service graph provided for absent
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -644,7 +644,7 @@
   register: not_existing_service_graph_input_absent
 
 - name: Not existing service graph provided for query
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -654,7 +654,7 @@
   register: not_existing_service_graph_input_query
 
 - name: Not existing template provided for present
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -671,7 +671,7 @@
   register: not_existing_template_input_present
 
 - name: Not existing service graph provided for present
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -688,7 +688,7 @@
   register: not_existing_service_graph_input_present
 
 - name: Verify non_existing_input
-  assert:
+  ansible.builtin.assert:
     that:
     - not_existing_template_input_absent is not changed
     - not_existing_template_input_absent.msg.startswith("Provided template")
@@ -704,7 +704,7 @@
 # False input
 
 - name: False service graph node amount provided ( less than 2 as provided in SG1 config )
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -718,7 +718,7 @@
   register: nm_false_sg1_to_c1_less_than_2
 
 - name: False service graph node amount provided ( more than 2 as provided in SG1 config )
-  mso_schema_template_contract_service_graph:
+  cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -736,7 +736,7 @@
   register: nm_false_sg1_to_c1_more_than_2
 
 - name: Verify false_sg1_to_c1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_false_sg1_to_c1_less_than_2 is not changed
     - nm_false_sg1_to_c1_less_than_2.msg.startswith("Not enough service nodes defined")

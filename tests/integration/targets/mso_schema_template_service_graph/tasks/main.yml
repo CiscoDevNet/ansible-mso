@@ -4,14 +4,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,7 +22,7 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -31,7 +31,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant:
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -39,7 +39,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -63,7 +63,7 @@
   check_mode: true
 
 - name: Verify sg1_cm
-  assert:
+  ansible.builtin.assert:
     that:
     - sg1_cm is changed
     - sg1_cm.current.name == "SG1"
@@ -106,7 +106,7 @@
   register: sg1_again
 
 - name: Verify sg1 and sg1_again
-  assert:
+  ansible.builtin.assert:
     that:
     - sg1 is changed
     - sg1_again is not changed
@@ -142,7 +142,7 @@
   register: sg2
 
 - name: Verify sg2
-  assert:
+  ansible.builtin.assert:
     that:
     - sg2 is changed
     - sg2.current.name == "SG2"
@@ -168,7 +168,7 @@
   register: sg2_change
 
 - name: Verify sg2_change
-  assert:
+  ansible.builtin.assert:
     that:
     - sg2_change is changed
     - sg2_change.current.name == "SG2"
@@ -192,7 +192,7 @@
   register: sg3
 
 - name: Verify sg3
-  assert:
+  ansible.builtin.assert:
     that:
     - sg3 is changed
     - sg3.current.name == "SG3"
@@ -216,7 +216,7 @@
   register: sg3_other
 
 - name: Verify sg3_other
-  assert:
+  ansible.builtin.assert:
     that:
     - sg3_other is changed
     - sg3_other.current.name == "SG3"
@@ -241,7 +241,7 @@
   register: sg3_interchange
 
 - name: Verify sg3_interchange
-  assert:
+  ansible.builtin.assert:
     that:
     - sg3_interchange is changed
     - sg3_interchange.current.name == "SG3"
@@ -266,7 +266,7 @@
   ignore_errors: true
 
 - name: Verify sg4
-  assert:
+  ansible.builtin.assert:
     that:
     - sg4.msg == "Provided service node type 'non_existing_type' does not exist. Existing node types include{{':'}} firewall, load-balancer, other",
 
@@ -280,7 +280,7 @@
   register: query_sg
 
 - name: Verify query_sg
-  assert:
+  ansible.builtin.assert:
     that:
     - query_sg is not changed
     - query_sg.current.name == "SG1"
@@ -300,7 +300,7 @@
   register: query_all
 
 - name: Verify query_all
-  assert:
+  ansible.builtin.assert:
     that:
     - query_all is not changed
     - query_all.current | length == 3
@@ -316,7 +316,7 @@
   register: query_non_existing_sg
 
 - name: Verify query_non_existing_sg
-  assert:
+  ansible.builtin.assert:
     that:
     - query_non_existing_sg.msg == "Service Graph 'non_existent' not found"
 
@@ -341,7 +341,7 @@
   register: query_non_existing_template
 
 - name: Verify query_non_existing_schema and query_non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - query_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
     - query_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1"
@@ -357,7 +357,7 @@
   check_mode: true
 
 - name: Verify rm_sg_cm
-  assert:
+  ansible.builtin.assert:
     that:
     - rm_sg_cm is changed
     - rm_sg_cm.current == {}
@@ -373,7 +373,7 @@
   register: rm_sg
 
 - name: Verify rm_sg
-  assert:
+  ansible.builtin.assert:
     that:
     - rm_sg is changed
     - rm_sg.current == {}
@@ -389,7 +389,7 @@
   register: rm_sg_again
 
 - name: Verify rm_sg_again
-  assert:
+  ansible.builtin.assert:
     that:
     - rm_sg_again is not changed
     - rm_sg_again.current == {}

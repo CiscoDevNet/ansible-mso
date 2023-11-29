@@ -6,14 +6,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -24,18 +24,18 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Set version vars
-  set_fact:
-    mso_l3mcast: false
+  ansible.builtin.set_fact:
+    cisco.mso.mso_l3mcast: false
   when: version.current.version is version('2.2.4', '=')
 
 - name: Ensure site exist
-  mso_site: &site_present
+  cisco.mso.mso_site: &site_present
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -46,7 +46,7 @@
     state: present
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -55,7 +55,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Remove DHCP policies
-  mso_dhcp_relay_policy:
+  cisco.mso.mso_dhcp_relay_policy:
     <<: *mso_info
     dhcp_relay_policy: '{{ item }}'
     tenant: ansible_test
@@ -69,7 +69,7 @@
   - version.current.version is version('4.0', '<')
 
 - name: Remove DHCP option policies
-  mso_dhcp_option_policy:
+  cisco.mso.mso_dhcp_option_policy:
     <<: *mso_info
     dhcp_option_policy: '{{ item }}'
     tenant: ansible_test
@@ -83,7 +83,7 @@
   - version.current.version is version('4.0', '<')
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant: &tenant_present
+  cisco.mso.mso_tenant: &tenant_present
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -93,7 +93,7 @@
     state: present
 
 - name: Ensure schema 1 with Template1 exist
-  mso_schema_template: &schema_present
+  cisco.mso.mso_schema_template: &schema_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -101,28 +101,28 @@
     state: present
 
 - name: Ensure schema 1 with Template2 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *schema_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
     template: Template2
 
 - name: Ensure schema 2 with Template3 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *schema_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
     template: Template3
 
 - name: Ensure schema 2 with Template5 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *schema_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
     template: Template5
 
 - name: Ensure VRF exist
-  mso_schema_template_vrf: &vrf_present
+  cisco.mso.mso_schema_template_vrf: &vrf_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -131,32 +131,32 @@
     state: present
 
 - name: Ensure VRF2 exist
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *vrf_present
     vrf: VRF2
 
 - name: Ensure VRF3 exist
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *vrf_present
     template: Template2
     vrf: VRF3
 
 - name: Ensure VRF4 exist
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template3
     vrf: VRF4
 
 - name: Ensure VRF5 exists
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template5
     vrf: VRF5
 
 - name: Ensure ansible_test_1 BD does not exist
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -166,7 +166,7 @@
     state: absent
 
 - name: Ensure ansible_test_2 BD does not exist
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template2
@@ -176,7 +176,7 @@
     state: absent
 
 - name: Ensure ansible_test_3 BD does not exist
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template3
@@ -188,7 +188,7 @@
     state: absent
 
 - name: Ensure ansible_test_4 BD does not exist
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -200,7 +200,7 @@
     state: absent
 
 - name: Ensure multiple DHCP policies exist
-  mso_dhcp_relay_policy:
+  cisco.mso.mso_dhcp_relay_policy:
     <<: *mso_info
     dhcp_relay_policy: '{{ item }}'
     description: "My Test DHCP Policies"
@@ -215,7 +215,7 @@
   - version.current.version is version('4.0', '<')
 
 - name: Ensure multiple DHCP option policies exist
-  mso_dhcp_option_policy:
+  cisco.mso.mso_dhcp_option_policy:
     <<: *mso_info
     dhcp_option_policy: '{{ item }}'
     description: "My Test DHCP Policy Options"
@@ -231,7 +231,7 @@
 
 # ADD BD
 - name: Add bd (check_mode)
-  mso_schema_template_bd: &bd_present
+  cisco.mso.mso_schema_template_bd: &bd_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -243,7 +243,7 @@
   register: cm_add_bd
 
 - name: Verify cm_add_bd
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_bd is changed
     - cm_add_bd.previous == {}
@@ -252,12 +252,12 @@
     - cm_add_bd.current.vrfRef.vrfName == "VRF"
 
 - name: Add bd (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
   register: nm_add_bd
 
 - name: Verify nm_add_bd
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_bd is changed
     - nm_add_bd.previous == {}
@@ -267,13 +267,13 @@
     - cm_add_bd.current.vrfRef.schemaId ==  nm_add_bd.current.vrfRef.schemaId
 
 - name: Add bd again (check_mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
   check_mode: true
   register: cm_add_bd_again
 
 - name: Verify cm_add_bd_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_bd_again is not changed
     - cm_add_bd_again.previous.name == "ansible_test_1"
@@ -285,12 +285,12 @@
     - cm_add_bd_again.previous.vrfRef.schemaId ==  cm_add_bd_again.current.vrfRef.schemaId
 
 - name: Add bd again (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
   register: nm_add_bd_again
 
 - name: Verify nm_add_bd_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_bd_again is not changed
     - nm_add_bd_again.previous.name == "ansible_test_1"
@@ -302,7 +302,7 @@
     - nm_add_bd_again.previous.vrfRef.schemaId ==  nm_add_bd_again.current.vrfRef.schemaId
 
 - name: Add bd 2 (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template2
@@ -340,7 +340,7 @@
   register: nm_add_bd_2
 
 - name: Add bd 3 (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template3
@@ -352,7 +352,7 @@
   register: nm_add_bd_3
 
 - name: Add bd 4 (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -364,7 +364,7 @@
   register: nm_add_bd_4
 
 - name: Verify nm_add_bd_2 and nm_add_bd_3
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_bd_2 is changed
     - nm_add_bd_3 is changed
@@ -406,7 +406,7 @@
     - nm_add_bd_2.current.subnets[3].querier == false
 
 - name: Add bd 5 (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template5
@@ -434,7 +434,7 @@
   register: nm_add_bd_5
 
 - name: Verify nm_add_bd_5 for a version that's before 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_bd_5 is changed
     - nm_add_bd_5.current.name == "ansible_test_5"
@@ -448,7 +448,7 @@
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_add_bd_5 for a version that's 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_bd_5 is changed
     - nm_add_bd_5.current.name == "ansible_test_5"
@@ -467,7 +467,7 @@
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Add bd 5 again (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template5
@@ -495,20 +495,20 @@
   register: nm_add_again_bd_5
 
 - name: Verify nm_add_again_bd_5 for a version that's before 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_again_bd_5 is not changed
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_add_again_bd_5 for a version that's between 3.1 and 4.0
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_again_bd_5 is not changed
   when:
     - version.current.version is version('3.1.1g', '>=')
 
 - name: Add bd 5 with different values for new options (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template5
@@ -536,13 +536,13 @@
   register: nm_bd_5_options
 
 - name: Verify nm_bd_5_options for a version that's before 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_bd_5_options is not changed
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_bd_5_options for a version that's 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_bd_5_options is changed
     - nm_bd_5_options.current.unkMcastAct == "opt-flood"
@@ -552,7 +552,7 @@
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd 5_1 (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template5
@@ -580,20 +580,20 @@
   register: nm_change_bd_5_1
 
 - name: Verify nm_change_bd_5_1 for a version that's before 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_bd_5_1 is changed
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_change_bd_5_1 for a version that's 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_bd_5_1 is changed
     - nm_change_bd_5_1.current.arpFlood == true
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd 5_2 (normal mode)
-  mso_schema_template_bd: &change_bd5_2
+  cisco.mso.mso_schema_template_bd: &change_bd5_2
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template5
@@ -622,21 +622,21 @@
   register: nm_change_bd_5_2
 
 - name: Verify nm_change_bd_5_2 for a version that's before 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_bd_5_2 is changed
     - nm_change_bd_5_2.current.l2UnknownUnicast == "flood"
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_change_bd_5_2 for a version that's after 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_bd_5_2 is changed
     - nm_change_bd_5_2.current.arpFlood == true
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd 5_3 (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template5
@@ -665,14 +665,14 @@
   register: nm_change_bd_5_3
 
 - name: Verify nm_change_bd_5_3 for a version that's before 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_bd_5_3 is changed
     - nm_change_bd_5_3.msg is match ("MSO Error 143{{':'}} Invalid Field{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_change_bd_5_3 for a version that's after 3.1 and before 3.3
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_bd_5_3 is changed
     # Inconsistency shown in returned error messages for v3.1.1
@@ -686,7 +686,7 @@
   - version.current.version is version('3.1.1g', '>=')
 
 - name: Verify nm_change_bd_5_3 for a version that's after 4.0
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_bd_5_3 is changed
     - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} BD{{':'}} ansible_test_5 in Schema{{':'}} ansible_test_2 , Template{{':'}} Template5 BD ansible_test_5 l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
@@ -694,7 +694,7 @@
   - version.current.version is version('4.0', '>=')
 
 - name: Get Validation status
-  mso_schema_validate:
+  cisco.mso.mso_schema_validate:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     state: query
@@ -705,7 +705,7 @@
   - version.current.version is version('4.0', '<') # mso_schema_validate not needed after 4.0 because validation is done upon request
 
 - name: Verify query_validate for a version that's after 3.3
-  assert:
+  ansible.builtin.assert:
     that:
     - query_validate is not changed
     - query_validate.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template5', BD 'ansible_test_5' {{':'}} ARP Flooding has to be disabled if L2 Stretch enabled and BUM traffic disabled exception while trying to update schema")
@@ -715,13 +715,13 @@
 
 # Reverting back to bd 5_2
 - name: Change bd 5_3 (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *change_bd5_2
   register: nm_change_bd_5_3_again
   when: query_validate is failed
 
 - name: Get Validation status
-  mso_schema_validate:
+  cisco.mso.mso_schema_validate:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     state: query
@@ -731,7 +731,7 @@
     - version.current.version is version('4.0', '<') # mso_schema_validate not needed after 4.0 because validation is done upon request
 
 - name: Change bd 5 for query (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template5
@@ -759,7 +759,7 @@
 
 # CHANGE BD
 - name: Change bd (check_mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     vrf:
       name: VRF2
@@ -767,7 +767,7 @@
   register: cm_change_bd
 
 - name: Verify cm_change_bd
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_change_bd is changed
     - cm_change_bd.current.name == 'ansible_test_1'
@@ -776,7 +776,7 @@
     - cm_change_bd.current.vrfRef.schemaId == cm_change_bd.previous.vrfRef.schemaId
 
 - name: Change bd (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     vrf:
       name: VRF2
@@ -784,7 +784,7 @@
   register: nm_change_bd
 
 - name: Verify nm_change_bd
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_bd is changed
     - nm_change_bd.current.name == 'ansible_test_1'
@@ -793,7 +793,7 @@
     - nm_change_bd.current.vrfRef.schemaId == nm_change_bd.previous.vrfRef.schemaId
 
 - name: Change bd again (check_mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     vrf:
       name: VRF2
@@ -801,7 +801,7 @@
   register: cm_change_bd_again
 
 - name: Verify cm_change_bd_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_change_bd_again is not changed
     - cm_change_bd_again.current.name == 'ansible_test_1'
@@ -810,14 +810,14 @@
     - cm_change_bd_again.current.vrfRef.schemaId == cm_change_bd_again.previous.vrfRef.schemaId
 
 - name: Change bd again (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     vrf:
       name: VRF2
   register: nm_change_bd_again
 
 - name: Verify nm_change_bd_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_bd_again is not changed
     - nm_change_bd_again.current.name == 'ansible_test_1'
@@ -826,7 +826,7 @@
     - nm_change_bd_again.current.vrfRef.schemaId == nm_change_bd_again.previous.vrfRef.schemaId
 
 - name: Change bd to VRF3 in other template (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     vrf:
       name: VRF3
@@ -834,7 +834,7 @@
   register: nm_change_bd_vrf3
 
 - name: Change bd to VRF4 in other schema (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     vrf:
       name: VRF4
@@ -843,7 +843,7 @@
   register: nm_change_bd_vrf4
 
 - name: Verify nm_change_bd_vrf3 and nm_change_bd_vrf4
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_bd_vrf3 is changed
     - nm_change_bd_vrf3.current.name == nm_change_bd_vrf4.current.name == 'ansible_test_1'
@@ -853,7 +853,7 @@
     - nm_change_bd_vrf4.current.vrfRef.templateName == "Template3"
 
 - name: Change bd 1 settings(normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -885,7 +885,7 @@
   register: nm_change_bd_1_settings
 
 - name: Change bd 1 subnets (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -916,7 +916,7 @@
   register: nm_change_bd_1_subnets
 
 - name: Verify nm_change_bd_1_subnets
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_bd_1_settings is changed
     - nm_change_bd_1_settings.current.name == "ansible_test_1"
@@ -979,21 +979,21 @@
     - nm_change_bd_1_subnets.current.subnets[2].querier == true
 
 - name: Verify l3MCast nm_change_bd_1_subnets (version == 2.2.4)
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_bd_1_settings.current.l3MCast == false
     - nm_change_bd_1_subnets.current.l3MCast == false
   when: version.current.version is version('2.2.4', '=')
 
 - name: Verify l3MCast nm_change_bd_1_subnets (version != 2.2.4)
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_bd_1_settings.current.l3MCast == true
     - nm_change_bd_1_subnets.current.l3MCast == true
   when: version.current.version is version('2.2.4', '!=')
 
 - name: Add bd with multiple dhcp policies for mso version > 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1045,7 +1045,7 @@
   - version.current.version is version('4.0', '<')
 
 - name: Verify addition of DHCP policies for mso version > 3.1.1g
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_bd_dhcp_policies is changed
     - nm_bd_dhcp_policies.current.dhcpLabels | length == 3
@@ -1067,7 +1067,7 @@
     - version.current.version is version('4.0', '<')
 
 - name: Change bd with multiple dhcp policies for mso version > 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1114,7 +1114,7 @@
     - version.current.version is version('4.0', '<')
 
 - name: Verify change in DHCP policies for mso version > 3.1.1g
-  assert:
+  ansible.builtin.assert:
     that:
     - change_nm_bd_dhcp_policies is changed
     - change_nm_bd_dhcp_policies.current.dhcpLabels | length == 2
@@ -1133,7 +1133,7 @@
 
 # Add BD with new options for mso version > 3.1.1g
 - name: Add bd with new options available in mso versions > 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1169,7 +1169,7 @@
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify subnets in nm_bd_new_subnet_options
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_bd_new_subnet_options is changed
     - nm_bd_new_subnet_options.current.name == 'ansible_test_new_options'
@@ -1194,7 +1194,7 @@
 
 # Change BD with new options for mso version > 3.1.1g
 - name: Try Changing bd with another subnet to primary IP
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1232,7 +1232,7 @@
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify subnets in nm_bd_subnet_second_primary
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_bd_subnet_second_primary.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Only one preferred subnet per address family is allowed under BD ansible_test_new_options of Template Template1 exception while trying to update schema")
   when:
@@ -1240,7 +1240,7 @@
   - version.current.version is version('3.3', '<')
 
 - name: Add bd with new option flood in encap available in mso versions > 3.1.1g with l2 set to true
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1264,7 +1264,7 @@
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify nm_bd_new_encap_flood_non
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_bd_new_encap_flood_non.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template1', BD 'ansible_test_flood_encap' {{':'}} Multi destination flood in encapsulation is only supported when l2Stretch is disabled exception while trying to update schema")
   when:
@@ -1272,7 +1272,7 @@
   - version.current.version is version('3.3', '<')
 
 - name: Add bd with new option flood in encap available in mso versions > 3.1.1g l2 set to false
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1293,13 +1293,13 @@
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify nm_bd_new_encap_flood
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_bd_new_encap_flood.current.multiDstPktAct == "encap-flood"
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Add bd with new option description in mso versions >= 3.3
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1319,13 +1319,13 @@
   when: version.current.version is version('3.3', '>=')
 
 - name: Verify nm_bd_desc
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_bd_desc.current.description == "ansible_test_bd"
   when: version.current.version is version('3.3', '>=')
 
 - name: Add bd with change in description in mso versions >= 3.3
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1345,13 +1345,13 @@
   when: version.current.version is version('3.3', '>=')
 
 - name: Verify nm_bd_desc_2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_bd_desc_2.current.description == "ansible_test_bd_again"
   when: version.current.version is version('3.3', '>=')
 
 - name: Ensure bd ansible_test_unicast_false is removed >= 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1360,7 +1360,7 @@
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Ensure bd ansible_test_unicast_true is removed >= 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1369,7 +1369,7 @@
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Add bd with change in unicast routing false in mso versions >= 3.1.1g (check mode)
-  mso_schema_template_bd: &unicast_routing_false_present
+  cisco.mso.mso_schema_template_bd: &unicast_routing_false_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1385,26 +1385,26 @@
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Add bd with change in unicast routing false in mso versions >= 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *unicast_routing_false_present
   register: nm_ansible_test_unicast_false
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Add bd again with unicast routing false in mso versions >= 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *unicast_routing_false_present
   register: nm_ansible_test_unicast_false_again
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Change bd with unicast routing to true in mso versions >= 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *unicast_routing_false_present
     unicast_routing: true
   register: nm_ansible_test_unicast_false_to_true
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Add bd with change in unicast routing true in mso versions >= 3.1.1g (check mode)
-  mso_schema_template_bd: &unicast_routing_true_present
+  cisco.mso.mso_schema_template_bd: &unicast_routing_true_present
     <<: *unicast_routing_false_present
     bd: ansible_test_unicast_true
     unicast_routing: true
@@ -1413,26 +1413,26 @@
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Add bd with change in unicast routing true in mso versions >= 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *unicast_routing_true_present
   register: nm_ansible_test_unicast_true
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Add bd again with unicast routing true in mso versions >= 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *unicast_routing_true_present
   register: nm_ansible_test_unicast_true_again
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Change bd with unicast routing to false in mso versions >= 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *unicast_routing_true_present
     unicast_routing: false
   register: nm_ansible_test_unicast_true_to_false
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify unicast routing
-  assert:
+  ansible.builtin.assert:
     that:
       - cm_ansible_test_unicast_false is changed
       - cm_ansible_test_unicast_false.current.unicastRouting == false
@@ -1455,14 +1455,14 @@
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Remove bd with change in unicast routing false in mso versions >= 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *unicast_routing_false_present
     state: absent
   register: ansible_test_unicast_false
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Remove bd with change in unicast routing true in mso versions >= 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *unicast_routing_true_present
     state: absent
   register: ansible_test_unicast_true
@@ -1472,7 +1472,7 @@
 
 # QUERY ALL BD
 - name: Query all bd (check_mode)
-  mso_schema_template_bd: &bd_query
+  cisco.mso.mso_schema_template_bd: &bd_query
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1481,12 +1481,12 @@
   register: cm_query_all_bds
 
 - name: Query all bd (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
   register: nm_query_all_bds
 
 - name: Verify query_all_bds for version < 3.1.1g
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_all_bds is not changed
     - nm_query_all_bds is not changed
@@ -1494,7 +1494,7 @@
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify query_all_bds for version > 3.1.1g and version < 3.3
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_all_bds is not changed
     - nm_query_all_bds is not changed
@@ -1504,7 +1504,7 @@
   - version.current.version is version('3.3', '<')
 
 - name: Verify query_all_bds for version >= 3.3 and < 4.0
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_all_bds is not changed
     - nm_query_all_bds is not changed
@@ -1514,7 +1514,7 @@
     - version.current.version is version('3.7', '<')
 
 - name: Verify query_all_bds for version >= 4.0
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_all_bds is not changed
     - nm_query_all_bds is not changed
@@ -1523,27 +1523,27 @@
 
 # QUERY A BD
 - name: Query bd 1
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     bd: ansible_test_1
   check_mode: true
   register: cm_query_bd
 
 - name: Query bd 1
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     bd: ansible_test_1
   register: nm_query_bd
 
 - name: Query bd 2
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     template: Template2
     bd: ansible_test_2
   register: nm_query_bd_2
 
 - name: Query bd 3
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template3
@@ -1551,7 +1551,7 @@
   register: nm_query_bd_3
 
 - name: Query bd 5
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template5
@@ -1559,7 +1559,7 @@
   register: nm_query_bd_5
 
 - name: Verify query_bd
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_bd is not changed
     - nm_query_bd is not changed
@@ -1594,7 +1594,7 @@
     - nm_query_bd_2.current.subnets[3].shared == false
 
 - name: Verify nm_query_bd_5 for a version that's before 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_bd_5 is not changed
     - nm_query_bd_5.current.name == "ansible_test_5"
@@ -1606,7 +1606,7 @@
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_query_bd_5 for a version that's 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_bd_5 is not changed
     - nm_query_bd_5.current.name == "ansible_test_5"
@@ -1623,7 +1623,7 @@
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Query bd with multiple dhcp policies for mso version > 3.1.1g
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     bd: ansible_test_multiple_dhcp
     state: query
@@ -1634,7 +1634,7 @@
   - version.current.version is version('4.0', '<')
 
 - name: Verify query of DHCP policies for mso version > 3.1.1g
-  assert:
+  ansible.builtin.assert:
     that:
     - query_nm_bd_dhcp_policies is not changed
     - query_nm_bd_dhcp_policies.current.name == 'ansible_test_multiple_dhcp'
@@ -1654,7 +1654,7 @@
 
 # Query BD with new options for mso version > 3.1.1g
 - name: Query bd with new option flood in encap available in mso versions > 3.1.1g with l2 set to false
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     bd: ansible_test_flood_encap
     state: query
@@ -1662,7 +1662,7 @@
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify query_bd_new_encap_flood
-  assert:
+  ansible.builtin.assert:
     that:
     - query_bd_new_encap_flood is not changed
     - query_bd_new_encap_flood.current.name == 'ansible_test_flood_encap'
@@ -1678,14 +1678,14 @@
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify query_bd_new_encap_flood
-  assert:
+  ansible.builtin.assert:
     that:
     - query_bd_new_encap_flood.current.l3MCast == false
   when: version.current.version is version('3.2', '>=')
 
 # REMOVE BD
 - name: Remove bd (check_mode)
-  mso_schema_template_bd: &bd_absent
+  cisco.mso.mso_schema_template_bd: &bd_absent
     <<: *bd_query
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1695,47 +1695,47 @@
   register: cm_remove_bd
 
 - name: Verify cm_remove_bd
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_bd is changed
     - cm_remove_bd.current == {}
 
 - name: Remove bd (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_absent
   register: nm_remove_bd
 
 - name: Verify nm_remove_bd
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_bd is changed
     - nm_remove_bd.current == {}
 
 - name: Remove bd again (check_mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_absent
   check_mode: true
   register: cm_remove_bd_again
 
 - name: Verify cm_remove_bd_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_bd_again is not changed
     - cm_remove_bd_again.current == {}
 
 - name: Remove bd again (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_absent
   register: nm_remove_bd_again
 
 - name: Verify nm_remove_bd_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_bd_again is not changed
     - nm_remove_bd_again.current == {}
 
 - name: Remove bd 5 (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_absent
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template5
@@ -1743,13 +1743,13 @@
   register: nm_remove_bd_5
 
 - name: Verify nm_remove_bd_5
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_bd_5 is changed
     - nm_remove_bd_5.current == {}
 
 - name: Remove bd ansible_test_multiple_dhcp (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_absent
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -1761,7 +1761,7 @@
   - version.current.version is version('4.0', '<')
 
 - name: Verify nm_remove_ansible_test_multiple_dhcp
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_ansible_test_multiple_dhcp is changed
     - nm_remove_ansible_test_multiple_dhcp.current == {}
@@ -1772,7 +1772,7 @@
 
 # QUERY NON-EXISTING BD
 - name: Query non-existing bd (check_mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     bd: ansible_test_1
   check_mode: true
@@ -1780,14 +1780,14 @@
   register: cm_query_non_bd
 
 - name: Query non-existing bd (normal mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     bd: ansible_test_1
   ignore_errors: true
   register: nm_query_non_bd
 
 - name: Verify query_non_bd
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_bd is not changed
     - nm_query_non_bd is not changed
@@ -1797,7 +1797,7 @@
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for bd (check_mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     state: non-existing-state
   check_mode: true
@@ -1805,14 +1805,14 @@
   register: cm_non_existing_state
 
 - name: Non-existing state for bd (normal_mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     state: non-existing-state
   ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
@@ -1821,7 +1821,7 @@
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for bd (check_mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     schema: non-existing-schema
   check_mode: true
@@ -1829,14 +1829,14 @@
   register: cm_non_existing_schema
 
 - name: Non-existing schema for bd (normal_mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     schema: non-existing-schema
   ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_schema is not changed
     - nm_non_existing_schema is not changed
@@ -1845,7 +1845,7 @@
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template for bd (check_mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     template: non-existing-template
   check_mode: true
@@ -1853,14 +1853,14 @@
   register: cm_non_existing_template
 
 - name: Non-existing template for bd (normal_mode)
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *bd_query
     template: non-existing-template
   ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
@@ -1869,7 +1869,7 @@
 
 # CLEAN UP DHCP Policies
 - name: Ensure DHCP policies are removed
-  mso_dhcp_relay_policy:
+  cisco.mso.mso_dhcp_relay_policy:
     <<: *mso_info
     dhcp_relay_policy: '{{ item }}'
     tenant: ansible_test
@@ -1883,7 +1883,7 @@
   - version.current.version is version('4.0', '<')
 
 - name: Ensure DHCP option policies are removed
-  mso_dhcp_option_policy:
+  cisco.mso.mso_dhcp_option_policy:
     <<: *mso_info
     dhcp_option_policy: '{{ item }}'
     tenant: ansible_test
@@ -1898,7 +1898,7 @@
 
 # REMOVE Schemas for next CI Run
 - name: Remove schemas for next ci test
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent

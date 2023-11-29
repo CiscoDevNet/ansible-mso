@@ -8,14 +8,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact: 
+  ansible.builtin.set_fact: 
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -26,7 +26,7 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 # - name: Ensure site exist
-#   mso_site: &site_present
+#   cisco.mso.mso_site: &site_present
 #     host: '{{ mso_hostname }}'
 #     username: '{{ mso_username }}'
 #     password: '{{ mso_password }}'
@@ -43,7 +43,7 @@
 #     state: present
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -52,7 +52,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -62,7 +62,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
-  mso_schema_template: 
+  cisco.mso.mso_schema_template: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -70,7 +70,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 2 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -78,7 +78,7 @@
     state: present
 
 - name: Ensure schema 2 with Template 3 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -86,7 +86,7 @@
     state: present
 
 - name: Ensure Filter 1 exist
-  mso_schema_template_filter_entry:
+  cisco.mso.mso_schema_template_filter_entry:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -95,7 +95,7 @@
     state: present
 
 - name: Ensure Contract1 exist
-  mso_schema_template_contract_filter: 
+  cisco.mso.mso_schema_template_contract_filter: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -107,7 +107,7 @@
 
 # ADD VRF1 
 - name: Add a new VRF1 (check mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -117,14 +117,14 @@
   register: vrf1_cm
 
 - name: Verify vrf1_cm
-  assert:
+  ansible.builtin.assert:
     that:
     - vrf1_cm is changed
     - vrf1_cm.current.name == 'VRF1'
     - vrf1_cm.current.displayName == 'VRF1'
 
 - name: Add VRF1 (normal mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -133,14 +133,14 @@
   register: vrf1_nm
 
 - name: Verify vrf1_nm
-  assert:
+  ansible.builtin.assert:
     that:
     - vrf1_nm is changed
     - vrf1_nm.current.name == 'VRF1'
     - vrf1_nm.current.displayName == 'VRF1'
 
 - name: Add VRF2 (normal mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -151,7 +151,7 @@
   register: vrf2_nm
 
 - name: Verify vrf2_nm
-  assert:
+  ansible.builtin.assert:
     that:
     - vrf2_nm is changed
     - vrf2_nm.current.name == 'VRF2'
@@ -160,7 +160,7 @@
     - vrf2_nm.current.l3MCast == True
 
 - name: Add VRF3 (normal mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -169,14 +169,14 @@
   register: vrf3_nm
 
 - name: Verify vrf3_nm
-  assert:
+  ansible.builtin.assert:
     that:
     - vrf3_nm is changed
     - vrf3_nm.current.name == 'VRF3'
     - vrf3_nm.current.displayName == 'VRF3'
 
 - name: Add preferred_group to VRF3 (normal mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -186,7 +186,7 @@
   register: vrf3_nm_change
 
 - name: Verify vrf3_nm_change
-  assert:
+  ansible.builtin.assert:
     that:
     - vrf3_nm_change is changed
     - vrf3_nm_change.current.name == 'VRF3'
@@ -194,7 +194,7 @@
 
 # ADD EXISTING VRF
 - name: Add VRF2 again (normal mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -205,13 +205,13 @@
   register: vrf2_nm_again
 
 - name: Verify vrf2_nm_again
-  assert:
+  ansible.builtin.assert:
     that:
     - vrf2_nm_again is not changed
 
 # CHANGE VRF SETTINGS
 - name: Change VRF1 settings (check mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -223,7 +223,7 @@
   register: vrf1_change_cm
 
 - name: Change VRF1 settings (normal mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -234,7 +234,7 @@
   register: vrf1_change_nm
 
 - name: Change VRF2 settings (check mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -248,7 +248,7 @@
   register: vrf2_change_cm
 
 - name: Change VRF2 settings (normal mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -261,7 +261,7 @@
   register: vrf2_change_nm
 
 - name: Verify vrf2_nm
-  assert:
+  ansible.builtin.assert:
     that:
     - vrf1_change_cm is changed
     - vrf1_change_nm is changed
@@ -278,7 +278,7 @@
 
 # ADD VRF4 WITH NO STATE
 - name: Add VRF4 (normal mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -287,13 +287,13 @@
   register: vrf4_nm_stateless
 
 - name: Verify vrf4_nm_stateless
-  assert:
+  ansible.builtin.assert:
     that:
     - vrf4_nm_stateless is changed
 
 # QUERY A VRF
 - name: Query VRF2 (normal mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -302,13 +302,13 @@
   register: vrf2_query
 
 - name: Verify vrf2_query
-  assert:
+  ansible.builtin.assert:
     that:
     - vrf2_query is not changed
 
 # QUERY ALL VRFs
 - name: Query all (normal mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -316,13 +316,13 @@
   register: vrfs_query
 
 - name: Verify vrfs_query
-  assert:
+  ansible.builtin.assert:
     that:
     - vrfs_query is not changed
 
 # REMOVE A VRF
 - name: Remove VRF3 (normal mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -331,7 +331,7 @@
   register: vrf3_remove
 
 - name: Verify vrf3_remove
-  assert:
+  ansible.builtin.assert:
     that:
     - vrf3_remove is changed
     - vrf3_remove.previous.name == 'VRF3'
@@ -339,7 +339,7 @@
 
 # REMOVE A VRF
 - name: Remove VRF3 again (normal mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -348,13 +348,13 @@
   register: vrf3_remove_again
 
 - name: Verify vrf3_remove_again
-  assert:
+  ansible.builtin.assert:
     that:
     - vrf3_remove_again is not changed
 
 # QUERY REMOVED VRF
 - name: Query VRF3 (normal mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -364,13 +364,13 @@
   register: vrf3_query_removed
 
 - name: Verify vrf3_query_removed
-  assert:
+  ansible.builtin.assert:
     that:
     - vrf3_query_removed.msg == "VRF 'VRF3' not found"
 
 # Enable vzAny on VRF
 - name: Ensure VRF exist
-  mso_schema_template_vrf: 
+  cisco.mso.mso_schema_template_vrf: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -379,7 +379,7 @@
     state: present
 
 - name: Add Contract1 to VRF with type consumer (normal_mode)
-  mso_schema_template_vrf_contract:
+  cisco.mso.mso_schema_template_vrf_contract:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -391,7 +391,7 @@
   register: nm_add_contract1_consumer
 
 - name: Verify nm_add_contract1_consumer
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_contract1_consumer is changed
     - nm_add_contract1_consumer.previous == {}
@@ -400,7 +400,7 @@
     - nm_add_contract1_consumer.current.relationshipType == "consumer"
 
 - name: Add Contract1 to VRF with type provider (normal_mode)
-  mso_schema_template_vrf_contract:
+  cisco.mso.mso_schema_template_vrf_contract:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -412,7 +412,7 @@
   register: nm_add_contract1_provider
 
 - name: Verify nm_add_contract1_provider
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_contract1_provider is changed
     - nm_add_contract1_provider.previous == {}
@@ -422,7 +422,7 @@
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for VRF (check_mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: non_existing_schema
     template: Template 1
@@ -432,7 +432,7 @@
   register: cm_non_existing_schema
 
 - name: Non-existing schema for VRF (normal_mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: non_existing_schema
     template: Template 1
@@ -441,7 +441,7 @@
   register: nm_non_existing_schema
 
 - name: Verify nm_non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_schema is not changed
     - nm_non_existing_schema is not changed
@@ -450,7 +450,7 @@
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template for vrf (check_mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non_existing_template
@@ -460,7 +460,7 @@
   register: cm_non_existing_template
 
 - name: Non-existing template for vrf (normal_mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema:  '{{ mso_schema | default("ansible_test") }}'
     template: non_existing_template
@@ -469,7 +469,7 @@
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
@@ -478,7 +478,7 @@
 
 # Checking if contract are removed after re-applying an VRF. 
 - name: Add VRF again (normal_mode)
-  mso_schema_template_vrf: 
+  cisco.mso.mso_schema_template_vrf: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -488,12 +488,12 @@
   register: nm_add_VRF_again
 
 - name: Verify that VRF didn't changed
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_VRF_again is not changed
 
 - name: Verify contract VRF again
-  mso_schema_template_vrf_contract:
+  cisco.mso.mso_schema_template_vrf_contract:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -502,14 +502,14 @@
   register: nm_query_vrf_contract_again
 
 - name: Verify 2 contracts are in VRF
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_vrf_contract_again is not changed
     - nm_query_vrf_contract_again.current | length == 2
 
 # Checking if modifying VRF with existing contracts throw an MSO error. (#82)
 - name: Change VRF (normal_mode)
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -520,14 +520,14 @@
   register: nm_change_vrf
 
 - name: Verify that VRF did change
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_vrf is changed
     - nm_change_vrf.current.name == "VRF"
     - nm_change_vrf.current.l3MCast == True
 
 - name: Verify contract VRF again
-  mso_schema_template_vrf_contract:
+  cisco.mso.mso_schema_template_vrf_contract:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -536,7 +536,7 @@
   register: nm_query_change_vrf_contract_again
 
 - name: Verify 2 contracts are in VRF
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_change_vrf_contract_again is not changed
     - nm_query_change_vrf_contract_again.current | length == 2

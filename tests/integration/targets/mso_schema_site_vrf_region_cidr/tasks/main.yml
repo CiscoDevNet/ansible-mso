@@ -7,13 +7,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact: 
+  ansible.builtin.set_fact: 
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -27,13 +27,13 @@
               '{{ mso_site | default(\"ansible_test\") }}']"
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -44,7 +44,7 @@
     state: present
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: 'aws_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ aws_apic_username }}'
@@ -55,7 +55,7 @@
     state: present
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ azure_apic_username }}'
@@ -66,7 +66,7 @@
     state: present
 
 - name: Remove Schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -75,7 +75,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure sites removed from tenant ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ item }}'
@@ -86,7 +86,7 @@
     - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     sites:
@@ -96,7 +96,7 @@
     state: present
 
 - name: Ensure AWS site is present under tenant ansible_test
-  mso_tenant_site: 
+  cisco.mso.mso_tenant_site: 
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -106,7 +106,7 @@
     state: present
 
 - name: Ensure Azure site is present under tenant ansible_test
-  mso_tenant_site: 
+  cisco.mso.mso_tenant_site: 
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -114,7 +114,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 and 2 exists
-  mso_schema_template: 
+  cisco.mso.mso_schema_template: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -125,7 +125,7 @@
     - Template 2
 
 - name: Ensure schema 2 with Template 3 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -133,7 +133,7 @@
     state: present
 
 - name: Add physical site to Template 1
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -141,7 +141,7 @@
     state: present
 
 - name: Ensure VRF1 exists
-  mso_schema_template_vrf: 
+  cisco.mso.mso_schema_template_vrf: 
     <<: *mso_info
     schema: '{{ item.schema }}'
     template: '{{ item.template }}'
@@ -153,7 +153,7 @@
   - { schema: '{{ mso_schema | default("ansible_test") }}_2', template: 'Template 3' }
 
 - name: Ensure VRF2 exists
-  mso_schema_template_vrf: 
+  cisco.mso.mso_schema_template_vrf: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -162,7 +162,7 @@
   when: version.current.version is version('3', '<')
 
 - name: Ensure VRF1 exists at Site level for the physical site
-  mso_schema_site_vrf:
+  cisco.mso.mso_schema_site_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -172,7 +172,7 @@
 
 # ADD SUBNET
 - name: Add a new CIDR in VRF1 at AWS site level (check mode)
-  mso_schema_site_vrf_region_cidr: &mso_present
+  cisco.mso.mso_schema_site_vrf_region_cidr: &mso_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -186,7 +186,7 @@
   register: cm_add_cidr
 
 - name: Verify cm_add_cidr
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_cidr is changed
     - cm_add_cidr.previous == {}
@@ -194,12 +194,12 @@
     - cm_add_cidr.current.primary == true
 
 - name: Add a new CIDR in VRF1 at AWS site level (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present
   register: nm_add_cidr
 
 - name: Verify nm_add_cidr
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_cidr is changed
     - nm_add_cidr.previous == {}
@@ -207,31 +207,31 @@
     - nm_add_cidr.current.primary == true
 
 - name: Add same CIDR in VRF1 at AWS site level (check mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present
   register: cm_add_cidr_again
 
 - name: Verify cm_add_cidr_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_cidr_again is not changed
     - cm_add_cidr_again.current.ip == cm_add_cidr_again.previous.ip == '10.0.0.0/16'
     - cm_add_cidr_again.current.primary == cm_add_cidr_again.previous.primary == true
 
 - name: Add same CIDR in VRF1 at AWS site level (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present
   register: nm_add_cidr_again
 
 - name: Verify nm_add_cidr_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_cidr_again is not changed
     - nm_add_cidr_again.current.ip == nm_add_cidr_again.previous.ip == '10.0.0.0/16'
     - nm_add_cidr_again.current.primary == nm_add_cidr_again.previous.primary == true
 
 - name: Add a CIDR in VRF1 at Azure site level (check mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
@@ -241,7 +241,7 @@
   register: cm_add_cidr_2
 
 - name: Verify cm_add_cidr_2
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_cidr_2 is changed
     - cm_add_cidr_2.previous == {}
@@ -249,7 +249,7 @@
     - cm_add_cidr_2.current.primary == true
 
 - name: Add a CIDR in VRF1 at Azure site level (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
@@ -258,7 +258,7 @@
   register: nm_add_cidr_2
 
 - name: Verify nm_add_cidr_2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_cidr_2 is changed
     - nm_add_cidr_2.previous == {}
@@ -266,7 +266,7 @@
     - nm_add_cidr_2.current.primary == true
 
 - name: Add a second CIDR in VRF1 at AWS site level (check mode)
-  mso_schema_site_vrf_region_cidr: &mso_present_2
+  cisco.mso.mso_schema_site_vrf_region_cidr: &mso_present_2
     <<: *mso_present
     site: 'aws_{{ mso_site | default("ansible_test") }}'
     region: us-west-1
@@ -276,7 +276,7 @@
   register: cm_add_cidr_3
 
 - name: Verify cm_add_cidr_3
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_cidr_3 is changed
     - cm_add_cidr_3.previous == {}
@@ -284,12 +284,12 @@
     - cm_add_cidr_3.current.primary == false
 
 - name: Add a second CIDR in VRF1 at AWS site level (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present_2
   register: nm_add_cidr_3
 
 - name: Verify nm_add_cidr_3
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_cidr_3 is changed
     - nm_add_cidr_3.previous == {}
@@ -297,7 +297,7 @@
     - nm_add_cidr_3.current.primary == false
 
 - name: Add a second CIDR in VRF1 at Azure site level (check mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
@@ -307,7 +307,7 @@
   register: cm_add_cidr_4
 
 - name: Verify cm_add_cidr_4
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_cidr_4 is changed
     - cm_add_cidr_4.previous == {}
@@ -315,7 +315,7 @@
     - cm_add_cidr_4.current.primary == false
 
 - name: Add a second CIDR in VRF1 at Azure site level (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
@@ -324,7 +324,7 @@
   register: nm_add_cidr_4
 
 - name: Verify nm_add_cidr_4
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_cidr_4 is changed
     - nm_add_cidr_4.previous == {}
@@ -333,7 +333,7 @@
 
 # QUERY CIDR
 - name: Query CIDR in VRF1 at AWS site level (check mode)
-  mso_schema_site_vrf_region_cidr: &mso_query
+  cisco.mso.mso_schema_site_vrf_region_cidr: &mso_query
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -346,19 +346,19 @@
   register: cm_query_cidr
 
 - name: Verify cm_query_cidr
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_cidr is not changed
     - cm_query_cidr.current.ip == '10.0.0.0/16'
     - cm_query_cidr.current.primary == true
 
 - name: Query CIDR in VRF1 at AWS site level (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
   register: nm_query_cidr
 
 - name: Query CIDR in VRF1 at Azure site level (check mode)
-  mso_schema_site_vrf_region_cidr: &mso_query_2
+  cisco.mso.mso_schema_site_vrf_region_cidr: &mso_query_2
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -371,19 +371,19 @@
   register: cm_query_cidr_2
 
 - name: Verify cm_query_cidr_2
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_cidr_2 is not changed
     - cm_query_cidr_2.current.ip == '10.1.0.0/16'
     - cm_query_cidr_2.current.primary == true
 
 - name: Query CIDR in VRF1 at Azure site level (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query_2
   register: nm_query_cidr_2
 
 - name: Verify nm_query_cidr_2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_cidr_2 is not changed
     - nm_query_cidr_2.current.ip == '10.1.0.0/16'
@@ -391,7 +391,7 @@
 
 # QUERY ALL CIDR
 - name: Query all CIDR in VRF1 at AWS site level (check mode)
-  mso_schema_site_vrf_region_cidr: &mso_query_all
+  cisco.mso.mso_schema_site_vrf_region_cidr: &mso_query_all
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -403,7 +403,7 @@
   register: cm_query_cidr_all_aws
 
 - name: Query CIDR in VRF1 at Azure site level (check mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query_all
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
@@ -412,7 +412,7 @@
   register: cm_query_cidr_all_azure
 
 - name: Verify cm_query_cidr_all_aws and cm_query_cidr_all_azure
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_cidr_all_aws is not changed
     - cm_query_cidr_all_aws.current[0].ip == '10.0.0.0/16'
@@ -426,19 +426,19 @@
     - cm_query_cidr_all_azure.current[1].primary == false
 
 - name: Query CIDR in VRF1 at AWS site level (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query_all
   register: nm_query_cidr_all_aws
 
 - name: Query CIDR in VRF1 at Azure site level (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query_all
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
   register: nm_query_cidr_all_azure
 
 - name: Verify nm_query_cidr_all_aws and nm_query_cidr_all_azure
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_cidr_all_aws is not changed
     - nm_query_cidr_all_aws.current[0].ip == '10.0.0.0/16'
@@ -452,14 +452,14 @@
     - nm_query_cidr_all_azure.current[1].primary == false
 
 - name: Query CIDR in VRF2 (not present a Site level) for AWS Site (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query_all
     vrf: VRF2
   ignore_errors: true
   register: nm_query_cidr_all_aws_2
 
 - name: Query CIDR in VRF1 (with VRF present a Site level) for Physical Site (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query_all
     site: '{{ mso_site | default("ansible_test") }}'
     vrf: VRF1
@@ -467,7 +467,7 @@
   register: nm_query_cidr_all_aws_3
 
 - name: Verify nm_query_cidr_all_aws_2 and nm_query_cidr_all_aws_3
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_cidr_all_aws_2.msg == "Provided vrf 'VRF2' does not exist at site level."
     - nm_query_cidr_all_aws_3.msg == "Provided region 'us-west-1' does not exist. Existing regions{{':'}} "
@@ -475,58 +475,58 @@
 
 # REMOVE CIDR
 - name: Remove CIDR (check_mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present_2
     state: absent
   check_mode: true
   register: cm_remove_cidr
 
 - name: Verify cm_remove_cidr
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_cidr is changed
     - cm_remove_cidr.current == {}
 
 - name: Remove CIDR (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present_2
     state: absent
   register: nm_remove_cidr
 
 - name: Verify nm_remove_cidr
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_cidr is changed
     - nm_remove_cidr.current == {}
 
 - name: Remove CIDR again (check_mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present_2
     state: absent
   check_mode: true
   register: cm_remove_cidr_again
 
 - name: Verify cm_remove_cidr_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_cidr_again is not changed
     - cm_remove_cidr_again.current == {}
 
 - name: Remove CIDR again (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present_2
     state: absent
   register: nm_remove_cidr_again
 
 - name: Verify nm_remove_cidr_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_cidr_again is not changed
     - nm_remove_cidr_again.current == {}
 
 # QUERY NON-EXISTING CIDR
 - name: Query non-existing CIDR (check_mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     cidr: non_existing_cidr
   check_mode: true
@@ -534,14 +534,14 @@
   register: cm_query_non_cidr
 
 - name: Query non-existing CIDR (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     cidr: non_existing_cidr
   ignore_errors: true
   register: nm_query_non_cidr
 
 - name: Verify query_non_cidr
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_cidr is not changed
     - nm_query_non_cidr is not changed
@@ -550,7 +550,7 @@
 
 # QUERY NON-EXISTING region
 - name: Query non-existing region (check_mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     region: non_existing_region
   check_mode: true
@@ -558,14 +558,14 @@
   register: cm_query_non_region
 
 - name: Query non-existing region (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     region: non_existing_region
   ignore_errors: true
   register: nm_query_non_region
 
 - name: Verify query_non_region
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_region is not changed
     - nm_query_non_region is not changed
@@ -574,7 +574,7 @@
 
 # QUERY NON-EXISTING VRF
 - name: Query non-existing VRF (check_mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     vrf: non_existing_vrf
   check_mode: true
@@ -582,28 +582,28 @@
   register: cm_query_non_vrf
 
 - name: Query non-existing VRF (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     vrf: non_existing_vrf
   ignore_errors: true
   register: nm_query_non_vrf
 
 - name: Verify query_non_vrf
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_vrf is not changed
     - nm_query_non_vrf is not changed
     - cm_query_non_vrf == nm_query_non_vrf
 
 - name: Verify query_non_vrf (version < 3.0)
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_vrf.msg == nm_query_non_vrf.msg == "Provided vrf 'non_existing_vrf' does not exist. Existing vrfs{{':'}} VRF1, VRF2"
   when: version.current.version is version('3', '<')
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for site cidr (check_mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     state: non-existing-state
   check_mode: true
@@ -611,14 +611,14 @@
   register: cm_non_existing_state
 
 - name: Non-existing state for site cidr (normal_mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     state: non-existing-state
   ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
@@ -627,7 +627,7 @@
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for site cidr (check_mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     schema: non-existing-schema
   check_mode: true
@@ -635,14 +635,14 @@
   register: cm_non_existing_schema
 
 - name: Non-existing schema for site cidr (normal_mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     schema: non-existing-schema
   ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_schema is not changed
     - nm_non_existing_schema is not changed
@@ -651,7 +651,7 @@
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template for site cidr (check_mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     template: non-existing-template
   check_mode: true
@@ -659,14 +659,14 @@
   register: cm_non_existing_template
 
 - name: Non-existing template for site cidr (normal_mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     template: non-existing-template
   ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
@@ -675,7 +675,7 @@
 
 # USE A NON-ASSOCIATED TEMPLATE
 - name: Non-associated template for site cidr (check_mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     template: Template 2
   check_mode: true
@@ -683,14 +683,14 @@
   register: cm_non_associated_template
 
 - name: Non-associated template for site cidr (normal_mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_query
     template: Template 2
   ignore_errors: true
   register: nm_non_associated_template
 
 - name: Verify non_associated_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_associated_template is not changed
     - nm_non_associated_template is not changed
@@ -700,7 +700,7 @@
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add site VRF region cidr to Schema 2 Template 3 without any site associated (check mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -708,14 +708,14 @@
   register: cm_no_site_associated
 
 - name: Add site VRF region cidr to Template 3 without any site associated (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
   register: nm_no_site_associated
 
 - name: Verify cm_no_site_associated and nm_no_site_associated
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_no_site_associated is changed
     - nm_no_site_associated is changed

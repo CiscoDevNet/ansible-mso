@@ -4,13 +4,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -21,13 +21,13 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -36,7 +36,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -47,7 +47,7 @@
     state: present
 
 - name: Ensure sites removed from tenant ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ item }}'
@@ -58,7 +58,7 @@
     - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exists
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -68,7 +68,7 @@
     state: present
 
 - name: Ensure schema 1 with Template1, Template2, Template4 and Template5
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -81,7 +81,7 @@
   - Template5
 
 - name: Ensure schema 2 with Template3 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -89,7 +89,7 @@
     state: present
 
 - name: Add physical site to templates
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -101,7 +101,7 @@
   - Template5
 
 - name: Ensure VRF1 exists
-  mso_schema_template_vrf: 
+  cisco.mso.mso_schema_template_vrf: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -110,7 +110,7 @@
     state: present
 
 - name: Add template BD to Template1 for create in site subnet
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -123,7 +123,7 @@
     state: present
 
 - name: Add template BD to Template3
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template3
@@ -136,7 +136,7 @@
   register: nm_add_bd_template_3
 
 - name: Add template BD to Template2
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template2
@@ -149,7 +149,7 @@
   register: nm_add_bd_template_2
 
 - name: Add template BD to Template4
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template4
@@ -162,7 +162,7 @@
   register: nm_add_bd_template_4
 
 - name: Add template BD to Template1 without disabling layer2_stretch
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -173,7 +173,7 @@
   register: nm_add_bd
 
 - name: Add site BD
-  mso_schema_site_bd:
+  cisco.mso.mso_schema_site_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -183,7 +183,7 @@
   register: nm_add_site_bd
 
 - name: Add site BD subnet with layer2_stretch enabled
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -195,12 +195,12 @@
   register: add_site_bd_subnet_with_l2Stretch_enabled
 
 - name: Verify add_site_bd_subnet_with_l2Stretch_enabled
-  assert:
+  ansible.builtin.assert:
     that:
     - add_site_bd_subnet_with_l2Stretch_enabled.msg == "The l2Stretch of template bd should be false in order to create a site bd subnet. Set l2Stretch as false using mso_schema_template_bd"
 
 - name: Disable layer2_stretch in template BD
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -212,7 +212,7 @@
   register: nm_add_bd
 
 - name: Add site BD subnet with layer2_stretch disabled (check_mode)
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -224,7 +224,7 @@
   register: cm_add_site_bd_subnet
 
 - name: Verify cm_add_site_bd_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_site_bd_subnet is changed
     - cm_add_site_bd_subnet.previous == {}
@@ -236,7 +236,7 @@
     - cm_add_site_bd_subnet.current.querier == False
 
 - name: Add site BD subnet with layer2_stretch disabled (normal_mode)
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -247,7 +247,7 @@
   register: nm_add_site_bd_subnet
 
 - name: Verify nm_add_site_bd_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site_bd_subnet is changed
     - nm_add_site_bd_subnet.previous == {}
@@ -259,7 +259,7 @@
     - nm_add_site_bd_subnet.current.querier == False
 
 - name: Add site BD subnet again
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -270,12 +270,12 @@
   register: nm_add_site_bd_subnet_again
 
 - name: Verify nm_add_site_bd_subnet_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site_bd_subnet_again is not changed
 
 - name: Add another site BD subnet
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -291,7 +291,7 @@
   register: nm_add_another_site_bd_subnet
 
 - name: Verify nm_add_another_site_bd_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_another_site_bd_subnet is changed
     - nm_add_another_site_bd_subnet.previous == {}
@@ -302,7 +302,7 @@
     - nm_add_another_site_bd_subnet.current.querier == true
 
 - name: Add BD ansible_test_5 to Schema1, template5
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template5
@@ -315,7 +315,7 @@
     state: present
 
 - name: Add site BD5
-  mso_schema_site_bd:
+  cisco.mso.mso_schema_site_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -324,7 +324,7 @@
     state: present
 
 - name: Add site BD5 subnet with layer2_stretch disabled (normal_mode)
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -341,7 +341,7 @@
   register: nm_add_site_bd_subnet5
 
 - name: Verify nm_add_site_bd_subnet5 for a version that's < 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site_bd_subnet5 is changed
     - nm_add_site_bd_subnet5.previous == {}
@@ -354,7 +354,7 @@
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_add_site_bd_subnet5 for a version that's >= 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site_bd_subnet5 is changed
     - nm_add_site_bd_subnet5.previous == {}
@@ -368,13 +368,13 @@
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Verify nm_add_site_bd_subnet5 for a version that's >= 3.1.1h
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site_bd_subnet5.current.primary == True
   when: version.current.version is version('3.1.1h', '>=')
 
 - name: Add site BD subnet with non existing site bd (normal_mode)
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -385,7 +385,7 @@
   register: nm_add_site_bd_subnet_and_site_bd
 
 - name: Verify nm_add_site_bd_subnet_and_site_bd
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site_bd_subnet_and_site_bd is changed
     - nm_add_site_bd_subnet_and_site_bd.previous == {}
@@ -397,7 +397,7 @@
     - nm_add_site_bd_subnet_and_site_bd.current.querier == False
 
 - name: Query site bd
-  mso_schema_site_bd:
+  cisco.mso.mso_schema_site_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -407,12 +407,12 @@
   register: query_site_bd
 
 - name: Verify query_site_bd
-  assert:
+  ansible.builtin.assert:
     that:
     - query_site_bd.current.bdRef.bdName == "ansible_test_site_bd_from_subnet"
 
 - name: Add site BD subnet with now existing site bd again (normal_mode)
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -423,12 +423,12 @@
   register: nm_add_site_bd_subnet_and_site_bd_again
 
 - name: Verify nm_add_site_bd_subnet_and_site_bd_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site_bd_subnet_and_site_bd_again is not changed
 
 - name: Query all subnets
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -438,7 +438,7 @@
   register: query_all
 
 - name: Verify query_all
-  assert:
+  ansible.builtin.assert:
     that:
     - query_all is not changed
     - query_all.current | length == 2
@@ -446,7 +446,7 @@
     - query_all.current.1.ip == "10.10.10.1/16"
 
 - name: Query a specific site BD subnet
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -457,13 +457,13 @@
   register: query_subnet
 
 - name: Verify query_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - query_subnet is not changed
     - query_subnet.current.ip == "10.1.0.1/16"
 
 - name: Query a specific site BD5 subnet
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -474,14 +474,14 @@
   register: query_subnet5
 
 - name: Verify query_subnet5 for version before 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - query_subnet5 is not changed
     - query_subnet5.current.ip == "10.1.0.5/16"
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify query_subnet5 for 3.1 version and later
-  assert:
+  ansible.builtin.assert:
     that:
     - query_subnet5 is not changed
     - query_subnet5.current.ip == "10.1.0.5/16"
@@ -489,13 +489,13 @@
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Verify query_subnet5 for 3.1.1h version and later
-  assert:
+  ansible.builtin.assert:
     that:
     - query_subnet5.current.primary == true
   when: version.current.version is version('3.1.1h', '>=')
 
 - name: Remove a site BD subnet
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -506,14 +506,14 @@
   register: rm_subnet
 
 - name: Verify rm_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - rm_subnet is changed
     - rm_subnet.current == {}
     - rm_subnet.previous.ip == "10.1.0.1/16"
 
 - name: Remove the site BD subnet again
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -524,13 +524,13 @@
   register: rm_subnet_again
 
 - name: Verify rm_subnet_again
-  assert:
+  ansible.builtin.assert:
     that:
     - rm_subnet_again is not changed
     - rm_subnet_again.previous == rm_subnet_again.current == {}
 
 - name: Remove a site BD 5 subnet
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -541,7 +541,7 @@
   register: rm_subnet5
 
 - name: Verify rm_subnet5
-  assert:
+  ansible.builtin.assert:
     that:
     - rm_subnet5 is changed
     - rm_subnet5.current == {}
@@ -549,7 +549,7 @@
 
 # Use non_existing_schema
 - name: Query subnet by non_existing_schema
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: non_existing_schema
     site: '{{ mso_site | default("ansible_test") }}'
@@ -561,13 +561,13 @@
   register: non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
 
 # Use non_existing_template
 - name: Query subnet by non_existing_template
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -579,13 +579,13 @@
   register: non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - non_existing_template.msg == "Provided template 'non_existing_template' not matching existing template(s){{':'}} Template1, Template2, Template4, Template5"
 
 # Use non_existing_template_bd
 - name: Query subnet by non_existing_template_bd
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -597,13 +597,13 @@
   register: non_existing_template_bd
 
 - name: Verify non_existing_template_bd
-  assert:
+  ansible.builtin.assert:
     that:
     - non_existing_template_bd.msg == "Provided BD 'non_existing_template_bd' not matching existing bd(s){{':'}} ansible_test_site_bd_from_subnet, ansible_test_1"
 
 # Use template without site associated
 - name: Query with no site associated to template
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -615,13 +615,13 @@
   register: template_without_sites
 
 - name: Verify template_without_sites
-  assert:
+  ansible.builtin.assert:
     that:
     - template_without_sites.msg == "No sites associated with schema 'ansible_test_2'. Associate the site with the schema using (M) mso_schema_site."
 
 # Use non_existing_subnet
 - name: Query with non_existing_subnet
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -633,13 +633,13 @@
   register: non_existing_subnet
 
 - name: Verify non_existing_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - non_existing_subnet.msg.startswith("Provided subnet 'non_existing_subnet' not matching existing site bd subnet(s){{':'}}")
 
 # Use non_existing_site_template_association
 - name: Query with non_existing_site_template_association
-  mso_schema_site_bd_subnet:
+  cisco.mso.mso_schema_site_bd_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -651,12 +651,12 @@
   register: non_existing_site_template_association
 
 - name: Verify non_existing_site_template_association
-  assert:
+  ansible.builtin.assert:
     that:
     - non_existing_site_template_association.msg == "Provided site 'ansible_test' not associated with template 'Template4'. Site is currently associated with template(s){{':'}} Template1, Template2, Template5"
 
 - name: Remove schemas for next ci test case
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent

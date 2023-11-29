@@ -5,12 +5,12 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -21,14 +21,14 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 # CLEAN ENVIRONMENT
 - name: Ensure site exist
-  mso_site: &site_present
+  cisco.mso.mso_site: &site_present
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -45,7 +45,7 @@
     state: present
 
 - name: Undeploy a schema 2 template 2
-  mso_schema_template_deploy:
+  cisco.mso.mso_schema_template_deploy:
     <<: *mso_info
     template: Template 2
     schema: '{{ mso_schema | default("ansible_test") }}_2'
@@ -55,7 +55,7 @@
   register: undeploy_template2
 
 - name: Undeploy a schema 1 template 1
-  mso_schema_template_deploy:
+  cisco.mso.mso_schema_template_deploy:
     <<: *mso_info
     template: Template 1
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -65,7 +65,7 @@
   register: undeploy_template1
 
 - name: Remove a site from a schema 1 with Template 1
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -75,7 +75,7 @@
   register: rm_site_temp1
 
 - name: Remove a site from a schema 2 with Template 2
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -85,7 +85,7 @@
   register: rm_site_temp2
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -101,7 +101,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant: &tenant_present
+  cisco.mso.mso_tenant: &tenant_present
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -117,7 +117,7 @@
     state: present
 
 - name: Ensure schemas with Template 1 exist
-  mso_schema_template: &schema_present
+  cisco.mso.mso_schema_template: &schema_present
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -134,7 +134,7 @@
     - '{{ mso_schema | default("ansible_test") }}_2'
 
 - name: Ensure schema 2 with Template 2 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *schema_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -143,7 +143,7 @@
   register: schema2_template2
 
 - name: Add a new site to a schema 1 with Template 1 in normal mode
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -152,7 +152,7 @@
   register: add_site_nm1
 
 - name: Add a new site to a schema 2 with Template 2 in normal mode
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -161,7 +161,7 @@
   register: add_site_nm2
 
 - name: Ensure VRF exist
-  mso_schema_template_vrf: &vrf_present
+  cisco.mso.mso_schema_template_vrf: &vrf_present
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -176,7 +176,7 @@
     state: present
 
 - name: Ensure ANP exist
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -190,7 +190,7 @@
     state: present
 
 - name: Ensure ANP2 exist
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -204,7 +204,7 @@
     state: present
 
 - name: Ensure ansible_test_1 BD exist
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -220,7 +220,7 @@
     - '{{ BD_2 | default("ansible_test") }}_2'
 
 - name: Ensure EPG exist
-  mso_schema_template_anp_epg: &epg_present
+  cisco.mso.mso_schema_template_anp_epg: &epg_present
     host: '{{ mso_hostname }}'
     username: '{{ mso_username }}'
     password: '{{ mso_password }}'
@@ -242,7 +242,7 @@
   register: cm_add_epg
 
 - name: Add EPG 2 (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     anp: ANP2
     epg: '{{ item }}'
@@ -252,7 +252,7 @@
     - '{{ EPG_4 | default("ansible_test") }}_4'
 
 - name: Migration of objects between templates
-  mso_schema_template_migrate:
+  cisco.mso.mso_schema_template_migrate:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -270,7 +270,7 @@
   register: object_migrate
 
 - name: Deploy a schema 1 template 1 after version 4.0
-  ndo_schema_template_deploy:
+  cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
     template: Template 1
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -280,7 +280,7 @@
   when: version.current.version is version('4.0', '>=')
 
 - name: Migration of BD objects between templates
-  mso_schema_template_migrate:
+  cisco.mso.mso_schema_template_migrate:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -293,7 +293,7 @@
   register: bd_migrate
 
 - name: Deploy a schema 2 template 2 after version 4.0
-  ndo_schema_template_deploy:
+  cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
     template: Template 2
     schema: '{{ mso_schema | default("ansible_test") }}_2'
@@ -303,7 +303,7 @@
   when: version.current.version is version('4.0', '>=')
 
 - name: Migration of EPG objects between templates
-  mso_schema_template_migrate:
+  cisco.mso.mso_schema_template_migrate:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
@@ -323,7 +323,7 @@
     - version.current.version is version('4.0', '<')
   block:
   - name: Undeploy a schema 2 template 2
-    mso_schema_template_deploy:
+    cisco.mso.mso_schema_template_deploy:
       <<: *mso_info
       template: Template 2
       schema: '{{ mso_schema | default("ansible_test") }}_2'
@@ -333,7 +333,7 @@
     register: undeploy_template2
 
   - name: Undeploy a schema 1 template 1
-    mso_schema_template_deploy:
+    cisco.mso.mso_schema_template_deploy:
       <<: *mso_info
       template: Template 1
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -347,7 +347,7 @@
     - version.current.version is version('4.0', '>=')
   block:
   - name: Undeploy a schema 2 template 2
-    ndo_schema_template_deploy:
+    cisco.mso.ndo_schema_template_deploy:
       <<: *mso_info
       template: Template 2
       schema: '{{ mso_schema | default("ansible_test") }}_2'
@@ -356,7 +356,7 @@
       state: undeploy
   
   - name: Undeploy a schema 1 template 1
-    ndo_schema_template_deploy:
+    cisco.mso.ndo_schema_template_deploy:
       <<: *mso_info
       template: Template 1
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -365,7 +365,7 @@
       state: undeploy
 
 - name: Remove a site from a schema 2 with Template 2
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -374,7 +374,7 @@
   register: rm_site_temp2
 
 - name: Remove a site from a schema 1 with Template 1
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'

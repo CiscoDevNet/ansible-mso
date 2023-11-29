@@ -5,13 +5,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 #CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,7 +22,7 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
@@ -31,7 +31,7 @@
   when: version.current.version is version('4.0', '<')
   block:
   - name: Remove options from DHCP Option Policy
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *mso_info
       dhcp_option_policy: ansible_dhcp_option_1
       name: "{{ item }}"
@@ -42,7 +42,7 @@
     ignore_errors: true
 
   - name: Stop consuming DHCP Policy
-    mso_schema_template_bd:
+    cisco.mso.mso_schema_template_bd:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
@@ -53,7 +53,7 @@
     ignore_errors: true
 
   - name: Remove DHCP Relay Policy 1
-    mso_dhcp_relay_policy:
+    cisco.mso.mso_dhcp_relay_policy:
       <<: *mso_info
       dhcp_relay_policy: '{{ item }}'
       state: absent
@@ -62,7 +62,7 @@
     - ansible_dhcp_relay_2
 
   - name: Remove DHCP Option Policies
-    mso_dhcp_option_policy:
+    cisco.mso.mso_dhcp_option_policy:
       <<: *mso_info
       dhcp_option_policy: '{{ item }}'
       state: absent
@@ -72,7 +72,7 @@
     - ansible_dhcp_option_2
 
   - name: Undeploy sites in schema 1 template 1
-    mso_schema_template_deploy:
+    cisco.mso.mso_schema_template_deploy:
       <<: *mso_info
       template: Template 1
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -86,7 +86,7 @@
     - 'azure_{{ mso_site | default("ansible_test") }}'
 
   - name: Undeploy sites in schema 1 template 2
-    mso_schema_template_deploy:
+    cisco.mso.mso_schema_template_deploy:
       <<: *mso_info
       template: Template 2
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -100,7 +100,7 @@
     - 'azure_{{ mso_site | default("ansible_test") }}'
 
   - name: Remove schemas
-    mso_schema:
+    cisco.mso.mso_schema:
       <<: *mso_info
       schema: '{{ item }}'
       state: absent
@@ -109,7 +109,7 @@
     - '{{ mso_schema | default("ansible_test") }}'
 
   - name: Ensure tenant ansible_test exist
-    mso_tenant:
+    cisco.mso.mso_tenant:
       <<: *mso_info
       tenant: ansible_test
       users:
@@ -118,7 +118,7 @@
     register: tenant_ansible
 
   - name: Ensure schema 1 with Template 1 exist
-    mso_schema_template:
+    cisco.mso.mso_schema_template:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       tenant: ansible_test
@@ -126,7 +126,7 @@
       state: present
 
   - name: Add a new VRF
-    mso_schema_template_vrf:
+    cisco.mso.mso_schema_template_vrf:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
@@ -134,7 +134,7 @@
       state: present
 
   - name: Add BD
-    mso_schema_template_bd:
+    cisco.mso.mso_schema_template_bd:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
@@ -145,7 +145,7 @@
 
   # ADD DHCP RELAY AND OPTION POLICY
   - name: Add a new DHCP Option Policy 1 (Normal mode)
-    mso_dhcp_option_policy:
+    cisco.mso.mso_dhcp_option_policy:
       <<: *mso_info
       dhcp_option_policy: ansible_dhcp_option_1
       description: "My Test DHCP Policy 1"
@@ -153,7 +153,7 @@
       state: present
 
   - name: Add a new DHCP Relay Policy 1 (Normal mode)
-    mso_dhcp_relay_policy:
+    cisco.mso.mso_dhcp_relay_policy:
       <<: *mso_info
       dhcp_relay_policy: ansible_dhcp_relay_1
       description: "My Test DHCP Policy 1"
@@ -162,7 +162,7 @@
 
   # ADD OPTION TO DHCP OPTION POLICY
   - name: Add Option to DHCP Option Policy (check mode)
-    mso_dhcp_option_policy_option: &create_option
+    cisco.mso.mso_dhcp_option_policy_option: &create_option
       <<: *mso_info
       dhcp_option_policy: ansible_dhcp_option_1
       name: ansibletest
@@ -173,12 +173,12 @@
     register: dhcp_pol1_opt1_cm
 
   - name: Add Option to DHCP Option Policy (normal mode)
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *create_option
     register: dhcp_pol1_opt1_nm
 
   - name: Verify dhcp_pol1_opt1
-    assert:
+    ansible.builtin.assert:
       that:
       - dhcp_pol1_opt1_cm is changed
       - dhcp_pol1_opt1_nm is changed
@@ -187,18 +187,18 @@
       - dhcp_pol1_opt1_cm.current.data == dhcp_pol1_opt1_nm.current.data == 'DHCP Data'
 
   - name: Add Option to DHCP Option Policy again (check mode)
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *create_option
     check_mode: true
     register: dhcp_pol1_opt1_again_cm
 
   - name: Add Option to DHCP Option Policy again (normal mode)
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *create_option
     register: dhcp_pol1_opt1_again_nm
 
   - name: Verify dhcp_pol1_opt1_again
-    assert:
+    ansible.builtin.assert:
       that:
       - dhcp_pol1_opt1_again_cm is not changed
       - dhcp_pol1_opt1_again_nm is not changed
@@ -207,20 +207,20 @@
       - dhcp_pol1_opt1_again_cm.current.data == dhcp_pol1_opt1_again_nm.current.data == 'DHCP Data'
 
   - name: Change Option IP to DHCP Option Policy (check mode)
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *create_option
       data: Changed DHCP Data
     check_mode: true
     register: dhcp_pol1_opt1_change_cm
 
   - name: Change Option IP to DHCP Option Policy (normal mode)
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *create_option
       data: Changed DHCP Data
     register: dhcp_pol1_opt1_change_nm
 
   - name: Verify dhcp_pol1_opt1_change
-    assert:
+    ansible.builtin.assert:
       that:
       - dhcp_pol1_opt1_change_cm is changed
       - dhcp_pol1_opt1_change_nm is changed
@@ -229,20 +229,20 @@
       - dhcp_pol1_opt1_change_cm.current.data == dhcp_pol1_opt1_change_nm.current.data == 'Changed DHCP Data'
 
   - name: Add 2nd Option to DHCP Option Policy (check mode)
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *create_option
       name: ansibletest2
     check_mode: true
     register: dhcp_pol1_opt2_cm
 
   - name: Add 2nd Option to DHCP Option Policy (normal mode)
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *create_option
       name: ansibletest2
     register: dhcp_pol1_opt2_nm
 
   - name: Verify dhcp_pol1_opt2
-    assert:
+    ansible.builtin.assert:
       that:
       - dhcp_pol1_opt2_cm is changed
       - dhcp_pol1_opt2_nm is changed
@@ -252,7 +252,7 @@
 
   # QUERY OPTION FROM DHCP OPTION POLICY
   - name: Query Option from DHCP Option Policy (check mode)
-    mso_dhcp_option_policy_option: &query_option
+    cisco.mso.mso_dhcp_option_policy_option: &query_option
       <<: *mso_info
       dhcp_option_policy: ansible_dhcp_option_1
       name: ansibletest
@@ -260,26 +260,26 @@
     register: dhcp_pol1_opt1_query_cm
 
   - name: Query Option from DHCP Option Policy (normal mode)
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *query_option
     register: dhcp_pol1_opt1_query_nm
 
   - name: Query nonexisting Option from DHCP Option Policy
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *query_option
       name: nonexisting
       state: query
     register: dhcp_pol1_opt1_query_non_existing
 
   - name: Query all Options from a DHCP Option Policy
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *mso_info
       dhcp_option_policy: ansible_dhcp_option_1
       state: query
     register: dhcp_pol1_query_all
 
   - name: Verify all query variables
-    assert:
+    ansible.builtin.assert:
       that:
       - dhcp_pol1_opt1_query_cm is not changed
       - dhcp_pol1_opt1_query_nm is not changed
@@ -293,7 +293,7 @@
 
   # REMOVE OPTION FROM DHCP OPTION POLICY
   - name: Remove Option from DHCP Option Policy (check mode)
-    mso_dhcp_option_policy_option: &delete_option
+    cisco.mso.mso_dhcp_option_policy_option: &delete_option
       <<: *mso_info
       dhcp_option_policy: ansible_dhcp_option_1
       name: ansibletest
@@ -302,64 +302,64 @@
     register: dhcp_pol1_opt1_del_cm
 
   - name: Remove Option from DHCP Option Policy (normal mode)
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *delete_option
     register: dhcp_pol1_opt1_del_nm
 
   - name: Verify dhcp_pol1_opt1_del
-    assert:
+    ansible.builtin.assert:
       that:
       - dhcp_pol1_opt1_del_cm is changed
       - dhcp_pol1_opt1_del_nm is changed
       - dhcp_pol1_opt1_del_cm.current == dhcp_pol1_opt1_del_nm.current == {}
 
   - name: Remove Option from DHCP Option Policy again (check mode)
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *delete_option
     check_mode: true
     register: dhcp_pol1_opt1_del_again_cm
 
   - name: Remove Option from DHCP Option Policy again (normal mode)
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *delete_option
     register: dhcp_pol1_opt1_del_again_nm
 
   - name: Verify dhcp_pol1_opt1_again_del
-    assert:
+    ansible.builtin.assert:
       that:
       - dhcp_pol1_opt1_del_again_cm is not changed
       - dhcp_pol1_opt1_del_again_nm is not changed
       - dhcp_pol1_opt1_del_again_cm.current == dhcp_pol1_opt1_del_again_nm.current == {}
 
   - name: Remove Non-Existing Option
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *delete_option
       name: nonexisting
     register: dhcp_pol1_opt1_del_nm_non_existing
 
   - name: Verify dhcp_pol1_opt1_del_nm_non_existing
-    assert:
+    ansible.builtin.assert:
       that:
       - dhcp_pol1_opt1_del_nm_non_existing is not changed
       - dhcp_pol1_opt1_del_nm_non_existing.current == {}
 
   #  CONSUME DHCP POLICIES
   - name: Get DHCP Relay Policy version
-    mso_dhcp_relay_policy:
+    cisco.mso.mso_dhcp_relay_policy:
       <<: *mso_info
       dhcp_relay_policy: ansible_dhcp_relay_1
       state: query
     register: dhcp_relay_policy_version
 
   - name: Get DHCP Option Policy version
-    mso_dhcp_option_policy:
+    cisco.mso.mso_dhcp_option_policy:
       <<: *mso_info
       dhcp_option_policy: ansible_dhcp_option_1
       state: query
     register: dhcp_option_policy_version
 
   - name: Consume DHCP Policy
-    mso_schema_template_bd:
+    cisco.mso.mso_schema_template_bd:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
@@ -376,7 +376,7 @@
     register: bd_dhcp_policy
 
   - name: Stop consuming DHCP Policy
-    mso_schema_template_bd:
+    cisco.mso.mso_schema_template_bd:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
@@ -388,7 +388,7 @@
 
   # QUERY OPTION FROM non_existing DHCP OPTION POLICY
   - name: Query Option from DHCP Option Policy (check mode)
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *mso_info
       dhcp_option_policy: nonexisting
       state: query
@@ -396,14 +396,14 @@
     register: dhcp_non_existing
 
   - name: Verify dhcp_non_existing
-    assert:
+    ansible.builtin.assert:
       that:
       - dhcp_non_existing is not changed
       - dhcp_non_existing.msg == "DHCP Option Policy 'nonexisting' is not a valid DHCP Option Policy name."
 
   # CLEAN UP
   - name: Remove options from DHCP Option Policy
-    mso_dhcp_option_policy_option:
+    cisco.mso.mso_dhcp_option_policy_option:
       <<: *mso_info
       dhcp_option_policy: ansible_dhcp_option_1
       name: "{{ item }}"
@@ -414,7 +414,7 @@
     ignore_errors: true
 
   - name: Stop consuming DHCP Policy
-    mso_schema_template_bd:
+    cisco.mso.mso_schema_template_bd:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
@@ -425,7 +425,7 @@
     ignore_errors: true
 
   - name: Remove DHCP Relay Policy 1
-    mso_dhcp_relay_policy:
+    cisco.mso.mso_dhcp_relay_policy:
       <<: *mso_info
       dhcp_relay_policy: '{{ item }}'
       state: absent
@@ -434,7 +434,7 @@
     - ansible_dhcp_relay_2
 
   - name: Remove DHCP Option Policies
-    mso_dhcp_option_policy:
+    cisco.mso.mso_dhcp_option_policy:
       <<: *mso_info
       dhcp_option_policy: '{{ item }}'
       state: absent

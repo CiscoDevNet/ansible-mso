@@ -4,14 +4,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 
 - name: Set vars
-  set_fact: 
+  ansible.builtin.set_fact: 
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -64,7 +64,7 @@
   register: nm_config_remote
 
 - name: Verify configuration
-  assert:
+  ansible.builtin.assert:
     that:
       - cm_config_remote is changed
       - cm_config_remote.current.name == "ansible_test"
@@ -90,7 +90,7 @@
   register: nm_config_remote_again
 
 - name: Verify configuration after again
-  assert:
+  ansible.builtin.assert:
     that:
       - nm_config_remote_again is not changed
 
@@ -108,7 +108,7 @@
   register: nm_change_config_remote_description
 
 - name: Verify configuration change
-  assert:
+  ansible.builtin.assert:
     that:
       - cm_change_config_remote_description is changed
       - cm_change_config_remote_description.current.description == "changed_description"
@@ -136,7 +136,7 @@
   register: nm_query_non_existing
 
 - name: Verify queries
-  assert:
+  ansible.builtin.assert:
     that:
       - nm_query_remote is not changed
       - nm_query_remote.current | type_debug == "dict"
@@ -159,7 +159,7 @@
   register: nm_delete_config_remote
 
 - name: Verify delete
-  assert:
+  ansible.builtin.assert:
     that:
       - cm_delete_config_remote is changed
       - cm_delete_config_remote.current == {}
@@ -186,7 +186,7 @@
   register: nm_config_remote_different_path
 
 - name: Verify configuration different path
-  assert:
+  ansible.builtin.assert:
     that:
       - cm_config_remote_different_path is changed
       - cm_config_remote_different_path.current.credential.remotePath == '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
@@ -212,7 +212,7 @@
   register: nm_config_remote_sftp
 
 - name: Verify configuration sftp
-  assert:
+  ansible.builtin.assert:
     that:
       - cm_config_remote_sftp is changed
       - cm_config_remote_sftp.current.credential.protocolType == "sftp"
@@ -238,7 +238,7 @@
   register: nm_config_remote_ssh
 
 - name: Verify configuration ssh
-  assert:
+  ansible.builtin.assert:
     that:
       - cm_config_remote_ssh is changed
       - cm_config_remote_ssh.current.credential.authType == "sshKey"
@@ -265,7 +265,7 @@
   register: nm_config_remote_ssh_pass
 
 - name: Verify configuration ssh
-  assert:
+  ansible.builtin.assert:
     that:
       - cm_config_remote_ssh_pass is changed
       - cm_config_remote_ssh_pass.current.credential.authType == "sshKey"

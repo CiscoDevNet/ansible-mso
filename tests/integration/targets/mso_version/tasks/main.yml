@@ -4,13 +4,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,14 +22,14 @@
 
 # QUERY VERSION
 - name: Query MSO version
-  mso_version: &mso_query
+  cisco.mso.mso_version: &mso_query
     <<: *mso_info
     state: query
   check_mode: true
   register: cm_query_version
 
 - name: Verify cm_query_version
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_version is not changed
     - cm_query_version.current.id is defined
@@ -37,12 +37,12 @@
     - cm_query_version.current.timestamp is defined
 
 - name: Query MSO version (normal mode)
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_query
   register: nm_query_version
 
 - name: Verify nm_query_version
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_version is not changed
     - nm_query_version.current.id is defined
@@ -54,7 +54,7 @@
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for version (check_mode)
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_query
     state: non-existing-state
   check_mode: true
@@ -62,14 +62,14 @@
   register: cm_non_existing_state
 
 - name: Non-existing state for version (normal_mode)
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_query
     state: non-existing-state
   ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
@@ -84,7 +84,7 @@
   when: ansible_connection != 'local'
 
 - name: Verify query_version_global_params
-  assert:
+  ansible.builtin.assert:
     that:
     - query_version_global_params is not changed
     - query_version_global_params.current.id is defined

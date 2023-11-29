@@ -6,14 +6,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact: 
+  ansible.builtin.set_fact: 
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -24,13 +24,13 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 # - name: Ensure site exist
-#   mso_site: &site_present
+#   cisco.mso.mso_site: &site_present
 #     host: '{{ mso_hostname }}'
 #     username: '{{ mso_username }}'
 #     password: '{{ mso_password }}'
@@ -47,7 +47,7 @@
 #     state: present
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -56,7 +56,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -66,7 +66,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
-  mso_schema_template: 
+  cisco.mso.mso_schema_template: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -74,7 +74,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 2 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -82,7 +82,7 @@
     state: present
 
 - name: Ensure schema 2 with Template 3 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -90,7 +90,7 @@
     state: present
 
 - name: Ensure ANP exist
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ item.schema }}'
     template: '{{ item.template }}'
@@ -102,7 +102,7 @@
 
 # ADD EPGs
 - name: Ensure EPGs exist
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *mso_info
     schema: '{{ item.schema }}'
     template: '{{ item.template }}'
@@ -115,7 +115,7 @@
 
 # ADD Selector to EPG
 - name: Add Selector to EPG (check_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -127,7 +127,7 @@
   register: cm_add_selector_1
 
 - name: Verify cm_add_selector_1
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_selector_1 is changed
     - cm_add_selector_1.previous == {}
@@ -135,7 +135,7 @@
     - cm_add_selector_1.current.expressions == []
 
 - name: Add Selector 1 to EPG with space in selector name (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -147,13 +147,13 @@
   register: nm_add_selector1_with_space_in_name
 
 - name: Verify nm_add_selector1_with_space_in_name
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_selector1_with_space_in_name is not changed
     - nm_add_selector1_with_space_in_name.msg == "There should not be any space in selector name."
 
 - name: Add Selector to EPG (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -164,7 +164,7 @@
   register: nm_add_selector_1
 
 - name: Verify nm_add_selector_1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_selector_1 is changed
     - nm_add_selector_1.previous == {}
@@ -172,7 +172,7 @@
     - nm_add_selector_1.current.expressions == []
 
 - name: Add Selector to EPG again (check_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -184,7 +184,7 @@
   register: cm_add_selector_1_again
 
 - name: Verify cm_add_selector_1_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_selector_1_again is not changed
     - cm_add_selector_1_again.previous.name == "selector_1"
@@ -193,7 +193,7 @@
     - cm_add_selector_1_again.current.expressions == []
 
 - name: Add Selector to EPG again (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -204,7 +204,7 @@
   register: nm_add_selector_1_again
 
 - name: Verify nm_add_selector_1_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_selector_1_again is not changed
     - nm_add_selector_1_again.previous.name == "selector_1"
@@ -213,7 +213,7 @@
     - nm_add_selector_1_again.current.expressions == []
 
 - name: Add Selector 2 to EPG (check_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -229,7 +229,7 @@
   register: cm_add_selector_2
 
 - name: Verify cm_add_selector_2
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_selector_2 is changed
     - cm_add_selector_2.previous == {}
@@ -239,7 +239,7 @@
     - cm_add_selector_2.current.expressions[0].value == "test"
 
 - name: Add Selector 2 to EPG (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -254,7 +254,7 @@
   register: nm_add_selector_2
 
 - name: Verify nm_add_selector_2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_selector_2 is changed
     - nm_add_selector_2.previous == {}
@@ -264,7 +264,7 @@
     - nm_add_selector_2.current.expressions[0].value == "test"
 
 - name: Add Selector 2 to EPG with space in expression type (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -280,13 +280,13 @@
   register: nm_add_selector2_with_space_in_expression_type
 
 - name: Verify nm_add_selector2_with_space_in_expression_type
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_selector2_with_space_in_expression_type is not changed
     - nm_add_selector2_with_space_in_expression_type.msg == "There should not be any space in 'type' attribute of expression 'expression 1'"
 
 - name: Change Selector 2 - keyExist(normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -302,13 +302,13 @@
   register: nm_change_selector_2_key_exist
 
 - name: Verify nm_change_selector_2_key_exist
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_selector_2_key_exist is not changed
     - nm_change_selector_2_key_exist.msg == "Attribute 'value' is not supported for operator 'has_key' in expression 'expression_5'"
 
 - name: Change Selector 2 - keyNotExist (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -324,13 +324,13 @@
   register: nm_change_selector_2_key_not_exist
 
 - name: Verify nm_change_selector_2_key_not_exist
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_selector_2_key_not_exist is not changed
     - nm_change_selector_2_key_not_exist.msg == "Attribute 'value' is not supported for operator 'does_not_have_key' in expression 'expression_6'"
 
 - name: Change Selector 2 - equals (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -345,13 +345,13 @@
   register: nm_change_selector_2_equals
 
 - name: Verify nm_change_selector_2_equals
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_selector_2_equals is not changed
     - nm_change_selector_2_equals.msg == "Attribute 'value' needed for operator 'equals' in expression 'expression_6'"
 
 - name: Change Selector 2 expressions (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -380,14 +380,14 @@
   register: nm_change_selector_2
 
 - name: Verify nm_change_selector_2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_selector_2 is changed
     - nm_change_selector_2.current.name == "selector_2"
     - nm_change_selector_2.current.expressions | length == 6
 
 - name: Change Selector 2 expressions again (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -416,14 +416,14 @@
   register: nm_change_selector_2_again
 
 - name: Verify nm_change_selector_2_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_selector_2_again is not changed
     - nm_change_selector_2_again.current.name == "selector_2"
     - nm_change_selector_2_again.current.expressions | length == 6
 
 - name: Query all selectors (check_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -434,7 +434,7 @@
   register: cm_query_all_selectors
 
 - name: Verify cm_query_all_selectors
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_all_selectors is not changed
     - cm_query_all_selectors.current | length == 2
@@ -444,7 +444,7 @@
     - cm_query_all_selectors.current[1].expressions | length == 6
 
 - name: Query all selectors (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -454,7 +454,7 @@
   register: nm_query_all_selectors
 
 - name: Verify nm_query_all_selectors
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_all_selectors is not changed
     - nm_query_all_selectors.current | length == 2
@@ -464,7 +464,7 @@
     - nm_query_all_selectors.current[1].expressions | length == 6
 
 - name: Query specific selector (check_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -476,14 +476,14 @@
   register: cm_query_selector1
 
 - name: Verify cm_query_selector1
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_selector1 is not changed
     - cm_query_selector1.current.name == "selector_1"
     - cm_query_selector1.current.expressions == []
 
 - name: Query specific selector (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -494,14 +494,14 @@
   register: nm_query_selector1
 
 - name: Verify nm_query_selector1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_selector1 is not changed
     - nm_query_selector1.current.name == "selector_1"
     - nm_query_selector1.current.expressions == []
 
 - name: Query specific selector2 (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -512,7 +512,7 @@
   register: nm_query_selector2
 
 - name: Verify nm_query_selector2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_selector2 is not changed
     - nm_query_selector2.current.name == "selector_2"
@@ -537,7 +537,7 @@
     - nm_query_selector2.current.expressions[5].value == ""
 
 # - name: Remove selector 1 (check_mode)
-#   mso_schema_template_anp_epg_selector:
+#   cisco.mso.mso_schema_template_anp_epg_selector:
 #     <<: *mso_info
 #     schema: '{{ mso_schema | default("ansible_test") }}'
 #     template: Template 1
@@ -549,13 +549,13 @@
 #   register: cm_remove_selector_1
 
 # - name: Verify cm_remove_selector_1
-#   assert:
+#   ansible.builtin.assert:
 #     that:
 #     - cm_remove_selector_1 is changed
 #     - cm_remove_selector_1.current == {}
 
 # - name: Remove selector 1 (normal_mode)
-#   mso_schema_template_anp_epg_selector:
+#   cisco.mso.mso_schema_template_anp_epg_selector:
 #     <<: *mso_info
 #     schema: '{{ mso_schema | default("ansible_test") }}'
 #     template: Template 1
@@ -566,13 +566,13 @@
 #   register: nm_remove_selector_1
 
 # - name: Verify nm_remove_selector_1
-#   assert:
+#   ansible.builtin.assert:
 #     that:
 #     - nm_remove_selector_1 is changed
 #     - nm_remove_selector_1.current == {}
 
 - name: Remove selector 2 (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -583,14 +583,14 @@
   register: nm_remove_selector_2
 
 - name: Verify nm_remove_selector_2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_selector_2 is changed
     - nm_remove_selector_2.current == {}
 
 # QUERY NON-EXISTING Selector to EPG
 - name: Query non-existing selector (check_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -603,7 +603,7 @@
   register: cm_query_non_selector
 
 - name: Query non-existing selector (normal mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -615,7 +615,7 @@
   register: nm_query_non_selector
 
 - name: Verify cm_query_non_selector and nm_query_non_selector
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_selector is not changed
     - nm_query_non_selector is not changed
@@ -625,7 +625,7 @@
 
 # QUERY NON-EXISTING EPG
 - name: Query non-existing EPG (check_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -638,7 +638,7 @@
   register: cm_query_non_epg
 
 - name: Query non-existing EPG (normal mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -650,7 +650,7 @@
   register: nm_query_non_epg
 
 - name: Verify query_non_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_epg is not changed
     - nm_query_non_epg is not changed
@@ -659,7 +659,7 @@
 
 # QUERY NON-EXISTING ANP
 - name: Query non-existing ANP (check_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -672,7 +672,7 @@
   register: cm_query_non_anp
 
 - name: Query non-existing ANP (normal mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -684,7 +684,7 @@
   register: nm_query_non_anp
 
 - name: Verify query_non_anp
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_anp is not changed
     - nm_query_non_anp is not changed
@@ -693,7 +693,7 @@
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state (check_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -706,7 +706,7 @@
   register: cm_non_existing_state
 
 - name: Non-existing state (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -718,7 +718,7 @@
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
@@ -727,7 +727,7 @@
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template (check_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
@@ -740,7 +740,7 @@
   register: cm_non_existing_template
 
 - name: Non-existing template (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
@@ -752,7 +752,7 @@
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
@@ -761,7 +761,7 @@
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema (check_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: non-existing-schema
     template: Template 1
@@ -774,7 +774,7 @@
   register: cm_non_existing_schema
 
 - name: Non-existing schema (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: non-existing-schema
     template: Template 1
@@ -786,7 +786,7 @@
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_schema is not changed
     - nm_non_existing_schema is not changed

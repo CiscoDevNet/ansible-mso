@@ -384,11 +384,11 @@ def main():
         # mso.sanitize(payload, collate=True)
         if not external_epg_exist:
             #external egp doesn't exist, so create and associate the site.
-            if 'external_epg' not in mso.existing['templates'][template_idx]:
+            if 'externalEpgs' not in mso.existing['templates'][template_idx]:
                 mso.existing['templates'][template_idx].update({'externalEpgs' : []})
             mso.existing['templates'][template_idx]['externalEpgs'].append(new_ext_epg)
 
-            if 'external_epg' not in mso.existing['sites'][site_idx]:
+            if 'externalEpgs' not in mso.existing['sites'][site_idx]:
                 mso.existing['sites'][site_idx].update({'externalEpgs': []})
             mso.existing['sites'][site_idx]['externalEpgs'].append(new_ext_epg_site)
             if not module.check_mode:

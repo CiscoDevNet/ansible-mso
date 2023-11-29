@@ -3,14 +3,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -21,13 +21,13 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Ensure site exist
-  mso_site: &site_present
+  cisco.mso.mso_site: &site_present
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -38,7 +38,7 @@
     state: present
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -47,7 +47,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant: &tenant_present
+  cisco.mso.mso_tenant: &tenant_present
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -57,7 +57,7 @@
     state: present
 
 - name: Ensure schema 1 with Template1 exist
-  mso_schema_template: &schema_present
+  cisco.mso.mso_schema_template: &schema_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -97,7 +97,7 @@
   register: add_filter_again
 
 - name: Verify add_filter
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_filter is changed
     - cm_add_filter.previous == {}
@@ -123,12 +123,11 @@
   when: version.current.version is version('3.3', '>=')
 
 - name: Verify add_filter_only
-  assert:
+  ansible.builtin.assert:
     that:
     - add_filter_descr is changed
     - add_filter_descr.current.description == "filter entry description"
   when: version.current.version is version('3.3', '>=')
-
 
 - name: Create filter without filter entry
   cisco.mso.mso_schema_template_filter_entry:
@@ -141,7 +140,7 @@
   register: add_filter_only
 
 - name: Verify add_filter_only
-  assert:
+  ansible.builtin.assert:
     that:
     - add_filter_only is not changed
     - add_filter_only.msg == "state is present but all of the following are missing{{':'}} entry"
@@ -194,7 +193,7 @@
   register: query_all
 
 - name: Verify query
-  assert:
+  ansible.builtin.assert:
     that:
     - query_filter is not changed
     - query_all is not changed
@@ -223,7 +222,7 @@
   register: query_non_existing_entry
 
 - name: Verify query cases
-  assert:
+  ansible.builtin.assert:
     that:
     - query_non_existing_filter is not changed
     - query_non_existing_entry is not changed
@@ -241,7 +240,7 @@
   register: remove_filter
 
 - name: Verify delete filter_entry3
-  assert:
+  ansible.builtin.assert:
     that:
     - remove_filter is changed
     - remove_filter.current == {}
@@ -259,7 +258,7 @@
   register: nm_non_existing_template
 
 - name: Verify nm_non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_non_existing_template is not changed
     - nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1"
@@ -297,14 +296,13 @@
   register: remove_non_existing_entry
 
 - name: Verify non_existing
-  assert:
+  ansible.builtin.assert:
     that:
     - query_non_existing_filter is not changed
     - query_non_existing_filter.msg == "Filter 'non_existing_filter' not found"
     - remove_non_existing_filter is not changed
     - remove_non_existing_entry is not changed
     - nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1"
-
 
 # Delete filter entries
 - name: Delete filter entry 3
@@ -321,6 +319,6 @@
   - 'filter_entry2'
 
 - name: Verify remove_multiple_entries
-  assert:
+  ansible.builtin.assert:
     that:
     - remove_multiple_entries is changed

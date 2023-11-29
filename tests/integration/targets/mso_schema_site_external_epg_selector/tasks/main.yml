@@ -6,13 +6,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact: 
+  ansible.builtin.set_fact: 
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -23,13 +23,13 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Ensure azure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ azure_apic_username }}'
@@ -40,7 +40,7 @@
     state: present
 
 - name: Ensure aws site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: 'aws_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ aws_apic_username }}'
@@ -51,7 +51,7 @@
     state: present
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -60,7 +60,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure sites removed from tenant ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ item }}'
@@ -71,7 +71,7 @@
     - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -81,7 +81,7 @@
     state: present
 
 - name: Associate aws site with ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -92,7 +92,7 @@
     state: present
 
 - name: Associate azure site with ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -100,7 +100,7 @@
     state: present 
       
 - name: Ensure schema 1 with Template 1 and 2 exists
-  mso_schema_template: 
+  cisco.mso.mso_schema_template: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -111,7 +111,7 @@
   - Template 2
 
 - name: Ensure schema 2 with Template 3 exists
-  mso_schema_template: 
+  cisco.mso.mso_schema_template: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -119,7 +119,7 @@
     state: present
 
 - name: Ensure VRF1 exists
-  mso_schema_template_vrf: 
+  cisco.mso.mso_schema_template_vrf: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -127,7 +127,7 @@
     state: present
 
 - name: Ensure Template 1 with AP1 exists
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -135,7 +135,7 @@
     state: present
 
 - name: Ensure L3Out Exists
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -145,7 +145,7 @@
     state: present
 
 - name: Ensure External EPG1 exists
-  mso_schema_template_externalepg:
+  cisco.mso.mso_schema_template_externalepg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -165,7 +165,7 @@
     state: present
 
 - name: Ensure External EPG2 exists
-  mso_schema_template_externalepg:
+  cisco.mso.mso_schema_template_externalepg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -185,7 +185,7 @@
     state: present
 
 - name: Add Azure site to a schema
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -194,7 +194,7 @@
   when: version.current.version is version('3', '<')
 
 - name: Add AWS site to a schema
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -203,7 +203,7 @@
   when: version.current.version is version('3', '<')
 
 - name: Add a new CIDR in VRF1 at site level
-  mso_schema_site_vrf_region_cidr: &mso_present
+  cisco.mso.mso_schema_site_vrf_region_cidr: &mso_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -219,7 +219,7 @@
 
 # ADD SELECTORS
 - name: Add a selector to Azure in check mode
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -235,7 +235,7 @@
   register: cm_azure_e1
 
 - name: Verify cm_azure_e1
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_azure_e1 is changed
     - cm_azure_e1.previous == {}
@@ -244,7 +244,7 @@
 
 
 - name: Add a selector to Azure in normal mode
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -259,7 +259,7 @@
   register: nm_azure_e1
 
 - name: Verify nm_azure_e1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_azure_e1 is changed
     - nm_azure_e1.previous == {}
@@ -267,7 +267,7 @@
     - nm_azure_e1.current.subnets[0].name == 'e1'
 
 - name: Add a selector to AWS in normal mode
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -282,7 +282,7 @@
   register: nm_aws_e2
         
 - name: Verify nm_aws_e2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_aws_e2 is changed
     - nm_aws_e2.previous == {}
@@ -290,7 +290,7 @@
     - nm_aws_e2.current.subnets[0].name == 'e2'
 
 - name: Add a selector to AWS in normal mode again
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -305,12 +305,12 @@
   register: nm_aws_e1_again
         
 - name: Verify nm_aws_e1_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_aws_e1_again is not changed
 
 - name: Add a selector to AWS in normal mode again with no expressions
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -322,14 +322,14 @@
   register: nm_aws_e1_again_noexp
         
 - name: Verify nm_aws_e1_again_noexp
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_aws_e1_again_noexp is not changed
     - nm_aws_e1_again_noexp.msg == "Missing expressions in selector"
 
 # QUERY A SELECTOR 
 - name: Query a selector of Azure
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -340,13 +340,13 @@
   register: query_azure_e1
   
 - name: Verify query_azure_e1
-  assert:
+  ansible.builtin.assert:
     that:
     - query_azure_e1 is not changed
 
 # QUERY ALL
 - name: Query all selectors of Azure
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -356,13 +356,13 @@
   register: query_all   
 
 - name: Verify query_all
-  assert:
+  ansible.builtin.assert:
     that:
     - query_all is not changed
 
 # REMOVE A SELECTOR
 - name: Remove a selector of Azure
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -373,12 +373,12 @@
   register: remove_azure_e1
 
 - name: Verify remove_azure_e1
-  assert:
+  ansible.builtin.assert:
     that:
     - remove_azure_e1 is changed
 
 - name: Remove a selector of Azure again
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -390,13 +390,13 @@
   register: remove_azure_e1_again
 
 - name: Verify remove_azure_e1_again
-  assert:
+  ansible.builtin.assert:
     that:
     - remove_azure_e1_again is not changed
 
 # QUERY REMOVED SELECTOR
 - name: Query a removed selector of Azure
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -408,13 +408,13 @@
   register: query_removed_azure_e1
 
 - name: Verify query_removed_azure_e1
-  assert:
+  ansible.builtin.assert:
     that:
     - query_removed_azure_e1 is not changed
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for selector (check_mode)
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: non_existing_schema
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -425,7 +425,7 @@
   register: cm_non_existing_schema
 
 - name: Non-existing schema for selector (normal_mode)
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: non_existing_schema
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -435,7 +435,7 @@
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_schema is not changed
     - nm_non_existing_schema is not changed
@@ -444,7 +444,7 @@
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template for selector (check_mode)
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -455,7 +455,7 @@
   register: cm_non_existing_template
 
 - name: Non-existing template for selector (normal_mode)
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema:  '{{ mso_schema | default("ansible_test") }}'
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -465,7 +465,7 @@
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
@@ -474,7 +474,7 @@
 
 # USE A NON-EXISTING SITE
 - name: Non-existing site for static port (check_mode)
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -485,7 +485,7 @@
   register: cm_non_existing_site
 
 - name: Non-existing site for static port (normal_mode)
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -495,7 +495,7 @@
   register: nm_non_existing_site
 
 - name: Verify non_existing_site
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_site is not changed
     - nm_non_existing_site is not changed
@@ -505,7 +505,7 @@
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add site external EPG selector to Schema 2 Template 3 without any site associated (check mode)
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -516,7 +516,7 @@
   register: cm_no_site_associated
 
 - name: Add site external EPG selector to Template 3 without any site associated (normal mode)
-  mso_schema_site_external_epg_selector:
+  cisco.mso.mso_schema_site_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -526,7 +526,7 @@
   register: nm_no_site_associated
 
 - name: Verify cm_no_site_associated and nm_no_site_associated
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_no_site_associated is not changed
     - nm_no_site_associated is not changed

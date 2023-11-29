@@ -4,14 +4,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,13 +22,13 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -38,13 +38,13 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Remove tenant2
-  mso_tenant:
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test_2
     state: absent
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant:
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -52,7 +52,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -60,7 +60,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 2 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -68,7 +68,7 @@
     state: present
 
 - name: Ensure schema 2 with Template 3 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -76,7 +76,7 @@
     state: present
 
 - name: Ensure ANP exist (check_mode)
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -86,7 +86,7 @@
   register: cm_create_anp
 
 - name: Ensure ANP exist (normal_mode)
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -95,7 +95,7 @@
   register: nm_create_anp
 
 - name: Create ANP again (normal_mode)
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -104,7 +104,7 @@
   register: nm_create_anp_again
 
 - name: Verify cm_create_anp, nm_create_anp and nm_create_anp_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_create_anp is changed
     - nm_create_anp is changed
@@ -123,7 +123,7 @@
     - nm_create_anp_again.current.epgs == []
 
 - name: Create another anp (normal_mode)
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -133,7 +133,7 @@
   register: nm_create_another_anp
 
 - name: Verify nm_create_another_anp
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_create_another_anp is changed
     - nm_create_another_anp.previous == {}
@@ -144,7 +144,7 @@
 
 # Add description for version >= 3.3
 - name: Create another anp with description(normal_mode)
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -156,7 +156,7 @@
   when: version.current.version is version('3.3', '>=')
 
 - name: Verify nm_create_another_anp with description
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_create_another_anp is changed
     - nm_create_another_anp.previous == {}
@@ -167,7 +167,7 @@
   when: version.current.version is version('3.3', '>=')
 
 - name: Change anp (normal_mode)
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -177,7 +177,7 @@
   register: nm_change_anp
 
 - name: Verify nm_change_anp
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_anp is changed
     - nm_change_anp.previous.name == nm_change_anp.current.name == "ANP"
@@ -186,7 +186,7 @@
     - nm_change_anp.previous.epgs == nm_change_anp.current.epgs == []
 
 - name: Query anp
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -195,7 +195,7 @@
   register: query_anp
 
 - name: Verify query_anp
-  assert:
+  ansible.builtin.assert:
     that:
     - query_anp is not changed
     - query_anp.current.name == "ANP"
@@ -203,7 +203,7 @@
     - query_anp.current.displayName == "displayName for ANP"
 
 - name: Query all
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -211,21 +211,21 @@
   register: query_all
 
 - name: Verify query_all
-  assert:
+  ansible.builtin.assert:
     that:
     - query_all is not changed
     - query_all.current | length == 2
   when: version.current.version is version('3.3', '<')
 
 - name: Verify query_all
-  assert:
+  ansible.builtin.assert:
     that:
     - query_all is not changed
     - query_all.current | length == 3
   when: version.current.version is version('3.3', '>=')
 
 - name: Query non_existing anp
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -235,12 +235,12 @@
   register: query_non_existing_anp
 
 - name: Verify query_non_existing_anp
-  assert:
+  ansible.builtin.assert:
     that:
     - query_non_existing_anp.msg == "ANP 'non_existing_anp' not found"
 
 - name: Use non_existing schema
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: non_existing_schema
     template: Template 1
@@ -250,7 +250,7 @@
   register: query_non_existing_schema
 
 - name: Use non_existing template
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non_existing_template
@@ -260,13 +260,13 @@
   register: query_non_existing_template
 
 - name: Verify query_non_existing_schema and query_non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - query_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
     - query_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1, Template2"
 
 - name: Remove anp (check_mode)
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -276,7 +276,7 @@
   register: cm_rm_anp
 
 - name: Remove anp (normal_mode)
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -285,7 +285,7 @@
   register: nm_rm_anp
 
 - name: Verify cm_rm_anp and nm_rm_anp
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_rm_anp is changed
     - nm_rm_anp is changed
@@ -296,7 +296,7 @@
     - nm_rm_anp.previous.epgs == cm_rm_anp.previous.epgs == []
 
 - name: Remove anp again
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -305,7 +305,7 @@
   register: nm_rm_anp_again
 
 - name: Verify nm_rm_anp_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_rm_anp_again is not changed
     - nm_rm_anp_again.previous == nm_rm_anp_again.current == {}

@@ -6,14 +6,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact: 
+  ansible.builtin.set_fact: 
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -24,7 +24,7 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -33,7 +33,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -43,7 +43,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
-  mso_schema_template: 
+  cisco.mso.mso_schema_template: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -51,7 +51,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 2 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -59,7 +59,7 @@
     state: present
 
 - name: Ensure schema 2 with Template 3 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -67,7 +67,7 @@
     state: present
 
 - name: Ensure VRF exists
-  mso_schema_template_vrf: 
+  cisco.mso.mso_schema_template_vrf: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -75,7 +75,7 @@
     state: present
 
 - name: Ensure VRF2 exists
-  mso_schema_template_vrf: 
+  cisco.mso.mso_schema_template_vrf: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -83,7 +83,7 @@
     state: present
 
 - name: Ensure ANP1 exists
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -91,7 +91,7 @@
     state: present
 
 - name: Ensure ANP2 exists
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -99,7 +99,7 @@
     state: present
   
 - name: Ensure L3out exist
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -109,7 +109,7 @@
     state: present
 
 - name: Ensure L3out2 exist
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -120,7 +120,7 @@
 
 # ADD External EPGs
 - name: Ensure External EPG1 exists
-  mso_schema_template_externalepg:
+  cisco.mso.mso_schema_template_externalepg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -140,7 +140,7 @@
     state: present
 
 - name: Ensure External EPG2 exists
-  mso_schema_template_externalepg:
+  cisco.mso.mso_schema_template_externalepg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -161,7 +161,7 @@
   
 # ADD Selector to EPG
 - name: Add Selector to extEPG1 (check_mode)
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -172,7 +172,7 @@
   register: cm_add_selector_1
 
 - name: Verify cm_add_selector_1
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_selector_1 is changed
     - cm_add_selector_1.previous == {}
@@ -180,7 +180,7 @@
     - cm_add_selector_1.current.expressions == []
 
 - name: Add Selector 1 to extEPG1 (normal_mode)
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -191,7 +191,7 @@
   register: nm_add_selector_1
 
 - name: Verify nm_add_selector_1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_selector_1 is changed
     - nm_add_selector_1.previous == {}
@@ -199,7 +199,7 @@
     - nm_add_selector_1.current.expressions == []
 
 - name: Add Selector 1 to extEPG1 again(normal_mode)
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -210,12 +210,12 @@
   register: nm_add_selector_1_again
 
 - name: Verify nm_add_selector_1_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_selector_1_again is not changed
 
 - name: Add Selector to extEPG1 again (normal_mode)
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -225,12 +225,12 @@
   register: nm_add_selector_1_again
 
 - name: Verify nm_add_selector_1_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_selector_1_again is not changed
     
 - name: Add Selector 2 to extEPG1 (normal_mode)
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -244,7 +244,7 @@
   register: nm_add_selector_2
 
 - name: Verify nm_add_selector_2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_selector_2 is changed
     - nm_add_selector_2.previous == {}
@@ -254,7 +254,7 @@
     - nm_add_selector_2.current.expressions[0].value == "10.0.0.0"
 
 - name: Add Selector 3 to extEPG1 (normal_mode)
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -268,7 +268,7 @@
   register: nm_add_selector_3
 
 - name: Verify nm_add_selector_3
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_selector_3 is changed
     - nm_add_selector_3.previous == {}
@@ -276,7 +276,7 @@
     - nm_add_selector_3.current.expressions[0].value == "10.1.1.1"
 
 - name: Remove slector_1
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -286,13 +286,13 @@
   register: nm_remove_selector_1
 
 - name: Verify nm_remove_selector_1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_selector_1 is changed
    
 # QUERY selectors
 - name: Query all selectors of extEPG1
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -301,12 +301,12 @@
   register: nm_query_all
 
 - name: Verify nm_query_all
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_all is not changed
 
 - name: Query a selector of extEPG1
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -316,13 +316,13 @@
   register: nm_query_selector_2
 
 - name: Verify nm_query_selector_2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_selector_2 is not changed
     - nm_query_selector_2.current.expressions[0].value == "10.0.0.0"
 
 - name: Query a removed selector_1 of extEPG1
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -333,13 +333,13 @@
   register: nm_query_removed
 
 - name: Verify nm_query_removed
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_removed.msg == "Selector 'selector_1' not found"
     
 # QUERY NON-EXISTING External EPG
 - name: Query non-existing EPG (normal mode)
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -350,14 +350,14 @@
   register: nm_query_non_epg
 
 - name: Verify query_non_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_non_epg is not changed
     - nm_query_non_epg.msg == "Provided external epg 'non_extEPG1' does not exist. Existing epgs{{':'}} extEPG1, extEPG2"
   
 # USE A NON-EXISTING STATE
 - name: Non-existing state (check_mode)
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -369,7 +369,7 @@
   register: cm_non_existing_state
 
 - name: Non-existing state (normal_mode)
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -380,7 +380,7 @@
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
@@ -389,7 +389,7 @@
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template (check_mode)
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
@@ -401,7 +401,7 @@
   register: cm_non_existing_template
 
 - name: Non-existing template (normal_mode)
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
@@ -412,7 +412,7 @@
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
@@ -421,7 +421,7 @@
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema (check_mode)
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: non-existing-schema
     template: Template 1
@@ -433,7 +433,7 @@
   register: cm_non_existing_schema
 
 - name: Non-existing schema (normal_mode)
-  mso_schema_template_external_epg_selector:
+  cisco.mso.mso_schema_template_external_epg_selector:
     <<: *mso_info
     schema: non-existing-schema
     template: Template 1
@@ -444,7 +444,7 @@
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_schema is not changed
     - nm_non_existing_schema is not changed

@@ -4,13 +4,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -31,7 +31,7 @@
   - Source_Schema
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -42,7 +42,7 @@
     state: present
 
 - name: Ensure tenant ansible_test exists
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -64,7 +64,7 @@
   - { template: Template 3}
 
 - name: Ensure VRF exist
-  mso_schema_template_vrf: &vrf_present
+  cisco.mso.mso_schema_template_vrf: &vrf_present
     <<: *mso_info
     schema: Source_Schema
     template: Template1
@@ -72,7 +72,7 @@
     state: present
 
 - name: Add bd in Source schema
-  mso_schema_template_bd: &bd_present
+  cisco.mso.mso_schema_template_bd: &bd_present
     <<: *mso_info
     schema: Source_Schema
     template: Template1
@@ -90,7 +90,7 @@
   register: add_schema
 
 - name: Verify add_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - add_schema is changed
     - add_schema.previous == {}
@@ -106,7 +106,7 @@
   register: add_same_schema
 
 - name: Verify add_same_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - add_same_schema is not changed
     - add_same_schema.current == {}
@@ -122,7 +122,7 @@
   register: add_existing_schema
 
 - name: Verify add_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - add_existing_schema is not changed
     - add_existing_schema.msg == "Schema with the name 'Destination_Schema' already exists. Please use another name."
@@ -137,7 +137,7 @@
   register: add_existing_schema
 
 - name: Verify add_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - add_existing_schema is not changed
     - add_existing_schema.msg == "Provided schema 'Source_Schema_1' does not exist."
@@ -153,6 +153,6 @@
   - Source_Schema
 
 - name: Verify rm_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - rm_schema is changed

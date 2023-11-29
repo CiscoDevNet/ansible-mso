@@ -4,14 +4,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,7 +22,7 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
@@ -51,7 +51,7 @@
       state: absent
 
   - name: Ensure sites removed from tenant ansible_test
-    mso_tenant_site:
+    cisco.mso.mso_tenant_site:
       <<: *mso_info
       tenant: ansible_test
       site: '{{ item }}'
@@ -260,7 +260,7 @@
     check_mode: true
 
   - name: Verify cm_sg1
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_sg1 is changed
       - cm_sg1.current.serviceGraphRef.serviceGraphName == "SG1"
@@ -282,7 +282,7 @@
     register: nm_sg1
 
   - name: Verify change_sg1
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_sg1 is changed
       - nm_sg1.current.serviceGraphRef.serviceGraphName == "SG1"
@@ -304,7 +304,7 @@
     register: nm_sg1_again
 
   - name: Verify change_sg1
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_sg1_again is not changed
       - nm_sg1_again.current.serviceGraphRef.serviceGraphName == "SG1"
@@ -326,7 +326,7 @@
     register: change_sg1
 
   - name: Verify change_sg1
-    assert:
+    ansible.builtin.assert:
       that:
       - change_sg1 is changed
       - change_sg1.current.serviceGraphRef.serviceGraphName == "SG1"
@@ -349,7 +349,7 @@
     register: sg2
 
   - name: Verify sg2
-    assert:
+    ansible.builtin.assert:
       that:
       - sg2 is changed
       - sg2.current.serviceGraphRef.serviceGraphName == "SG2"
@@ -374,7 +374,7 @@
     register: sg3
 
   - name: Verify sg3
-    assert:
+    ansible.builtin.assert:
       that:
       - sg3 is changed
       - sg3.current.serviceGraphRef.serviceGraphName == "SG3"
@@ -400,7 +400,7 @@
     register: sg4
 
   - name: Verify sg4
-    assert:
+    ansible.builtin.assert:
       that:
       - sg4 is changed
       - sg4.current.serviceGraphRef.serviceGraphName == "SG4"
@@ -426,7 +426,7 @@
     register: change1_sg4
 
   - name: Verify change1_sg4
-    assert:
+    ansible.builtin.assert:
       that:
       - change1_sg4 is changed
       - change1_sg4.current.serviceGraphRef.serviceGraphName == "SG4"
@@ -451,7 +451,7 @@
     register: change2_sg4
 
   - name: Verify change2_sg4
-    assert:
+    ansible.builtin.assert:
       that:
       - change2_sg4 is not changed
       - change2_sg4.msg == "Service Graph 'SG4' has '3' service node type(s) but '1' service node(s) were given for the service graph"
@@ -471,7 +471,7 @@
     register: change3_sg4
 
   - name: Verify change3_sg4
-    assert:
+    ansible.builtin.assert:
       that:
       - change3_sg4 is not changed
       - change3_sg4.msg == "Service Graph 'SG4' has '3' service node type(s) but '1' service node(s) were given for the service graph"
@@ -491,7 +491,7 @@
     register: change4_sg4
 
   - name: Verify change4_sg4
-    assert:
+    ansible.builtin.assert:
       that:
       - change4_sg4 is not changed
       - change4_sg4.msg == "Service Graph 'SG4' has '3' service node type(s) but '1' service node(s) were given for the service graph"
@@ -512,7 +512,7 @@
     register: change5_sg4
 
   - name: Verify change5_sg4
-    assert:
+    ansible.builtin.assert:
       that:
       - change5_sg4 is not changed
       - change5_sg4.msg == "Service Graph 'SG4' has '3' service node type(s) but '2' service node(s) were given for the service graph"
@@ -534,7 +534,7 @@
     register: change6_sg4
 
   - name: Verify change6_sg4
-    assert:
+    ansible.builtin.assert:
       that:
       - change6_sg4 is not changed
       - change6_sg4.msg == "Provided device 'ansible_test_other' of type 'ADC' does not exist."
@@ -555,7 +555,7 @@
     register: sg5
 
   - name: Verify sg5
-    assert:
+    ansible.builtin.assert:
       that:
       - sg5 is changed
       - sg5.current.serviceGraphRef.serviceGraphName == "SG5"
@@ -581,7 +581,7 @@
     register: sg6
 
   - name: Verify sg6
-    assert:
+    ansible.builtin.assert:
       that:
       - sg6 is changed
       - sg6.current.serviceGraphRef.serviceGraphName == "SG6"
@@ -606,7 +606,7 @@
     register: sg7
 
   - name: Verify sg7
-    assert:
+    ansible.builtin.assert:
       that:
       - sg7 is changed
       - sg7.current.serviceGraphRef.serviceGraphName == "SG7"
@@ -627,7 +627,7 @@
     register: query_sg
 
   - name: Verify query_sg
-    assert:
+    ansible.builtin.assert:
       that:
       - query_sg is not changed
       - query_sg.current.serviceGraphRef is match("/schemas/[0-9a-zA-Z]*/templates/Template1/serviceGraphs/SG1")
@@ -643,7 +643,7 @@
     register: query_all
 
   - name: Verify query_all
-    assert:
+    ansible.builtin.assert:
       that:
       - query_all is not changed
       - query_all.current | length == 7
@@ -661,7 +661,7 @@
     register: query_non_existing_sg
 
   - name: Verify query_non_existing_sg
-    assert:
+    ansible.builtin.assert:
       that:
       - query_non_existing_sg.msg == "Service Graph 'non_existent' not found"
 
@@ -678,7 +678,7 @@
     register: query_non_existing_schema
 
   - name: Verify non_existing_schema
-    assert:
+    ansible.builtin.assert:
       that:
       - query_non_existing_schema is not changed
       - query_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
@@ -696,7 +696,7 @@
     register: query_non_existing_template
 
   - name: Verify query_non_existing_template
-    assert:
+    ansible.builtin.assert:
       that:
       - query_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1, Template2"
 
@@ -713,7 +713,7 @@
     register: nm_non_existing_site_template
 
   - name: Verify cm_non_existing_site_template and nm_non_existing_site_template
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_non_existing_site_template is not changed
       - nm_non_existing_site_template.msg == "Provided site-template association 'ansible_test-Template2' does not exist."
@@ -733,7 +733,7 @@
     register: nm_no_site_associated
 
   - name: Verify nm_no_site_associated
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_no_site_associated is not changed
       - nm_no_site_associated.msg == "No site associated with template 'Template1'. Associate the site with the template using mso_schema_site."
@@ -751,7 +751,7 @@
     check_mode: true
 
   - name: Verify rm_sg_cm
-    assert:
+    ansible.builtin.assert:
       that:
       - rm_sg_cm is changed
       - rm_sg_cm.current == {}
@@ -769,7 +769,7 @@
     register: rm_sg
 
   - name: Verify rm_sg
-    assert:
+    ansible.builtin.assert:
       that:
       - rm_sg is changed
       - rm_sg.current == {}
@@ -787,7 +787,7 @@
     register: rm_sg_again
 
   - name: Verify rm_sg_again
-    assert:
+    ansible.builtin.assert:
       that:
       - rm_sg_again is not changed
       - rm_sg_again.current == {}

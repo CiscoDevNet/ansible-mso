@@ -8,13 +8,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -27,13 +27,13 @@
               { 'site': 'azure_{{ mso_site | default(\"ansible_test\") }}', 'region': 'westus', 'cidr': '10.1.0.0/16'}]"
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: 'aws_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ aws_apic_username }}'
@@ -44,7 +44,7 @@
     state: present
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ azure_apic_username }}'
@@ -55,7 +55,7 @@
     state: present
 
 - name: Remove Schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -64,7 +64,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure sites removed from tenant ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ item }}'
@@ -75,7 +75,7 @@
     - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant:
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -83,7 +83,7 @@
     state: present
 
 - name: Ensure AWS site is present under tenant ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -93,7 +93,7 @@
     state: present
 
 - name: Ensure Azure site is present under tenant ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -101,7 +101,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 and 2 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -112,7 +112,7 @@
   - Template 2
 
 - name: Ensure schema 2 with Template 3 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -120,7 +120,7 @@
     state: present
 
 - name: Add a new sites to a Template 1
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ item.site }}'
@@ -130,7 +130,7 @@
   when: version.current.version is version('3', '<')
 
 - name: Ensure VRF1 exists
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -138,7 +138,7 @@
     state: present
 
 - name: Ensure region for VRF1 at site level exists
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -152,7 +152,7 @@
 
 # ADD SUBNET
 - name: Add a new subnet to AWS CIDR in VRF1 at site level (check mode)
-  mso_schema_site_vrf_region_cidr_subnet: &mso_present
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet: &mso_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -167,7 +167,7 @@
   register: cm_add_subnet
 
 - name: Verify cm_add_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_subnet is changed
     - cm_add_subnet.previous == {}
@@ -175,12 +175,12 @@
     - cm_add_subnet.current.zone == 'us-west-1a'
 
 - name: Add a new subnet to AWS CIDR in VRF1 at site level (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
   register: nm_add_subnet
 
 - name: Verify nm_add_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_subnet is changed
     - nm_add_subnet.previous == {}
@@ -188,31 +188,31 @@
     - nm_add_subnet.current.zone == 'us-west-1a'
 
 - name: Add same subnet again to AWS CIDR in VRF1 at site level (check mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
   register: cm_add_subnet_again
 
 - name: Verify cm_add_subnet_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_subnet_again is not changed
     - cm_add_subnet_again.current.ip == cm_add_subnet_again.previous.ip == '10.0.0.0/24'
     - cm_add_subnet_again.current.zone == cm_add_subnet_again.previous.zone == 'us-west-1a'
 
 - name: Add same subnet again to AWS CIDR in VRF1 at site level (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
   register: nm_add_subnet_again
 
 - name: Verify nm_add_subnet_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_subnet_again is not changed
     - nm_add_subnet_again.current.ip == nm_add_subnet_again.previous.ip == '10.0.0.0/24'
     - nm_add_subnet_again.current.zone == nm_add_subnet_again.previous.zone == 'us-west-1a'
 
 - name: Add a new subnet to Azure CIDR in VRF1 at site level (check mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
@@ -223,7 +223,7 @@
   register: cm_add_subnet_2
 
 - name: Verify cm_add_subnet_2
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_subnet_2 is changed
     - cm_add_subnet_2.previous == {}
@@ -231,7 +231,7 @@
     - cm_add_subnet_2.current.zone == ''
 
 - name: Add a new subnet to Azure CIDR in VRF1 at site level (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
@@ -241,7 +241,7 @@
   register: nm_add_subnet_2
 
 - name: Verify nm_add_subnet_2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_subnet_2 is changed
     - nm_add_subnet_2.previous == {}
@@ -249,7 +249,7 @@
     - nm_add_subnet_2.current.zone == ''
 
 - name: Add a second subnet to Azure CIDR in VRF1 at site level for VGW (check mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
@@ -261,7 +261,7 @@
   register: cm_add_subnet_3
 
 - name: Verify cm_add_subnet_3
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_subnet_3 is changed
     - cm_add_subnet_3.previous == {}
@@ -271,7 +271,7 @@
 
 #  VGW
 - name: Add a second subnet to Azure CIDR in VRF1 at site level for VGW (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
@@ -282,7 +282,7 @@
   register: nm_add_subnet_3
 
 - name: Verify nm_add_subnet_3
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_subnet_3 is changed
     - nm_add_subnet_3.previous == {}
@@ -292,7 +292,7 @@
 
 # Private Link Label
 - name: Add a new subnet to Azure CIDR in VRF1 at site level for Private Link Label (MSO >3.3)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
@@ -304,7 +304,7 @@
   when: version.current.version is version('3.3', '>=')
 
 - name: Verify nm_add_subnet_4
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_subnet_4 is changed
     - nm_add_subnet_4.current.ip == '10.1.0.0/24'
@@ -313,7 +313,7 @@
 
 # QUERY SUBNETS
 - name: Query subnet to AWS CIDR in VRF1 at site level (check mode)
-  mso_schema_site_vrf_region_cidr_subnet: &mso_query
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet: &mso_query
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -327,25 +327,25 @@
   register: cm_query_subnet
 
 - name: Verify cm_query_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_subnet is not changed
     - cm_query_subnet.current.ip == '10.0.0.0/24'
     - cm_query_subnet.current.zone == 'us-west-1a'
 
 - name: Query subnet to AWS CIDR in VRF1 at site level (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
   register: nm_query_subnet
 
 - name: Verify nm_query_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_subnet is not changed
 
 # QUERY ALL SUBNETS
 - name: Query all subnets to AWS CIDR in VRF1 at site level (check mode)
-  mso_schema_site_vrf_region_cidr_subnet: &mso_query_all
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet: &mso_query_all
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -358,7 +358,7 @@
   register: cm_query_subnet_all_aws
 
 - name: Query all subnets to Azure CIDR in VRF1 at site level (check mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query_all
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
@@ -368,7 +368,7 @@
   register: cm_query_subnet_all_azure
 
 - name: Verify cm_query_subnet_all_aws and cm_query_subnet_all_azure
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_subnet_all_aws is not changed
     - cm_query_subnet_all_aws.current[0].ip == '10.0.0.0/24'
@@ -378,7 +378,7 @@
     - cm_query_subnet_all_azure.current[1].ip == '10.1.1.0/24'
 
 - name: Verify cm_query_subnet_all_aws and cm_query_subnet_all_azure zone
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_subnet_all_azure.current[0].zone == ''
     - cm_query_subnet_all_azure.current[1].zone == ''
@@ -386,19 +386,19 @@
 
 
 - name: Verify cm_query_subnet_all_aws and cm_query_subnet_all_azure zone
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_subnet_all_azure.current[0].zone == 'default'
     - cm_query_subnet_all_azure.current[1].zone == 'default'
   when: version.current.version is version('4.0', '>=') 
 
 - name: Query subnet to AWS CIDR in VRF1 at site level (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query_all
   register: nm_query_subnet_all_aws
 
 - name: Query subnet to AWS CIDR in VRF1 at site level (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query_all
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     region: westus
@@ -407,7 +407,7 @@
   register: nm_query_subnet_all_azure
 
 - name: Verify nm_query_subnet_all_aws and nm_query_subnet_all_azure
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_subnet_all_aws is not changed
     - nm_query_subnet_all_aws.current[0].ip == '10.0.0.0/24'
@@ -417,7 +417,7 @@
     - nm_query_subnet_all_azure.current[1].ip == '10.1.1.0/24'
 
 - name: Verify cm_query_subnet_all_aws and cm_query_subnet_all_azure zone
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_subnet_all_azure.current[0].zone == ''
     - nm_query_subnet_all_azure.current[1].zone == ''
@@ -425,7 +425,7 @@
 
 
 - name: Verify cm_query_subnet_all_aws and cm_query_subnet_all_azure zone
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_subnet_all_azure.current[0].zone == 'default'
     - nm_query_subnet_all_azure.current[1].zone == 'default'
@@ -436,7 +436,7 @@
   when: version.current.version is version('3.3', '>=')
   block:
   - name: Ensure VRF2 exists
-    mso_schema_template_vrf:
+    cisco.mso.mso_schema_template_vrf:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
@@ -444,7 +444,7 @@
       state: present
 
   - name: Add a secondary CIDR in VRF1 at AWS site level
-    mso_schema_site_vrf_region_cidr: &secondary_cidr
+    cisco.mso.mso_schema_site_vrf_region_cidr: &secondary_cidr
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
@@ -456,7 +456,7 @@
     register: nm_add_cidr_3
 
   - name: Verify nm_add_cidr_3
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_cidr_3 is changed
       - nm_add_cidr_3.previous == {}
@@ -464,7 +464,7 @@
       - nm_add_cidr_3.current.primary == false
 
   - name: Add a secondary CIDR in VRF1 at Azure site level
-    mso_schema_site_vrf_region_cidr:
+    cisco.mso.mso_schema_site_vrf_region_cidr:
       <<: *secondary_cidr
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
@@ -476,7 +476,7 @@
     register: nm_add_cidr_4
 
   - name: Verify nm_add_cidr_4
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_add_cidr_4 is changed
       - nm_add_cidr_4.previous == {}
@@ -484,7 +484,7 @@
       - nm_add_cidr_4.current.primary == false
 
   - name: Add hosted vrf parameters in VRF1 at Azure site level
-    mso_schema_site_vrf_region_cidr_subnet:
+    cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
@@ -500,7 +500,7 @@
     register: azure_add_hosted_vrf
 
   - name: Verify azure_add_hosted_vrf
-    assert:
+    ansible.builtin.assert:
       that:
       - azure_add_hosted_vrf is changed
       - azure_add_hosted_vrf.previous == {}
@@ -508,7 +508,7 @@
       - azure_add_hosted_vrf.current.vrfRef.vrfName == 'VRF2'
 
   - name: Add hosted vrf parameters in VRF1 at AWS site level
-    mso_schema_site_vrf_region_cidr_subnet: &aws_cidr
+    cisco.mso.mso_schema_site_vrf_region_cidr_subnet: &aws_cidr
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
@@ -524,7 +524,7 @@
     register: aws_add_hosted_vrf
 
   - name: Verify aws_add_hosted_vrf
-    assert:
+    ansible.builtin.assert:
       that:
       - aws_add_hosted_vrf is changed
       - aws_add_hosted_vrf.previous == {}
@@ -532,89 +532,89 @@
       - aws_add_hosted_vrf.current.vrfRef.vrfName == 'VRF2'
 
   - name: Get Validation status
-    mso_schema_validate:
+    cisco.mso.mso_schema_validate:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
     register: query_validate
 
   - name: Verify query_validate
-    assert:
+    ansible.builtin.assert:
       that:
       - query_validate is not changed
   
   - name: Verify query_validate result < 4.0
-    assert:
+    ansible.builtin.assert:
       that:
       - query_validate.current.result == "true"
     when: version.current.version is version('4.0', '<')
   
   - name: Verify query_validate result => 4.0
-    assert:
+    ansible.builtin.assert:
       that:
       - query_validate.current.result == true
     when: version.current.version is version('4.0', '>=')
 
 # REMOVE SUBNETS
 - name: Remove Subnet from CIDR (check_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
     state: absent
   check_mode: true
   register: cm_remove_subnet
 
 - name: Verify cm_remove_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_subnet is changed
     - cm_remove_subnet.current == {}
 
 - name: Remove Subnet from CIDR (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
     state: absent
   register: nm_remove_subnet
 
 - name: Verify nm_remove_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_subnet is changed
     - nm_remove_subnet.current == {}
 
 - name: Remove Subnet from CIDR again (check_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
     state: absent
   check_mode: true
   register: cm_remove_subnet_again
 
 - name: Verify cm_remove_subnet_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_subnet_again is not changed
     - cm_remove_subnet_again.current == {}
 
 - name: Remove Subnet from CIDR again (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_present
     state: absent
   register: nm_remove_subnet_again
 
 - name: Verify nm_remove_subnet_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_subnet_again is not changed
     - nm_remove_subnet_again.current == {}
 
 - name: Remove Subnet from CIDR (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *aws_cidr
     state: absent
   register: remove_subnet
   when: version.current.version is version('3.3', '>=')
 
 - name: Verify nm_remove_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - remove_subnet is changed
     - remove_subnet.current == {}
@@ -622,7 +622,7 @@
 
 # QUERY NON-EXISTING subnet in CIDR
 - name: Query non-existing subnet (check_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     subnet: non_existing_subnet
   check_mode: true
@@ -630,14 +630,14 @@
   register: cm_query_non_subnet
 
 - name: Query non-existing subnet (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     subnet: non_existing_subnet
   ignore_errors: true
   register: nm_query_non_subnet
 
 - name: Verify query_non_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_subnet is not changed
     - nm_query_non_subnet is not changed
@@ -647,7 +647,7 @@
 
 # QUERY NON-EXISTING CIDR
 - name: Query non-existing CIDR (check_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     cidr: non_existing_cidr
   check_mode: true
@@ -655,34 +655,34 @@
   register: cm_query_non_cidr
 
 - name: Query non-existing CIDR (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     cidr: non_existing_cidr
   ignore_errors: true
   register: nm_query_non_cidr
 
 - name: Verify query_non_cidr
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_cidr is not changed
     - nm_query_non_cidr is not changed
     - cm_query_non_cidr == nm_query_non_cidr
 
 - name: Verify query_non_cidr value (version < 3.3)
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_cidr.msg == nm_query_non_cidr.msg == "Provided CIDR IP 'non_existing_cidr' does not exist. Existing CIDR IPs{{':'}} 10.0.0.0/16. Use mso_schema_site_vrf_region_cidr to create it."
   when: version.current.version is version('3.3', '<')
 
 - name: Verify query_non_cidr value (version >= 3.3)
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_cidr.msg == nm_query_non_cidr.msg == "Provided CIDR IP 'non_existing_cidr' does not exist. Existing CIDR IPs{{':'}} 10.0.0.0/16, 10.2.0.0/16. Use mso_schema_site_vrf_region_cidr to create it."
   when: version.current.version is version('3.3', '>=')
 
 # QUERY NON-EXISTING region
 - name: Query non-existing region (check_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     region: non_existing_region
   check_mode: true
@@ -690,14 +690,14 @@
   register: cm_query_non_region
 
 - name: Query non-existing region (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     region: non_existing_region
   ignore_errors: true
   register: nm_query_non_region
 
 - name: Verify query_non_region
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_region is not changed
     - nm_query_non_region is not changed
@@ -706,7 +706,7 @@
 
 # QUERY NON-EXISTING VRF
 - name: Query non-existing VRF (check_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     vrf: non_existing_vrf
   check_mode: true
@@ -714,14 +714,14 @@
   register: cm_query_non_vrf
 
 - name: Query non-existing VRF (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     vrf: non_existing_vrf
   ignore_errors: true
   register: nm_query_non_vrf
 
 - name: Verify query_non_vrf
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_vrf is not changed
     - nm_query_non_vrf is not changed
@@ -730,7 +730,7 @@
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for site cidr subnet (check_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     state: non-existing-state
   check_mode: true
@@ -738,14 +738,14 @@
   register: cm_non_existing_state
 
 - name: Non-existing state for site cidr subnet (normal_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     state: non-existing-state
   ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
@@ -754,7 +754,7 @@
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for site cidr subnet (check_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     schema: non-existing-schema
   check_mode: true
@@ -762,14 +762,14 @@
   register: cm_non_existing_schema
 
 - name: Non-existing schema for site cidr subnet (normal_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     schema: non-existing-schema
   ignore_errors: true
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_schema is not changed
     - nm_non_existing_schema is not changed
@@ -778,7 +778,7 @@
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template for site cidr subnet (check_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     template: non-existing-template
   check_mode: true
@@ -786,14 +786,14 @@
   register: cm_non_existing_template
 
 - name: Non-existing template for site cidr subnet (normal_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     template: non-existing-template
   ignore_errors: true
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
@@ -802,7 +802,7 @@
 
 # USE A NON-ASSOCIATED TEMPLATE
 - name: Non-associated template for site cidr subnet (check_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     template: Template 2
   check_mode: true
@@ -810,14 +810,14 @@
   register: cm_non_associated_template
 
 - name: Non-associated template for site cidr subnet (normal_mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     template: Template 2
   ignore_errors: true
   register: nm_non_associated_template
 
 - name: Verify non_associated_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_associated_template is not changed
     - nm_non_associated_template is not changed
@@ -827,7 +827,7 @@
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add site cidr subnet to Schema 2 Template 3 without any site associated (check mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -836,7 +836,7 @@
   register: cm_no_site_associated
 
 - name: Add site cidr subnet to Template 3 without any site associated (normal mode)
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_query
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -844,7 +844,7 @@
   register: nm_no_site_associated
 
 - name: Verify cm_no_site_associated and nm_no_site_associated
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_no_site_associated is not changed
     - nm_no_site_associated is not changed
@@ -852,7 +852,7 @@
 
 # Checking if issue when adding subnet to Hub Network (#126)
 - name: Add hub network in VRF1 region us-west-1 at AWS site level
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -865,7 +865,7 @@
     state: present
 
 - name: Add a new subnet to AWS CIDR in VRF1 at site level
-  mso_schema_site_vrf_region_cidr_subnet:
+  cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -880,7 +880,7 @@
   register: nm_add_subnet_hub_network
 
 - name: Verify nm_add_subnet_hub_network
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_subnet_hub_network is changed
     - nm_add_subnet_hub_network.current.usage == 'gateway'

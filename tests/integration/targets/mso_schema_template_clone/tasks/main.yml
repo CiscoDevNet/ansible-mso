@@ -4,13 +4,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -21,7 +21,7 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
@@ -37,7 +37,7 @@
   - Schema2
 
 - name: Ensure tenant ansible_test exists
-  mso_tenant:
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -47,7 +47,7 @@
     state: present
 
 - name: Ensure user is defined under common tenant
-  mso_tenant:
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: common
     users:
@@ -100,7 +100,7 @@
   - { schema: 'Schema2', template: 'Template3', epg: 'ansible_test_3' }
 
 - name: Add Selector to EPG (normal_mode)
-  mso_schema_template_anp_epg_selector:
+  cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
     schema: 'Schema1'
     template: Template1
@@ -176,7 +176,7 @@
   register: add_template_tenant
 
 - name: Verify add_templates
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_template is not changed
     - add_template is changed
@@ -205,7 +205,7 @@
   register: non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - non_existing_template is not changed
     - non_existing_template.msg == "Source template with the name 'non_existing_template' does not exist."
@@ -222,7 +222,7 @@
   register: non_existing_source_schema
 
 - name: Verify non_existing_source_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - non_existing_source_schema is not changed
     - non_existing_source_schema.msg == "Schema with the name 'non_existing_schema' does not exist."
@@ -241,7 +241,7 @@
   register: non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - non_existing_schema is not changed
     - non_existing_schema.msg == "Schema with the name 'non_existing_schema' does not exist."
@@ -256,7 +256,7 @@
   register: wrong_template_name
 
 - name: Verify wrong_template_name
-  assert:
+  ansible.builtin.assert:
     that:
     - wrong_template_name is not changed
     - wrong_template_name.msg == "Source and destination templates in the same schema cannot have same names."
@@ -272,7 +272,7 @@
   register: template_already_exist
 
 - name: Verify template_already_exist
-  assert:
+  ansible.builtin.assert:
     that:
     - template_already_exist is not changed
     - template_already_exist.msg == "Template with the name 'Template2' already exists. Please use another name."
@@ -288,6 +288,6 @@
   - Schema1
 
 - name: Verify rm_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - rm_schema is changed

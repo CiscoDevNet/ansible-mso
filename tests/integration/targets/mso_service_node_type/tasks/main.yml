@@ -4,14 +4,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -40,7 +40,7 @@
   check_mode: true
 
 - name: Verify node_cm
-  assert:
+  ansible.builtin.assert:
     that:
     - node_cm is changed
     - node_cm.current.displayName == "test"
@@ -55,7 +55,7 @@
   register: node1
 
 - name: Verify node1
-  assert:
+  ansible.builtin.assert:
     that:
     - node1 is changed
     - node1.current.displayName == "test"
@@ -69,7 +69,7 @@
   register: node2
 
 - name: Verify node2
-  assert:
+  ansible.builtin.assert:
     that:
     - node2 is changed
     - node2.current.displayName == "TEST2"
@@ -83,7 +83,7 @@
   register: node2_again
 
 - name: Verify node2_again
-  assert:
+  ansible.builtin.assert:
     that:
     - node2_again is not changed
     - node2_again.current.displayName == "TEST2"
@@ -99,7 +99,7 @@
   ignore_errors: true
 
 - name: Verify node2_different_display_name
-  assert:
+  ansible.builtin.assert:
     that:
     - node2_different_display_name.msg == "Service Node Type 'TEST1' already exists with display name 'test' which is different from provided display name 'change_test'."
 
@@ -111,7 +111,7 @@
   register: query_node1
 
 - name: Verify query_node1
-  assert:
+  ansible.builtin.assert:
     that:
     - query_node1 is not changed
     - query_node1.current.displayName == "test"
@@ -124,7 +124,7 @@
   register: query_all
 
 - name: Verify query_all
-  assert:
+  ansible.builtin.assert:
     that:
     - query_all is not changed
     - query_all.current | length >= 4
@@ -138,7 +138,7 @@
   register: cm_rm
 
 - name: Verify cm_rm
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_rm is changed
     - cm_rm.previous.name == "TEST1"
@@ -151,7 +151,7 @@
   register: rm_node1
 
 - name: Verify rm_node1
-  assert:
+  ansible.builtin.assert:
     that:
     - rm_node1 is changed
     - rm_node1.current == {}
@@ -166,7 +166,7 @@
   ignore_errors: true
 
 - name: Verify query_absent
-  assert:
+  ansible.builtin.assert:
     that:
     - query_absent.msg == "Service Node Type 'TEST1' not found"
 
@@ -178,7 +178,7 @@
   register: rm_node2
 
 - name: Verify rm_node2
-  assert:
+  ansible.builtin.assert:
     that:
     - rm_node2 is changed
     - rm_node2.current == {}
@@ -192,7 +192,7 @@
   register: rm_node2_again
 
 - name: Verify rm_node2_again
-  assert:
+  ansible.builtin.assert:
     that:
     - rm_node2_again is not changed
     - rm_node2_again.current == {}

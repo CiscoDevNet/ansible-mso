@@ -4,14 +4,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,7 +22,7 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
@@ -34,7 +34,7 @@
     - version.current.version is version('4.0', '<')
   block:
   - name: Remove schemas
-    mso_schema:
+    cisco.mso.mso_schema:
       <<: *mso_info
       schema: '{{ item }}'
       state: absent
@@ -43,7 +43,7 @@
     - '{{ mso_schema | default("ansible_test") }}'
 
   - name: Remove DHCP policies
-    mso_dhcp_relay_policy:
+    cisco.mso.mso_dhcp_relay_policy:
       <<: *mso_info
       dhcp_relay_policy: '{{ item }}'
       tenant: ansible_test
@@ -54,7 +54,7 @@
     - 'ansible_test_dhcp_policy3'
 
   - name: Remove DHCP option policies
-    mso_dhcp_option_policy:
+    cisco.mso.mso_dhcp_option_policy:
       <<: *mso_info
       dhcp_option_policy: '{{ item }}'
       tenant: ansible_test
@@ -64,7 +64,7 @@
     - 'ansible_test_dhcp_policy_option2'
 
   - name: Ensure tenant ansible_test exist
-    mso_tenant: &tenant_present
+    cisco.mso.mso_tenant: &tenant_present
       <<: *mso_info
       tenant: ansible_test
       users:
@@ -74,7 +74,7 @@
       state: present
 
   - name: Ensure schema 1 with Template1 exist
-    mso_schema_template: &schema_present
+    cisco.mso.mso_schema_template: &schema_present
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       tenant: ansible_test
@@ -82,7 +82,7 @@
       state: present
 
   - name: Ensure VRF exists
-    mso_schema_template_vrf: &vrf_present
+    cisco.mso.mso_schema_template_vrf: &vrf_present
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
@@ -91,7 +91,7 @@
       state: present
 
   - name: Ensure multiple DHCP policies exist 
-    mso_dhcp_relay_policy:
+    cisco.mso.mso_dhcp_relay_policy:
       <<: *mso_info
       dhcp_relay_policy: '{{ item }}'
       description: "My Test DHCP Policies"
@@ -103,7 +103,7 @@
     - 'ansible_test_dhcp_policy3'
 
   - name: Ensure multiple DHCP option policies exist 
-    mso_dhcp_option_policy:
+    cisco.mso.mso_dhcp_option_policy:
       <<: *mso_info
       dhcp_option_policy: '{{ item }}'
       description: "My Test DHCP Policy Options"
@@ -115,7 +115,7 @@
         
   # ADD BD
   - name: Add bd
-    mso_schema_template_bd: &bd_present
+    cisco.mso.mso_schema_template_bd: &bd_present
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
@@ -131,14 +131,14 @@
       state: present
 
   - name: Add bd2
-    mso_schema_template_bd:
+    cisco.mso.mso_schema_template_bd:
       <<: *bd_present
       bd: ansible_test_2
       state: present
 
   # Add dhcp policies
   - name: Add DHCP policy in check mode
-    mso_schema_template_bd_dhcp_policy: &dhcp_present
+    cisco.mso.mso_schema_template_bd_dhcp_policy: &dhcp_present
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
@@ -152,17 +152,17 @@
     check_mode: true
 
   - name: Add DHCP policy in normal mode
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_present
     register: nm_add_dhcp
 
   - name: Add DHCP policy again in normal mode
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_present
     register: nm_add_dhcp_again
 
   - name: Add another DHCP policy in normal mode
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_present
       name: ansible_test_dhcp_policy2
       version: 1
@@ -173,14 +173,14 @@
 
 
   - name: Add dhcp for query all (normal mode)
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_present
       name: ansible_test_dhcp_policy3
       version: 1
     register: nm_add_dhcp3
 
   - name: Verify cm_add_dhcp, nm_add_dhcp, nm_add_dhcp2 and nm_add_dhcp3
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_add_dhcp is changed
       - nm_add_dhcp is changed
@@ -198,7 +198,7 @@
 
   # CHANGE dhcp policies
   - name: Change dhcp policy (normal mode)
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_present
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
@@ -211,7 +211,7 @@
     register: nm_change_dhcp
 
   - name: Verify nm_change_dhcp
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_change_dhcp is changed
       - nm_change_dhcp.current.name == 'ansible_test_dhcp_policy1'
@@ -219,7 +219,7 @@
       - nm_change_dhcp.current.dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option2'
 
   - name: Change dhcp policy again (normal mode)
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_present
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
@@ -233,7 +233,7 @@
 
 
   - name: Verify nm_change_dhcp
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_change_dhcp_again is changed
       - nm_change_dhcp_again.current.name == 'ansible_test_dhcp_policy1'
@@ -242,7 +242,7 @@
 
   # QUERY ALL dhcp policies
   - name: Query all dhcp (check_mode)
-    mso_schema_template_bd_dhcp_policy: &dhcp_query
+    cisco.mso.mso_schema_template_bd_dhcp_policy: &dhcp_query
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
@@ -253,13 +253,13 @@
 
 
   - name: Query all dhcp (normal mode)
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_query
     register: nm_query_all_dhcp
 
 
   - name: Verify query_all_dhcp
-    assert:
+    ansible.builtin.assert:
       that:
       - cm_query_all_dhcp is not changed
       - nm_query_all_dhcp is not changed
@@ -267,13 +267,13 @@
 
   # QUERY a DHCP policy
   - name: Query single dhcp
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_query
       name: ansible_test_dhcp_policy1
     register: nm_query_dhcp
 
   - name: Verify nm_query_dhcp
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_query_dhcp is not changed
       - nm_query_dhcp.current.name == 'ansible_test_dhcp_policy1'
@@ -282,7 +282,7 @@
 
   # QUERY a non associated DHCP policy
   - name: Query non associated dhcp
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_query
       bd: ansible_test_2
       name: ansible_test_dhcp_policy1
@@ -290,13 +290,13 @@
     register: non_dhcp
 
   - name: Verify non_dhcp
-    assert:
+    ansible.builtin.assert:
       that:
       - non_dhcp.msg is match ("DHCP policy not associated with the bd")
 
   # REMOVE DHCP policy
   - name: Remove dhcp policy
-    mso_schema_template_bd_dhcp_policy: &dhcp_absent
+    cisco.mso.mso_schema_template_bd_dhcp_policy: &dhcp_absent
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
@@ -306,26 +306,26 @@
     register: nm_remove_dhcp
 
   - name: Verify nm_remove_dhcp
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_remove_dhcp is changed
       - nm_remove_dhcp.current == {}
 
   - name: Remove dhcp again (check_mode)
-    mso_schema_template_bd_dhcp_policy: 
+    cisco.mso.mso_schema_template_bd_dhcp_policy: 
       <<: *dhcp_absent
     register: nm_remove_dhcp_again
 
 
   - name: Verify nm_remove_dhcp_again
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_remove_dhcp_again is not changed
       - nm_remove_dhcp_again.current == {}
 
   # QUERY NON-EXISTING DHCP policy
   - name: Query non-existing dhcp policy
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_query
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
@@ -339,14 +339,14 @@
     register: nm_query_non_dhcp
 
   - name: Verify nm_query_non_dhcp
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_query_non_dhcp is not changed
       - nm_query_non_dhcp.msg is match ("DHCP policy 'non_policy' does not exist")
 
   # QUERY NON-EXISTING DHCP policy option
   - name: Query non-existing dhcp policy option
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_query
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
@@ -360,70 +360,70 @@
     register: nm_query_non_dhcp_option
 
   - name: Verify nm_query_non_dhcp
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_query_non_dhcp_option is not changed
       - nm_query_non_dhcp_option.msg is match ("DHCP option policy 'non_option' does not exist")
 
   # USE A NON-EXISTING STATE
   - name: Non-existing state for dhcp
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_query
       state: non-existing-state
     ignore_errors: true
     register: nm_non_existing_state
 
   - name: Verify non_existing_state
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_non_existing_state is not changed
       - nm_non_existing_state.msg is match ("value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state")
 
   # USE A NON-EXISTING SCHEMA
   - name: Non-existing schema for dhcp
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_query
       schema: non-existing-schema
     ignore_errors: true
     register: nm_non_existing_schema
 
   - name: Verify non_existing_schema
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_non_existing_schema is not changed
       - nm_non_existing_schema.msg is match ("Provided schema 'non-existing-schema' does not exist.")
 
   # USE A NON-EXISTING TEMPLATE
   - name: Non-existing template for dhcp
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_query
       template: non-existing-template
     ignore_errors: true
     register: nm_non_existing_template
 
   - name: Verify non_existing_template
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_non_existing_template is not changed
       - nm_non_existing_template.msg is match ("Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1")
 
   # USE A NON-EXISTING BD
   - name: Non-existing bd for dhcp
-    mso_schema_template_bd_dhcp_policy:
+    cisco.mso.mso_schema_template_bd_dhcp_policy:
       <<: *dhcp_query
       bd: non-existing-bd
     ignore_errors: true
     register: nm_non_existing_bd
 
   - name: Verify non_existing_bd
-    assert:
+    ansible.builtin.assert:
       that:
       - nm_non_existing_bd is not changed
       - nm_non_existing_bd.msg is match ("Provided BD 'non-existing-bd' does not exist. Existing BDs{{':'}} ansible_test_1")
 
   # REMOVE Schemas for next CI Run
   - name: Remove schemas for next ci test
-    mso_schema:
+    cisco.mso.mso_schema:
       <<: *mso_info
       schema: '{{ item }}'
       state: absent
@@ -433,7 +433,7 @@
 
   # CLEAN UP DHCP Policies 
   - name: Ensure DHCP policies are removed
-    mso_dhcp_relay_policy:
+    cisco.mso.mso_dhcp_relay_policy:
       <<: *mso_info
       dhcp_relay_policy: '{{ item }}'
       tenant: ansible_test
@@ -444,7 +444,7 @@
     - 'ansible_test_dhcp_policy3'
 
   - name: Ensure DHCP option policies are removed
-    mso_dhcp_option_policy:
+    cisco.mso.mso_dhcp_option_policy:
       <<: *mso_info
       dhcp_option_policy: '{{ item }}'
       tenant: ansible_test

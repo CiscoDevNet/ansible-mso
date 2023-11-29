@@ -4,14 +4,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,7 +22,7 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
@@ -31,14 +31,14 @@
   when: version.current.version is version('3.2', '<')
   block:
   - name: GET auth radius providers
-    mso_rest:
+    cisco.mso.mso_rest:
       <<: *mso_info
       path: /api/v1/auth/providers/radius
       method: get
     register: radius_providers
 
   - name: Add auth radius provider
-    mso_rest:
+    cisco.mso.mso_rest:
       <<: *mso_info
       path: /api/v1/auth/providers/radius
       method: post
@@ -57,25 +57,25 @@
     when: mso_radius_server not in (radius_providers.jsondata.radiusProviders | map(attribute='host'))
 
   - name: GET login domains
-    mso_rest:
+    cisco.mso.mso_rest:
       <<: *mso_info
       path: /api/v1/auth/domains
       method: get
     register: login_domains
 
   - name: GET auth radius providers again after creation
-    mso_rest:
+    cisco.mso.mso_rest:
       <<: *mso_info
       path: /api/v1/auth/providers/radius
       method: get
     register: radius_providers
 
   - name: GET auth radius provider ID
-    set_fact:
+    ansible.builtin.set_fact:
       radius_provider_id: "{{ (radius_providers.jsondata.radiusProviders | selectattr('host', 'eq', mso_radius_server) | first)['id']  }}"
 
   - name: Add test login domain
-    mso_rest:
+    cisco.mso.mso_rest:
       <<: *mso_info
       path: /api/v1/auth/domains
       method: post
@@ -95,7 +95,7 @@
 
 # REMOVE DHCP POLICY
 - name: Remove DHCP Option Policy
-  mso_dhcp_option_policy: &remove_dhcp
+  cisco.mso.mso_dhcp_option_policy: &remove_dhcp
     <<: *mso_info
     dhcp_option_policy: '{{ item }}'
     state: absent
@@ -104,7 +104,7 @@
   - ansible_dhcp_option_2
 
 - name: Remove DHCP Relay Policy
-  mso_dhcp_relay_policy:
+  cisco.mso.mso_dhcp_relay_policy:
     <<: *mso_info
     dhcp_relay_policy: '{{ item }}'
     state: absent
@@ -113,19 +113,19 @@
   - ansible_dhcp_relay_2
 
 - name: Remove label ansible_test
-  mso_label: &label_absent
+  cisco.mso.mso_label: &label_absent
     <<: *mso_info
     label: ansible_test
     state: absent
 
 - name: Remove label ansible_test2
-  mso_label:
+  cisco.mso.mso_label:
     <<: *label_absent
     label: ansible_test2
   register: cm_remove_label
 
 - name: Remove label ansible_test3
-  mso_label: &domain_label_absent
+  cisco.mso.mso_label: &domain_label_absent
     <<: *mso_info
     state: absent
     label: ansible_test3
@@ -133,14 +133,14 @@
   register: nm_remove_label3
 
 - name: Remove label ansible_test4
-  mso_label:
+  cisco.mso.mso_label:
     <<: *domain_label_absent
     label: ansible_test4
     login_domain: '{{ mso_login_domain | default("test") }}'
 
 # ADD LABEL
 - name: Add label (check_mode)
-  mso_label: &label_present
+  cisco.mso.mso_label: &label_present
     <<: *mso_info
     label: ansible_test
     state: present
@@ -148,7 +148,7 @@
   register: cm_add_label
 
 - name: Verify cm_add_label
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_label is changed
     - cm_add_label.previous == {}
@@ -157,11 +157,11 @@
     - cm_add_label.current.type == 'site'
 
 - name: Add label (normal mode)
-  mso_label: *label_present
+  cisco.mso.mso_label: *label_present
   register: nm_add_label
 
 - name: Verify nm_add_label
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_label is changed
     - nm_add_label.previous == {}
@@ -170,12 +170,12 @@
     - nm_add_label.current.type == 'site'
 
 - name: Add label again (check_mode)
-  mso_label: *label_present
+  cisco.mso.mso_label: *label_present
   check_mode: true
   register: cm_add_label_again
 
 - name: Verify cm_add_label_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_label_again is not changed
     - cm_add_label_again.previous.displayName == 'ansible_test'
@@ -185,11 +185,11 @@
     - cm_add_label_again.current.type == 'site'
 
 - name: Add label again (normal mode)
-  mso_label: *label_present
+  cisco.mso.mso_label: *label_present
   register: nm_add_label_again
 
 - name: Verify nm_add_label_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_label_again is not changed
     - nm_add_label_again.previous.displayName == 'ansible_test'
@@ -201,7 +201,7 @@
 
 # CHANGE LABEL
 # - name: Change label (check_mode)
-#   mso_label:
+#   cisco.mso.mso_label:
 #     <<: *label_present
 #     label_id: '{{ nm_add_label.current.id }}'
 #     label: ansible_test2
@@ -209,7 +209,7 @@
 #   register: cm_change_label
 
 # - name: Verify cm_change_label
-#   assert:
+#   ansible.builtin.assert:
 #     that:
 #     - cm_change_label is changed
 #     - cm_change_label.current.displayName == 'ansible_test2'
@@ -217,7 +217,7 @@
 #     - cm_change_label.current.type == 'site'
 
 # - name: Change label (normal mode)
-#   mso_label:
+#   cisco.mso.mso_label:
 #     <<: *label_present
 #     label_id: '{{ nm_add_label.current.id }}'
 #     label: ansible_test2
@@ -225,7 +225,7 @@
 #   register: nm_change_label
 
 # - name: Verify nm_change_label
-#   assert:
+#   ansible.builtin.assert:
 #     that:
 #     - nm_change_label is changed
 #     - cm_change_label.current.displayName == 'ansible_test2'
@@ -233,7 +233,7 @@
 #     - nm_change_label.current.type == 'site'
 
 # - name: Change label again (check_mode)
-#   mso_label:
+#   cisco.mso.mso_label:
 #     <<: *label_present
 #     label_id: '{{ nm_add_label.current.id }}'
 #     label: ansible_test2
@@ -241,7 +241,7 @@
 #   register: cm_change_label_again
 
 # - name: Verify cm_change_label_again
-#   assert:
+#   ansible.builtin.assert:
 #     that:
 #     - cm_change_label_again is not changed
 #     - cm_change_label_again.current.displayName == 'ansible_test2'
@@ -249,14 +249,14 @@
 #     - cm_change_label_again.current.type == 'site'
 
 # - name: Change label again (normal mode)
-#   mso_label:
+#   cisco.mso.mso_label:
 #     <<: *label_present
 #     label_id: '{{ nm_add_label.current.id }}'
 #     label: ansible_test2
 #   register: nm_change_label_again
 
 # - name: Verify nm_change_label_again
-#   assert:
+#   ansible.builtin.assert:
 #     that:
 #     - nm_change_label_again is not changed
 #     - nm_change_label_again.current.displayName == 'ansible_test2'
@@ -266,18 +266,18 @@
 
 # QUERY ALL LABELS
 - name: Query all labels (check_mode)
-  mso_label: &label_query
+  cisco.mso.mso_label: &label_query
     <<: *mso_info
     state: query
   check_mode: true
   register: cm_query_all_labels
 
 - name: Query all labels (normal mode)
-  mso_label: *label_query
+  cisco.mso.mso_label: *label_query
   register: nm_query_all_labels
 
 - name: Verify query_all_labels
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_all_labels is not changed
     - nm_query_all_labels is not changed
@@ -288,20 +288,20 @@
 
 # QUERY A LABEL
 - name: Query our label (check mode)
-  mso_label:
+  cisco.mso.mso_label:
     <<: *label_query
     label: ansible_test
   check_mode: true
   register: cm_query_label
 
 - name: Query our label (normal mode)
-  mso_label:
+  cisco.mso.mso_label:
     <<: *label_query
     label: ansible_test
   register: nm_query_label
 
 - name: Verify query_label
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_label is not changed
     - cm_query_label.current.displayName == 'ansible_test'
@@ -316,43 +316,43 @@
 
 # REMOVE LABEL
 - name: Remove label (check_mode)
-  mso_label: *label_absent
+  cisco.mso.mso_label: *label_absent
   check_mode: true
   register: cm_remove_label
 
 - name: Verify cm_remove_label
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_label is changed
     - cm_remove_label.current == {}
 
 - name: Remove label (normal mode)
-  mso_label: *label_absent
+  cisco.mso.mso_label: *label_absent
   register: nm_remove_label
 
 - name: Verify nm_remove_label
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_label is changed
     - nm_remove_label.current == {}
 
 - name: Remove label again (check_mode)
-  mso_label: *label_absent
+  cisco.mso.mso_label: *label_absent
   check_mode: true
   register: cm_remove_label_again
 
 - name: Verify cm_remove_label_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_label_again is not changed
     - cm_remove_label_again.current == {}
 
 - name: Remove label again (normal mode)
-  mso_label: *label_absent
+  cisco.mso.mso_label: *label_absent
   register: nm_remove_label_again
 
 - name: Verify nm_remove_label_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_label_again is not changed
     - nm_remove_label_again.current == {}
@@ -360,21 +360,21 @@
 
 # QUERY NON-EXISTING LABEL
 - name: Query non-existing label (check_mode)
-  mso_label:
+  cisco.mso.mso_label:
     <<: *label_query
     label: ansible_test
   check_mode: true
   register: cm_query_non_label
 
 - name: Query non-existing label (normal mode)
-  mso_label:
+  cisco.mso.mso_label:
     <<: *label_query
     label: ansible_test
   register: nm_query_non_label
 
 # TODO: Implement more tests
 - name: Verify query_non_label
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_label is not changed
     - nm_query_non_label is not changed
@@ -382,7 +382,7 @@
 
 # add label with login domain
 - name: Add label local domain(normal mode)
-  mso_label: &domain_label_present
+  cisco.mso.mso_label: &domain_label_present
     <<: *mso_info
     state: present
     label: ansible_test3
@@ -390,21 +390,21 @@
   register: label_local_domain
 
 - name: Verify label_local_domain
-  assert:
+  ansible.builtin.assert:
     that:
     - label_local_domain is changed
     - label_local_domain.current.displayName == 'ansible_test3'
     - label_local_domain.current.type == 'site'
 
 - name: Add label test domain(normal mode)
-  mso_label: 
+  cisco.mso.mso_label: 
     <<: *domain_label_present
     label: ansible_test4
     login_domain: '{{ mso_login_domain | default("test") }}'
   register: label_test_domain
 
 - name: Verify label_test_domain
-  assert:
+  ansible.builtin.assert:
     that:
     - label_test_domain is changed
     - label_test_domain.current.displayName == 'ansible_test4'

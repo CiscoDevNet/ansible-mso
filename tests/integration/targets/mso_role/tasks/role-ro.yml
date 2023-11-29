@@ -7,7 +7,7 @@
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -20,18 +20,18 @@
 
 # QUERY ALL ROLES
 - name: Query all roles (check_mode)
-  mso_role: &role_query
+  cisco.mso.mso_role: &role_query
     <<: *mso_info
     state: query
   check_mode: true
   register: cm_query_all_roles
 
 - name: Query all roles (normal mode)
-  mso_role: *role_query
+  cisco.mso.mso_role: *role_query
   register: nm_query_all_roles
 
 - name: Verify query_all_roles
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_all_roles is not changed
     - nm_query_all_roles is not changed
@@ -41,20 +41,20 @@
 
 # QUERY A ROLE
 - name: Query our role
-  mso_role:
+  cisco.mso.mso_role:
     <<: *role_query
     role: powerUser
   check_mode: true
   register: cm_query_role
 
 - name: Query our role
-  mso_role:
+  cisco.mso.mso_role:
     <<: *role_query
     role: powerUser
   register: nm_query_role
 
 - name: Verify query_role
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_role is not changed
     - cm_query_role.current.description == 'Elevates this user to \"admin\"'
@@ -67,21 +67,21 @@
 
 # QUERY NON-EXISTING ROLE
 - name: Query non-existing role (check_mode)
-  mso_role:
+  cisco.mso.mso_role:
     <<: *role_query
     role: non-existing-role
   check_mode: true
   register: cm_query_non_role
 
 - name: Query non-existing role (normal mode)
-  mso_role:
+  cisco.mso.mso_role:
     <<: *role_query
     role: non-existing-role
   register: nm_query_non_role
 
 # TODO: Implement more tests
 - name: Verify query_non_role
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_role is not changed
     - nm_query_non_role is not changed

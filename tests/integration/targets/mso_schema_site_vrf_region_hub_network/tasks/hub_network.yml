@@ -6,7 +6,7 @@
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact: 
+  ansible.builtin.set_fact: 
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -20,7 +20,7 @@
               '{{ mso_site | default(\"ansible_test\") }}']"
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: 'aws_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ aws_apic_username }}'
@@ -31,7 +31,7 @@
     state: present
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: 'azure_{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ azure_apic_username }}'
@@ -42,7 +42,7 @@
     state: present
 
 - name: Remove Schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -51,7 +51,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure sites removed from tenant ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ item }}'
@@ -62,7 +62,7 @@
     - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     # sites:
@@ -72,7 +72,7 @@
     state: present
 
 - name: Ensure AWS site is present under tenant ansible_test
-  mso_tenant_site: 
+  cisco.mso.mso_tenant_site: 
     <<: *mso_info
     tenant: ansible_test
     site: 'aws_{{ mso_site | default("ansible_test") }}'
@@ -82,7 +82,7 @@
     state: present
 
 - name: Ensure Azure site is present under tenant ansible_test
-  mso_tenant_site: 
+  cisco.mso.mso_tenant_site: 
     <<: *mso_info
     tenant: ansible_test
     site: 'azure_{{ mso_site | default("ansible_test") }}'
@@ -90,7 +90,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 and 2 exists
-  mso_schema_template: 
+  cisco.mso.mso_schema_template: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -101,7 +101,7 @@
   - Template 2
 
 - name: Ensure schema 2 with Template 3 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -109,7 +109,7 @@
     state: present
 
 - name: Ensure VRF1 exists
-  mso_schema_template_vrf: 
+  cisco.mso.mso_schema_template_vrf: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -117,7 +117,7 @@
     state: present
 
 - name: Add a new CIDR in VRF1 at AWS site level (check mode)
-  mso_schema_site_vrf_region_cidr: &mso_present
+  cisco.mso.mso_schema_site_vrf_region_cidr: &mso_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -131,7 +131,7 @@
   register: cm_add_cidr
 
 - name: Verify cm_add_cidr
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_cidr is changed
     - cm_add_cidr.previous == {}
@@ -139,12 +139,12 @@
     - cm_add_cidr.current.primary == true
 
 - name: Add a new CIDR in VRF1 at AWS site level (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *mso_present
   register: nm_add_cidr
 
 - name: Verify nm_add_cidr
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_cidr is changed
     - nm_add_cidr.previous == {}
@@ -153,7 +153,7 @@
 
 # ADD Hub Network
 - name: Add hub network in VRF1 region us-west-1 at AWS site level (check mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -168,7 +168,7 @@
   register: cm_add_hub_network
 
 - name: Add hub network in VRF1 region us-west-1 at AWS site level (normal mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -182,7 +182,7 @@
   register: nm_add_hub_network
 
 - name: Verify cm_add_hub_network and nm_add_hub_network
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_hub_network is changed
     - nm_add_hub_network is changed
@@ -195,7 +195,7 @@
 
 # Add hub network again
 - name: Add hub network again in VRF1 region us-west-1 at AWS site level (normal mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -209,7 +209,7 @@
   register: nm_add_hub_network_again
 
 - name: Verify nm_add_hub_network_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_hub_network_again is not changed
     - nm_add_hub_network_again.previous.name == nm_add_hub_network_again.current.name == "hub-test"
@@ -217,7 +217,7 @@
 
 # Update hub network
 - name: Update hub network in VRF1 region us-west-1 at AWS site level (check_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -232,7 +232,7 @@
   register: cm_update_hub_network
 
 - name: Update hub network in VRF1 region us-west-1 at AWS site level (normal_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -246,7 +246,7 @@
   register: nm_update_hub_network
 
 - name: Verify cm_update_hub_network and nm_update_hub_network
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_update_hub_network is changed
     - nm_update_hub_network is changed
@@ -261,7 +261,7 @@
 
 # Query Hub Network
 - name: Query hub network in VRF1 region us-west-1 at AWS site level
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -273,7 +273,7 @@
   register: cm_query_hub_network
 
 - name: Verify cm_query_hub_network
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_hub_network is not changed
     - cm_query_hub_network.current.name == "hub-default"
@@ -281,7 +281,7 @@
 
 # Remove Hub Network
 - name: Remove hub network in VRF1 region us-west-1 at AWS site level (check_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -293,7 +293,7 @@
   register: cm_remove_hub_network
 
 - name: Remove hub network in VRF1 region us-west-1 at AWS site level (normal mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -304,7 +304,7 @@
   register: nm_remove_hub_network
 
 - name: Verify cm_remove_hub_network and nm_remove_hub_network
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_hub_network is changed
     - cm_remove_hub_network.current == {}
@@ -317,7 +317,7 @@
 
 # Remove Hub Network again
 - name: Remove again hub network in VRF1 region us-west-1 at AWS site level (check_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -329,7 +329,7 @@
   register: cm_remove_hub_network_again
 
 - name: Remove again hub network in VRF1 region us-west-1 at AWS site level (normal_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -340,7 +340,7 @@
   register: nm_remove_hub_network_again
 
 - name: Verify cm_remove_hub_network_again and nm_remove_hub_network_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_hub_network_again is not changed
     - nm_remove_hub_network_again is not changed
@@ -349,7 +349,7 @@
 
 # query when hub network does not exist
 - name: Query non_existing_hub_network
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -361,13 +361,13 @@
   register: query_non_existing_hub_network
 
 - name: Verify query_non_existing_hub_network
-  assert:
+  ansible.builtin.assert:
     that:
     - query_non_existing_hub_network.msg == "Hub network not found"
 
 # Re-Add hub network
 - name: Re-Add hub network in VRF1 region us-west-1 at AWS site level (normal mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -381,7 +381,7 @@
   register: re_add_hub_network
 
 - name: Verify re_add_hub_network
-  assert:
+  ansible.builtin.assert:
     that:
     - re_add_hub_network is changed
     - re_add_hub_network.previous == {}
@@ -390,7 +390,7 @@
 
 # QUERY NON-EXISTING region
 - name: Query non-existing region (check_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -403,7 +403,7 @@
   register: cm_query_non_region
 
 - name: Query non-existing region (normal mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -415,7 +415,7 @@
   register: nm_query_non_region
 
 - name: Verify query_non_region
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_region is not changed
     - nm_query_non_region is not changed
@@ -424,7 +424,7 @@
 
 # QUERY NON-EXISTING VRF
 - name: Query non-existing VRF (check_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -437,7 +437,7 @@
   register: cm_query_non_vrf
 
 - name: Query non-existing VRF (normal mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -449,7 +449,7 @@
   register: nm_query_non_vrf
 
 - name: Verify query_non_vrf
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_vrf is not changed
     - nm_query_non_vrf is not changed
@@ -458,7 +458,7 @@
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for site hub network (check_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -471,7 +471,7 @@
   register: cm_non_existing_state
 
 - name: Non-existing state for hub network (normal_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -483,7 +483,7 @@
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
@@ -492,7 +492,7 @@
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for site hub network (check_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: non-existing-schema
     template: Template 1
@@ -505,7 +505,7 @@
   register: cm_non_existing_schema
 
 - name: Non-existing schema for site hub network (normal_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: non-existing-schema
     template: Template 1
@@ -517,7 +517,7 @@
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_schema is not changed
     - nm_non_existing_schema is not changed
@@ -526,7 +526,7 @@
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template for site hub network (check_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
@@ -539,7 +539,7 @@
   register: cm_non_existing_template
 
 - name: Non-existing template for site hub network (normal_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
@@ -551,7 +551,7 @@
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
@@ -560,7 +560,7 @@
 
 # USE A NON_EXISTING_SITE_TEMPLATE
 - name: non_existing_site_template (check_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -573,7 +573,7 @@
   register: cm_non_existing_site_template
 
 - name: non_existing_site_template (normal_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -585,7 +585,7 @@
   register: nm_non_existing_site_template
 
 - name: Verify cm_non_existing_site_template and nm_non_existing_site_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_site_template is not changed
     - nm_non_existing_site_template is not changed
@@ -593,7 +593,7 @@
 
 # USE A NON_EXISTING_SITE
 - name: non_existing_site (check_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -606,7 +606,7 @@
   register: cm_non_existing_site
 
 - name: non_existing_site (normal_mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -618,7 +618,7 @@
   register: nm_non_existing_site
 
 - name: Verify cm_non_existing_site and nm_non_existing_site
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_site is not changed
     - nm_non_existing_site is not changed
@@ -626,7 +626,7 @@
 
 # use mso_schema_site_vrf_region_cidr_subnet module to update region
 - name: Add a new CIDR in VRF1 at AWS site level (check mode)
-  mso_schema_site_vrf_region_cidr: &cidr_present
+  cisco.mso.mso_schema_site_vrf_region_cidr: &cidr_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -640,7 +640,7 @@
   register: cm_add_cidr
 
 - name: Verify cm_add_cidr
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_cidr is changed
     - cm_add_cidr.previous == {}
@@ -648,12 +648,12 @@
     - cm_add_cidr.current.primary == false
 
 - name: Add a new CIDR in VRF1 at AWS site level (normal mode)
-  mso_schema_site_vrf_region_cidr:
+  cisco.mso.mso_schema_site_vrf_region_cidr:
     <<: *cidr_present
   register: nm_add_cidr
 
 - name: Verify nm_add_cidr
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_cidr is changed
     - nm_add_cidr.previous == {}
@@ -662,7 +662,7 @@
 
 # query hub network after using mso_schema_site_vrf_region_cidr_subnet module to update region
 - name: Query hub_network after region updated
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -673,7 +673,7 @@
   register: query_after_region_update
 
 - name: Verify query_after_region_update
-  assert:
+  ansible.builtin.assert:
     that:
     - query_after_region_update is not changed
     - query_after_region_update.current.name == "hub-test"
@@ -681,7 +681,7 @@
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add site VRF region hub network to Schema 2 Template 3 without any site associated (check mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -697,7 +697,7 @@
   register: cm_no_site_associated
 
 - name: Add site VRF region hub network to Template 3 without any site associated (normal mode)
-  mso_schema_site_vrf_region_hub_network:
+  cisco.mso.mso_schema_site_vrf_region_hub_network:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -712,7 +712,7 @@
   register: nm_no_site_associated
 
 - name: Verify cm_no_site_associated and nm_no_site_associated
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_no_site_associated is not changed
     - nm_no_site_associated is not changed

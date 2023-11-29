@@ -4,14 +4,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,23 +22,23 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Set version vars
-  set_fact:
-    mso_rw: true
+  ansible.builtin.set_fact:
+    cisco.mso.mso_rw: true
   when:
   - version.current.version is version('2.2.4', '<')
 
 - name: Import tasks if RW of role in this MSO version
-  import_tasks: role-rw.yml
+  ansible.builtin.import_tasks: role-rw.yml
   when: mso_rw is defined
 
 - name: Import tasks if RO of role in this MSO version
-  import_tasks: role-ro.yml
+  ansible.builtin.import_tasks: role-ro.yml
   when:
   - mso_rw is not defined
   - version.current.version is version('3.2', '<')

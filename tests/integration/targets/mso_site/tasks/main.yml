@@ -4,14 +4,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     site_dict: {}
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
@@ -23,13 +23,13 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Undeploy a schema 1 template 1
-  mso_schema_template_deploy: &schema_undeploy
+  cisco.mso.mso_schema_template_deploy: &schema_undeploy
     <<: *mso_info
     schema: ansible_test
     template: Template 1
@@ -41,7 +41,7 @@
   - '{{ mso_site | default("ansible_test") }}_2'
 
 - name: Undeploy a schema 1 template 2
-  mso_schema_template_deploy:
+  cisco.mso.mso_schema_template_deploy:
     <<: *schema_undeploy
     template: Template 2
     site: '{{ item }}'
@@ -52,7 +52,7 @@
   - '{{ mso_site | default("ansible_test") }}_2'
 
 - name: Undeploy a schema 2 template 3
-  mso_schema_template_deploy:
+  cisco.mso.mso_schema_template_deploy:
     <<: *schema_undeploy
     schema: ansible_test_2
     template: Template 3
@@ -64,7 +64,7 @@
   - '{{ mso_site | default("ansible_test") }}_2'
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -75,33 +75,32 @@
   - 'Schema2'
 
 - name: Remove tenant ansible_test
-  mso_tenant: &tenant_absent
+  cisco.mso.mso_tenant: &tenant_absent
     <<: *mso_info
     tenant: ansible_test
     state: absent
 
 - name: Remove tenant ansible_test2
-  mso_tenant:
+  cisco.mso.mso_tenant:
     <<: *tenant_absent
     tenant: ansible_test2
   register: cm_remove_tenant
 
 - name: Remove site
-  mso_site: &site_absent
+  cisco.mso.mso_site: &site_absent
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     state: absent
 
 - name: Remove site 2
-  mso_site:
+  cisco.mso.mso_site:
     <<: *site_absent
     site: '{{ mso_site | default("ansible_test") }}_2'
   register: cm_remove_site
 
-
 # ADD SITE
 - name: Add site (check_mode)
-  mso_site: &site_present
+  cisco.mso.mso_site: &site_present
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -121,101 +120,100 @@
   register: cm_add_site
 
 - name: Verify cm_add_site
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_site is changed
     - cm_add_site.previous == {}
 
 - name: Verify cm_add_site (MSO)
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_site.current.id is not defined
     - cm_add_site.current.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '<')
 
 - name: Verify cm_add_site (ND)
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_site.current.id == ""
     - cm_add_site.current.common.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '>=')
 
 - name: Add site (normal mode)
-  mso_site: *site_present
+  cisco.mso.mso_site: *site_present
   register: nm_add_site
 
 - name: Verify nm_add_site
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site is changed
     - nm_add_site.previous == {}
 
 - name: Verify nm_add_site (MSO)
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site.current.id is defined
     - nm_add_site.current.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '<')
 
 - name: Verify nm_add_site (ND)
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site.current.common.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '>=')
 
 - name: Add site again (check_mode)
-  mso_site: *site_present
+  cisco.mso.mso_site: *site_present
   check_mode: true
   register: cm_add_site_again
 
 - name: Verify cm_add_site_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_site_again is not changed
     - cm_add_site_again.current.id == nm_add_site.current.id
 
 - name: Verify cm_add_site_again (MSO)
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_site_again.previous.name == mso_site|default("ansible_test")
     - cm_add_site_again.current.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '<')
 
 - name: Verify cm_add_site_again (ND)
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_site_again.previous.common.name == mso_site|default("ansible_test")
     - cm_add_site_again.current.common.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '>=')
 
 - name: Add site again (normal mode)
-  mso_site: *site_present
+  cisco.mso.mso_site: *site_present
   register: nm_add_site_again
 
 - name: Verify nm_add_site_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site_again is not changed
     - nm_add_site_again.current.id == nm_add_site.current.id
 
 - name: Verify nm_add_site_again (MSO)
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site_again.previous.name == mso_site|default("ansible_test")
     - nm_add_site_again.current.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '<')
 
 - name: Verify nm_add_site_again (ND)
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site_again.previous.common.name == mso_site|default("ansible_test")
     - nm_add_site_again.current.common.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '>=')
 
-
 # CHANGE SITE
 - name: Change site (check_mode)
-  mso_site:
+  cisco.mso.mso_site:
     <<: *site_present
     site: '{{ mso_site | default("ansible_test") }}'
     apic_login_domain: '{{ apic_login_domain | default("test") }}'
@@ -229,12 +227,12 @@
   register: cm_change_site
 
 - name: Verify cm_change_site
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_change_site.current.id == nm_add_site.current.id
 
 - name: Verify cm_change_site (MSO)
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_change_site is changed
     - cm_change_site.current.location.lat == 51.887318
@@ -245,13 +243,13 @@
   when: version.current.version is version('3.2', '<')
 
 - name: Verify cm_change_site (ND)
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_change_site.current.common.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '>=')
 
 - name: Change site (normal mode)
-  mso_site:
+  cisco.mso.mso_site:
     <<: *site_present
     site: '{{ mso_site | default("ansible_test") }}'
     apic_login_domain: '{{ apic_login_domain | default("test") }}'
@@ -265,12 +263,12 @@
   register: nm_change_site
 
 - name: Verify nm_change_site
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_site.current.id == nm_add_site.current.id
 
 - name: Verify nm_change_site (MSO)
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_site is changed
     - nm_change_site.current.location.lat == 51.887318
@@ -281,13 +279,13 @@
   when: version.current.version is version('3.2', '<')
 
 - name: Verify nm_change_site (ND)
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_site.current.common.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '>=')
 
 - name: Change site again (check_mode)
-  mso_site:
+  cisco.mso.mso_site:
     <<: *site_present
     site: '{{ mso_site | default("ansible_test") }}'
     apic_login_domain: '{{ apic_login_domain | default("test") }}'
@@ -301,13 +299,13 @@
   register: cm_change_site_again
 
 - name: Verify cm_change_site_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_change_site_again is not changed
     - cm_change_site_again.current.id == nm_add_site.current.id
 
 - name: Verify cm_change_site_again (MSO)
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_change_site_again.current.location.lat == 51.887318
     - cm_change_site_again.current.location.long == 5.447084
@@ -317,13 +315,13 @@
   when: version.current.version is version('3.2', '<')
 
 - name: Verify cm_change_site_again (ND)
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_change_site_again.current.common.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '>=')
 
 - name: Change site again (normal mode)
-  mso_site:
+  cisco.mso.mso_site:
     <<: *site_present
     site: '{{ mso_site | default("ansible_test") }}'
     apic_login_domain: '{{ apic_login_domain | default("test") }}'
@@ -337,13 +335,13 @@
   register: nm_change_site_again
 
 - name: Verify nm_change_site_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_site_again is not changed
     - nm_change_site_again.current.id == nm_add_site.current.id
 
 - name: Verify nm_change_site_again (MSO)
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_site_again.current.location.lat == 51.887318
     - nm_change_site_again.current.location.long == 5.447084
@@ -353,48 +351,47 @@
   when: version.current.version is version('3.2', '<')
 
 - name: Verify nm_change_site_again (ND)
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_site_again.current.common.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '>=')
 
 # QUERY ALL SITES
 - name: Query all sites (check_mode)
-  mso_site: &site_query
+  cisco.mso.mso_site: &site_query
     <<: *mso_info
     state: query
   check_mode: true
   register: cm_query_all_sites
 
 - name: Query all sites (normal mode)
-  mso_site: *site_query
+  cisco.mso.mso_site: *site_query
   register: nm_query_all_sites
 
 - name: Verify query_all_sites
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_all_sites is not changed
     - nm_query_all_sites is not changed
     # NOTE: Order of sites is not stable between calls
     #- cm_query_all_sites == nm_query_all_sites
 
-
 # QUERY A SITE
 - name: Query our site
-  mso_site:
+  cisco.mso.mso_site:
     <<: *site_query
     site: '{{ mso_site | default("ansible_test") }}'
   check_mode: true
   register: cm_query_site
 
 - name: Query our site
-  mso_site:
+  cisco.mso.mso_site:
     <<: *site_query
     site: '{{ mso_site | default("ansible_test") }}'
   register: nm_query_site
 
 - name: Verify query_site
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_site is not changed
     - cm_query_site.current.id == nm_add_site.current.id
@@ -403,14 +400,14 @@
     - cm_query_site == nm_query_site
 
 - name: Verify query_site (MSO)
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_site.current.name == mso_site|default("ansible_test")
     - nm_query_site.current.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '<')
 
 - name: Verify query_site (ND)
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_site.current.common.name == mso_site|default("ansible_test")
     - nm_query_site.current.common.name == mso_site|default("ansible_test")
@@ -418,65 +415,64 @@
 
 # REMOVE SITE
 - name: Remove site (check_mode)
-  mso_site: *site_absent
+  cisco.mso.mso_site: *site_absent
   check_mode: true
   register: cm_remove_site
 
 - name: Verify cm_remove_site
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_site is changed
     - cm_remove_site.current == {}
 
 - name: Remove site (normal mode)
-  mso_site: *site_absent
+  cisco.mso.mso_site: *site_absent
   register: nm_remove_site
 
 - name: Verify nm_remove_site
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_site is changed
     - nm_remove_site.current == {}
 
 - name: Remove site again (check_mode)
-  mso_site: *site_absent
+  cisco.mso.mso_site: *site_absent
   check_mode: true
   register: cm_remove_site_again
 
 - name: Verify cm_remove_site_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_site_again is not changed
     - cm_remove_site_again.current == {}
 
 - name: Remove site again (normal mode)
-  mso_site: *site_absent
+  cisco.mso.mso_site: *site_absent
   register: nm_remove_site_again
 
 - name: Verify nm_remove_site_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_site_again is not changed
     - nm_remove_site_again.current == {}
 
-
 # QUERY NON-EXISTING SITE
 - name: Query non-existing site (check_mode)
-  mso_site:
+  cisco.mso.mso_site:
     <<: *site_query
     site: '{{ mso_site | default("ansible_test") }}'
   check_mode: true
   register: cm_query_non_site
 
 - name: Query non-existing site (normal mode)
-  mso_site:
+  cisco.mso.mso_site:
     <<: *site_query
     site: '{{ mso_site | default("ansible_test") }}'
   register: nm_query_non_site
 
 # TODO: Implement more tests
 - name: Verify query_non_site
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_site is not changed
     - nm_query_non_site is not changed
@@ -484,7 +480,7 @@
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for site (check_mode)
-  mso_site:
+  cisco.mso.mso_site:
     <<: *site_query
     state: non-existing-state
   check_mode: true
@@ -492,14 +488,14 @@
   register: cm_non_existing_state
 
 - name: Non-existing state for bd (normal_mode)
-  mso_site:
+  cisco.mso.mso_site:
     <<: *site_query
     state: non-existing-state
   ignore_errors: true
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
@@ -508,7 +504,7 @@
 
 # ADD SITE
 - name: Add site (normal_mode)
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -521,20 +517,20 @@
   register: nm_add_site_no_location
 
 - name: Verify nm_add_site_no_location
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site_no_location is changed
     - nm_add_site_no_location.previous == {}
     - nm_add_site_no_location.current.id is defined
 
 - name: Verify nm_add_site_no_location (MSO)
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site_no_location.current.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '<')
 
 - name: Verify nm_add_site_no_location (ND)
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_site_no_location.current.common.name == mso_site|default("ansible_test")
   when: version.current.version is version('3.2', '>=')
@@ -543,18 +539,18 @@
   when: version.current.version is version('4.0', '>=')
   block:
   - name: Query all sites (check_mode)
-    mso_site:
+    cisco.mso.mso_site:
       <<: *mso_info
       state: query
     register: sites
 
   - name: Add sites to dict
-    set_fact:
+    ansible.builtin.set_fact:
       site_dict: "{{ site_dict | combine( { item.common.name : { 'id' : item.id, 'site_group_id' : item.common.siteGroup } } ) }}"
     loop: "{{ sites.current }}"
 
   - name: Render a connectivity jinja2 template
-    set_fact:
+    ansible.builtin.set_fact:
       site_payload: "{{ lookup('template', 'connectivity.j2') }}"
 
   - name: Configure site connectivity

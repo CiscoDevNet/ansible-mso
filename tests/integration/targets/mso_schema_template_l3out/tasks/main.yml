@@ -4,13 +4,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -21,13 +21,13 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -36,7 +36,7 @@
     - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exists
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -46,7 +46,7 @@
     state: present
 
 - name: Ensure schema 1 with Template1, and Template2 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -57,7 +57,7 @@
   - { template: Template2}
 
 - name: Ensure VRF1 exists
-  mso_schema_template_vrf: 
+  cisco.mso.mso_schema_template_vrf: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -65,7 +65,7 @@
     state: present
 
 - name: Verify L3Out doesn't exist
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -73,7 +73,7 @@
     state: absent
 
 - name: Add new L3Out (check_mode)
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -85,7 +85,7 @@
   register: cm_add_l3out
 
 - name: Add new L3Out (normal mode)
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -96,7 +96,7 @@
   register: nm_add_l3out
 
 - name: Add L3Out again
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -107,7 +107,7 @@
   register: add_l3out_again
 
 - name: Verify add
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_l3out is changed
     - cm_add_l3out.previous == {}
@@ -124,7 +124,7 @@
     - nm_add_l3out.current.vrfRef.schemaId == add_l3out_again.current.vrfRef.schemaId
 
 - name: Add new L3Outs
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -138,12 +138,12 @@
   - { l3out: L3out3}
 
 - name: Verify add
-  assert:
+  ansible.builtin.assert:
     that:
     - new_l3outs is changed
 
 - name: Query a specific L3Out
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -152,7 +152,7 @@
   register: query_l3out
 
 - name: Query all L3outs
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -160,13 +160,13 @@
   register: query_all
 
 - name: Verify query
-  assert:
+  ansible.builtin.assert:
     that:
     - query_l3out is not changed
     - query_all is not changed
 
 - name: Remove an L3Out
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -175,7 +175,7 @@
   register: delete_l3out
 
 - name: Verify delete
-  assert:
+  ansible.builtin.assert:
     that:
     - delete_l3out is changed
     - delete_l3out.previous.name == "L3out1"
@@ -183,7 +183,7 @@
 
 # USE A NON_EXISTING_TEMPLATE
 - name: non_existing_template (check_mode)
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non_existing_template
@@ -196,7 +196,7 @@
   register: cm_non_existing_template
 
 - name: non_existing_template (normal_mode)
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non_existing_template
@@ -208,7 +208,7 @@
   register: nm_non_existing_template
 
 - name: Verify cm_non_existing_template and nm_non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
@@ -216,7 +216,7 @@
 
 # QUERY NON-EXISTING L3Out
 - name: Query non-existing L3Out (check_mode)
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -227,7 +227,7 @@
   register: cm_query_non_l3out
 
 - name: Query non-existing L3Out (normal_mode)
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -237,7 +237,7 @@
   register: nm_query_non_l3out
 
 - name: Verify cm_query_non_l3out and nm_query_non_l3out
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_l3out is not changed
     - nm_query_non_l3out is not changed
@@ -246,7 +246,7 @@
 # Add description for version >= 3.3
 
 - name: Add new L3Out
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
@@ -259,7 +259,7 @@
   when: version.current.version is version('3.3', '>=')
 
 - name: Verify add description
-  assert:
+  ansible.builtin.assert:
     that:
     - add_desc is changed
   when: version.current.version is version('3.3', '>=')

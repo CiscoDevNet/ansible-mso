@@ -7,14 +7,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -25,13 +25,13 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -40,7 +40,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant: &tenant_present
+  cisco.mso.mso_tenant: &tenant_present
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -48,7 +48,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
-  mso_schema_template: &schema_present
+  cisco.mso.mso_schema_template: &schema_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -56,7 +56,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 2 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *schema_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -64,7 +64,7 @@
     state: present
 
 - name: Ensure schema 2 with Template 3 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *schema_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -72,7 +72,7 @@
     state: present
 
 - name: Ensure VRF exist
-  mso_schema_template_vrf: &vrf_present
+  cisco.mso.mso_schema_template_vrf: &vrf_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -81,13 +81,13 @@
     state: present
 
 - name: Ensure VRF2 exist
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *vrf_present
     vrf: VRF2
     state: present
 
 - name: Ensure VRF3 exist
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -95,7 +95,7 @@
     state: present
 
 - name: Ensure VRF4 exist
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -103,7 +103,7 @@
     state: present
 
 - name: Ensure ANP exist
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -111,7 +111,7 @@
     state: present
 
 - name: Ensure ANP2 exist
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -119,7 +119,7 @@
     state: present
 
 - name: Ensure ANP3 exist
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -127,7 +127,7 @@
     state: present
 
 - name: Ensure Filter 1 exist
-  mso_schema_template_filter_entry:
+  cisco.mso.mso_schema_template_filter_entry:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -136,7 +136,7 @@
     state: present
 
 - name: Ensure Contract1 exist
-  mso_schema_template_contract_filter: &contract_present
+  cisco.mso.mso_schema_template_contract_filter: &contract_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -147,7 +147,7 @@
     state: present
 
 - name: Ensure Filter 2 exist
-  mso_schema_template_filter_entry:
+  cisco.mso.mso_schema_template_filter_entry:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -156,7 +156,7 @@
     state: present
 
 - name: Ensure Contract2 exist
-  mso_schema_template_contract_filter: &contract2_present
+  cisco.mso.mso_schema_template_contract_filter: &contract2_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -167,7 +167,7 @@
     state: present
 
 - name: Ensure ansible_test_1 BD exist
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -178,7 +178,7 @@
     state: present
 
 - name: Ensure ansible_test_2 BD exist
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -190,7 +190,7 @@
     state: present
 
 - name: Ensure ansible_test_3 BD exist
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -203,7 +203,7 @@
     state: present
 
 - name: Ensure ansible_test_4 BD exist
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *vrf_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -217,7 +217,7 @@
 
 # ADD EPG
 - name: Add EPG (check_mode)
-  mso_schema_template_anp_epg: &epg_present
+  cisco.mso.mso_schema_template_anp_epg: &epg_present
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -232,7 +232,7 @@
   register: cm_add_epg
 
 - name: Verify cm_add_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_epg is changed
     - cm_add_epg.previous == {}
@@ -243,12 +243,12 @@
     - cm_add_epg.current.bdRef.bdName == "ansible_test_1"
 
 - name: Add EPG (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
   register: nm_add_epg
 
 - name: Verify nm_add_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_epg is changed
     - nm_add_epg.previous == {}
@@ -261,13 +261,13 @@
     - cm_add_epg.current.bdRef.schemaId ==  nm_add_epg.current.bdRef.schemaId
 
 - name: Add EPG again (check_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
   check_mode: true
   register: cm_add_epg_again
 
 - name: Verify cm_add_epg_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_epg_again is not changed
     - cm_add_epg_again.current.name == cm_add_epg_again.previous.name == "ansible_test_1"
@@ -280,12 +280,12 @@
 
 
 - name: Add EPG again (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
   register: nm_add_epg_again
 
 - name: Verify nm_add_epg_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_epg_again is not changed
     - nm_add_epg_again.current.name == nm_add_epg_again.previous.name == "ansible_test_1"
@@ -297,13 +297,13 @@
     - nm_add_epg_again.previous.bdRef.schemaId ==  nm_add_epg_again.current.bdRef.schemaId
 
 - name: Add EPG 2 (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     epg: ansible_test_2
 
 - name: Add EPG 3 in template of schema 1(normal mode)
-  mso_schema_template_anp_epg: &epg_schema_1_template_2
+  cisco.mso.mso_schema_template_anp_epg: &epg_schema_1_template_2
     <<: *epg_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -338,7 +338,7 @@
   register: nm_add_epg_3
 
 - name: Add EPG 4 in template3 of schema 2(normal mode)
-  mso_schema_template_anp_epg: &epg_schema_2_template_3
+  cisco.mso.mso_schema_template_anp_epg: &epg_schema_2_template_3
     <<: *epg_present
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -355,7 +355,7 @@
   register: nm_add_epg_4
 
 - name: Verify nm_add_epg_3 and nm_add_epg_4
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_epg_3 is changed
     - nm_add_epg_4 is changed
@@ -397,7 +397,7 @@
 
 # CHANGE EPG
 - name: Change EPG (check_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     vrf:
       name: VRF2
@@ -407,7 +407,7 @@
   register: cm_change_epg
 
 - name: Verify cm_change_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_change_epg is changed
     - cm_change_epg.current.name == 'ansible_test_1'
@@ -418,7 +418,7 @@
     - cm_change_epg.current.bdRef.schemaId == cm_change_epg.previous.bdRef.schemaId
 
 - name: Change EPG (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     vrf:
       name: VRF2
@@ -428,7 +428,7 @@
   register: nm_change_epg
 
 - name: Verify nm_change_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_epg is changed
     - nm_change_epg.current.name == 'ansible_test_1'
@@ -439,7 +439,7 @@
     - nm_change_epg.current.bdRef.schemaId == nm_change_epg.previous.bdRef.schemaId
 
 - name: Change EPG again (check_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     vrf:
       name: VRF2
@@ -449,7 +449,7 @@
   register: cm_change_epg_again
 
 - name: Verify cm_change_epg_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_change_epg_again is not changed
     - cm_change_epg_again.current.name == 'ansible_test_1'
@@ -460,7 +460,7 @@
     - cm_change_epg_again.current.bdRef.schemaId == cm_change_epg_again.previous.bdRef.schemaId
 
 - name: Change EPG again (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     vrf:
       name: VRF2
@@ -469,7 +469,7 @@
   register: nm_change_epg_again
 
 - name: Verify nm_change_epg_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_epg_again is not changed
     - nm_change_epg_again.current.name == 'ansible_test_1'
@@ -480,7 +480,7 @@
     - nm_change_epg_again.current.bdRef.schemaId == nm_change_epg_again.previous.bdRef.schemaId
 
 - name: Change EPG to VRF in different template (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_schema_1_template_2
     vrf:
       name: VRF
@@ -491,7 +491,7 @@
   register: nm_change_epg_vrf3
 
 - name: Change EPG 4 to VRF (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_schema_2_template_3
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -508,7 +508,7 @@
   register: nm_change_epg_vrf4
 
 - name: Verify nm_change_epg_vrf3 and nm_change_epg_vrf4
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_epg_vrf3 is changed
     - nm_change_epg_vrf3.current.name == 'ansible_test_3'
@@ -521,7 +521,7 @@
     - nm_change_epg_vrf4.current.vrfRef.templateName == nm_change_epg_vrf4.current.bdRef.templateName == "Template1"
 
 - name: Change EPG 1 settings(normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -547,7 +547,7 @@
   register: nm_change_epg_1_settings
 
 - name: Change EPG 1 subnets (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -571,7 +571,7 @@
   register: nm_change_epg_1_subnets
 
 - name: Verify nm_change_epg_1_subnets
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_epg_1_settings is changed
     - nm_change_epg_1_settings.current.name == "ansible_test_1"
@@ -633,7 +633,7 @@
 
 # # QUERY ALL EPGs
 - name: Query all EPGs in an ANP (check_mode)
-  mso_schema_template_anp_epg: &epg_query
+  cisco.mso.mso_schema_template_anp_epg: &epg_query
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -643,12 +643,12 @@
   register: cm_query_all_epgs
 
 - name: Query all EPGs (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
   register: nm_query_all_epgs
 
 - name: Verify query_all_epgs
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_all_epgs is not changed
     - nm_query_all_epgs is not changed
@@ -657,20 +657,20 @@
 
 # QUERY AN EPG
 - name: Query EPG 1 (check_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
     epg: ansible_test_1
   check_mode: true
   register: cm_query_epg_1
 
 - name: Query EPG 1 (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
     epg: ansible_test_1
   register: nm_query_epg_1
 
 - name: Query EPG 3 (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
     template: Template 2
     anp: ANP2
@@ -678,7 +678,7 @@
   register: nm_query_epg_3
 
 - name: Query EPG 4 (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
@@ -687,7 +687,7 @@
   register: nm_query_epg_4
 
 - name: Verify query_epg_x
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_epg_1 is not changed
     - nm_query_epg_1 is not changed
@@ -752,57 +752,57 @@
 
 # REMOVE EPG
 - name: Remove EPG (check_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     state: absent
   check_mode: true
   register: cm_remove_epg
 
 - name: Verify cm_remove_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_epg is changed
     - cm_remove_epg.current == {}
 
 - name: Remove EPG (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     state: absent
   register: nm_remove_epg
 
 - name: Verify nm_remove_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_epg is changed
     - nm_remove_epg.current == {}
 
 - name: Remove EPG again (check_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     state: absent
   check_mode: true
   register: cm_remove_epg_again
 
 - name: Verify cm_remove_epg_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_epg_again is not changed
     - cm_remove_epg_again.current == {}
 
 - name: Remove EPG again (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     state: absent
   register: nm_remove_epg_again
 
 - name: Verify nm_remove_epg_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_epg_again is not changed
     - nm_remove_epg_again.current == {}
 
 - name: Remove EPG (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -817,7 +817,7 @@
   - version.current.version is version('3.3', '>=')
   block:
   - name: Add EPG (for version greater than 3.3)
-    mso_schema_template_anp_epg: &new_epg
+    cisco.mso.mso_schema_template_anp_epg: &new_epg
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
@@ -828,13 +828,13 @@
     register: add_epg_desc
 
   - name: Verify Add description
-    assert:
+    ansible.builtin.assert:
       that:
         - add_epg_desc is changed
         - add_epg_desc.current.description == "Description of ANP EPG"
   
   - name: Remove EPG (for version greater than 3.3)
-    mso_schema_template_anp_epg:
+    cisco.mso.mso_schema_template_anp_epg:
       <<: *new_epg
       state: absent
 
@@ -843,7 +843,7 @@
   - version.current.version is version('4.0', '>=')
   block:
   - name: Add EPG service type parameters (for version greater than 4.0)
-    mso_schema_template_anp_epg:
+    cisco.mso.mso_schema_template_anp_epg:
       <<: *new_epg
       epg_type: 'service'
       deployment_type: 'third_party'
@@ -852,7 +852,7 @@
     register: service_type_epg
 
   - name: Add EPG service type parameters (for version greater than 4.0) with error
-    mso_schema_template_anp_epg:
+    cisco.mso.mso_schema_template_anp_epg:
       <<: *new_epg
       epg_type: 'service'
       deployment_type: 'third_party'
@@ -862,7 +862,7 @@
     register: service_type_epg_error
 
   - name: Verify service type error
-    assert:
+    ansible.builtin.assert:
       that:
       - service_type_epg_error.msg == "MSO Error 400{{':'}} EPG{{':'}} ansible_test_1 in Schema{{':'}} ansible_test , Template{{':'}} Template1 DeploymentType{{':'}} saas, AccessType {{':'}}publicAndPrivateType, Combination is not supported"
 
@@ -873,7 +873,7 @@
   - version.current.version is version('4.0', '<')
   block:
   - name: Add EPG service type parameters (for version greater than 3.3 and less than 4.0)
-    mso_schema_template_anp_epg:
+    cisco.mso.mso_schema_template_anp_epg:
       <<: *new_epg
       epg_type: 'service'
       deployment_type: 'third_party'
@@ -882,7 +882,7 @@
     register: add_epg
 
   - name: Get Validation status for service type parameters
-    mso_schema_validate:
+    cisco.mso.mso_schema_validate:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
@@ -890,13 +890,13 @@
     register: query_validate
 
   - name: Verify validation
-    assert:
+    ansible.builtin.assert:
       that:
       - query_validate is not changed
       - query_validate.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} For Deployment type 'Third-party' access type 'PublicAndPrivate' is not supported exception while trying to update schema"
 
   - name: Add EPG service type parameters (for version greater than 3.3 and less than 4.0)
-    mso_schema_template_anp_epg:
+    cisco.mso.mso_schema_template_anp_epg:
       <<: *new_epg
       epg_type: 'service'
       deployment_type: 'cloud_native'
@@ -905,7 +905,7 @@
     register: add_epg
 
   - name: Get Validation status for service type parameters
-    mso_schema_validate:
+    cisco.mso.mso_schema_validate:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
@@ -913,13 +913,13 @@
     register: query_validate
 
   - name: Verify validation
-    assert:
+    ansible.builtin.assert:
       that:
       - query_validate is not changed
       - query_validate.current.result == "true"
 
   - name: Add new EPG service type parameters (for version greater than 3.3 and less than 4.0)
-    mso_schema_template_anp_epg:
+    cisco.mso.mso_schema_template_anp_epg:
       <<: *new_epg
       epg_type: 'service'
       deployment_type: 'third_party'
@@ -928,7 +928,7 @@
     register: add_epg
 
   - name: Get Validation status for service type parameters
-    mso_schema_validate:
+    cisco.mso.mso_schema_validate:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
@@ -936,14 +936,14 @@
     register: query_validate
 
   - name: Verify validation
-    assert:
+    ansible.builtin.assert:
       that:
       - query_validate is not changed
       - query_validate.current.result == "true"
 
 # Add QoS level to EPG
 - name: Add EPG (for version greater than 3.1)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     name: ansible_test_5
     qos_level: 'level2'
@@ -951,14 +951,14 @@
   when: version.current.version is version('3.1', '>=')
 
 - name: Verify Add contract for version greater than 3.1
-  assert:
+  ansible.builtin.assert:
     that:
     - add_epg is changed
   when: version.current.version is version('3.1', '>=')
 
 # QUERY NON-EXISTING EPG
 - name: Query non-existing EPG (check_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
     epg: non_existing_epg
   check_mode: true
@@ -966,14 +966,14 @@
   register: cm_query_non_epg
 
 - name: Query non-existing EPG (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
     epg: non_existing_epg
   ignore_errors: true
   register: nm_query_non_epg
 
 - name: Verify query_non_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_epg is not changed
     - nm_query_non_epg is not changed
@@ -982,7 +982,7 @@
 
 # QUERY NON-EXISTING ANP
 - name: Query non-existing ANP (check_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
     anp: non_existing_anp
   check_mode: true
@@ -990,14 +990,14 @@
   register: cm_query_non_anp
 
 - name: Query non-existing ANP (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
     anp: non_existing_anp
   ignore_errors: true
   register: nm_query_non_anp
 
 - name: Verify query_non_anp
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_anp is not changed
     - nm_query_non_anp is not changed
@@ -1006,7 +1006,7 @@
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for EPG (check_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
     epg: ansible_test_2
     state: non-existing-state
@@ -1015,7 +1015,7 @@
   register: cm_non_existing_state
 
 - name: Non-existing state for EPG (normal_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
     epg: ansible_test_2
     state: non-existing-state
@@ -1023,7 +1023,7 @@
   register: nm_non_existing_state
 
 - name: Verify non_existing_state
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
@@ -1032,7 +1032,7 @@
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for EPG (check_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     schema: non-existing-schema
     epg: ansible_test_2
@@ -1041,7 +1041,7 @@
   register: cm_non_existing_schema
 
 - name: Non-existing schema for EPG (normal_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     schema: non-existing-schema
     epg: ansible_test_2
@@ -1049,7 +1049,7 @@
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_schema is not changed
     - nm_non_existing_schema is not changed
@@ -1057,7 +1057,7 @@
     - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
 
 - name: Non-existing BD schema for EPG (check_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     epg: ansible_test_2
     bd:
@@ -1069,7 +1069,7 @@
   register: cm_non_existing_bd_schema
 
 - name: Non-existing BD schema for EPG (normal_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     epg: ansible_test_2
     bd:
@@ -1080,7 +1080,7 @@
   register: nm_non_existing_bd_schema
 
 - name: Verify non_existing_bd_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_bd_schema is not changed
     - nm_non_existing_bd_schema is not changed
@@ -1088,7 +1088,7 @@
     - cm_non_existing_bd_schema.msg == nm_non_existing_bd_schema.msg == "Referenced schema 'non-existing-schema' in bdref does not exist"
 
 - name: Non-existing VRF schema for EPG (check_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     epg: ansible_test_2
     vrf:
@@ -1100,7 +1100,7 @@
   register: cm_non_existing_vrf_schema
 
 - name: Non-existing VRF schema for EPG (normal_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     epg: ansible_test_2
     vrf:
@@ -1111,7 +1111,7 @@
   register: nm_non_existing_vrf_schema
 
 - name: Verify non_existing_vrf_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_vrf_schema is not changed
     - nm_non_existing_vrf_schema is not changed
@@ -1120,7 +1120,7 @@
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template for EPG (check_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     template: non-existing-template
     epg: ansible_test_2
@@ -1129,7 +1129,7 @@
   register: cm_non_existing_template
 
 - name: Non-existing template for EPG (normal_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     template: non-existing-template
     epg: ansible_test_2
@@ -1137,7 +1137,7 @@
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
@@ -1146,12 +1146,12 @@
 
 # Checking if contract are removed after re-applying an EPG. (#13 | #62137)
 - name: Reset EPG 3 in template of schema 1 to avoid cyclic circles (normal mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_schema_1_template_2
   register: nm_add_epg_3
 
 - name: Add Contracts to EPG 2
-  mso_schema_template_anp_epg_contract:
+  cisco.mso.mso_schema_template_anp_epg_contract:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -1169,41 +1169,41 @@
   - { name: Contract2, template: Template 2, type: provider }
 
 - name: Query EPG 2
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
     epg: ansible_test_2
   register: nm_query_contract_epg
 
 - name: Verify that 4 contracts are in EPG 2 using nm_query_contract_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_contract_epg.current.contractRelationships | length == 4
 
 - name: Add EPG 2 again (normal_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     epg: ansible_test_2
   register: nm_add_epg_2_again
 
 - name: Verify that EPG 2 didn't change
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_epg_2_again is not changed
 
 - name: Query EPG 2
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
     epg: ansible_test_2
   register: nm_query_contract_epg
 
 - name: Verify that 4 contracts are in EPG 2 using nm_query_contract_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_contract_epg.current.contractRelationships | length == 4
 
 # Checking if issue when querying EPG and VRF is not defined (#66)
 - name: Add new test EPG 3 (normal mode)
-  mso_schema_template_anp_epg: &epg_present_2
+  cisco.mso.mso_schema_template_anp_epg: &epg_present_2
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -1214,19 +1214,19 @@
   register: nm_add_epg_3
 
 - name: Verify nm_add_epg_3
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_epg_3 is changed
     - nm_add_epg_3.current.name == 'ansible_test_3'
     - "'vrfRef' not in nm_add_epg_3.current"
 
 - name: Query test EPG 3
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present_2
   register: nm_query_epg_3
 
 - name: Verify nm_query_epg_3
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_epg_3 is not changed
     - nm_query_epg_3.current.name == 'ansible_test_3'
@@ -1234,7 +1234,7 @@
 
 # Checking if modifying an EPG with existing contracts throw an MSO error. (#82)
 - name: Change EPG 2 to add VRF (normal_mode)
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_present
     epg: ansible_test_2
     vrf:
@@ -1244,7 +1244,7 @@
   register: nm_change_epg_2_vrf
 
 - name: Verify that EPG 2 did change
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_change_epg_2_vrf is changed
     - nm_change_epg_2_vrf.current.vrfRef.templateName == "Template1"
@@ -1252,12 +1252,12 @@
     - nm_change_epg_2_vrf.current.bdRef.bdName == "ansible_test_2"
 
 - name: Query EPG 2
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *epg_query
     epg: ansible_test_2
   register: nm_query_contract_epg_2
 
 - name: Verify that 4 contracts are in EPG 2 using nm_query_contract_epg_2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_contract_epg_2.current.contractRelationships | length == 4

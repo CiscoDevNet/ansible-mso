@@ -6,13 +6,13 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact: 
+  ansible.builtin.set_fact: 
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -23,7 +23,7 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Remove Schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -32,7 +32,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure site exists
-  mso_site:
+  cisco.mso.mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -43,7 +43,7 @@
     state: present
 
 - name: Ensure sites removed from tenant ansible_test
-  mso_tenant_site:
+  cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ item }}'
@@ -55,7 +55,7 @@
   ignore_errors: true
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant: 
+  cisco.mso.mso_tenant: 
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -65,7 +65,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 and 2 exists
-  mso_schema_template: 
+  cisco.mso.mso_schema_template: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -76,7 +76,7 @@
   - Template 2
 
 - name: Ensure schema 2 with Template 3 exists
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
@@ -84,7 +84,7 @@
     state: present
 
 - name: Add a new site to a schema
-  mso_schema_site:
+  cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -92,7 +92,7 @@
     state: present
 
 - name: Ensure VRF1 exists
-  mso_schema_template_vrf: 
+  cisco.mso.mso_schema_template_vrf: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -100,7 +100,7 @@
     state: present
     
 - name: Add BD1
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -110,7 +110,7 @@
     state: present
 
 - name: Ensure Template 1 with AP1 exists
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -118,7 +118,7 @@
     state: present
 
 - name: Ensure Template 1 and AP1 with EPG1 exists
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -131,7 +131,7 @@
     state: present
 
 - name: Ensure Template 1 and AP1 with EPG3 exists
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -144,7 +144,7 @@
     state: present
 
 - name: Ensure Template 1 with AP2 exists
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -152,7 +152,7 @@
     state: present
 
 - name: Ensure Template 1 and AP2 with EPG2 exists
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -165,7 +165,7 @@
     state: present
 
 - name: Ensure Template 1 and AP2 with EPG4 exists
-  mso_schema_template_anp_epg:
+  cisco.mso.mso_schema_template_anp_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -179,7 +179,7 @@
 
 # ADD DOMAINS
 - name: Add domain 1 to site EPG1 with AP1 (check mode)
-  mso_schema_site_anp_epg_domain: 
+  cisco.mso.mso_schema_site_anp_epg_domain: 
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -195,7 +195,7 @@
   register: cm_add_dom1e1
 
 - name: Verify cm_add_dom1e1
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_dom1e1 is changed
     - cm_add_dom1e1.previous == {}
@@ -205,7 +205,7 @@
     - cm_add_dom1e1.current.resolutionImmediacy == 'pre-provision'
 
 - name: Add domain 1 to site EPG1 with AP1 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -220,7 +220,7 @@
   register: nm_add_dom1e1
 
 - name: Verify nm_add_dom1e1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_dom1e1 is changed
     - nm_add_dom1e1.previous == {}
@@ -230,7 +230,7 @@
     - nm_add_dom1e1.current.resolutionImmediacy == 'pre-provision'
 
 - name: Add domain 2 to site EPG1 with AP1 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -245,7 +245,7 @@
   register: nm_add_dom2e1
 
 - name: Verify nm_add_dom2e1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_dom2e1 is changed
     - nm_add_dom2e1.previous == {}
@@ -255,7 +255,7 @@
     - nm_add_dom2e1.current.resolutionImmediacy == 'pre-provision'
 
 - name: Add domain 3 to site EPG1 with AP1 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -270,7 +270,7 @@
   register: nm_add_dom3e1
 
 - name: Verify nm_add_dom3e1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_dom3e1 is changed
     - nm_add_dom3e1.previous != {}
@@ -280,7 +280,7 @@
     - nm_add_dom3e1.current.resolutionImmediacy == 'lazy'
 
 - name: Add domain1 to site EPG3 with AP1 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -295,7 +295,7 @@
   register: nm_add_dom1e3
 
 - name: Verify nm_add_dom1e2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_dom1e3 is changed
     - nm_add_dom1e3.previous == {}
@@ -305,7 +305,7 @@
     - nm_add_dom1e3.current.resolutionImmediacy == 'lazy'
    
 - name: Add domain 2 to EPG2 (check mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -321,7 +321,7 @@
   register: cm_add_dom2e2
 
 - name: Verify cm_add_dom2e2
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_dom2e2 is changed
     - cm_add_dom2e2.previous == {}
@@ -332,7 +332,7 @@
 
 # QUERY DOMAINS
 - name: Query domains of site EPG1 with AP1 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -343,13 +343,13 @@
   register: nm_query_domse1
 
 - name: Verify nm_query_domse1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_domse1 is not changed
 
 # QUERY A DOMAIN
 - name: Query domain3 of site EPG1 with AP1 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -364,13 +364,13 @@
   register: nm_query_dom3e1
 
 - name: Verify nm_query_dom3e1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_query_dom3e1 is not changed
 
 # QUERY REMOVED DOMAIN
 - name: Add domain 2 to site EPG2 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -385,7 +385,7 @@
   register: nm_add_dom2e2
 
 - name: Verify nm_add_dom2e2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_dom2e2 is changed
     - nm_add_dom2e2.previous == {}
@@ -395,7 +395,7 @@
     - nm_add_dom2e2.current.resolutionImmediacy == 'pre-provision'
 
 - name: Remove domain2 from EPG2 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -410,12 +410,12 @@
   register: nm_remove_dom2e2
 
 - name: Verify nm_remove_dom2e2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_dom2e2 is changed
 
 - name: Query removed domain2 from EPG2 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -431,13 +431,13 @@
   register: nm_non_existent_dom2e2
 
 - name: Verify non_existing_domain
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_non_existent_dom2e2 is not changed
     - nm_non_existent_dom2e2.msg == "Domain association 'physicalDomain/phys' not found"
 
 - name: Remove domain2 from EPG2 again(normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -453,13 +453,13 @@
   register: nm_remove_again_dom2e2
 
 - name: Verify nm_remove_again_dom2e2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_again_dom2e2 is not changed
 
 # ADD EXISTING DOMAIN
 - name: Add domain 1 to site EPG1 again (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -474,13 +474,13 @@
   register: nm_add_dom1e1_2
 
 - name: Verify nm_add_dom1e1_2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_dom1e1_2 is not changed
 
 # ADD DOMAIN WITH NO STATE
 - name: Add domain 1 to site EPG1 again with no state (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -495,13 +495,13 @@
   register: nm_add_stateless_dom1e1_2
 
 - name: Verify nm_add_stateless_dom1e1_2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_stateless_dom1e1_2 is not changed
 
 # ADD OTHER DOMAIN OPTIONS
 - name: Add domain l3ExtDomain to site EPG1 with AP1 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -516,7 +516,7 @@
   register: nm_add_doml3
 
 - name: Verify nm_add_doml3
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_doml3 is changed
     - nm_add_doml3.previous == {}
@@ -526,7 +526,7 @@
     - nm_add_doml3.current.resolutionImmediacy == 'lazy'
 
 - name: Add domain l2ExtDomain to site EPG1 with AP1 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -542,7 +542,7 @@
   register: nm_add_doml2
 
 - name: Verify nm_add_doml2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_doml2 is changed
     - nm_add_doml2.previous == {}
@@ -552,7 +552,7 @@
     - nm_add_doml2.current.resolutionImmediacy == 'lazy'
 
 - name: Add domain fibreChannel to site EPG1 with AP1 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -567,7 +567,7 @@
   register: nm_add_domfc
 
 - name: Verify nm_add_domfc
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_domfc is changed
     - nm_add_domfc.previous == {}
@@ -578,7 +578,7 @@
 
 # USE OTHER ATTRIBUTES OF VMM DOMAIN
 - name: Add domain vmm to site EPG2 with AP2 (normal mode)
-  mso_schema_site_anp_epg_domain: &domain_ap1_epg2
+  cisco.mso.mso_schema_site_anp_epg_domain: &domain_ap1_epg2
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -603,13 +603,13 @@
   register: nm_add_domvmprop
 
 - name: Query domain vmms attached to site EPG2 with AP2
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *domain_ap1_epg2
     state: query
   register: nm_query_domvmprop
 
 - name: Verify domain vmm to site EPG2 with AP2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_domvmprop is changed
     - nm_add_domvmprop.previous == {}
@@ -652,14 +652,14 @@
     - nm_query_domvmprop.current.vlanEncapMode == "static"
 
 - name: Add another domain vmm to site EPG2 with AP2 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *domain_ap1_epg2
     domain_profile: 'TEST'
     state: present
   register: nm_add_another_domvmprop
 
 - name: Query all domains vmms attached to site EPG2 with AP2
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -670,14 +670,14 @@
   register: nm_query_another_domvmprop
 
 - name: Verify domain vmm to site EPG2 with AP2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_another_domvmprop is changed
     - nm_query_another_domvmprop is not changed
     - nm_query_another_domvmprop.current | length == 2
 
 - name: Add domain vmm to site EPG4 with AP2 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -702,14 +702,14 @@
   register: nm_add_domvmprop1
 
 - name: Verify nm_add_domvmprop1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_domvmprop1 is not changed
     - nm_add_domvmprop1.previous == {}
     - nm_add_domvmprop1.msg == "micro_seg_vlan_type is required when micro_seg_vlan is provided."
 
 - name: Add domain vmm to site EPG4 with AP2 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -734,13 +734,13 @@
   register: nm_add_domvmprop2
 
 - name: Verify nm_add_domvmprop2
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_domvmprop2 is not changed
     - nm_add_domvmprop2.msg == "micro_seg_vlan is required when micro_seg_vlan_type is provided."
 
 - name: Add domain vmm to site EPG4 with AP2 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -765,13 +765,13 @@
   register: nm_add_domvmprop3
 
 - name: Verify nm_add_domvmprop3
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_domvmprop3 is not changed
     - nm_add_domvmprop3.msg == "port_encap_vlan_type is required when port_encap_vlan is provided."
 
 - name: Add domain vmm to site EPG4 with AP2 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -796,13 +796,13 @@
   register: nm_add_domvmprop4
 
 - name: Verify nm_add_domvmprop4
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_domvmprop4 is not changed
     - nm_add_domvmprop4.msg == "port_encap_vlan is required when port_encap_vlan_type is provided."
 
 - name: Add domain vmm to site EPG4 with AP2 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -827,13 +827,13 @@
   register: nm_add_domvmprop5
 
 - name: Verify nm_add_domvmprop5
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_domvmprop5 is not changed
     - nm_add_domvmprop5.msg == "enhanced_lagpolicy_name is required when enhanced_lagpolicy_dn is provided."
 
 - name: Add domain vmm to site EPG4 with AP2 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -858,14 +858,14 @@
   register: nm_add_domvmprop6
 
 - name: Verify nm_add_domvmprop6
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_domvmprop6 is not changed
     - nm_add_domvmprop6.msg == "enhanced_lagpolicy_dn is required when enhanced_lagpolicy_name is provided."
 
 # USE NON-EXISTING EPG and ANP AT TEMPLATE LEVEL
 - name: Add domain 1 to non-existent site EPG5 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -881,13 +881,13 @@
   register: nm_add_dom1e5
 
 - name: Verify nm_add_dom1e5
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_dom1e5 is not changed
 
 # USE NON-EXISTING EPG AT TEMPLATE LEVEL
 - name: Add domain 1 to non-existent site EPG5 (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -903,13 +903,13 @@
   register: nm_add_dom1e6
 
 - name: Verify nm_add_dom1e6
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_dom1e6 is not changed
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for domain (check_mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: non_existing_schema
     site: '{{ mso_site | default("ansible_test") }}'
@@ -925,7 +925,7 @@
   register: cm_non_existing_schema
 
 - name: Non-existing schema for domain (normal_mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: non_existing_schema
     site: '{{ mso_site | default("ansible_test") }}'
@@ -940,7 +940,7 @@
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_schema is not changed
     - nm_non_existing_schema is not changed
@@ -949,7 +949,7 @@
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template for domain (check_mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -965,7 +965,7 @@
   register: cm_non_existing_template
 
 - name: Non-existing template for domain (normal_mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema:  '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -980,7 +980,7 @@
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
@@ -989,7 +989,7 @@
 
 # USE A NON-EXISTING SITE
 - name: Non-existing site for domain (check_mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -1005,7 +1005,7 @@
   register: cm_non_existing_site
 
 - name: Non-existing site for domain (normal_mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -1020,7 +1020,7 @@
   register: nm_non_existing_site
 
 - name: Verify non_existing_site
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_site is not changed
     - nm_non_existing_site is not changed
@@ -1030,7 +1030,7 @@
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add site EPG domain association to Schema 2 Template 3 without any site associated (check mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -1046,7 +1046,7 @@
   register: cm_no_site_associated
 
 - name: Add site EPG domain association to Template 3 without any site associated (normal mode)
-  mso_schema_site_anp_epg_domain:
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     site: '{{ mso_site | default("ansible_test") }}'
@@ -1061,7 +1061,7 @@
   register: nm_no_site_associated
 
 - name: Verify cm_no_site_associated and nm_no_site_associated
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_no_site_associated is not changed
     - nm_no_site_associated is not changed

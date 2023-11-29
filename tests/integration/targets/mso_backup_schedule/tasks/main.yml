@@ -4,14 +4,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 
 - name: Set vars
-  set_fact: 
+  ansible.builtin.set_fact: 
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -47,7 +47,7 @@
   register: no_schedule
 
 - name: Verify empty backup schedule
-  assert:
+  ansible.builtin.assert:
     that:
       - no_schedule is not changed
       - no_schedule.current == {}
@@ -73,7 +73,7 @@
 
 # add date tests
 - name: Verify success set backup schedule
-  assert:
+  ansible.builtin.assert:
     that:
       - cm_schedule_create is changed
       - cm_schedule_create.current.intervalLength == 7
@@ -105,7 +105,7 @@
   register: nm_schedule_adjust
 
 - name: Verify success set backup schedule
-  assert:
+  ansible.builtin.assert:
     that:
       - cm_schedule_adjust is changed
       - cm_schedule_adjust.current.intervalLength == 1
@@ -123,7 +123,7 @@
   register: schedule
 
 - name: Verify success get backup schedule
-  assert:
+  ansible.builtin.assert:
     that:
       - schedule is not changed
       - nm_schedule_adjust.current.timeInterval.length == 1
@@ -148,7 +148,7 @@
   register: no_schedule
 
 - name: Verify empty backup schedule
-  assert:
+  ansible.builtin.assert:
     that:
       - no_schedule is not changed
       - no_schedule.current == {}
@@ -198,7 +198,7 @@
   ignore_errors: true
 
 - name: Verify error messages
-  assert:
+  ansible.builtin.assert:
     that:
       - nm_schedule_incorrect_time is failed
       - nm_schedule_incorrect_time.msg.startswith("Failed to parse time format")
@@ -222,7 +222,7 @@
   register: nm_schedule_full
 
 - name: Verify success set backup schedule
-  assert:
+  ansible.builtin.assert:
     that:
       - nm_schedule_full is changed
       - nm_schedule_full.current.timeInterval.length == 1
@@ -243,7 +243,7 @@
   register: no_schedule
 
 - name: Verify empty backup schedule
-  assert:
+  ansible.builtin.assert:
     that:
       - no_schedule is not changed
       - no_schedule.current == {}

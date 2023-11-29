@@ -5,14 +5,14 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
-  fail:
+  ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
 # CLEAN ENVIRONMENT
 - name: Set vars
-  set_fact:
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -23,13 +23,13 @@
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
-  mso_version:
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
 
 - name: Undeploy templates if deployed from previous test case
-  mso_schema_template_deploy:
+  cisco.mso.mso_schema_template_deploy:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: "{{ item }}"
@@ -41,7 +41,7 @@
   - Template 2
 
 - name: Remove schemas
-  mso_schema:
+  cisco.mso.mso_schema:
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
@@ -50,7 +50,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure ansible_test_1 external EPG does not exist
-  mso_schema_template_external_epg:
+  cisco.mso.mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -59,7 +59,7 @@
   ignore_errors: true
 
 - name: Ensure tenant ansible_test exist
-  mso_tenant:
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -67,7 +67,7 @@
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
-  mso_schema_template:
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -75,7 +75,7 @@
     state: present
 
 - name: Ensure VRF exist
-  mso_schema_template_vrf:
+  cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -83,7 +83,7 @@
     state: present
 
 - name: Ensure L3out exist
-  mso_schema_template_l3out:
+  cisco.mso.mso_schema_template_l3out:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -93,7 +93,7 @@
     state: present
 
 - name: Ensure ANP exists
-  mso_schema_template_anp:
+  cisco.mso.mso_schema_template_anp:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -101,7 +101,7 @@
     state: present
 
 - name: Add external EPG
-  mso_schema_template_external_epg:
+  cisco.mso.mso_schema_template_external_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -112,7 +112,7 @@
 
 # ADD external EPG subnet
 - name: Add external EPG subnet (check_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -123,14 +123,14 @@
   register: cm_add_epg_subnet
 
 - name: Verify cm_add_epg_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_epg_subnet is changed
     - cm_add_epg_subnet.previous == {}
     - cm_add_epg_subnet.current.ip == "10.0.0.0/24"
 
 - name: Add external EPG subnet (normal mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -140,14 +140,14 @@
   register: nm_add_epg_subnet
 
 - name: Verify nm_add_epg_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_epg_subnet is changed
     - nm_add_epg_subnet.previous == {}
     - nm_add_epg_subnet.current.ip == "10.0.0.0/24"
 
 - name: Add external EPG subnet again (check_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -158,14 +158,14 @@
   register: cm_add_epg_subnet_again
 
 - name: Verify cm_add_epg_subnet_again
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_add_epg_subnet_again is not changed
     - cm_add_epg_subnet_again.previous.ip == "10.0.0.0/24"
     - cm_add_epg_subnet_again.current.ip == "10.0.0.0/24"
 
 - name: Add epg again subnet (normal mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -175,14 +175,14 @@
   register: nm_add_epg_subnet_again
 
 - name: Verify nm_add_epg_subnet_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_add_epg_subnet_again is not changed
     - nm_add_epg_subnet_again.previous.ip == "10.0.0.0/24"
     - nm_add_epg_subnet_again.current.ip == "10.0.0.0/24"
 
 - name: Add external EPG subnet 2
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -192,14 +192,14 @@
   register: add_epg_subnet_2
 
 - name: Verify add_epg_subnet_2
-  assert:
+  ansible.builtin.assert:
     that:
     - add_epg_subnet_2 is changed
     - add_epg_subnet_2.current.ip == "10.0.0.2/24"
 
 # QUERY ALL EPG Subnets
 - name: Query all EPG (check_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -209,7 +209,7 @@
   register: cm_query_all_epg_subnets
 
 - name: Query all EPG (normal mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -218,7 +218,7 @@
   register: nm_query_all_epg_subnets
 
 - name: Verify query_all_epg_subnets
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_all_epg_subnets is not changed
     - nm_query_all_epg_subnets is not changed
@@ -226,7 +226,7 @@
 
 # QUERY AN EPG subnet
 - name: Query epg subnet 1(check_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -237,7 +237,7 @@
   register: cm_query_epg_subnet_1
 
 - name: Query epg subnet 1(normal_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -247,7 +247,7 @@
   register: nm_query_epg_subnet_1
 
 - name: Verify cm_query_epg_subnet_1 and nm_query_epg_subnet_1
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_epg_subnet_1 is not changed
     - nm_query_epg_subnet_1 is not changed
@@ -255,7 +255,7 @@
 
 # REMOVE EPG
 - name: Remove EPG subnet 1 (check_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -266,13 +266,13 @@
   register: cm_remove_epg_subnet_1
 
 - name: Verify cm_remove_epg_subnet_1
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_remove_epg_subnet_1 is changed
     - cm_remove_epg_subnet_1.current == {}
 
 - name: Remove EPG subnet 1 (normal_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -282,13 +282,13 @@
   register: nm_remove_epg_subnet_1
 
 - name: Verify nm_remove_epg_subnet_1
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_epg_subnet_1 is changed
     - nm_remove_epg_subnet_1.current == {}
 
 - name: Remove EPG subnet 1 again (normal mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -298,14 +298,14 @@
   register: nm_remove_epg_subnet_1_again
 
 - name: Verify nm_remove_epg_subnet_1_again
-  assert:
+  ansible.builtin.assert:
     that:
     - nm_remove_epg_subnet_1_again is not changed
     - nm_remove_epg_subnet_1_again.previous == nm_remove_epg_subnet_1_again.current == {}
 
 # Chcek aggregate when scope parameter Shared control is absent and present
 - name: Add aggregate without Shared control scope parameter
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -318,12 +318,12 @@
   register: add_epg_subnet_no_ag
 
 - name: Verify add_epg_subnet_no_ag
-  assert:
+  ansible.builtin.assert:
     that:
     - add_epg_subnet_no_ag is changed
 
 - name: Verify add_epg_subnet_no_ag (3.1.1g to 3.1.1n)
-  assert:
+  ansible.builtin.assert:
     that:
     - add_epg_subnet_no_ag.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Aggregate should be enabled only if shared-rtctrl is enabled in Scope exception while trying to update schema"
   when:
@@ -331,14 +331,14 @@
   - version.current.version is version('3.2', '<')
 
 - name: Verify add_epg_subnet_no_ag (version < 3.1.1g)
-  assert:
+  ansible.builtin.assert:
     that:
     - add_epg_subnet_no_ag.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Aggregate should be enabled only if shared-rtctrl is enabled in Scope"
   when:
   - version.current.version is version('3.1.1g', '<')
 
 - name: Verify add_epg_subnet_no_ag (version >= 4.0)
-  assert:
+  ansible.builtin.assert:
     that:
     - add_epg_subnet_no_ag.msg == "MSO Error 400{{':'}} ExternalEPG{{':'}} ansible_test_1 in Schema{{':'}} ansible_test , Template{{':'}} Template1 External EPG validation error{{':'}} aggregate should be enabled only if shared-rtctrl is enabled in Scope for subnet 10.0.0.2/24"
   when:
@@ -349,7 +349,7 @@
   when: version.current.version is version('4.0', '<')
   block:
   - name: Get Validation status
-    mso_schema_validate:
+    cisco.mso.mso_schema_validate:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       state: query
@@ -358,7 +358,7 @@
     when: version.current.version is version('3.6', '>=')
 
   - name: Verify query_validate for a version that's after 3.6
-    assert:
+    ansible.builtin.assert:
       that:
       - query_validate is not changed
       - query_validate.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Aggregate should be enabled only if shared-rtctrl is enabled in Scope exception while trying to update schema")
@@ -366,7 +366,7 @@
     - version.current.version is version('3.6', '>=')
 
 - name: Add aggregate with Shared control scope parameter
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -379,13 +379,13 @@
   register: add_epg_subnet_ag
 
 - name: Verify add_epg_subnet_ag
-  assert:
+  ansible.builtin.assert:
     that:
     - add_epg_subnet_ag is changed
     - add_epg_subnet_ag.current.aggregate[0] == "shared-rtctrl"
 
 - name: Change EPG subnet 2 by changing Route Controls
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -401,7 +401,7 @@
   register: change_epg_subnet
 
 - name: Verify change_epg_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - change_epg_subnet is changed
     - change_epg_subnet.current.ip == "10.0.0.2/24"
@@ -409,7 +409,7 @@
 
 # QUERY NON-EXISTING EPG subnet
 - name: Query non-existing EPG subnet(check_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -421,7 +421,7 @@
   register: cm_query_non_existing_epg_subnet
 
 - name: Query non-existing EPG subnet(normal_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -432,7 +432,7 @@
   register: nm_query_non_existing_epg_subnet
 
 - name: Verify cm_query_non_existing_epg_subnet and nm_query_non_existing_epg_subnet
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_existing_epg_subnet is not changed
     - nm_query_non_existing_epg_subnet is not changed
@@ -441,7 +441,7 @@
 
 # QUERY NON-EXISTING EPG
 - name: Query non-existing EPG subnet(check_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -453,7 +453,7 @@
   register: cm_query_non_existing_epg
 
 - name: Query non-existing EPG subnet(normal_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -464,7 +464,7 @@
   register: nm_query_non_existing_epg
 
 - name: Verify cm_query_non_existing_epg and nm_query_non_existing_epg
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_query_non_existing_epg is not changed
     - nm_query_non_existing_epg is not changed
@@ -473,7 +473,7 @@
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for epg subnet(check_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: non-existing-schema
     template: Template 1
@@ -485,7 +485,7 @@
   register: cm_non_existing_schema
 
 - name: Non-existing schema for epg subnet(normal_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: non-existing-schema
     template: Template 1
@@ -496,7 +496,7 @@
   register: nm_non_existing_schema
 
 - name: Verify non_existing_schema
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_schema is not changed
     - nm_non_existing_schema is not changed
@@ -505,7 +505,7 @@
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template for epg subnet(check_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
@@ -517,7 +517,7 @@
   register: cm_non_existing_template
 
 - name: Non-existing template for epg subnet(normal_mode)
-  mso_schema_template_external_epg_subnet:
+  cisco.mso.mso_schema_template_external_epg_subnet:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: non-existing-template
@@ -528,7 +528,7 @@
   register: nm_non_existing_template
 
 - name: Verify non_existing_template
-  assert:
+  ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed

@@ -13,67 +13,61 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: mso_schema_site_external_epg
-short_description: Manage External EPG in schema of sites
+short_description: Manage External EPG in schema of sites.
 description:
 - Manage External EPG in schema of sites on Cisco ACI Multi-Site.
-- This module can only be used on versions of MSO that are 3.3 or greater
+- This module can only be used on versions of MSO that are 3.3 or greater.
 author:
 - Anvitha Jain (@anvitha-jain)
 options:
   schema:
     description:
-    - The name of the schema
+    - The name of the schema.
     type: str
     required: true
   template:
     description:
-    - The name of the template to change
+    - The name of the template to change.
     type: str
     required: true
   l3out:
     description:
-    - The L3Out associated with the external epg
-    - Required when site is of type on-premise
+    - The L3Out associated with the external epg.
+    - Required when site is of type on-premise.
     - NOTE - for NDO version > 4.2, this parameter is available only when external EPG is 
-    - associated with the VRF created at the current schema-template
-    type: dict
-    suboptions:
-      name:
-        description:
-        - The name of the L3Out to associate with
-        required: true
-        type: str
-      schema:
-        description:
-        - The schema that defines the referenced L3Out
-        - If this parameter is unspecified, it defaults to the current schema
-        type: str
-      template:
-        description:
-        - The template that defines the referenced L3Out
-        - If this parameter is unspecified, it defaults to the current template
-        type: str
+    - associated with the VRF created at the current schema-template.
+    type: str
+  l3out_schema:
+    description:
+    - The schema that defines the referenced L3Out.
+    - If this parameter is unspecified, it defaults to the current schema.
+    type: str
+  l3out_template:
+    description:
+    - The template that defines the referenced L3Out.
+    - If this parameter is unspecified, it defaults to the current template.
+    type: str
   external_epg:
     description:
-    - The name of the External EPG to be managed
+    - The name of the External EPG to be managed.
     type: str
     aliases: [ name ]
   site:
     description:
-    - The name of the site
+    - The name of the site.
     type: str
     required: true
   route_reachability:
     description:
-    - Configures if an external EPG route is pointing to the internet or to an external remote network
-    - Only available when associated with an azure site
+    - Configures if an external EPG route is pointing to the internet or to an external remote network.
+    - Only available when associated with an azure site.
     type: str
     choices: [ internet, site-ext ]
     default: internet
   state:
     description:
-    - Use C(present) or C(absent) for adding or removing
-    - Use C(query) for listing an object or multiple objects
+    - Use C(present) or C(absent) for adding or removing.
+    - Use C(query) for listing an object or multiple objects.
     type: str
     choices: [ absent, present, query ]
     default: present
@@ -134,7 +128,7 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 
 
@@ -144,7 +138,9 @@ def main():
         schema=dict(type="str", required=True),
         template=dict(type="str", required=True),
         site=dict(type="str", required=True),
-        l3out=dict(type="dict", options=mso_reference_spec()),
+        l3out=dict(type="str", aliases=["l3out_name"]),
+        l3out_schema=dict(type="str"),
+        l3out_template=dict(type="str"),
         external_epg=dict(type="str", aliases=["name"]),
         route_reachability=dict(type="str", default="internet", choices=["internet", "site-ext"]),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
@@ -164,10 +160,16 @@ def main():
     site = module.params.get("site")
     external_epg = module.params.get("external_epg")
     l3out = module.params.get("l3out")
+    l3out_schema = module.params.get("l3out_schema")
+    l3out_template = module.params.get("l3out_template")
     route_reachability = module.params.get("route_reachability")
     state = module.params.get("state")
 
     mso = MSOModule(module)
+
+    l3out_template = template if l3out_template is None else l3out_template.replace(" ", "")
+    l3out_schema = schema if l3out_schema is None else l3out_schema
+    l3out_schema_id = mso.lookup_schema(l3out_schema)
 
     mso_schema = MSOSchema(mso, schema, template, site)
     mso_objects = mso_schema.schema_objects
@@ -193,11 +195,6 @@ def main():
 
     ops = []
     l3out_dn = ""
-    if l3out:
-        l3out_schema_id = mso.lookup_schema(l3out.get("schema")) if l3out.get("schema") else mso_schema.id
-        l3out_template = l3out.get("template") if l3out.get("template") else template
-        l3out_ref = mso.l3out_ref(schema_id=l3out_schema_id, template=l3out_template, l3out=l3out.get("name"))
-
     if state == "query":
         if external_epg is None:
             mso.existing = mso_objects.get("site").details.get("externalEpgs")
@@ -218,7 +215,7 @@ def main():
             if l3out is not None:
                 path = "tenants/{0}".format(mso_objects.get("template").details.get("tenantId"))
                 tenant_name = mso.request(path, method="GET").get("name")
-                l3out_dn = "uni/tn-{0}/out-{1}".format(tenant_name, l3out.get("name"))
+                l3out_dn = "uni/tn-{0}/out-{1}".format(tenant_name, l3out)
             else:
                 mso.fail_json(msg="L3Out cannot be empty when template external EPG type is 'on-premise'.")
 
@@ -229,7 +226,11 @@ def main():
                 externalEpgName=external_epg,
             ),
             l3outDn=l3out_dn,
-            l3outRef=l3out_ref,
+            l3outRef=dict(
+                schemaId=l3out_schema_id,
+                templateName=l3out_template,
+                l3outName=l3out,
+            ),
             routeReachabilityInternetType=route_reachability,
         )
 

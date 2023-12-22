@@ -34,8 +34,8 @@ options:
     description:
     - The L3Out associated with the external epg.
     - Required when site is of type on-premise.
-    - NOTE - for NDO version > 4.2, this parameter is available only when external EPG is 
-    - associated with the VRF created at the current schema-template.
+    - NOTE - In NDO versions over 4.2, 
+    - the parameter is accessible only when an external EPG is linked to the current schema-template's VRF.
     type: str
   l3out_schema:
     description:
@@ -85,8 +85,7 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     external_epg: External EPG 1
-    l3out:
-      name: L3out1
+    l3out: L3out1
     state: present
 
 - name: Remove a Site External EPG
@@ -97,8 +96,7 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     external_epg: External EPG 1
-    l3out:
-      name: L3out1
+    l3out: L3out1
     state: absent
 
 - name: Query a Site External EPG

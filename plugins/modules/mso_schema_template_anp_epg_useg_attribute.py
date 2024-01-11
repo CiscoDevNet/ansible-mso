@@ -69,7 +69,7 @@ options:
     description:
     - The uSeg Subnet can only be used when the I(attribute_type) is IP.
     - Use C(false) to set the custom uSeg Subnet IP address to the uSeg Attribute.
-    - Use C(true) to set the uSeg Subnet IP address to 0.0.0.0.
+    - Use C(true) to set the default uSeg Subnet IP address 0.0.0.0.
     type: bool
   state:
     description:
@@ -229,11 +229,13 @@ def main():
         payload = dict(name=name, displayName=name, description=description, type=EPG_U_SEG_ATTR_TYPE_MAP[attribute_type], value=value)
 
         if attribute_type == "ip":
-            if useg_subnet is False:
+            if useg_subnet:
+                if value != "" and value != "0.0.0.0" and value is not None:
+                    mso.fail_json(msg="The value should be empty string or 0.0.0.0, when the useg_subnet is true.")
                 payload["fvSubnet"] = True
-            else:
-                payload["fvSubnet"] = False
                 payload["value"] = "0.0.0.0"
+            else:
+                payload["fvSubnet"] = useg_subnet
 
         mso.sanitize(payload, collate=True)
 

@@ -231,8 +231,8 @@ def main():
         if attribute_type == "ip":
             if useg_subnet:
                 if value != "" and value != "0.0.0.0" and value is not None:
-                    mso.fail_json(msg="The value should be empty string or 0.0.0.0, when the useg_subnet is true.")
-                payload["fvSubnet"] = True
+                    mso.fail_json(msg="The value of uSeg subnet IP should be an empty string or 0.0.0.0, when the useg_subnet is set to true.")
+                payload["fvSubnet"] = useg_subnet
                 payload["value"] = "0.0.0.0"
             else:
                 payload["fvSubnet"] = useg_subnet

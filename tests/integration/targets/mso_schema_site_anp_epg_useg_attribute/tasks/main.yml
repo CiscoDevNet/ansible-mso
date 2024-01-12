@@ -171,24 +171,36 @@
   ignore_errors: true
   register: ans_test_uSeg_2_nt
 
+- name: Invalid test - ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - true, with value
+  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+    <<: *useg_attribute_present
+    name: ans_test_uSeg_2
+    attribute_type: ip
+    useg_subnet: true
+    value: 1.2.3.4
+  ignore_errors: true
+  register: ans_test_uSeg_2_nt1
+
 - name: ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, with value - check mode
   cisco.mso.mso_schema_site_anp_epg_useg_attribute: &ans_test_uSeg_2_cm_present
     <<: *useg_attribute_present
     name: ans_test_uSeg_2
     attribute_type: ip
     useg_subnet: false
-    value: 11.22.33.44/24
+    value: 11.22.33.44
   check_mode: true
   register: ans_test_uSeg_2_cm_present
 
 - name: ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, with value - normal mode
   cisco.mso.mso_schema_site_anp_epg_useg_attribute: &ans_test_uSeg_2_nm_present
     <<: *ans_test_uSeg_2_cm_present
+    output_level: debug
   register: ans_test_uSeg_2_nm_present
 
 - name: ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, with value - normal mode again
   cisco.mso.mso_schema_site_anp_epg_useg_attribute:
     <<: *ans_test_uSeg_2_nm_present
+    output_level: debug
   register: ans_test_uSeg_2_nm_present_again
 
 - name: Assertions check for add ans_test_uSeg_1 and ans_test_uSeg_2 object
@@ -199,38 +211,39 @@
       - ans_test_uSeg_1.current.name == "ans_test_uSeg_1"
       - ans_test_uSeg_1.current.type == "ip"
       - ans_test_uSeg_1.current.value == "0.0.0.0"
-      - ans_test_uSeg_1.current.fvSubnet == false
+      - ans_test_uSeg_1.current.fvSubnet == true
       - ans_test_uSeg_1.current.description == "ans_test_uSeg_1"
       - ans_test_uSeg_2_nt is not changed
       - ans_test_uSeg_2_nt.msg == "useg_subnet is False but all of the following are missing{{':'}} value"
+      - ans_test_uSeg_2_nt1 is not changed
+      - ans_test_uSeg_2_nt1.msg == "The value of uSeg subnet IP should be an empty string or 0.0.0.0, when the useg_subnet is set to true."
       - ans_test_uSeg_2_cm_present is changed
       - ans_test_uSeg_2_cm_present.current != {}
       - ans_test_uSeg_2_cm_present.previous == {}
       - ans_test_uSeg_2_cm_present.current.name == "ans_test_uSeg_2"
       - ans_test_uSeg_2_cm_present.current.type == "ip"
-      - ans_test_uSeg_2_cm_present.current.value == "11.22.33.44/24"
-      - ans_test_uSeg_2_cm_present.current.fvSubnet == true
+      - ans_test_uSeg_2_cm_present.current.value == "11.22.33.44"
+      - ans_test_uSeg_2_cm_present.current.fvSubnet == false
       - ans_test_uSeg_2_cm_present.current.description == "uSeg Attr object created using Ansible"
       - ans_test_uSeg_2_nm_present is changed
       - ans_test_uSeg_2_nm_present.current != {}
       - ans_test_uSeg_2_nm_present.previous == {}
       - ans_test_uSeg_2_nm_present.current.name == "ans_test_uSeg_2"
       - ans_test_uSeg_2_nm_present.current.type == "ip"
-      - ans_test_uSeg_2_nm_present.current.value == "11.22.33.44/24"
-      - ans_test_uSeg_2_nm_present.current.fvSubnet == true
+      - ans_test_uSeg_2_nm_present.current.value == "11.22.33.44"
+      - ans_test_uSeg_2_nm_present.sent.fvSubnet == false
       - ans_test_uSeg_2_nm_present.current.description == "uSeg Attr object created using Ansible"
       - ans_test_uSeg_2_nm_present_again is not changed
       - ans_test_uSeg_2_nm_present_again.current != {}
       - ans_test_uSeg_2_nm_present_again.previous != {}
       - ans_test_uSeg_2_nm_present_again.current.name == "ans_test_uSeg_2"
       - ans_test_uSeg_2_nm_present_again.current.type == "ip"
-      - ans_test_uSeg_2_nm_present_again.current.value == "11.22.33.44/24"
-      - ans_test_uSeg_2_nm_present_again.current.fvSubnet == true
+      - ans_test_uSeg_2_nm_present_again.current.value == "11.22.33.44"
+      - ans_test_uSeg_2_nm_present_again.sent.fvSubnet == false
       - ans_test_uSeg_2_nm_present_again.current.description == "uSeg Attr object created using Ansible"
       - ans_test_uSeg_2_nm_present_again.previous.name == "ans_test_uSeg_2"
       - ans_test_uSeg_2_nm_present_again.previous.type == "ip"
-      - ans_test_uSeg_2_nm_present_again.previous.value == "11.22.33.44/24"
-      - ans_test_uSeg_2_nm_present_again.previous.fvSubnet == true
+      - ans_test_uSeg_2_nm_present_again.previous.value == "11.22.33.44"
       - ans_test_uSeg_2_nm_present_again.previous.description == "uSeg Attr object created using Ansible"
 
 - name: Invalid test - ans_test_uSeg_3 present - attribute_type - mac and without value

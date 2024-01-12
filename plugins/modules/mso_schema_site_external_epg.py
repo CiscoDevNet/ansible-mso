@@ -34,8 +34,8 @@ options:
     description:
     - The L3Out associated with the external epg.
     - Required when site is of type on-premise.
-    - NOTE - In NDO versions over 4.2, 
-    - the parameter is accessible only when an external EPG is linked to the current schema-template's VRF.
+    - In NDO versions over 4.2, the parameter is accessible only when an external EPG is
+    - linked to the current schema-template's VRF.
     type: str
   l3out_schema:
     description:
@@ -154,7 +154,7 @@ def main():
     )
 
     schema = module.params.get("schema")
-    template = module.params.get("template")
+    template = module.params.get("template").replace(" ", "")
     site = module.params.get("site")
     external_epg = module.params.get("external_epg")
     l3out = module.params.get("l3out")

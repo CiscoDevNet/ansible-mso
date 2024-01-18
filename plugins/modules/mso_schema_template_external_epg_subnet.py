@@ -50,6 +50,7 @@ options:
     - The  C(shared-security) for Shared Security Import can only be used when External Subnets for External EPG is present
     type: list
     elements: str
+    default: []
   aggregate:
     description:
     - The aggregate option aggregates shared routes for the subnet.
@@ -57,6 +58,7 @@ options:
     - The C(shared-rtctrl) option can only be used when scope parameter Shared Route Control in the Route Control section is selected.
     type: list
     elements: str
+    default: []
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.

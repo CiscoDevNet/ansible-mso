@@ -10,7 +10,7 @@ Modules supporting new features introduced in MSO API in specific MSO versions m
 *Note: The Nexus Dashboard (ND) HTTPAPI connection plugin should be used when Cisco ACI Multi-Site is installed on Nexus Dashboard (v3.2+) or when using this collection with Nexus Dashboard Orchestrator (v3.6+).*
 
 ## Requirements
-- Ansible v2.9 or newer
+- Ansible v2.14 or newer
 
 ## Install
 Ansible must be installed

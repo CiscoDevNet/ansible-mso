@@ -37,6 +37,7 @@ options:
     - In NDO versions over 4.2, the parameter is accessible only when an external EPG is
     - linked to the current schema-template's VRF.
     type: str
+    aliases: [ l3out_name ]
   l3out_schema:
     description:
     - The schema that defines the referenced L3Out.

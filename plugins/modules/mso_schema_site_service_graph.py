@@ -352,6 +352,13 @@ def main():
 
                     devices_payload.append(device_payload)
 
+                if mso.platform == "azure":
+                    if device.get("provider_connector_type") == "True":
+                        device_payload["providerConnectorType"] = "redir"
+                    if device.get("consumer_connector_type") == "True":
+                        device_payload["consumerConnectorType"] = "redir"
+                devices_payload.append(device_payload)
+
         payload = dict(
             serviceGraphRef=dict(
                 serviceGraphName=service_graph,

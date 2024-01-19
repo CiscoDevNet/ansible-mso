@@ -1468,3 +1468,15 @@ def service_node_ref_str_to_dict(serviceNodeRefStr):
         serviceNodeName=serviceNodeRefTokens[8],
         templateName=serviceNodeRefTokens[4],
     )
+
+def mso_schema_site_contract_service_graph_spec():
+    return dict(
+        cluster_interface_device=dict(type="str", required=True),
+        provider_connector_cluster_interface=dict(type="str", required=True),
+        provider_connector_redirect_policy_tenant=dict(type="str"),
+        provider_connector_redirect_policy=dict(type="str"),
+        consumer_connector_cluster_interface=dict(type="str", required=True),
+        consumer_connector_redirect_policy_tenant=dict(type="str"),
+        consumer_connector_redirect_policy=dict(type="str"),
+        consumer_subnet_ips=dict(type="list", elements="str"),
+    )

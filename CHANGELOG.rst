@@ -6,6 +6,31 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.6.0
+======
+
+Release Summary
+---------------
+
+Release v2.6.0 of the ``ansible-mso`` collection on 2024-01-19.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.5.0.
+
+
+Minor Changes
+-------------
+
+- Add l3out_template and l3out_schema arguments to mso_schema_site_external_epg (#394)
+- Added ND plugin installation in sanity
+- Added functionality to resolve same name in remote and local user.
+- Added new parameter remote_user to add multiple remote users associated with multiple login domains
+- Support for creation of schemas without templates with teh mso_schema module
+
+Bugfixes
+--------
+
+- Fix TypeError for iteration on NoneType in mso_schema_template
+- Fixed the useg_subnet logic in the mso_schema_template_anp_epg_useg_attribute.py module
+
 v2.5.0
 ======
 

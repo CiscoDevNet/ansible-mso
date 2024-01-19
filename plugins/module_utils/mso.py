@@ -22,7 +22,7 @@ from ansible.module_utils.six.moves.urllib.parse import urlencode, urljoin
 from ansible.module_utils.urls import fetch_url
 from ansible.module_utils._text import to_native, to_text
 from ansible.module_utils.connection import Connection
-from ansible_collections.cisco.mso.plugins.module_utils.constants import NDO_API_VERSION_PATH_FORMAT
+from ansible_collections.cisco.mso.plugins.module_utils.constants import NDO_API_VERSION_PATH_FORMAT, AZURE_L4L7_CONNECTOR_TYPE_MAP
 from ansible_collections.cisco.nd.plugins.module_utils.nd import NDModule
 
 try:
@@ -206,7 +206,11 @@ def mso_service_graph_node_spec():
 
 def mso_service_graph_node_device_spec():
     return dict(
-        name=dict(type="str", required=True),
+        device_name=dict(type="str", aliases=["name"], required=True),
+        provider_connector_type=dict(type="str", choices=list(AZURE_L4L7_CONNECTOR_TYPE_MAP.keys())),
+        provider_interface=dict(type="str"),
+        consumer_connector_type=dict(type="str", choices=["none", "redirect"]),
+        consumer_interface=dict(type="str"),
     )
 
 
@@ -329,6 +333,8 @@ class MSOModule(object):
         self.status = None
         self.url = None
         self.httpapi_logs = list()
+        self.site_type = None  # on-premise or cloud
+        self.cloud_provider_type = None  # aws or azure or gcp
 
         if self.module._debug:
             self.module.warn("Enable debug output because ANSIBLE_DEBUG was set.")
@@ -853,6 +859,13 @@ class MSOModule(object):
             ids.append(dict(roleId=r.get("id"), accessType=access_type))
         return ids
 
+    def lookup_site_type(self, s):
+        """Get site type(AWS, AZURE or physical)"""
+        site_type = s.get("platform")
+        if site_type == "cloud":
+            self.cloud_provider_type = s.get("cloudProviders")[0]
+        self.site_type = site_type
+
     def lookup_site(self, site, ignore_not_found_error=False):
         """Look up a site and return its id"""
         if site is None:
@@ -866,6 +879,8 @@ class MSOModule(object):
             return None
         if "id" not in s:
             self.fail_json(msg="Site lookup failed for site '{0}': {1}".format(site, s))
+
+        self.lookup_site_type(s)
         return s.get("id")
 
     def lookup_sites(self, sites, ignore_not_found_error=False):
@@ -1377,6 +1392,9 @@ class MSOModule(object):
         return node_objs
 
     def lookup_service_node_device(self, site_id, tenant, device_name=None, service_node_type=None, ignore_not_found_error=False):
+        if self.site_type == "cloud":
+            tenant = "{0}/{1}".format(tenant, self.site_type)
+
         if service_node_type is None:
             node_devices = self.query_objs("sites/{0}/aci/tenants/{1}/devices".format(site_id, tenant), key="devices")
         else:
@@ -1440,3 +1458,13 @@ class MSOModule(object):
 
     def validate_schema(self, schema_id):
         return self.request("schemas/{id}/validate".format(id=schema_id), method="GET")
+
+
+def service_node_ref_str_to_dict(serviceNodeRefStr):
+    serviceNodeRefTokens = serviceNodeRefStr.split("/")
+    return dict(
+        schemaId=serviceNodeRefTokens[2],
+        serviceGraphName=serviceNodeRefTokens[6],
+        serviceNodeName=serviceNodeRefTokens[8],
+        templateName=serviceNodeRefTokens[4],
+    )

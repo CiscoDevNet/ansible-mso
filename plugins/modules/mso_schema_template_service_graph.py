@@ -213,14 +213,15 @@ def main():
                 node_name = node.get("type")
                 if node_name in service_node_types:
                     service_node_index = service_node_index + 1
+                    service_node_name = "node{0}".format(service_node_index)
                     for node_data in query_node_data:
                         if node_data["name"] == node_name:
                             payload = dict(
-                                name=node_name,
+                                name=service_node_name,
                                 serviceNodeTypeId=node_data.get("id"),
                                 index=service_node_index,
                                 serviceNodeRef=dict(
-                                    serviceNodeName=node_name,
+                                    serviceNodeName=service_node_name,
                                     serviceGraphName=service_graph,
                                     templateName=template,
                                     schemaId=schema_id,

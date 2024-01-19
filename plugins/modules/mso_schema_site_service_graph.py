@@ -50,11 +50,32 @@ options:
     type: list
     elements: dict
     suboptions:
-      name:
+      device_name:
         description:
         - The name of the device
         required: true
         type: str
+        aliases: [ name ]
+      provider_interface:
+        description:
+        - The name of the provider interface for the Azure CNC L4-L7 device.
+        type: str
+      provider_connector_type:
+        description:
+        - The provider connector type for the Azure CNC site service graph.
+        - Defaults to C(none) when unset during creation.
+        type: str
+        choices: [ none, redirect, source_nat, destination_nat, source_and_destination_nat ]
+      consumer_interface:
+        description:
+        - The name of the consumer interface for the Azure CNC L4-L7 device.
+        type: str
+      consumer_connector_type:
+        description:
+        - The consumer connector type for the Azure CNC site service graph.
+        - Defaults to C(none) when unset during creation.
+        type: str
+        choices: [ none, redirect ]
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -80,6 +101,28 @@ EXAMPLES = r"""
       - name: ansible_test_firewall
       - name: ansible_test_adc
       - name: ansible_test_other
+    state: present
+
+- name: Add a Site service graph for the Azure cloud CNC
+    cisco.mso.mso_schema_site_service_graph:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema1
+    template: Template1
+    service_graph: SG1
+    site: site1
+    tenant: tenant1
+    devices:
+        - name: ans_tnt_firewall1
+        provider_connector_type: source_nat
+        provider_interface: TP_FW_Inf1
+        consumer_connector_type: redirect
+        consumer_interface: TP_FW_Inf1
+        - name: ans_tnt_app_lb
+        - name: ans_tnt_other
+        provider_connector_type: destination_nat
+        consumer_connector_type: redirect
     state: present
 
 - name: Remove a Service Graph
@@ -120,8 +163,15 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
+
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_service_graph_node_device_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import (
+    MSOModule,
+    mso_argument_spec,
+    mso_service_graph_node_device_spec,
+    service_node_ref_str_to_dict,
+)
+from ansible_collections.cisco.mso.plugins.module_utils.constants import AZURE_L4L7_CONNECTOR_TYPE_MAP
 
 
 def main():
@@ -204,13 +254,18 @@ def main():
     ops = []
 
     mso.previous = mso.existing
+    if mso.previous.get("serviceNodes") is not None and len(mso.previous.get("serviceNodes")) > 0:
+        for node in mso.previous.get("serviceNodes"):
+            node["serviceNodeRef"] = service_node_ref_str_to_dict(node.get("serviceNodeRef"))
+
+    devices_payload = []
+
     if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
             ops.append(dict(op="remove", path=service_graph_path))
 
     elif state == "present":
-        devices_payload = []
         service_graphs = templates[template_idx]["serviceGraphs"]
         for graph in service_graphs:
             if graph.get("name") == service_graph:
@@ -225,29 +280,69 @@ def main():
             )
 
         if devices is not None:
-            service_node_type_names_from_template = [type.get("name") for type in service_node_types_from_template]
+            query_device_data = mso.lookup_service_node_device(site_id, tenant, device_name=None, service_node_type=None)
             for index, device in enumerate(devices):
-                template_node_type = service_node_type_names_from_template[index]
-                apic_type = "OTHERS"
-                if template_node_type == "firewall":
-                    apic_type = "FW"
-                elif template_node_type == "load-balancer":
-                    apic_type = "ADC"
-                query_device_data = mso.lookup_service_node_device(site_id, tenant, device.get("name"), apic_type)
-                devices_payload.append(
-                    dict(
-                        device=dict(
-                            dn=query_device_data.get("dn"),
-                            funcTyp=query_device_data.get("funcType"),
-                        ),
-                        serviceNodeRef=dict(
-                            serviceNodeName=template_node_type,
-                            serviceGraphName=service_graph,
-                            templateName=template,
-                            schemaId=schema_id,
-                        ),
-                    ),
-                )
+                device_payload = dict()
+                if query_device_data:
+                    for device_data in query_device_data:
+                        if device.get("device_name") == device_data.get("dn").split("/")[-1].split("-")[-1]:
+                            device_payload["device"] = dict(
+                                dn=device_data.get("dn"),
+                                funcType=device_data.get("funcType"),
+                            )
+                            device_payload["serviceNodeRef"] = dict(
+                                serviceNodeName="node{0}".format(index + 1),
+                                serviceGraphName=service_graph,
+                                templateName=template,
+                                schemaId=schema_id,
+                            )
+
+                            if mso.cloud_provider_type == "azure":
+                                consumer_interface = device.get("consumer_interface")
+                                provider_interface = device.get("provider_interface")
+                                provider_connector_type = device.get("provider_connector_type")
+                                consumer_connector_type = device.get("consumer_connector_type")
+
+                                if (
+                                    device_data.get("deviceVendorType") == "NATIVELB"
+                                    and device_data.get("devType") == "application"
+                                    and (
+                                        consumer_interface != None
+                                        or provider_interface != None
+                                        or provider_connector_type != None
+                                        or consumer_connector_type != None
+                                    )
+                                ):
+                                    # Application Load Balancer - Consumer Interface, Consumer Connector Type, Provider Interface, Provider Connector Type - not supported
+                                    mso.fail_json(
+                                        msg="Unsupported attributes: provider_connector_type, provider_interface, consumer_connector_type, consumer_interface should be 'None' for the Application Load Balancer device."
+                                    )
+                                elif (
+                                    device_data.get("deviceVendorType") == "NATIVELB"
+                                    and device_data.get("devType") == "network"
+                                    and (consumer_interface != None or provider_interface != None)
+                                ):
+                                    # Network Load Balancer - Consumer Interface, Provider Interface - not supported
+                                    mso.fail_json(
+                                        msg="Unsupported attributes: provider_interface and consumer_interface should be 'None' for the Network Load Balancer device."
+                                    )
+                                elif (
+                                    device_data.get("deviceVendorType") == "ADC"
+                                    and device_data.get("devType") == "CLOUD"
+                                    and (provider_connector_type != None or consumer_connector_type != None)
+                                ):
+                                    # Third-Party Load Balancer - Consumer Connector Type, Provider Connector Type - not supported
+                                    mso.fail_json(
+                                        msg="Unsupported attributes: provider_connector_type and consumer_connector_type should be 'None' for the Third-Party Load Balancer."
+                                    )
+
+                                # (FW) Third-Party Firewall - Consumer Interface, Consumer Connector Type, Provider Interface, Provider Connector Type - supported
+                                device_payload["consumerInterface"] = consumer_interface
+                                device_payload["providerInterface"] = provider_interface
+                                device_payload["providerConnectorType"] = AZURE_L4L7_CONNECTOR_TYPE_MAP.get(provider_connector_type)
+                                device_payload["consumerConnectorType"] = AZURE_L4L7_CONNECTOR_TYPE_MAP.get(consumer_connector_type)
+
+                devices_payload.append(device_payload)
 
         payload = dict(
             serviceGraphRef=dict(
@@ -261,6 +356,8 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if not mso.existing:
+            # The site service graph reference will be added automatically when the site is associated with the template
+            # So the add(create) part will not be used for the NDO v4.2
             ops.append(dict(op="add", path=service_graphs_path, value=payload))
         else:
             ops.append(dict(op="replace", path=service_graph_path, value=mso.sent))

@@ -38,3 +38,11 @@ EPG_U_SEG_ATTR_TYPE_MAP = {
 }
 
 EPG_U_SEG_ATTR_OPERATOR_LIST = ["equals", "contains", "starts_with", "ends_with"]
+
+AZURE_L4L7_CONNECTOR_TYPE_MAP = {
+    "none": "none",
+    "redirect": "redir",
+    "source_nat": "snat",
+    "destination_nat": "dnat",
+    "source_and_destination_nat": "snat_dnat",
+}

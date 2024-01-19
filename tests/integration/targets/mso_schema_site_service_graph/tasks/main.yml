@@ -49,6 +49,7 @@
         urls:
           - https://{{ apic_hostname }}
         state: present
+      ignore_errors: true
 
     - name: Remove schemas
       cisco.mso.mso_schema:
@@ -82,6 +83,16 @@
           - "{{ mso_username }}"
         state: present
 
+<<<<<<< HEAD
+=======
+    - name: Associate site with ansible_test
+      cisco.mso.mso_tenant_site:
+        <<: *mso_info
+        tenant: ansible_test
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: present
+
+>>>>>>> 7992dcd ([minor_change] Added mso_schema_site_contract_service_graph module to manage site contract service graph)
     - name: Set ansible_network_os to cisco.aci.aci and ansible_connection to local
       ansible.builtin.set_fact:
         ansible_connection: local
@@ -530,6 +541,28 @@
         that:
           - change5_sg4 is not changed
           - change5_sg4.msg == "Service Graph 'SG4' has '3' service node type(s) but '2' service node(s) were given for the service graph"
+
+    - name: Change Graph SG4 at site level
+      cisco.mso.mso_schema_site_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template1
+        service_graph: SG4
+        site: '{{ mso_site | default("ansible_test") }}'
+        tenant: ansible_test
+        devices:
+          - name: ansible_test_other
+          - name: ansible_test_other
+          - name: ansible_test_adc
+        state: present
+      ignore_errors: true
+      register: change6_sg4
+
+    - name: Verify change6_sg4
+      ansible.builtin.assert:
+        that:
+          - change6_sg4 is not changed
+          - change6_sg4.msg == "Provided device 'ansible_test_other' of type 'ADC' does not exist."
 
     - name: Add Graph SG5 at site level
       cisco.mso.mso_schema_site_service_graph:

@@ -237,3 +237,22 @@ class MSOSchema:
             msg = "Provided Site uSeg Attribute '{0}' does not match the existing Site uSeg Attribute(s): {1}".format(useg_attr, ", ".join(existing))
             self.mso.fail_json(msg=msg)
         self.schema_objects["site_anp_epg_useg_attribute"] = match
+
+    def set_site_contract(self, contract_name, fail_module=True):
+        """
+        Get site contract item that matches the name of a contract.
+        :param contract_name: Name of the contract to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Site contract item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template", "site"])
+        kv_list = [
+            KVPair(
+                "contractRef", self.mso.contract_ref(schema_id=self.id, template=self.schema_objects["template"].details.get("name"), contract=contract_name)
+            )
+        ]
+        match, existing = self.get_object_from_list(self.schema_objects["site"].details.get("contracts"), kv_list)
+        if not match and fail_module:
+            msg = "Provided Contract '{0}' not matching existing site contract(s): {1}".format(contract_name, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["site_contract"] = match

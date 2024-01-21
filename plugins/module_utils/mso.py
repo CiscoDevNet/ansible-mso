@@ -120,6 +120,12 @@ def mso_reference_spec():
         template=dict(type="str"),
     )
 
+def ndo_templates_spec():
+    return dict(
+        name=dict(type="str", required=True),
+        template=dict(type="str", required=True),
+    )
+
 
 def mso_epg_subnet_spec():
     return dict(

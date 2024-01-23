@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Nirav Katarmal (@nkatarmal-crest) <nirav.katarmal@crestdatasys.com>
+# Copyright: (c) 2023, Mabille Florent (@fmabille09) <florent.mabille@smals.be>
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -18,6 +20,8 @@ description:
 - Manage site-local EPG domains in schema template on Cisco ACI Multi-Site.
 author:
 - Nirav Katarmal (@nkatarmal-crest)
+- Mabille Florent (@fmabille09)
+- Akini Ross (@akinross)
 options:
   schema:
     description:
@@ -69,8 +73,8 @@ options:
   micro_seg_vlan_type:
     description:
     - Virtual LAN type for microsegmentation. This attribute can only be used with vmmDomain domain association.
-    - vlan is currently the only accepted value.
     type: str
+    choices: [ vlan ]
   micro_seg_vlan:
     description:
     - Virtual LAN for microsegmentation. This attribute can only be used with vmmDomain domain association.
@@ -78,8 +82,8 @@ options:
   port_encap_vlan_type:
     description:
     - Virtual LAN type for port encap. This attribute can only be used with vmmDomain domain association.
-    - vlan is currently the only accepted value.
     type: str
+    choices: [ vlan ]
   port_encap_vlan:
     description:
     - Virtual LAN type for port encap. This attribute can only be used with vmmDomain domain association.
@@ -108,6 +112,55 @@ options:
   enhanced_lagpolicy_dn:
     description:
     - Distinguished name of EPG lagpolicy. This attribute can only be used with vmmDomain domain association.
+    type: str
+  delimiter:
+    description:
+    - Which delimiter to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    type: str
+    choices: [ '+', '|', '~', '!', '@', '^', '=' ]
+  binding_type:
+    description:
+    - Which binding_type to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    type: str
+    default: none
+    choices: [ static, dynamic, none, ephemeral ]
+  num_ports:
+    description:
+    - Number of ports for the binding type. This attribute can only be used with vmmDomain domain association.
+    type: int
+  port_allocation:
+    description:
+    - Port allocation for the binding type. This attribute can only be used with vmmDomain domain association and binding type in static.
+    - Required when O(binding_type=static).
+    type: str
+    choices: [ elastic, fixed ]
+  netflow_pref:
+    description:
+    - Which netflow_pref to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    type: str
+    default: disabled
+    choices: [ enabled, disabled ]
+  allow_promiscuous:
+    description:
+    - Which allow_promiscuous to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    type: str
+    default: reject
+    choices: [ accept, reject ]
+  forged_transmits:
+    description:
+    - Which forged_transmits to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    type: str
+    default: reject
+    choices: [ accept, reject ]
+  mac_changes:
+    description:
+    - Which mac_changes to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    type: str
+    default: reject
+    choices: [ accept, reject ]
+  custom_epg_name:
+    description:
+    - Which custom_epg_name to use with this domain association. This attribute can only be used with vmmDomain domain association.
     type: str
   state:
     description:
@@ -143,7 +196,7 @@ EXAMPLES = r"""
     resolution_immediacy: pre-provision
     state: present
 
-- name: Remove a domain from a site EPG
+- name: Add a new domain to a site EPG with all possible attributes set
   cisco.mso.mso_schema_site_anp_epg_domain:
     host: mso_host
     username: admin
@@ -155,9 +208,28 @@ EXAMPLES = r"""
     epg: EPG1
     domain_association_type: vmmDomain
     domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: absent
+    deployment_immediacy: immediate
+    resolution_immediacy: immediate
+    micro_seg_vlan_type: vlan
+    micro_seg_vlan: 100
+    port_encap_vlan_type: vlan
+    port_encap_vlan: 100
+    vlan_encap_mode: static
+    allow_micro_segmentation: true
+    switch_type: default
+    switching_mode: native
+    enhanced_lagpolicy_name: ansible_lag_name
+    enhanced_lagpolicy_dn: ansible_lag_dn
+    delimiter: '|'
+    binding_type: static
+    num_ports: 2
+    port_allocation: elastic
+    netflow_pref: enabled
+    allow_promiscuous: accept
+    forged_transmits: accept
+    mac_changes: accept
+    custom_epg_name: ansible_custom_epg
+    state: present
 
 - name: Query a domain associated with a specific site EPG
   cisco.mso.mso_schema_site_anp_epg_domain:
@@ -186,6 +258,22 @@ EXAMPLES = r"""
     epg: EPG1
     state: query
   register: query_result
+
+- name: Remove a domain from a site EPG
+  cisco.mso.mso_schema_site_anp_epg_domain:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema1
+    site: Site1
+    template: Template1
+    anp: ANP1
+    epg: EPG1
+    domain_association_type: vmmDomain
+    domain_profile: 'VMware-VMM'
+    deployment_immediacy: lazy
+    resolution_immediacy: pre-provision
+    state: absent
 """
 
 RETURN = r"""
@@ -208,9 +296,9 @@ def main():
         deployment_immediacy=dict(type="str", choices=["immediate", "lazy"]),
         resolution_immediacy=dict(type="str", choices=["immediate", "lazy", "pre-provision"]),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
-        micro_seg_vlan_type=dict(type="str"),
+        micro_seg_vlan_type=dict(type="str", choices=["vlan"]),
         micro_seg_vlan=dict(type="int"),
-        port_encap_vlan_type=dict(type="str"),
+        port_encap_vlan_type=dict(type="str", choices=["vlan"]),
         port_encap_vlan=dict(type="int"),
         vlan_encap_mode=dict(type="str", choices=["static", "dynamic"]),
         allow_micro_segmentation=dict(type="bool"),
@@ -218,6 +306,15 @@ def main():
         switching_mode=dict(type="str"),
         enhanced_lagpolicy_name=dict(type="str"),
         enhanced_lagpolicy_dn=dict(type="str"),
+        binding_type=dict(type="str", default="none", choices=["dynamic", "ephemeral", "none", "static"]),
+        port_allocation=dict(type="str", choices=["elastic", "fixed"]),
+        num_ports=dict(type="int"),
+        netflow_pref=dict(type="str", default="disabled", choices=["enabled", "disabled"]),
+        allow_promiscuous=dict(type="str", default="reject", choices=["accept", "reject"]),
+        forged_transmits=dict(type="str", default="reject", choices=["accept", "reject"]),
+        mac_changes=dict(type="str", default="reject", choices=["accept", "reject"]),
+        delimiter=dict(type="str", choices=["+", "|", "~", "!", "@", "^", "="]),
+        custom_epg_name=dict(type="str"),
     )
 
     module = AnsibleModule(
@@ -226,6 +323,12 @@ def main():
         required_if=[
             ["state", "absent", ["domain_association_type", "domain_profile", "deployment_immediacy", "resolution_immediacy"]],
             ["state", "present", ["domain_association_type", "domain_profile", "deployment_immediacy", "resolution_immediacy"]],
+            ["binding_type", "static", ["port_allocation"]],
+        ],
+        required_together=[
+            ("micro_seg_vlan_type", "micro_seg_vlan"),
+            ("port_encap_vlan_type", "port_encap_vlan"),
+            ("enhanced_lagpolicy_name", "enhanced_lagpolicy_dn"),
         ],
     )
 
@@ -249,6 +352,15 @@ def main():
     switching_mode = module.params.get("switching_mode")
     enhanced_lagpolicy_name = module.params.get("enhanced_lagpolicy_name")
     enhanced_lagpolicy_dn = module.params.get("enhanced_lagpolicy_dn")
+    binding_type = module.params.get("binding_type")
+    port_allocation = module.params.get("port_allocation")
+    num_ports = module.params.get("num_ports")
+    netflow_pref = module.params.get("netflow_pref")
+    allow_promiscuous = module.params.get("allow_promiscuous")
+    forged_transmits = module.params.get("forged_transmits")
+    mac_changes = module.params.get("mac_changes")
+    delimiter = module.params.get("delimiter")
+    custom_epg_name = module.params.get("custom_epg_name")
 
     mso = MSOModule(module)
 
@@ -393,46 +505,54 @@ def main():
     if domain_association_type == "vmmDomain":
         vmmDomainProperties = {}
         if micro_seg_vlan_type and micro_seg_vlan:
-            microSegVlan = dict(vlanType=micro_seg_vlan_type, vlan=micro_seg_vlan)
-            vmmDomainProperties["microSegVlan"] = microSegVlan
-        elif not micro_seg_vlan_type and micro_seg_vlan:
-            mso.fail_json(msg="micro_seg_vlan_type is required when micro_seg_vlan is provided.")
-        elif micro_seg_vlan_type and not micro_seg_vlan:
-            mso.fail_json(msg="micro_seg_vlan is required when micro_seg_vlan_type is provided.")
+            vmmDomainProperties["microSegVlan"] = dict(vlanType=micro_seg_vlan_type, vlan=micro_seg_vlan)
 
         if port_encap_vlan_type and port_encap_vlan:
-            portEncapVlan = dict(vlanType=port_encap_vlan_type, vlan=port_encap_vlan)
-            vmmDomainProperties["portEncapVlan"] = portEncapVlan
-        elif not port_encap_vlan_type and port_encap_vlan:
-            mso.fail_json(msg="port_encap_vlan_type is required when port_encap_vlan is provided.")
-        elif port_encap_vlan_type and not port_encap_vlan:
-            mso.fail_json(msg="port_encap_vlan is required when port_encap_vlan_type is provided.")
+            vmmDomainProperties["portEncapVlan"] = dict(vlanType=port_encap_vlan_type, vlan=port_encap_vlan)
 
         if vlan_encap_mode:
             vmmDomainProperties["vlanEncapMode"] = vlan_encap_mode
 
-        if allow_micro_segmentation:
+        if allow_micro_segmentation is not None:
             vmmDomainProperties["allowMicroSegmentation"] = allow_micro_segmentation
+
         if switch_type:
             vmmDomainProperties["switchType"] = switch_type
+
         if switching_mode:
             vmmDomainProperties["switchingMode"] = switching_mode
 
         if enhanced_lagpolicy_name and enhanced_lagpolicy_dn:
-            enhancedLagPol = dict(name=enhanced_lagpolicy_name, dn=enhanced_lagpolicy_dn)
-            epgLagPol = dict(enhancedLagPol=enhancedLagPol)
-            vmmDomainProperties["epgLagPol"] = epgLagPol
-        elif not enhanced_lagpolicy_name and enhanced_lagpolicy_dn:
-            mso.fail_json(msg="enhanced_lagpolicy_name is required when enhanced_lagpolicy_dn is provided.")
-        elif enhanced_lagpolicy_name and not enhanced_lagpolicy_dn:
-            mso.fail_json(msg="enhanced_lagpolicy_dn is required when enhanced_lagpolicy_name is provided.")
+            vmmDomainProperties["epgLagPol"] = dict(enhancedLagPol=dict(name=enhanced_lagpolicy_name, dn=enhanced_lagpolicy_dn))
+
+        if delimiter:
+            vmmDomainProperties["delimiter"] = delimiter
+
+        if binding_type:
+            vmmDomainProperties["bindingType"] = binding_type
+            vmmDomainProperties["numPorts"] = num_ports
+
+        if port_allocation:
+            vmmDomainProperties["portAllocation"] = port_allocation
+
+        if netflow_pref:
+            vmmDomainProperties["netflowPref"] = netflow_pref
+
+        if allow_promiscuous:
+            vmmDomainProperties["allowPromiscuous"] = allow_promiscuous
+
+        if forged_transmits:
+            vmmDomainProperties["forgedTransmits"] = forged_transmits
+
+        if mac_changes:
+            vmmDomainProperties["macChanges"] = mac_changes
+
+        if custom_epg_name:
+            vmmDomainProperties["customEpgName"] = custom_epg_name
 
         if vmmDomainProperties:
             new_domain["vmmDomainProperties"] = vmmDomainProperties
-            properties = ["allowMicroSegmentation", "epgLagPol", "switchType", "switchingMode", "vlanEncapMode", "portEncapVlan", "microSegVlan"]
-            for property in properties:
-                if property in vmmDomainProperties:
-                    new_domain[property] = vmmDomainProperties[property]
+            new_domain.update(vmmDomainProperties)
 
     # If payload is empty, anp and EPG already exist at site level
     if not payload:

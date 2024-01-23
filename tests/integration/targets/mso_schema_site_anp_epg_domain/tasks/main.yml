@@ -2,6 +2,7 @@
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
 # Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -588,7 +589,7 @@
     domain_association_type: vmmDomain
     domain_profile: 'VMware-VMM'
     deployment_immediacy: immediate
-    resolution_immediacy: lazy
+    resolution_immediacy: immediate
     micro_seg_vlan_type: 'vlan'
     micro_seg_vlan: 100
     port_encap_vlan_type: 'vlan'
@@ -599,6 +600,15 @@
     switching_mode: native
     enhanced_lagpolicy_name: 'ansible_check_name'
     enhanced_lagpolicy_dn: 'ansible_check'
+    delimiter: '|'
+    binding_type: static
+    num_ports: 2
+    port_allocation: elastic
+    netflow_pref: enabled
+    allow_promiscuous: accept
+    forged_transmits: accept
+    mac_changes: accept
+    custom_epg_name: ansible_custom_epg
     state: present
   register: nm_add_domvmprop
 
@@ -623,10 +633,19 @@
     - nm_add_domvmprop.current.microSegVlan.vlanType == "vlan"
     - nm_add_domvmprop.current.portEncapVlan.vlan == 100
     - nm_add_domvmprop.current.portEncapVlan.vlanType == "vlan"
-    - nm_add_domvmprop.current.resolutionImmediacy == "lazy"
+    - nm_add_domvmprop.current.resolutionImmediacy == "immediate"
     - nm_add_domvmprop.current.switchType == "default"
     - nm_add_domvmprop.current.switchingMode == "native"
     - nm_add_domvmprop.current.vlanEncapMode == "static"
+    - nm_add_domvmprop.current.delimiter == "|"
+    - nm_add_domvmprop.current.bindingType == "static"
+    - nm_add_domvmprop.current.numPorts == 2
+    - nm_add_domvmprop.current.portAllocation == "elastic"
+    - nm_add_domvmprop.current.netflowPref == "enabled"
+    - nm_add_domvmprop.current.allowPromiscuous == "accept"
+    - nm_add_domvmprop.current.forgedTransmits == "accept"
+    - nm_add_domvmprop.current.macChanges == "accept"
+    - nm_add_domvmprop.current.customEpgName == "ansible_custom_epg"
     - nm_add_domvmprop.current.vmmDomainProperties.allowMicroSegmentation == true
     - nm_add_domvmprop.current.vmmDomainProperties.epgLagPol.enhancedLagPol.dn == "ansible_check"
     - nm_add_domvmprop.current.vmmDomainProperties.epgLagPol.enhancedLagPol.name == "ansible_check_name"
@@ -637,6 +656,15 @@
     - nm_add_domvmprop.current.vmmDomainProperties.switchType == "default"
     - nm_add_domvmprop.current.vmmDomainProperties.switchingMode == "native"
     - nm_add_domvmprop.current.vmmDomainProperties.vlanEncapMode == "static"
+    - nm_add_domvmprop.current.vmmDomainProperties.delimiter == "|"
+    - nm_add_domvmprop.current.vmmDomainProperties.bindingType == "static"
+    - nm_add_domvmprop.current.vmmDomainProperties.numPorts == 2
+    - nm_add_domvmprop.current.vmmDomainProperties.portAllocation == "elastic"
+    - nm_add_domvmprop.current.vmmDomainProperties.netflowPref == "enabled"
+    - nm_add_domvmprop.current.vmmDomainProperties.allowPromiscuous == "accept"
+    - nm_add_domvmprop.current.vmmDomainProperties.forgedTransmits == "accept"
+    - nm_add_domvmprop.current.vmmDomainProperties.macChanges == "accept"
+    - nm_add_domvmprop.current.vmmDomainProperties.customEpgName == "ansible_custom_epg"
     - nm_query_domvmprop.current.allowMicroSegmentation == true
     - nm_query_domvmprop.current.deployImmediacy == "immediate"
     - nm_query_domvmprop.current.dn == "uni/vmmp-VMware/dom-VMware-VMM"
@@ -646,10 +674,19 @@
     - nm_query_domvmprop.current.microSegVlan.vlanType == "vlan"
     - nm_query_domvmprop.current.portEncapVlan.vlan == 100
     - nm_query_domvmprop.current.portEncapVlan.vlanType == "vlan"
-    - nm_query_domvmprop.current.resolutionImmediacy == "lazy"
+    - nm_query_domvmprop.current.resolutionImmediacy == "immediate"
     - nm_query_domvmprop.current.switchType == "default"
     - nm_query_domvmprop.current.switchingMode == "native"
     - nm_query_domvmprop.current.vlanEncapMode == "static"
+    - nm_query_domvmprop.current.delimiter == "|"
+    - nm_query_domvmprop.current.bindingType == "static"
+    - nm_query_domvmprop.current.numPorts == 2
+    - nm_query_domvmprop.current.portAllocation == "elastic"
+    - nm_query_domvmprop.current.netflowPref == "enabled"
+    - nm_query_domvmprop.current.allowPromiscuous == "accept"
+    - nm_query_domvmprop.current.forgedTransmits == "accept"
+    - nm_query_domvmprop.current.macChanges == "accept"
+    - nm_query_domvmprop.current.customEpgName == "ansible_custom_epg"
 
 - name: Add another domain vmm to site EPG2 with AP2 (normal mode)
   cisco.mso.mso_schema_site_anp_epg_domain:
@@ -676,7 +713,30 @@
     - nm_query_another_domvmprop is not changed
     - nm_query_another_domvmprop.current | length == 2
 
-- name: Add domain vmm to site EPG4 with AP2 (normal mode)
+- name: Error binding type static and port_allocation not provided (error mode)
+  cisco.mso.mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG4
+    domain_association_type: vmmDomain
+    domain_profile: 'VMware-VMM'
+    deployment_immediacy: lazy
+    resolution_immediacy: lazy
+    binding_type: static
+    state: present
+  ignore_errors: true
+  register: err_binding_type_static
+
+- name: Verify binding type static error
+  ansible.builtin.assert:
+    that:
+    - err_binding_type_static is not changed
+    - err_binding_type_static.msg == "binding_type is static but all of the following are missing{{":"}} port_allocation"
+
+- name: Error micro_seg_vlan and micro_seg_vlan_type not provided (error mode)
   cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -689,26 +749,95 @@
     deployment_immediacy: lazy
     resolution_immediacy: lazy
     micro_seg_vlan: 100
-    port_encap_vlan_type: 'vlan'
+    state: present
+  ignore_errors: true
+  register: err_no_micro_seg_vlan_type
+
+- name: Error micro_seg_vlan_type and micro_seg_vlan not provided (error mode)
+  cisco.mso.mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG4
+    domain_association_type: vmmDomain
+    domain_profile: 'VMware-VMM'
+    deployment_immediacy: lazy
+    resolution_immediacy: lazy
+    micro_seg_vlan_type: 'vlan'
+    state: present
+  ignore_errors: true
+  register: err_no_micro_seg_vlan
+
+- name: Verify micro segmentation vlan error
+  ansible.builtin.assert:
+    that:
+    - err_no_micro_seg_vlan_type is not changed
+    - err_no_micro_seg_vlan_type.msg == "parameters are required together{{":"}} micro_seg_vlan_type, micro_seg_vlan"
+    - err_no_micro_seg_vlan is not changed
+    - err_no_micro_seg_vlan.msg == "parameters are required together{{":"}} micro_seg_vlan_type, micro_seg_vlan"
+
+- name: Error port_encap_vlan and port_encap_vlan_type not provided (error mode)
+  cisco.mso.mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG4
+    domain_association_type: vmmDomain
+    domain_profile: 'VMware-VMM'
+    deployment_immediacy: lazy
+    resolution_immediacy: lazy
     port_encap_vlan: 100
-    vlan_encap_mode: static
-    allow_micro_segmentation: true
-    switch_type: 'default'
-    switching_mode: native
-    enhanced_lagpolicy_name: 'ansible_check'
+    state: present
+  ignore_errors: true
+  register: err_no_port_encap_vlan_type
+
+- name: Error port_encap_vlan_type and port_encap_vlan not provided (error mode)
+  cisco.mso.mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG4
+    domain_association_type: vmmDomain
+    domain_profile: 'VMware-VMM'
+    deployment_immediacy: lazy
+    resolution_immediacy: lazy
+    port_encap_vlan_type: 'vlan'
+    state: present
+  ignore_errors: true
+  register: err_no_port_encap_vlan
+
+- name: Verify port encap vlan error
+  ansible.builtin.assert:
+    that:
+    - err_no_port_encap_vlan_type is not changed
+    - err_no_port_encap_vlan_type.msg == "parameters are required together{{":"}} port_encap_vlan_type, port_encap_vlan"
+    - err_no_port_encap_vlan is not changed
+    - err_no_port_encap_vlan.msg == "parameters are required together{{":"}} port_encap_vlan_type, port_encap_vlan"
+
+- name: Error enhanced_lagpolicy_dn and enhanced_lagpolicy_name not provided (error mode)
+  cisco.mso.mso_schema_site_anp_epg_domain:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: AP2
+    epg: EPG4
+    domain_association_type: vmmDomain
+    domain_profile: 'VMware-VMM'
+    deployment_immediacy: lazy
+    resolution_immediacy: lazy
     enhanced_lagpolicy_dn: 'ansible_check'
     state: present
   ignore_errors: true
-  register: nm_add_domvmprop1
+  register: err_no_enhanced_lagpolicy_name
 
-- name: Verify nm_add_domvmprop1
-  ansible.builtin.assert:
-    that:
-    - nm_add_domvmprop1 is not changed
-    - nm_add_domvmprop1.previous == {}
-    - nm_add_domvmprop1.msg == "micro_seg_vlan_type is required when micro_seg_vlan is provided."
-
-- name: Add domain vmm to site EPG4 with AP2 (normal mode)
+- name: Error enhanced_lagpolicy_name and enhanced_lagpolicy_dn not provided (error mode)
   cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
@@ -720,148 +849,18 @@
     domain_profile: 'VMware-VMM'
     deployment_immediacy: lazy
     resolution_immediacy: lazy
-    micro_seg_vlan_type: 'vlan'
-    port_encap_vlan_type: 'vlan'
-    port_encap_vlan: 100
-    vlan_encap_mode: static
-    allow_micro_segmentation: true
-    switch_type: 'default'
-    switching_mode: native
-    enhanced_lagpolicy_name: 'ansible_check'
-    enhanced_lagpolicy_dn: 'ansible_check'
-    state: present
-  ignore_errors: true
-  register: nm_add_domvmprop2
-
-- name: Verify nm_add_domvmprop2
-  ansible.builtin.assert:
-    that:
-    - nm_add_domvmprop2 is not changed
-    - nm_add_domvmprop2.msg == "micro_seg_vlan is required when micro_seg_vlan_type is provided."
-
-- name: Add domain vmm to site EPG4 with AP2 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    micro_seg_vlan_type: 'vlan'
-    micro_seg_vlan: 100
-    port_encap_vlan: 100
-    vlan_encap_mode: static
-    allow_micro_segmentation: true
-    switch_type: 'default'
-    switching_mode: native
-    enhanced_lagpolicy_name: 'ansible_check'
-    enhanced_lagpolicy_dn: ''
-    state: present
-  ignore_errors: true
-  register: nm_add_domvmprop3
-
-- name: Verify nm_add_domvmprop3
-  ansible.builtin.assert:
-    that:
-    - nm_add_domvmprop3 is not changed
-    - nm_add_domvmprop3.msg == "port_encap_vlan_type is required when port_encap_vlan is provided."
-
-- name: Add domain vmm to site EPG4 with AP2 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    micro_seg_vlan_type: 'vlan'
-    micro_seg_vlan: 100
-    port_encap_vlan_type: 'vlan'
-    vlan_encap_mode: static
-    allow_micro_segmentation: true
-    switch_type: 'default'
-    switching_mode: native
-    enhanced_lagpolicy_name: 'ansible_check'
-    enhanced_lagpolicy_dn: 'ansible_check'
-    state: present
-  ignore_errors: true
-  register: nm_add_domvmprop4
-
-- name: Verify nm_add_domvmprop4
-  ansible.builtin.assert:
-    that:
-    - nm_add_domvmprop4 is not changed
-    - nm_add_domvmprop4.msg == "port_encap_vlan is required when port_encap_vlan_type is provided."
-
-- name: Add domain vmm to site EPG4 with AP2 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    micro_seg_vlan_type: 'vlan'
-    micro_seg_vlan: 100
-    port_encap_vlan_type: 'vlan'
-    port_encap_vlan: 100
-    vlan_encap_mode: static
-    allow_micro_segmentation: true
-    switch_type: 'default'
-    switching_mode: native
-    enhanced_lagpolicy_dn: 'ansible_check'
-    state: present
-  ignore_errors: true
-  register: nm_add_domvmprop5
-
-- name: Verify nm_add_domvmprop5
-  ansible.builtin.assert:
-    that:
-    - nm_add_domvmprop5 is not changed
-    - nm_add_domvmprop5.msg == "enhanced_lagpolicy_name is required when enhanced_lagpolicy_dn is provided."
-
-- name: Add domain vmm to site EPG4 with AP2 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    micro_seg_vlan_type: 'vlan'
-    micro_seg_vlan: 100
-    port_encap_vlan_type: 'vlan'
-    port_encap_vlan: 100
-    vlan_encap_mode: static
-    allow_micro_segmentation: true
-    switch_type: 'default'
-    switching_mode: native
     enhanced_lagpolicy_name: 'ansible_check'
     state: present
   ignore_errors: true
-  register: nm_add_domvmprop6
+  register: err_no_enhanced_lagpolicy_dn
 
 - name: Verify nm_add_domvmprop6
   ansible.builtin.assert:
     that:
-    - nm_add_domvmprop6 is not changed
-    - nm_add_domvmprop6.msg == "enhanced_lagpolicy_dn is required when enhanced_lagpolicy_name is provided."
+    - err_no_enhanced_lagpolicy_name is not changed
+    - err_no_enhanced_lagpolicy_name.msg == "parameters are required together{{":"}} enhanced_lagpolicy_name, enhanced_lagpolicy_dn"
+    - err_no_enhanced_lagpolicy_dn is not changed
+    - err_no_enhanced_lagpolicy_dn.msg == "parameters are required together{{":"}} enhanced_lagpolicy_name, enhanced_lagpolicy_dn"
 
 # USE NON-EXISTING EPG and ANP AT TEMPLATE LEVEL
 - name: Add domain 1 to non-existent site EPG5 (normal mode)

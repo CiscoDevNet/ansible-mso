@@ -246,9 +246,14 @@ def main():
     mso_schema.set_site(template, site)
     mso_schema.set_site_contract(contract, False)
 
-    if mso.platform == "on-premise" and (node_relationship is None or tenant is None) and state == "present":
+    if mso.site_type == "on-premise" and state == "present":
         # When site type is on-premise, both node_relationship and tenant are required
-        mso.fail_json(msg="Missing either node_relationship or tenant required attribute.")
+        if node_relationship is None and tenant is None:
+            mso.fail_json(msg="The node_relationship and tenant attributes are required when state is present and site type is on-premise.")
+        elif node_relationship is None:
+            mso.fail_json(msg="The node_relationship attribute is required when state is present and site type is on-premise.")
+        elif tenant is None:
+            mso.fail_json(msg="The tenant attribute is required when state is present and site type is on-premise.")
 
     if contract and mso_schema.schema_objects["site_contract"] is not None:
         site_contract_service_graph = mso_schema.schema_objects["site_contract"].details.get("serviceGraphRelationship")
@@ -257,16 +262,10 @@ def main():
             if site_contract_service_graph_name == service_graph:
                 mso.existing = site_contract_service_graph
             else:
-                mso.existing = {}
                 mso.fail_json(msg="The service graph: {0} does not associated with the site contract: {1}.".format(service_graph, contract))
         elif site_contract_service_graph and service_graph is None:
             mso.existing = site_contract_service_graph
-        elif site_contract_service_graph is None and service_graph:
-            mso.existing = {}
-        elif site_contract_service_graph is None and service_graph is None:
-            mso.existing = {}
     elif contract is not None and mso_schema.schema_objects["site_contract"] is None:
-        mso.existing = {}
         mso.fail_json(msg="The site contract: {0} does not exist.".format(contract))
     elif contract is None and mso_schema.schema_objects["site"].details.get("contracts"):
         mso.existing = [
@@ -274,8 +273,6 @@ def main():
             for contract in mso_schema.schema_objects["site"].details.get("contracts")
             if contract.get("serviceGraphRelationship")
         ]
-    elif contract is None and mso_schema.schema_objects["site"].details.get("contracts") == []:
-        mso.existing = {}
 
     if state == "query":
         mso.exit_json()
@@ -291,30 +288,23 @@ def main():
     elif state == "present":
         service_graph_ref = dict(schemaId=service_graph_reference_schema_id, serviceGraphName=service_graph, templateName=service_graph_reference_template)
         service_node_relationship = []
-        node_index = 0
-        for node in node_relationship:
-            node_index = node_index + 1
+
+        for node_index, node in enumerate(node_relationship, 1):
             service_node_ref = dict(
                 schemaId=service_graph_reference_schema_id,
                 serviceGraphName=service_graph,
                 serviceNodeName="node{0}".format(node_index),
                 templateName=service_graph_reference_template,
             )
-            consumer_subnet_ips = node.get("consumer_subnet_ips")
-            consumer_subnet_ips_list = []
 
-            if consumer_subnet_ips:
-                consumer_subnet_ips_list = [dict(ip=subnet) for subnet in consumer_subnet_ips]
-
-            provider_connector_redirect_policy_tenant = node.get("provider_connector_redirect_policy_tenant") or tenant
-            consumer_connector_redirect_policy_tenant = node.get("consumer_connector_redirect_policy_tenant") or tenant
+            consumer_subnet_ips_list = [dict(ip=subnet) for subnet in node.get("consumer_subnet_ips")] if node.get("consumer_subnet_ips") else []
             consumer_connector = dict(
                 clusterInterface=dict(
                     dn="uni/tn-{0}/lDevVip-{1}/lIf-{2}".format(tenant, node.get("cluster_interface_device"), node.get("consumer_connector_cluster_interface"))
                 ),
                 redirectPolicy=dict(
                     dn="uni/tn-{0}/svcCont/svcRedirectPol-{1}".format(
-                        consumer_connector_redirect_policy_tenant, node.get("consumer_connector_redirect_policy")
+                        node.get("consumer_connector_redirect_policy_tenant") or tenant, node.get("consumer_connector_redirect_policy")
                     )
                 ),
                 subnets=consumer_subnet_ips_list,
@@ -325,12 +315,12 @@ def main():
                 ),
                 redirectPolicy=dict(
                     dn="uni/tn-{0}/svcCont/svcRedirectPol-{1}".format(
-                        provider_connector_redirect_policy_tenant, node.get("provider_connector_redirect_policy")
+                        node.get("provider_connector_redirect_policy_tenant") or tenant, node.get("provider_connector_redirect_policy")
                     )
                 ),
             )
             service_node_relationship.append(dict(consumerConnector=consumer_connector, providerConnector=provider_connector, serviceNodeRef=service_node_ref))
-        if mso.platform == "on-premise":
+        if mso.site_type == "on-premise":
             payload = dict(serviceGraphRef=service_graph_ref, serviceNodesRelationship=service_node_relationship)
         else:
             payload = dict(serviceGraphRef=service_graph_ref, serviceNodesRelationship=[])

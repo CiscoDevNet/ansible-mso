@@ -267,6 +267,7 @@ def main():
 
     elif state == "present":
         service_graphs = templates[template_idx]["serviceGraphs"]
+        service_node_types_from_template = []
         for graph in service_graphs:
             if graph.get("name") == service_graph:
                 service_node_types_from_template = graph["serviceNodes"]
@@ -352,11 +353,6 @@ def main():
 
                     devices_payload.append(device_payload)
 
-                if mso.platform == "azure":
-                    if device.get("provider_connector_type") == "True":
-                        device_payload["providerConnectorType"] = "redir"
-                    if device.get("consumer_connector_type") == "True":
-                        device_payload["consumerConnectorType"] = "redir"
                 devices_payload.append(device_payload)
 
         payload = dict(

@@ -67,32 +67,39 @@ options:
         - The name of the cluster interface device.
         type: str
         required: true
+        aliases: [ cluster_device, device, device_name ]
       provider_connector_cluster_interface:
         description:
         - The name of the cluster interface for the provider connector.
         type: str
         required: true
+        aliases: [ provider_cluster_interface, provider_interface, provider_interface_name ]
       provider_connector_redirect_policy_tenant:
         description:
         - The name of the tenant for the provider connector redirect policy.
         type: str
+        aliases: [ provider_redirect_policy_tenant, provider_tenant ]
       provider_connector_redirect_policy:
         description:
         - The name of the redirect policy for the provider connector.
         type: str
+        aliases: [ provider_redirect_policy, provider_policy ]
       consumer_connector_cluster_interface:
         description:
         - The name of the cluster interface for the consumer connector.
         type: str
         required: true
+        aliases: [ consumer_cluster_interface, consumer_interface, consumer_interface_name ]
       consumer_connector_redirect_policy_tenant:
         description:
         - The name of the tenant for the consumer connector redirect policy.
         type: str
+        aliases: [ consumer_redirect_policy_tenant, consumer_tenant ]
       consumer_connector_redirect_policy:
         description:
         - The name of the redirect policy for the consumer connector.
         type: str
+        aliases: [ consumer_redirect_policy, consumer_policy ]
       consumer_subnet_ips:
         description:
         - The list of subnet IPs for the consumer connector.

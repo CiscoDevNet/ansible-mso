@@ -258,7 +258,7 @@
     state: present
 
 - name: Add BD1 to ansible_template1
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: "ansible_schema"
     template: "ansible_template1"
@@ -268,7 +268,7 @@
     state: present
 
 - name: Add BD2 to ansible_template1
-  mso_schema_template_bd:
+  cisco.mso.mso_schema_template_bd:
     <<: *mso_info
     schema: "ansible_schema"
     template: "ansible_template1"
@@ -398,7 +398,7 @@
   register: add_sg_nm_again
 
 - name: Assertions check for the bind site contract service graph
-  assert:
+  ansible.builtin.assert:
     that:
       - add_sg_cm is changed
       - add_sg_cm.current != {}
@@ -495,7 +495,7 @@
   register: update_sg_nm_again
 
 - name: Assertions check for the update site contract service graph
-  assert:
+  ansible.builtin.assert:
     that:
       - update_sg_cm is changed
       - update_sg_cm.current != {}
@@ -641,7 +641,7 @@
   register: nt_add_sg_without_tenant
 
 - name: Assertions check for the negative site contract tests
-  assert:
+  ansible.builtin.assert:
     that:
       - nt_with_invalid_sg_schema is not changed
       - nt_with_invalid_sg_schema.current == {}
@@ -707,7 +707,7 @@
   register: query_all_sg_without_contract_sg
 
 - name: Assertions check for the query results
-  assert:
+  ansible.builtin.assert:
     that:
       - query_empty_contract_without_sg_name is not changed
       - query_empty_contract_without_sg_name.current == {}
@@ -770,7 +770,7 @@
   register: site_con_sg_absent_nm_again
 
 - name: Assertions check for remove the site contract Contract1 - service graph from the ansible_template1
-  assert:
+  ansible.builtin.assert:
     that:
       - site_con_sg_absent_cm is changed
       - site_con_sg_absent_cm.current == {}
@@ -816,6 +816,7 @@
     <<: *mso_info
     tenant: ansible_tenant
     state: absent
+
 - name: Set ansible_network_os to cisco.aci.aci and ansible_connection to local
   ansible.builtin.set_fact:
     ansible_connection: local

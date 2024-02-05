@@ -1471,12 +1471,16 @@ def service_node_ref_str_to_dict(serviceNodeRefStr):
 
 def mso_schema_site_contract_service_graph_spec():
     return dict(
-        cluster_interface_device=dict(type="str", required=True),
-        provider_connector_cluster_interface=dict(type="str", required=True),
-        provider_connector_redirect_policy_tenant=dict(type="str"),
-        provider_connector_redirect_policy=dict(type="str"),
-        consumer_connector_cluster_interface=dict(type="str", required=True),
-        consumer_connector_redirect_policy_tenant=dict(type="str"),
-        consumer_connector_redirect_policy=dict(type="str"),
+        cluster_interface_device=dict(type="str", required=True, aliases=["cluster_device", "device", "device_name"]),
+        provider_connector_cluster_interface=dict(
+            type="str", required=True, aliases=["provider_cluster_interface", "provider_interface", "provider_interface_name"]
+        ),
+        provider_connector_redirect_policy_tenant=dict(type="str", aliases=["provider_redirect_policy_tenant", "provider_tenant"]),
+        provider_connector_redirect_policy=dict(type="str", aliases=["provider_redirect_policy", "provider_policy"]),
+        consumer_connector_cluster_interface=dict(
+            type="str", required=True, aliases=["consumer_cluster_interface", "consumer_interface", "consumer_interface_name"]
+        ),
+        consumer_connector_redirect_policy_tenant=dict(type="str", aliases=["consumer_redirect_policy_tenant", "consumer_tenant"]),
+        consumer_connector_redirect_policy=dict(type="str", aliases=["consumer_redirect_policy", "consumer_policy"]),
         consumer_subnet_ips=dict(type="list", elements="str"),
     )

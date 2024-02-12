@@ -104,7 +104,7 @@ EXAMPLES = r"""
     state: present
 
 - name: Add a Site service graph for the Azure cloud CNC
-    cisco.mso.mso_schema_site_service_graph:
+  cisco.mso.mso_schema_site_service_graph:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -114,13 +114,13 @@ EXAMPLES = r"""
     site: site1
     tenant: tenant1
     devices:
-        - name: ans_tnt_firewall1
+      - name: ans_tnt_firewall1
         provider_connector_type: source_nat
         provider_interface: TP_FW_Inf1
         consumer_connector_type: redirect
         consumer_interface: TP_FW_Inf1
-        - name: ans_tnt_app_lb
-        - name: ans_tnt_other
+      - name: ans_tnt_app_lb
+      - name: ans_tnt_other
         provider_connector_type: destination_nat
         consumer_connector_type: redirect
     state: present
@@ -307,36 +307,44 @@ def main():
                                     device_data.get("deviceVendorType") == "NATIVELB"
                                     and device_data.get("devType") == "application"
                                     and (
-                                        consumer_interface != None
-                                        or provider_interface != None
-                                        or provider_connector_type != None
-                                        or consumer_connector_type != None
+                                        consumer_interface is not None
+                                        or provider_interface is not None
+                                        or provider_connector_type is not None
+                                        or consumer_connector_type is not None
                                     )
                                 ):
-                                    # Application Load Balancer - Consumer Interface, Consumer Connector Type, Provider Interface, Provider Connector Type - not supported
+                                    # Application Load Balancer - Consumer Interface, Consumer Connector Type,
+                                    # Provider Interface, Provider Connector Type - not supported
                                     mso.fail_json(
-                                        msg="Unsupported attributes: provider_connector_type, provider_interface, consumer_connector_type, consumer_interface should be 'None' for the Application Load Balancer device."
+                                        msg="Unsupported attributes: provider_connector_type, provider_interface, "
+                                        + "consumer_connector_type, consumer_interface should be 'None' for the "
+                                        + "Application Load Balancer device."
                                     )
                                 elif (
                                     device_data.get("deviceVendorType") == "NATIVELB"
                                     and device_data.get("devType") == "network"
-                                    and (consumer_interface != None or provider_interface != None)
+                                    and (consumer_interface is not None or provider_interface is not None)
                                 ):
                                     # Network Load Balancer - Consumer Interface, Provider Interface - not supported
                                     mso.fail_json(
-                                        msg="Unsupported attributes: provider_interface and consumer_interface should be 'None' for the Network Load Balancer device."
+                                        msg="Unsupported attributes: provider_interface and consumer_interface should "
+                                        + "be 'None' for the Network Load Balancer device."
                                     )
                                 elif (
                                     device_data.get("deviceVendorType") == "ADC"
                                     and device_data.get("devType") == "CLOUD"
-                                    and (provider_connector_type != None or consumer_connector_type != None)
+                                    and (provider_connector_type is not None or consumer_connector_type is not None)
                                 ):
-                                    # Third-Party Load Balancer - Consumer Connector Type, Provider Connector Type - not supported
+                                    # Third-Party Load Balancer - Consumer Connector Type,
+                                    # Provider Connector Type - not supported
                                     mso.fail_json(
-                                        msg="Unsupported attributes: provider_connector_type and consumer_connector_type should be 'None' for the Third-Party Load Balancer."
+                                        msg="Unsupported attributes: provider_connector_type and "
+                                        + "consumer_connector_type should be 'None' for the "
+                                        + "Third-Party Load Balancer."
                                     )
 
-                                # (FW) Third-Party Firewall - Consumer Interface, Consumer Connector Type, Provider Interface, Provider Connector Type - supported
+                                # (FW) Third-Party Firewall - Consumer Interface, Consumer Connector Type,
+                                # Provider Interface, Provider Connector Type - supported
                                 device_payload["consumerInterface"] = consumer_interface
                                 device_payload["providerInterface"] = provider_interface
                                 device_payload["providerConnectorType"] = AZURE_L4L7_CONNECTOR_TYPE_MAP.get(provider_connector_type)

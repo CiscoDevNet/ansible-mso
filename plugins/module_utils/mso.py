@@ -859,11 +859,11 @@ class MSOModule(object):
             ids.append(dict(roleId=r.get("id"), accessType=access_type))
         return ids
 
-    def lookup_site_type(self, s):
+    def lookup_site_type(self, site_data):
         """Get site type(AWS, AZURE or physical)"""
-        site_type = s.get("platform")
+        site_type = site_data.get("platform")
         if site_type == "cloud":
-            self.cloud_provider_type = s.get("cloudProviders")[0]
+            self.cloud_provider_type = site_data.get("cloudProviders")[0]
         self.site_type = site_type
 
     def lookup_site(self, site, ignore_not_found_error=False):

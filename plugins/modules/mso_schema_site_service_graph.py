@@ -282,8 +282,8 @@ def main():
         if devices is not None:
             query_device_data = mso.lookup_service_node_device(site_id, tenant, device_name=None, service_node_type=None)
             for index, device in enumerate(devices):
-                device_payload = dict()
                 if query_device_data:
+                    device_payload = dict()
                     for device_data in query_device_data:
                         if device.get("device_name") == device_data.get("dn").split("/")[-1].split("-")[-1]:
                             device_payload["device"] = dict(
@@ -350,7 +350,7 @@ def main():
                                 device_payload["providerConnectorType"] = AZURE_L4L7_CONNECTOR_TYPE_MAP.get(provider_connector_type)
                                 device_payload["consumerConnectorType"] = AZURE_L4L7_CONNECTOR_TYPE_MAP.get(consumer_connector_type)
 
-                devices_payload.append(device_payload)
+                    devices_payload.append(device_payload)
 
         payload = dict(
             serviceGraphRef=dict(

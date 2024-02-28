@@ -72,95 +72,95 @@ options:
     choices: [ immediate, lazy, pre-provision ]
   micro_seg_vlan_type:
     description:
-    - Virtual LAN type for microsegmentation. This attribute can only be used with vmmDomain domain association.
+    - Virtual LAN type for microsegmentation. This attribute can only be used with VMM domain association.
     type: str
     choices: [ vlan ]
   micro_seg_vlan:
     description:
-    - Virtual LAN for microsegmentation. This attribute can only be used with vmmDomain domain association.
+    - Virtual LAN for microsegmentation. This attribute can only be used with VMM domain association.
     type: int
   port_encap_vlan_type:
     description:
-    - Virtual LAN type for port encap. This attribute can only be used with vmmDomain domain association.
+    - Virtual LAN type for port encap. This attribute can only be used with VMM domain association.
     type: str
     choices: [ vlan ]
   port_encap_vlan:
     description:
-    - Virtual LAN type for port encap. This attribute can only be used with vmmDomain domain association.
+    - Virtual LAN type for port encap. This attribute can only be used with VMM domain association.
     type: int
   vlan_encap_mode:
     description:
-    - Which VLAN enacap mode to use. This attribute can only be used with vmmDomain domain association.
+    - Which VLAN enacap mode to use. This attribute can only be used with VMM domain association.
     type: str
     choices: [ static, dynamic ]
   allow_micro_segmentation:
     description:
-    - Specifies microsegmentation is enabled or not. This attribute can only be used with vmmDomain domain association.
+    - Specifies microsegmentation is enabled or not. This attribute can only be used with VMM domain association.
     type: bool
   switch_type:
     description:
-    - Which switch type to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - Which switch type to use with this domain association. This attribute can only be used with VMM domain association.
     type: str
   switching_mode:
     description:
-    - Which switching mode to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - Which switching mode to use with this domain association. This attribute can only be used with VMM domain association.
     type: str
   enhanced_lagpolicy_name:
     description:
-    - EPG enhanced lagpolicy name. This attribute can only be used with vmmDomain domain association.
+    - EPG enhanced lagpolicy name. This attribute can only be used with VMM domain association.
     type: str
   enhanced_lagpolicy_dn:
     description:
-    - Distinguished name of EPG lagpolicy. This attribute can only be used with vmmDomain domain association.
+    - Distinguished name of EPG lagpolicy. This attribute can only be used with VMM domain association.
     type: str
   delimiter:
     description:
-    - Which delimiter to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - Which delimiter to use with this domain association. This attribute can only be used with VMM domain association.
     type: str
     choices: [ '+', '|', '~', '!', '@', '^', '=' ]
   binding_type:
     description:
-    - Which binding_type to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - Which binding_type to use with this domain association. This attribute can only be used with VMM domain association.
     type: str
     default: none
     choices: [ static, dynamic, none, ephemeral ]
   num_ports:
     description:
-    - Number of ports for the binding type. This attribute can only be used with vmmDomain domain association.
+    - Number of ports for the binding type. This attribute can only be used with VMM domain association.
     type: int
   port_allocation:
     description:
-    - Port allocation for the binding type. This attribute can only be used with vmmDomain domain association and binding type in static.
+    - Port allocation for the binding type. This attribute can only be used with VMM domain association and binding type in static.
     - Required when O(binding_type=static).
     type: str
     choices: [ elastic, fixed ]
   netflow_pref:
     description:
-    - Which netflow_pref to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - The netflow preference state of the domain association. This attribute can only be used with VMM domain association.
     type: str
     default: disabled
     choices: [ enabled, disabled ]
   allow_promiscuous:
     description:
-    - Which allow_promiscuous to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - The allow promiscuous state of the domain association. This attribute can only be used with VMM domain association.
     type: str
     default: reject
     choices: [ accept, reject ]
   forged_transmits:
     description:
-    - Which forged_transmits to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - The forged transmits state of the domain association. This attribute can only be used with VMM domain association.
     type: str
     default: reject
     choices: [ accept, reject ]
   mac_changes:
     description:
-    - Which mac_changes to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - The mac changes state of the domain association. This attribute can only be used with VMM domain association.
     type: str
     default: reject
     choices: [ accept, reject ]
   custom_epg_name:
     description:
-    - Which custom_epg_name to use with this domain association. This attribute can only be used with vmmDomain domain association.
+    - Which custom_epg_name to use with this domain association. This attribute can only be used with VMM domain association.
     type: str
   state:
     description:

@@ -1,7 +1,7 @@
 # Test code for the MSO modules
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
-# 
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -435,8 +435,8 @@
     - cm_query_non_contract is not changed
     - nm_query_non_contract is not changed
     - cm_query_non_contract == nm_query_non_contract
-    - cm_query_non_contract.msg is match("Contract '/schemas/[0-9a-zA-Z]*/templates/Template1/contracts/non_existing_contract' not found")
-    - nm_query_non_contract.msg is match("Contract '/schemas/[0-9a-zA-Z]*/templates/Template1/contracts/non_existing_contract' not found")
+    - cm_query_non_contract.msg is match("Contract with Reference '/schemas/[0-9a-zA-Z]*/templates/Template1/contracts/non_existing_contract' and type 'provider' not found")
+    - nm_query_non_contract.msg is match("Contract with Reference '/schemas/[0-9a-zA-Z]*/templates/Template1/contracts/non_existing_contract' and type 'provider' not found")
 
 # QUERY NON-EXISTING EPG
 - name: Query non-existing EPG (check_mode)
@@ -460,7 +460,7 @@
     - cm_query_non_epg is not changed
     - nm_query_non_epg is not changed
     - cm_query_non_epg == nm_query_non_epg
-    - cm_query_non_epg.msg == nm_query_non_epg.msg == "Provided epg 'non_existing_epg' does not exist. Existing epgs{{':'}} ansible_test_1"
+    - cm_query_non_epg.msg == nm_query_non_epg.msg == "Provided EPG 'non_existing_epg' not matching existing epg(s){{":"}} ansible_test_1"
 
 # QUERY NON-EXISTING ANP
 - name: Query non-existing ANP (check_mode)
@@ -484,7 +484,7 @@
     - cm_query_non_anp is not changed
     - nm_query_non_anp is not changed
     - cm_query_non_anp == nm_query_non_anp
-    - cm_query_non_anp.msg == nm_query_non_anp.msg == "Provided anp 'non_existing_anp' does not exist. Existing anps{{':'}} ANP"
+    - cm_query_non_anp.msg == nm_query_non_anp.msg == "Provided ANP 'non_existing_anp' not matching existing anp(s){{":"}} ANP"
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for contract relationship (check_mode)
@@ -587,7 +587,7 @@
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' not matching existing template(s){{":"}} Template1, Template2"
 
 - name: Non-existing contract template for contract relationship (check_mode)
   cisco.mso.mso_schema_template_anp_epg_contract:
@@ -616,5 +616,497 @@
     - cm_non_existing_contract_template is not changed
     - nm_non_existing_contract_template is not changed
     - cm_non_existing_contract_template == nm_non_existing_contract_template
-    - cm_non_existing_contract_template.msg is match("Contract '/schemas/[0-9a-zA-Z]*/templates/non-existing-template/contracts/Contract1' not found")
-    - nm_non_existing_contract_template.msg is match("Contract '/schemas/[0-9a-zA-Z]*/templates/non-existing-template/contracts/Contract1' not found")
+    - cm_non_existing_contract_template.msg is match("Contract with Reference '/schemas/[0-9a-zA-Z]*/templates/non-existing-template/contracts/Contract1' and type 'provider' not found")
+    - nm_non_existing_contract_template.msg is match("Contract with Reference '/schemas/[0-9a-zA-Z]*/templates/non-existing-template/contracts/Contract1' and type 'provider' not found")
+
+# TESTS IN BULK
+
+# SETUP TEST ENVIRONMENT FOR BULK
+
+- name: Create template_bulk in schema ansible_test
+  cisco.mso.mso_schema_template: &bulk_template_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: template_bulk
+    tenant: ansible_test
+
+- name: Create filter_bulk in template_bulk
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: template_bulk
+    filter: filter_bulk
+    entry: filter_entry_bulk
+
+- name: Create 20 contract_bulk_x in template_bulk
+  cisco.mso.mso_schema_template_contract_filter:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: template_bulk
+    contract: "contract_bulk_{{ item }}"
+    filter: filter_bulk
+  loop: "{{ range(1, 21, 1) | list }}"
+
+- name: Create ANP in template_bulk
+  cisco.mso.mso_schema_template_anp: &anp_bulk
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: template_bulk
+    anp: anp_bulk
+
+- name: Create EPG in template_bulk
+  cisco.mso.mso_schema_template_anp_epg: &epg_bulk
+    <<: *anp_bulk
+    epg: epg_bulk
+
+- name: Set facts for provider contracts
+  ansible.builtin.set_fact:
+    provider_contracts_present: []
+    provider_contracts_absent: []
+    consumer_contracts_present: []
+    consumer_contracts_absent: []
+
+- name: Create contracts list for appending
+  ansible.builtin.set_fact:
+    provider_contracts_present: "{{ provider_contracts_present + [{'name': 'contract_bulk_%s' | format(item), 'type': 'provider'}] }}"
+    consumer_contracts_present: "{{ consumer_contracts_present + [{'name': 'contract_bulk_%s' | format(item), 'type': 'consumer'}] }}"
+  loop: "{{ range(1, 21, 1) | list }}"
+
+- name: Create contracts list for removing
+  ansible.builtin.set_fact:
+    provider_contracts_absent: "{{ provider_contracts_absent + [{'name': 'contract_bulk_%s' | format(item), 'type': 'provider'}] }}"
+    consumer_contracts_absent: "{{ consumer_contracts_absent + [{'name': 'contract_bulk_%s' | format(item), 'type': 'consumer'}] }}"
+  loop: "{{ range(1, 21, 2) | list }}"
+
+# CREATE AND UPDATE TESTS FOR BULK
+
+- name: Append provider contracts (check_mode)
+  cisco.mso.mso_schema_template_anp_epg_contract: &provider_contracts_append
+    <<: *epg_bulk
+    contracts: "{{ provider_contracts_present }}"
+  register: cm_append_provider_contracts
+  check_mode: true
+
+- name: Append provider contracts
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_append
+  register: nm_append_provider_contracts
+
+- name: Append provider contracts again
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_append
+  register: nm_append_provider_contracts_again
+
+- name: Append consumer contracts
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_append
+    contracts: "{{ consumer_contracts_present }}"
+  register: nm_append_consumer_contracts
+
+- name: Verify appending contracts
+  ansible.builtin.assert:
+    that:
+    - cm_append_provider_contracts is changed
+    - cm_append_provider_contracts.previous == []
+    - cm_append_provider_contracts.current | length == 20
+    - cm_append_provider_contracts.current.0.contractRef.contractName == "contract_bulk_1"
+    - cm_append_provider_contracts.current.0.relationshipType == "provider"
+    - cm_append_provider_contracts.current.9.contractRef.contractName == "contract_bulk_10"
+    - cm_append_provider_contracts.current.9.relationshipType == "provider"
+    - cm_append_provider_contracts.current.19.contractRef.contractName == "contract_bulk_20"
+    - cm_append_provider_contracts.current.19.relationshipType == "provider"
+    - nm_append_provider_contracts is changed
+    - nm_append_provider_contracts.previous == []
+    - nm_append_provider_contracts.current | length == 20
+    - nm_append_provider_contracts.current.0.contractRef.contractName == "contract_bulk_1"
+    - nm_append_provider_contracts.current.0.relationshipType == "provider"
+    - nm_append_provider_contracts.current.9.contractRef.contractName == "contract_bulk_10"
+    - nm_append_provider_contracts.current.9.relationshipType == "provider"
+    - nm_append_provider_contracts.current.19.contractRef.contractName == "contract_bulk_20"
+    - nm_append_provider_contracts.current.19.relationshipType == "provider"
+    - nm_append_provider_contracts_again is not changed
+    - nm_append_provider_contracts_again.previous.0.contractRef.contractName == "contract_bulk_1"
+    - nm_append_provider_contracts_again.previous.0.relationshipType == "provider"
+    - nm_append_provider_contracts_again.previous.9.contractRef.contractName == "contract_bulk_10"
+    - nm_append_provider_contracts_again.previous.9.relationshipType == "provider"
+    - nm_append_provider_contracts_again.previous.19.contractRef.contractName == "contract_bulk_20"
+    - nm_append_provider_contracts_again.previous.19.relationshipType == "provider"
+    - nm_append_provider_contracts_again.current | length == 20
+    - nm_append_provider_contracts_again.current.0.contractRef.contractName == "contract_bulk_1"
+    - nm_append_provider_contracts_again.current.0.relationshipType == "provider"
+    - nm_append_provider_contracts_again.current.9.contractRef.contractName == "contract_bulk_10"
+    - nm_append_provider_contracts_again.current.9.relationshipType == "provider"
+    - nm_append_provider_contracts_again.current.19.contractRef.contractName == "contract_bulk_20"
+    - nm_append_provider_contracts_again.current.19.relationshipType == "provider"
+    - nm_append_consumer_contracts is changed
+    - nm_append_consumer_contracts.previous.0.contractRef.contractName == "contract_bulk_1"
+    - nm_append_consumer_contracts.previous.0.relationshipType == "provider"
+    - nm_append_consumer_contracts.previous.9.contractRef.contractName == "contract_bulk_10"
+    - nm_append_consumer_contracts.previous.9.relationshipType == "provider"
+    - nm_append_consumer_contracts.previous.19.contractRef.contractName == "contract_bulk_20"
+    - nm_append_consumer_contracts.previous.19.relationshipType == "provider"
+    - nm_append_consumer_contracts.current | length == 40
+    - nm_append_consumer_contracts.current.0.contractRef.contractName == "contract_bulk_1"
+    - nm_append_consumer_contracts.current.0.relationshipType == "provider"
+    - nm_append_consumer_contracts.current.9.contractRef.contractName == "contract_bulk_10"
+    - nm_append_consumer_contracts.current.9.relationshipType == "provider"
+    - nm_append_consumer_contracts.current.19.contractRef.contractName == "contract_bulk_20"
+    - nm_append_consumer_contracts.current.19.relationshipType == "provider"
+    - nm_append_consumer_contracts.current.20.contractRef.contractName == "contract_bulk_1"
+    - nm_append_consumer_contracts.current.20.relationshipType == "consumer"
+    - nm_append_consumer_contracts.current.29.contractRef.contractName == "contract_bulk_10"
+    - nm_append_consumer_contracts.current.29.relationshipType == "consumer"
+    - nm_append_consumer_contracts.current.39.contractRef.contractName == "contract_bulk_20"
+    - nm_append_consumer_contracts.current.39.relationshipType == "consumer"
+
+# REMOVE TESTS FOR BULK
+
+- name: Remove provider contracts (check_mode)
+  cisco.mso.mso_schema_template_anp_epg_contract: &provider_contracts_remove
+    <<: *epg_bulk
+    contracts: "{{ provider_contracts_absent }}"
+    state: absent
+  register: cm_remove_provider_contracts
+  check_mode: true
+
+- name: Remove provider contracts
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_remove
+  register: nm_remove_provider_contracts
+
+- name: Remove provider contracts again
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_remove
+  register: nm_remove_provider_contracts_again
+
+- name: Remove consumer contracts
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_remove
+    contracts: "{{ consumer_contracts_absent }}"
+  register: nm_remove_consumer_contracts
+
+- name: Verify removing contracts
+  ansible.builtin.assert:
+    that:
+      - cm_remove_provider_contracts is changed
+      - cm_remove_provider_contracts.previous | length == 40
+      - cm_remove_provider_contracts.previous.0.contractRef.contractName == "contract_bulk_1"
+      - cm_remove_provider_contracts.previous.0.relationshipType == "provider"
+      - cm_remove_provider_contracts.previous.9.contractRef.contractName == "contract_bulk_10"
+      - cm_remove_provider_contracts.previous.9.relationshipType == "provider"
+      - cm_remove_provider_contracts.previous.19.contractRef.contractName == "contract_bulk_20"
+      - cm_remove_provider_contracts.previous.19.relationshipType == "provider"
+      - cm_remove_provider_contracts.previous.20.contractRef.contractName == "contract_bulk_1"
+      - cm_remove_provider_contracts.previous.20.relationshipType == "consumer"
+      - cm_remove_provider_contracts.previous.29.contractRef.contractName == "contract_bulk_10"
+      - cm_remove_provider_contracts.previous.29.relationshipType == "consumer"
+      - cm_remove_provider_contracts.previous.39.contractRef.contractName == "contract_bulk_20"
+      - cm_remove_provider_contracts.previous.39.relationshipType == "consumer"
+      - cm_remove_provider_contracts.current | length == 30
+      - cm_remove_provider_contracts.current.0.contractRef.contractName == "contract_bulk_2"
+      - cm_remove_provider_contracts.current.0.relationshipType == "provider"
+      - cm_remove_provider_contracts.current.4.contractRef.contractName == "contract_bulk_10"
+      - cm_remove_provider_contracts.current.4.relationshipType == "provider"
+      - cm_remove_provider_contracts.current.9.contractRef.contractName == "contract_bulk_20"
+      - cm_remove_provider_contracts.current.9.relationshipType == "provider"
+      - cm_remove_provider_contracts.current.10.contractRef.contractName == "contract_bulk_1"
+      - cm_remove_provider_contracts.current.10.relationshipType == "consumer"
+      - cm_remove_provider_contracts.current.19.contractRef.contractName == "contract_bulk_10"
+      - cm_remove_provider_contracts.current.19.relationshipType == "consumer"
+      - cm_remove_provider_contracts.current.29.contractRef.contractName == "contract_bulk_20"
+      - cm_remove_provider_contracts.current.29.relationshipType == "consumer"
+      - nm_remove_provider_contracts is changed
+      - nm_remove_provider_contracts.previous | length == 40
+      - nm_remove_provider_contracts.previous.0.contractRef.contractName == "contract_bulk_1"
+      - nm_remove_provider_contracts.previous.0.relationshipType == "provider"
+      - nm_remove_provider_contracts.previous.9.contractRef.contractName == "contract_bulk_10"
+      - nm_remove_provider_contracts.previous.9.relationshipType == "provider"
+      - nm_remove_provider_contracts.previous.19.contractRef.contractName == "contract_bulk_20"
+      - nm_remove_provider_contracts.previous.19.relationshipType == "provider"
+      - nm_remove_provider_contracts.previous.20.contractRef.contractName == "contract_bulk_1"
+      - nm_remove_provider_contracts.previous.20.relationshipType == "consumer"
+      - nm_remove_provider_contracts.previous.29.contractRef.contractName == "contract_bulk_10"
+      - nm_remove_provider_contracts.previous.29.relationshipType == "consumer"
+      - nm_remove_provider_contracts.previous.39.contractRef.contractName == "contract_bulk_20"
+      - nm_remove_provider_contracts.previous.39.relationshipType == "consumer"
+      - nm_remove_provider_contracts.current | length == 30
+      - nm_remove_provider_contracts.current.0.contractRef.contractName == "contract_bulk_2"
+      - nm_remove_provider_contracts.current.0.relationshipType == "provider"
+      - nm_remove_provider_contracts.current.4.contractRef.contractName == "contract_bulk_10"
+      - nm_remove_provider_contracts.current.4.relationshipType == "provider"
+      - nm_remove_provider_contracts.current.9.contractRef.contractName == "contract_bulk_20"
+      - nm_remove_provider_contracts.current.9.relationshipType == "provider"
+      - nm_remove_provider_contracts.current.10.contractRef.contractName == "contract_bulk_1"
+      - nm_remove_provider_contracts.current.10.relationshipType == "consumer"
+      - nm_remove_provider_contracts.current.19.contractRef.contractName == "contract_bulk_10"
+      - nm_remove_provider_contracts.current.19.relationshipType == "consumer"
+      - nm_remove_provider_contracts.current.29.contractRef.contractName == "contract_bulk_20"
+      - nm_remove_provider_contracts.current.29.relationshipType == "consumer"
+      - nm_remove_provider_contracts_again is not changed
+      - nm_remove_provider_contracts_again.previous | length == 30
+      - nm_remove_provider_contracts_again.previous.0.contractRef.contractName == "contract_bulk_2"
+      - nm_remove_provider_contracts_again.previous.0.relationshipType == "provider"
+      - nm_remove_provider_contracts_again.previous.4.contractRef.contractName == "contract_bulk_10"
+      - nm_remove_provider_contracts_again.previous.4.relationshipType == "provider"
+      - nm_remove_provider_contracts_again.previous.9.contractRef.contractName == "contract_bulk_20"
+      - nm_remove_provider_contracts_again.previous.9.relationshipType == "provider"
+      - nm_remove_provider_contracts_again.previous.10.contractRef.contractName == "contract_bulk_1"
+      - nm_remove_provider_contracts_again.previous.10.relationshipType == "consumer"
+      - nm_remove_provider_contracts_again.previous.19.contractRef.contractName == "contract_bulk_10"
+      - nm_remove_provider_contracts_again.previous.19.relationshipType == "consumer"
+      - nm_remove_provider_contracts_again.previous.29.contractRef.contractName == "contract_bulk_20"
+      - nm_remove_provider_contracts_again.previous.29.relationshipType == "consumer"
+      - nm_remove_provider_contracts_again.current | length == 30
+      - nm_remove_provider_contracts_again.current.0.contractRef.contractName == "contract_bulk_2"
+      - nm_remove_provider_contracts_again.current.0.relationshipType == "provider"
+      - nm_remove_provider_contracts_again.current.4.contractRef.contractName == "contract_bulk_10"
+      - nm_remove_provider_contracts_again.current.4.relationshipType == "provider"
+      - nm_remove_provider_contracts_again.current.9.contractRef.contractName == "contract_bulk_20"
+      - nm_remove_provider_contracts_again.current.9.relationshipType == "provider"
+      - nm_remove_provider_contracts_again.current.10.contractRef.contractName == "contract_bulk_1"
+      - nm_remove_provider_contracts_again.current.10.relationshipType == "consumer"
+      - nm_remove_provider_contracts_again.current.19.contractRef.contractName == "contract_bulk_10"
+      - nm_remove_provider_contracts_again.current.19.relationshipType == "consumer"
+      - nm_remove_provider_contracts_again.current.29.contractRef.contractName == "contract_bulk_20"
+      - nm_remove_provider_contracts_again.current.29.relationshipType == "consumer"
+      - nm_remove_consumer_contracts is changed
+      - nm_remove_consumer_contracts.previous | length == 30
+      - nm_remove_consumer_contracts.previous.0.contractRef.contractName == "contract_bulk_2"
+      - nm_remove_consumer_contracts.previous.0.relationshipType == "provider"
+      - nm_remove_consumer_contracts.previous.4.contractRef.contractName == "contract_bulk_10"
+      - nm_remove_consumer_contracts.previous.4.relationshipType == "provider"
+      - nm_remove_consumer_contracts.previous.9.contractRef.contractName == "contract_bulk_20"
+      - nm_remove_consumer_contracts.previous.9.relationshipType == "provider"
+      - nm_remove_consumer_contracts.previous.10.contractRef.contractName == "contract_bulk_1"
+      - nm_remove_consumer_contracts.previous.10.relationshipType == "consumer"
+      - nm_remove_consumer_contracts.previous.19.contractRef.contractName == "contract_bulk_10"
+      - nm_remove_consumer_contracts.previous.19.relationshipType == "consumer"
+      - nm_remove_consumer_contracts.previous.29.contractRef.contractName == "contract_bulk_20"
+      - nm_remove_consumer_contracts.previous.29.relationshipType == "consumer"
+      - nm_remove_consumer_contracts.current | length == 20
+      - nm_remove_consumer_contracts.current.0.contractRef.contractName == "contract_bulk_2"
+      - nm_remove_consumer_contracts.current.0.relationshipType == "provider"
+      - nm_remove_consumer_contracts.current.4.contractRef.contractName == "contract_bulk_10"
+      - nm_remove_consumer_contracts.current.4.relationshipType == "provider"
+      - nm_remove_consumer_contracts.current.9.contractRef.contractName == "contract_bulk_20"
+      - nm_remove_consumer_contracts.current.9.relationshipType == "provider"
+      - nm_remove_consumer_contracts.current.10.contractRef.contractName == "contract_bulk_2"
+      - nm_remove_consumer_contracts.current.10.relationshipType == "consumer"
+      - nm_remove_consumer_contracts.current.14.contractRef.contractName == "contract_bulk_10"
+      - nm_remove_consumer_contracts.current.14.relationshipType == "consumer"
+      - nm_remove_consumer_contracts.current.19.contractRef.contractName == "contract_bulk_20"
+      - nm_remove_consumer_contracts.current.19.relationshipType == "consumer"
+
+# FORCE REPLACE TESTS
+
+- name: Force replace contracts with contracts (check_mode)
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_append
+    force_replace: true
+  register: cm_force_replace_provider_contracts
+  check_mode: true
+
+- name: Force replace contracts with contracts
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_append
+    force_replace: true
+  register: nm_force_replace_provider_contracts
+
+- name: Force replace contracts with contracts again
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_append
+    force_replace: true
+  register: nm_force_replace_provider_contracts_again
+
+- name: Force replace contracts with new contracts
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_append
+    contracts: "{{ consumer_contracts_present }}"
+    force_replace: true
+  register: nm_force_replace_consumer_contracts
+
+- name: Verify force replacing contracts
+  ansible.builtin.assert:
+    that:
+      - cm_force_replace_provider_contracts is changed
+      - cm_force_replace_provider_contracts.previous | length == 20
+      - cm_force_replace_provider_contracts.previous.0.contractRef.contractName == "contract_bulk_2"
+      - cm_force_replace_provider_contracts.previous.0.relationshipType == "provider"
+      - cm_force_replace_provider_contracts.previous.4.contractRef.contractName == "contract_bulk_10"
+      - cm_force_replace_provider_contracts.previous.4.relationshipType == "provider"
+      - cm_force_replace_provider_contracts.previous.9.contractRef.contractName == "contract_bulk_20"
+      - cm_force_replace_provider_contracts.previous.9.relationshipType == "provider"
+      - cm_force_replace_provider_contracts.previous.10.contractRef.contractName == "contract_bulk_2"
+      - cm_force_replace_provider_contracts.previous.10.relationshipType == "consumer"
+      - cm_force_replace_provider_contracts.previous.14.contractRef.contractName == "contract_bulk_10"
+      - cm_force_replace_provider_contracts.previous.14.relationshipType == "consumer"
+      - cm_force_replace_provider_contracts.previous.19.contractRef.contractName == "contract_bulk_20"
+      - cm_force_replace_provider_contracts.previous.19.relationshipType == "consumer"
+      - cm_force_replace_provider_contracts.current | length == 20
+      - cm_force_replace_provider_contracts.current.0.contractRef.contractName == "contract_bulk_1"
+      - cm_force_replace_provider_contracts.current.0.relationshipType == "provider"
+      - cm_force_replace_provider_contracts.current.9.contractRef.contractName == "contract_bulk_10"
+      - cm_force_replace_provider_contracts.current.9.relationshipType == "provider"
+      - cm_force_replace_provider_contracts.current.19.contractRef.contractName == "contract_bulk_20"
+      - cm_force_replace_provider_contracts.current.19.relationshipType == "provider"
+      - nm_force_replace_provider_contracts is changed
+      - nm_force_replace_provider_contracts.previous | length == 20
+      - nm_force_replace_provider_contracts.previous.0.contractRef.contractName == "contract_bulk_2"
+      - nm_force_replace_provider_contracts.previous.0.relationshipType == "provider"
+      - nm_force_replace_provider_contracts.previous.4.contractRef.contractName == "contract_bulk_10"
+      - nm_force_replace_provider_contracts.previous.4.relationshipType == "provider"
+      - nm_force_replace_provider_contracts.previous.9.contractRef.contractName == "contract_bulk_20"
+      - nm_force_replace_provider_contracts.previous.9.relationshipType == "provider"
+      - nm_force_replace_provider_contracts.previous.10.contractRef.contractName == "contract_bulk_2"
+      - nm_force_replace_provider_contracts.previous.10.relationshipType == "consumer"
+      - nm_force_replace_provider_contracts.previous.14.contractRef.contractName == "contract_bulk_10"
+      - nm_force_replace_provider_contracts.previous.14.relationshipType == "consumer"
+      - nm_force_replace_provider_contracts.previous.19.contractRef.contractName == "contract_bulk_20"
+      - nm_force_replace_provider_contracts.previous.19.relationshipType == "consumer"
+      - nm_force_replace_provider_contracts.current | length == 20
+      - nm_force_replace_provider_contracts.current.0.contractRef.contractName == "contract_bulk_1"
+      - nm_force_replace_provider_contracts.current.0.relationshipType == "provider"
+      - nm_force_replace_provider_contracts.current.9.contractRef.contractName == "contract_bulk_10"
+      - nm_force_replace_provider_contracts.current.9.relationshipType == "provider"
+      - nm_force_replace_provider_contracts.current.19.contractRef.contractName == "contract_bulk_20"
+      - nm_force_replace_provider_contracts.current.19.relationshipType == "provider"
+      - nm_force_replace_provider_contracts_again is not changed
+      - nm_force_replace_provider_contracts_again.previous | length == 20
+      - nm_force_replace_provider_contracts_again.previous.0.contractRef.contractName == "contract_bulk_1"
+      - nm_force_replace_provider_contracts_again.previous.0.relationshipType == "provider"
+      - nm_force_replace_provider_contracts_again.previous.9.contractRef.contractName == "contract_bulk_10"
+      - nm_force_replace_provider_contracts_again.previous.9.relationshipType == "provider"
+      - nm_force_replace_provider_contracts_again.previous.19.contractRef.contractName == "contract_bulk_20"
+      - nm_force_replace_provider_contracts_again.previous.19.relationshipType == "provider"
+      - nm_force_replace_provider_contracts.current | length == 20
+      - nm_force_replace_provider_contracts.current.0.contractRef.contractName == "contract_bulk_1"
+      - nm_force_replace_provider_contracts.current.0.relationshipType == "provider"
+      - nm_force_replace_provider_contracts.current.9.contractRef.contractName == "contract_bulk_10"
+      - nm_force_replace_provider_contracts.current.9.relationshipType == "provider"
+      - nm_force_replace_provider_contracts.current.19.contractRef.contractName == "contract_bulk_20"
+      - nm_force_replace_provider_contracts.current.19.relationshipType == "provider"
+      - nm_force_replace_consumer_contracts.current | length == 20
+      - nm_force_replace_consumer_contracts.current.0.contractRef.contractName == "contract_bulk_1"
+      - nm_force_replace_consumer_contracts.current.0.relationshipType == "consumer"
+      - nm_force_replace_consumer_contracts.current.9.contractRef.contractName == "contract_bulk_10"
+      - nm_force_replace_consumer_contracts.current.9.relationshipType == "consumer"
+      - nm_force_replace_consumer_contracts.current.19.contractRef.contractName == "contract_bulk_20"
+      - nm_force_replace_consumer_contracts.current.19.relationshipType == "consumer"
+
+# QUERY TESTS FOR BULK
+
+- name: Query contracts
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_append
+    contracts: "{{ consumer_contracts_present }}"
+    state: query
+  register: nm_query_contracts
+
+- name: Query contracts with non existing contracts (error)
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_append
+    contracts:
+    - name: non_contract_3
+      type: provider
+    - name: non_contract_3
+      type: consumer
+    state: query
+  register: err_query_contracts
+  ignore_errors: true
+
+- name: Verify queries for bulk
+  ansible.builtin.assert:
+    that:
+      - nm_query_contracts is not changed
+      - nm_query_contracts.current | length == 20
+      - nm_query_contracts.current.0.contractRef.contractName == "contract_bulk_1"
+      - nm_query_contracts.current.0.relationshipType == "consumer"
+      - nm_query_contracts.current.9.contractRef.contractName == "contract_bulk_10"
+      - nm_query_contracts.current.9.relationshipType == "consumer"
+      - nm_query_contracts.current.19.contractRef.contractName == "contract_bulk_20"
+      - nm_query_contracts.current.19.relationshipType == "consumer"
+      - err_query_contracts is failed
+      - err_query_contracts.msg.0 is match("Contract with Reference '/schemas/[0-9a-zA-Z]*/templates/template_bulk/contracts/non_contract_3' and type 'provider' not found")
+      - err_query_contracts.msg.1 is match("Contract with Reference '/schemas/[0-9a-zA-Z]*/templates/template_bulk/contracts/non_contract_3' and type 'consumer' not found")
+
+# ERROR TESTS FOR BULK
+
+- name: Mutually exclusive contract and contracts (error)
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_append
+    contract:
+    - name: contract_bulk_1
+      type: provider
+  register: err_mutually_exclusive_contract_and_contracts
+  ignore_errors: true
+
+- name: Mutually exclusive contract and force_replace (error)
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *epg_bulk
+    contract:
+    - name: contract_bulk_1
+      type: provider
+    force_replace: true
+  register: err_mutually_exclusive_contract_and_force_replace
+  ignore_errors: true
+
+- name: Missing required attributes for present (error)
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *epg_bulk
+  register: err_missing_required_attributes_present
+  ignore_errors: true
+
+- name: Missing required attributes for absent (error)
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *epg_bulk
+    state: absent
+  register: err_missing_required_attributes_absent
+  ignore_errors: true
+
+- name: Verify queries for bulk
+  ansible.builtin.assert:
+    that:
+      - err_mutually_exclusive_contract_and_contracts is failed
+      - err_mutually_exclusive_contract_and_contracts.msg == "parameters are mutually exclusive{{":"}} contract|contracts"
+      - err_mutually_exclusive_contract_and_force_replace is failed
+      - err_mutually_exclusive_contract_and_force_replace.msg == "parameters are mutually exclusive{{":"}} contract|force_replace"
+      - err_missing_required_attributes_present is failed
+      - err_missing_required_attributes_present.msg == "state is present but any of the following are missing{{":"}} contract, contracts"
+      - err_missing_required_attributes_absent is failed
+      - err_missing_required_attributes_absent.msg == "state is absent but any of the following are missing{{":"}} contract, contracts, force_replace"
+
+# FORCE REMOVE ALL CONTRACTS
+
+- name: Force remove all contracts
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *epg_bulk
+    force_replace: true
+    state: absent
+  register: force_remove_all_contracts
+
+- name: Force replace all contracts without existing contracts
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *provider_contracts_append
+    force_replace: true
+  register: force_replace_all_contracts_without_existing_contracts
+
+- name: Verify froce removing all contracts
+  ansible.builtin.assert:
+    that:
+      - force_remove_all_contracts is changed
+      - force_remove_all_contracts.previous | length == 20
+      - force_remove_all_contracts.current == []
+      - force_replace_all_contracts_without_existing_contracts is changed
+      - force_replace_all_contracts_without_existing_contracts.previous  == []
+      - force_replace_all_contracts_without_existing_contracts.current | length == 20
+
+# CLEAN UP TEST ENVIRONMENT
+
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'

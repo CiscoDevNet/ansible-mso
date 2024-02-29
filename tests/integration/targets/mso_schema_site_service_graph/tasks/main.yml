@@ -65,15 +65,10 @@
         state: absent
       loop:
         - '{{ mso_site | default("ansible_test") }}'
-
-    - name: Ensure Azure sites removed from tenant ansible_test # Azure Task
-      cisco.mso.mso_tenant_site:
-        <<: *mso_info
-        tenant: ansible_test
-        site: "{{ item }}"
-        state: absent
-      loop:
+        - 'aws_{{ mso_site | default("ansible_test") }}'
+        - 'azure_{{ mso_site | default("ansible_test") }}'
         - '{{ mso_site | default("azure_ansible_test_2") }}'
+      ignore_errors: true
 
     - name: Ensure tenant ansible_test exist
       cisco.mso.mso_tenant:
@@ -83,8 +78,6 @@
           - "{{ mso_username }}"
         state: present
 
-<<<<<<< HEAD
-=======
     - name: Associate site with ansible_test
       cisco.mso.mso_tenant_site:
         <<: *mso_info
@@ -92,7 +85,6 @@
         site: '{{ mso_site | default("ansible_test") }}'
         state: present
 
->>>>>>> 7992dcd ([minor_change] Added mso_schema_site_contract_service_graph module to manage site contract service graph)
     - name: Set ansible_network_os to cisco.aci.aci and ansible_connection to local
       ansible.builtin.set_fact:
         ansible_connection: local

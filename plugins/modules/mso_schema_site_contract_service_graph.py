@@ -295,42 +295,48 @@ def main():
     elif state == "present":
         service_graph_ref = dict(schemaId=service_graph_reference_schema_id, serviceGraphName=service_graph, templateName=service_graph_reference_template)
         service_node_relationship = []
+        if node_relationship:
+            for node_index, node in enumerate(node_relationship, 1):
+                service_node_ref = dict(
+                    schemaId=service_graph_reference_schema_id,
+                    serviceGraphName=service_graph,
+                    serviceNodeName="node{0}".format(node_index),
+                    templateName=service_graph_reference_template,
+                )
 
-        for node_index, node in enumerate(node_relationship, 1):
-            service_node_ref = dict(
-                schemaId=service_graph_reference_schema_id,
-                serviceGraphName=service_graph,
-                serviceNodeName="node{0}".format(node_index),
-                templateName=service_graph_reference_template,
-            )
-
-            consumer_subnet_ips_list = [dict(ip=subnet) for subnet in node.get("consumer_subnet_ips")] if node.get("consumer_subnet_ips") else []
-            consumer_connector = dict(
-                clusterInterface=dict(
-                    dn="uni/tn-{0}/lDevVip-{1}/lIf-{2}".format(tenant, node.get("cluster_interface_device"), node.get("consumer_connector_cluster_interface"))
-                ),
-                redirectPolicy=dict(
-                    dn="uni/tn-{0}/svcCont/svcRedirectPol-{1}".format(
-                        node.get("consumer_connector_redirect_policy_tenant") or tenant, node.get("consumer_connector_redirect_policy")
-                    )
-                ),
-                subnets=consumer_subnet_ips_list,
-            )
-            provider_connector = dict(
-                clusterInterface=dict(
-                    dn="uni/tn-{0}/lDevVip-{1}/lIf-{2}".format(tenant, node.get("cluster_interface_device"), node.get("provider_connector_cluster_interface"))
-                ),
-                redirectPolicy=dict(
-                    dn="uni/tn-{0}/svcCont/svcRedirectPol-{1}".format(
-                        node.get("provider_connector_redirect_policy_tenant") or tenant, node.get("provider_connector_redirect_policy")
-                    )
-                ),
-            )
-            service_node_relationship.append(dict(consumerConnector=consumer_connector, providerConnector=provider_connector, serviceNodeRef=service_node_ref))
-        if mso.site_type == "on-premise":
-            payload = dict(serviceGraphRef=service_graph_ref, serviceNodesRelationship=service_node_relationship)
-        else:
-            payload = dict(serviceGraphRef=service_graph_ref, serviceNodesRelationship=[])
+                consumer_subnet_ips_list = [dict(ip=subnet) for subnet in node.get("consumer_subnet_ips")] if node.get("consumer_subnet_ips") else []
+                consumer_connector = dict(
+                    clusterInterface=dict(
+                        dn="uni/tn-{0}/lDevVip-{1}/lIf-{2}".format(
+                            tenant, node.get("cluster_interface_device"), node.get("consumer_connector_cluster_interface")
+                        )
+                    ),
+                    redirectPolicy=dict(
+                        dn="uni/tn-{0}/svcCont/svcRedirectPol-{1}".format(
+                            node.get("consumer_connector_redirect_policy_tenant") or tenant, node.get("consumer_connector_redirect_policy")
+                        )
+                    ),
+                    subnets=consumer_subnet_ips_list,
+                )
+                provider_connector = dict(
+                    clusterInterface=dict(
+                        dn="uni/tn-{0}/lDevVip-{1}/lIf-{2}".format(
+                            tenant, node.get("cluster_interface_device"), node.get("provider_connector_cluster_interface")
+                        )
+                    ),
+                    redirectPolicy=dict(
+                        dn="uni/tn-{0}/svcCont/svcRedirectPol-{1}".format(
+                            node.get("provider_connector_redirect_policy_tenant") or tenant, node.get("provider_connector_redirect_policy")
+                        )
+                    ),
+                )
+                service_node_relationship.append(
+                    dict(consumerConnector=consumer_connector, providerConnector=provider_connector, serviceNodeRef=service_node_ref)
+                )
+            if mso.site_type == "on-premise":
+                payload = dict(serviceGraphRef=service_graph_ref, serviceNodesRelationship=service_node_relationship)
+            else:
+                payload = dict(serviceGraphRef=service_graph_ref, serviceNodesRelationship=[])
 
         mso.sanitize(payload, collate=True)
 

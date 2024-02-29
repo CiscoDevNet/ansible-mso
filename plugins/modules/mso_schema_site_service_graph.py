@@ -351,9 +351,7 @@ def main():
                                 device_payload["providerConnectorType"] = AZURE_L4L7_CONNECTOR_TYPE_MAP.get(provider_connector_type)
                                 device_payload["consumerConnectorType"] = AZURE_L4L7_CONNECTOR_TYPE_MAP.get(consumer_connector_type)
 
-                    devices_payload.append(device_payload)
-
-                devices_payload.append(device_payload)
+                            devices_payload.append(device_payload)
 
         payload = dict(
             serviceGraphRef=dict(

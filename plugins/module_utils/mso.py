@@ -1469,6 +1469,7 @@ def service_node_ref_str_to_dict(serviceNodeRefStr):
         templateName=serviceNodeRefTokens[4],
     )
 
+
 def mso_schema_site_contract_service_graph_spec():
     return dict(
         cluster_interface_device=dict(type="str", required=True, aliases=["cluster_device", "device", "device_name"]),

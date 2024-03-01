@@ -279,3 +279,18 @@ class MSOSchema:
             msg = "Provided Site Service Graph '{0}' not matching existing site service graph(s): {1}".format(site_service_graph, ", ".join(existing))
             self.mso.fail_json(msg=msg)
         self.schema_objects["site_service_graph"] = match
+
+    def set_site_anp_epg_static_port(self, path, fail_module=True):
+        """
+        Get site anp epg static port path item that matches the path of Static Port.
+        :param path: Path of the Static Port to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Site anp epg item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["site_anp_epg"])
+        kv_list = [KVPair("path", path)]
+        match, existing = self.get_object_from_list(self.schema_objects["site_anp_epg"].details.get("staticPorts"), kv_list)
+        if not match and fail_module:
+            msg = "Provided Static Port Path '{0}' not matching existing static port path(s): {1}".format(path, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["site_anp_epg_static_port"] = match

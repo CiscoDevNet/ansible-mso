@@ -1,4 +1,5 @@
 # Test code for the MSO modules
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
 # Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
@@ -485,7 +486,7 @@
   ansible.builtin.assert:
     that:
     - nm_non_existent_dom2e2 is not changed
-    - nm_non_existent_dom2e2.msg == "Static port 'topology/pod-2/paths-102/pathep-[eth1/2]' not found"
+    - nm_non_existent_dom2e2.msg == "Provided Static Port Path 'topology/pod-2/paths-102/pathep-[eth1/2]' not found"
 
 - name: Remove static port 2 from EPG2 again(normal mode)
   cisco.mso.mso_schema_site_anp_epg_staticport:
@@ -775,7 +776,7 @@
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1, Template2"
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non_existing_template' not matching existing template(s){{":"}} Template1, Template2"
 
 # USE A NON-EXISTING SITE
 - name: Non-existing site for static port (check_mode)
@@ -821,8 +822,8 @@
     - cm_non_existing_site is not changed
     - nm_non_existing_site is not changed
     - cm_non_existing_site == nm_non_existing_site
-    - cm_non_existing_site.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1")
-    - nm_non_existing_site.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1")
+    - cm_non_existing_site.msg == "Provided site 'ansible_test' not associated with template 'Template2'. Site is currently associated with template(s){{':'}} Template1"
+    - nm_non_existing_site.msg == "Provided site 'ansible_test' not associated with template 'Template2'. Site is currently associated with template(s){{':'}} Template1"
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add site EPG static port association to Schema 2 Template 3 without any site associated (check mode)
@@ -867,4 +868,553 @@
     that:
     - cm_no_site_associated is not changed
     - nm_no_site_associated is not changed
-    - cm_no_site_associated.msg == nm_no_site_associated.msg == "No site associated with template 'Template3'. Associate the site with the template using mso_schema_site."
+    - cm_no_site_associated.msg == nm_no_site_associated.msg == "No sites associated with schema 'ansible_test_2'. Associate the site with the schema using (M) mso_schema_site."
+
+# TESTS IN BULK
+
+# SETUP TEST ENVIRONMENT FOR BULK
+
+- name: Remove Schemas for bulk
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Create schema ansible_test with template_bulk
+  cisco.mso.mso_schema_template: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    tenant: ansible_test
+    template: template_bulk
+
+- name: Create vrf_bulk in template_bulk
+  cisco.mso.mso_schema_template_vrf: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: template_bulk
+    vrf: vrf_bulk
+    
+- name: Create bd_bulk in template_bulk
+  cisco.mso.mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: template_bulk
+    bd: bd_bulk
+    vrf:
+      name: vrf_bulk
+
+- name: Create anp_bulk in template_bulk
+  cisco.mso.mso_schema_template_anp: &anp_bulk
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: template_bulk
+    anp: anp_bulk
+
+- name: Create EPG in template_bulk
+  cisco.mso.mso_schema_template_anp_epg:
+    <<: *anp_bulk
+    epg: epg_bulk
+    bd:
+      name: bd_bulk
+    vrf:
+      name: vrf_bulk
+
+- name: Add site to template_bulk
+  cisco.mso.mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: template_bulk
+
+- name: Set facts for static_ports
+  ansible.builtin.set_fact:
+    static_ports_present: []
+    static_ports_present_2: []
+    static_ports_absent: []
+    static_ports_absent_2: []
+
+- name: Create static_ports list for appending
+  ansible.builtin.set_fact:
+    static_ports_present: "{{ static_ports_present + [{'pod': 'pod-1', 'leaf': '101', 'path': 'eth1/%s' | format(item), 'vlan': '110%s' | format(item)}] }}"
+    static_ports_present_2: "{{ static_ports_present_2 + [{'pod': 'pod-1', 'leaf': '101', 'path': 'eth2/%s' | format(item), 'vlan': '120%s' | format(item)}] }}"
+  loop: "{{ range(0, 10, 1) | list }}"
+
+- name: Create static_ports list for removing
+  ansible.builtin.set_fact:
+    static_ports_absent: "{{ static_ports_absent + [{'pod': 'pod-1', 'leaf': '101', 'path': 'eth1/%s' | format(item), 'vlan': '110%s' | format(item)}] }}"
+    static_ports_absent_2: "{{ static_ports_absent_2 + [{'pod': 'pod-1', 'leaf': '101', 'path': 'eth2/%s' | format(item), 'vlan': '120%s' | format(item)}] }}"
+  loop: "{{ range(0, 10, 2) | list }}"
+
+# CREATE AND UPDATE TESTS FOR BULK
+
+- name: Append static ports (check_mode)
+  cisco.mso.mso_schema_site_anp_epg_staticport: &static_ports_append
+    <<: *anp_bulk
+    epg: epg_bulk
+    site: '{{ mso_site | default("ansible_test") }}'
+    static_ports: "{{ static_ports_present }}"
+  register: cm_append_static_ports
+  check_mode: true
+
+- name: Append static ports
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *static_ports_append
+  register: nm_append_static_ports
+
+- name: Append static ports again
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *static_ports_append
+  register: nm_append_static_ports_again
+
+- name: Append additional static ports
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *static_ports_append
+    static_ports: "{{ static_ports_present_2 }}"
+  register: nm_append_static_ports_2
+
+- name: Verify appending static ports
+  ansible.builtin.assert:
+    that:
+    - cm_append_static_ports is changed
+    - cm_append_static_ports.previous == []
+    - cm_append_static_ports.current | length == 10
+    - cm_append_static_ports.current.0.path == "topology/pod-1/paths-101/pathep-[eth1/0]"
+    - cm_append_static_ports.current.0.portEncapVlan == 1100
+    - cm_append_static_ports.current.3.path == "topology/pod-1/paths-101/pathep-[eth1/3]"
+    - cm_append_static_ports.current.3.portEncapVlan == 1103
+    - cm_append_static_ports.current.9.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - cm_append_static_ports.current.9.portEncapVlan == 1109
+    - nm_append_static_ports is changed
+    - nm_append_static_ports.previous == []
+    - nm_append_static_ports.current | length == 10
+    - nm_append_static_ports.current.0.path == "topology/pod-1/paths-101/pathep-[eth1/0]"
+    - nm_append_static_ports.current.0.portEncapVlan == 1100
+    - nm_append_static_ports.current.3.path == "topology/pod-1/paths-101/pathep-[eth1/3]"
+    - nm_append_static_ports.current.3.portEncapVlan == 1103
+    - nm_append_static_ports.current.9.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - nm_append_static_ports.current.9.portEncapVlan == 1109
+    - nm_append_static_ports_again is not changed
+    - nm_append_static_ports_again.previous | length == 10
+    - nm_append_static_ports_again.previous.0.path == "topology/pod-1/paths-101/pathep-[eth1/0]"
+    - nm_append_static_ports_again.previous.0.portEncapVlan == 1100
+    - nm_append_static_ports_again.previous.3.path == "topology/pod-1/paths-101/pathep-[eth1/3]"
+    - nm_append_static_ports_again.previous.3.portEncapVlan == 1103
+    - nm_append_static_ports_again.previous.9.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - nm_append_static_ports_again.previous.9.portEncapVlan == 1109
+    - nm_append_static_ports_again.current | length == 10
+    - nm_append_static_ports_again.current.0.path == "topology/pod-1/paths-101/pathep-[eth1/0]"
+    - nm_append_static_ports_again.current.0.portEncapVlan == 1100
+    - nm_append_static_ports_again.current.3.path == "topology/pod-1/paths-101/pathep-[eth1/3]"
+    - nm_append_static_ports_again.current.3.portEncapVlan == 1103
+    - nm_append_static_ports_again.current.9.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - nm_append_static_ports_again.current.9.portEncapVlan == 1109
+    - nm_append_static_ports_2 is changed
+    - nm_append_static_ports_2.previous | length == 10
+    - nm_append_static_ports_2.previous.0.path == "topology/pod-1/paths-101/pathep-[eth1/0]"
+    - nm_append_static_ports_2.previous.0.portEncapVlan == 1100
+    - nm_append_static_ports_2.previous.3.path == "topology/pod-1/paths-101/pathep-[eth1/3]"
+    - nm_append_static_ports_2.previous.3.portEncapVlan == 1103
+    - nm_append_static_ports_2.previous.9.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - nm_append_static_ports_2.previous.9.portEncapVlan == 1109
+    - nm_append_static_ports_2.current | length == 20
+    - nm_append_static_ports_2.current.0.path == "topology/pod-1/paths-101/pathep-[eth1/0]"
+    - nm_append_static_ports_2.current.0.portEncapVlan == 1100
+    - nm_append_static_ports_2.current.3.path == "topology/pod-1/paths-101/pathep-[eth1/3]"
+    - nm_append_static_ports_2.current.3.portEncapVlan == 1103
+    - nm_append_static_ports_2.current.9.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - nm_append_static_ports_2.current.9.portEncapVlan == 1109
+    - nm_append_static_ports_2.current.10.path == "topology/pod-1/paths-101/pathep-[eth2/0]"
+    - nm_append_static_ports_2.current.10.portEncapVlan == 1200
+    - nm_append_static_ports_2.current.13.path == "topology/pod-1/paths-101/pathep-[eth2/3]"
+    - nm_append_static_ports_2.current.13.portEncapVlan == 1203
+    - nm_append_static_ports_2.current.19.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+    - nm_append_static_ports_2.current.19.portEncapVlan == 1209
+
+# REMOVE AND UPDATE TESTS FOR BULK
+
+- name: Remove static ports (check_mode)
+  cisco.mso.mso_schema_site_anp_epg_staticport: &static_ports_remove
+    <<: *static_ports_append
+    static_ports: "{{ static_ports_absent }}"
+    state: absent
+  register: cm_remove_static_ports
+  check_mode: true
+
+- name: Remove static ports
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *static_ports_remove
+  register: nm_remove_static_ports
+
+- name: Remove static ports again
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *static_ports_remove
+  register: nm_remove_static_ports_again
+
+- name: Remove additional static ports
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *static_ports_remove
+    static_ports: "{{ static_ports_absent_2 }}"
+  register: nm_remove_static_ports_2
+
+- name: Verify removing static ports
+  ansible.builtin.assert:
+    that:
+    - cm_remove_static_ports is changed
+    - cm_remove_static_ports.previous | length == 20
+    - cm_remove_static_ports.previous.0.path == "topology/pod-1/paths-101/pathep-[eth1/0]"
+    - cm_remove_static_ports.previous.0.portEncapVlan == 1100
+    - cm_remove_static_ports.previous.3.path == "topology/pod-1/paths-101/pathep-[eth1/3]"
+    - cm_remove_static_ports.previous.3.portEncapVlan == 1103
+    - cm_remove_static_ports.previous.9.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - cm_remove_static_ports.previous.9.portEncapVlan == 1109
+    - cm_remove_static_ports.previous.10.path == "topology/pod-1/paths-101/pathep-[eth2/0]"
+    - cm_remove_static_ports.previous.10.portEncapVlan == 1200
+    - cm_remove_static_ports.previous.13.path == "topology/pod-1/paths-101/pathep-[eth2/3]"
+    - cm_remove_static_ports.previous.13.portEncapVlan == 1203
+    - cm_remove_static_ports.previous.19.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+    - cm_remove_static_ports.previous.19.portEncapVlan == 1209
+    - cm_remove_static_ports.current | length == 15
+    - cm_remove_static_ports.current.0.path == "topology/pod-1/paths-101/pathep-[eth1/1]"
+    - cm_remove_static_ports.current.0.portEncapVlan == 1101
+    - cm_remove_static_ports.current.2.path == "topology/pod-1/paths-101/pathep-[eth1/5]"
+    - cm_remove_static_ports.current.2.portEncapVlan == 1105
+    - cm_remove_static_ports.current.4.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - cm_remove_static_ports.current.4.portEncapVlan == 1109
+    - cm_remove_static_ports.current.5.path == "topology/pod-1/paths-101/pathep-[eth2/0]"
+    - cm_remove_static_ports.current.5.portEncapVlan == 1200
+    - cm_remove_static_ports.current.8.path == "topology/pod-1/paths-101/pathep-[eth2/3]"
+    - cm_remove_static_ports.current.8.portEncapVlan == 1203
+    - cm_remove_static_ports.current.14.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+    - cm_remove_static_ports.current.14.portEncapVlan == 1209
+    - nm_remove_static_ports is changed
+    - nm_remove_static_ports.previous | length == 20
+    - nm_remove_static_ports.previous.0.path == "topology/pod-1/paths-101/pathep-[eth1/0]"
+    - nm_remove_static_ports.previous.0.portEncapVlan == 1100
+    - nm_remove_static_ports.previous.3.path == "topology/pod-1/paths-101/pathep-[eth1/3]"
+    - nm_remove_static_ports.previous.3.portEncapVlan == 1103
+    - nm_remove_static_ports.previous.9.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - nm_remove_static_ports.previous.9.portEncapVlan == 1109
+    - nm_remove_static_ports.previous.10.path == "topology/pod-1/paths-101/pathep-[eth2/0]"
+    - nm_remove_static_ports.previous.10.portEncapVlan == 1200
+    - nm_remove_static_ports.previous.13.path == "topology/pod-1/paths-101/pathep-[eth2/3]"
+    - nm_remove_static_ports.previous.13.portEncapVlan == 1203
+    - nm_remove_static_ports.previous.19.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+    - nm_remove_static_ports.previous.19.portEncapVlan == 1209
+    - nm_remove_static_ports.current | length == 15
+    - nm_remove_static_ports.current.0.path == "topology/pod-1/paths-101/pathep-[eth1/1]"
+    - nm_remove_static_ports.current.0.portEncapVlan == 1101
+    - nm_remove_static_ports.current.2.path == "topology/pod-1/paths-101/pathep-[eth1/5]"
+    - nm_remove_static_ports.current.2.portEncapVlan == 1105
+    - nm_remove_static_ports.current.4.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - nm_remove_static_ports.current.4.portEncapVlan == 1109
+    - nm_remove_static_ports.current.5.path == "topology/pod-1/paths-101/pathep-[eth2/0]"
+    - nm_remove_static_ports.current.5.portEncapVlan == 1200
+    - nm_remove_static_ports.current.8.path == "topology/pod-1/paths-101/pathep-[eth2/3]"
+    - nm_remove_static_ports.current.8.portEncapVlan == 1203
+    - nm_remove_static_ports.current.14.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+    - nm_remove_static_ports.current.14.portEncapVlan == 1209
+    - nm_remove_static_ports_again is not changed
+    - nm_remove_static_ports_again.previous | length == 15
+    - nm_remove_static_ports_again.previous.0.path == "topology/pod-1/paths-101/pathep-[eth1/1]"
+    - nm_remove_static_ports_again.previous.0.portEncapVlan == 1101
+    - nm_remove_static_ports_again.previous.2.path == "topology/pod-1/paths-101/pathep-[eth1/5]"
+    - nm_remove_static_ports_again.previous.2.portEncapVlan == 1105
+    - nm_remove_static_ports_again.previous.4.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - nm_remove_static_ports_again.previous.4.portEncapVlan == 1109
+    - nm_remove_static_ports_again.previous.5.path == "topology/pod-1/paths-101/pathep-[eth2/0]"
+    - nm_remove_static_ports_again.previous.5.portEncapVlan == 1200
+    - nm_remove_static_ports_again.previous.8.path == "topology/pod-1/paths-101/pathep-[eth2/3]"
+    - nm_remove_static_ports_again.previous.8.portEncapVlan == 1203
+    - nm_remove_static_ports_again.previous.14.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+    - nm_remove_static_ports_again.previous.14.portEncapVlan == 1209
+    - nm_remove_static_ports_again.current | length == 15
+    - nm_remove_static_ports_again.current.0.path == "topology/pod-1/paths-101/pathep-[eth1/1]"
+    - nm_remove_static_ports_again.current.0.portEncapVlan == 1101
+    - nm_remove_static_ports_again.current.2.path == "topology/pod-1/paths-101/pathep-[eth1/5]"
+    - nm_remove_static_ports_again.current.2.portEncapVlan == 1105
+    - nm_remove_static_ports_again.current.4.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - nm_remove_static_ports_again.current.4.portEncapVlan == 1109
+    - nm_remove_static_ports_again.current.5.path == "topology/pod-1/paths-101/pathep-[eth2/0]"
+    - nm_remove_static_ports_again.current.5.portEncapVlan == 1200
+    - nm_remove_static_ports_again.current.8.path == "topology/pod-1/paths-101/pathep-[eth2/3]"
+    - nm_remove_static_ports_again.current.8.portEncapVlan == 1203
+    - nm_remove_static_ports_again.current.14.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+    - nm_remove_static_ports_again.current.14.portEncapVlan == 1209
+    - nm_remove_static_ports_2 is changed
+    - nm_remove_static_ports_2.previous | length == 15
+    - nm_remove_static_ports_2.previous.0.path == "topology/pod-1/paths-101/pathep-[eth1/1]"
+    - nm_remove_static_ports_2.previous.0.portEncapVlan == 1101
+    - nm_remove_static_ports_2.previous.2.path == "topology/pod-1/paths-101/pathep-[eth1/5]"
+    - nm_remove_static_ports_2.previous.2.portEncapVlan == 1105
+    - nm_remove_static_ports_2.previous.4.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - nm_remove_static_ports_2.previous.4.portEncapVlan == 1109
+    - nm_remove_static_ports_2.previous.5.path == "topology/pod-1/paths-101/pathep-[eth2/0]"
+    - nm_remove_static_ports_2.previous.5.portEncapVlan == 1200
+    - nm_remove_static_ports_2.previous.8.path == "topology/pod-1/paths-101/pathep-[eth2/3]"
+    - nm_remove_static_ports_2.previous.8.portEncapVlan == 1203
+    - nm_remove_static_ports_2.previous.14.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+    - nm_remove_static_ports_2.previous.14.portEncapVlan == 1209
+    - nm_remove_static_ports_2.current | length == 10
+    - nm_remove_static_ports_2.current.0.path == "topology/pod-1/paths-101/pathep-[eth1/1]"
+    - nm_remove_static_ports_2.current.0.portEncapVlan == 1101
+    - nm_remove_static_ports_2.current.2.path == "topology/pod-1/paths-101/pathep-[eth1/5]"
+    - nm_remove_static_ports_2.current.2.portEncapVlan == 1105
+    - nm_remove_static_ports_2.current.4.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+    - nm_remove_static_ports_2.current.4.portEncapVlan == 1109
+    - nm_remove_static_ports_2.current.5.path == "topology/pod-1/paths-101/pathep-[eth2/1]"
+    - nm_remove_static_ports_2.current.5.portEncapVlan == 1201
+    - nm_remove_static_ports_2.current.7.path == "topology/pod-1/paths-101/pathep-[eth2/5]"
+    - nm_remove_static_ports_2.current.7.portEncapVlan == 1205
+    - nm_remove_static_ports_2.current.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+    - nm_remove_static_ports_2.current.9.portEncapVlan == 1209
+
+# FORCE REPLACE TESTS
+
+- name: Force replace static ports with static ports (check_mode)
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *static_ports_append
+    force_replace: true
+  register: cm_force_replace_provider_static_ports
+  check_mode: true
+
+- name: Force replace static ports with static ports
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *static_ports_append
+    force_replace: true
+  register: nm_force_replace_provider_static_ports
+
+- name: Force replace static ports with static ports again
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *static_ports_append
+    force_replace: true
+  register: nm_force_replace_provider_static_ports_again
+
+- name: Force replace static ports with new static ports
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *static_ports_append
+    static_ports: "{{ static_ports_present_2 }}"
+    force_replace: true
+  register: nm_force_replace_new_static_ports
+
+- name: Verify force replacing static ports
+  ansible.builtin.assert:
+    that:
+      - cm_force_replace_provider_static_ports is changed
+      - cm_force_replace_provider_static_ports.previous | length == 10
+      - cm_force_replace_provider_static_ports.previous.0.path == "topology/pod-1/paths-101/pathep-[eth1/1]"
+      - cm_force_replace_provider_static_ports.previous.0.portEncapVlan == 1101
+      - cm_force_replace_provider_static_ports.previous.2.path == "topology/pod-1/paths-101/pathep-[eth1/5]"
+      - cm_force_replace_provider_static_ports.previous.2.portEncapVlan == 1105
+      - cm_force_replace_provider_static_ports.previous.4.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+      - cm_force_replace_provider_static_ports.previous.4.portEncapVlan == 1109
+      - cm_force_replace_provider_static_ports.previous.5.path == "topology/pod-1/paths-101/pathep-[eth2/1]"
+      - cm_force_replace_provider_static_ports.previous.5.portEncapVlan == 1201
+      - cm_force_replace_provider_static_ports.previous.7.path == "topology/pod-1/paths-101/pathep-[eth2/5]"
+      - cm_force_replace_provider_static_ports.previous.7.portEncapVlan == 1205
+      - cm_force_replace_provider_static_ports.previous.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+      - cm_force_replace_provider_static_ports.previous.9.portEncapVlan == 1209
+      - cm_force_replace_provider_static_ports.current | length == 10
+      - cm_force_replace_provider_static_ports.current.0.path == "topology/pod-1/paths-101/pathep-[eth1/0]"
+      - cm_force_replace_provider_static_ports.current.0.portEncapVlan == 1100
+      - cm_force_replace_provider_static_ports.current.3.path == "topology/pod-1/paths-101/pathep-[eth1/3]"
+      - cm_force_replace_provider_static_ports.current.3.portEncapVlan == 1103
+      - cm_force_replace_provider_static_ports.current.9.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+      - cm_force_replace_provider_static_ports.current.9.portEncapVlan == 1109
+      - cm_force_replace_provider_static_ports.current | length == 10
+      - nm_force_replace_provider_static_ports is changed
+      - nm_force_replace_provider_static_ports.previous | length == 10
+      - nm_force_replace_provider_static_ports.previous.0.path == "topology/pod-1/paths-101/pathep-[eth1/1]"
+      - nm_force_replace_provider_static_ports.previous.0.portEncapVlan == 1101
+      - nm_force_replace_provider_static_ports.previous.2.path == "topology/pod-1/paths-101/pathep-[eth1/5]"
+      - nm_force_replace_provider_static_ports.previous.2.portEncapVlan == 1105
+      - nm_force_replace_provider_static_ports.previous.4.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+      - nm_force_replace_provider_static_ports.previous.4.portEncapVlan == 1109
+      - nm_force_replace_provider_static_ports.previous.5.path == "topology/pod-1/paths-101/pathep-[eth2/1]"
+      - nm_force_replace_provider_static_ports.previous.5.portEncapVlan == 1201
+      - nm_force_replace_provider_static_ports.previous.7.path == "topology/pod-1/paths-101/pathep-[eth2/5]"
+      - nm_force_replace_provider_static_ports.previous.7.portEncapVlan == 1205
+      - nm_force_replace_provider_static_ports.previous.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+      - nm_force_replace_provider_static_ports.previous.9.portEncapVlan == 1209
+      - nm_force_replace_provider_static_ports.current | length == 10
+      - nm_force_replace_provider_static_ports.current.0.path == "topology/pod-1/paths-101/pathep-[eth1/0]"
+      - nm_force_replace_provider_static_ports.current.0.portEncapVlan == 1100
+      - nm_force_replace_provider_static_ports.current.3.path == "topology/pod-1/paths-101/pathep-[eth1/3]"
+      - nm_force_replace_provider_static_ports.current.3.portEncapVlan == 1103
+      - nm_force_replace_provider_static_ports.current.9.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+      - nm_force_replace_provider_static_ports.current.9.portEncapVlan == 1109
+      - nm_force_replace_provider_static_ports_again is not changed
+      - nm_force_replace_provider_static_ports_again.previous | length == 10
+      - nm_force_replace_provider_static_ports_again.previous.0.path == "topology/pod-1/paths-101/pathep-[eth1/0]"
+      - nm_force_replace_provider_static_ports_again.previous.0.portEncapVlan == 1100
+      - nm_force_replace_provider_static_ports_again.previous.3.path == "topology/pod-1/paths-101/pathep-[eth1/3]"
+      - nm_force_replace_provider_static_ports_again.previous.3.portEncapVlan == 1103
+      - nm_force_replace_provider_static_ports_again.previous.9.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+      - nm_force_replace_provider_static_ports_again.previous.9.portEncapVlan == 1109
+      - nm_force_replace_provider_static_ports_again.current | length == 10
+      - nm_force_replace_provider_static_ports_again.current.0.path == "topology/pod-1/paths-101/pathep-[eth1/0]"
+      - nm_force_replace_provider_static_ports_again.current.0.portEncapVlan == 1100
+      - nm_force_replace_provider_static_ports_again.current.3.path == "topology/pod-1/paths-101/pathep-[eth1/3]"
+      - nm_force_replace_provider_static_ports_again.current.3.portEncapVlan == 1103
+      - nm_force_replace_provider_static_ports_again.current.9.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+      - nm_force_replace_provider_static_ports_again.current.9.portEncapVlan == 1109
+      - nm_force_replace_new_static_ports.previous | length == 10
+      - nm_force_replace_new_static_ports.previous.0.path == "topology/pod-1/paths-101/pathep-[eth1/0]"
+      - nm_force_replace_new_static_ports.previous.0.portEncapVlan == 1100
+      - nm_force_replace_new_static_ports.previous.3.path == "topology/pod-1/paths-101/pathep-[eth1/3]"
+      - nm_force_replace_new_static_ports.previous.3.portEncapVlan == 1103
+      - nm_force_replace_new_static_ports.previous.9.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
+      - nm_force_replace_new_static_ports.previous.9.portEncapVlan == 1109
+      - nm_force_replace_new_static_ports.current | length == 10
+      - nm_force_replace_new_static_ports.current.0.path == "topology/pod-1/paths-101/pathep-[eth2/0]"
+      - nm_force_replace_new_static_ports.current.0.portEncapVlan == 1200
+      - nm_force_replace_new_static_ports.current.3.path == "topology/pod-1/paths-101/pathep-[eth2/3]"
+      - nm_force_replace_new_static_ports.current.3.portEncapVlan == 1203
+      - nm_force_replace_new_static_ports.current.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+      - nm_force_replace_new_static_ports.current.9.portEncapVlan == 1209
+
+# QUERY TESTS FOR BULK
+
+- name: Query static ports
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *static_ports_append
+    static_ports: "{{ static_ports_present_2 }}"
+    state: query
+  register: nm_query_static_ports
+
+- name: Create static ports without input (error)
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *anp_bulk
+    epg: epg_bulk
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: present
+  register: err_present_static_ports
+  ignore_errors: true
+
+- name: Query static ports with non existing static ports (error)
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *static_ports_append
+    static_ports:
+    - leaf: 101
+      pod: pod-1 
+      path: eth1/40
+      type: port
+      vlan: 1100
+    - leaf: 201
+      pod: pod-1 
+      path: eth1/41
+      type: port
+      vlan: 1101
+    state: query
+  register: err_query_static_ports
+  ignore_errors: true
+
+- name: Verify queries for bulk
+  ansible.builtin.assert:
+    that:
+      - err_present_static_ports is failed
+      - err_present_static_ports.msg == "state is present or absent but all of the following are missing{{":"}} pod, leaf, path, vlan."
+      - nm_query_static_ports is not changed
+      - nm_query_static_ports.current | length == 10
+      - nm_query_static_ports.current.0.path == "topology/pod-1/paths-101/pathep-[eth2/0]"
+      - nm_query_static_ports.current.0.portEncapVlan == 1200
+      - nm_query_static_ports.current.3.path == "topology/pod-1/paths-101/pathep-[eth2/3]"
+      - nm_query_static_ports.current.3.portEncapVlan == 1203
+      - nm_query_static_ports.current.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+      - nm_query_static_ports.current.9.portEncapVlan == 1209
+      - err_query_static_ports is failed
+      - err_query_static_ports.msg.0 == "Provided Static Port Path 'topology/pod-1/paths-101/pathep-[eth2/0]' not found"
+      - err_query_static_ports.msg.1 == "Provided Static Port Path 'topology/pod-1/paths-101/pathep-[eth2/1]' not found"
+
+# FORCE REMOVE ALL CONTRACTS
+
+- name: Force remove all static ports
+  cisco.mso.mso_schema_site_anp_epg_staticport: &force_remove_all
+    <<: *anp_bulk
+    epg: epg_bulk
+    site: '{{ mso_site | default("ansible_test") }}'
+    force_replace: true
+    state: absent
+  register: force_remove_all_static_ports
+
+- name: Create new static ports without existing contracts
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *force_remove_all
+    static_ports:
+    - leaf: 101
+      pod: pod-1 
+      path: eth1/40
+      type: port
+      vlan: 1100
+    state: present
+  register: force_remove_all_new_static
+
+- name: Force remove all static ports again
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *force_remove_all
+
+- name: Verify force remove all static ports
+  ansible.builtin.assert:
+    that:
+      - force_remove_all_static_ports is changed
+      - force_remove_all_static_ports.previous | length == 10
+      - force_remove_all_static_ports.current == []
+      - force_remove_all_new_static is changed
+      - force_remove_all_new_static.previous == []
+      - force_remove_all_new_static.current | length == 1
+
+# OVERWRITE ARGUMENTS
+
+- name: Overwrite static port arguments (error)
+  cisco.mso.mso_schema_site_anp_epg_staticport: &overwrite_static_ports
+    <<: *anp_bulk
+    epg: epg_bulk
+    site: '{{ mso_site | default("ansible_test") }}'
+    leaf: 201
+    pod: pod-1 
+    static_ports:
+    - type: port
+  register: err_overwrite_static_ports
+  ignore_errors: true
+
+- name: Overwrite static other port arguments (error)
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *anp_bulk
+    epg: epg_bulk
+    site: '{{ mso_site | default("ansible_test") }}'
+    path: eth1/41
+    vlan: 1101
+    static_ports:
+    - type: port
+  register: err_overwrite_static_ports_other
+  ignore_errors: true
+
+- name: Overwrite static port arguments
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *overwrite_static_ports
+    path: eth1/41
+    vlan: 1101
+  register: overwrite_static_ports
+  ignore_errors: true
+
+- name: Verify overwrite static port arguments
+  ansible.builtin.assert:
+    that:
+      - err_overwrite_static_ports is failed
+      - err_overwrite_static_ports.msg == "state is present but all of the following are missing{{":"}} path, vlan."
+      - err_overwrite_static_ports_other is failed
+      - err_overwrite_static_ports_other.msg == "state is present but all of the following are missing{{":"}} pod, leaf."
+      - overwrite_static_ports is changed
+      - overwrite_static_ports.current.0.path == "topology/pod-1/paths-201/pathep-[eth1/41]"
+      - overwrite_static_ports.current.0.portEncapVlan == 1101
+      - overwrite_static_ports.current.0.type == "port"
+
+# CLEAN UP TEST ENVIRONMENT
+
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: ansible_test
+    state: absent

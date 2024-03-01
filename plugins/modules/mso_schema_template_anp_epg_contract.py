@@ -317,7 +317,6 @@ def main():
             mso.existing = get_contract_payload_from_schema(mso, mso_schema)
             contract_path = "{0}/{1}".format(contracts_path, mso_schema.schema_objects["template_anp_epg_contract"].index)
     else:
-        mso.existing = []
         found_contracts = []
         set_existing_contracts(mso, mso_schema)
         if contracts:
@@ -394,7 +393,6 @@ def main():
     mso.existing = mso.proposed
 
     if not module.check_mode and mso.proposed != mso.previous:
-        mso.stdout = str(ops)
         mso.request(mso_schema.path, method="PATCH", data=ops)
 
     mso.exit_json()

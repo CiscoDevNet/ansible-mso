@@ -99,12 +99,13 @@ options:
   force_replace:
     description:
     - Replaces all the configured static port(s) with the provided static port(s).
-    - This option can be used in combination with the I(static_ports) option.
-    - This option can be used in combination with the I(state) option set to C(absent) to clear all confirgured static port(s).
+    - This option can only be used in combination with the O(static_ports) option.
+    - In combination with the O(state=absent) and without any static port configuration all confirgured static port(s) will be removed.
     type: bool
   static_ports:
     description:
     - A list of Static Ports associated to this EPG.
+    - All configured Static Ports will be replaced with the provided Static Ports when used with O(force_replace=true).
     - When I(static_ports) attributes are not provided the module attributes will be used.
     - For each Static Ports provided in the list, the following attributes must be resolved
     - I(static_ports.type)

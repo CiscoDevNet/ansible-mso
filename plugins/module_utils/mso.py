@@ -168,20 +168,6 @@ def mso_contractref_spec():
     )
 
 
-def mso_static_path_spec():
-    return dict(
-        type=dict(type="str", choices=["port", "vpc", "dpc"]),
-        pod=dict(type="str"),
-        leaf=dict(type="str"),
-        fex=dict(type="str"),
-        path=dict(type="str"),
-        vlan=dict(type="int"),
-        primary_micro_segment_vlan=dict(type="int"),
-        deployment_immediacy=dict(type="str", choices=["immediate", "lazy"]),
-        mode=dict(type="str", choices=["native", "regular", "untagged"]),
-    )
-
-
 def mso_expression_spec():
     return dict(
         type=dict(type="str", required=True, aliases=["tag"]),

@@ -45,7 +45,7 @@ options:
     description:
     - Replaces all the configured contract(s) with the provided contract(s).
     - This option can only be used in combination with the O(contracts) option.
-    - In combination with the O(state=absent) and without any contract configuration all confirgured static port(s) will be removed.
+    - In combination with the O(state=absent) and without any contract configuration all configured static port(s) will be removed.
     type: bool
   contract:
     description:
@@ -79,6 +79,8 @@ options:
     - A list of Contracts associated to this EPG.
     - This option can not be used in combination with the O(contract) option.
     - All configured contract(s) will be replaced with the provided contract(s) when used with O(force_replace=true).
+    - Only the provided contract(s) will be added, updated or removed when used with O(force_replace=false).
+    - In combination with the O(state=query) all provided contract(s) must be found else the task will fail.
     type: list
     elements: dict
     suboptions:

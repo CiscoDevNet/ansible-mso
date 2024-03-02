@@ -100,12 +100,14 @@ options:
     description:
     - Replaces all the configured static port(s) with the provided static port(s).
     - This option can only be used in combination with the O(static_ports) option.
-    - In combination with the O(state=absent) and without any static port configuration all confirgured static port(s) will be removed.
+    - In combination with the O(state=absent) and without any static port configuration all configured static port(s) will be removed.
     type: bool
   static_ports:
     description:
     - A list of Static Ports associated to this EPG.
     - All configured Static Ports will be replaced with the provided Static Ports when used with O(force_replace=true).
+    - Only the provided Static Ports will be added, updated or removed when used with O(force_replace=false).
+    - In combination with the O(state=query) all provided Static Ports must be found else the task will fail.
     - When I(static_ports) attributes are not provided the module attributes will be used.
     - For each Static Ports provided in the list, the following attributes must be resolved
     - I(static_ports.type)
@@ -389,7 +391,7 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_static_path_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_site_anp_epg_bulk_staticport_spec
 from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 
 
@@ -411,7 +413,7 @@ def main():
         primary_micro_segment_vlan=dict(type="int"),
         deployment_immediacy=dict(type="str", default="lazy", choices=["immediate", "lazy"]),
         mode=dict(type="str", default="untagged", choices=["native", "regular", "untagged"]),
-        static_ports=dict(type="list", elements="dict", options=mso_static_path_spec()),
+        static_ports=dict(type="list", elements="dict", options=mso_site_anp_epg_bulk_staticport_spec()),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 

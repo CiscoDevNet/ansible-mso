@@ -37,102 +37,8 @@
 - name: Reset the ansible_connection to access the APIC
   ansible.builtin.meta: reset_connection
 
-- name: Remove the redirect_policy2 from the common tenant - setup part
-  cisco.aci.aci_rest:
-    <<: *aci_info
-    path: "/api/node/mo/uni/tn-common/svcCont.json"
-    method: post
-    content:
-      vnsSvcRedirectPol:
-        attributes:
-          name: redirect_policy2
-          status: deleted
-
-- name: Remove ansible_tenant from the APIC - setup part
-  cisco.aci.aci_tenant:
-    <<: *aci_info
-    tenant: ansible_tenant
-    state: absent
-
-- name: Add ansible_tenant to the APIC
-  cisco.aci.aci_tenant:
-    <<: *aci_info
-    tenant: ansible_tenant
-    state: present
-
-- name: Add devices and cluster interfaces to the ansible_tenant
-  cisco.aci.aci_rest:
-    <<: *aci_info
-    path: "/api/node/mo/uni/tn-{{ item.tenant }}.json"
-    method: post
-    content:
-      vnsLDevVip:
-        attributes:
-          svcType: "{{ item.type }}"
-          managed: "false"
-          name: "{{ item.name }}"
-        children:
-          - vnsCDev:
-              attributes:
-                name: "{{ item.name }}"
-              children:
-                - vnsCIf:
-                    attributes:
-                      name: "{{ item.concrete_interface }}"
-                    children:
-                      - vnsRsCIfPathAtt:
-                          attributes:
-                            tDn: "topology/pod-1/paths-101/pathep-[eth1/1]"
-          - vnsLIf:
-              attributes:
-                name: "{{ item.cluster_interface }}"
-              children:
-                - vnsRsCIfAttN:
-                    attributes:
-                      tDn: "uni/tn-{{ item.tenant }}/lDevVip-{{ item.name }}/cDev-{{ item.name }}/cIf-[{{ item.concrete_interface }}]"
-          - vnsLIf:
-              attributes:
-                name: "{{ item.cluster_interface }}_2"
-              children:
-                - vnsRsCIfAttN:
-                    attributes:
-                      tDn: "uni/tn-{{ item.tenant }}/lDevVip-{{ item.name }}/cDev-{{ item.name }}/cIf-[{{ item.concrete_interface }}]"
-
-  loop:
-    - {
-        tenant: ansible_tenant,
-        type: FW,
-        name: ansible_tenant_firewall1,
-        cluster_interface: clu_if1,
-        concrete_interface: cn_if1,
-      }
-    - {
-        tenant: ansible_tenant,
-        type: ADC,
-        name: ansible_tenant_adc,
-        cluster_interface: clu_if3,
-        concrete_interface: cn_if3,
-      }
-    - {
-        tenant: ansible_tenant,
-        type: OTHERS,
-        name: ansible_tenant_other,
-        cluster_interface: clu_if4,
-        concrete_interface: cn_if4,
-      }
-
-- name: Add redirect policies to the common and ansible_tenant tenants
-  cisco.aci.aci_rest:
-    <<: *aci_info
-    path: "/api/node/mo/uni/tn-{{ item.tenant }}/svcCont.json"
-    method: post
-    content:
-      vnsSvcRedirectPol:
-        attributes:
-          name: "{{ item.name }}"
-  loop:
-    - { tenant: ansible_tenant, name: redirect_policy1 }
-    - { tenant: common, name: redirect_policy2 }
+- name: Include tasks for L4-L7 devices
+  ansible.builtin.include_tasks: l4_l7_devices.yml
 
 - name: Set ansible_network_os to cisco.nd.nd and ansible_connection to ansible.netcommon.httpapi
   ansible.builtin.set_fact:
@@ -145,28 +51,47 @@
 - name: Remove ansible_schema to start the test - setup part
   cisco.mso.mso_schema:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     state: absent
 
-- name: Remove ansible_tenant tenant to start the test - setup part
+- name: Remove {{ mso_tenant | default("ansible_test") }} tenant to start the test - setup part
   cisco.mso.mso_tenant:
     <<: *mso_info
-    tenant: ansible_tenant
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
     state: absent
 
-- name: Add ansible_tenant tenant
+- name: Add {{ mso_tenant | default("ansible_test") }} tenant
   cisco.mso.mso_tenant:
     <<: *mso_info
-    tenant: ansible_tenant
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
     users: ["{{ mso_username }}"]
-    sites: ["ansible_test"]
     state: present
+
+- name: Associate Azure site with '{{ mso_tenant | default("ansible_test") }}'
+  cisco.mso.mso_tenant_site:
+    <<: *mso_info
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    site: ansible_test
+    state: present
+  when:
+    - query_cloud.current | length == 0
+
+- name: Associate Azure site with '{{ mso_tenant | default("ansible_test") }}' # Azure Task
+  cisco.mso.mso_tenant_site:
+    <<: *mso_info
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    site: azure_ansible_test_2
+    cloud_account: "uni/tn-{{ mso_tenant | default('ansible_test') }}/act-[{{azure_cloud_account}}]-vendor-azure"
+    state: present
+  when:
+    - query_cloud.current | length > 0
+    - query_cloud.current.0.cloudProvP.attributes.vendor == "azure"
 
 - name: Ensure ansible_schema with ansible_template1 and ansible_template2 exist
   cisco.mso.mso_schema_template:
     <<: *mso_info
-    schema: "ansible_schema"
-    tenant: "ansible_tenant"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
     template: "{{ item }}"
     state: present
   loop:
@@ -176,7 +101,7 @@
 - name: Create ansible_service_graph schema template service graph
   cisco.mso.mso_schema_template_service_graph:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "ansible_template1"
     service_graph: "ansible_service_graph"
     display_name: "ansible_service_graph"
@@ -190,9 +115,9 @@
 - name: Bind ansible_test site with ansible_template1 and ansible_template2
   cisco.mso.mso_schema_site:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "{{ item }}"
-    site: "ansible_test"
+    site: '{{ mso_site | default("ansible_test") }}'
     state: present
   loop:
     - "ansible_template1"
@@ -201,21 +126,21 @@
 - name: Configure the site service graph ansible_service_graph
   cisco.mso.mso_schema_site_service_graph:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "ansible_template1"
     service_graph: "ansible_service_graph"
-    site: "ansible_test"
-    tenant: "ansible_tenant"
+    site: '{{ mso_site | default("ansible_test") }}'
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
     devices:
-      - name: ansible_tenant_firewall1
-      - name: ansible_tenant_adc
-      - name: ansible_tenant_other
+      - name: '{{ mso_tenant | default("ansible_test") }}_firewall1'
+      - name: '{{ mso_tenant | default("ansible_test") }}_adc'
+      - name: '{{ mso_tenant | default("ansible_test") }}_other'
     state: present
 
 - name: Add Filter1 to ansible_template1
   cisco.mso.mso_schema_template_filter_entry: &filter_present
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "ansible_template1"
     filter: Filter1
     entry: Filter1Entry
@@ -231,7 +156,7 @@
 - name: Add Contracts to the ansible_template1
   cisco.mso.mso_schema_template_contract_filter:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "ansible_template1"
     contract: "{{ item }}"
     filter: Filter1
@@ -244,7 +169,7 @@
 - name: Add a VRF1 to ansible_template1
   cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "ansible_template1"
     vrf: VRF1
     state: present
@@ -252,7 +177,7 @@
 - name: Add a VRF2 to ansible_template1
   cisco.mso.mso_schema_template_vrf:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "ansible_template1"
     vrf: VRF2
     state: present
@@ -260,7 +185,7 @@
 - name: Add BD1 to ansible_template1
   cisco.mso.mso_schema_template_bd:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "ansible_template1"
     bd: BD1
     vrf:
@@ -270,7 +195,7 @@
 - name: Add BD2 to ansible_template1
   cisco.mso.mso_schema_template_bd:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "ansible_template1"
     bd: BD2
     vrf:
@@ -280,7 +205,7 @@
 - name: Add AP1 to ansible_template1
   cisco.mso.mso_schema_template_anp:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "ansible_template1"
     anp: AP1
     state: present
@@ -288,18 +213,20 @@
 - name: Add EPG1 to AP1 in ansible_template1
   cisco.mso.mso_schema_template_anp_epg:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "ansible_template1"
     anp: AP1
     epg: EPG1
     bd:
       name: BD1
+    vrf:
+      name: VRF1
     state: present
 
 - name: Bind Contract1 and 2 with EPG1 provider
   cisco.mso.mso_schema_template_anp_epg_contract:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "ansible_template1"
     anp: AP1
     epg: EPG1
@@ -314,7 +241,7 @@
 - name: Bind Contract1 with EPG1 consumer
   cisco.mso.mso_schema_template_anp_epg_contract:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "ansible_template1"
     anp: AP1
     epg: EPG1
@@ -329,7 +256,7 @@
 - name: Bind Contract1 and 2 with template service graph - ansible_service_graph
   cisco.mso.mso_schema_template_contract_service_graph:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "ansible_template1"
     contract: "{{ item }}"
     service_graph: ansible_service_graph
@@ -346,460 +273,622 @@
     - Contract2
 
 # Test part
-- name: Bind the Contract1 with site service graph - ansible_service_graph - check_mode
-  cisco.mso.mso_schema_site_contract_service_graph: &add_site_con_sg_cm
-    <<: *mso_info
-    tenant: ansible_tenant
-    schema: ansible_schema
-    template: ansible_template1
-    site: ansible_test
-    contract: Contract1
-    service_graph_schema: ansible_schema
-    service_graph_template: ansible_template1
-    service_graph: ansible_service_graph
-    node_relationship:
-      - cluster_interface_device: ansible_tenant_firewall1
-        provider_connector_cluster_interface: clu_if1
-        provider_connector_redirect_policy: redirect_policy1
-        consumer_connector_cluster_interface: clu_if1
-        consumer_connector_redirect_policy: redirect_policy1
-      - cluster_interface_device: ansible_tenant_adc
-        provider_connector_cluster_interface: clu_if3
-        provider_connector_redirect_policy: redirect_policy1
-        consumer_connector_cluster_interface: clu_if3
-        consumer_connector_redirect_policy: redirect_policy1
-        consumer_subnet_ips: ["1.1.1.1/24", "4.4.4.4/24"]
-      - cluster_interface_device: ansible_tenant_other
-        provider_connector_cluster_interface: clu_if4
-        provider_connector_redirect_policy: redirect_policy1
-        consumer_connector_cluster_interface: clu_if4
-        consumer_connector_redirect_policy: redirect_policy1
-    state: present
-    output_level: debug
-  check_mode: true
-  register: add_sg_cm
+# Azure tests part
+- name: Execute tasks only for cloud sites
+  when:
+    - query_cloud.current | length > 0
+    - query_cloud.current.0.cloudProvP.attributes.vendor == "azure"
+  block:
+    - name: Add Service Graph 1 at site level for the Azure site service graph test # Azure Task
+      cisco.mso.mso_schema_site_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        service_graph: ansible_service_graph
+        site: '{{ mso_site | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        devices:
+          - name: '{{ mso_tenant | default("ansible_test") }}_firewall1'
+            provider_connector_type: source_nat
+            provider_interface: TP_FW_Inf1
+            consumer_connector_type: redirect
+            consumer_interface: TP_FW_Inf1
+          - name: '{{ mso_tenant | default("ansible_test") }}_app_lb'
+          - name: '{{ mso_tenant | default("ansible_test") }}_other'
+            provider_connector_type: destination_nat
+            consumer_connector_type: redirect
+        state: present
+        output_level: debug
+      register: az_sg1_cm_present
 
-- name: Bind the Contract1 with site service graph - ansible_service_graph - normal_mode
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *add_site_con_sg_cm
-    contract: Contract1
-  register: add_sg_nm
+    - name: Bind the Contract1 with site service graph - ansible_service_graph - check_mode # Azure Task
+      cisco.mso.mso_schema_site_contract_service_graph: &az_add_site_con_sg_cm
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract1
+        service_graph_schema: '{{ mso_schema | default("ansible_schema") }}'
+        service_graph_template: ansible_template1
+        service_graph: ansible_service_graph
+        state: present
+        output_level: debug
+      check_mode: true
+      register: az_add_site_con_sg_cm
 
-- name: Bind the Contract2 with site service graph - ansible_service_graph - normal_mode
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *add_site_con_sg_cm
-    contract: Contract2
-  register: add_sg_nm_c2
+    - name: Bind the Contract1 with site service graph - ansible_service_graph - normal_mode # Azure Task
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *az_add_site_con_sg_cm
+      register: az_add_site_con_sg_nm
 
-- name: Bind the Contract1 with site service graph - ansible_service_graph - normal_mode - again
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *add_site_con_sg_cm
-    contract: Contract1
-  register: add_sg_nm_again
+    - name: Bind the Contract1 with site service graph - ansible_service_graph - normal_mode again # Azure Task
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *az_add_site_con_sg_cm
+      register: az_add_site_con_sg_nm_again
 
-- name: Assertions check for the bind site contract service graph
-  ansible.builtin.assert:
-    that:
-      - add_sg_cm is changed
-      - add_sg_cm.current != {}
-      - add_sg_cm.previous == {}
-      - add_sg_cm.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "ansible_service_graph"
-      - add_sg_cm.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
-      - add_sg_cm.current.serviceNodesRelationship.0.serviceNodeRef.templateName == "ansible_template1"
-      - add_sg_cm.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
-      - add_sg_cm.current.serviceGraphRef.templateName == "ansible_template1"
-      - add_sg_cm.current.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
-      - add_sg_cm.current.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
-      - add_sg_cm.current.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.4/24"
-      - add_sg_cm.current.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - add_sg_cm.current.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-ansible_tenant/svcCont/svcRedirectPol-redirect_policy1"
-      - add_sg_cm.current.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - add_sg_cm.current.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-ansible_tenant/svcCont/svcRedirectPol-redirect_policy1"
-      - add_sg_cm.proposed.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "ansible_service_graph"
-      - add_sg_cm.proposed.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
-      - add_sg_cm.proposed.serviceNodesRelationship.0.serviceNodeRef.templateName == "ansible_template1"
-      - add_sg_cm.proposed.serviceGraphRef.serviceGraphName == "ansible_service_graph"
-      - add_sg_cm.proposed.serviceGraphRef.templateName == "ansible_template1"
-      - add_sg_cm.proposed.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
-      - add_sg_cm.proposed.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
-      - add_sg_cm.proposed.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.4/24"
-      - add_sg_cm.proposed.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - add_sg_cm.proposed.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-ansible_tenant/svcCont/svcRedirectPol-redirect_policy1"
-      - add_sg_cm.proposed.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - add_sg_cm.proposed.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-ansible_tenant/svcCont/svcRedirectPol-redirect_policy1"
-      - add_sg_nm is changed
-      - add_sg_nm.current != {}
-      - add_sg_nm.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
-      - add_sg_nm.current.serviceGraphRef.templateName == "ansible_template1"
-      - add_sg_nm.current.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
-      - add_sg_nm.current.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
-      - add_sg_nm.current.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.4/24"
-      - add_sg_nm.current.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - add_sg_nm.current.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-ansible_tenant/svcCont/svcRedirectPol-redirect_policy1"
-      - add_sg_nm.current.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - add_sg_nm.current.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-ansible_tenant/svcCont/svcRedirectPol-redirect_policy1"
-      - add_sg_nm.previous == {}
-      - add_sg_nm_again is not changed
-      - add_sg_nm_again.current != {}
-      - add_sg_nm_again.previous != {}
-      - add_sg_nm_again.previous.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
-      - add_sg_nm_again.previous.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
-      - add_sg_nm_again.previous.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.4/24"
-      - add_sg_nm_again.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
-      - add_sg_nm_again.current.serviceGraphRef.templateName == "ansible_template1"
-      - add_sg_nm_again.current.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
+    - name: Assertions check for the bind site contract service graph
+      ansible.builtin.assert:
+        that:
+          - az_add_site_con_sg_cm is changed
+          - az_add_site_con_sg_cm.current != {}
+          - az_add_site_con_sg_cm.previous == {}
+          - az_add_site_con_sg_cm.current.serviceNodesRelationship.0.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node1")
+          - az_add_site_con_sg_cm.current.serviceNodesRelationship.1.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node2")
+          - az_add_site_con_sg_cm.current.serviceNodesRelationship.2.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node3")
+          - az_add_site_con_sg_cm.proposed.serviceNodesRelationship.0.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node1")
+          - az_add_site_con_sg_cm.proposed.serviceNodesRelationship.1.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node2")
+          - az_add_site_con_sg_cm.proposed.serviceNodesRelationship.2.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node3")
+          - az_add_site_con_sg_nm is changed
+          - az_add_site_con_sg_nm.current != {}
+          - az_add_site_con_sg_nm.previous == {}
+          - az_add_site_con_sg_nm.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
+          - az_add_site_con_sg_nm.current.serviceGraphRef.templateName == "ansible_template1"
+          - az_add_site_con_sg_nm.current.serviceNodesRelationship.0.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node1")
+          - az_add_site_con_sg_nm.current.serviceNodesRelationship.1.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node2")
+          - az_add_site_con_sg_nm.current.serviceNodesRelationship.2.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node3")
+          - az_add_site_con_sg_nm.proposed.serviceNodesRelationship.0.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node1")
+          - az_add_site_con_sg_nm.proposed.serviceNodesRelationship.1.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node2")
+          - az_add_site_con_sg_nm.proposed.serviceNodesRelationship.2.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node3")
+          - az_add_site_con_sg_nm_again is not changed
+          - az_add_site_con_sg_nm_again.current != {}
+          - az_add_site_con_sg_nm_again.previous != {}
+          - az_add_site_con_sg_nm_again.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
+          - az_add_site_con_sg_nm_again.current.serviceGraphRef.templateName == "ansible_template1"
+          - az_add_site_con_sg_nm_again.previous.serviceNodesRelationship.0.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node1")
+          - az_add_site_con_sg_nm_again.previous.serviceNodesRelationship.1.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node2")
+          - az_add_site_con_sg_nm_again.previous.serviceNodesRelationship.2.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node3")
+          - az_add_site_con_sg_nm_again.previous.serviceNodesRelationship.0.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node1")
+          - az_add_site_con_sg_nm_again.previous.serviceNodesRelationship.1.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node2")
+          - az_add_site_con_sg_nm_again.previous.serviceNodesRelationship.2.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node3")
 
-- name: Update the Contract1 - site service graph - ansible_service_graph - node properties - check_mode
-  cisco.mso.mso_schema_site_contract_service_graph: &update_site_con_sg_cm
-    <<: *mso_info
-    tenant: ansible_tenant
-    schema: ansible_schema
-    template: ansible_template1
-    site: ansible_test
-    contract: Contract1
-    service_graph_schema: ansible_schema
-    service_graph_template: ansible_template1
-    service_graph: ansible_service_graph
-    node_relationship:
-      - cluster_interface_device: ansible_tenant_firewall1
-        provider_connector_cluster_interface: clu_if1
-        provider_connector_redirect_policy: redirect_policy1
-        consumer_connector_cluster_interface: clu_if1
-        consumer_connector_redirect_policy: redirect_policy1
-      - cluster_interface_device: ansible_tenant_adc
-        provider_connector_cluster_interface: clu_if3
-        provider_connector_redirect_policy: redirect_policy1
-        consumer_connector_cluster_interface: clu_if3
-        consumer_connector_redirect_policy: redirect_policy1
-        consumer_subnet_ips: ["1.1.1.1/24", "4.4.4.3/24"]
-      - cluster_interface_device: ansible_tenant_other
-        provider_connector_cluster_interface: clu_if4
-        provider_connector_redirect_policy_tenant: common
-        provider_connector_redirect_policy: redirect_policy2
-        consumer_connector_cluster_interface: clu_if4
-        consumer_connector_redirect_policy_tenant: common
-        consumer_connector_redirect_policy: redirect_policy2
-    state: present
-    output_level: debug
-  check_mode: true
-  register: update_sg_cm
+# Non-Cloud sites part
+- name: Execute tasks only for non-cloud sites
+  when:
+    - query_cloud.current | length == 0
+  block:
+    - name: Bind the Contract1 with site service graph - ansible_service_graph - check_mode
+      cisco.mso.mso_schema_site_contract_service_graph: &add_site_con_sg_cm
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract1
+        service_graph_schema: '{{ mso_schema | default("ansible_schema") }}'
+        service_graph_template: ansible_template1
+        service_graph: ansible_service_graph
+        node_relationship:
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_firewall1'
+            provider_connector_cluster_interface: clu_if1
+            provider_connector_redirect_policy: redirect_policy1
+            consumer_connector_cluster_interface: clu_if1
+            consumer_connector_redirect_policy: redirect_policy1
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_adc'
+            provider_connector_cluster_interface: clu_if3
+            provider_connector_redirect_policy: redirect_policy1
+            consumer_connector_cluster_interface: clu_if3
+            consumer_connector_redirect_policy: redirect_policy1
+            consumer_subnet_ips: ["1.1.1.1/24", "4.4.4.4/24"]
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_other'
+            provider_connector_cluster_interface: clu_if4
+            provider_connector_redirect_policy: redirect_policy1
+            consumer_connector_cluster_interface: clu_if4
+            consumer_connector_redirect_policy: redirect_policy1
+        state: present
+        output_level: debug
+      check_mode: true
+      register: add_sg_cm
 
-- name: Update the Contract1 - site service graph - ansible_service_graph - node properties - normal_mode
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *update_site_con_sg_cm
-  register: update_sg_nm
+    - name: Bind the Contract1 with site service graph - ansible_service_graph - normal_mode
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *add_site_con_sg_cm
+        contract: Contract1
+      register: add_sg_nm
 
-- name: Update the Contract1 - site service graph - ansible_service_graph - node properties - normal_mode again
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *update_site_con_sg_cm
-  register: update_sg_nm_again
+    - name: Bind the Contract2 with site service graph - ansible_service_graph - normal_mode
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *add_site_con_sg_cm
+        contract: Contract2
+      register: add_sg_nm_c2
 
-- name: Assertions check for the update site contract service graph
-  ansible.builtin.assert:
-    that:
-      - update_sg_cm is changed
-      - update_sg_cm.current != {}
-      - update_sg_cm.previous != {}
-      - update_sg_cm.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
-      - update_sg_cm.current.serviceGraphRef.templateName ==  "ansible_template1"
-      - update_sg_cm.current.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
-      - update_sg_cm.current.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
-      - update_sg_cm.current.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.3/24"
-      - update_sg_cm.previous.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
-      - update_sg_cm.previous.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
-      - update_sg_cm.previous.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.4/24"
-      - update_sg_cm.proposed.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
-      - update_sg_cm.proposed.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
-      - update_sg_cm.proposed.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.3/24"
-      - update_sg_cm.current.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - update_sg_cm.current.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
-      - update_sg_cm.current.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - update_sg_cm.current.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
-      - update_sg_cm.proposed.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - update_sg_cm.proposed.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
-      - update_sg_cm.proposed.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - update_sg_cm.proposed.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
-      - update_sg_cm.previous.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - update_sg_cm.previous.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-ansible_tenant/svcCont/svcRedirectPol-redirect_policy1"
-      - update_sg_cm.previous.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - update_sg_cm.previous.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-ansible_tenant/svcCont/svcRedirectPol-redirect_policy1"
-      - update_sg_nm is changed
-      - update_sg_nm.current != {}
-      - update_sg_nm.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
-      - update_sg_nm.current.serviceGraphRef.templateName == "ansible_template1"
-      - update_sg_nm.current.serviceNodesRelationship.0.consumerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_firewall1/lIf-clu_if1"
-      - update_sg_nm.current.serviceNodesRelationship.0.consumerConnector.redirectPolicy.dn == "uni/tn-ansible_tenant/svcCont/svcRedirectPol-redirect_policy1"
-      - update_sg_nm.current.serviceNodesRelationship.0.consumerConnector.subnets | length == 0
-      - update_sg_nm.current.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
-      - update_sg_nm.current.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
-      - update_sg_nm.current.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.3/24"
-      - update_sg_nm.previous.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
-      - update_sg_nm.previous.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
-      - update_sg_nm.previous.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.4/24"
-      - update_sg_nm.current.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - update_sg_nm.current.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
-      - update_sg_nm.current.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - update_sg_nm.current.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
-      - update_sg_nm.previous.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - update_sg_nm.previous.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-ansible_tenant/svcCont/svcRedirectPol-redirect_policy1"
-      - update_sg_nm.previous.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - update_sg_nm.previous.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-ansible_tenant/svcCont/svcRedirectPol-redirect_policy1"
-      - update_sg_nm_again is not changed
-      - update_sg_nm_again.current != {}
-      - update_sg_nm_again.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
-      - update_sg_nm_again.current.serviceGraphRef.templateName == "ansible_template1"
+    - name: Bind the Contract1 with site service graph - ansible_service_graph - normal_mode - again
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *add_site_con_sg_cm
+        contract: Contract1
+      register: add_sg_nm_again
 
-- name: Negative test - use invalid service graph schema to check the failure
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *mso_info
-    tenant: ansible_tenant
-    schema: ansible_schema
-    template: ansible_template1
-    site: ansible_test
-    contract: Contract1
-    service_graph_schema: ansible_schema_temp
-    service_graph_template: ansible_template1
-    service_graph: ansible_service_graph
-    node_relationship:
-      - cluster_interface_device: ansible_tenant_firewall1
-        provider_connector_cluster_interface: clu_if1
-        provider_connector_redirect_policy: redirect_policy1
-        consumer_connector_cluster_interface: clu_if1
-        consumer_connector_redirect_policy: redirect_policy1
-      - cluster_interface_device: ansible_tenant_adc
-        provider_connector_cluster_interface: clu_if3
-        provider_connector_redirect_policy: redirect_policy1
-        consumer_connector_cluster_interface: clu_if3
-        consumer_connector_redirect_policy: redirect_policy1
-        consumer_subnet_ips: ["1.1.1.1/24", "4.4.4.4/24"]
-      - cluster_interface_device: ansible_tenant_other
-        provider_connector_cluster_interface: clu_if3
-        provider_connector_redirect_policy_tenant: common
-        provider_connector_redirect_policy: redirect_policy2
-        consumer_connector_cluster_interface: clu_if3
-        consumer_connector_redirect_policy_tenant: common
-        consumer_connector_redirect_policy: redirect_policy2
-    state: present
-  ignore_errors: true
-  register: nt_with_invalid_sg_schema
+    - name: Assertions check for the bind site contract service graph
+      ansible.builtin.assert:
+        that:
+          - add_sg_cm is changed
+          - add_sg_cm.current != {}
+          - add_sg_cm.previous == {}
+          - add_sg_cm.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "ansible_service_graph"
+          - add_sg_cm.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+          - add_sg_cm.current.serviceNodesRelationship.0.serviceNodeRef.templateName == "ansible_template1"
+          - add_sg_cm.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
+          - add_sg_cm.current.serviceGraphRef.templateName == "ansible_template1"
+          - add_sg_cm.current.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
+          - add_sg_cm.current.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
+          - add_sg_cm.current.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.4/24"
+          - add_sg_cm.current.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - add_sg_cm.current.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/svcCont/svcRedirectPol-redirect_policy1"
+          - add_sg_cm.current.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - add_sg_cm.current.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/svcCont/svcRedirectPol-redirect_policy1"
+          - add_sg_cm.proposed.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "ansible_service_graph"
+          - add_sg_cm.proposed.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+          - add_sg_cm.proposed.serviceNodesRelationship.0.serviceNodeRef.templateName == "ansible_template1"
+          - add_sg_cm.proposed.serviceGraphRef.serviceGraphName == "ansible_service_graph"
+          - add_sg_cm.proposed.serviceGraphRef.templateName == "ansible_template1"
+          - add_sg_cm.proposed.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
+          - add_sg_cm.proposed.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
+          - add_sg_cm.proposed.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.4/24"
+          - add_sg_cm.proposed.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - add_sg_cm.proposed.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/svcCont/svcRedirectPol-redirect_policy1"
+          - add_sg_cm.proposed.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - add_sg_cm.proposed.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/svcCont/svcRedirectPol-redirect_policy1"
+          - add_sg_nm is changed
+          - add_sg_nm.current != {}
+          - add_sg_nm.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
+          - add_sg_nm.current.serviceGraphRef.templateName == "ansible_template1"
+          - add_sg_nm.current.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
+          - add_sg_nm.current.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
+          - add_sg_nm.current.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.4/24"
+          - add_sg_nm.current.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - add_sg_nm.current.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/svcCont/svcRedirectPol-redirect_policy1"
+          - add_sg_nm.current.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - add_sg_nm.current.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/svcCont/svcRedirectPol-redirect_policy1"
+          - add_sg_nm.previous == {}
+          - add_sg_nm_again is not changed
+          - add_sg_nm_again.current != {}
+          - add_sg_nm_again.previous != {}
+          - add_sg_nm_again.previous.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
+          - add_sg_nm_again.previous.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
+          - add_sg_nm_again.previous.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.4/24"
+          - add_sg_nm_again.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
+          - add_sg_nm_again.current.serviceGraphRef.templateName == "ansible_template1"
+          - add_sg_nm_again.current.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
 
-- name: Negative test - Add site contract service graph without node_relationship and tenant
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *mso_info
-    schema: ansible_schema
-    template: ansible_template1
-    site: ansible_test
-    contract: Contract1
-    service_graph: ansible_service_graph
-    state: present
-  ignore_errors: true
-  register: nt_add_sg_without_node_relationship_and_tenant
+    - name: Update the Contract1 - site service graph - ansible_service_graph - node properties - check_mode
+      cisco.mso.mso_schema_site_contract_service_graph: &update_site_con_sg_cm
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract1
+        service_graph_schema: '{{ mso_schema | default("ansible_schema") }}'
+        service_graph_template: ansible_template1
+        service_graph: ansible_service_graph
+        node_relationship:
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_firewall1'
+            provider_connector_cluster_interface: clu_if1
+            provider_connector_redirect_policy: redirect_policy1
+            consumer_connector_cluster_interface: clu_if1
+            consumer_connector_redirect_policy: redirect_policy1
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_adc'
+            provider_connector_cluster_interface: clu_if3
+            provider_connector_redirect_policy: redirect_policy1
+            consumer_connector_cluster_interface: clu_if3
+            consumer_connector_redirect_policy: redirect_policy1
+            consumer_subnet_ips: ["1.1.1.1/24", "4.4.4.3/24"]
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_other'
+            provider_connector_cluster_interface: clu_if4
+            provider_connector_redirect_policy_tenant: common
+            provider_connector_redirect_policy: redirect_policy2
+            consumer_connector_cluster_interface: clu_if4
+            consumer_connector_redirect_policy_tenant: common
+            consumer_connector_redirect_policy: redirect_policy2
+        state: present
+        output_level: debug
+      check_mode: true
+      register: update_sg_cm
 
-- name: Negative test - Add site contract service graph without node_relationship
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *mso_info
-    tenant: ansible_tenant
-    schema: ansible_schema
-    template: ansible_template1
-    site: ansible_test
-    contract: Contract1
-    service_graph: ansible_service_graph
-    state: present
-  ignore_errors: true
-  register: nt_add_sg_without_node_relationship
+    - name: Update the Contract1 - site service graph - ansible_service_graph - node properties - normal_mode
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *update_site_con_sg_cm
+      register: update_sg_nm
 
-- name: Negative test - Add site contract service graph without tenant
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *mso_info
-    schema: ansible_schema
-    template: ansible_template1
-    site: ansible_test
-    contract: Contract1
-    service_graph_template: ansible_template1
-    service_graph: ansible_service_graph
-    node_relationship:
-      - cluster_interface_device: ansible_tenant_firewall1
-        provider_connector_cluster_interface: clu_if1
-        provider_connector_redirect_policy: redirect_policy1
-        consumer_connector_cluster_interface: clu_if1
-        consumer_connector_redirect_policy: redirect_policy1
-      - cluster_interface_device: ansible_tenant_adc
-        provider_connector_cluster_interface: clu_if3
-        provider_connector_redirect_policy: redirect_policy1
-        consumer_connector_cluster_interface: clu_if3
-        consumer_connector_redirect_policy: redirect_policy1
-        consumer_subnet_ips: ["1.1.1.1/24", "4.4.4.4/24"]
-      - cluster_interface_device: ansible_tenant_other
-        provider_connector_cluster_interface: clu_if3
-        provider_connector_redirect_policy_tenant: common
-        provider_connector_redirect_policy: redirect_policy2
-        consumer_connector_cluster_interface: clu_if3
-        consumer_connector_redirect_policy_tenant: common
-        consumer_connector_redirect_policy: redirect_policy2
-    state: present
-  ignore_errors: true
-  register: nt_add_sg_without_tenant
+    - name: Update the Contract1 - site service graph - ansible_service_graph - node properties - normal_mode again
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *update_site_con_sg_cm
+      register: update_sg_nm_again
 
-- name: Assertions check for the negative site contract tests
-  ansible.builtin.assert:
-    that:
-      - nt_with_invalid_sg_schema is not changed
-      - nt_with_invalid_sg_schema.current == {}
-      - nt_with_invalid_sg_schema.msg == "Provided service_graph_schema{{':'}} 'ansible_schema_temp' does not exist."
-      - nt_add_sg_without_node_relationship_and_tenant is not changed
-      - nt_add_sg_without_node_relationship_and_tenant.current == {}
-      - nt_add_sg_without_node_relationship_and_tenant.msg == "The node_relationship and tenant attributes are required when state is present and site type is on-premise."
-      - nt_add_sg_without_node_relationship is not changed
-      - nt_add_sg_without_node_relationship.current == {}
-      - nt_add_sg_without_node_relationship.msg == "The node_relationship attribute is required when state is present and site type is on-premise."
-      - nt_add_sg_without_tenant is not changed
-      - nt_add_sg_without_tenant.current == {}
-      - nt_add_sg_without_tenant.msg == "The tenant attribute is required when state is present and site type is on-premise."
+    - name: Assertions check for the update site contract service graph
+      ansible.builtin.assert:
+        that:
+          - update_sg_cm is changed
+          - update_sg_cm.current != {}
+          - update_sg_cm.previous != {}
+          - update_sg_cm.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
+          - update_sg_cm.current.serviceGraphRef.templateName ==  "ansible_template1"
+          - update_sg_cm.current.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
+          - update_sg_cm.current.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
+          - update_sg_cm.current.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.3/24"
+          - update_sg_cm.previous.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
+          - update_sg_cm.previous.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
+          - update_sg_cm.previous.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.4/24"
+          - update_sg_cm.proposed.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
+          - update_sg_cm.proposed.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
+          - update_sg_cm.proposed.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.3/24"
+          - update_sg_cm.current.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - update_sg_cm.current.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
+          - update_sg_cm.current.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - update_sg_cm.current.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
+          - update_sg_cm.proposed.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - update_sg_cm.proposed.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
+          - update_sg_cm.proposed.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - update_sg_cm.proposed.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
+          - update_sg_cm.previous.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - update_sg_cm.previous.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/svcCont/svcRedirectPol-redirect_policy1"
+          - update_sg_cm.previous.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - update_sg_cm.previous.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/svcCont/svcRedirectPol-redirect_policy1"
+          - update_sg_nm is changed
+          - update_sg_nm.current != {}
+          - update_sg_nm.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
+          - update_sg_nm.current.serviceGraphRef.templateName == "ansible_template1"
+          - update_sg_nm.current.serviceNodesRelationship.0.consumerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_firewall1/lIf-clu_if1"
+          - update_sg_nm.current.serviceNodesRelationship.0.consumerConnector.redirectPolicy.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/svcCont/svcRedirectPol-redirect_policy1"
+          - update_sg_nm.current.serviceNodesRelationship.0.consumerConnector.subnets | length == 0
+          - update_sg_nm.current.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
+          - update_sg_nm.current.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
+          - update_sg_nm.current.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.3/24"
+          - update_sg_nm.previous.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
+          - update_sg_nm.previous.serviceNodesRelationship.1.consumerConnector.subnets.0.ip == "1.1.1.1/24"
+          - update_sg_nm.previous.serviceNodesRelationship.1.consumerConnector.subnets.1.ip == "4.4.4.4/24"
+          - update_sg_nm.current.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - update_sg_nm.current.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
+          - update_sg_nm.current.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - update_sg_nm.current.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
+          - update_sg_nm.previous.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - update_sg_nm.previous.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/svcCont/svcRedirectPol-redirect_policy1"
+          - update_sg_nm.previous.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - update_sg_nm.previous.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/svcCont/svcRedirectPol-redirect_policy1"
+          - update_sg_nm_again is not changed
+          - update_sg_nm_again.current != {}
+          - update_sg_nm_again.current.serviceGraphRef.serviceGraphName == "ansible_service_graph"
+          - update_sg_nm_again.current.serviceGraphRef.templateName == "ansible_template1"
 
-- name: Query a empty site contract without passing the service graph name
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *mso_info
-    schema: ansible_schema
-    template: ansible_template1
-    site: ansible_test
-    contract: Contract3
-    state: query
-  register: query_empty_contract_without_sg_name
+    - name: Negative test - Add site contract service graph with invalid service_graph
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract1
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        service_graph_template: ansible_template1
+        service_graph: ansible_service_graph_invalid
+        node_relationship:
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_firewall1'
+            provider_connector_cluster_interface: clu_if1
+            provider_connector_redirect_policy: redirect_policy1
+            consumer_connector_cluster_interface: clu_if1
+            consumer_connector_redirect_policy: redirect_policy1
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_adc'
+            provider_connector_cluster_interface: clu_if3
+            provider_connector_redirect_policy: redirect_policy1
+            consumer_connector_cluster_interface: clu_if3
+            consumer_connector_redirect_policy: redirect_policy1
+            consumer_subnet_ips: ["1.1.1.1/24", "4.4.4.4/24"]
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_other'
+            provider_connector_cluster_interface: clu_if3
+            provider_connector_redirect_policy_tenant: common
+            provider_connector_redirect_policy: redirect_policy2
+            consumer_connector_cluster_interface: clu_if3
+            consumer_connector_redirect_policy_tenant: common
+            consumer_connector_redirect_policy: redirect_policy2
+        state: present
+      ignore_errors: true
+      register: nt_add_sg_with_invalid_sg
 
-- name: Query a invalid site contract without passing the service graph value
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *mso_info
-    schema: ansible_schema
-    template: ansible_template1
-    site: ansible_test
-    contract: Contract4
-    state: query
-  ignore_errors: true
-  register: query_invalid_contract_sg
+    - name: Negative test - use invalid service graph schema to check the failure
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract1
+        service_graph_schema: '{{ mso_schema | default("ansible_schema") }}_temp'
+        service_graph_template: ansible_template1
+        service_graph: ansible_service_graph
+        node_relationship:
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_firewall1'
+            provider_connector_cluster_interface: clu_if1
+            provider_connector_redirect_policy: redirect_policy1
+            consumer_connector_cluster_interface: clu_if1
+            consumer_connector_redirect_policy: redirect_policy1
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_adc'
+            provider_connector_cluster_interface: clu_if3
+            provider_connector_redirect_policy: redirect_policy1
+            consumer_connector_cluster_interface: clu_if3
+            consumer_connector_redirect_policy: redirect_policy1
+            consumer_subnet_ips: ["1.1.1.1/24", "4.4.4.4/24"]
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_other'
+            provider_connector_cluster_interface: clu_if3
+            provider_connector_redirect_policy_tenant: common
+            provider_connector_redirect_policy: redirect_policy2
+            consumer_connector_cluster_interface: clu_if3
+            consumer_connector_redirect_policy_tenant: common
+            consumer_connector_redirect_policy: redirect_policy2
+        state: present
+      ignore_errors: true
+      register: nt_with_invalid_sg_schema
 
-- name: Query all site contract service graphs with an empty template
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *mso_info
-    schema: ansible_schema
-    template: ansible_template2
-    site: ansible_test
-    service_graph: ansible_service_graph
-    state: query
-  register: query_all_sg_with_empty_template
+    - name: Negative test - Add site contract service graph without node_relationship and tenant
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract1
+        service_graph: ansible_service_graph
+        state: present
+      ignore_errors: true
+      register: nt_add_sg_without_node_relationship_and_tenant
 
-- name: Query a site contract - Contract1 service graph without passing service graph name
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *mso_info
-    schema: ansible_schema
-    template: ansible_template1
-    contract: Contract1
-    site: ansible_test
-    state: query
-  register: query_sg_without_name
+    - name: Negative test - Add site contract service graph without node_relationship
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract1
+        service_graph: ansible_service_graph
+        state: present
+      ignore_errors: true
+      register: nt_add_sg_without_node_relationship
 
-- name: Query all site contract service graphs without passing the service_graph and contract name
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *mso_info
-    schema: ansible_schema
-    template: ansible_template1
-    site: ansible_test
-    state: query
-  register: query_all_sg_without_contract_sg
+    - name: Negative test - Add site contract service graph without tenant
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract1
+        service_graph_template: ansible_template1
+        service_graph: ansible_service_graph
+        node_relationship:
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_firewall1'
+            provider_connector_cluster_interface: clu_if1
+            provider_connector_redirect_policy: redirect_policy1
+            consumer_connector_cluster_interface: clu_if1
+            consumer_connector_redirect_policy: redirect_policy1
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_adc'
+            provider_connector_cluster_interface: clu_if3
+            provider_connector_redirect_policy: redirect_policy1
+            consumer_connector_cluster_interface: clu_if3
+            consumer_connector_redirect_policy: redirect_policy1
+            consumer_subnet_ips: ["1.1.1.1/24", "4.4.4.4/24"]
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_other'
+            provider_connector_cluster_interface: clu_if3
+            provider_connector_redirect_policy_tenant: common
+            provider_connector_redirect_policy: redirect_policy2
+            consumer_connector_cluster_interface: clu_if3
+            consumer_connector_redirect_policy_tenant: common
+            consumer_connector_redirect_policy: redirect_policy2
+        state: present
+      ignore_errors: true
+      register: nt_add_sg_without_tenant
 
-- name: Assertions check for the query results
-  ansible.builtin.assert:
-    that:
-      - query_empty_contract_without_sg_name is not changed
-      - query_empty_contract_without_sg_name.current == {}
-      - query_invalid_contract_sg is not changed
-      - query_invalid_contract_sg.current == {}
-      - query_invalid_contract_sg.msg == "The site contract{{':'}} Contract4 does not exist."
-      - query_all_sg_with_empty_template is not changed
-      - query_all_sg_with_empty_template.current == {}
-      - query_sg_without_name is not changed
-      - query_sg_without_name.current != {}
-      - query_sg_without_name.current.serviceGraphRef is match(".+/templates/ansible_template1/serviceGraphs/ansible_service_graph")
-      - query_sg_without_name.current.serviceNodesRelationship | length == 3
-      - query_sg_without_name.current.serviceNodesRelationship.0.consumerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_firewall1/lIf-clu_if1"
-      - query_sg_without_name.current.serviceNodesRelationship.0.consumerConnector.redirectPolicy.dn == "uni/tn-ansible_tenant/svcCont/svcRedirectPol-redirect_policy1"
-      - query_sg_without_name.current.serviceNodesRelationship.0.consumerConnector.subnets | length == 0
-      - query_sg_without_name.current.serviceNodesRelationship.0.providerConnector.subnets | length == 0
-      - query_sg_without_name.current.serviceNodesRelationship.0.serviceNodeRef is match(".+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node1")
-      - query_all_sg_without_contract_sg is not changed
-      - query_all_sg_without_contract_sg.current | length == 2
-      - query_all_sg_without_contract_sg.current.0.serviceGraphRef is match(".+/templates/ansible_template1/serviceGraphs/ansible_service_graph")
-      - query_all_sg_without_contract_sg.current.1.serviceGraphRef is match(".+/templates/ansible_template1/serviceGraphs/ansible_service_graph")
-      - query_all_sg_without_contract_sg.current.0.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
-      - query_all_sg_without_contract_sg.current.0.serviceNodesRelationship.1.providerConnector.subnets | length == 0
-      - query_all_sg_without_contract_sg.current.0.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
-      - query_all_sg_without_contract_sg.current.0.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
-      - query_all_sg_without_contract_sg.current.0.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
-      - query_all_sg_without_contract_sg.current.0.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-ansible_tenant/lDevVip-ansible_tenant_other/lIf-clu_if4"
+    - name: Negative test - Add site contract service graph without tenant
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract1
+        service_graph_template: ansible_template1
+        service_graph: ansible_service_graph_invalid
+        node_relationship:
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_firewall1'
+            provider_connector_cluster_interface: clu_if1
+            provider_connector_redirect_policy: redirect_policy1
+            consumer_connector_cluster_interface: clu_if1
+            consumer_connector_redirect_policy: redirect_policy1
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_adc'
+            provider_connector_cluster_interface: clu_if3
+            provider_connector_redirect_policy: redirect_policy1
+            consumer_connector_cluster_interface: clu_if3
+            consumer_connector_redirect_policy: redirect_policy1
+            consumer_subnet_ips: ["1.1.1.1/24", "4.4.4.4/24"]
+          - cluster_interface_device: '{{ mso_tenant | default("ansible_test") }}_other'
+            provider_connector_cluster_interface: clu_if3
+            provider_connector_redirect_policy_tenant: common
+            provider_connector_redirect_policy: redirect_policy2
+            consumer_connector_cluster_interface: clu_if3
+            consumer_connector_redirect_policy_tenant: common
+            consumer_connector_redirect_policy: redirect_policy2
+        state: present
+      ignore_errors: true
+      register: nt_add_sg_without_tenant
 
-- name: Remove the site contract Contract1 - service graph from the ansible_template1 - check_mode
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *mso_info
-    schema: ansible_schema
-    template: ansible_template1
-    site: ansible_test
-    contract: Contract1
-    state: absent
-    output_level: debug
-  check_mode: true
-  register: site_con_sg_absent_cm
+    - name: Assertions check for the negative site contract tests
+      ansible.builtin.assert:
+        that:
+          - nt_with_invalid_sg_schema is not changed
+          - nt_with_invalid_sg_schema.current == {}
+          - nt_with_invalid_sg_schema.msg == "Provided service_graph_schema{{':'}} 'ansible_schema_temp' does not exist."
+          - nt_add_sg_without_node_relationship_and_tenant is not changed
+          - nt_add_sg_without_node_relationship_and_tenant.current == {}
+          - nt_add_sg_without_node_relationship_and_tenant.msg == "The node_relationship and tenant attributes are required when state is present and site type is on-premise."
+          - nt_add_sg_without_node_relationship is not changed
+          - nt_add_sg_without_node_relationship.current == {}
+          - nt_add_sg_without_node_relationship.msg == "The node_relationship attribute is required when state is present and site type is on-premise."
+          - nt_add_sg_without_tenant is not changed
+          - nt_add_sg_without_tenant.current == {}
+          - nt_add_sg_without_tenant.msg == "The tenant attribute is required when state is present and site type is on-premise."
+          - nt_add_sg_with_invalid_sg is not changed
+          - nt_add_sg_with_invalid_sg.msg == "The service graph{{':'}} ansible_service_graph_invalid does not associated with the site contract{{':'}} Contract1."
 
-- name: Remove the site contract Contract1 - service graph from the ansible_template1 - normal_mode
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *mso_info
-    schema: ansible_schema
-    template: ansible_template1
-    site: ansible_test
-    contract: Contract1
-    state: absent
-  register: site_con_sg_absent_nm
+    - name: Query a empty site contract without passing the service graph name
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract3
+        state: query
+      register: query_empty_contract_without_sg_name
 
-- name: Remove the site contract Contract1 - service graph from the ansible_template1 - normal_mode again
-  cisco.mso.mso_schema_site_contract_service_graph:
-    <<: *mso_info
-    schema: ansible_schema
-    template: ansible_template1
-    site: ansible_test
-    contract: Contract1
-    state: absent
-  ignore_errors: true
-  register: site_con_sg_absent_nm_again
+    - name: Query a invalid site contract without passing the service graph value
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract4
+        state: query
+      ignore_errors: true
+      register: query_invalid_contract_sg
 
-- name: Assertions check for remove the site contract Contract1 - service graph from the ansible_template1
-  ansible.builtin.assert:
-    that:
-      - site_con_sg_absent_cm is changed
-      - site_con_sg_absent_cm.current == {}
-      - site_con_sg_absent_cm.previous != {}
-      - site_con_sg_absent_cm.previous.serviceGraphRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph")
-      - site_con_sg_absent_cm.previous.serviceNodesRelationship | length == 3
-      - site_con_sg_absent_cm.previous.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
-      - site_con_sg_absent_cm.previous.serviceNodesRelationship.2.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node3")
-      - site_con_sg_absent_cm.proposed == {}
-      - site_con_sg_absent_cm.sent == {}
-      - site_con_sg_absent_nm is changed
-      - site_con_sg_absent_nm.current == {}
-      - site_con_sg_absent_nm.previous != {}
-      - site_con_sg_absent_nm.previous.serviceGraphRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph")
-      - site_con_sg_absent_nm.previous.serviceNodesRelationship | length == 3
-      - site_con_sg_absent_nm.previous.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
-      - site_con_sg_absent_nm.previous.serviceNodesRelationship.2.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node3")
-      - site_con_sg_absent_nm_again is not changed
-      - site_con_sg_absent_nm_again.current == {}
-      - site_con_sg_absent_nm_again.previous == {}
-      - site_con_sg_absent_nm_again.msg is match("MSO Error 400{{':'}} error in remove for path{{':'}} '/sites/0/contracts/0/serviceGraphRelationship'{{':'}} unable to remove nonexistent key{{':'}} serviceGraphRelationship{{':'}} missing value")
+    - name: Query all site contract service graphs with an empty template
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template2
+        site: '{{ mso_site | default("ansible_test") }}'
+        service_graph: ansible_service_graph
+        state: query
+      register: query_all_sg_with_empty_template
+
+    - name: Query a site contract - Contract1 service graph without passing service graph name
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        contract: Contract1
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: query
+      register: query_sg_without_name
+
+    - name: Query all site contract service graphs without passing the service_graph and contract name
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: query
+      register: query_all_sg_without_contract_sg
+
+    - name: Assertions check for the query results
+      ansible.builtin.assert:
+        that:
+          - query_empty_contract_without_sg_name is not changed
+          - query_empty_contract_without_sg_name.current == {}
+          - query_invalid_contract_sg is not changed
+          - query_invalid_contract_sg.current == {}
+          - query_invalid_contract_sg.msg == "The site contract{{':'}} Contract4 does not exist."
+          - query_all_sg_with_empty_template is not changed
+          - query_all_sg_with_empty_template.current == {}
+          - query_sg_without_name is not changed
+          - query_sg_without_name.current != {}
+          - query_sg_without_name.current.serviceGraphRef is match(".+/templates/ansible_template1/serviceGraphs/ansible_service_graph")
+          - query_sg_without_name.current.serviceNodesRelationship | length == 3
+          - query_sg_without_name.current.serviceNodesRelationship.0.consumerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_firewall1/lIf-clu_if1"
+          - query_sg_without_name.current.serviceNodesRelationship.0.consumerConnector.redirectPolicy.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/svcCont/svcRedirectPol-redirect_policy1"
+          - query_sg_without_name.current.serviceNodesRelationship.0.consumerConnector.subnets | length == 0
+          - query_sg_without_name.current.serviceNodesRelationship.0.providerConnector.subnets | length == 0
+          - query_sg_without_name.current.serviceNodesRelationship.0.serviceNodeRef is match(".+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node1")
+          - query_all_sg_without_contract_sg is not changed
+          - query_all_sg_without_contract_sg.current | length == 2
+          - query_all_sg_without_contract_sg.current.0.serviceGraphRef is match(".+/templates/ansible_template1/serviceGraphs/ansible_service_graph")
+          - query_all_sg_without_contract_sg.current.1.serviceGraphRef is match(".+/templates/ansible_template1/serviceGraphs/ansible_service_graph")
+          - query_all_sg_without_contract_sg.current.0.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
+          - query_all_sg_without_contract_sg.current.0.serviceNodesRelationship.1.providerConnector.subnets | length == 0
+          - query_all_sg_without_contract_sg.current.0.serviceNodesRelationship.2.consumerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
+          - query_all_sg_without_contract_sg.current.0.serviceNodesRelationship.2.consumerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+          - query_all_sg_without_contract_sg.current.0.serviceNodesRelationship.2.providerConnector.redirectPolicy.dn == "uni/tn-common/svcCont/svcRedirectPol-redirect_policy2"
+          - query_all_sg_without_contract_sg.current.0.serviceNodesRelationship.2.providerConnector.clusterInterface.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/lDevVip-{{ mso_tenant | default("ansible_test") }}_other/lIf-clu_if4"
+
+    - name: Remove the site contract Contract1 - service graph from the ansible_template1 - check_mode
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract1
+        state: absent
+        output_level: debug
+      check_mode: true
+      register: site_con_sg_absent_cm
+
+    - name: Remove the site contract Contract1 - service graph from the ansible_template1 - normal_mode
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract1
+        state: absent
+      register: site_con_sg_absent_nm
+
+    - name: Remove the site contract Contract1 - service graph from the ansible_template1 - normal_mode again
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract1
+        state: absent
+      ignore_errors: true
+      register: site_con_sg_absent_nm_again
+
+    - name: Assertions check for remove the site contract Contract1 - service graph from the ansible_template1
+      ansible.builtin.assert:
+        that:
+          - site_con_sg_absent_cm is changed
+          - site_con_sg_absent_cm.current == {}
+          - site_con_sg_absent_cm.previous != {}
+          - site_con_sg_absent_cm.previous.serviceGraphRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph")
+          - site_con_sg_absent_cm.previous.serviceNodesRelationship | length == 3
+          - site_con_sg_absent_cm.previous.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
+          - site_con_sg_absent_cm.previous.serviceNodesRelationship.2.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node3")
+          - site_con_sg_absent_cm.proposed == {}
+          - site_con_sg_absent_cm.sent == {}
+          - site_con_sg_absent_nm is changed
+          - site_con_sg_absent_nm.current == {}
+          - site_con_sg_absent_nm.previous != {}
+          - site_con_sg_absent_nm.previous.serviceGraphRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph")
+          - site_con_sg_absent_nm.previous.serviceNodesRelationship | length == 3
+          - site_con_sg_absent_nm.previous.serviceNodesRelationship.1.consumerConnector.subnets | length == 2
+          - site_con_sg_absent_nm.previous.serviceNodesRelationship.2.serviceNodeRef is match("/schemas/.+/templates/ansible_template1/serviceGraphs/ansible_service_graph/serviceNodes/node3")
+          - site_con_sg_absent_nm_again is not changed
+          - site_con_sg_absent_nm_again.current == {}
+          - site_con_sg_absent_nm_again.previous == {}
+          - site_con_sg_absent_nm_again.msg is match("MSO Error 400{{':'}} error in remove for path{{':'}} '/sites/0/contracts/0/serviceGraphRelationship'{{':'}} unable to remove nonexistent key{{':'}} serviceGraphRelationship{{':'}} missing value")
 
 # Cleanup part
+
 - name: Remove the site association for the ansible_schema templates
   cisco.mso.mso_schema_site:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     template: "{{ item }}"
-    site: "ansible_test"
+    site: '{{ mso_site | default("ansible_test") }}'
     state: present
   loop:
     - "ansible_template1"
@@ -808,13 +897,13 @@
 - name: Remove the ansible_schema schema
   cisco.mso.mso_schema:
     <<: *mso_info
-    schema: "ansible_schema"
+    schema: '{{ mso_schema | default("ansible_schema") }}'
     state: absent
 
-- name: Remove the ansible_tenant tenant
+- name: Remove the {{ mso_tenant | default("ansible_test") }} tenant
   cisco.mso.mso_tenant:
     <<: *mso_info
-    tenant: ansible_tenant
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
     state: absent
 
 - name: Set ansible_network_os to cisco.aci.aci and ansible_connection to local
@@ -839,8 +928,8 @@
           name: redirect_policy2
           status: deleted
 
-- name: Remove the ansible_tenant from the APIC
+- name: Remove the {{ mso_tenant | default("ansible_test") }} from the APIC
   cisco.aci.aci_tenant:
     <<: *aci_info
-    tenant: ansible_tenant
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
     state: absent

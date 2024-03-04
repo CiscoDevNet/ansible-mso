@@ -1,0 +1,312 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    aci_info: &aci_info
+      host: "{{ apic_hostname }}"
+      username: "{{ apic_username }}"
+      password: "{{ apic_password }}"
+      validate_certs: "{{ apic_validate_certs | default(false) }}"
+      use_ssl: "{{ apic_use_ssl | default(true) }}"
+      use_proxy: "{{ apic_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+
+- name: Query system information
+  cisco.aci.aci_system:
+    <<: *aci_info
+    id: 1
+    state: query
+  register: aci_version
+
+- name: Remove an existing tenant on APIC
+  cisco.aci.aci_tenant:
+    <<: *aci_info
+    name: '{{ mso_tenant | default("ansible_test") }}'
+    state: absent
+
+- name: Add a tenant on APIC
+  cisco.aci.aci_tenant:
+    <<: *aci_info
+    name: '{{ mso_tenant | default("ansible_test") }}'
+
+# Site type checking for L4-L7 Device configuration
+# QUERY OBJECTS
+- name: Query cloud provider object
+  cisco.aci.aci_cloud_provider:
+    <<: *aci_info
+    state: query
+  register: query_cloud
+  when: aci_version.current.0.topSystem.attributes.version is version('4.1', '>=')
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    query_cloud:
+      current: []
+  when: aci_version.current.0.topSystem.attributes.version is version('4.1', '<')
+
+- name: Verify query_cloud for all sites
+  ansible.builtin.assert:
+    that:
+      - query_cloud is not changed
+
+- name: Verify query_cloud for Cloud Sites
+  ansible.builtin.assert:
+    that:
+      - query_cloud is not changed
+      - query_cloud.current.0.cloudProvP.attributes.environment == "public-cloud"
+      - '"vendor" in query_cloud.current.0.cloudProvP.attributes'
+  when:
+    - query_cloud.current | length > 0 # This condition will execute only cloud sites
+
+# Cloud Site block
+- name: Execute tasks only for cloud sites
+  when:
+    - query_cloud.current | length > 0
+    - query_cloud.current.0.cloudProvP.attributes.vendor == "azure"
+  block:
+    - name: Add azure_vrf to the {{ mso_tenant | default("ansible_test") }}
+      cisco.aci.aci_vrf:
+        <<: *aci_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        vrf: azure_vrf
+
+    - name: Add azure_ctxprof to the {{ mso_tenant | default("ansible_test") }}
+      cisco.aci.aci_cloud_ctx_profile:
+        <<: *aci_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        cloud: azure
+        name: azure_ctxprof
+        vrf: azure_vrf
+        region: westus2
+        primary_cidr: "1.1.1.2/32"
+        state: present
+
+    - name: Add the subnet to the azure_ctxprof
+      cisco.aci.aci_rest:
+        <<: *aci_info
+        path: api/mo/uni/tn-{{ mso_tenant | default("ansible_test") }}/ctxprofile-azure_ctxprof/cidr-[1.1.1.2/32]/subnet-[1.1.1.2/32].json
+        method: post
+        content:
+          cloudSubnet:
+            attributes:
+              ip: 1.1.1.2/32
+              name: azure_ctxprof_cidr
+            children:
+              - cloudRsZoneAttach:
+                  attributes:
+                    tDn: "uni/clouddomp/provp-azure/region-westus2/zone-default"
+
+    - name: Add the {{ mso_tenant | default("ansible_test") }}_adc device - ThirdParty_LB
+      cisco.aci.aci_rest:
+        <<: *aci_info
+        path: /api/node/mo/uni/tn-{{ mso_tenant | default("ansible_test") }}/cld-{{ mso_tenant | default("ansible_test") }}_adc.json
+        method: post
+        content:
+          cloudLDev:
+            attributes:
+              targetMode: unspecified
+              name: '{{ mso_tenant | default("ansible_test") }}_adc'
+              svcType: ADC
+            children:
+              - cloudRsLDevToCtx:
+                  attributes:
+                    tDn: uni/tn-{{ mso_tenant | default("ansible_test") }}/ctx-azure_vrf
+              - cloudLIf:
+                  attributes:
+                    allowAll: "yes"
+                    name: TP_LB_Inf
+                  children:
+                    - cloudEPSelector:
+                        attributes:
+                          name: TP_LB_Inf_Selector
+                          matchExpression: IP=='1.1.1.1'
+
+    - name: Add the {{ mso_tenant | default("ansible_test") }}_firewall1 device
+      cisco.aci.aci_rest:
+        <<: *aci_info
+        path: /api/node/mo/uni/tn-{{ mso_tenant | default("ansible_test") }}/cld-{{ mso_tenant | default("ansible_test") }}_firewall1.json
+        method: post
+        content:
+          cloudLDev:
+            attributes:
+              name: '{{ mso_tenant | default("ansible_test") }}_firewall1'
+              svcType: FW
+            children:
+              - cloudRsLDevToCtx:
+                  attributes:
+                    tDn: uni/tn-{{ mso_tenant | default("ansible_test") }}/ctx-azure_vrf
+              - cloudLIf:
+                  attributes:
+                    allowAll: "yes"
+                    name: TP_FW_Inf1
+                  children:
+                    - cloudEPSelector:
+                        attributes:
+                          name: TP_FW_Inf_Selector
+                          matchExpression: IP=='1.1.1.1'
+
+    - name: Add the {{ mso_tenant | default("ansible_test") }}_firewall2 device
+      cisco.aci.aci_rest:
+        <<: *aci_info
+        path: /api/node/mo/uni/tn-{{ mso_tenant | default("ansible_test") }}/cld-{{ mso_tenant | default("ansible_test") }}_firewall2.json
+        method: post
+        content:
+          cloudLDev:
+            attributes:
+              name: '{{ mso_tenant | default("ansible_test") }}_firewall2'
+              svcType: FW
+            children:
+              - cloudRsLDevToCtx:
+                  attributes:
+                    tDn: uni/tn-{{ mso_tenant | default("ansible_test") }}/ctx-azure_vrf
+              - cloudLIf:
+                  attributes:
+                    allowAll: "yes"
+                    name: TP_FW_Inf2
+                  children:
+                    - cloudEPSelector:
+                        attributes:
+                          name: TP_FW_Inf_Selector
+                          matchExpression: IP=='1.1.1.1'
+
+    - name: Add the {{ mso_tenant | default("ansible_test") }}_other device
+      cisco.aci.aci_rest:
+        <<: *aci_info
+        path: /api/node/mo/uni/tn-{{ mso_tenant | default("ansible_test") }}/clb-{{ mso_tenant | default("ansible_test") }}_other.json
+        method: post
+        content:
+          cloudLB:
+            attributes:
+              name: '{{ mso_tenant | default("ansible_test") }}_other'
+              type: network
+            children:
+              - cloudRsLDevToCloudSubnet:
+                  attributes:
+                    tDn: 'uni/tn-{{ mso_tenant | default("ansible_test") }}/ctxprofile-azure_ctxprof/cidr-[1.1.1.2/32]/subnet-[1.1.1.2/32]'
+
+    - name: Add the {{ mso_tenant | default("ansible_test") }}_app_lb device
+      cisco.aci.aci_rest:
+        <<: *aci_info
+        path: /api/node/mo/uni/tn-{{ mso_tenant | default("ansible_test") }}/clb-{{ mso_tenant | default("ansible_test") }}_app_lb.json
+        method: post
+        content:
+          cloudLB:
+            attributes:
+              name: '{{ mso_tenant | default("ansible_test") }}_app_lb'
+              type: application
+            children:
+              - cloudRsLDevToCloudSubnet:
+                  attributes:
+                    tDn: 'uni/tn-{{ mso_tenant | default("ansible_test") }}/ctxprofile-azure_ctxprof/cidr-[1.1.1.2/32]/subnet-[1.1.1.2/32]'
+
+- name: Execute tasks only for non-cloud sites
+  when: query_cloud.current | length == 0 # Non-Cloud Site block
+  block:
+    - name: Remove the redirect_policy2 from the common tenant - setup part
+      cisco.aci.aci_rest:
+        <<: *aci_info
+        path: "/api/node/mo/uni/tn-common/svcCont.json"
+        method: post
+        content:
+          vnsSvcRedirectPol:
+            attributes:
+              name: redirect_policy2
+              status: deleted
+
+    - name: Remove ansible_tenant from the APIC - setup part
+      cisco.aci.aci_tenant:
+        <<: *aci_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        state: absent
+
+    - name: Add ansible_tenant to the APIC
+      cisco.aci.aci_tenant:
+        <<: *aci_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        state: present
+
+    - name: Add devices and cluster interfaces to the ansible_tenant
+      cisco.aci.aci_rest:
+        <<: *aci_info
+        path: "/api/node/mo/uni/tn-{{ item.tenant }}.json"
+        method: post
+        content:
+          vnsLDevVip:
+            attributes:
+              svcType: "{{ item.type }}"
+              managed: "false"
+              name: "{{ item.name }}"
+            children:
+              - vnsCDev:
+                  attributes:
+                    name: "{{ item.name }}"
+                  children:
+                    - vnsCIf:
+                        attributes:
+                          name: "{{ item.concrete_interface }}"
+                        children:
+                          - vnsRsCIfPathAtt:
+                              attributes:
+                                tDn: "topology/pod-1/paths-101/pathep-[eth1/1]"
+              - vnsLIf:
+                  attributes:
+                    name: "{{ item.cluster_interface }}"
+                  children:
+                    - vnsRsCIfAttN:
+                        attributes:
+                          tDn: "uni/tn-{{ item.tenant }}/lDevVip-{{ item.name }}/cDev-{{ item.name }}/cIf-[{{ item.concrete_interface }}]"
+              - vnsLIf:
+                  attributes:
+                    name: "{{ item.cluster_interface }}_2"
+                  children:
+                    - vnsRsCIfAttN:
+                        attributes:
+                          tDn: "uni/tn-{{ item.tenant }}/lDevVip-{{ item.name }}/cDev-{{ item.name }}/cIf-[{{ item.concrete_interface }}]"
+
+      loop:
+        - {
+            tenant: '{{ mso_tenant | default("ansible_test") }}',
+            type: FW,
+            name: ansible_tenant_firewall1,
+            cluster_interface: clu_if1,
+            concrete_interface: cn_if1,
+          }
+        - {
+            tenant: '{{ mso_tenant | default("ansible_test") }}',
+            type: ADC,
+            name: ansible_tenant_adc,
+            cluster_interface: clu_if3,
+            concrete_interface: cn_if3,
+          }
+        - {
+            tenant: '{{ mso_tenant | default("ansible_test") }}',
+            type: OTHERS,
+            name: ansible_tenant_other,
+            cluster_interface: clu_if4,
+            concrete_interface: cn_if4,
+          }
+
+    - name: Add redirect policies to the common and ansible_tenant tenants
+      cisco.aci.aci_rest:
+        <<: *aci_info
+        path: "/api/node/mo/uni/tn-{{ item.tenant }}/svcCont.json"
+        method: post
+        content:
+          vnsSvcRedirectPol:
+            attributes:
+              name: "{{ item.name }}"
+      loop:
+        - {
+            tenant: '{{ mso_tenant | default("ansible_test") }}',
+            name: redirect_policy1,
+          }
+        - { tenant: common, name: redirect_policy2 }

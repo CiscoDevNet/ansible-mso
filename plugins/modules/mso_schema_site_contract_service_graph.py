@@ -125,31 +125,46 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    tenant: sab_ansible_tenant
-    schema: sab_ansible_schema
-    template: sab_ansible_template1
+    tenant: ansible_tenant
+    schema: ansible_schema
+    template: ansible_template1
     site: ansible_test
     contract: Contract1
-    service_graph_schema: sab_ansible_schema
-    service_graph_template: sab_ansible_template1
-    service_graph: sab_sg
+    service_graph_schema: ansible_schema
+    service_graph_template: ansible_template1
+    service_graph: sg
     node_relationship:
-      - cluster_interface_device: sab_ansible_tenant_firewall1
+      - cluster_interface_device: ansible_tenant_firewall1
         provider_connector_cluster_interface: clu_if1
         provider_connector_redirect_policy: redirect_policy1
         consumer_connector_cluster_interface: clu_if1
         consumer_connector_redirect_policy: redirect_policy1
-      - cluster_interface_device: sab_ansible_tenant_adc
+      - cluster_interface_device: ansible_tenant_adc
         provider_connector_cluster_interface: clu_if3
         provider_connector_redirect_policy: redirect_policy1
         consumer_connector_cluster_interface: clu_if3
         consumer_connector_redirect_policy: redirect_policy1
         consumer_subnet_ips: ["1.1.1.1/24", "4.4.4.4/24"]
-      - cluster_interface_device: sab_ansible_tenant_other
+      - cluster_interface_device: ansible_tenant_other
         provider_connector_cluster_interface: clu_if4
         provider_connector_redirect_policy: redirect_policy1
         consumer_connector_cluster_interface: clu_if4
         consumer_connector_redirect_policy: redirect_policy1
+    state: present
+
+- name: Associate a service graph with a cloud site contract
+  cisco.mso.mso_schema_site_contract_service_graph:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    tenant: ansible_tenant
+    schema: ansible_schema
+    template: ansible_template1
+    site: ansible_test
+    contract: Contract1
+    service_graph_schema: ansible_schema
+    service_graph_template: ansible_template1
+    service_graph: sg
     state: present
 
 - name: Query a site contract service graph with contract name
@@ -157,8 +172,8 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    schema: sab_ansible_schema
-    template: sab_ansible_template1
+    schema: ansible_schema
+    template: ansible_template1
     contract: Contract1
     site: ansible_test
     state: query
@@ -169,8 +184,8 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    schema: sab_ansible_schema
-    template: sab_ansible_template1
+    schema: ansible_schema
+    template: ansible_template1
     site: ansible_test
     state: query
   register: query_result
@@ -180,8 +195,8 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    schema: sab_ansible_schema
-    template: sab_ansible_template1
+    schema: ansible_schema
+    template: ansible_template1
     site: ansible_test
     contract: Contract1
     state: absent
@@ -295,7 +310,7 @@ def main():
     elif state == "present":
         service_graph_ref = dict(schemaId=service_graph_reference_schema_id, serviceGraphName=service_graph, templateName=service_graph_reference_template)
         service_node_relationship = []
-        if node_relationship:
+        if mso.site_type == "on-premise" and node_relationship:
             for node_index, node in enumerate(node_relationship, 1):
                 service_node_ref = dict(
                     schemaId=service_graph_reference_schema_id,
@@ -333,10 +348,14 @@ def main():
                 service_node_relationship.append(
                     dict(consumerConnector=consumer_connector, providerConnector=provider_connector, serviceNodeRef=service_node_ref)
                 )
-            if mso.site_type == "on-premise":
-                payload = dict(serviceGraphRef=service_graph_ref, serviceNodesRelationship=service_node_relationship)
-            else:
-                payload = dict(serviceGraphRef=service_graph_ref, serviceNodesRelationship=[])
+
+            payload = dict(serviceGraphRef=service_graph_ref, serviceNodesRelationship=service_node_relationship)
+        elif mso.cloud_provider_type == "azure":
+            mso_schema.set_site_service_graph(service_graph)
+            service_nodes = mso_schema.schema_objects["site_service_graph"].details.get("serviceNodes", [])
+            payload = dict(
+                serviceGraphRef=service_graph_ref, serviceNodesRelationship=[dict(serviceNodeRef=sg_node.get("serviceNodeRef")) for sg_node in service_nodes]
+            )
 
         mso.sanitize(payload, collate=True)
 

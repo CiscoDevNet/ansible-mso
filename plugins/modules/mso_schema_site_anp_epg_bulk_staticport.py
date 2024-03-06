@@ -164,6 +164,10 @@ notes:
 seealso:
 - module: cisco.mso.mso_schema_site_anp_epg
 - module: cisco.mso.mso_schema_template_anp_epg
+deprecated:
+  removed_in: 3.0.0
+  alternative: Use M(cisco.mso.mso_schema_site_anp_epg_staticport) with option `force_replace=true` instead.
+  why: The module has been merged to centralise all static port functionality into M(cisco.mso.mso_schema_site_anp_epg_staticport).
 extends_documentation_fragment: cisco.mso.modules
 """
 

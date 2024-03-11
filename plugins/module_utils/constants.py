@@ -16,7 +16,7 @@ SERVICE_NODE_CONNECTOR_MAP = {
     # 'external_epg': {'id': 'externalEpg', 'connector_type': 'route-peering'}
 }
 
-YES_OR_NO_TO_BOOL_STRING_MAP = {"yes": "true", "no": "false"}
+YES_OR_NO_TO_BOOL_STRING_MAP = {"yes": "true", "no": "false", True: "yes", False: "no"}
 
 NDO_4_UNIQUE_IDENTIFIERS = ["templateID", "autoRouteTargetImport", "autoRouteTargetExport"]
 
@@ -45,4 +45,33 @@ AZURE_L4L7_CONNECTOR_TYPE_MAP = {
     "source_nat": "snat",
     "destination_nat": "dnat",
     "source_and_destination_nat": "snat_dnat",
+}
+
+LISTENER_PROTOCOLS = ["http", "https", "tcp", "udp", "tls", "inherit"]
+
+LISTENER_SECURITY_POLICY_MAP = {
+    "default": "default",
+    "elb_sec_2016_18": "eLBSecurityPolicy-2016-08",
+    "elb_sec_fs_2018_06": "eLBSecurityPolicy-FS-2018-06",
+    "elb_sec_tls_1_2_2017_01": "eLBSecurityPolicy-TLS-1-2-2017-01",
+    "elb_sec_tls_1_2_ext_2018_06": "eLBSecurityPolicy-TLS-1-2-Ext-2018-06",
+    "elb_sec_tls_1_1_2017_01": "eLBSecurityPolicy-TLS-1-1-2017-01",
+    "elb_sec_2015_05": "eLBSecurityPolicy-2015-05",
+    "elb_sec_tls_1_0_2015_04": "eLBSecurityPolicy-TLS-1-0-2015-04",
+    "app_gw_ssl_default": "AppGwSslPolicyDefault",
+    "app_gw_ssl_2015_501": "AppGwSslPolicy20150501",
+    "app_gw_ssl_2017_401": "AppGwSslPolicy20170401",
+    "app_gw_ssl_2017_401s": "AppGwSslPolicy20170401S",
+}
+
+LISTENER_ACTION_TYPE_MAP = {"fixed_response": "fixedResponse", "forward": "forward", "redirect": "redirect", "ha_port": "haPort"}
+
+LISTENER_CONTENT_TYPE_MAP = {"text_plain": "textPlain", "text_css": "textCSS", "text_html": "textHtml", "app_js": "appJS", "app_json": "appJson"}
+
+LISTENER_REDIRECT_CODE_MAP = {
+    "unknown": "unknown",
+    "permanently_moved": "permMoved",
+    "found": "found",
+    "see_other": "seeOther",
+    "temporary_redirect": "temporary",
 }

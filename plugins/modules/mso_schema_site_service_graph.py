@@ -271,6 +271,8 @@ def main():
         for graph in service_graphs:
             if graph.get("name") == service_graph:
                 service_node_types_from_template = graph["serviceNodes"]
+                break
+
         user_number_devices = len(devices)
         number_of_nodes_in_template = len(service_node_types_from_template)
         if user_number_devices != number_of_nodes_in_template:
@@ -284,9 +286,9 @@ def main():
             query_device_data = mso.lookup_service_node_device(site_id, tenant, device_name=None, service_node_type=None)
             for index, device in enumerate(devices):
                 if query_device_data:
-                    device_payload = dict()
                     for device_data in query_device_data:
                         if device.get("device_name") == device_data.get("dn").split("/")[-1].split("-")[-1]:
+                            device_payload = dict()
                             device_payload["device"] = dict(
                                 dn=device_data.get("dn"),
                                 funcType=device_data.get("funcType"),

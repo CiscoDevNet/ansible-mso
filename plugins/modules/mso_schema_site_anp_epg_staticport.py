@@ -541,9 +541,9 @@ def main():
                 if found_full_path in full_paths:
                     index = full_paths.index(found_full_path)
                     remove_index.append(index)
-            # The list index should not shift when removing contracts from the list
+            # The list index should not shift when removing static ports from the list
             # By sorting the indexes found in reverse order, we assure that the highest index is removed first by the NDO backend
-            # This logic is to avoid removing the wrong contract
+            # This logic is to avoid removing the wrong static ports
             for index in reversed(sorted(remove_index)):
                 mso.proposed.pop(index)
                 ops.append(dict(op="remove", path="{0}/{1}".format(static_ports_path, index)))

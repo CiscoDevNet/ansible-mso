@@ -74,7 +74,7 @@
     site: azure_ansible_test_2
     cloud_account: "uni/tn-{{ mso_tenant | default('ansible_test') }}/act-[{{ azure_cloud_account | default(123) }}]-vendor-azure"
     state: present
-  when: # Need to enable the comment
+  when:
     - query_cloud.current | length > 0
     - query_cloud.current.0.cloudProvP.attributes.vendor == "azure"
 
@@ -777,7 +777,18 @@
     state: query
   register: query_all_listeners
 
-- name: Query all listeners with name ans_li_common
+- name: Query all listeners with service_node_index 0
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    state: query
+  register: node1_query_all_listeners
+
+- name: Query all listeners with name ans_li_common without service_node_index
   cisco.mso.mso_schema_site_contract_service_graph_listener:
     <<: *mso_info
     contract: "Contract2"
@@ -787,6 +798,18 @@
     listener: ans_li_common
     state: query
   register: query_all_ans_li_common
+
+- name: Query a listener with name ans_li_common and service_node_index 0
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    listener: ans_li_common
+    service_node_index: 0
+    state: query
+  register: query_a_ans_li_common
 
 - name: Query an invalid listener with name invalid_ans_li_common - under Contract2
   cisco.mso.mso_schema_site_contract_service_graph_listener:
@@ -816,10 +839,15 @@
     that:
       - query_all_listeners is not changed
       - query_all_listeners.current | length >= 5
+      - node1_query_all_listeners is not changed
+      - node1_query_all_listeners.current | length == 2
       - query_all_ans_li_common is not changed
       - query_all_ans_li_common.current | length == 2
       - query_all_ans_li_common.current.0.name == "ans_li_common"
       - query_all_ans_li_common.current.1.name == "ans_li_common"
+      - query_a_ans_li_common is not changed
+      - query_a_ans_li_common.current != {}
+      - query_a_ans_li_common.current.name == "ans_li_common"
       - nt_query_c1_listeners is not changed
       - nt_query_c1_listeners.current == {}
       - nt_query_invalid_listener_node1 is not changed

@@ -1475,25 +1475,28 @@ class MSOModule(object):
         for attribute in required_attributes:
             if target_object.get(attribute) in (None, "", [], {}, 0):
                 empty_attributes.append(attribute)
+        empty_attributes = [attribute for attribute in required_attributes if target_object.get(attribute) in (None, "", [], {}, 0)]
 
         if object_position is not None and object_name is not None and empty_attributes:
             self.module.fail_json(
-                msg="When the '{}' is '{}', the {} attributes must be set at the object position: {} and the object name: {}".format(
+                msg="When the '{0}' is '{1}', the {2} attributes must be set at the object position: {3} and the object name: {4}".format(
                     attr_name, attr_value, empty_attributes, object_position, object_name
                 )
             )
         elif object_position is not None and object_name is None and empty_attributes:
             self.module.fail_json(
-                msg="When the '{}' is '{}', the {} attributes must be set at the object position: {}".format(
+                msg="When the '{0}' is '{1}', the {2} attributes must be set at the object position: {3}".format(
                     attr_name, attr_value, empty_attributes, object_position
                 )
             )
         elif object_position is None and object_name is not None and empty_attributes:
             self.module.fail_json(
-                msg="When the '{}' is '{}', the {} attributes must be set and the object name: {}".format(attr_name, attr_value, empty_attributes, object_name)
+                msg="When the '{0}' is '{1}', the {2} attributes must be set and the object name: {3}".format(
+                    attr_name, attr_value, empty_attributes, object_name
+                )
             )
         elif empty_attributes:
-            self.module.fail_json(msg="When the '{}' is '{}', the {} attributes must be set".format(attr_name, attr_value, empty_attributes))
+            self.module.fail_json(msg="When the '{0}' is '{1}', the {2} attributes must be set".format(attr_name, attr_value, empty_attributes))
 
 
 def service_node_ref_str_to_dict(serviceNodeRefStr):

@@ -420,7 +420,6 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import (
     MSOModule,
     mso_argument_spec,
     listener_ssl_certificates_spec,
-    # listener_rules_health_check_spec,
     listener_rules_spec,
 )
 from ansible_collections.cisco.mso.plugins.module_utils.constants import (
@@ -498,7 +497,6 @@ def main():
     service_graph_ref = mso_schema.schema_objects["site_contract"].details.get("serviceGraphRelationship", {}).get("serviceGraphRef")
     service_nodes = mso_schema.schema_objects["site_contract"].details.get("serviceGraphRelationship", {}).get("serviceNodesRelationship", [])
 
-    listeners_data = []
     parent_present = False
 
     if service_graph_ref is None:
@@ -514,10 +512,13 @@ def main():
                     listeners = service_node.get("deviceConfiguration", {}).get("cloudLoadBalancer", {}).get("listeners", [])
                     if listeners:
                         parent_present = True
-                        for listener_data in listeners:
-                            if listener_data.get("name") == listener:
-                                listeners_data.append(listener_data)
-                                break
+                        if listener:
+                            for listener_data in listeners:
+                                if listener_data.get("name") == listener:
+                                    mso.existing = listener_data
+                                    break
+                        else:
+                            mso.existing = listeners
                 else:
                     mso.fail_json(
                         msg="The service_node_index: {0} is not matching with the service node reference: {1}.".format(
@@ -536,19 +537,13 @@ def main():
                     for listener_data in listeners:
                         # Query a listener under a contract service node
                         if listener_data.get("name") == listener:
-                            listeners_data.append(listener_data)
+                            mso.existing = ([listener_data] + mso.existing) if mso.existing else [listener_data]
                             break
                 else:
-                    listeners_data.extend(listeners)
+                    mso.existing = (listeners + mso.existing) if mso.existing else listeners
+
         else:
             mso.fail_json(msg="The service_node_index: {0} is not valid.".format(service_node_index))
-
-    if len(listeners_data) == 1:
-        # Query a specific listener
-        mso.existing = listeners_data[0]
-    elif len(listeners_data) >= 1:
-        # Query all listeners under a contract
-        mso.existing = listeners_data
 
     if state == "query":
         mso.exit_json()
@@ -557,7 +552,6 @@ def main():
     mso.previous = mso.existing
 
     parent_object = {}
-    listener_object = {}
 
     if state == "present":
         # Parent object creation logic begins
@@ -567,8 +561,8 @@ def main():
         elif device is not None and parent_present is False:
             query_device_data = mso.lookup_service_node_device(site_id, tenant, device_name=device)
 
-            if (query_device_data.get("deviceVendorType") == "NATIVELB" and query_device_data.get("devType") == "application") or (
-                query_device_data.get("deviceVendorType") == "NATIVELB" and query_device_data.get("devType") == "network"
+            if query_device_data.get("deviceVendorType") == "NATIVELB" and (
+                query_device_data.get("devType") == "application" or query_device_data.get("devType") == "network"
             ):
                 mso_schema.set_site_service_graph(service_graph_ref.split("/")[-1])
 
@@ -585,33 +579,32 @@ def main():
         # Parent object creation logic ends
 
         # Listener object creation logic begins
-        listener_object["name"] = listener
-        listener_object["protocol"] = listener_protocol
-        listener_object["port"] = listener_port
-        listener_object["secPolicy"] = security_policy
+        listener_object = dict(
+            name=listener,
+            protocol=listener_protocol,
+            port=listener_port,
+            secPolicy=security_policy,
+        )
 
         if frontend_ip:
             mso.input_validation("frontend_ip", frontend_ip, ["tenant", "device"], module.params, None, object_name=listener)
             listener_object["nlbDevIp"] = dict(name=frontend_ip, dn="uni/tn-{0}/clb-{1}/vip-{2}".format(tenant, device, frontend_ip))
 
         if ssl_certificates:
-            ssl_certificates_list = list()
-            for ssl_certificate in ssl_certificates:
-                ssl_certificate_data = dict()
-                ssl_certificate_data["name"] = ssl_certificate.get("name")
-                ssl_certificate_data["tDn"] = "uni/tn-{0}/certstore".format(tenant)
-                ssl_certificate_data["default"] = True
-                ssl_certificate_data["store"] = ssl_certificate.get("certificate_store")
-                ssl_certificates_list.append(ssl_certificate_data)
-
-            listener_object["certificates"] = ssl_certificates_list
+            listener_object["certificates"] = [
+                {
+                    "name": ssl_certificate.get("name"),
+                    "tDn": "uni/tn-{0}/certstore".format(tenant),
+                    "default": True,
+                    "store": ssl_certificate.get("certificate_store"),
+                }
+                for ssl_certificate in ssl_certificates
+            ]
 
         # Rules object creation logic
         rules_data = []
 
         for position, rule in enumerate(rules, 0):
-            rule_data = dict()
-
             if (listener_protocol == "http" and rule.get("protocol") == "http") or (listener_protocol == "https" and rule.get("protocol") == "https"):
                 mso.fail_json(msg="When the 'listener_protocol' is '{0}', the rule 'protocol' must be '{1}'".format(listener_protocol, rule.get("protocol")))
 
@@ -627,27 +620,29 @@ def main():
                     "url_type", "custom", ["redirect_host_name", "redirect_path", "redirect_query", "response_code"], rule, position, rule.get("name")
                 )
 
-            rule_data["name"] = rule.get("name")
-            rule_data["floatingIp"] = rule.get("floating_ip")
-            rule_data["index"] = rule.get("priority")
-            rule_data["host"] = rule.get("host")
-            rule_data["path"] = rule.get("path")
-            rule_data["action"] = rule.get("action")
-            rule_data["actionType"] = LISTENER_ACTION_TYPE_MAP.get(rule.get("action_type"))
-            rule_data["contentType"] = LISTENER_CONTENT_TYPE_MAP.get(rule.get("content_type"))
-            rule_data["port"] = rule.get("port")
-            rule_data["protocol"] = rule.get("protocol")
-            rule_data["urlType"] = rule.get("url_type")
-            rule_data["customURL"] = rule.get("custom_url")
-            rule_data["redirectHostName"] = rule.get("redirect_host_name")
-            rule_data["redirectPath"] = rule.get("redirect_path")
-            rule_data["redirectQuery"] = rule.get("redirect_query")
-            rule_data["responseCode"] = rule.get("response_code")
-            rule_data["responseBody"] = rule.get("response_body")
-            rule_data["redirectProtocol"] = rule.get("redirect_protocol")
-            rule_data["redirectPort"] = rule.get("redirect_port")
-            rule_data["redirectCode"] = LISTENER_REDIRECT_CODE_MAP.get(rule.get("redirect_code"))
-            rule_data["targetIpType"] = rule.get("target_ip_type")
+            rule_data = dict(
+                name=rule.get("name"),
+                floatingIp=rule.get("floating_ip"),
+                index=rule.get("priority"),
+                host=rule.get("host"),
+                path=rule.get("path"),
+                action=rule.get("action"),
+                actionType=LISTENER_ACTION_TYPE_MAP.get(rule.get("action_type")),
+                contentType=LISTENER_CONTENT_TYPE_MAP.get(rule.get("content_type")),
+                port=rule.get("port"),
+                protocol=rule.get("protocol"),
+                urlType=rule.get("url_type"),
+                customURL=rule.get("custom_url"),
+                redirectHostName=rule.get("redirect_host_name"),
+                redirectPath=rule.get("redirect_path"),
+                redirectQuery=rule.get("redirect_query"),
+                responseCode=rule.get("response_code"),
+                responseBody=rule.get("response_body"),
+                redirectProtocol=rule.get("redirect_protocol"),
+                redirectPort=rule.get("redirect_port"),
+                redirectCode=LISTENER_REDIRECT_CODE_MAP.get(rule.get("redirect_code")),
+                targetIpType=rule.get("target_ip_type"),
+            )
 
             if listener_protocol in ["tcp", "udp"]:
                 mso.input_validation("listener_protocol", "tcp/udp", ["health_check"], rule)
@@ -663,7 +658,6 @@ def main():
 
             health_check = rule.get("health_check")
             if health_check:
-                health_check_data = dict()
                 if listener_protocol in ["tcp", "udp"]:
                     if health_check.get("protocol") == "tcp":
                         mso.input_validation("health_check - 'protocol'", "tcp", ["port", "unhealthy_threshold", "interval"], health_check)
@@ -683,15 +677,17 @@ def main():
                         ).format(listener_protocol, health_check.get("protocol"), position, rule.get("name"))
                     )
 
-                health_check_data["port"] = health_check.get("port")
-                health_check_data["protocol"] = health_check.get("protocol")
-                health_check_data["path"] = health_check.get("path")
-                health_check_data["interval"] = health_check.get("interval")
-                health_check_data["timeout"] = health_check.get("timeout")
-                health_check_data["unhealthyThreshold"] = health_check.get("unhealthy_threshold")
-                health_check_data["successCode"] = health_check.get("success_code")
-                health_check_data["useHostFromRule"] = YES_OR_NO_TO_BOOL_STRING_MAP.get(health_check.get("use_host_from_rule"))
-                health_check_data["host"] = health_check.get("host")
+                health_check_data = dict(
+                    port=health_check.get("port"),
+                    protocol=health_check.get("protocol"),
+                    path=health_check.get("path"),
+                    interval=health_check.get("interval"),
+                    timeout=health_check.get("timeout"),
+                    unhealthyThreshold=health_check.get("unhealthy_threshold"),
+                    successCode=health_check.get("success_code"),
+                    useHostFromRule=YES_OR_NO_TO_BOOL_STRING_MAP.get(health_check.get("use_host_from_rule")),
+                    host=health_check.get("host"),
+                )
 
                 rule_data["healthCheck"] = health_check_data
 
@@ -703,14 +699,13 @@ def main():
             # Update an existing listener
             if mso.existing:
                 listener_path = (
-                    "/sites/{0}-{1}/contracts/{2}/serviceGraphRelationship/serviceNodesRelationship/{3}"
-                    + "/deviceConfiguration/cloudLoadBalancer/listeners/{4}"
+                    "/sites/{0}-{1}/contracts/{2}/serviceGraphRelationship/serviceNodesRelationship/{3}/deviceConfiguration/cloudLoadBalancer/listeners/{4}"
                 ).format(site_id, template, contract, service_node_index, listener)
                 op = "replace"
             else:
                 # Create a new listener
                 listener_path = (
-                    "/sites/{0}-{1}/contracts/{2}/serviceGraphRelationship/serviceNodesRelationship/{3}" + "/deviceConfiguration/cloudLoadBalancer/listeners/-"
+                    "/sites/{0}-{1}/contracts/{2}/serviceGraphRelationship/serviceNodesRelationship/{3}/deviceConfiguration/cloudLoadBalancer/listeners/-"
                 ).format(site_id, template, contract, service_node_index)
                 op = "add"
             parent_object = listener_object
@@ -728,7 +723,7 @@ def main():
     elif state == "absent":
         if mso.existing:
             listener_path = (
-                "/sites/{0}-{1}/contracts/{2}/serviceGraphRelationship/serviceNodesRelationship/{3}" + "/deviceConfiguration/cloudLoadBalancer/listeners/{4}"
+                "/sites/{0}-{1}/contracts/{2}/serviceGraphRelationship/serviceNodesRelationship/{3}/deviceConfiguration/cloudLoadBalancer/listeners/{4}"
             ).format(site_id, template, contract, service_node_index, listener)
             ops.append(dict(op="remove", path=listener_path))
 

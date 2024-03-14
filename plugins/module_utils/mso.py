@@ -1471,10 +1471,6 @@ class MSOModule(object):
         if attr_name in (None, "") or attr_value in (None, ""):
             self.module.fail_json(msg="The attribute and value must be set")
 
-        empty_attributes = []
-        for attribute in required_attributes:
-            if target_object.get(attribute) in (None, "", [], {}, 0):
-                empty_attributes.append(attribute)
         empty_attributes = [attribute for attribute in required_attributes if target_object.get(attribute) in (None, "", [], {}, 0)]
 
         if object_position is not None and object_name is not None and empty_attributes:

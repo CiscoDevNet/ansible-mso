@@ -6,6 +6,40 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v3.0.0
+======
+
+Release Summary
+---------------
+
+Release v3.0.0 of the ``ansible-mso`` collection on 2024-03-25.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.5.0.
+
+Major Changes
+-------------
+
+- Added Azure Cloud CNC support to the mso_schema_site_service_graph module
+
+Minor Changes
+-------------
+
+- Add l3out_template and l3out_schema arguments to mso_schema_site_external_epg (#394)
+- Add support for replacing all existing contracts with new provided contracts in a single operation with one request and adding/removing multiple contracts in multiple operations with a single request in mso_schema_template_anp_epg_contract module
+- Add support for replacing all existing static ports with new provided static ports in a single operation with one request and adding/removing multiple static ports in multiple operations with a single request in mso_schema_template_anp_epg_staticport module
+- Add support for required attributes introduced in ndo4.2 for mso_schema_site_anp_epg_domain
+- Added Azure cloud site support for the mso_schema_site_contract_service_graph.py module
+- Added ND plugin installation in sanity
+- Added functionality to resolve same name in remote and local user.
+- Added mso_schema_site_contract_service_graph module to manage site contract service graph
+- Added new parameter remote_user to add multiple remote users associated with multiple login domains
+- Support for creation of schemas without templates with teh mso_schema module
+
+Bugfixes
+--------
+
+- Fix TypeError for iteration on NoneType in mso_schema_template
+- Fixed the useg_subnet logic in the mso_schema_template_anp_epg_useg_attribute.py module
+
 v2.5.0
 ======
 
@@ -14,7 +48,6 @@ Release Summary
 
 Release v2.5.0 of the ``ansible-mso`` collection on 2023-08-04.
 This changelog describes all changes made to the modules and plugins included in this collection since v2.4.0.
-
 
 Minor Changes
 -------------
@@ -35,7 +68,6 @@ Release Summary
 
 Release v2.4.0 of the ``ansible-mso`` collection on 2023-04-19.
 This changelog describes all changes made to the modules and plugins included in this collection since v2.3.0.
-
 
 Minor Changes
 -------------
@@ -58,7 +90,6 @@ Release Summary
 Release v2.3.0 of the ``ansible-mso`` collection on 2023-03-30.
 This changelog describes all changes made to the modules and plugins included in this collection since v2.2.1.
 
-
 Minor Changes
 -------------
 
@@ -79,7 +110,6 @@ Release Summary
 Release v2.2.1 of the ``ansible-mso`` collection on 2023-01-31.
 This changelog describes all changes made to the modules and plugins included in this collection since v2.2.0.
 
-
 Bugfixes
 --------
 
@@ -93,7 +123,6 @@ Release Summary
 
 Release v2.2.0 of the ``ansible-mso`` collection on 2023-01-29.
 This changelog describes all changes made to the modules and plugins included in this collection since v2.1.0.
-
 
 Minor Changes
 -------------
@@ -121,7 +150,6 @@ Release Summary
 Release v2.1.0 of the ``ansible-mso`` collection on 2022-10-14.
 This changelog describes all changes made to the modules and plugins included in this collection since v1.4.0.
 The version was bumped directly to 2.1.0 due to a previous collection upload issue on galaxy.
-
 
 Minor Changes
 -------------
@@ -152,7 +180,6 @@ Release Summary
 Release v1.4.0 of the ``ansible-mso`` collection on 2022-03-15.
 This changelog describes all changes made to the modules and plugins included in this collection since v1.3.0.
 
-
 Minor Changes
 -------------
 
@@ -173,7 +200,6 @@ Release Summary
 
 Release v1.3.0 of the ``cisco.mso`` collection on 2021-12-18.
 This changelog describes all changes made to the modules and plugins included in this collection since v1.2.0.
-
 
 Minor Changes
 -------------
@@ -210,7 +236,6 @@ Release Summary
 
 Release v1.2.0 of the ``cisco.mso`` collection on 2021-06-02.
 This changelog describes all changes made to the modules and plugins included in this collection since v1.1.0.
-
 
 Minor Changes
 -------------
@@ -253,7 +278,6 @@ Release Summary
 
 Release v1.1.0 of the ``cisco.mso`` collection on 2021-01-20.
 This changelog describes all changes made to the modules and plugins included in this collection since v1.0.1.
-
 
 Minor Changes
 -------------
@@ -329,7 +353,6 @@ Release Summary
 Release v1.0.1 of the ``cisco.mso`` collection on 2020-10-30.
 This changelog describes all changes made to the modules and plugins included in this collection since v1.0.0.
 
-
 Minor Changes
 -------------
 
@@ -359,7 +382,6 @@ Release Summary
 
 This is the first official release of the ``cisco.mso`` collection on 2020-08-18.
 This changelog describes all changes made to the modules and plugins included in this collection since Ansible 2.9.0.
-
 
 Minor Changes
 -------------

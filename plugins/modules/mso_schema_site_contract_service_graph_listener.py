@@ -159,9 +159,9 @@ options:
         - The protocol of the rule.
         type: str
         choices: [ http, https, tcp, udp, tls, inherit ]
-      provider_epg_ref:
+      provider_epg:
         description:
-        - The provider epg reference of the rule.
+        - The provider epg of the rule.
         type: dict
         suboptions:
           schema:
@@ -343,7 +343,7 @@ EXAMPLES = r"""
         action_type: forward
         port: 80
         protocol: http
-        provider_epg_ref:
+        provider_epg:
           anp_name: AP1
           epg_name: EPG1
         health_check:
@@ -647,13 +647,13 @@ def main():
             if listener_protocol in ["tcp", "udp"]:
                 mso.input_validation("listener_protocol", "tcp/udp", ["health_check"], rule)
 
-            provider_epg_ref = rule.get("provider_epg_ref")
-            if provider_epg_ref:
+            provider_epg = rule.get("provider_epg")
+            if provider_epg:
                 rule_data["providerEpgRef"] = "/schemas/{0}/templates/{1}/anps/{2}/epgs/{3}".format(
-                    provider_epg_ref.get("schema") or schema_id,
-                    provider_epg_ref.get("template_name") or template,
-                    provider_epg_ref.get("anp_name"),
-                    provider_epg_ref.get("epg_name"),
+                    provider_epg.get("schema") or schema_id,
+                    provider_epg.get("template_name") or template,
+                    provider_epg.get("anp_name"),
+                    provider_epg.get("epg_name"),
                 )
 
             health_check = rule.get("health_check")

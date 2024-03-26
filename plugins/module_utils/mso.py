@@ -1564,7 +1564,7 @@ def listener_rules_spec():
         content_type=dict(type="str", choices=list(LISTENER_CONTENT_TYPE_MAP)),
         port=dict(type="int"),
         protocol=dict(type="str", choices=LISTENER_PROTOCOLS),
-        provider_epg_ref=dict(
+        provider_epg=dict(
             type="dict",
             options=listener_rules_provider_epg_ref_spec(),
         ),

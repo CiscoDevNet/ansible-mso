@@ -1,0 +1,1604 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(false) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+    aci_info: &aci_info
+      host: "{{ apic_hostname }}"
+      username: "{{ apic_username }}"
+      password: "{{ apic_password }}"
+      validate_certs: "{{ apic_validate_certs | default(false) }}"
+      use_ssl: "{{ apic_use_ssl | default(true) }}"
+      use_proxy: "{{ apic_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# Setup part begins
+- name: Set ansible_network_os to cisco.aci.aci and ansible_connection to local
+  ansible.builtin.set_fact:
+    ansible_connection: local
+    ansible_network_os: cisco.aci.aci
+
+- name: Reset the ansible_connection to access the APIC
+  ansible.builtin.meta: reset_connection
+
+- name: Include tasks for L4-L7 devices
+  ansible.builtin.include_tasks: l4_l7_devices.yml
+
+- name: Set ansible_network_os to cisco.nd.nd and ansible_connection to ansible.netcommon.httpapi
+  ansible.builtin.set_fact:
+    ansible_connection: ansible.netcommon.httpapi
+    ansible_network_os: cisco.nd.nd
+
+- name: Reset the ansible_connection to access the MSO/NDO
+  ansible.builtin.meta: reset_connection
+
+- name: Remove ansible_schema to start the test - setup part
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    state: absent
+
+- name: Remove {{ mso_tenant | default("ansible_test") }} tenant to start the test - setup part
+  cisco.mso.mso_tenant:
+    <<: *mso_info
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    state: absent
+
+- name: Add {{ mso_tenant | default("ansible_test") }} tenant
+  cisco.mso.mso_tenant:
+    <<: *mso_info
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    users: ["{{ mso_username }}"]
+    state: present
+
+- name: Associate Azure site with '{{ mso_tenant | default("ansible_test") }}'
+  cisco.mso.mso_tenant_site:
+    <<: *mso_info
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    site: azure_ansible_test_2
+    cloud_account: "uni/tn-{{ mso_tenant | default('ansible_test') }}/act-[{{ azure_cloud_account | default(123) }}]-vendor-azure"
+    state: present
+  when:
+    - query_cloud.current | length > 0
+    - query_cloud.current.0.cloudProvP.attributes.vendor == "azure"
+
+- name: Ensure ansible_schema with ansible_template1 and ansible_template2 exist
+  cisco.mso.mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    template: "{{ item }}"
+    state: present
+  loop:
+    - "ansible_template1"
+    - "ansible_template2"
+
+- name: Create ansible_service_graph schema template service graph
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "ansible_template1"
+    service_graph: "ansible_service_graph"
+    display_name: "ansible_service_graph"
+    service_nodes:
+      - type: firewall
+      - type: load-balancer
+    filter_after_first_node: allow_all
+    state: present
+
+- name: Create ansible_service_graph2 schema template service graph
+  cisco.mso.mso_schema_template_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "ansible_template1"
+    service_graph: "ansible_service_graph2"
+    display_name: "ansible_service_graph2"
+    service_nodes:
+      - type: load-balancer
+      - type: load-balancer
+    filter_after_first_node: allow_all
+    state: present
+
+- name: Bind ansible_test site with ansible_template1 and ansible_template2
+  cisco.mso.mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "{{ item }}"
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: present
+  loop:
+    - "ansible_template1"
+
+- name: Add Filter1 to ansible_template1
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "ansible_template1"
+    filter: Filter1
+    entry: Filter1Entry
+    state: present
+
+- name: Add Contracts to the ansible_template1
+  cisco.mso.mso_schema_template_contract_filter:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "ansible_template1"
+    contract: "{{ item }}"
+    filter: Filter1
+    state: present
+  loop:
+    - Contract1
+    - Contract2
+    - Contract3
+
+- name: Add a VRF1 to ansible_template1
+  cisco.mso.mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "ansible_template1"
+    vrf: VRF1
+    state: present
+
+- name: Add BD1 to ansible_template1
+  cisco.mso.mso_schema_template_bd:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "ansible_template1"
+    bd: BD1
+    vrf:
+      name: VRF1
+    state: present
+
+- name: Add AP1 to ansible_template1
+  cisco.mso.mso_schema_template_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "ansible_template1"
+    anp: AP1
+    state: present
+
+- name: Add EPG1 to AP1 in ansible_template1
+  cisco.mso.mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "ansible_template1"
+    anp: AP1
+    epg: EPG1
+    bd:
+      name: BD1
+    vrf:
+      name: VRF1
+    state: present
+
+- name: Bind Contract1 and 2 with EPG1 provider
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "ansible_template1"
+    anp: AP1
+    epg: EPG1
+    contract:
+      name: "{{ item }}"
+      type: provider
+    state: present
+  loop:
+    - Contract1
+    - Contract2
+
+- name: Bind Contract1 with EPG1 consumer
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "ansible_template1"
+    anp: AP1
+    epg: EPG1
+    contract:
+      name: "{{  item }}"
+      type: consumer
+    state: present
+  loop:
+    - Contract1
+    - Contract2
+    - Contract3
+
+- name: Bind Contract1 with template service graph - ansible_service_graph
+  cisco.mso.mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "ansible_template1"
+    contract: Contract1
+    service_graph: ansible_service_graph
+    service_nodes:
+      - provider: BD1
+        consumer: BD1
+      - provider: BD1
+        consumer: BD1
+    state: present
+
+- name: Bind Contract2 with template service graph - ansible_service_graph2
+  cisco.mso.mso_schema_template_contract_service_graph:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "ansible_template1"
+    contract: Contract2
+    service_graph: ansible_service_graph2
+    service_nodes:
+      - provider: BD1
+        consumer: BD1
+      - provider: BD1
+        consumer: BD1
+    state: present
+
+- name: Add site VRF region CIDR to the VRF1
+  cisco.mso.mso_schema_site_vrf_region_cidr:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    vrf: VRF1
+    region: westus2
+    cidr: 14.14.14.1/24
+    state: present
+
+- name: Execute tasks only for cloud sites
+  when:
+    - query_cloud.current | length > 0
+    - query_cloud.current.0.cloudProvP.attributes.vendor == "azure"
+  block:
+    - name: Add Service Graph 1 at site level for the Azure site service graph test
+      cisco.mso.mso_schema_site_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        service_graph: ansible_service_graph
+        site: '{{ mso_site | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        devices:
+          - name: '{{ mso_tenant | default("ansible_test") }}_firewall1' # Third-Party Firewall - Listener not supported
+          - name: '{{ mso_tenant | default("ansible_test") }}_tplb' # Third-Party Load Balancer - Listener not supported
+        state: present
+      register: az_sg1_cm_present
+
+    - name: Add Service Graph 2 at site level for the Azure site service graph test
+      cisco.mso.mso_schema_site_service_graph:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        service_graph: ansible_service_graph2
+        site: '{{ mso_site | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        devices:
+          - name: '{{ mso_tenant | default("ansible_test") }}_nlb' # Network Load Balancer - Listener supported
+          - name: '{{ mso_tenant | default("ansible_test") }}_aplb' # Application Load Balancer - Listener supported
+        state: present
+      register: az_sg1_cm_present
+
+    - name: Bind the Contract1 with site service graph - ansible_service_graph
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract1
+        service_graph_schema: '{{ mso_schema | default("ansible_schema") }}'
+        service_graph_template: ansible_template1
+        service_graph: ansible_service_graph
+        state: present
+      register: az_add_site_con_sg_cm
+
+    - name: Bind the Contract2 with site service graph - ansible_service_graph2
+      cisco.mso.mso_schema_site_contract_service_graph:
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        schema: '{{ mso_schema | default("ansible_schema") }}'
+        template: ansible_template1
+        site: '{{ mso_site | default("ansible_test") }}'
+        contract: Contract2
+        service_graph_schema: '{{ mso_schema | default("ansible_schema") }}'
+        service_graph_template: ansible_template1
+        service_graph: ansible_service_graph2
+        state: present
+      register: az_add_site_con_sg_cm
+
+# Test part
+- name: Negative test - add listener - nlb_li_tcp without device when the parent is not present
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: nlb_li_tcp
+    listener_port: 80
+    listener_protocol: tcp
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    frontend_ip: "10.10.10.10"
+    security_policy: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: tcp
+        health_check:
+          port: 80
+          protocol: tcp
+          interval: 5
+          unhealthy_threshold: 2
+          success_code: 200-399
+  ignore_errors: true
+  register: nt_add_listener_without_device
+
+- name: Add listener - nlb_li_tcp - check_mode
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: nlb_li_tcp
+    listener_port: 80
+    listener_protocol: tcp
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    frontend_ip: "10.10.10.10"
+    device: '{{ mso_tenant | default("ansible_test") }}_nlb'
+    security_policy: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: tcp
+        health_check:
+          port: 80
+          protocol: tcp
+          interval: 5
+          unhealthy_threshold: 2
+          success_code: 200-399
+    output_level: debug
+  check_mode: true
+  register: add_nlb_li_tcp_cm
+
+- name: Add listener - nlb_li_tcp - normal_mode
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: nlb_li_tcp
+    listener_port: 80
+    listener_protocol: tcp
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    frontend_ip: "10.10.10.10"
+    device: '{{ mso_tenant | default("ansible_test") }}_nlb'
+    security_policy: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: tcp
+        health_check:
+          port: 80
+          protocol: tcp
+          interval: 5
+          unhealthy_threshold: 2
+          success_code: 200-399
+  register: add_nlb_li_tcp_nm
+
+- name: Add listener - nlb_li_tcp normal_mode again
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: nlb_li_tcp
+    listener_port: 80
+    listener_protocol: tcp
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    frontend_ip: "10.10.10.10"
+    device: '{{ mso_tenant | default("ansible_test") }}_nlb'
+    security_policy: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: tcp
+        health_check:
+          port: 80
+          protocol: tcp
+          interval: 5
+          unhealthy_threshold: 2
+          success_code: 200-399
+  register: add_nlb_li_tcp_nm_again
+
+- name: Add listener - nlb_li_udp without device when the parent is present
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: nlb_li_udp
+    listener_port: 80
+    listener_protocol: udp
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    frontend_ip: "10.10.10.10"
+    security_policy: default
+    rules:
+      - name: rule2
+        priority: 2
+        action_type: forward
+        port: 80
+        protocol: tcp
+        health_check:
+          port: 80
+          protocol: tcp
+          interval: 5
+          unhealthy_threshold: 2
+          success_code: 200-399
+  ignore_errors: true
+  register: add_nlb_li_udp
+
+- name: Add listener - ans_li_common - udp
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: ans_li_common
+    listener_port: 80
+    listener_protocol: udp
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    frontend_ip: "10.10.10.10"
+    device: '{{ mso_tenant | default("ansible_test") }}_nlb'
+    security_policy: default
+    rules:
+      - name: common3
+        priority: 3
+        action_type: forward
+        port: 80
+        protocol: tcp
+        health_check:
+          port: 80
+          protocol: http
+          path: health_check_path
+          interval: 5
+          unhealthy_threshold: 2
+          success_code: 200-399
+  register: add_ans_li_common_udp
+
+- name: Add listener - aplb_li_https
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 1
+    listener: aplb_li_https
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_aplb'
+    listener_port: 443
+    listener_protocol: https
+    security_policy: default
+    ssl_certificates:
+      - name: '{{ mso_tenant | default("ansible_test") }}_keyring'
+        certificate_store: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: http
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        health_check:
+          port: 80
+          protocol: http
+          path: "health_check_path"
+          interval: 30
+          timeout: 30
+          unhealthy_threshold: 3
+          use_host_from_rule: true # "yes" - host should be empty in the rule
+          success_code: "200"
+        target_ip_type: unspecified
+  register: add_aplb_li_https
+
+- name: Add listener - aplb_li_http
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 1
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_aplb'
+    listener: aplb_li_http
+    listener_port: 80
+    listener_protocol: http
+    security_policy: default
+    rules:
+      - name: rule2
+        priority: 2
+        action_type: forward
+        port: 443
+        protocol: https
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        health_check:
+          port: 443
+          protocol: https
+          path: "/"
+          interval: 30
+          timeout: 30
+          unhealthy_threshold: 3
+          host: use_host_from_rule
+          use_host_from_rule: false # "no"(unchecked) - host should be specified in the rule
+          success_code: "200"
+        target_ip_type: unspecified
+  register: add_aplb_li_http
+
+- name: Add listener - ans_li_common - http
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 1
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_aplb'
+    listener: ans_li_common
+    listener_port: 80
+    listener_protocol: http
+    security_policy: default
+    rules:
+      - name: rule3
+        priority: 3
+        action_type: forward
+        port: 443
+        protocol: https
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        health_check:
+          port: 443
+          protocol: https
+          path: "/"
+          interval: 30
+          timeout: 30
+          unhealthy_threshold: 3
+          host: use_host_from_rule
+          use_host_from_rule: false
+          success_code: "200"
+        target_ip_type: unspecified
+  register: add_ans_li_common_http
+
+- name: Assertions check for the add listeners test
+  ansible.builtin.assert:
+    that:
+      - nt_add_listener_without_device is not changed
+      - nt_add_listener_without_device.current == {}
+      - nt_add_listener_without_device.msg == "The 'device' name is required to initialize the parent object."
+      - add_nlb_li_tcp_cm is changed
+      - add_nlb_li_tcp_cm.current != {}
+      - add_nlb_li_tcp_cm.current.deviceConfiguration.cloudLoadBalancer.listeners.0.name == "nlb_li_tcp"
+      - add_nlb_li_tcp_cm.current.deviceConfiguration.cloudLoadBalancer.listeners.0.nlbDevIp.name == "10.10.10.10"
+      - add_nlb_li_tcp_cm.current.deviceConfiguration.cloudLoadBalancer.listeners.0.nlbDevIp.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/clb-{{ mso_tenant | default("ansible_test") }}_nlb/vip-10.10.10.10"
+      - add_nlb_li_tcp_cm.current.deviceConfiguration.cloudLoadBalancer.listeners.0.protocol == "tcp"
+      - add_nlb_li_tcp_cm.current.deviceConfiguration.cloudLoadBalancer.listeners.0.rules.0.index == 1
+      - add_nlb_li_tcp_cm.current.deviceConfiguration.cloudLoadBalancer.listeners.0.rules.0.name == "rule1"
+      - add_nlb_li_tcp_cm.proposed != {}
+      - add_nlb_li_tcp_cm.proposed.deviceConfiguration.cloudLoadBalancer.listeners.0.name == "nlb_li_tcp"
+      - add_nlb_li_tcp_cm.proposed.deviceConfiguration.cloudLoadBalancer.listeners.0.nlbDevIp.name == "10.10.10.10"
+      - add_nlb_li_tcp_cm.proposed.deviceConfiguration.cloudLoadBalancer.listeners.0.nlbDevIp.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/clb-{{ mso_tenant | default("ansible_test") }}_nlb/vip-10.10.10.10"
+      - add_nlb_li_tcp_cm.proposed.deviceConfiguration.cloudLoadBalancer.listeners.0.protocol == "tcp"
+      - add_nlb_li_tcp_cm.proposed.deviceConfiguration.cloudLoadBalancer.listeners.0.rules.0.index == 1
+      - add_nlb_li_tcp_cm.proposed.deviceConfiguration.cloudLoadBalancer.listeners.0.rules.0.name == "rule1"
+      - add_nlb_li_tcp_nm is changed
+      - add_nlb_li_tcp_nm.current != {}
+      - add_nlb_li_tcp_nm.current.deviceConfiguration.cloudLoadBalancer.listeners.0.name == "nlb_li_tcp"
+      - add_nlb_li_tcp_nm.current.deviceConfiguration.cloudLoadBalancer.listeners.0.nlbDevIp.name == "10.10.10.10"
+      - add_nlb_li_tcp_nm.current.deviceConfiguration.cloudLoadBalancer.listeners.0.nlbDevIp.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/clb-{{ mso_tenant | default("ansible_test") }}_nlb/vip-10.10.10.10"
+      - add_nlb_li_tcp_nm.current.deviceConfiguration.cloudLoadBalancer.listeners.0.protocol == "tcp"
+      - add_nlb_li_tcp_nm.current.deviceConfiguration.cloudLoadBalancer.listeners.0.rules.0.index == 1
+      - add_nlb_li_tcp_nm.current.deviceConfiguration.cloudLoadBalancer.listeners.0.rules.0.name == "rule1"
+      - add_nlb_li_tcp_nm.previous == {}
+      - add_nlb_li_tcp_nm_again is not changed
+      - add_nlb_li_tcp_nm_again.current.name == "nlb_li_tcp"
+      - add_nlb_li_tcp_nm_again.current.nlbDevIp.name == "10.10.10.10"
+      - add_nlb_li_tcp_nm_again.current.nlbDevIp.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/clb-{{ mso_tenant | default("ansible_test") }}_nlb/vip-10.10.10.10"
+      - add_nlb_li_tcp_nm_again.current.protocol == "tcp"
+      - add_nlb_li_tcp_nm_again.current.rules.0.index == 1
+      - add_nlb_li_tcp_nm_again.current.rules.0.name == "rule1"
+      - add_nlb_li_udp is not changed
+      - add_nlb_li_udp.msg == "When the 'frontend_ip' is '10.10.10.10', the ['device'] attributes must be set and the object name{{':'}} nlb_li_udp"
+      - add_ans_li_common_udp is changed
+      - add_ans_li_common_udp.current.name == "ans_li_common"
+      - add_ans_li_common_udp.current.protocol == "udp"
+      - add_ans_li_common_udp.current.nlbDevIp.name == "10.10.10.10"
+      - add_ans_li_common_udp.current.nlbDevIp.dn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/clb-{{ mso_tenant | default("ansible_test") }}_nlb/vip-10.10.10.10"
+      - add_aplb_li_https is changed
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.name == "aplb_li_https"
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.protocol == "https"
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.port == 443
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.certificates.0.default == true
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.certificates.0.name == "ans_li_tenant_keyring"
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.certificates.0.store == "default"
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.certificates.0.tDn == "uni/tn-{{ mso_tenant | default("ansible_test") }}/certstore"
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.rules.0.index == 1
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.rules.0.name == "rule1"
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.rules.0.protocol == "http"
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.rules.0.actionType == "forward"
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.rules.0.healthCheck.protocol == "http"
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.rules.0.healthCheck.path == "health_check_path"
+      - add_aplb_li_https.current.deviceConfiguration.cloudLoadBalancer.listeners.0.rules.0.providerEpgRef is match("/schemas/.+/templates/ansible_template1/anps/AP1/epgs/EPG1")
+      - add_aplb_li_http is changed
+      - add_aplb_li_http.current.name == "aplb_li_http"
+      - add_aplb_li_http.current.protocol == "http"
+      - add_aplb_li_http.current.rules.0.healthCheck.host == "use_host_from_rule"
+      - add_aplb_li_http.current.rules.0.healthCheck.useHostFromRule == "no"
+      - add_aplb_li_http.current.rules.0.healthCheck.protocol == "https"
+      - add_ans_li_common_http is changed
+      - add_ans_li_common_http.current.name == "ans_li_common"
+      - add_ans_li_common_http.current.protocol == "http"
+      - add_ans_li_common_http.current.rules.0.healthCheck.protocol == "https"
+      - add_ans_li_common_http.current.rules.0.healthCheck.host == "use_host_from_rule"
+      - add_ans_li_common_http.current.rules.0.healthCheck.useHostFromRule == "no"
+      - add_ans_li_common_http.current.rules.0.actionType == "forward"
+      - add_ans_li_common_http.current.rules.0.protocol == "https"
+      - add_ans_li_common_http.current.rules.0.name == "rule3"
+      - add_ans_li_common_http.current.rules.0.providerEpgRef is match("/schemas/.+/templates/ansible_template1/anps/AP1/epgs/EPG1")
+
+- name: Update listener - ans_li_common rule health_check property - timeout value 30 to 60
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 1
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_aplb'
+    listener: ans_li_common
+    listener_port: 80
+    listener_protocol: http
+    security_policy: default
+    rules:
+      - name: rule3
+        priority: 3
+        action_type: forward
+        port: 443
+        protocol: https
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        health_check:
+          port: 443
+          protocol: https
+          path: "/"
+          interval: 30
+          timeout: 60
+          unhealthy_threshold: 3
+          host: use_host_from_rule
+          use_host_from_rule: false
+          success_code: "200"
+        target_ip_type: unspecified
+  register: update_ans_li_common
+
+- name: Update listener - ans_li_common with invalid service_node_index 5
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 5
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_aplb'
+    listener: ans_li_common
+    listener_port: 80
+    listener_protocol: http
+    security_policy: default
+    rules:
+      - name: rule3
+        priority: 3
+        action_type: forward
+        port: 443
+        protocol: https
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        health_check:
+          port: 443
+          protocol: https
+          path: "/"
+          interval: 30
+          timeout: 60
+          unhealthy_threshold: 3
+          host: use_host_from_rule
+          use_host_from_rule: false
+          success_code: "200"
+        target_ip_type: unspecified
+  ignore_errors: true
+  register: nt_update_ans_li_common
+
+- name: Assertions check for the update listeners test
+  ansible.builtin.assert:
+    that:
+      - update_ans_li_common is changed
+      - update_ans_li_common.current.name == "ans_li_common"
+      - update_ans_li_common.current.protocol == "http"
+      - update_ans_li_common.current.rules.0.actionType == "forward"
+      - update_ans_li_common.current.rules.0.providerEpgRef is match( "/schemas/.+/templates/ansible_template1/anps/AP1/epgs/EPG1")
+      - update_ans_li_common.current.rules.0.protocol == "https"
+      - update_ans_li_common.current.rules.0.healthCheck.protocol == "https"
+      - nt_update_ans_li_common is not changed
+      - nt_update_ans_li_common.msg == "The service_node_index{{':'}} 5 is out of range."
+
+- name: Query all listeners
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: query
+  register: query_all_listeners
+
+- name: Query all listeners with service_node_index 0
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    state: query
+  register: node1_query_all_listeners
+
+- name: Query all listeners with name ans_li_common without service_node_index
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    listener: ans_li_common
+    state: query
+  register: query_all_ans_li_common
+
+- name: Query a listener with name ans_li_common and service_node_index 0
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    listener: ans_li_common
+    service_node_index: 0
+    state: query
+  register: query_a_ans_li_common
+
+- name: Query an invalid listener with name invalid_ans_li_common - under Contract2
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    listener: invalid_ans_li_common
+    state: query
+  register: nt_query_c1_listeners
+
+- name: Query an invalid listener with name invalid_ans_li_common - under Contract2 with service_node_index 1
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    listener: invalid_ans_li_common
+    service_node_index: 1
+    state: query
+  register: nt_query_invalid_listener_node1
+
+- name: Assertions check for the query listeners test
+  ansible.builtin.assert:
+    that:
+      - query_all_listeners is not changed
+      - query_all_listeners.current | length >= 5
+      - node1_query_all_listeners is not changed
+      - node1_query_all_listeners.current | length == 2
+      - query_all_ans_li_common is not changed
+      - query_all_ans_li_common.current | length == 2
+      - query_all_ans_li_common.current.0.name == "ans_li_common"
+      - query_all_ans_li_common.current.1.name == "ans_li_common"
+      - query_a_ans_li_common is not changed
+      - query_a_ans_li_common.current != {}
+      - query_a_ans_li_common.current.name == "ans_li_common"
+      - nt_query_c1_listeners is not changed
+      - nt_query_c1_listeners.current == {}
+      - nt_query_invalid_listener_node1 is not changed
+      - nt_query_invalid_listener_node1.current == {}
+
+- name: Query all listeners under Contract1 - Negative test
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract1"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    listener: invalid_ans_li_common
+    state: query
+  register: nt_query_all_c1_listeners
+
+- name: Query all listeners under Contract1 with service_node_index 1 - Negative test
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract1"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    listener: invalid_ans_li_common
+    service_node_index: 1
+    state: query
+  register: nt_query_c1_listeners
+
+- name: Assertions check for the query listeners negative test
+  ansible.builtin.assert:
+    that:
+      - nt_query_all_c1_listeners is not changed
+      - nt_query_all_c1_listeners.current == {}
+      - nt_query_c1_listeners is not changed
+      - nt_query_c1_listeners.current == {}
+
+- name: Negative test - query all listeners with the non-cloud site
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract1"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: "ansible_test"
+    service_node_index: 0
+    state: query
+  ignore_errors: true
+  register: nt_non_cloud_site
+
+- name: Negative test - add listener - nt_aplb_li_https - ssl cert missing
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 1
+    listener: nt_aplb_li_https
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_aplb'
+    listener_port: 443
+    listener_protocol: https
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: http
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        health_check:
+          port: 80
+          protocol: http
+          path: "health_check_path"
+          interval: 30
+          timeout: 30
+          unhealthy_threshold: 3
+          use_host_from_rule: true
+          success_code: "200"
+        target_ip_type: unspecified
+  ignore_errors: true
+  register: nt_lp_https_ssl_cert_missing
+
+- name: Negative test - add listener - nt_aplb_li_https - Contract3 SG Ref missing
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract3"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 1
+    listener: nt_aplb_li_https
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_aplb'
+    listener_port: 443
+    listener_protocol: https
+    security_policy: default
+    ssl_certificates:
+      - name: '{{ mso_tenant | default("ansible_test") }}_keyring'
+        certificate_store: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: http
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        health_check:
+          port: 80
+          protocol: http
+          path: "health_check_path"
+          interval: 30
+          timeout: 30
+          unhealthy_threshold: 3
+          use_host_from_rule: true
+          success_code: "200"
+        target_ip_type: unspecified
+  ignore_errors: true
+  register: nt_invalid_contract3
+
+- name: Negative test - add listener - nt_aplb_li_https - with invalid device
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract3"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 1
+    listener: nt_aplb_li_https
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_aplb_invalid'
+    listener_port: 443
+    listener_protocol: https
+    security_policy: default
+    ssl_certificates:
+      - name: '{{ mso_tenant | default("ansible_test") }}_keyring'
+        certificate_store: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: http
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        health_check:
+          port: 80
+          protocol: http
+          path: "health_check_path"
+          interval: 30
+          timeout: 30
+          unhealthy_threshold: 3
+          use_host_from_rule: true
+          success_code: "200"
+        target_ip_type: unspecified
+  ignore_errors: true
+  register: nt_invalid_device
+
+- name: Negative test - add listener - nt_fw_li_https to the Third-Party Firewall
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract1"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: nt_fw_li_https
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_firewall1'
+    listener_port: 443
+    listener_protocol: https
+    security_policy: default
+    ssl_certificates:
+      - name: '{{ mso_tenant | default("ansible_test") }}_keyring'
+        certificate_store: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: http
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        health_check:
+          port: 80
+          protocol: http
+          path: "health_check_path"
+          interval: 30
+          timeout: 30
+          unhealthy_threshold: 3
+          use_host_from_rule: true
+          success_code: "200"
+        target_ip_type: unspecified
+  ignore_errors: true
+  register: nt_tp_fw_listener
+
+- name: Negative test - add listener - nt_tplb_li_https to the Third-Party load-balancer
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract1"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 1
+    listener: nt_tplb_li_https
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_tplb'
+    listener_port: 443
+    listener_protocol: https
+    security_policy: default
+    ssl_certificates:
+      - name: '{{ mso_tenant | default("ansible_test") }}_keyring'
+        certificate_store: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: http
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        health_check:
+          port: 80
+          protocol: http
+          path: "health_check_path"
+          interval: 30
+          timeout: 30
+          unhealthy_threshold: 3
+          use_host_from_rule: true
+          success_code: "200"
+        target_ip_type: unspecified
+  ignore_errors: true
+  register: nt_tp_lb_listener
+
+- name: Negative test - add listener - nt_aplb_li_https - with same listener and rule protocol - https
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 1
+    listener: nt_aplb_li_https
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_aplb'
+    listener_port: 443
+    listener_protocol: https
+    security_policy: default
+    ssl_certificates:
+      - name: '{{ mso_tenant | default("ansible_test") }}_keyring'
+        certificate_store: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: https
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        health_check:
+          port: 80
+          protocol: http
+          path: "health_check_path"
+          interval: 30
+          timeout: 30
+          unhealthy_threshold: 3
+          use_host_from_rule: true
+          success_code: "200"
+        target_ip_type: unspecified
+  ignore_errors: true
+  register: nt_lp_and_rp_https
+
+- name: Negative test - add listener - nt_aplb_li_https - with same listener and rule protocol - http
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 1
+    listener: nt_aplb_li_https
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_aplb'
+    listener_port: 443
+    listener_protocol: http
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: http
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        health_check:
+          port: 80
+          protocol: http
+          path: "health_check_path"
+          interval: 30
+          timeout: 30
+          unhealthy_threshold: 3
+          use_host_from_rule: true
+          success_code: "200"
+        target_ip_type: unspecified
+  ignore_errors: true
+  register: nt_lp_and_rp_http
+
+- name: Negative test - add listener - nt_aplb_li_https - rule action_type is redirect
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 1
+    listener: nt_aplb_li_https
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_aplb'
+    listener_port: 443
+    listener_protocol: https
+    security_policy: default
+    ssl_certificates:
+      - name: '{{ mso_tenant | default("ansible_test") }}_keyring'
+        certificate_store: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: redirect
+        port: 80
+        protocol: http
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        health_check:
+          port: 80
+          protocol: http
+          path: "health_check_path"
+          interval: 30
+          timeout: 30
+          unhealthy_threshold: 3
+          use_host_from_rule: true
+          success_code: "200"
+        target_ip_type: unspecified
+  ignore_errors: true
+  register: nt_action_type_redirect
+
+- name: Negative test - add listener - nt_aplb_li_https - rule action_type is forward
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 1
+    listener: nt_aplb_li_https
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_aplb'
+    listener_port: 443
+    listener_protocol: https
+    security_policy: default
+    ssl_certificates:
+      - name: '{{ mso_tenant | default("ansible_test") }}_keyring'
+        certificate_store: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: http
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        target_ip_type: unspecified
+  ignore_errors: true
+  register: nt_action_type_forward
+
+- name: Negative test - add listener - nt_aplb_li_https - rule url_type is custom
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 1
+    listener: nt_aplb_li_https
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    device: '{{ mso_tenant | default("ansible_test") }}_aplb'
+    listener_port: 443
+    listener_protocol: https
+    security_policy: default
+    ssl_certificates:
+      - name: '{{ mso_tenant | default("ansible_test") }}_keyring'
+        certificate_store: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: http
+        provider_epg_ref:
+          anp_name: AP1
+          epg_name: EPG1
+        url_type: custom
+        health_check:
+          port: 80
+          protocol: http
+          path: "health_check_path"
+          interval: 30
+          timeout: 30
+          unhealthy_threshold: 3
+          use_host_from_rule: true
+          success_code: "200"
+        target_ip_type: unspecified
+  ignore_errors: true
+  register: nt_url_type_custom
+
+- name: Negative test - add listener - nlb_li_tcp - listener protocol is tcp/udp - health_check missing
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: nlb_li_tcp
+    listener_port: 80
+    listener_protocol: tcp
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    frontend_ip: "10.10.10.10"
+    device: '{{ mso_tenant | default("ansible_test") }}_nlb'
+    security_policy: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: tcp
+  ignore_errors: true
+  register: nt_lp_tcp_udp_hp_missing
+
+- name: Negative test - add listener - nlb_li_tcp - listener protocol is tcp/udp - health_check protocol tcp - unhealthy_threshold missing
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: nlb_li_tcp
+    listener_port: 80
+    listener_protocol: tcp
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    frontend_ip: "10.10.10.10"
+    device: '{{ mso_tenant | default("ansible_test") }}_nlb'
+    security_policy: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: tcp
+        health_check:
+          port: 80
+          protocol: tcp
+          interval: 5
+          success_code: 200-399
+  ignore_errors: true
+  register: nt_lp_tcp_udp_hp_tcp_ut_missing
+
+- name: Negative test - add listener - nlb_li_tcp - listener protocol is tcp/udp - health_check protocol http/https - unhealthy_threshold missing
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: nlb_li_tcp
+    listener_port: 80
+    listener_protocol: tcp
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    frontend_ip: "10.10.10.10"
+    device: '{{ mso_tenant | default("ansible_test") }}_nlb'
+    security_policy: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: tcp
+        health_check:
+          port: 80
+          protocol: http
+          interval: 5
+          success_code: 200-399
+  ignore_errors: true
+  register: nt_lp_tcp_udp_hp_http_https_ut_missing
+
+- name: Negative test - add listener - nlb_li_http - listener protocol is http - health_check protocol https - unhealthy_threshold missing
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: nlb_li_http
+    listener_port: 80
+    listener_protocol: http
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    frontend_ip: "10.10.10.10"
+    device: '{{ mso_tenant | default("ansible_test") }}_nlb'
+    security_policy: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: tcp
+        health_check:
+          port: 80
+          protocol: https
+          interval: 5
+          success_code: 200-399
+  ignore_errors: true
+  register: nt_lp_http_hp_https_ut_missing
+
+- name: Negative test - add listener - nlb_li_http - listener protocol is http - health_check protocol http
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: nlb_li_http
+    listener_port: 80
+    listener_protocol: http
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    frontend_ip: "10.10.10.10"
+    device: '{{ mso_tenant | default("ansible_test") }}_nlb'
+    security_policy: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: tcp
+        health_check:
+          port: 80
+          protocol: http
+          interval: 5
+          success_code: 200-399
+  ignore_errors: true
+  register: nt_lp_http_hp_http
+
+- name: Negative test - add listener - nlb_li_https - listener protocol is https - health_check protocol https
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: nlb_li_https
+    listener_port: 80
+    listener_protocol: https
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    frontend_ip: "10.10.10.10"
+    device: '{{ mso_tenant | default("ansible_test") }}_nlb'
+    security_policy: default
+    ssl_certificates:
+      - name: '{{ mso_tenant | default("ansible_test") }}_keyring'
+        certificate_store: default
+    rules:
+      - name: rule1
+        priority: 1
+        action_type: forward
+        port: 80
+        protocol: tcp
+        health_check:
+          port: 80
+          protocol: https
+          interval: 5
+          success_code: 200-399
+  ignore_errors: true
+  register: nt_lp_https_hp_https
+
+- name: Negative test - remove a listener - ans_li_common - with invalid service_node_index is -1
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: -1
+    listener: ans_li_common
+    state: absent
+  ignore_errors: true
+  register: rm_ans_li_common_nm_again
+
+- name: Assertions check for the listeners negative test
+  ansible.builtin.assert:
+    that:
+      - nt_non_cloud_site is not changed
+      - nt_non_cloud_site.msg == "The Site Contract Service Graph Listener is not supported for the site{{':'}} ansible_test."
+      - nt_lp_https_ssl_cert_missing is not changed
+      - nt_lp_https_ssl_cert_missing.msg == "When the 'listener_protocol' is 'https', the ['security_policy', 'ssl_certificates'] attributes must be set and the object name{{':'}} nt_aplb_li_https"
+      - nt_invalid_contract3 is not changed
+      - nt_invalid_contract3.msg == "The site contract{{':'}} Contract3 is not associated with a service graph."
+      - nt_invalid_device is not changed
+      - nt_invalid_device.msg == "The site contract{{':'}} Contract3 is not associated with a service graph."
+      - nt_tp_fw_listener is not changed
+      - nt_tp_fw_listener.msg == "Listener is not supported for the 'service_node_index'{{':'}} 0 is associated with the Third-Party Firewall device."
+      - nt_tp_lb_listener is not changed
+      - nt_tp_lb_listener.msg ==  "Listener is not supported for the 'service_node_index'{{':'}} 1 is associated with the Third-Party Load Balancer device."
+      - nt_lp_and_rp_https is not changed
+      - nt_lp_and_rp_https.msg == "When the 'listener_protocol' is 'https', the rule 'protocol' must be 'https'"
+      - nt_lp_and_rp_http is not changed
+      - nt_lp_and_rp_http.msg ==  "When the 'listener_protocol' is 'http', the rule 'protocol' must be 'http'"
+      - nt_action_type_redirect is not changed
+      - nt_action_type_redirect.msg == "When the 'action_type' is 'redirect', the ['redirect_protocol', 'redirect_port', 'url_type', 'redirect_code'] attributes must be set at the object position{{':'}} 0 and the object name{{':'}} rule1"
+      - nt_action_type_forward is not changed
+      - nt_action_type_forward.msg == "When the 'action_type' is 'forward', the ['health_check'] attributes must be set at the object position{{':'}} 0 and the object name{{':'}} rule1"
+      - nt_url_type_custom is not changed
+      - nt_url_type_custom.msg == "When the 'url_type' is 'custom', the ['redirect_host_name', 'redirect_path', 'redirect_query', 'response_code'] attributes must be set at the object position{{':'}} 0 and the object name{{':'}} rule1"
+      - nt_lp_tcp_udp_hp_missing is not changed
+      - nt_lp_tcp_udp_hp_missing.msg == "When the 'action_type' is 'forward', the ['health_check'] attributes must be set at the object position{{':'}} 0 and the object name{{':'}} rule1"
+      - nt_lp_tcp_udp_hp_tcp_ut_missing is not changed
+      - nt_lp_tcp_udp_hp_tcp_ut_missing.msg == "When the 'health_check - 'protocol'' is 'tcp', the ['unhealthy_threshold'] attributes must be set"
+      - nt_lp_tcp_udp_hp_http_https_ut_missing is not changed
+      - nt_lp_tcp_udp_hp_http_https_ut_missing.msg == "When the 'health_check - 'protocol'' is 'http/https', the ['path', 'unhealthy_threshold'] attributes must be set"
+      - nt_lp_http_hp_https_ut_missing is not changed
+      - nt_lp_http_hp_https_ut_missing.msg == "When the 'health_check - 'protocol'' is 'http/https', the ['path', 'unhealthy_threshold', 'timeout'] attributes must be set"
+      - nt_lp_http_hp_http is not changed
+      - nt_lp_http_hp_http.msg == "The 'listener_protocol'{{':'}} http and the health_check protocol{{':'}} http is not a valid configuration at the object position{{':'}} 0 and the object name{{':'}} rule1"
+      - nt_lp_https_hp_https is not changed
+      - nt_lp_https_hp_https.msg == "The 'listener_protocol'{{':'}} https and the health_check protocol{{':'}} https is not a valid configuration at the object position{{':'}} 0 and the object name{{':'}} rule1"
+      - rm_ans_li_common_nm_again is not changed
+      - rm_ans_li_common_nm_again.msg == "The service_node_index{{':'}} -1 is not valid."
+
+- name: Remove an existing listener - ans_li_common - check_mode
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: ans_li_common
+    state: absent
+    output_level: debug
+  check_mode: true
+  register: rm_ans_li_common_cm
+
+- name: Remove an existing listener - ans_li_common - normal_mode
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: ans_li_common
+    state: absent
+  register: rm_ans_li_common_nm
+
+- name: Remove an existing listener - ans_li_common - normal_mode again
+  cisco.mso.mso_schema_site_contract_service_graph_listener:
+    <<: *mso_info
+    contract: "Contract2"
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: ansible_template1
+    site: '{{ mso_site | default("ansible_test") }}'
+    service_node_index: 0
+    listener: ans_li_common
+    state: absent
+  register: rm_ans_li_common_nm_again
+
+- name: Assertions check for remove listeners
+  ansible.builtin.assert:
+    that:
+      - rm_ans_li_common_cm is changed
+      - rm_ans_li_common_cm.current == {}
+      - rm_ans_li_common_cm.previous != {}
+      - rm_ans_li_common_cm.previous.name == "ans_li_common"
+      - rm_ans_li_common_cm.previous.protocol == "udp"
+      - rm_ans_li_common_cm.proposed == {}
+      - rm_ans_li_common_nm is changed
+      - rm_ans_li_common_nm.current == {}
+      - rm_ans_li_common_nm.previous != {}
+      - rm_ans_li_common_nm.previous.name == "ans_li_common"
+      - rm_ans_li_common_nm.previous.protocol == "udp"
+      - rm_ans_li_common_nm_again is not changed
+      - rm_ans_li_common_nm_again.current == {}
+      - rm_ans_li_common_nm_again.previous == {}
+
+# Cleanup part
+- name: Remove the site association for the ansible_schema templates
+  cisco.mso.mso_schema_site:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    template: "{{ item }}"
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: present
+  loop:
+    - "ansible_template1"
+    - "ansible_template2"
+
+- name: Remove the ansible_schema schema
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_schema") }}'
+    state: absent
+
+- name: Remove the {{ mso_tenant | default("ansible_test") }} tenant
+  cisco.mso.mso_tenant:
+    <<: *mso_info
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    state: absent
+
+- name: Set ansible_network_os to cisco.aci.aci and ansible_connection to local
+  ansible.builtin.set_fact:
+    ansible_connection: local
+    ansible_network_os: cisco.aci.aci
+
+- name: Reset the ansible_connection to access the APIC
+  ansible.builtin.meta: reset_connection
+
+- name: Remove the common tenant redirect policy
+  cisco.aci.aci_rest:
+    host: "{{ apic_hostname }}"
+    username: "{{ apic_username }}"
+    password: "{{ apic_password }}"
+    validate_certs: no
+    path: "/api/node/mo/uni/tn-common/svcCont.json"
+    method: post
+    content:
+      vnsSvcRedirectPol:
+        attributes:
+          name: redirect_policy2
+          status: deleted
+
+- name: Remove the {{ mso_tenant | default("ansible_test") }} from the APIC
+  cisco.aci.aci_tenant:
+    <<: *aci_info
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    state: absent

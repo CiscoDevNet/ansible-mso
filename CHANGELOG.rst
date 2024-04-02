@@ -6,6 +6,37 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.6.0
+======
+
+Release Summary
+---------------
+
+Release v2.6.0 of the ``ansible-mso`` collection on 2024-04-06.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.5.0.
+
+
+Minor Changes
+-------------
+
+- Add Azure Cloud site support to mso_schema_site_contract_service_graph
+- Add Azure Cloud site support to mso_schema_site_service_graph
+- Add functionality to resolve same name in remote and local user.
+- Add l3out_template and l3out_schema arguments to mso_schema_site_external_epg (#394)
+- Add mso_schema_site_contract_service_graph module to manage site contract service graph
+- Add mso_schema_site_contract_service_graph_listener module to manage Azure site contract service graph listeners and update other modules
+- Add new parameter remote_user to add multiple remote users associated with multiple login domains
+- Add support for replacing all existing contracts with new provided contracts in a single operation with one request and adding/removing multiple contracts in multiple operations with a single request in mso_schema_template_anp_epg_contract module
+- Add support for replacing all existing static ports with new provided static ports in a single operation with one request and adding/removing multiple static ports in multiple operations with a single request in mso_schema_template_anp_epg_staticport module
+- Add support for required attributes introduced in NDO 4.2 for mso_schema_site_anp_epg_domain
+- Support for creation of schemas without templates with the mso_schema module
+
+Bugfixes
+--------
+
+- Fix TypeError for iteration on NoneType in mso_schema_template
+- Fixed the useg_subnet logic in mso_schema_template_anp_epg_useg_attribute
+
 v2.5.0
 ======
 

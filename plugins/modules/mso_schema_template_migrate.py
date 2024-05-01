@@ -79,10 +79,10 @@ EXAMPLES = r"""
     target_schema: Schema 1
     target_template: Template 2
     bds:
-    - BD
+      - BD
     epgs:
-    - epg: EPG1
-      anp: ANP
+      - epg: EPG1
+        anp: ANP
     state: present
 
 - name: Migration of objects between templates of different schema
@@ -95,10 +95,10 @@ EXAMPLES = r"""
     target_schema: Schema 2
     target_template: Template 2
     bds:
-    - BD
+      - BD
     epgs:
-    - epg: EPG1
-      anp: ANP
+      - epg: EPG1
+        anp: ANP
     state: present
 
 - name: Migration of BD object between templates of same schema
@@ -111,8 +111,8 @@ EXAMPLES = r"""
     target_schema: Schema 1
     target_template: Template 2
     bds:
-    - BD
-    - BD1
+      - BD
+      - BD1
     state: present
 
 - name: Migration of BD object between templates of different schema
@@ -125,8 +125,8 @@ EXAMPLES = r"""
     target_schema: Schema 2
     target_template: Template 2
     bds:
-    - BD
-    - BD1
+      - BD
+      - BD1
     state: present
 
 - name: Migration of EPG objects between templates of same schema
@@ -139,10 +139,10 @@ EXAMPLES = r"""
     target_schema: Schema 2
     target_template: Template 2
     epgs:
-    - epg: EPG1
-      anp: ANP
-    - epg: EPG2
-      anp: ANP2
+      - epg: EPG1
+        anp: ANP
+      - epg: EPG2
+        anp: ANP2
     state: present
 
 - name: Migration of EPG objects between templates of different schema
@@ -155,10 +155,10 @@ EXAMPLES = r"""
     target_schema: Schema 2
     target_template: Template 2
     epgs:
-    - epg: EPG1
-      anp: ANP
-    - epg: EPG2
-      anp: ANP2
+      - epg: EPG1
+        anp: ANP
+      - epg: EPG2
+        anp: ANP2
     state: present
 """
 

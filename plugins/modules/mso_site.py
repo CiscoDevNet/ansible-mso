@@ -99,13 +99,13 @@ EXAMPLES = r"""
     apic_password: AnotherSecretPassword
     apic_site_id: 12
     urls:
-    - 10.2.3.4
-    - 10.2.4.5
-    - 10.3.5.6
+      - 10.2.3.4
+      - 10.2.4.5
+      - 10.3.5.6
     labels:
-    - NEDC
-    - Europe
-    - Diegem
+      - NEDC
+      - Europe
+      - Diegem
     location:
       latitude: 50.887318
       longitude: 4.447084

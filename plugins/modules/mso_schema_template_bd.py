@@ -284,14 +284,14 @@ EXAMPLES = r"""
     arp_flooding: false
     virtual_mac_address: 00:00:5E:00:01:3C
     subnets:
-    - subnet: 10.0.0.128/24
-    - subnet: 10.0.1.254/24
-      description: 1234567890
-    - ip: 192.168.0.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: true
+      - subnet: 10.0.0.128/24
+      - subnet: 10.0.1.254/24
+        description: 1234567890
+      - ip: 192.168.0.254/24
+        description: "My description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: true
     vrf:
       name: vrf1
       schema: Test
@@ -324,16 +324,16 @@ EXAMPLES = r"""
     virtual_mac_address: 00:00:5E:00:01:3C
     unicast_routing: true
     subnets:
-    - subnet: 10.0.0.128/24
-      primary: true
-    - subnet: 10.0.1.254/24
-      description: 1234567890
-      virtual: true
-    - ip: 192.168.0.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: true
+      - subnet: 10.0.0.128/24
+        primary: true
+      - subnet: 10.0.1.254/24
+        description: 1234567890
+        virtual: true
+      - ip: 192.168.0.254/24
+        description: "My description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: true
     vrf:
       name: vrf1
       schema: Schema1

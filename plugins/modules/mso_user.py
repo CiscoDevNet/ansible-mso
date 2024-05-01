@@ -101,10 +101,10 @@ EXAMPLES = r"""
     email: dag@wieers.com
     phone: +32 478 436 299
     roles:
-    - name: siteManager
-      access_type: write
-    - name: schemaManager
-      access_type: read
+      - name: siteManager
+        access_type: write
+      - name: schemaManager
+        access_type: read
     state: present
 
 - name: Add a new user
@@ -119,7 +119,7 @@ EXAMPLES = r"""
     email: dag@wieers.com
     phone: +32 478 436 299
     roles:
-    - powerUser
+      - powerUser
 
 - name: Remove a user
   cisco.mso.mso_user:

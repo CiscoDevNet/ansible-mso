@@ -97,7 +97,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     tenant: north_europe
-    orchestrator_only: no
+    orchestrator_only: 'no'
     state: absent
 
 - name: Remove a tenant from MSO only
@@ -106,7 +106,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     tenant: north_europe
-    orchestrator_only: yes
+    orchestrator_only: 'yes'
     state: absent
 
 - name: Query a tenant

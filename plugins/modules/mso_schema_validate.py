@@ -40,14 +40,14 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-  - name: Get Validation status
-    mso_schema_validate:
-      host: mso_host
-      username: admin
-      password: SomeSecretPassword
-      schema: Schema 1
-      state: query
-    register: query_validate
+- name: Get Validation status
+  mso_schema_validate:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema 1
+    state: query
+  register: query_validate
 """
 
 RETURN = r"""

@@ -83,9 +83,9 @@ EXAMPLES = r"""
     template: Template 1
     l3out: L3out 1
     vrf:
-        name: vrfName
-        schema: vrfSchema
-        template: vrfTemplate
+      name: vrfName
+      schema: vrfSchema
+      template: vrfTemplate
     state: present
 
 - name: Remove an L3out

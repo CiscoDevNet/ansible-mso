@@ -85,9 +85,9 @@ EXAMPLES = r"""
     template: Template1
     l3out: L3out1
     vrf:
-        name: vrfName
-        template: TemplateName
-        schema: schemaName
+      name: vrfName
+      template: TemplateName
+      schema: schemaName
     state: present
 
 - name: Remove a site L3Out

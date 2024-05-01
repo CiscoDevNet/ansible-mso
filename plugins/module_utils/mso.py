@@ -72,7 +72,7 @@ def issubset(subset, superset):
             return False
 
         # Item has different types in subset and superset
-        if type(superset.get(key)) != type(value):
+        if not isinstance(superset.get(key), type(value)):
             return False
 
         # Compare if item values are subset
@@ -849,7 +849,7 @@ class MSOModule(object):
             access_type = "readWrite"
             try:
                 role = ast.literal_eval(role)
-                if type(role) is dict and "name" in role:
+                if isinstance(role, dict) and "name" in role:
                     name = role.get("name")
                     if role.get("access_type") == "read":
                         access_type = "readOnly"

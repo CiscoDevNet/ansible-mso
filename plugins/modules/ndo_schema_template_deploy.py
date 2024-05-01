@@ -78,7 +78,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     schema: Schema 1
     template: Template 1
-    sites: [ Site1, Site2 ]
+    sites: [Site1, Site2]
     state: undeploy
 
 - name: Query a schema template deploy status

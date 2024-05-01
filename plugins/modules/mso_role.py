@@ -101,19 +101,19 @@ EXAMPLES = r"""
     display_name: Read Only
     description: Read-only access for troubleshooting
     read_permissions:
-    - view-roles
-    - view-schemas
-    - view-sites
-    - view-tenants
-    - view-tenant-schemas
-    - view-users
+      - view-roles
+      - view-schemas
+      - view-sites
+      - view-tenants
+      - view-tenant-schemas
+      - view-users
     write_permissions:
-    - manage-roles
-    - manage-schemas
-    - manage-sites
-    - manage-tenants
-    - manage-tenant-schemas
-    - manage-users
+      - manage-roles
+      - manage-schemas
+      - manage-sites
+      - manage-tenants
+      - manage-tenant-schemas
+      - manage-users
     state: present
 
 - name: Remove a role

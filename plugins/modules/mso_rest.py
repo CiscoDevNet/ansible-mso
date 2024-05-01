@@ -64,24 +64,24 @@ EXAMPLES = r"""
     method: post
     content:
       {
-          "displayName": "{{ mso_schema | default('ansible_test') }}",
-          "templates": [{
-              "name": "Template_1",
-              "tenantId": "{{ add_tenant.jsondata.id }}",
-              "displayName": "Template_1",
-              "templateSubType": [],
-              "templateType": "stretched-template",
-              "anps": [],
-              "contracts": [],
-              "vrfs": [],
-              "bds": [],
-              "filters": [],
-              "externalEpgs": [],
-              "serviceGraphs": [],
-              "intersiteL3outs": []
-          }],
-          "sites": [],
-          "_updateVersion": 0
+        "displayName": "{{ mso_schema | default('ansible_test') }}",
+        "templates": [{
+          "name": "Template_1",
+          "tenantId": "{{ add_tenant.jsondata.id }}",
+          "displayName": "Template_1",
+          "templateSubType": [],
+          "templateType": "stretched-template",
+          "anps": [],
+          "contracts": [],
+          "vrfs": [],
+          "bds": [],
+          "filters": [],
+          "externalEpgs": [],
+          "serviceGraphs": [],
+          "intersiteL3outs": []
+        }],
+        "sites": [],
+        "_updateVersion": 0
       }
 
 - name: Query schema

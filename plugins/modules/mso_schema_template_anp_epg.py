@@ -208,9 +208,9 @@ EXAMPLES = r"""
     anp: ANP 1
     epg: EPG 1
     bd:
-     name: bd1
+      name: bd1
     vrf:
-     name: vrf1
+      name: vrf1
     state: present
 
 - name: Add a new EPG with preferred group.
@@ -235,9 +235,9 @@ EXAMPLES = r"""
     anp: ANP 1
     epg: EPG 1
     bd:
-     name: bd1
+      name: bd1
     vrf:
-     name: vrf1
+      name: vrf1
     state: absent
 
 - name: Query a specific EPG
@@ -250,9 +250,9 @@ EXAMPLES = r"""
     anp: ANP 1
     epg: EPG 1
     bd:
-     name: bd1
+      name: bd1
     vrf:
-     name: vrf1
+      name: vrf1
     state: query
   register: query_result
 
@@ -266,9 +266,9 @@ EXAMPLES = r"""
     anp: ANP 1
     epg: EPG 1
     bd:
-     name: bd1
+      name: bd1
     vrf:
-     name: vrf1
+      name: vrf1
     state: query
   register: query_result
 """

@@ -75,3 +75,55 @@ LISTENER_REDIRECT_CODE_MAP = {
     "see_other": "seeOther",
     "temporary_redirect": "temporary",
 }
+
+TEMPLATE_TYPES = {
+    "tenant": {
+        "template_type": "tenantPolicy",  # templateType in payload
+        "template_type_container": "tenantPolicyTemplate",  # templateType container in payload
+        "tenant": True,  # tenant required
+        "site_amount": 0,  # site amount, 0 = no sites, 1 = 1 site, 2 = multiple sites
+        "template_container": True,  # configuration is set in template container in payload
+    },
+    "l3out": {
+        "template_type": "l3out",
+        "template_type_container": "l3outTemplate",
+        "tenant": True,
+        "site_amount": 1,
+        "template_container": False,
+    },
+    "fabric_policy": {
+        "template_type": "fabricPolicy",
+        "template_type_container": "fabricPolicyTemplate",
+        "tenant": False,
+        "site_amount": 2,
+        "template_container": True,
+    },
+    "fabric_resource": {
+        "template_type": "fabricResource",
+        "template_type_container": "fabricResourceTemplate",
+        "tenant": False,
+        "site_amount": 2,
+        "template_container": True,
+    },
+    "monitoring_tenant": {
+        "template_type": "monitoring",
+        "template_type_container": "monitoringTemplate",
+        "tenant": True,
+        "site_amount": 1,
+        "template_container": True,
+    },
+    "monitoring_access": {
+        "template_type": "monitoring",
+        "template_type_container": "monitoringTemplate",
+        "tenant": False,
+        "site_amount": 1,
+        "template_container": True,
+    },
+    "service_device": {
+        "template_type": "serviceDevice",
+        "template_type_container": "deviceTemplate",
+        "tenant": True,
+        "site_amount": 2,
+        "template_container": True,
+    },
+}

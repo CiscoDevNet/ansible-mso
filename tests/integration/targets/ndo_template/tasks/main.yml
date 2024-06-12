@@ -1,0 +1,575 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    
+    - name: Ensure sites exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ item.site }}'
+        apic_username: '{{ apic_username }}'
+        apic_password: '{{ apic_password }}'
+        apic_site_id: '{{ item.apic_site_id }}'
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+      loop:
+        - {site: "ansible_test", apic_site_id: 101}
+        - {site: "ansible_test_2", apic_site_id: 102}
+    
+    - name: Ensure tenants exist
+      cisco.mso.mso_tenant: 
+        <<: *mso_info
+        tenant: '{{ item }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+          - ansible_test_2
+        state: present
+      loop:
+        - ansible_test
+        - ansible_test_2
+    
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: "{{ item.name }}"
+        template_type: "{{ item.type }}"
+        state: absent
+      loop:
+        - {name: ansible_tenant_policy, type: tenant}
+        - {name: ansible_tenant_policy_2, type: tenant}
+        - {name: ansible_tenant_policy_changed, type: tenant}
+        - {name: ansible_l3out_policy_template, type: l3out}
+        - {name: ansible_fabric_policy_template, type: fabric_policy}
+        - {name: ansible_fabric_resource_template, type: fabric_resource}
+        - {name: ansible_service_device_template, type: service_device}
+        - {name: ansible_monitoring_tenant_template, type: monitoring_tenant}
+        - {name: ansible_monitoring_access_template, type: monitoring_access}
+
+    # CREATE
+
+    - name: Create a new tenant policy template (check_mode)
+      cisco.mso.ndo_template: &create_tenant_policy_template
+        <<: *mso_info
+        template: ansible_tenant_policy
+        template_type: tenant
+        tenant: ansible_test
+        state: present
+      check_mode: true
+      register: cm_create_new_tenant_policy_template
+    
+    - name: Create a new tenant policy template
+      cisco.mso.ndo_template:
+        <<: *create_tenant_policy_template
+        state: present
+      register: nm_create_new_tenant_policy_template
+    
+    - name: Create a new tenant policy template again
+      cisco.mso.ndo_template:
+        <<: *create_tenant_policy_template
+        state: present
+      register: nm_create_new_tenant_policy_template_again
+    
+    - name: Create a new l3out policy template
+      cisco.mso.ndo_template: &create_l3out_policy_template
+        <<: *mso_info
+        template: ansible_l3out_policy_template
+        template_type: l3out
+        tenant: ansible_test
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: present
+      register: nm_create_new_l3out_policy_template
+    
+    - name: Create a new fabric policy template with 0 sites
+      cisco.mso.ndo_template: &fabric_policy_template
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        template_type: fabric_policy
+        state: present
+      register: nm_create_new_fabric_policy_template
+    
+    - name: Create a new fabric resource template with 1 site
+      cisco.mso.ndo_template: &fabric_resource_template
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        template_type: fabric_resource
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: present
+      register: nm_create_new_fabric_resource_template
+    
+    - name: Create a new service device template with 2 sites
+      cisco.mso.ndo_template: &service_device_template
+        <<: *mso_info
+        template: ansible_service_device_template
+        template_type: service_device
+        tenant: ansible_test
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: ansible_test_2
+        state: present
+      register: nm_create_new_service_device_template
+
+    - name: Create a new monitoring tenant template
+      cisco.mso.ndo_template: &create_monitoring_tenant_template
+        <<: *mso_info
+        template: ansible_monitoring_tenant_template
+        template_type: monitoring_tenant
+        tenant: ansible_test
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: present
+      register: nm_create_new_monitoring_tenant_template
+    
+    - name: Create a new monitoring access template
+      cisco.mso.ndo_template: &create_monitoring_access_template
+        <<: *mso_info
+        template: ansible_monitoring_access_template
+        template_type: monitoring_access
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: present
+      register: nm_create_new_monitoring_access_template
+
+    - name: Assert tenant policy template was created
+      assert:
+        that:
+          - cm_create_new_tenant_policy_template is changed
+          - cm_create_new_tenant_policy_template.previous == {}
+          - cm_create_new_tenant_policy_template.current.displayName == 'ansible_tenant_policy'
+          - cm_create_new_tenant_policy_template.current.templateType == 'tenantPolicy'
+          - cm_create_new_tenant_policy_template.current.tenantPolicyTemplate.template.tenantId is defined
+          - nm_create_new_tenant_policy_template is changed
+          - nm_create_new_tenant_policy_template.previous == {}
+          - nm_create_new_tenant_policy_template.current.displayName == 'ansible_tenant_policy'
+          - nm_create_new_tenant_policy_template.current.templateType == 'tenantPolicy'
+          - nm_create_new_tenant_policy_template.current.templateId is defined
+          - nm_create_new_tenant_policy_template.current.tenantPolicyTemplate.template.tenantId is defined
+          - nm_create_new_tenant_policy_template_again is not changed
+          - nm_create_new_tenant_policy_template_again.previous.displayName == 'ansible_tenant_policy'
+          - nm_create_new_tenant_policy_template_again.previous.templateType == 'tenantPolicy'
+          - nm_create_new_tenant_policy_template_again.previous.templateId is defined
+          - nm_create_new_tenant_policy_template_again.previous.tenantPolicyTemplate.template.tenantId is defined
+          - nm_create_new_tenant_policy_template_again.current.displayName == 'ansible_tenant_policy'
+          - nm_create_new_tenant_policy_template_again.current.templateType == 'tenantPolicy'
+          - nm_create_new_tenant_policy_template_again.current.templateId is defined
+          - nm_create_new_tenant_policy_template_again.current.tenantPolicyTemplate.template.tenantId is defined
+          - nm_create_new_l3out_policy_template is changed
+          - nm_create_new_l3out_policy_template.previous == {}
+          - nm_create_new_l3out_policy_template.current.displayName == 'ansible_l3out_policy_template'
+          - nm_create_new_l3out_policy_template.current.templateType == 'l3out'
+          - nm_create_new_l3out_policy_template.current.templateId is defined
+          - nm_create_new_l3out_policy_template.current.l3outTemplate.siteId is defined
+          - nm_create_new_l3out_policy_template.current.l3outTemplate.tenantId is defined
+          - nm_create_new_fabric_policy_template is changed
+          - nm_create_new_fabric_policy_template.previous == {}
+          - nm_create_new_fabric_policy_template.current.displayName == 'ansible_fabric_policy_template'
+          - nm_create_new_fabric_policy_template.current.templateId is defined
+          - nm_create_new_fabric_policy_template.current.fabricPolicyTemplate.sites == []
+          - nm_create_new_fabric_resource_template is changed
+          - nm_create_new_fabric_resource_template.previous == {}
+          - nm_create_new_fabric_resource_template.current.displayName == 'ansible_fabric_resource_template'
+          - nm_create_new_fabric_resource_template.current.templateId is defined
+          - nm_create_new_fabric_resource_template.current.fabricResourceTemplate.sites | length == 1
+          - nm_create_new_service_device_template is changed
+          - nm_create_new_service_device_template.previous == {}
+          - nm_create_new_service_device_template.current.displayName == 'ansible_service_device_template'
+          - nm_create_new_service_device_template.current.templateId is defined
+          - nm_create_new_service_device_template.current.deviceTemplate.sites | length == 2
+          - nm_create_new_service_device_template.current.deviceTemplate.template.tenantId is defined
+          - nm_create_new_monitoring_tenant_template is changed
+          - nm_create_new_monitoring_tenant_template.previous == {}
+          - nm_create_new_monitoring_tenant_template.current.displayName == 'ansible_monitoring_tenant_template'
+          - nm_create_new_monitoring_tenant_template.current.templateId is defined
+          - nm_create_new_monitoring_tenant_template.current.monitoringTemplate.template.tenant is defined
+          - nm_create_new_monitoring_tenant_template.current.monitoringTemplate.template.mtType == "tenant"
+          - nm_create_new_monitoring_tenant_template.current.monitoringTemplate.sites | length == 1
+          - nm_create_new_monitoring_access_template is changed
+          - nm_create_new_monitoring_access_template.previous == {}
+          - nm_create_new_monitoring_access_template.current.displayName == 'ansible_monitoring_access_template'
+          - nm_create_new_monitoring_access_template.current.templateId is defined
+          - nm_create_new_monitoring_access_template.current.monitoringTemplate.sites | length == 1
+          - nm_create_new_monitoring_access_template.current.monitoringTemplate.template.mtType == "access"
+
+    # UPDATE
+
+    - name: Update a tenant policy template (check_mode)
+      cisco.mso.ndo_template: &update_tenant_policy_template
+        <<: *create_tenant_policy_template
+        template: ansible_tenant_policy_changed
+        template_id: '{{ nm_create_new_tenant_policy_template_again.current.templateId }}'
+        state: present
+      check_mode: true
+      register: cm_update_tenant_policy_template
+    
+    - name: Update a tenant policy template
+      cisco.mso.ndo_template:
+        <<: *update_tenant_policy_template
+        state: present
+      register: nm_update_tenant_policy_template
+
+    - name: Update a tenant policy template again
+      cisco.mso.ndo_template:
+        <<: *update_tenant_policy_template
+        state: present
+      register: nm_update_tenant_policy_template_again
+    
+    - name: Update a fabric policy template from 0 to 2 sites
+      cisco.mso.ndo_template:
+        <<: *fabric_policy_template
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: ansible_test_2
+        state: present
+      register: nm_update_new_fabric_policy_template_0_2_sites
+    
+    - name: Update a fabric policy template from 2 to 1 sites ( remove first index )
+      cisco.mso.ndo_template:
+        <<: *fabric_policy_template
+        sites:
+          - name: ansible_test_2
+        state: present
+      register: nm_update_new_fabric_policy_template_2_1_sites_first_index
+    
+    - name: Update a fabric policy template from 1 to 2 sites
+      cisco.mso.ndo_template:
+        <<: *fabric_policy_template
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: ansible_test_2
+        state: present
+      register: nm_update_new_fabric_policy_template_1_2_sites
+
+    - name: Update a fabric policy template from 2 to 1 sites ( remove second index )
+      cisco.mso.ndo_template:
+        <<: *fabric_policy_template
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: present
+      register: nm_update_new_fabric_policy_template_2_1_sites_second_index
+
+    - name: Update a fabric policy template from 1 to 0 sites
+      cisco.mso.ndo_template:
+        <<: *fabric_policy_template
+        sites: '{{ fakevar | default(omit)}}'
+        state: present
+      register: nm_update_new_fabric_policy_template_1_0
+
+    - name: Assert tenant policy template was updated
+      assert:
+        that:
+          - cm_update_tenant_policy_template is changed
+          - cm_update_tenant_policy_template.previous.displayName == 'ansible_tenant_policy'
+          - cm_update_tenant_policy_template.previous.templateType == 'tenantPolicy'
+          - cm_update_tenant_policy_template.previous.templateId is defined
+          - cm_update_tenant_policy_template.previous.tenantPolicyTemplate.template.tenantId is defined
+          - cm_update_tenant_policy_template.current.displayName == 'ansible_tenant_policy_changed'
+          - cm_update_tenant_policy_template.current.templateType == 'tenantPolicy'
+          - cm_update_tenant_policy_template.current.templateId is defined
+          - cm_update_tenant_policy_template.current.tenantPolicyTemplate.template.tenantId is defined
+          - nm_update_tenant_policy_template is changed
+          - nm_update_tenant_policy_template.previous.displayName == 'ansible_tenant_policy'
+          - nm_update_tenant_policy_template.previous.templateType == 'tenantPolicy'
+          - nm_update_tenant_policy_template.previous.templateId is defined
+          - nm_update_tenant_policy_template.previous.tenantPolicyTemplate.template.tenantId is defined
+          - nm_update_tenant_policy_template.current.displayName == 'ansible_tenant_policy_changed'
+          - nm_update_tenant_policy_template.current.templateType == 'tenantPolicy'
+          - nm_update_tenant_policy_template.current.templateId is defined
+          - nm_update_tenant_policy_template.current.tenantPolicyTemplate.template.tenantId is defined
+          - nm_update_tenant_policy_template_again is not changed
+          - nm_update_tenant_policy_template_again.previous.displayName == 'ansible_tenant_policy_changed'
+          - nm_update_tenant_policy_template_again.previous.templateType == 'tenantPolicy'
+          - nm_update_tenant_policy_template_again.previous.templateId is defined
+          - nm_update_tenant_policy_template_again.previous.tenantPolicyTemplate.template.tenantId is defined
+          - nm_update_tenant_policy_template_again.current.displayName == 'ansible_tenant_policy_changed'
+          - nm_update_tenant_policy_template_again.current.templateType == 'tenantPolicy'
+          - nm_update_tenant_policy_template_again.current.templateId is defined
+          - nm_update_tenant_policy_template_again.current.tenantPolicyTemplate.template.tenantId is defined
+          - nm_update_new_fabric_policy_template_0_2_sites is changed
+          - nm_update_new_fabric_policy_template_0_2_sites.previous.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_0_2_sites.current.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_0_2_sites.current.fabricPolicyTemplate.sites | length == 2
+          - nm_update_new_fabric_policy_template_2_1_sites_first_index is changed
+          - nm_update_new_fabric_policy_template_2_1_sites_first_index.previous.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_2_1_sites_first_index.current.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_2_1_sites_first_index.current.fabricPolicyTemplate.sites | length == 1
+          - nm_update_new_fabric_policy_template_2_1_sites_first_index.current.fabricPolicyTemplate.sites.0.siteId == nm_update_new_fabric_policy_template_2_1_sites_first_index.previous.fabricPolicyTemplate.sites.1.siteId
+          - nm_update_new_fabric_policy_template_1_2_sites is changed
+          - nm_update_new_fabric_policy_template_1_2_sites.previous.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_1_2_sites.current.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_1_2_sites.current.fabricPolicyTemplate.sites | length == 2
+          - nm_update_new_fabric_policy_template_2_1_sites_second_index is changed
+          - nm_update_new_fabric_policy_template_2_1_sites_second_index.previous.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_2_1_sites_second_index.current.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_2_1_sites_second_index.current.fabricPolicyTemplate.sites | length == 1
+          - nm_update_new_fabric_policy_template_2_1_sites_second_index.current.fabricPolicyTemplate.sites.0.siteId == nm_update_new_fabric_policy_template_2_1_sites_second_index.previous.fabricPolicyTemplate.sites.1.siteId
+          - nm_update_new_fabric_policy_template_2_1_sites_first_index.current.fabricPolicyTemplate.sites.0.siteId != nm_update_new_fabric_policy_template_2_1_sites_second_index.current.fabricPolicyTemplate.sites.0.siteId
+          - nm_update_new_fabric_policy_template_1_0 is changed
+          - nm_update_new_fabric_policy_template_1_0.previous.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_1_0.current.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_1_0.current.fabricPolicyTemplate.sites == []
+
+    # QUERY
+
+    - name: Create another tenant policy template
+      cisco.mso.ndo_template: &create_tenant_policy_template_2
+        <<: *create_tenant_policy_template
+        name: ansible_tenant_policy_2
+        state: present
+      register: nm_create_new_tenant_policy_template
+
+    - name: Query a tenant policy template with template_name
+      cisco.mso.ndo_template:
+        <<: *create_tenant_policy_template_2
+        state: query
+      register: query_new_tenant_policy_template_name
+    
+    - name: Query a tenant policy template with template_id
+      cisco.mso.ndo_template:
+        <<: *update_tenant_policy_template
+        template: '{{ fakevar | default(omit)}}'
+        state: query
+      register: query_new_tenant_policy_template_id
+
+    - name: Query all tenant policy templates
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        template_type: tenant
+        state: query
+      register: query_all_tenant
+
+    - name: Query all templates
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        state: query
+      register: query_all
+    
+    - name: Assert tenant policy template was queried
+      assert:
+        that:
+          - query_new_tenant_policy_template_name is not changed
+          - query_new_tenant_policy_template_name.current.displayName == 'ansible_tenant_policy_2'
+          - query_new_tenant_policy_template_id is not changed
+          - query_new_tenant_policy_template_id.current.displayName == 'ansible_tenant_policy_changed'
+          - query_all_tenant is not changed
+          - query_all_tenant.current | length >= 2
+          - query_all is not changed
+          - query_all.current | length >= 8
+
+    # ERRORS
+
+    - name: Error on unknown template
+      cisco.mso.ndo_template:
+        <<: *update_tenant_policy_template
+        template_id: "unknown_id"
+        state: present
+      register: err_unknown_template_id
+      ignore_errors: true
+    
+    - name: Error on not allowed input site
+      cisco.mso.ndo_template:
+        <<: *update_tenant_policy_template
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: present
+      register: err_not_allowed_site_id
+      ignore_errors: true
+
+    - name: Error on not allowed template_type change
+      cisco.mso.ndo_template:
+        <<: *create_l3out_policy_template
+        sites: '{{ fakevar | default(omit) }}'
+        template_id: '{{ nm_create_new_l3out_policy_template.current.templateId }}'
+        template_type: tenant
+        state: present
+      register: err_not_allowed_template_type_change
+      ignore_errors: true
+
+    - name: Error on not allowed site change
+      cisco.mso.ndo_template:
+        <<: *create_l3out_policy_template
+        sites: 
+          - name: ansible_test_2
+        state: present
+      register: err_not_allowed_site_change
+      ignore_errors: true
+
+    - name: Error on not allowed site change
+      cisco.mso.ndo_template:
+        <<: *create_l3out_policy_template
+        sites:
+          - name: ansible_test 
+          - name: ansible_test_2
+        state: present
+      register: err_not_allowed_multiple_sites
+      ignore_errors: true
+
+    - name: Error on not allowed tenant change
+      cisco.mso.ndo_template:
+        <<: *create_l3out_policy_template
+        tenant: ansible_test_2
+        state: present
+      register: err_not_allowed_tenant_change
+      ignore_errors: true
+    
+    - name: Error on tenant must be provided
+      cisco.mso.ndo_template:
+        <<: *create_l3out_policy_template
+        name: l3out_policy_template_error
+        tenant: '{{ fakevar | default(omit)}}'
+        state: present
+      register: err_tenant_not_provided
+      ignore_errors: true
+    
+    - name: Error on site must be provided
+      cisco.mso.ndo_template:
+        <<: *create_l3out_policy_template
+        name: l3out_policy_template_error
+        sites: '{{ fakevar | default(omit)}}'
+        state: present
+      register: err_site_not_provided
+      ignore_errors: true
+
+    - name: Error on not allowed tenant
+      cisco.mso.ndo_template:
+        <<: *create_monitoring_access_template
+        tenant: ansible_test
+        state: present
+      register: err_not_allowed_tenant
+      ignore_errors: true
+
+    - name: Err on template query without template_type
+      cisco.mso.ndo_template:
+        <<: *update_tenant_policy_template
+        template_id: '{{ fakevar | default(omit)}}'
+        template_type: '{{ fakevar | default(omit)}}'
+        state: query
+      register: err_no_template_type_query
+      ignore_errors: true
+
+    - name: Assert errors
+      assert:
+        that:
+          - err_unknown_template_id is failed
+          - err_unknown_template_id.msg.startswith("Provided template id 'unknown_id' does not exist. Existing templates:")
+          - err_not_allowed_site_id is failed
+          - err_not_allowed_site_id.msg == "Site cannot be attached to template of type tenant."
+          - err_not_allowed_template_type_change is failed
+          - err_not_allowed_template_type_change.msg == "Template type cannot be changed."
+          - err_not_allowed_site_change is failed
+          - err_not_allowed_site_change.msg == "Site cannot be changed."
+          - err_not_allowed_multiple_sites is failed
+          - err_not_allowed_multiple_sites.msg == "Only one site can be attached to template of type l3out."
+          - err_not_allowed_tenant_change is failed
+          - err_not_allowed_tenant_change.msg == "Tenant cannot be changed."
+          - err_tenant_not_provided is failed
+          - err_tenant_not_provided.msg == "Tenant must be provided for template of type l3out."
+          - err_site_not_provided is failed
+          - err_site_not_provided.msg == "Site must be provided for template of type l3out."
+          - err_not_allowed_tenant is failed
+          - err_not_allowed_tenant.msg == "Tenant cannot be attached to template of type monitoring_access."
+          - err_no_template_type_query is failed
+          - err_no_template_type_query.msg == "Template type must be provided when using template name."
+
+    # DELETE
+
+    - name: Delete a tenant policy template (check_mode)
+      cisco.mso.ndo_template: &delete_tenant_policy_template
+        <<: *update_tenant_policy_template
+        template_id: '{{ fakevar | default(omit)}}'
+        state: absent
+      check_mode: true
+      register: cm_delete_new_tenant_policy_template
+    
+    - name: Delete a tenant policy template
+      cisco.mso.ndo_template:
+        <<: *delete_tenant_policy_template
+      register: nm_delete_new_tenant_policy_template
+    
+    - name: Delete a tenant policy template again
+      cisco.mso.ndo_template:
+        <<: *delete_tenant_policy_template
+      register: nm_delete_new_tenant_policy_template_again
+    
+    - name: Delete a l3out policy template
+      cisco.mso.ndo_template:
+        <<: *create_l3out_policy_template
+        state: absent
+      register: nm_delete_new_l3out_policy_template
+
+    - name: Assert tenant policy template was deleted
+      assert:
+        that:
+          - cm_delete_new_tenant_policy_template is changed
+          - cm_delete_new_tenant_policy_template.previous.displayName == 'ansible_tenant_policy_changed'
+          - cm_delete_new_tenant_policy_template.previous.templateType == 'tenantPolicy'
+          - cm_delete_new_tenant_policy_template.previous.templateId is defined
+          - cm_delete_new_tenant_policy_template.previous.tenantPolicyTemplate.template.tenantId is defined
+          - cm_delete_new_tenant_policy_template.current == {}
+          - nm_delete_new_tenant_policy_template is changed
+          - nm_delete_new_tenant_policy_template.previous.displayName == 'ansible_tenant_policy_changed'
+          - nm_delete_new_tenant_policy_template.previous.templateType == 'tenantPolicy'
+          - nm_delete_new_tenant_policy_template.previous.templateId is defined
+          - nm_delete_new_tenant_policy_template.previous.tenantPolicyTemplate.template.tenantId is defined
+          - nm_delete_new_tenant_policy_template.current == {}
+          - nm_delete_new_tenant_policy_template_again is not changed
+          - nm_delete_new_tenant_policy_template_again.previous == {}
+          - nm_delete_new_tenant_policy_template_again.current == {}
+          - nm_delete_new_l3out_policy_template is changed  
+          - nm_delete_new_l3out_policy_template.previous.displayName == 'ansible_l3out_policy_template'
+          - nm_delete_new_l3out_policy_template.previous.templateType == 'l3out'
+          - nm_delete_new_l3out_policy_template.previous.templateId is defined
+          - nm_delete_new_l3out_policy_template.previous.l3outTemplate.siteId is defined
+          - nm_delete_new_l3out_policy_template.previous.l3outTemplate.tenantId is defined
+          - nm_delete_new_l3out_policy_template.current == {}
+    
+    # CLEANUP TEMPLATES
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: "{{ item.name }}"
+        template_type: "{{ item.type }}"
+        state: absent
+      loop:
+        - {name: ansible_tenant_policy, type: tenant}
+        - {name: ansible_tenant_policy_2, type: tenant}
+        - {name: ansible_tenant_policy_changed, type: tenant}
+        - {name: ansible_l3out_policy_template, type: l3out}
+        - {name: ansible_fabric_policy_template, type: fabric_policy}
+        - {name: ansible_fabric_resource_template, type: fabric_resource}
+        - {name: ansible_service_device_template, type: service_device}
+        - {name: ansible_monitoring_tenant_template, type: monitoring_tenant}
+        - {name: ansible_monitoring_access_template, type: monitoring_access}

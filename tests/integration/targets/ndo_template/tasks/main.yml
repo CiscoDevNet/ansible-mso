@@ -280,10 +280,17 @@
         state: present
       register: nm_update_new_fabric_policy_template_2_1_sites_second_index
 
-    - name: Update a fabric policy template from 1 to 0 sites
+    - name: Update a fabric policy template without sites (null)
       cisco.mso.ndo_template:
         <<: *fabric_policy_template
         sites: '{{ fakevar | default(omit)}}'
+        state: present
+      register: nm_update_new_fabric_policy_template_1_0_null
+    
+    - name: Update a fabric policy template from 1 to 0 sites
+      cisco.mso.ndo_template:
+        <<: *fabric_policy_template
+        sites: []
         state: present
       register: nm_update_new_fabric_policy_template_1_0
 
@@ -319,25 +326,35 @@
           - nm_update_tenant_policy_template_again.current.tenantPolicyTemplate.template.tenantId is defined
           - nm_update_new_fabric_policy_template_0_2_sites is changed
           - nm_update_new_fabric_policy_template_0_2_sites.previous.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_0_2_sites.previous.fabricPolicyTemplate.sites is not defined
           - nm_update_new_fabric_policy_template_0_2_sites.current.displayName == 'ansible_fabric_policy_template'
           - nm_update_new_fabric_policy_template_0_2_sites.current.fabricPolicyTemplate.sites | length == 2
           - nm_update_new_fabric_policy_template_2_1_sites_first_index is changed
           - nm_update_new_fabric_policy_template_2_1_sites_first_index.previous.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_2_1_sites_first_index.previous.fabricPolicyTemplate.sites | length == 2
           - nm_update_new_fabric_policy_template_2_1_sites_first_index.current.displayName == 'ansible_fabric_policy_template'
           - nm_update_new_fabric_policy_template_2_1_sites_first_index.current.fabricPolicyTemplate.sites | length == 1
           - nm_update_new_fabric_policy_template_2_1_sites_first_index.current.fabricPolicyTemplate.sites.0.siteId == nm_update_new_fabric_policy_template_2_1_sites_first_index.previous.fabricPolicyTemplate.sites.1.siteId
           - nm_update_new_fabric_policy_template_1_2_sites is changed
           - nm_update_new_fabric_policy_template_1_2_sites.previous.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_1_2_sites.previous.fabricPolicyTemplate.sites | length == 1
           - nm_update_new_fabric_policy_template_1_2_sites.current.displayName == 'ansible_fabric_policy_template'
           - nm_update_new_fabric_policy_template_1_2_sites.current.fabricPolicyTemplate.sites | length == 2
           - nm_update_new_fabric_policy_template_2_1_sites_second_index is changed
           - nm_update_new_fabric_policy_template_2_1_sites_second_index.previous.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_2_1_sites_second_index.previous.fabricPolicyTemplate.sites | length == 2
           - nm_update_new_fabric_policy_template_2_1_sites_second_index.current.displayName == 'ansible_fabric_policy_template'
           - nm_update_new_fabric_policy_template_2_1_sites_second_index.current.fabricPolicyTemplate.sites | length == 1
           - nm_update_new_fabric_policy_template_2_1_sites_second_index.current.fabricPolicyTemplate.sites.0.siteId == nm_update_new_fabric_policy_template_2_1_sites_second_index.previous.fabricPolicyTemplate.sites.1.siteId
           - nm_update_new_fabric_policy_template_2_1_sites_first_index.current.fabricPolicyTemplate.sites.0.siteId != nm_update_new_fabric_policy_template_2_1_sites_second_index.current.fabricPolicyTemplate.sites.0.siteId
+          - nm_update_new_fabric_policy_template_1_0_null is not changed
+          - nm_update_new_fabric_policy_template_1_0_null.previous.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_1_0_null.previous.fabricPolicyTemplate.sites | length == 1
+          - nm_update_new_fabric_policy_template_1_0_null.current.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_1_0_null.current.fabricPolicyTemplate.sites | length == 1
           - nm_update_new_fabric_policy_template_1_0 is changed
           - nm_update_new_fabric_policy_template_1_0.previous.displayName == 'ansible_fabric_policy_template'
+          - nm_update_new_fabric_policy_template_1_0.previous.fabricPolicyTemplate.sites | length == 1
           - nm_update_new_fabric_policy_template_1_0.current.displayName == 'ansible_fabric_policy_template'
           - nm_update_new_fabric_policy_template_1_0.current.fabricPolicyTemplate.sites == []
 

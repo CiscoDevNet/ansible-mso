@@ -53,6 +53,8 @@ options:
     description:
     - The list of sites attached to the template.
     - Required when O(type=l3out), O(type=monitoring_tenant) or O(type=monitoring_access).
+    - Set to an empty list O(sites=[]) to remove all sites attached from the template.
+    - Set to null O(sites=null) or do not provide O(sites) to avoid making changes to sites attached to the template.
     aliases: [ site ]
     type: list
     elements: dict
@@ -213,7 +215,7 @@ def main():
 
             # When more then 1 site can be provided the sites can be added and/or removed with PATCH operations
             # This is done to avoid config loss within sites during a single replace operation on the sites container
-            if TEMPLATE_TYPES[template_type]["site_amount"] > 1:
+            if TEMPLATE_TYPES[template_type]["site_amount"] > 1 and module.params.get("sites") is not None:
                 append_site_config_to_ops(ops, TEMPLATE_TYPES[template_type]["template_type_container"], mso_template.template, site_ids)
 
             mso.sanitize(mso_template.template)

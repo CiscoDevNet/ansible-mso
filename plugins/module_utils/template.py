@@ -86,3 +86,30 @@ class MSOTemplate:
             self.mso.fail_json(msg="Template '{0}' not found.".format(self.template_name))
         if self.template.get("templateType") != template_type:
             self.mso.fail_json(msg="Template type must be '{0}'.".format(template_type))
+
+    def get_object_by_key_value_pairs(self, object_description, search_list, kv_list, fail_module=False):
+        """
+        Get the object from a list of mso object dictionaries by name.
+        :param object_description: Description of the object to search for -> Str
+        :param search_list: Objects to search through -> List.
+        :param kv_list: Key/value pairs that should match in the object. -> List[KVPair(Str, Str)]
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: The object. -> Dict | None
+        """
+        match, existing = self.get_object_from_list(search_list, kv_list)
+        if not match and fail_module:
+            msg = "Provided {0} with '{1}' not matching existing object(s): {2}".format(object_description, kv_list, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        return match
+
+    def get_object_by_uuid(self, object_description, search_list, uuid, fail_module=False):
+        """
+        Get the object from a list of mso object dictionaries by uuid.
+        :param object_description: Description of the object to search for -> Str
+        :param search_list: Objects to search through -> List.
+        :param uuid: UUID of the object to search for -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: The object. -> Dict | None
+        """
+        kv_list = [KVPair("uuid", uuid)]
+        return self.get_object_by_key_value_pairs(object_description, search_list, kv_list, fail_module)

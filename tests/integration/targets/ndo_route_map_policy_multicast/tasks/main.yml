@@ -1,0 +1,387 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+
+    - name: Ensure sites exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ item.site }}'
+        apic_username: '{{ apic_username }}'
+        apic_password: '{{ apic_password }}'
+        apic_site_id: '{{ item.apic_site_id }}'
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+      loop:
+        - {site: "ansible_test", apic_site_id: 101}
+        - {site: "ansible_test_2", apic_site_id: 102}
+
+    - name: Ensure tenants exist
+      cisco.mso.mso_tenant: 
+        <<: *mso_info
+        tenant: '{{ item }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+          - ansible_test_2
+        state: present
+      loop:
+        - ansible_test
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_tenant_template
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+
+    # CREATE
+
+    - name: Create a new route map policy multicast (check_mode)
+      cisco.mso.ndo_route_map_policy_multicast: &create_route_map_policy_multicast
+        <<: *mso_info
+        template: ansible_tenant_template
+        route_map_policy: ansible_test_route_map_policy
+        entries:
+          - order: 1
+            group: 226.2.2.0/24
+            source: 1.1.1.1/24
+            action: permit
+        state: present
+      check_mode: true
+      register: cm_create_new_route_map_policy_multicast
+
+    - name: Create a new route map policy multicast
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *create_route_map_policy_multicast
+      register: nm_create_new_route_map_policy_multicast
+
+    - name: Create a new route map policy multicast again
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *create_route_map_policy_multicast
+      register: nm_create_new_route_map_policy_multicast_again
+
+    - name: Assert route map policy multicast was created
+      assert:
+        that:
+          - cm_create_new_route_map_policy_multicast is changed
+          - cm_create_new_route_map_policy_multicast.previous == {}
+          - cm_create_new_route_map_policy_multicast.current.name == "ansible_test_route_map_policy"
+          - cm_create_new_route_map_policy_multicast.current.entries.0.order == 1
+          - cm_create_new_route_map_policy_multicast.current.entries.0.group == "226.2.2.0/24"
+          - cm_create_new_route_map_policy_multicast.current.entries.0.source == "1.1.1.1/24"
+          - cm_create_new_route_map_policy_multicast.current.entries.0.action == "permit"
+          - nm_create_new_route_map_policy_multicast is changed
+          - nm_create_new_route_map_policy_multicast.previous == {}
+          - nm_create_new_route_map_policy_multicast.current.name == "ansible_test_route_map_policy"
+          - nm_create_new_route_map_policy_multicast.current.entries.0.order == 1
+          - nm_create_new_route_map_policy_multicast.current.entries.0.group == "226.2.2.0/24"
+          - nm_create_new_route_map_policy_multicast.current.entries.0.source == "1.1.1.1/24"
+          - nm_create_new_route_map_policy_multicast.current.entries.0.action == "permit"
+          - nm_create_new_route_map_policy_multicast_again is not changed
+          - nm_create_new_route_map_policy_multicast_again.previous.name == "ansible_test_route_map_policy"
+          - nm_create_new_route_map_policy_multicast_again.previous.description == ""
+          - nm_create_new_route_map_policy_multicast_again.previous.uuid is defined
+          - nm_create_new_route_map_policy_multicast_again.current.entries.0.order == 1
+          - nm_create_new_route_map_policy_multicast_again.current.entries.0.group == "226.2.2.0/24"
+          - nm_create_new_route_map_policy_multicast_again.current.entries.0.source == "1.1.1.1/24"
+          - nm_create_new_route_map_policy_multicast_again.current.entries.0.action == "permit"
+          - nm_create_new_route_map_policy_multicast_again.current.name == "ansible_test_route_map_policy"
+          - nm_create_new_route_map_policy_multicast_again.current.description == ""
+          - nm_create_new_route_map_policy_multicast_again.current.uuid is defined
+          - nm_create_new_route_map_policy_multicast_again.current.entries.0.order == 1
+          - nm_create_new_route_map_policy_multicast_again.current.entries.0.group == "226.2.2.0/24"
+          - nm_create_new_route_map_policy_multicast_again.current.entries.0.source == "1.1.1.1/24"
+          - nm_create_new_route_map_policy_multicast_again.current.entries.0.action == "permit"
+
+    # UPDATE
+
+    - name: Update a route map policy multicast description (check_mode)
+      cisco.mso.ndo_route_map_policy_multicast: &update_route_map_policy_multicast
+        <<: *create_route_map_policy_multicast
+        description: changed_description
+      check_mode: true
+      register: cm_update_route_map_policy_multicast_description
+
+    - name: Update a route map policy multicast description
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *update_route_map_policy_multicast
+      register: nm_update_route_map_policy_multicast_description
+
+    - name: Update a route map policy multicast description again
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *update_route_map_policy_multicast
+      register: nm_update_route_map_policy_multicast_description_again
+
+    - name: Assert route map policy multicast was updated
+      assert:
+        that:
+          - cm_update_route_map_policy_multicast_description is changed
+          - cm_update_route_map_policy_multicast_description.previous.description == ""
+          - cm_update_route_map_policy_multicast_description.current.description == "changed_description"
+          - nm_update_route_map_policy_multicast_description is changed
+          - nm_update_route_map_policy_multicast_description.previous.description == ""
+          - nm_update_route_map_policy_multicast_description.current.description == "changed_description"
+          - nm_update_route_map_policy_multicast_description_again is not changed
+          - nm_update_route_map_policy_multicast_description_again.previous.description == "changed_description"
+          - nm_update_route_map_policy_multicast_description_again.current.description == "changed_description"
+
+    - name: Update a route map policy multicast name
+      cisco.mso.ndo_route_map_policy_multicast: &update_route_map_policy_multicast_name
+        <<: *update_route_map_policy_multicast
+        route_map_policy_uuid: '{{ nm_update_route_map_policy_multicast_description.current.uuid }}'
+        route_map_policy: ansible_test_route_map_policy_changed
+      register: nm_update_route_map_policy_multicast_name
+
+    - name: Update a route map policy multicast entries change input
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *update_route_map_policy_multicast_name
+        entries:
+          - order: 2
+            group: 226.2.3.0/24
+            source: 3.1.1.1/24
+            rp: 3.1.1.2
+            action: deny
+      register: nm_update_route_map_policy_multicast_entries_change_input
+
+    - name: Update a route map policy multicast entries to 4
+      cisco.mso.ndo_route_map_policy_multicast: &update_route_map_policy_multicast_entries_4
+        <<: *update_route_map_policy_multicast_name
+        entries:
+          - order: 1
+            group: 226.1.1.0/24
+            source: 1.1.1.1/24
+            rp: 1.1.1.2
+            action: permit
+          - order: 2
+            group: 226.2.1.0/24
+            source: 2.1.1.1/24
+            rp: 2.1.1.2
+            action: deny
+          - order: 3
+            group: 226.3.1.0/24
+            source: 3.1.1.1/24
+            rp: 3.1.1.2
+            action: permit
+          - order: 4
+            group: 226.4.1.0/24
+            source: 4.1.1.1/24
+            rp: 4.1.1.2
+            action: deny
+      register: nm_update_route_map_policy_multicast_entries_4
+
+    - name: Update a route map policy multicast entries to 4 again
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *update_route_map_policy_multicast_entries_4
+      register: nm_update_route_map_policy_multicast_entries_4_again
+
+    - name: Update a route map policy multicast entries order without change
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *update_route_map_policy_multicast_name
+        entries:
+          - order: 1
+            group: 226.1.1.0/24
+            source: 1.1.1.1/24
+            rp: 1.1.1.2
+            action: permit
+          - order: 2
+            group: 226.2.1.0/24
+            source: 2.1.1.1/24
+            rp: 2.1.1.2
+            action: deny
+          - order: 4
+            group: 226.4.1.0/24
+            source: 4.1.1.1/24
+            rp: 4.1.1.2
+            action: deny
+          - order: 3
+            group: 226.3.1.0/24
+            source: 3.1.1.1/24
+            rp: 3.1.1.2
+            action: permit
+      register: nm_update_route_map_policy_multicast_entries_4_order
+
+    - name: Delete a route map policy multicast entry from the list
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *update_route_map_policy_multicast_name
+        entries:
+          - order: 1
+            group: 226.1.1.0/24
+            source: 1.1.1.1/24
+            rp: 1.1.1.2
+            action: permit
+          - order: 4
+            group: 226.4.1.0/24
+            source: 4.1.1.1/24
+            rp: 4.1.1.2
+            action: deny
+          - order: 3
+            group: 226.3.1.0/24
+            source: 3.1.1.1/24
+            rp: 3.1.1.2
+            action: permit
+      register: nm_delete_route_map_policy_multicast_entries_3
+
+    - name: Assert route map policy multicast was updated
+      assert:
+        that:
+          - nm_update_route_map_policy_multicast_name is changed
+          - nm_update_route_map_policy_multicast_name.previous.name == "ansible_test_route_map_policy"
+          - nm_update_route_map_policy_multicast_name.current.name == "ansible_test_route_map_policy_changed"
+          - nm_update_route_map_policy_multicast_entries_change_input is changed
+          - nm_update_route_map_policy_multicast_entries_change_input.previous.entries | length == 1
+          - nm_update_route_map_policy_multicast_entries_change_input.previous.entries.0.order == 1
+          - nm_update_route_map_policy_multicast_entries_change_input.current.entries | length == 1
+          - nm_update_route_map_policy_multicast_entries_change_input.current.entries.0.order == 2
+          - nm_update_route_map_policy_multicast_entries_4 is changed
+          - nm_update_route_map_policy_multicast_entries_4.previous.entries | length == 1
+          - nm_update_route_map_policy_multicast_entries_4.current.entries | length == 4
+          - nm_update_route_map_policy_multicast_entries_4_again is not changed
+          - nm_update_route_map_policy_multicast_entries_4_again.previous.entries | length == 4
+          - nm_update_route_map_policy_multicast_entries_4_again.current.entries | length == 4
+          - nm_update_route_map_policy_multicast_entries_4_order is changed
+          - nm_update_route_map_policy_multicast_entries_4_order.previous.entries | length == 4
+          - nm_update_route_map_policy_multicast_entries_4_order.current.entries | length == 4
+          - nm_delete_route_map_policy_multicast_entries_3 is changed
+          - nm_delete_route_map_policy_multicast_entries_3.previous.entries | length == 4
+          - nm_delete_route_map_policy_multicast_entries_3.current.entries | length == 3
+
+    # QUERY
+
+    - name: Create another route map policy multicast
+      cisco.mso.ndo_route_map_policy_multicast: &create_route_map_policy_multicast_2
+        <<: *create_route_map_policy_multicast
+        route_map_policy: ansible_test_route_map_policy_2
+        description: "This is a test route map policy multicast 2"
+
+    - name: Query a route map policy multicast with template_name
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *create_route_map_policy_multicast_2
+        state: query
+      register: query_one
+
+    - name: Query all route map policy multicast in the template
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *mso_info
+        template: ansible_tenant_template
+        state: query
+      register: query_all
+
+    - name: Assert route map policy multicast was queried
+      assert:
+        that:
+          - query_one is not changed
+          - query_one.current.name == "ansible_test_route_map_policy_2"
+          - query_all is not changed
+          - query_all.current | length == 2
+
+    # ERRORS
+
+    - name: Error entries provided as null on create
+      cisco.mso.ndo_route_map_policy_multicast: &create_route_map_policy_multicast_null_entries
+        <<: *create_route_map_policy_multicast
+        route_map_policy: ansible_test_route_map_policy_3
+        entries: '{{ fakevar | default(omit)}}'
+      register: err_entries_create_null
+      ignore_errors: true
+
+    - name: Error entries provided as empty list on create
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *create_route_map_policy_multicast_null_entries
+        entries: []
+      register: err_entries_create_empty_list
+      ignore_errors: true
+
+    - name: Error no entries provided on update
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *update_route_map_policy_multicast_name
+        entries: []
+      register: err_entries_update_empty_list
+      ignore_errors: true
+
+    - name: Assert errors
+      assert:
+        that:
+          - err_entries_create_null is failed
+          - err_entries_create_null.msg == "At least one entry is required when state is present."
+          - err_entries_create_empty_list is failed
+          - err_entries_create_empty_list.msg == "At least one entry is required when state is present."
+          - err_entries_update_empty_list is failed
+          - err_entries_update_empty_list.msg == "At least one entry is required when state is present."
+
+    # DELETE
+
+    - name: Delete a route map policy multicast (check_mode)
+      cisco.mso.ndo_route_map_policy_multicast: &delete_route_map_policy_multicast
+        <<: *update_route_map_policy_multicast_name
+        state: absent
+      check_mode: true
+      register: cm_delete_route_map_policy_multicast
+
+    - name: Delete a route map policy multicast
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *delete_route_map_policy_multicast
+      register: nm_delete_route_map_policy_multicast
+
+    - name: Delete a route map policy multicast again
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *delete_route_map_policy_multicast
+      register: nm_delete_route_map_policy_multicast_again
+
+    - name: Assert route map policy multicast was deleted
+      assert:
+        that:
+          - cm_delete_route_map_policy_multicast is changed
+          - cm_delete_route_map_policy_multicast.previous.name == 'ansible_test_route_map_policy_changed'
+          - cm_delete_route_map_policy_multicast.previous.entries | length == 3
+          - cm_delete_route_map_policy_multicast.current == {}
+          - nm_delete_route_map_policy_multicast is changed
+          - nm_delete_route_map_policy_multicast.previous.name == 'ansible_test_route_map_policy_changed'
+          - nm_delete_route_map_policy_multicast.previous.entries | length == 3
+          - nm_delete_route_map_policy_multicast.current == {}
+          - nm_delete_route_map_policy_multicast_again is not changed
+          - nm_delete_route_map_policy_multicast_again.previous == {}
+          - nm_delete_route_map_policy_multicast_again.current == {}
+
+    # CLEANUP TEMPLATE
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

@@ -106,9 +106,11 @@ EXAMPLES = r"""
     template: ansible_tenant_template
     relay_policy: ansible_test_relay_policy
     providers:
-      - name: option_1
-        id: 1
-        data: data_1
+      - schema: ansible_test_schema
+        template: ansible_test_template
+        anp: ansible_test_anp
+        epg: ansible_test_epg_1
+        ip: 1.1.1.1
     state: present
 
 - name: Query a dhcp relay policy with template_name
@@ -200,18 +202,18 @@ def main():
     mso_template.validate_template("tenantPolicy")
 
     path = "/tenantPolicyTemplate/template/dhcpRelayPolicies"
-    existing_dhcp_option_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("dhcpRelayPolicies", [])
+    existing_dhcp_relay_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("dhcpRelayPolicies", [])
     if relay_policy:
         object_description = "DHCP Relay Policy"
         if relay_policy_uuid:
-            match = mso_template.get_object_by_uuid(object_description, existing_dhcp_option_policies, relay_policy_uuid)
+            match = mso_template.get_object_by_uuid(object_description, existing_dhcp_relay_policies, relay_policy_uuid)
         else:
             kv_list = [KVPair("name", relay_policy)]
-            match = mso_template.get_object_by_key_value_pairs(object_description, existing_dhcp_option_policies, kv_list)
+            match = mso_template.get_object_by_key_value_pairs(object_description, existing_dhcp_relay_policies, kv_list)
         if match:
             mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
-        mso.existing = mso.previous = existing_dhcp_option_policies
+        mso.existing = mso.previous = existing_dhcp_relay_policies
 
     if state == "present":
 

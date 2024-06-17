@@ -113,3 +113,25 @@ class MSOTemplate:
         """
         kv_list = [KVPair("uuid", uuid)]
         return self.get_object_by_key_value_pairs(object_description, search_list, kv_list, fail_module)
+
+    def get_vlan_pool_uuid(self, vlan_pool_name):
+        """
+        Get the UUID of a VLAN pool by name.
+        :param vlan_pool_name: Name of the VLAN pool to search for -> Str
+        :return: UUID of the VLAN pool. -> Str
+        """
+        existing_vlan_pools = self.template.get("fabricPolicyTemplate", {}).get("template", {}).get("vlanPools", [])
+        kv_list = [KVPair("name", vlan_pool_name)]
+        match = self.get_object_by_key_value_pairs("VLAN Pool", existing_vlan_pools, kv_list, fail_module=True)
+        return match.details.get("uuid")
+
+    def get_vlan_pool_name(self, vlan_pool_uuid):
+        """
+        Get the UUID of a VLAN pool by name.
+        :param vlan_pool_name: Name of the VLAN pool to search for -> Str
+        :return: UUID of the VLAN pool. -> Str
+        """
+        existing_vlan_pools = self.template.get("fabricPolicyTemplate", {}).get("template", {}).get("vlanPools", [])
+        kv_list = [KVPair("uuid", vlan_pool_uuid)]
+        match = self.get_object_by_key_value_pairs("VLAN Pool", existing_vlan_pools, kv_list, fail_module=True)
+        return match.details.get("name")

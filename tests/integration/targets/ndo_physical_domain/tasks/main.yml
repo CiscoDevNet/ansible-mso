@@ -1,0 +1,235 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        template_type: fabric_policy
+        state: absent
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+
+    - name: Create two vlan pools
+      cisco.mso.ndo_vlan_pool:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        vlan_pool: "{{ item.name }}"
+        vlan_ranges:
+          - from_vlan: "{{ item.from_vlan }}"
+            to_vlan: "{{ item.to_vlan }}"
+        state: present
+      loop:
+        - {name: ansible_test_vlan_pool_1, from_vlan: 100, to_vlan: 200}
+        - {name: ansible_test_vlan_pool_2, from_vlan: 300, to_vlan: 400}
+
+    # CREATE
+
+    - name: Create a new physical domain (check_mode)
+      cisco.mso.ndo_physical_domain: &create_physical_domain
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        physical_domain: ansible_test_physical_domain
+        pool: ansible_test_vlan_pool_1
+        state: present
+      check_mode: true
+      register: cm_create_new_physical_domain
+
+    - name: Create a new physical domain
+      cisco.mso.ndo_physical_domain:
+        <<: *create_physical_domain
+      register: nm_create_new_physical_domain
+
+    - name: Create a new physical domain again
+      cisco.mso.ndo_physical_domain:
+        <<: *create_physical_domain
+      register: nm_create_new_physical_domain_again
+
+    - name: Assert physical domain was created
+      assert:
+        that:
+          - cm_create_new_physical_domain is changed
+          - cm_create_new_physical_domain.previous == {}
+          - cm_create_new_physical_domain.current.name == "ansible_test_physical_domain"
+          - cm_create_new_physical_domain.current.pool == "ansible_test_vlan_pool_1"
+          - nm_create_new_physical_domain is changed
+          - nm_create_new_physical_domain.previous == {}
+          - nm_create_new_physical_domain.current.name == "ansible_test_physical_domain"
+          - nm_create_new_physical_domain.current.pool == "ansible_test_vlan_pool_1"
+          - nm_create_new_physical_domain_again is not changed
+          - nm_create_new_physical_domain_again.previous.name == "ansible_test_physical_domain"
+          - nm_create_new_physical_domain_again.previous.description == ""
+          - nm_create_new_physical_domain_again.previous.uuid is defined
+          - nm_create_new_physical_domain_again.previous.pool == "ansible_test_vlan_pool_1"
+          - nm_create_new_physical_domain_again.current.name == "ansible_test_physical_domain"
+          - nm_create_new_physical_domain_again.current.description == ""
+          - nm_create_new_physical_domain_again.current.uuid is defined
+          - nm_create_new_physical_domain_again.current.pool == "ansible_test_vlan_pool_1"
+
+    # UPDATE
+
+    - name: Update a physical domain description (check_mode)
+      cisco.mso.ndo_physical_domain: &update_physical_domain
+        <<: *create_physical_domain
+        description: changed_description
+      check_mode: true
+      register: cm_update_physical_domain_description
+
+    - name: Update a physical domain description
+      cisco.mso.ndo_physical_domain:
+        <<: *update_physical_domain
+      register: nm_update_physical_domain_description
+
+    - name: Update a physical domain description again
+      cisco.mso.ndo_physical_domain:
+        <<: *update_physical_domain
+      register: nm_update_physical_domain_description_again
+
+    - name: Assert physical domain was updated
+      assert:
+        that:
+          - cm_update_physical_domain_description is changed
+          - cm_update_physical_domain_description.previous.description == ""
+          - cm_update_physical_domain_description.current.description == "changed_description"
+          - nm_update_physical_domain_description is changed
+          - nm_update_physical_domain_description.previous.description == ""
+          - nm_update_physical_domain_description.current.description == "changed_description"
+          - nm_update_physical_domain_description_again is not changed
+          - nm_update_physical_domain_description_again.previous.description == "changed_description"
+          - nm_update_physical_domain_description_again.current.description == "changed_description"
+
+    - name: Update a physical domain name
+      cisco.mso.ndo_physical_domain: &update_physical_domain_name
+        <<: *update_physical_domain
+        physical_domain_uuid: '{{ nm_update_physical_domain_description.current.uuid }}'
+        physical_domain: ansible_test_physical_domain_changed
+      register: nm_update_physical_domain_name
+
+    - name: Update a physical domain pool
+      cisco.mso.ndo_physical_domain:
+        <<: *update_physical_domain_name
+        pool: ansible_test_vlan_pool_2
+      register: nm_update_physical_domain_pool
+
+    - name: Remove a physical domain pool
+      cisco.mso.ndo_physical_domain:
+        <<: *update_physical_domain_name
+        pool: ""
+      register: nm_update_physical_domain_pool_remove
+
+    - name: Assert physical domain was updated
+      assert:
+        that:
+          - nm_update_physical_domain_name is changed
+          - nm_update_physical_domain_name.previous.name == "ansible_test_physical_domain"
+          - nm_update_physical_domain_name.current.name == "ansible_test_physical_domain_changed"
+          - nm_update_physical_domain_pool is changed
+          - nm_update_physical_domain_pool.previous.pool == "ansible_test_vlan_pool_1"
+          - nm_update_physical_domain_pool.current.pool == "ansible_test_vlan_pool_2"
+          - nm_update_physical_domain_pool_remove is changed
+          - nm_update_physical_domain_pool_remove.previous.pool == "ansible_test_vlan_pool_2"
+          - nm_update_physical_domain_pool_remove.current.pool is not defined
+
+    # QUERY
+
+    - name: Create another physical domain
+      cisco.mso.ndo_physical_domain: &create_physical_domain_2
+        <<: *create_physical_domain
+        physical_domain: ansible_test_physical_domain_2
+        pool: '{{ fakevar | default(omit)}}'
+        description: "This is a test physical domain 2"
+
+    - name: Query a physical domain with template_name
+      cisco.mso.ndo_physical_domain:
+        <<: *create_physical_domain_2
+        state: query
+      register: query_one
+
+    - name: Query all physical domain in the template
+      cisco.mso.ndo_physical_domain:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        state: query
+      register: query_all
+
+    - name: Assert physical domain was queried
+      assert:
+        that:
+          - query_one is not changed
+          - query_one.current.name == "ansible_test_physical_domain_2"
+          - query_all is not changed
+          - query_all.current | length == 2
+
+    # DELETE
+
+    - name: Delete a physical domain (check_mode)
+      cisco.mso.ndo_physical_domain: &delete_physical_domain
+        <<: *update_physical_domain_name
+        state: absent
+      check_mode: true
+      register: cm_delete_physical_domain
+
+    - name: Delete a physical domain
+      cisco.mso.ndo_physical_domain:
+        <<: *delete_physical_domain
+      register: nm_delete_physical_domain
+
+    - name: Delete a physical domain again
+      cisco.mso.ndo_physical_domain:
+        <<: *delete_physical_domain
+      register: nm_delete_physical_domain_again
+
+    - name: Assert physical domain was deleted
+      assert:
+        that:
+          - cm_delete_physical_domain is changed
+          - cm_delete_physical_domain.previous.name == 'ansible_test_physical_domain_changed'
+          - cm_delete_physical_domain.previous.pool is not defined
+          - cm_delete_physical_domain.current == {}
+          - nm_delete_physical_domain is changed
+          - nm_delete_physical_domain.previous.name == 'ansible_test_physical_domain_changed'
+          - nm_delete_physical_domain.previous.pool is not defined
+          - nm_delete_physical_domain.current == {}
+          - nm_delete_physical_domain_again is not changed
+          - nm_delete_physical_domain_again.previous == {}
+          - nm_delete_physical_domain_again.current == {}
+
+    # CLEANUP TEMPLATE
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

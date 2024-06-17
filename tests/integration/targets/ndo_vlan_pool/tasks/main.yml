@@ -1,0 +1,315 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        template_type: fabric_policy
+        state: absent
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+
+    # CREATE
+
+    - name: Create a new vlan pool (check_mode)
+      cisco.mso.ndo_vlan_pool: &create_vlan_pool
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        vlan_pool: ansible_test_vlan_pool
+        vlan_ranges:
+          - from_vlan: 100
+            to_vlan: 200
+        state: present
+      check_mode: true
+      register: cm_create_new_vlan_pool
+
+    - name: Create a new vlan pool
+      cisco.mso.ndo_vlan_pool:
+        <<: *create_vlan_pool
+      register: nm_create_new_vlan_pool
+
+    - name: Create a new vlan pool again
+      cisco.mso.ndo_vlan_pool:
+        <<: *create_vlan_pool
+      register: nm_create_new_vlan_pool_again
+
+    - name: Assert vlan pool was created
+      assert:
+        that:
+          - cm_create_new_vlan_pool is changed
+          - cm_create_new_vlan_pool.previous == {}
+          - cm_create_new_vlan_pool.current.name == "ansible_test_vlan_pool"
+          - cm_create_new_vlan_pool.current.vlan_ranges.0.range.from == 100
+          - cm_create_new_vlan_pool.current.vlan_ranges.0.range.to == 200
+          - nm_create_new_vlan_pool is changed
+          - nm_create_new_vlan_pool.previous == {}
+          - nm_create_new_vlan_pool.current.name == "ansible_test_vlan_pool"
+          - nm_create_new_vlan_pool.current.vlan_ranges.0.range.from == 100
+          - nm_create_new_vlan_pool.current.vlan_ranges.0.range.to == 200
+          - nm_create_new_vlan_pool_again is not changed
+          - nm_create_new_vlan_pool_again.previous.name == "ansible_test_vlan_pool"
+          - nm_create_new_vlan_pool_again.previous.description == ""
+          - nm_create_new_vlan_pool_again.previous.uuid is defined
+          - nm_create_new_vlan_pool_again.previous.vlan_ranges.0.range.from == 100
+          - nm_create_new_vlan_pool_again.previous.vlan_ranges.0.range.to == 200
+          - nm_create_new_vlan_pool_again.current.name == "ansible_test_vlan_pool"
+          - nm_create_new_vlan_pool_again.current.description == ""
+          - nm_create_new_vlan_pool_again.current.uuid is defined
+          - nm_create_new_vlan_pool_again.current.vlan_ranges.0.range.from == 100
+          - nm_create_new_vlan_pool_again.current.vlan_ranges.0.range.to == 200
+
+    # UPDATE
+
+    - name: Update a vlan pool description (check_mode)
+      cisco.mso.ndo_vlan_pool: &update_vlan_pool
+        <<: *create_vlan_pool
+        description: changed_description
+      check_mode: true
+      register: cm_update_vlan_pool_description
+
+    - name: Update a vlan pool description
+      cisco.mso.ndo_vlan_pool:
+        <<: *update_vlan_pool
+      register: nm_update_vlan_pool_description
+
+    - name: Update a vlan pool description again
+      cisco.mso.ndo_vlan_pool:
+        <<: *update_vlan_pool
+      register: nm_update_vlan_pool_description_again
+
+    - name: Assert vlan pool was updated
+      assert:
+        that:
+          - cm_update_vlan_pool_description is changed
+          - cm_update_vlan_pool_description.previous.description == ""
+          - cm_update_vlan_pool_description.current.description == "changed_description"
+          - nm_update_vlan_pool_description is changed
+          - nm_update_vlan_pool_description.previous.description == ""
+          - nm_update_vlan_pool_description.current.description == "changed_description"
+          - nm_update_vlan_pool_description_again is not changed
+          - nm_update_vlan_pool_description_again.previous.description == "changed_description"
+          - nm_update_vlan_pool_description_again.current.description == "changed_description"
+
+    - name: Update a vlan pool name
+      cisco.mso.ndo_vlan_pool: &update_vlan_pool_name
+        <<: *update_vlan_pool
+        vlan_pool_uuid: '{{ nm_update_vlan_pool_description.current.uuid }}'
+        vlan_pool: ansible_test_vlan_pool_changed
+      register: nm_update_vlan_pool_name
+
+    - name: Update a vlan pool vlan_ranges change input
+      cisco.mso.ndo_vlan_pool:
+        <<: *update_vlan_pool_name
+        vlan_ranges:
+          - from_vlan: 300
+            to_vlan: 400
+      register: nm_update_vlan_pool_vlan_ranges_change_input
+
+    - name: Update a vlan pool vlan_ranges to 4
+      cisco.mso.ndo_vlan_pool: &update_vlan_pool_vlan_ranges_4
+        <<: *update_vlan_pool_name
+        vlan_ranges:
+          - from_vlan: 100
+            to_vlan: 200
+          - from_vlan: 300
+            to_vlan: 400
+          - from_vlan: 500
+            to_vlan: 600
+          - from_vlan: 700
+            to_vlan: 800
+      register: nm_update_vlan_pool_vlan_ranges_4
+
+    - name: Update a vlan pool vlan_ranges to 4 again
+      cisco.mso.ndo_vlan_pool:
+        <<: *update_vlan_pool_vlan_ranges_4
+      register: nm_update_vlan_pool_vlan_ranges_4_again
+
+    - name: Update a vlan pool vlan_ranges order without change
+      cisco.mso.ndo_vlan_pool:
+        <<: *update_vlan_pool_name
+        vlan_ranges:
+          - from_vlan: 100
+            to_vlan: 200
+          - from_vlan: 300
+            to_vlan: 400
+          - from_vlan: 700
+            to_vlan: 800
+          - from_vlan: 500
+            to_vlan: 600
+      register: nm_update_vlan_pool_vlan_ranges_4_order
+
+    - name: Delete a vlan pool entry from the list
+      cisco.mso.ndo_vlan_pool:
+        <<: *update_vlan_pool_name
+        vlan_ranges:
+          - from_vlan: 100
+            to_vlan: 200
+          - from_vlan: 700
+            to_vlan: 800
+          - from_vlan: 500
+            to_vlan: 600
+      register: nm_delete_vlan_pool_vlan_ranges_3
+
+    - name: Assert vlan pool was updated
+      assert:
+        that:
+          - nm_update_vlan_pool_name is changed
+          - nm_update_vlan_pool_name.previous.name == "ansible_test_vlan_pool"
+          - nm_update_vlan_pool_name.current.name == "ansible_test_vlan_pool_changed"
+          - nm_update_vlan_pool_vlan_ranges_change_input is changed
+          - nm_update_vlan_pool_vlan_ranges_change_input.previous.vlan_ranges | length == 1
+          - nm_update_vlan_pool_vlan_ranges_change_input.previous.vlan_ranges.0.range.from == 100
+          - nm_update_vlan_pool_vlan_ranges_change_input.previous.vlan_ranges.0.range.to == 200
+          - nm_update_vlan_pool_vlan_ranges_change_input.current.vlan_ranges | length == 1
+          - nm_update_vlan_pool_vlan_ranges_change_input.current.vlan_ranges.0.range.from == 300
+          - nm_update_vlan_pool_vlan_ranges_change_input.current.vlan_ranges.0.range.to == 400
+          - nm_update_vlan_pool_vlan_ranges_4 is changed
+          - nm_update_vlan_pool_vlan_ranges_4.previous.vlan_ranges | length == 1
+          - nm_update_vlan_pool_vlan_ranges_4.current.vlan_ranges | length == 4
+          - nm_update_vlan_pool_vlan_ranges_4_again is not changed
+          - nm_update_vlan_pool_vlan_ranges_4_again.previous.vlan_ranges | length == 4
+          - nm_update_vlan_pool_vlan_ranges_4_again.current.vlan_ranges | length == 4
+          - nm_update_vlan_pool_vlan_ranges_4_order is changed
+          - nm_update_vlan_pool_vlan_ranges_4_order.previous.vlan_ranges | length == 4
+          - nm_update_vlan_pool_vlan_ranges_4_order.current.vlan_ranges | length == 4
+          - nm_delete_vlan_pool_vlan_ranges_3 is changed
+          - nm_delete_vlan_pool_vlan_ranges_3.previous.vlan_ranges | length == 4
+          - nm_delete_vlan_pool_vlan_ranges_3.current.vlan_ranges | length == 3
+
+    # QUERY
+
+    - name: Create another vlan pool
+      cisco.mso.ndo_vlan_pool: &create_vlan_pool_2
+        <<: *create_vlan_pool
+        vlan_pool: ansible_test_vlan_pool_2
+        description: "This is a test vlan pool 2"
+
+    - name: Query a vlan pool with template_name
+      cisco.mso.ndo_vlan_pool:
+        <<: *create_vlan_pool_2
+        state: query
+      register: query_one
+
+    - name: Query all vlan pool in the template
+      cisco.mso.ndo_vlan_pool:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        state: query
+      register: query_all
+
+    - name: Assert vlan pool was queried
+      assert:
+        that:
+          - query_one is not changed
+          - query_one.current.name == "ansible_test_vlan_pool_2"
+          - query_all is not changed
+          - query_all.current | length == 2
+
+    # ERRORS
+
+    - name: Error vlan_ranges provided as null on create
+      cisco.mso.ndo_vlan_pool: &create_vlan_pool_null_vlan_ranges
+        <<: *create_vlan_pool
+        vlan_pool: ansible_test_vlan_pool_3
+        vlan_ranges: '{{ fakevar | default(omit)}}'
+      register: err_vlan_ranges_create_null
+      ignore_errors: true
+
+    - name: Error vlan_ranges provided as empty list on create
+      cisco.mso.ndo_vlan_pool:
+        <<: *create_vlan_pool_null_vlan_ranges
+        vlan_ranges: []
+      register: err_vlan_ranges_create_empty_list
+      ignore_errors: true
+
+    - name: Error no vlan_ranges provided on update
+      cisco.mso.ndo_vlan_pool:
+        <<: *update_vlan_pool_name
+        vlan_ranges: []
+      register: err_vlan_ranges_update_empty_list
+      ignore_errors: true
+
+    - name: Assert errors
+      assert:
+        that:
+          - err_vlan_ranges_create_null is failed
+          - err_vlan_ranges_create_null.msg == "At least one vlan range is required when state is present."
+          - err_vlan_ranges_create_empty_list is failed
+          - err_vlan_ranges_create_empty_list.msg == "At least one vlan range is required when state is present."
+          - err_vlan_ranges_update_empty_list is failed
+          - err_vlan_ranges_update_empty_list.msg == "At least one vlan range is required when state is present."
+
+    # DELETE
+
+    - name: Delete a vlan pool (check_mode)
+      cisco.mso.ndo_vlan_pool: &delete_vlan_pool
+        <<: *update_vlan_pool_name
+        state: absent
+      check_mode: true
+      register: cm_delete_vlan_pool
+
+    - name: Delete a vlan pool
+      cisco.mso.ndo_vlan_pool:
+        <<: *delete_vlan_pool
+      register: nm_delete_vlan_pool
+
+    - name: Delete a vlan pool again
+      cisco.mso.ndo_vlan_pool:
+        <<: *delete_vlan_pool
+      register: nm_delete_vlan_pool_again
+
+    - name: Assert vlan pool was deleted
+      assert:
+        that:
+          - cm_delete_vlan_pool is changed
+          - cm_delete_vlan_pool.previous.name == 'ansible_test_vlan_pool_changed'
+          - cm_delete_vlan_pool.previous.vlan_ranges | length == 3
+          - cm_delete_vlan_pool.current == {}
+          - nm_delete_vlan_pool is changed
+          - nm_delete_vlan_pool.previous.name == 'ansible_test_vlan_pool_changed'
+          - nm_delete_vlan_pool.previous.vlan_ranges | length == 3
+          - nm_delete_vlan_pool.current == {}
+          - nm_delete_vlan_pool_again is not changed
+          - nm_delete_vlan_pool_again.previous == {}
+          - nm_delete_vlan_pool_again.current == {}
+
+    # CLEANUP TEMPLATE
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

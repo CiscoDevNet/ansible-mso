@@ -160,7 +160,6 @@ def main():
 
     ops = []
     match = None
-    err_message_min_vlan_ranges = "At least one vlan range is required when state is present."
 
     mso_template = MSOTemplate(mso, "fabric_policy", template)
     mso_template.validate_template("fabricPolicy")
@@ -181,6 +180,8 @@ def main():
         mso.existing = mso.previous = existing_vlan_pools
 
     if state == "present":
+
+        err_message_min_vlan_ranges = "At least one vlan range is required when state is present."
 
         if match:
 

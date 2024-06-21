@@ -59,7 +59,7 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-- name: Create a new l3 domain
+- name: Create a new L3 domain
   cisco.mso.ndo_l3_domain:
     host: mso_host
     username: admin
@@ -69,7 +69,7 @@ EXAMPLES = r"""
     pool: ansible_test_vlan_pool
     state: present
 
-- name: Query a l3 domain with template_name
+- name: Query a L3 domain with template_name
   cisco.mso.ndo_l3_domain:
     host: mso_host
     username: admin
@@ -79,7 +79,7 @@ EXAMPLES = r"""
     state: query
   register: query_one
 
-- name: Query all l3 domains in the template
+- name: Query all L3 domains in the template
   cisco.mso.ndo_l3_domain:
     host: mso_host
     username: admin
@@ -88,7 +88,7 @@ EXAMPLES = r"""
     state: query
   register: query_all
 
-- name: Delete a vlan pool from a l3 domain
+- name: Delete a vlan pool from a L3 domain
   cisco.mso.ndo_l3_domain:
     host: mso_host
     username: admin
@@ -98,7 +98,7 @@ EXAMPLES = r"""
     pool: ""
     state: present
 
-- name: Delete a l3 domain
+- name: Delete a L3 domain
   cisco.mso.ndo_l3_domain:
     host: mso_host
     username: admin

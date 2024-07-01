@@ -228,6 +228,18 @@ options:
     - Unicast Routing
     - This option can only be used on versions of MSO that are 3.1.1h or greater.
     type: bool
+  multicast_route_map_source_filter:
+    description:
+    - The name of the Route Map Source Filter.
+    - The Route Map Source Filter must reside in the same tenant as the tenant associated to the schema.
+    - This option can only be used when the BD has Layer 3 Multicast enabled.
+    type: str
+  multicast_route_map_destination_filter:
+    description:
+    - The name of the Route Map Destination Filter.
+    - The Route Map Destination Filter must reside in the same tenant as the tenant associated to the schema.
+    - This option can only be used when the BD has Layer 3 Multicast enabled.
+    type: str
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -393,6 +405,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec, mso_bd_subnet_spec, mso_dhcp_spec
+from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
 
 
 def main():
@@ -418,6 +431,8 @@ def main():
         arp_flooding=dict(type="bool"),
         virtual_mac_address=dict(type="str"),
         unicast_routing=dict(type="bool"),
+        multicast_route_map_source_filter=dict(type="str"),
+        multicast_route_map_destination_filter=dict(type="str"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -452,6 +467,8 @@ def main():
     arp_flooding = module.params.get("arp_flooding")
     virtual_mac_address = module.params.get("virtual_mac_address")
     unicast_routing = module.params.get("unicast_routing")
+    multicast_route_map_source_filter = module.params.get("multicast_route_map_source_filter")
+    multicast_route_map_destination_filter = module.params.get("multicast_route_map_destination_filter")
     state = module.params.get("state")
 
     mso = MSOModule(module)
@@ -489,6 +506,13 @@ def main():
         elif not mso.existing:
             mso.fail_json(msg="BD '{bd}' not found".format(bd=bd))
         mso.exit_json()
+
+    if multicast_route_map_source_filter or multicast_route_map_destination_filter:
+        if not layer3_multicast:
+            mso.fail_json(msg="Layer 3 Multicast must be enabled to use Multicast Route Map Filters.")
+        source_id, destination_id = get_route_map_filter_uuids(
+            mso, schema_obj.get("templates")[template_idx].get("tenantId"), multicast_route_map_source_filter, multicast_route_map_destination_filter
+        )
 
     bds_path = "/templates/{0}/bds".format(template)
     bd_path = "/templates/{0}/bds/{1}".format(template, bd)
@@ -538,6 +562,19 @@ def main():
         if description:
             payload.update(description=description)
 
+        if multicast_route_map_source_filter or multicast_route_map_destination_filter:
+            route_map_filter = {}
+
+            # Static setting defined version and mcastRtMapDestVersion to 0 are set in UI but seem not required so excluding them
+            # If in future this is required then uncomment the below line
+            # route_map_filter = {"version": 0, "mcastRtMapDestVersion": 0}
+
+            if source_id:
+                route_map_filter["mcastRtMapSourceRef"] = source_id
+            if destination_id:
+                route_map_filter["mcastRtMapDestRef"] = destination_id
+            payload.update(mcastRtMapFilter=route_map_filter)
+
         mso.sanitize(payload, collate=True, required=["dhcpLabel", "dhcpLabels"])
         if mso.existing:
             ops.append(dict(op="replace", path=bd_path, value=mso.sent))
@@ -554,6 +591,42 @@ def main():
         mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()
+
+
+def get_route_map_filter_uuids(mso, tenant_id, multicast_route_map_source_filter, multicast_route_map_destination_filter):
+    source_id, destination_id = None, None
+
+    # Only tenant type templates contain the correct route map policies
+    # Retrieves the list templates that contain the same tenant because only route map policies for the tenant assigned to the schema are options to be chosen
+    templates = [
+        MSOTemplate(mso, template_id=template.get("templateId")) for template in MSOTemplate(mso, "tenant").template if template.get("tenantId") == tenant_id
+    ]
+
+    # NDO restricts route map policies in the same tenant to have the same name thus we can loop through the route map policies to find the correct uuid
+    for template in templates:
+        for route_map_policy in template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("mcastRouteMapPolicies", []):
+            if multicast_route_map_source_filter and route_map_policy.get("name") == multicast_route_map_source_filter:
+                source_id = route_map_policy.get("uuid")
+            if multicast_route_map_destination_filter and route_map_policy.get("name") == multicast_route_map_destination_filter:
+                destination_id = route_map_policy.get("uuid")
+            if (multicast_route_map_source_filter is None or source_id) and (multicast_route_map_destination_filter is None or destination_id):
+                break
+        if (multicast_route_map_source_filter is None or source_id) and (multicast_route_map_destination_filter is None or destination_id):
+            break
+
+    # Error handling for when N amount of route map policies are not found
+    error_message = ""
+    if multicast_route_map_source_filter and not source_id:
+        error_message = "Route Map Source Filter '{0}' not found.".format(multicast_route_map_source_filter)
+    if multicast_route_map_destination_filter and not destination_id:
+        if error_message == "":
+            error_message = "Route Map Destination Filter '{0}' not found.".format(multicast_route_map_destination_filter)
+        else:
+            error_message += "\nRoute Map Destination Filter '{0}' not found.".format(multicast_route_map_destination_filter)
+    if error_message:
+        mso.fail_json(msg=error_message)
+
+    return source_id, destination_id
 
 
 if __name__ == "__main__":

@@ -229,6 +229,50 @@
   # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
   - version.current.version is version('4.0', '<')
 
+# Tenant templates are created only for 4.3+ versions
+# PATCH was introduced in 4.3 which allows for adding the route-map policies that are required for the tests
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+  - name: Remove tenant templates
+    cisco.mso.ndo_template:
+      <<: *mso_info
+      name: "{{ item }}"
+      template_type: tenant
+      tenant: ansible_test
+      state: absent
+    loop:
+    - 'ansible_tenant_template_1'
+    - 'ansible_tenant_template_2'
+
+  - name: Ensure tenant templates exist
+    cisco.mso.ndo_template: &template_absent
+      <<: *mso_info
+      name: "{{item}}"
+      template_type: tenant
+      tenant: ansible_test
+      state: present
+    loop:
+    - 'ansible_tenant_template_1'
+    - 'ansible_tenant_template_2'
+
+  - name: Create a new route map policies in templates
+    cisco.mso.ndo_route_map_policy_multicast:
+      <<: *mso_info
+      template: "{{ item.template }}"
+      route_map_policy: "{{ item.route_map_policy }}"
+      entries:
+        - order: "{{ item.order }}"
+          group: "{{ item.group }}"
+          source: "{{ item.source }}"
+          action: permit
+      state: present
+    loop:
+    - {template: ansible_tenant_template_1, route_map_policy: ansible_test_route_map_policy_1, order: 1, group: 226.1.1.0/24, source: 1.1.1.1/24}
+    - {template: ansible_tenant_template_1, route_map_policy: ansible_test_route_map_policy_2, order: 2, group: 226.2.2.0/24, source: 2.1.1.1/24}
+    - {template: ansible_tenant_template_2, route_map_policy: ansible_test_route_map_policy_3, order: 1, group: 226.3.3.0/24, source: 3.1.1.1/24}
+    - {template: ansible_tenant_template_2, route_map_policy: ansible_test_route_map_policy_4, order: 2, group: 226.4.4.0/24, source: 4.1.1.1/24}
+
 # ADD BD
 - name: Add bd (check_mode)
   cisco.mso.mso_schema_template_bd: &bd_present
@@ -1692,6 +1736,159 @@
     - query_bd_new_encap_flood.current.l3MCast == false
   when: version.current.version is version('3.2', '>=')
 
+# CREATE BD WITH MULTICAST ROUTE-MAP FILTERS
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+  - name: Create BD with multicast route-map filters (check_mode)
+    cisco.mso.mso_schema_template_bd: &bd_multicast_route_map
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      bd: ansible_test_multicast_route_map
+      vrf:
+        name: VRF
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template1
+      layer3_multicast: true
+      multicast_route_map_source_filter: ansible_test_route_map_policy_1
+      multicast_route_map_destination_filter: ansible_test_route_map_policy_2
+      state: present
+    check_mode: true
+    register: cm_create_bd_multicast_route_map
+  
+  - name: Create BD with multicast route-map filters
+    cisco.mso.mso_schema_template_bd:
+      <<: *bd_multicast_route_map
+    register: nm_create_bd_multicast_route_map
+
+  - name: Create BD with multicast route-map filters again
+    cisco.mso.mso_schema_template_bd:
+      <<: *bd_multicast_route_map
+    register: nm_create_bd_multicast_route_map_again
+
+  - name: Update BD with a destination multicast route-map filter from different template
+    cisco.mso.mso_schema_template_bd:
+      <<: *bd_multicast_route_map
+      multicast_route_map_destination_filter: ansible_test_route_map_policy_3
+    register: nm_update_bd_multicast_route_map
+
+  - name: Update BD with only a source multicast route-map filters
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      bd: ansible_test_multicast_route_map
+      vrf:
+        name: VRF
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template1
+      layer3_multicast: true
+      multicast_route_map_source_filter: ansible_test_route_map_policy_4
+      state: present
+    register: nm_update_bd_multicast_route_map_source_only
+
+  - name: Update BD with only a destination multicast route-map filters
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      bd: ansible_test_multicast_route_map
+      vrf:
+        name: VRF
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template1
+      layer3_multicast: true
+      multicast_route_map_destination_filter: ansible_test_route_map_policy_4
+      state: present
+    register: nm_update_bd_multicast_route_map_destination_only
+
+  - name: Error when providing route-map filter for a BD with layer3_multicast set to false
+    cisco.mso.mso_schema_template_bd:
+      <<: *bd_multicast_route_map
+      layer3_multicast: false
+      state: present
+    register: error_layer_3_multicast_false
+    ignore_errors: true
+
+  - name: Error when non existing source route-map filter
+    cisco.mso.mso_schema_template_bd:
+      <<: *bd_multicast_route_map
+      multicast_route_map_source_filter: non_existing_source
+      state: present
+    register: error_layer_3_multicast_non_existing_source
+    ignore_errors: true
+
+  - name: Error when non existing destination route-map filter
+    cisco.mso.mso_schema_template_bd:
+      <<: *bd_multicast_route_map
+      multicast_route_map_destination_filter: non_existing_destination
+      state: present
+    register: error_layer_3_multicast_non_existing_destination
+    ignore_errors: true
+
+  - name: Error when non existing source and destination route-map filter
+    cisco.mso.mso_schema_template_bd:
+      <<: *bd_multicast_route_map
+      multicast_route_map_source_filter: non_existing_source
+      multicast_route_map_destination_filter: non_existing_destination
+      state: present
+    register: error_layer_3_multicast_non_existing_both
+    ignore_errors: true
+
+  - name: Assert multicast route-map filters
+    ansible.builtin.assert:
+      that:
+      - cm_create_bd_multicast_route_map is changed
+      - cm_create_bd_multicast_route_map.previous == {}
+      - cm_create_bd_multicast_route_map.current.displayName == "ansible_test_multicast_route_map"
+      - cm_create_bd_multicast_route_map.current.name == "ansible_test_multicast_route_map"
+      - cm_create_bd_multicast_route_map.current.l3MCast
+      - cm_create_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapDestRef is defined
+      - cm_create_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapSourceRef is defined
+      - cm_create_bd_multicast_route_map.current.vrfRef.vrfName == "VRF"
+      - nm_create_bd_multicast_route_map is changed
+      - nm_create_bd_multicast_route_map.previous == {}
+      - nm_create_bd_multicast_route_map.current.displayName == "ansible_test_multicast_route_map"
+      - nm_create_bd_multicast_route_map.current.name == "ansible_test_multicast_route_map"
+      - nm_create_bd_multicast_route_map.current.l3MCast
+      - nm_create_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapDestRef is defined
+      - nm_create_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapSourceRef is defined
+      - nm_create_bd_multicast_route_map.current.vrfRef.vrfName == "VRF"
+      - nm_create_bd_multicast_route_map_again is not changed
+      - nm_create_bd_multicast_route_map_again.previous.displayName == "ansible_test_multicast_route_map"
+      - nm_create_bd_multicast_route_map_again.previous.name == "ansible_test_multicast_route_map"
+      - nm_create_bd_multicast_route_map_again.previous.l3MCast
+      - nm_create_bd_multicast_route_map_again.previous.mcastRtMapFilter.mcastRtMapDestRef is defined
+      - nm_create_bd_multicast_route_map_again.previous.mcastRtMapFilter.mcastRtMapSourceRef is defined
+      - nm_create_bd_multicast_route_map_again.previous.vrfRef.vrfName == "VRF"
+      - nm_create_bd_multicast_route_map_again.current.displayName == "ansible_test_multicast_route_map"
+      - nm_create_bd_multicast_route_map_again.current.name == "ansible_test_multicast_route_map"
+      - nm_create_bd_multicast_route_map_again.current.l3MCast
+      - nm_create_bd_multicast_route_map_again.current.mcastRtMapFilter.mcastRtMapDestRef is defined
+      - nm_create_bd_multicast_route_map_again.current.mcastRtMapFilter.mcastRtMapSourceRef is defined
+      - nm_create_bd_multicast_route_map_again.current.vrfRef.vrfName == "VRF"
+      - nm_update_bd_multicast_route_map is changed
+      - nm_update_bd_multicast_route_map.current.displayName == "ansible_test_multicast_route_map"
+      - nm_update_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapDestRef != nm_update_bd_multicast_route_map.previous.mcastRtMapFilter.mcastRtMapDestRef
+      - nm_update_bd_multicast_route_map_source_only is changed
+      - nm_update_bd_multicast_route_map_source_only.current.displayName == "ansible_test_multicast_route_map"
+      - nm_update_bd_multicast_route_map_source_only.current.mcastRtMapFilter.mcastRtMapDestRef is not defined
+      - nm_update_bd_multicast_route_map_source_only.current.mcastRtMapFilter.mcastRtMapSourceRef is defined  
+      - nm_update_bd_multicast_route_map_destination_only is changed
+      - nm_update_bd_multicast_route_map_destination_only.current.displayName == "ansible_test_multicast_route_map"
+      - nm_update_bd_multicast_route_map_destination_only.current.mcastRtMapFilter.mcastRtMapSourceRef is not defined
+      - nm_update_bd_multicast_route_map_destination_only.current.mcastRtMapFilter.mcastRtMapDestRef is defined 
+      - error_layer_3_multicast_false is failed
+      - error_layer_3_multicast_false.msg == "Layer 3 Multicast must be enabled to use Multicast Route Map Filters."
+      - error_layer_3_multicast_non_existing_source is failed
+      - error_layer_3_multicast_non_existing_source.msg == "Route Map Source Filter 'non_existing_source' not found."
+      - error_layer_3_multicast_non_existing_destination is failed
+      - error_layer_3_multicast_non_existing_destination.msg == "Route Map Destination Filter 'non_existing_destination' not found."
+      - error_layer_3_multicast_non_existing_both is failed
+      - error_layer_3_multicast_non_existing_both.msg == "Route Map Source Filter 'non_existing_source' not found.\nRoute Map Destination Filter 'non_existing_destination' not found."
+
 # REMOVE BD
 - name: Remove bd (check_mode)
   cisco.mso.mso_schema_template_bd: &bd_absent
@@ -1914,3 +2111,18 @@
   loop:
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
+
+# CLEAN UP Tenant Templates
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+  - name: Remove tenant templates for next ci test
+    cisco.mso.ndo_template:
+      <<: *mso_info
+      name: "{{item}}"
+      template_type: tenant
+      tenant: ansible_test
+      state: absent
+    loop:
+    - 'ansible_tenant_template_1'
+    - 'ansible_tenant_template_2'

@@ -685,13 +685,22 @@
   - version.current.version is version('3.3', '<')
   - version.current.version is version('3.1.1g', '>=')
 
-- name: Verify nm_change_bd_5_3 for a version that's after 4.0
+- name: Verify nm_change_bd_5_3 for a version that's after 4.0 and before 4.3
   ansible.builtin.assert:
     that:
     - nm_change_bd_5_3 is changed
     - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} BD{{':'}} ansible_test_5 in Schema{{':'}} ansible_test_2 , Template{{':'}} Template5 BD ansible_test_5 l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
   when:
+  - version.current.version is version('4.3', '<')
   - version.current.version is version('4.0', '>=')
+
+- name: Verify nm_change_bd_5_3 for a version that's after 4.3
+  ansible.builtin.assert:
+    that:
+    - nm_change_bd_5_3 is changed
+    - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} BD{{':'}} ansible_test_5 in Schema{{':'}} ansible_test_2, Template{{':'}} Template5, BD ansible_test_5 l2UnknownUnicast cannot be set to flood when intersiteBumTrafficAllow is off")
+  when:
+  - version.current.version is version('4.3', '>=')
 
 - name: Get Validation status
   cisco.mso.mso_schema_validate:

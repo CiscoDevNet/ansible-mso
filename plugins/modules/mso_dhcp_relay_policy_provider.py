@@ -19,6 +19,7 @@ module: mso_dhcp_relay_policy_provider
 short_description: Manage DHCP providers in a DHCP Relay policy.
 description:
 - Manage DHCP providers in a DHCP Relay policy on Cisco Multi-Site Orchestrator.
+- This module is only supported on NDO version prior to v4.0.
 author:
 - Jorge Gomez (@jorgegome2307)
 options:

@@ -20,6 +20,7 @@ module: mso_dhcp_option_policy_option
 short_description: Manage DHCP options in a DHCP Option policy.
 description:
 - Manage DHCP options in a DHCP Option policy on Cisco Multi-Site Orchestrator.
+- This module is only supported on NDO version prior to v4.0.
 author:
 - Lionel Hercot (@lhercot)
 options:

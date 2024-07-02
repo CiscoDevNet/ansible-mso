@@ -1768,6 +1768,15 @@
       <<: *bd_multicast_route_map
     register: nm_create_bd_multicast_route_map_again
 
+  # Add a subnet to BD with multicast route-map filters to ensure that changes made after to the BD do not remove the existing subnet
+  - name: Add a subnet to BD with multicast route-map filters
+    cisco.mso.mso_schema_template_bd_subnet:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      bd: ansible_test_multicast_route_map
+      subnet: 10.1.1.1/24
+
   - name: Update BD with a destination multicast route-map filter from different template
     cisco.mso.mso_schema_template_bd:
       <<: *bd_multicast_route_map
@@ -1872,6 +1881,8 @@
       - nm_update_bd_multicast_route_map is changed
       - nm_update_bd_multicast_route_map.current.displayName == "ansible_test_multicast_route_map"
       - nm_update_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapDestRef != nm_update_bd_multicast_route_map.previous.mcastRtMapFilter.mcastRtMapDestRef
+      - nm_update_bd_multicast_route_map.previous.subnets[0].ip == "10.1.1.1/24"
+      - nm_update_bd_multicast_route_map.current.subnets[0].ip == "10.1.1.1/24"
       - nm_update_bd_multicast_route_map_source_only is changed
       - nm_update_bd_multicast_route_map_source_only.current.displayName == "ansible_test_multicast_route_map"
       - nm_update_bd_multicast_route_map_source_only.current.mcastRtMapFilter.mcastRtMapDestRef is not defined

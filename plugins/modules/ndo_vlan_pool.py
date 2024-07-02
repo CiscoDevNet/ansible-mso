@@ -17,6 +17,7 @@ module: ndo_vlan_pool
 short_description: Manage VLAN Pools on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage VLAN Pools on Cisco Nexus Dashboard Orchestrator (NDO).
+- This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Akini Ross (@akinross)
 options:
@@ -54,11 +55,13 @@ options:
         - The start of the VLAN range.
         type: int
         required: true
+        aliases: [ from ]
       to_vlan:
         description:
         - The end of the VLAN range.
         type: int
         required: true
+        aliases: [ to ]
   state:
     description:
     - Use C(absent) for removing.
@@ -79,8 +82,8 @@ EXAMPLES = r"""
     template: ansible_tenant_template
     vlan_pool: ansible_test_vlan_pool
     vlan_ranges:
-      - from: 100
-        to: 200
+      - from_vlan: 100
+        to_vlan: 200
     state: present
 
 - name: Query a vlan pool with template_name
@@ -133,8 +136,8 @@ def main():
             type="list",
             elements="dict",
             options=dict(
-                from_vlan=dict(type="int", required=True),
-                to_vlan=dict(type="int", required=True),
+                from_vlan=dict(type="int", required=True, aliases=["from"]),
+                to_vlan=dict(type="int", required=True, aliases=["to"]),
             ),
         ),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),

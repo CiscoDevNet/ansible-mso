@@ -19,6 +19,7 @@ module: mso_dhcp_relay_policy
 short_description: Manage DHCP Relay policies.
 description:
 - Manage DHCP Relay policies on Cisco Multi-Site Orchestrator.
+- This module is only supported on NDO version prior to v4.0.
 author:
 - Jorge Gomez (@jorgegome2307)
 options:

@@ -17,6 +17,7 @@ module: ndo_dhcp_option_policy
 short_description: Manage DHCP Option Policies on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage DHCP Option Policies on Cisco Nexus Dashboard Orchestrator (NDO).
+- This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Akini Ross (@akinross)
 options:

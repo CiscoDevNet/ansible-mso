@@ -6,6 +6,25 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.8.0
+======
+
+Release Summary
+---------------
+
+Release v2.8.0 of the ``ansible-mso`` collection on 2024-07-03.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.7.0.
+
+Minor Changes
+-------------
+
+- Add support for multicast route map filters in mso_schema_template_bd
+
+Bugfixes
+--------
+
+- Fix to avoid making updates to attributes that are not provided which could lead to removal of configuration in mso_schema_template_bd
+
 v2.7.0
 ======
 

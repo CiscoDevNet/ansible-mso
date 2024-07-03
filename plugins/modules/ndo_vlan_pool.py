@@ -84,6 +84,8 @@ EXAMPLES = r"""
     vlan_ranges:
       - from_vlan: 100
         to_vlan: 200
+      - from_vlan: 300
+        to_vlan: 400
     state: present
 
 - name: Query a vlan pool with template_name

@@ -67,6 +67,36 @@ class MSOSchema:
             self.mso.fail_json(msg=msg)
         self.schema_objects["template"] = match
 
+    def set_template_vrf(self, vrf, fail_module=True):
+        """
+        Get template VRF item that matches the name of a VRF.
+        :param vrf: Name of the VRF to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template VRF item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template"])
+        kv_list = [KVPair("name", vrf)]
+        match, existing = self.get_object_from_list(self.schema_objects["template"].details.get("vrfs"), kv_list)
+        if not match and fail_module:
+            msg = "Provided VRF '{0}' not matching existing VRF(s): {1}".format(vrf, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["template_vrf"] = match
+
+    def set_template_vrf_rp(self, ip, fail_module=True):
+        """
+        Get template VRF RP item that matches the ip of a VRF RP.
+        :param ip: IP of the RP to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template VRF RP item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template_vrf"])
+        kv_list = [KVPair("ipAddress", ip)]
+        match, existing = self.get_object_from_list(self.schema_objects["template_vrf"].details.get("rpConfigs"), kv_list)
+        if not match and fail_module:
+            msg = "Provided IP '{0}' not matching existing IP(s): {1}".format(ip, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["template_vrf_rp"] = match
+
     def set_template_bd(self, bd, fail_module=True):
         """
         Get template bridge domain item that matches the name of a bd.

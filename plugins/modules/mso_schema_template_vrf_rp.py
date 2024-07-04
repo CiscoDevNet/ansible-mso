@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2023, Akini Ross (@akiniross) <akinross@cisco.com>
+# Copyright: (c) 2024, Akini Ross (@akiniross) <akinross@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -42,7 +42,7 @@ options:
     aliases: [ ip_address ]
   type:
     description:
-    - The type of RP.
+    - The type of the RP.
     type: str
     choices: [ fabric, static ]
   multicast_route_map_policy:

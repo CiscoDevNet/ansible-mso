@@ -106,7 +106,7 @@
   
   # CREATE VRF RP TESTS
 
-  - name: Create a new template VRF RPs (check_mode)
+  - name: Create a new template VRF RP (check_mode)
     cisco.mso.mso_schema_template_vrf_rp: &create_vrf_rp
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -119,17 +119,17 @@
     check_mode: true
     register: cm_create_vrf_rp
   
-  - name: Create a new template VRF RPs
+  - name: Create a new template VRF RP
     cisco.mso.mso_schema_template_vrf_rp:
       <<: *create_vrf_rp
     register: nm_create_vrf_rp
   
-  - name: Create a new template VRF RPs again
+  - name: Create a new template VRF RP again
     cisco.mso.mso_schema_template_vrf_rp:
       <<: *create_vrf_rp
     register: nm_create_vrf_rp_again
 
-  - name: Assert that the VRF RPs is created
+  - name: Assert that the VRF RP is created
     ansible.builtin.assert:
       that:
       - cm_create_vrf_rp is changed
@@ -152,7 +152,7 @@
   
   # CREATE VRF RP TESTS
 
-  - name: Update the VRF RPs (check_mode)
+  - name: Update the VRF RP (check_mode)
     cisco.mso.mso_schema_template_vrf_rp: &update_vrf_rp
       <<: *create_vrf_rp
       type: fabric
@@ -160,17 +160,17 @@
     check_mode: true
     register: cm_update_vrf_rp
 
-  - name: Update the VRF RPs
+  - name: Update the VRF RP
     cisco.mso.mso_schema_template_vrf_rp:
       <<: *update_vrf_rp
     register: nm_update_vrf_rp
 
-  - name: Update the VRF RPs again
+  - name: Update the VRF RP again
     cisco.mso.mso_schema_template_vrf_rp:
       <<: *update_vrf_rp
     register: nm_update_vrf_rp_again
   
-  - name: Assert that the VRF RPs is updated
+  - name: Assert that the VRF RP is updated
     ansible.builtin.assert:
       that:
       - cm_update_vrf_rp is changed
@@ -201,7 +201,7 @@
       multicast_route_map_policy: ""
     register: nm_update_vrf_rp_remove_route_policy
   
-  - name: Assert that the multicast route map policy is removed from RPs
+  - name: Assert that the multicast route map policy is removed from RP
     ansible.builtin.assert:
       that:
       - nm_update_vrf_rp_remove_route_policy.current.ipAddress == "1.1.1.1"
@@ -209,14 +209,14 @@
       - nm_update_vrf_rp_remove_route_policy.current.rpType == "fabric"
 
   # ERROR VRF RP TESTS
-  - name: Create a new template VRF RPs with unknown multicast_route_map_policy
+  - name: Create a new template VRF RP with unknown multicast_route_map_policy
     cisco.mso.mso_schema_template_vrf_rp:
       <<: *create_vrf_rp
       multicast_route_map_policy: "unknown"
     register: err_create_vrf_rp_unknown_multicast_route_map_policy
     ignore_errors: true
   
-  - name: Assert that the VRF RPs creation with unknown multicast_route_map_policy fails
+  - name: Assert that the VRF RP creation with unknown multicast_route_map_policy fails
     ansible.builtin.assert:
       that:
       - err_create_vrf_rp_unknown_multicast_route_map_policy.failed
@@ -224,12 +224,12 @@
 
   # QUERY VRF RP TESTS
 
-  - name: Create a new template VRF RPs for query
+  - name: Create a new template VRF RP for query
     cisco.mso.mso_schema_template_vrf_rp:
       <<: *create_vrf_rp
       ip: 2.2.2.2
   
-  - name: Query the VRF RPs
+  - name: Query the VRF RP
     cisco.mso.mso_schema_template_vrf_rp:
       <<: *create_vrf_rp
       state: query
@@ -244,7 +244,7 @@
       state: query
     register: nm_query_all_vrf_rps
   
-  - name: Assert that the VRF RPs is queried
+  - name: Assert that the VRF RPs are queried
     ansible.builtin.assert:
       that:
       - nm_query_vrf_rp is not changed
@@ -254,24 +254,24 @@
   
   # DELETE VRF RP TESTS
 
-  - name: Delete the VRF RPs (check_mode)
+  - name: Delete the VRF RP (check_mode)
     cisco.mso.mso_schema_template_vrf_rp: &delete_vrf_rp
       <<: *create_vrf_rp
       state: absent
     check_mode: true
     register: cm_delete_vrf_rp
   
-  - name: Delete the VRF RPs
+  - name: Delete the VRF RP
     cisco.mso.mso_schema_template_vrf_rp:
       <<: *delete_vrf_rp
     register: nm_delete_vrf_rp
   
-  - name: Delete the VRF RPs again
+  - name: Delete the VRF RP again
     cisco.mso.mso_schema_template_vrf_rp:
       <<: *delete_vrf_rp
     register: nm_delete_vrf_rp_again
 
-  - name: Assert that the VRF RPs is deleted
+  - name: Assert that the VRF RP is deleted
     ansible.builtin.assert:
       that:
       - cm_delete_vrf_rp is changed
@@ -297,7 +297,7 @@
       state: query
     register: nm_query_all_vrf_rps_after_delete
   
-  - name: Assert that the only the first VRF RPs is deleted
+  - name: Assert that the only the first VRF RP is deleted
     ansible.builtin.assert:
       that:
       - nm_query_all_vrf_rps_after_delete is not changed

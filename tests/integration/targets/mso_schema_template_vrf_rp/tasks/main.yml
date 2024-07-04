@@ -96,7 +96,7 @@
       state: present
 
   - name: Ensure multicast VRF exist
-    cisco.mso.mso_schema_template_vrf:
+    cisco.mso.mso_schema_template_vrf: &create_vrf
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: ansible_test_template
@@ -229,6 +229,12 @@
       <<: *create_vrf_rp
       ip: 2.2.2.2
   
+  - name: Update a vrf to ensure changes to vrf are not affecting the RPs
+    cisco.mso.mso_schema_template_vrf:
+      <<: *create_vrf
+      display_name: "changed_vrf_name"
+      state: present
+
   - name: Query the VRF RP
     cisco.mso.mso_schema_template_vrf_rp:
       <<: *create_vrf_rp

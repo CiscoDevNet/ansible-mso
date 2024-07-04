@@ -1,9 +1,9 @@
 # Test code for the MSO modules
+# Copyright: (c) 2024, Akini ROss (@akinross) <akinross@cisco.com>
 # Copyright: (c) 2023, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
-# 
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -25,22 +25,11 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
-# - name: Ensure site exist
-#   cisco.mso.mso_site: &site_present
-#     host: '{{ mso_hostname }}'
-#     username: '{{ mso_username }}'
-#     password: '{{ mso_password }}'
-#     validate_certs: '{{ mso_validate_certs | default(false) }}'
-#     use_ssl: '{{ mso_use_ssl | default(true) }}'
-#     use_proxy: '{{ mso_use_proxy | default(true) }}'
-#     output_level: '{{ mso_output_level | default("info") }}'
-#     site: '{{ mso_site | default("ansible_test") }}'
-#     apic_username: '{{ apic_username }}'
-#     apic_password: '{{ apic_password }}'
-#     apic_site_id: '{{ apic_site_id | default(101) }}'
-#     urls:
-#     - https://{{ apic_hostname }}
-#     state: present
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
 
 - name: Remove schemas
   cisco.mso.mso_schema:
@@ -366,7 +355,7 @@
 - name: Verify vrf3_query_removed
   ansible.builtin.assert:
     that:
-    - vrf3_query_removed.msg == "VRF 'VRF3' not found"
+    - vrf3_query_removed.msg == "Provided VRF 'VRF3' not matching existing VRF(s){{":"}} VRF2, VRF4"
 
 # Enable vzAny on VRF
 - name: Ensure VRF exist
@@ -474,7 +463,7 @@
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1, Template2"
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non_existing_template' not matching existing template(s){{":"}} Template1, Template2"
 
 # Checking if contract are removed after re-applying an VRF. 
 - name: Add VRF again (normal_mode)
@@ -540,3 +529,81 @@
     that:
     - nm_query_change_vrf_contract_again is not changed
     - nm_query_change_vrf_contract_again.current | length == 2
+
+- name: Execute tasks only for MSO version > 4.2
+  when: version.current.version is version('4.2', '>=')
+  block:
+  
+  - name: Create a new template vrf with site_aware_policy_enforcement and bd_enforcement_status
+    cisco.mso.mso_schema_template_vrf: &vrf_site_aware_and_bd_enforcement
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      vrf: vrf_site_aware_and_bd_enforcement
+      site_aware_policy_enforcement: true
+      bd_enforcement_status: true
+      state: present
+    register: nm_create_vrf_site_aware_and_bd_enforcement
+
+  - name: Create a new template vrf with site_aware_policy_enforcement and bd_enforcement_status again
+    cisco.mso.mso_schema_template_vrf:
+      <<: *vrf_site_aware_and_bd_enforcement
+    register: nm_create_vrf_site_aware_and_bd_enforcement_again
+
+  - name: Update the template vrf with site_aware_policy_enforcement and bd_enforcement_status
+    cisco.mso.mso_schema_template_vrf:
+      <<: *vrf_site_aware_and_bd_enforcement
+      site_aware_policy_enforcement: false
+      bd_enforcement_status: false
+    register: nm_update_vrf_site_aware_and_bd_enforcement
+
+  - name: Update the template vrf with site_aware_policy_enforcement and bd_enforcement_status displayname
+    cisco.mso.mso_schema_template_vrf:
+      <<: *vrf_site_aware_and_bd_enforcement
+      site_aware_policy_enforcement: false
+      bd_enforcement_status: false
+      display_name: 'vrf_bd_enforcement and_site_aware'
+    register: nm_update_vrf_bd_enforcement_and_site_aware
+
+  - name: Delete the template vrf with site_aware_policy_enforcement and bd_enforcement_status
+    cisco.mso.mso_schema_template_vrf:
+      <<: *vrf_site_aware_and_bd_enforcement
+      state: absent
+    register: nm_delete_vrf_site_aware_and_bd_enforcement
+
+  - name: Verify the template vrf with site_aware_policy_enforcement and bd_enforcement_status
+    ansible.builtin.assert:
+      that:
+      - nm_create_vrf_site_aware_and_bd_enforcement is changed
+      - nm_create_vrf_site_aware_and_bd_enforcement.previous == {}
+      - nm_create_vrf_site_aware_and_bd_enforcement.current.name == 'vrf_site_aware_and_bd_enforcement'
+      - nm_create_vrf_site_aware_and_bd_enforcement.current.siteAwarePolicyEnforcementMode == True
+      - nm_create_vrf_site_aware_and_bd_enforcement.current.bdEnfStatus == True
+      - nm_create_vrf_site_aware_and_bd_enforcement_again is not changed
+      - nm_create_vrf_site_aware_and_bd_enforcement_again.previous.name == 'vrf_site_aware_and_bd_enforcement'
+      - nm_create_vrf_site_aware_and_bd_enforcement_again.previous.siteAwarePolicyEnforcementMode == True
+      - nm_create_vrf_site_aware_and_bd_enforcement_again.previous.bdEnfStatus == True
+      - nm_create_vrf_site_aware_and_bd_enforcement_again.current.name == 'vrf_site_aware_and_bd_enforcement'
+      - nm_create_vrf_site_aware_and_bd_enforcement_again.current.siteAwarePolicyEnforcementMode == True
+      - nm_create_vrf_site_aware_and_bd_enforcement_again.current.bdEnfStatus == True
+      - nm_update_vrf_site_aware_and_bd_enforcement is changed
+      - nm_update_vrf_site_aware_and_bd_enforcement.previous.name == 'vrf_site_aware_and_bd_enforcement'
+      - nm_update_vrf_site_aware_and_bd_enforcement.previous.siteAwarePolicyEnforcementMode == True
+      - nm_update_vrf_site_aware_and_bd_enforcement.previous.bdEnfStatus == True
+      - nm_update_vrf_site_aware_and_bd_enforcement.current.name == 'vrf_site_aware_and_bd_enforcement'
+      - nm_update_vrf_site_aware_and_bd_enforcement.current.siteAwarePolicyEnforcementMode == False
+      - nm_update_vrf_site_aware_and_bd_enforcement.current.bdEnfStatus == False
+      - nm_update_vrf_bd_enforcement_and_site_aware.previous.name == 'vrf_site_aware_and_bd_enforcement'
+      - nm_update_vrf_bd_enforcement_and_site_aware.previous.displayName == 'vrf_site_aware_and_bd_enforcement'
+      - nm_update_vrf_bd_enforcement_and_site_aware.previous.siteAwarePolicyEnforcementMode == False
+      - nm_update_vrf_bd_enforcement_and_site_aware.previous.bdEnfStatus == False
+      - nm_update_vrf_bd_enforcement_and_site_aware.current.name == 'vrf_site_aware_and_bd_enforcement'
+      - nm_update_vrf_bd_enforcement_and_site_aware.current.displayName == 'vrf_bd_enforcement and_site_aware'
+      - nm_update_vrf_bd_enforcement_and_site_aware.current.siteAwarePolicyEnforcementMode == False
+      - nm_update_vrf_bd_enforcement_and_site_aware.current.bdEnfStatus == False
+      - nm_delete_vrf_site_aware_and_bd_enforcement is changed
+      - nm_delete_vrf_site_aware_and_bd_enforcement.previous.name == 'vrf_site_aware_and_bd_enforcement'
+      - nm_delete_vrf_site_aware_and_bd_enforcement.previous.displayName == 'vrf_bd_enforcement and_site_aware'
+      - nm_delete_vrf_site_aware_and_bd_enforcement.previous.siteAwarePolicyEnforcementMode == False
+      - nm_delete_vrf_site_aware_and_bd_enforcement.previous.bdEnfStatus == False
+      - nm_delete_vrf_site_aware_and_bd_enforcement.current == {}

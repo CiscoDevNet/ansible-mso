@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
 # Copyright: (c) 2023, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -18,6 +19,7 @@ short_description: Manage VRFs in schema templates
 description:
 - Manage VRFs in schema templates on Cisco ACI Multi-Site.
 author:
+- Akini Ross (@akinross)
 - Anvitha Jain (@anvitha-jain)
 - Dag Wieers (@dagwieers)
 options:
@@ -58,6 +60,18 @@ options:
     description:
     - Whether to enable preferred Endpoint Group.
     - The APIC defaults to C(false) when unset during creation.
+    type: bool
+  site_aware_policy_enforcement:
+    description:
+    - Whether to enable Site-aware Policy Enforcement Mode.
+    - Enabling or Disabling Site-aware Policy Enforcement Mode will cause temporary traffic disruption.
+    - Enabling Site-aware Policy Enforcement Mode will increase TCAM usage for existing contracts.
+    - Site-aware Policy Enforcement needs to be enabled in the consumer and provider VRF when an inter-VRF contract is required.
+    - Contract permit logging cannot be used when Site-aware Policy Enforcement Mode is enabled.
+    type: bool
+  bd_enforcement_status:
+    description:
+    - Whether to enable BD Enforcement Status.
     type: bool
   state:
     description:
@@ -117,6 +131,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 
 
 def main():
@@ -130,6 +145,8 @@ def main():
         vzany=dict(type="bool"),
         preferred_group=dict(type="bool"),
         ip_data_plane_learning=dict(type="str", choices=["enabled", "disabled"]),
+        site_aware_policy_enforcement=dict(type="bool"),
+        bd_enforcement_status=dict(type="bool"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -150,42 +167,36 @@ def main():
     vzany = module.params.get("vzany")
     ip_data_plane_learning = module.params.get("ip_data_plane_learning")
     preferred_group = module.params.get("preferred_group")
+    site_aware_policy_enforcement = module.params.get("site_aware_policy_enforcement")
+    bd_enforcement_status = module.params.get("bd_enforcement_status")
     state = module.params.get("state")
+
+    vrfs_path = "/templates/{0}/vrfs".format(template)
 
     mso = MSOModule(module)
 
-    # Get schema
-    schema_id, schema_path, schema_obj = mso.query_schema(schema)
-
-    # Get template
-    templates = [t.get("name") for t in schema_obj.get("templates")]
-    if template not in templates:
-        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ", ".join(templates)))
-    template_idx = templates.index(template)
-
-    # Get ANP
-    vrfs = [v.get("name") for v in schema_obj.get("templates")[template_idx]["vrfs"]]
-
-    if vrf is not None and vrf in vrfs:
-        vrf_idx = vrfs.index(vrf)
-        mso.existing = schema_obj.get("templates")[template_idx]["vrfs"][vrf_idx]
+    mso_schema = MSOSchema(mso, schema, template)
+    mso_schema.set_template(template)
 
     if state == "query":
-        if vrf is None:
-            mso.existing = schema_obj.get("templates")[template_idx]["vrfs"]
-        elif not mso.existing:
-            mso.fail_json(msg="VRF '{vrf}' not found".format(vrf=vrf))
+        if vrf:
+            mso_schema.set_template_vrf(vrf)
+            mso.existing = mso_schema.schema_objects.get("template_vrf").details
+        else:
+            mso.existing = mso_schema.schema_objects.get("template").details.get("vrfs", [])
         mso.exit_json()
 
-    vrfs_path = "/templates/{0}/vrfs".format(template)
-    vrf_path = "/templates/{0}/vrfs/{1}".format(template, vrf)
+    mso_schema.set_template_vrf(vrf, False)
+
+    template_vrf = mso_schema.schema_objects.get("template_vrf")
     ops = []
 
-    mso.previous = mso.existing
+    mso.previous = mso.existing = template_vrf.details if template_vrf else mso.existing
+
     if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
-            ops.append(dict(op="remove", path=vrf_path))
+            ops.append(dict(op="remove", path="{0}/{1}".format(vrfs_path, template_vrf.details.get("name"))))
 
     elif state == "present":
         if display_name is None and not mso.existing:
@@ -200,22 +211,40 @@ def main():
             ipDataPlaneLearning=ip_data_plane_learning,
         )
 
+        if site_aware_policy_enforcement is not None:
+            payload["siteAwarePolicyEnforcementMode"] = site_aware_policy_enforcement
+        if bd_enforcement_status is not None:
+            payload["bdEnfStatus"] = bd_enforcement_status
+
+        if template_vrf and template_vrf.details.get("vrfRef"):
+            # Add vrfRef from the details to ensure idempotency succeeds
+            payload["vrfRef"] = template_vrf.details["vrfRef"]
+
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            # clean contractRef to fix api issue
-            for contract in mso.sent.get("vzAnyConsumerContracts"):
-                contract["contractRef"] = mso.dict_from_ref(contract.get("contractRef"))
-            for contract in mso.sent.get("vzAnyProviderContracts"):
-                contract["contractRef"] = mso.dict_from_ref(contract.get("contractRef"))
-            ops.append(dict(op="replace", path=vrf_path, value=mso.sent))
+            vrf_path = "{0}/{1}".format(vrfs_path, template_vrf.details.get("name"))
+            if display_name is not None and display_name != mso.existing.get("displayName"):
+                ops.append(dict(op="replace", path=vrf_path + "/displayName", value=display_name))
+            if layer3_multicast is not None and layer3_multicast != mso.existing.get("l3MCast"):
+                ops.append(dict(op="replace", path=vrf_path + "/l3MCast", value=layer3_multicast))
+            if vzany is not None and vzany != mso.existing.get("vzAnyEnabled"):
+                ops.append(dict(op="replace", path=vrf_path + "/vzAnyEnabled", value=vzany))
+            if preferred_group is not None and preferred_group != mso.existing.get("preferredGroup"):
+                ops.append(dict(op="replace", path=vrf_path + "/preferredGroup", value=preferred_group))
+            if ip_data_plane_learning is not None and ip_data_plane_learning != mso.existing.get("ipDataPlaneLearning"):
+                ops.append(dict(op="replace", path=vrf_path + "/ipDataPlaneLearning", value=ip_data_plane_learning))
+            if site_aware_policy_enforcement is not None and site_aware_policy_enforcement != mso.existing.get("siteAwarePolicyEnforcementMode"):
+                ops.append(dict(op="replace", path=vrf_path + "/siteAwarePolicyEnforcementMode", value=site_aware_policy_enforcement))
+            if bd_enforcement_status is not None and bd_enforcement_status != mso.existing.get("bdEnfStatus"):
+                ops.append(dict(op="replace", path=vrf_path + "/bdEnfStatus", value=bd_enforcement_status))
         else:
             ops.append(dict(op="add", path=vrfs_path + "/-", value=mso.sent))
 
         mso.existing = mso.proposed
 
-    if not module.check_mode:
-        mso.request(schema_path, method="PATCH", data=ops)
+    if not module.check_mode and ops:
+        mso.request(mso_schema.path, method="PATCH", data=ops)
 
     mso.exit_json()
 

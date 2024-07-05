@@ -179,12 +179,11 @@ def main():
     else:
         mso.existing = mso.query_objs(path)
 
-    mso.previous = mso.existing
-
     if state == "query":
         pass
 
     elif state == "absent":
+        mso.previous = mso.existing
         if mso.existing:
             if module.check_mode:
                 mso.existing = {}
@@ -193,6 +192,8 @@ def main():
                 mso.existing = mso.request(path, method="DELETE")
 
     elif state == "present":
+        mso.previous = mso.existing
+
         # Convert sites and users
         sites = mso.lookup_sites(module.params.get("sites"))
         users = mso.lookup_users(module.params.get("users"))

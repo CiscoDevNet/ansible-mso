@@ -1491,7 +1491,7 @@ class MSOModule(object):
         elif empty_attributes:
             self.module.fail_json(msg="When the '{0}' is '{1}', the {2} attributes must be set".format(attr_name, attr_value, empty_attributes))
 
-    # Temporary introduced method to handle nd specific query without introducing a dependency on the nd collection in code
+    # Temporarily introduced method to handle nd specific query without introducing a dependency on the nd collection in code
     # Copied method from the nd collection: https://github.com/CiscoDevNet/ansible-nd/blob/master/plugins/module_utils/nd.py#L221
     # TODO: Refactor the code for bundled nd collection
     def nd_request(self, path, method=None, data=None, file=None, qs=None, prefix="", file_key="file", output_format="json", ignore_not_found_error=False):

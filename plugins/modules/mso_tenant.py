@@ -179,11 +179,12 @@ def main():
     else:
         mso.existing = mso.query_objs(path)
 
+    mso.previous = mso.existing
+
     if state == "query":
         pass
 
     elif state == "absent":
-        mso.previous = mso.existing
         if mso.existing:
             if module.check_mode:
                 mso.existing = {}
@@ -197,8 +198,6 @@ def main():
         users = mso.lookup_users(module.params.get("users"))
         if remote_users is not None:
             users += mso.lookup_remote_users(remote_users)
-
-        mso.previous = mso.existing
 
         payload = dict(
             description=description,

@@ -30,7 +30,6 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import (
     LISTENER_ACTION_TYPE_MAP,
     LISTENER_PROTOCOLS,
 )
-from ansible_collections.cisco.nd.plugins.module_utils.nd import NDModule
 
 
 try:
@@ -948,9 +947,8 @@ class MSOModule(object):
 
         ids = []
         if self.platform == "nd":
-            nd = NDModule(self.module)
-            remote_users = nd.request("/nexus/infra/api/aaa/v4/remoteusers", method="GET")
-            local_users = nd.request("/nexus/infra/api/aaa/v4/localusers", method="GET")
+            remote_users = self.nd_request("/nexus/infra/api/aaa/v4/remoteusers", method="GET")
+            local_users = self.nd_request("/nexus/infra/api/aaa/v4/localusers", method="GET")
 
         for user in users:
             user_dict = dict()
@@ -986,8 +984,7 @@ class MSOModule(object):
     def lookup_remote_users(self, remote_users, ignore_not_found_error=False):
         ids = []
         if self.platform == "nd":
-            nd = NDModule(self.module)
-            remote_users_data = nd.request("/nexus/infra/api/aaa/v4/remoteusers", method="GET")
+            remote_users_data = self.nd_request("/nexus/infra/api/aaa/v4/remoteusers", method="GET")
         for remote_user in remote_users:
             user_dict = dict()
             if self.platform == "nd":
@@ -1493,6 +1490,104 @@ class MSOModule(object):
             )
         elif empty_attributes:
             self.module.fail_json(msg="When the '{0}' is '{1}', the {2} attributes must be set".format(attr_name, attr_value, empty_attributes))
+
+    # Temporary introduced method to handle nd specific query without introducing a dependency on the nd collection in code
+    # Copied method from the nd collection: https://github.com/CiscoDevNet/ansible-nd/blob/master/plugins/module_utils/nd.py#L221
+    # TODO: Refactor the code for bundled nd collection
+    def nd_request(self, path, method=None, data=None, file=None, qs=None, prefix="", file_key="file", output_format="json", ignore_not_found_error=False):
+        """Generic HTTP method for ND requests."""
+        self.path = path
+
+        if method is not None:
+            self.method = method
+
+        # If we PATCH with empty operations, return
+        if method == "PATCH" and not data:
+            return {}
+
+        conn = Connection(self.module._socket_path)
+        conn.set_params(self.params)
+        uri = self.path
+        if prefix != "":
+            uri = "{0}/{1}".format(prefix, self.path)
+        if qs is not None:
+            uri = uri + update_qs(qs)
+        try:
+            if file is not None:
+                info = conn.send_file_request(method, uri, file, data, None, file_key)
+            else:
+                if data:
+                    info = conn.send_request(method, uri, json.dumps(data))
+                else:
+                    info = conn.send_request(method, uri)
+            self.result["data"] = data
+
+            self.url = info.get("url")
+            self.httpapi_logs.extend(conn.pop_messages())
+            info.pop("date", None)
+        except Exception as e:
+            try:
+                error_obj = json.loads(to_text(e))
+            except Exception:
+                error_obj = dict(error=dict(code=-1, message="Unable to parse error output as JSON. Raw error message: {0}".format(e), exception=to_text(e)))
+                pass
+            self.fail_json(msg=error_obj["error"]["message"])
+
+        self.response = info.get("msg")
+        self.status = info.get("status", -1)
+
+        self.result["socket"] = self.module._socket_path
+
+        # Get change status from HTTP headers
+        if "modified" in info:
+            self.has_modified = True
+            if info.get("modified") == "false":
+                self.result["changed"] = False
+            elif info.get("modified") == "true":
+                self.result["changed"] = True
+
+        # 200: OK, 201: Created, 202: Accepted, 204: No Content
+        if self.status in (200, 201, 202, 204):
+            if output_format == "raw":
+                return info.get("raw")
+            return info.get("body")
+
+        # 404: Not Found
+        elif self.method == "DELETE" and self.status == 404:
+            return {}
+
+        # 400: Bad Request, 401: Unauthorized, 403: Forbidden,
+        # 405: Method Not Allowed, 406: Not Acceptable
+        # 500: Internal Server Error, 501: Not Implemented
+        elif self.status >= 400:
+            self.result["status"] = self.status
+            body = info.get("body")
+            if body is not None:
+                try:
+                    if isinstance(body, dict):
+                        payload = body
+                    else:
+                        payload = json.loads(body)
+                except Exception as e:
+                    self.error = dict(code=-1, message="Unable to parse output as JSON, see 'raw' output. {0}".format(e))
+                    self.result["raw"] = body
+                    self.fail_json(msg="ND Error: {0}".format(self.error.get("message")), data=data, info=info)
+                self.error = payload
+                if "code" in payload:
+                    self.fail_json(msg="ND Error {code}: {message}".format(**payload), data=data, info=info, payload=payload)
+                elif "messages" in payload and len(payload.get("messages")) > 0:
+                    self.fail_json(msg="ND Error {code} ({severity}): {message}".format(**payload["messages"][0]), data=data, info=info, payload=payload)
+                else:
+                    if ignore_not_found_error:
+                        return {}
+                    self.fail_json(msg="ND Error: Unknown error no error code in decoded payload".format(**payload), data=data, info=info, payload=payload)
+            else:
+                self.result["raw"] = info.get("raw")
+                # Connection error
+                msg = "Connection failed for {0}. {1}".format(info.get("url"), info.get("msg"))
+                self.error = msg
+                self.fail_json(msg=msg)
+            return {}
 
 
 def service_node_ref_str_to_dict(serviceNodeRefStr):

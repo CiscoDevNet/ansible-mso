@@ -29,7 +29,6 @@ options:
     - Name of the DHCP Option Policy
     type: str
     required: true
-    aliases: [ name ]
   name:
     description:
     - Name of the option in the DHCP Option Policy

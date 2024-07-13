@@ -6,6 +6,32 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.8.0
+======
+
+Release Summary
+---------------
+
+Release v2.8.0 of the ``ansible-mso`` collection on 2024-07-12.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.7.0.
+
+Minor Changes
+-------------
+
+- Add module mso_schema_template_vrf_rp to support multicast vrf rp in application templates
+- Add module ndo_dhcp_option_policy to support dhcp option policy configuration in tenant templates
+- Add module ndo_dhcp_relay_policy to support dhcp relay policy configuration in tenant templates
+- Add module ndo_l3_domain and ndo_physical_domain to support domain configuration in fabric policy templates
+- Add module ndo_vlan_pool to support vlan pool configuration in fabric policy templates
+- Add site_aware_policy_enforcement and bd_enforcement_status arguments to the mso_schema_template_vrf module
+- Add support for multicast route map filters in mso_schema_template_bd
+
+Bugfixes
+--------
+
+- Fix to avoid making updates to attributes that are not provided which could lead to removal of configuration in mso_schema_template_bd
+- Fix to avoid making updates to attributes that are not provided which could lead to removal of configuration in mso_schema_template_vrf
+
 v2.7.0
 ======
 

@@ -127,6 +127,15 @@ def mso_reference_spec():
     )
 
 
+def mso_l3out_reference_spec():
+    return dict(
+        name=dict(type="str", required=True),
+        schema=dict(type="str"),
+        template=dict(type="str"),
+        tenant=dict(type="str"),
+    )
+
+
 def mso_epg_subnet_spec():
     return dict(
         subnet=dict(type="str", required=True, aliases=["ip"]),
@@ -1103,6 +1112,10 @@ class MSOModule(object):
 
                 return result
             else:
+                ref_regex = re.compile(r"uni\/tn-(.*)\/out-(.*)")
+                dic = ref_regex.search(data)
+                if dic is not None:
+                    return {"l3outName": dic.group(2), "tenant": dic.group(1)}
                 self.fail_json(msg="There was no group in search: {data}".format(data=data))
 
     def recursive_dict_from_ref_regex(self, data, result, category):

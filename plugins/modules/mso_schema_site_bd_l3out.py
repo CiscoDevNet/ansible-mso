@@ -58,11 +58,19 @@ options:
         description:
         - The schema that defines the referenced l3out.
         - If this parameter is unspecified, it defaults to the current schema.
+        - Mutually exclusive with O(l3out.tenant).
         type: str
       template:
         description:
         - The template that defines the referenced l3out.
         - If this parameter is unspecified, it defaults to the current schema.
+        - Mutually exclusive with O(l3out.tenant).
+        type: str
+      tenant:
+        description:
+        - The tenant name of the referenced l3out.
+        - If this parameter is specified, the constructed l3out reference will refer to a distinguished name (DN) in APIC.
+        - Mutually exclusive with O(l3out.schema) and O(l3out.template).
         type: str
   state:
     description:
@@ -154,7 +162,7 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_l3out_reference_spec
 from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 
 
@@ -165,7 +173,7 @@ def main():
         site=dict(type="str", required=True),
         template=dict(type="str", required=True),
         bd=dict(type="str", required=True),
-        l3out=dict(type="dict", options=mso_reference_spec(), aliases=["name"]),  # This parameter is not required for querying all objects
+        l3out=dict(type="dict", options=mso_l3out_reference_spec(), aliases=["name"]),  # This parameter is not required for querying all objects
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -198,9 +206,17 @@ def main():
     payload = dict()
 
     if l3out:
-        l3out_schema_id = mso.lookup_schema(l3out.get("schema")) if l3out.get("schema") else mso_schema.id
-        l3out_template = l3out.get("template") if l3out.get("template") else template
-        l3out_ref = mso.l3out_ref(schema_id=l3out_schema_id, template=l3out_template, l3out=l3out.get("name"))
+
+        if l3out.get("tenant") and (l3out.get("schema") or l3out.get("template")):
+            module.fail_json(msg="L3out tenant cannot be specified in combination with schema or template")
+
+        if l3out.get("tenant"):
+            l3out_ref = "uni/tn-{0}/out-{1}".format(l3out.get("tenant"), l3out.get("name"))
+        else:
+            l3out_schema_id = mso.lookup_schema(l3out.get("schema")) if l3out.get("schema") else mso_schema.id
+            l3out_template = l3out.get("template") if l3out.get("template") else template
+            l3out_ref = mso.l3out_ref(schema_id=l3out_schema_id, template=l3out_template, l3out=l3out.get("name"))
+
         if not mso_objects.get("site_bd"):
             payload = dict(bdRef=dict(schemaId=mso_schema.id, templateName=template, bdName=bd), l3Outs=[l3out.get("name")], l3OutRefs=[l3out_ref])
         else:
@@ -209,7 +225,7 @@ def main():
             l3outs = mso_objects.get("site_bd").details.get("l3Outs", [])
             # check on name because refs are handled differently between versions
             if l3out.get("name") in l3outs:
-                mso.existing = mso.make_reference(l3out, "l3out", l3out_schema_id, l3out_template)
+                mso.existing = mso.dict_from_ref(l3out_refs[l3outs.index(l3out.get("name"))])
 
     if state == "query":
         if l3out is None:
@@ -238,7 +254,11 @@ def main():
             l3outs.append(l3out.get("name"))
             l3out_refs.append(l3out_ref)
             ops.append(dict(op="replace", path="{0}/{1}".format(bd_path, bd), value=mso_objects.get("site_bd").details))
-        mso.existing = mso.make_reference(l3out, "l3out", l3out_schema_id, l3out_template)
+
+        if l3out.get("tenant"):
+            mso.existing = mso.dict_from_ref(l3out_ref)
+        else:
+            mso.existing = mso.make_reference(l3out, "l3out", l3out_schema_id, l3out_template)
 
     if not module.check_mode:
         mso.request(mso_schema.path, method="PATCH", data=ops)

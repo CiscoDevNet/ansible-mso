@@ -1,0 +1,409 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    
+    # SETUP TEST ENVIRONMENT
+
+    - name: Ensure sites exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ item.site }}'
+        apic_username: '{{ apic_username }}'
+        apic_password: '{{ apic_password }}'
+        apic_site_id: '{{ item.apic_site_id }}'
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+      loop:
+        - {site: "ansible_test", apic_site_id: 101}
+        - {site: "ansible_test_2", apic_site_id: 102}
+    
+    - name: Ensure tenant exist
+      cisco.mso.mso_tenant: 
+        <<: *mso_info
+        tenant: '{{ item }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+          - ansible_test_2
+        state: present
+      loop:
+        - ansible_test
+    
+    - name: Ensure template does not exist
+      cisco.mso.mso_schema_template: &remove_template
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: ansible_test
+        template: ansible_test_dhcp_policy
+        state: absent
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: '{{item}}'
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+      loop:
+        - ansible_tenant_template
+        - ansible_tenant_template_2
+
+    - name: Ensure schemas do not exist
+      cisco.mso.mso_schema: &remove_schema
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        state: absent
+    
+    - name: Ensure schema with templates exists
+      cisco.mso.mso_schema_template:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: ansible_test
+        template: '{{ item }}'
+        state: present
+      loop:
+        - ansible_test_support
+        - ansible_test_dhcp_policy
+
+    - name: Ensure ANP exist for tenant template dhcp relay policies
+      cisco.mso.mso_schema_template_anp: &ansible_test_anp
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_test_support
+        anp: ansible_test_anp
+        state: present
+
+    - name: Ensure EPGs exist for tenant template dhcp relay policies
+      cisco.mso.mso_schema_template_anp_epg:
+        <<: *ansible_test_anp
+        epg: '{{ item }}'
+        state: present
+      loop:
+        - ansible_test_epg_1
+
+    - name: Ensure VRF exist for tenant template dhcp relay policies
+      cisco.mso.mso_schema_template_vrf:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_test_support
+        vrf: ansible_test_vrf
+        state: present
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: '{{item}}'
+        template_type: tenant
+        tenant: ansible_test
+        state: present
+      loop:
+        - ansible_tenant_template
+        - ansible_tenant_template_2
+
+    - name: Ensure DHCP relay policies exist
+      cisco.mso.ndo_dhcp_relay_policy:
+        <<: *mso_info
+        template: '{{item.template}}'
+        relay_policy: '{{item.relay_policy}}'
+        providers:
+          - schema: '{{ mso_schema | default("ansible_test") }}'
+            template: ansible_test_support
+            anp: ansible_test_anp
+            epg: ansible_test_epg_1
+            ip: '{{ item.ip }}'
+        state: present
+      loop:
+        - {template: ansible_tenant_template, relay_policy: ansible_test_relay_policy, ip: 1.1.1.1}
+        - {template: ansible_tenant_template_2, relay_policy: ansible_test_relay_policy_2, ip: 2.2.2.2}
+
+    - name: Ensure DHCP option policies exist
+      cisco.mso.ndo_dhcp_option_policy:
+        <<: *mso_info
+        template: '{{item.template}}'
+        option_policy: '{{item.option_policy}}'
+        options:
+          - name: '{{item.option_policy}}_{{item.id}}'
+            id: '{{item.id}}'
+            data: 'data_{{item.id}}'
+        state: present
+      loop:
+        - {template: ansible_tenant_template, option_policy: ansible_test_option_policy, id: 0}
+        - {template: ansible_tenant_template_2, option_policy: ansible_test_option_policy_2, id: 0}
+
+    - name: Ensure VRF exist for bd dhcp policy testing
+      cisco.mso.mso_schema_template_vrf:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_test_dhcp_policy
+        vrf: ansible_test_vrf_dhcp_policy
+        state: present
+
+    - name: Ensure BD exist bd dhcp policy testing
+      cisco.mso.mso_schema_template_bd:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_test_dhcp_policy
+        bd: ansible_test_bd_dhcp_policy
+        vrf:
+            name: ansible_test_vrf_dhcp_policy
+        state: present
+
+    # CREATE
+
+    - name: Create a new template bd dhcp relay policy (check_mode)
+      cisco.mso.ndo_schema_template_bd_dhcp_policy: &create_ndo_schema_template_bd_dhcp_policy
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_test_dhcp_policy
+        bd: ansible_test_bd_dhcp_policy
+        dhcp_relay_policy: ansible_test_relay_policy
+        dhcp_relay_policy_template: ansible_tenant_template
+        state: present
+      check_mode: true
+      register: cm_create_ndo_schema_template_bd_dhcp_policy
+    
+    - name: Create a new template bd dhcp relay policy
+      cisco.mso.ndo_schema_template_bd_dhcp_policy:
+        <<: *create_ndo_schema_template_bd_dhcp_policy
+      register: nm_create_ndo_schema_template_bd_dhcp_policy
+    
+    - name: Create a new template bd dhcp relay policy again
+      cisco.mso.ndo_schema_template_bd_dhcp_policy:
+        <<: *create_ndo_schema_template_bd_dhcp_policy
+      register: nm_create_ndo_schema_template_bd_dhcp_policy_again
+
+    - name: Assert template bd dhcp relay policy was created
+      assert:
+        that:
+          - cm_create_ndo_schema_template_bd_dhcp_policy is changed
+          - cm_create_ndo_schema_template_bd_dhcp_policy.previous == {}
+          - cm_create_ndo_schema_template_bd_dhcp_policy.current.name == "ansible_test_relay_policy"
+          - cm_create_ndo_schema_template_bd_dhcp_policy.current.ref is defined
+          - cm_create_ndo_schema_template_bd_dhcp_policy.current.dhcpOptionLabel is not defined
+          - nm_create_ndo_schema_template_bd_dhcp_policy is changed
+          - nm_create_ndo_schema_template_bd_dhcp_policy.previous == {}
+          - nm_create_ndo_schema_template_bd_dhcp_policy.current.name == "ansible_test_relay_policy"
+          - nm_create_ndo_schema_template_bd_dhcp_policy.current.ref is defined
+          - nm_create_ndo_schema_template_bd_dhcp_policy.current.dhcpOptionLabel is not defined
+          - nm_create_ndo_schema_template_bd_dhcp_policy_again is not changed
+          - nm_create_ndo_schema_template_bd_dhcp_policy_again.previous.name == "ansible_test_relay_policy"
+          - nm_create_ndo_schema_template_bd_dhcp_policy_again.previous.ref is defined
+          - nm_create_ndo_schema_template_bd_dhcp_policy_again.current.dhcpOptionLabel is not defined
+          - nm_create_ndo_schema_template_bd_dhcp_policy_again.current.name == "ansible_test_relay_policy"
+          - nm_create_ndo_schema_template_bd_dhcp_policy_again.current.ref is defined
+          - nm_create_ndo_schema_template_bd_dhcp_policy_again.current.dhcpOptionLabel is not defined
+
+    # UPDATE
+
+    - name: Update a template bd dhcp relay policy (check_mode)
+      cisco.mso.ndo_schema_template_bd_dhcp_policy: &update_ndo_schema_template_bd_dhcp_policy
+        <<: *create_ndo_schema_template_bd_dhcp_policy
+        dhcp_option_policy: ansible_test_option_policy
+      check_mode: true
+      register: cm_update_ndo_schema_template_bd_dhcp_policy
+    
+    - name: Update a template bd dhcp relay policy description
+      cisco.mso.ndo_schema_template_bd_dhcp_policy:
+        <<: *update_ndo_schema_template_bd_dhcp_policy
+      register: nm_update_ndo_schema_template_bd_dhcp_policy
+    
+    - name: Update a template bd dhcp relay policy description again
+      cisco.mso.ndo_schema_template_bd_dhcp_policy:
+        <<: *update_ndo_schema_template_bd_dhcp_policy
+      register: nm_update_ndo_schema_template_bd_dhcp_policy_again
+
+    - name: Update a template bd dhcp relay policy in different template
+      cisco.mso.ndo_schema_template_bd_dhcp_policy:
+        <<: *update_ndo_schema_template_bd_dhcp_policy
+        dhcp_option_policy: ansible_test_option_policy_2
+        dhcp_option_policy_template: ansible_tenant_template_2
+      register: nm_update_ndo_schema_template_bd_dhcp_policy_different_template
+
+    - name: Assert template bd dhcp relay policy was updated
+      assert:
+        that:
+          - cm_update_ndo_schema_template_bd_dhcp_policy is changed
+          - cm_update_ndo_schema_template_bd_dhcp_policy.previous.name == "ansible_test_relay_policy"
+          - cm_update_ndo_schema_template_bd_dhcp_policy.previous.ref is defined
+          - cm_update_ndo_schema_template_bd_dhcp_policy.previous.dhcpOptionLabel is not defined
+          - cm_update_ndo_schema_template_bd_dhcp_policy.current.name == "ansible_test_relay_policy"
+          - cm_update_ndo_schema_template_bd_dhcp_policy.current.ref is defined
+          - cm_update_ndo_schema_template_bd_dhcp_policy.current.dhcpOptionLabel.name == "ansible_test_option_policy"
+          - cm_update_ndo_schema_template_bd_dhcp_policy.current.dhcpOptionLabel.ref is defined
+          - nm_update_ndo_schema_template_bd_dhcp_policy is changed
+          - nm_update_ndo_schema_template_bd_dhcp_policy.previous.name == "ansible_test_relay_policy"
+          - nm_update_ndo_schema_template_bd_dhcp_policy.previous.ref is defined
+          - nm_update_ndo_schema_template_bd_dhcp_policy.previous.dhcpOptionLabel is not defined
+          - nm_update_ndo_schema_template_bd_dhcp_policy.current.name == "ansible_test_relay_policy"
+          - nm_update_ndo_schema_template_bd_dhcp_policy.current.ref is defined
+          - nm_update_ndo_schema_template_bd_dhcp_policy.current.dhcpOptionLabel.name == "ansible_test_option_policy"
+          - nm_update_ndo_schema_template_bd_dhcp_policy.current.dhcpOptionLabel.ref is defined
+          - nm_update_ndo_schema_template_bd_dhcp_policy_again is not changed
+          - nm_update_ndo_schema_template_bd_dhcp_policy_again.previous.name == "ansible_test_relay_policy"
+          - nm_update_ndo_schema_template_bd_dhcp_policy_again.previous.ref is defined
+          - nm_update_ndo_schema_template_bd_dhcp_policy_again.previous.dhcpOptionLabel.name == "ansible_test_option_policy"
+          - nm_update_ndo_schema_template_bd_dhcp_policy_again.previous.dhcpOptionLabel.ref is defined
+          - nm_update_ndo_schema_template_bd_dhcp_policy_again.current.name == "ansible_test_relay_policy"
+          - nm_update_ndo_schema_template_bd_dhcp_policy_again.current.ref is defined
+          - nm_update_ndo_schema_template_bd_dhcp_policy_again.current.dhcpOptionLabel.name == "ansible_test_option_policy"
+          - nm_update_ndo_schema_template_bd_dhcp_policy_again.current.dhcpOptionLabel.ref is defined
+          - nm_update_ndo_schema_template_bd_dhcp_policy_different_template is changed
+          - nm_update_ndo_schema_template_bd_dhcp_policy_different_template.previous.name == "ansible_test_relay_policy"
+          - nm_update_ndo_schema_template_bd_dhcp_policy_different_template.previous.ref is defined
+          - nm_update_ndo_schema_template_bd_dhcp_policy_different_template.previous.dhcpOptionLabel.name == "ansible_test_option_policy"
+          - nm_update_ndo_schema_template_bd_dhcp_policy_different_template.previous.dhcpOptionLabel.ref is defined
+          - nm_update_ndo_schema_template_bd_dhcp_policy_different_template.current.name == "ansible_test_relay_policy"
+          - nm_update_ndo_schema_template_bd_dhcp_policy_different_template.current.ref is defined
+          - nm_update_ndo_schema_template_bd_dhcp_policy_different_template.current.dhcpOptionLabel.name == "ansible_test_option_policy_2"
+          - nm_update_ndo_schema_template_bd_dhcp_policy_different_template.current.dhcpOptionLabel.ref != nm_update_ndo_schema_template_bd_dhcp_policy_different_template.previous.dhcpOptionLabel.ref
+
+    # QUERY
+
+    - name: Create another template bd dhcp relay policy
+      cisco.mso.ndo_schema_template_bd_dhcp_policy: &create_ndo_schema_template_bd_dhcp_policy_2
+        <<: *create_ndo_schema_template_bd_dhcp_policy
+        dhcp_relay_policy: ansible_test_relay_policy_2
+        dhcp_relay_policy_template: ansible_tenant_template_2
+
+    - name: Query a template bd dhcp relay policy with template_name
+      cisco.mso.ndo_schema_template_bd_dhcp_policy:
+        <<: *create_ndo_schema_template_bd_dhcp_policy_2
+        state: query
+      register: query_one
+
+    - name: Query all template bd dhcp relay policy in the template
+      cisco.mso.ndo_schema_template_bd_dhcp_policy:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_test_dhcp_policy
+        bd: ansible_test_bd_dhcp_policy
+        state: query
+      register: query_all
+    
+    - name: Assert template bd dhcp relay policy was queried
+      assert:
+        that:
+          - query_one is not changed
+          - query_one.current.name == "ansible_test_relay_policy_2"
+          - query_one.current.ref is defined
+          - query_one.current.dhcpOptionLabel is not defined
+          - query_all is not changed
+          - query_all.current | length == 2
+
+    # ERRORS
+
+    - name: Error dhcp_relay_policy without template
+      cisco.mso.ndo_schema_template_bd_dhcp_policy:
+        <<: *create_ndo_schema_template_bd_dhcp_policy
+        dhcp_relay_policy: '{{ fakevar | default(omit)}}'
+        dhcp_relay_policy_template: '{{ fakevar | default(omit)}}'
+      ignore_errors: true
+      register: err_relay_policy_without_template
+
+    - name: Error query a template bd dhcp relay policy that does not exist
+      cisco.mso.ndo_schema_template_bd_dhcp_policy:
+        <<: *create_ndo_schema_template_bd_dhcp_policy_2
+        dhcp_relay_policy: fake_relay_policy
+        state: query
+      ignore_errors: true
+      register: err_relay_policy_not_exist
+    
+    - name: Assert errors
+      assert:
+        that:
+          - err_relay_policy_without_template is failed
+          - err_relay_policy_without_template.msg == "state is present but all of the following are missing{{":"}} dhcp_relay_policy"
+          - err_relay_policy_not_exist is failed
+          - err_relay_policy_not_exist.msg == "Provided DHCP Relay Policy with '[KVPair(key='name', value='fake_relay_policy')]' not matching existing object(s){{":"}} ansible_test_relay_policy_2"
+
+    # DELETE
+
+    - name: Delete a template bd dhcp relay policy (check_mode)
+      cisco.mso.ndo_schema_template_bd_dhcp_policy: &delete_ndo_schema_template_bd_dhcp_policy
+        <<: *update_ndo_schema_template_bd_dhcp_policy
+        state: absent
+      check_mode: true
+      register: cm_delete_ndo_schema_template_bd_dhcp_policy
+    
+    - name: Delete a template bd dhcp relay policy
+      cisco.mso.ndo_schema_template_bd_dhcp_policy:
+        <<: *delete_ndo_schema_template_bd_dhcp_policy
+      register: nm_delete_ndo_schema_template_bd_dhcp_policy
+    
+    - name: Delete a template bd dhcp relay policy again
+      cisco.mso.ndo_schema_template_bd_dhcp_policy:
+        <<: *delete_ndo_schema_template_bd_dhcp_policy
+      register: nm_delete_ndo_schema_template_bd_dhcp_policy_again
+
+    - name: Assert template bd dhcp relay policy was deleted
+      assert:
+        that:
+          - cm_delete_ndo_schema_template_bd_dhcp_policy is changed
+          - cm_delete_ndo_schema_template_bd_dhcp_policy.previous.name == "ansible_test_relay_policy"
+          - cm_delete_ndo_schema_template_bd_dhcp_policy.previous.ref is defined
+          - cm_delete_ndo_schema_template_bd_dhcp_policy.previous.dhcpOptionLabel.name == "ansible_test_option_policy_2"
+          - cm_delete_ndo_schema_template_bd_dhcp_policy.previous.dhcpOptionLabel.ref is defined
+          - cm_delete_ndo_schema_template_bd_dhcp_policy.current == {}
+          - nm_delete_ndo_schema_template_bd_dhcp_policy is changed
+          - nm_delete_ndo_schema_template_bd_dhcp_policy.previous.name == "ansible_test_relay_policy"
+          - nm_delete_ndo_schema_template_bd_dhcp_policy.previous.ref is defined
+          - nm_delete_ndo_schema_template_bd_dhcp_policy.previous.dhcpOptionLabel.name == "ansible_test_option_policy_2"
+          - nm_delete_ndo_schema_template_bd_dhcp_policy.previous.dhcpOptionLabel.ref is defined
+          - nm_delete_ndo_schema_template_bd_dhcp_policy.current == {}
+          - nm_delete_ndo_schema_template_bd_dhcp_policy_again is not changed
+          - nm_delete_ndo_schema_template_bd_dhcp_policy_again.previous == {}
+          - nm_delete_ndo_schema_template_bd_dhcp_policy_again.current == {}
+
+  # CLEANUP TESTS
+
+  always:
+  
+    - name: Ensure template does not exist
+      cisco.mso.mso_schema_template: 
+        <<: *remove_template
+  
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: '{{item}}'
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+      loop:
+        - ansible_tenant_template
+        - ansible_tenant_template_2
+    
+    - name: Ensure schemas do not exist
+      cisco.mso.mso_schema:
+        <<: *remove_schema

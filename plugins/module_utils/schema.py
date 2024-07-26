@@ -112,6 +112,21 @@ class MSOSchema:
             self.mso.fail_json(msg=msg)
         self.schema_objects["template_bd"] = match
 
+    def set_template_bd_dhcp_relay_policy(self, relay_policy_ref, fail_module=True):
+        """
+        Get template bridge domain item that matches the name of a bd.
+        :param relay_policy_ref: Reference of the relay policy to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template bd relay policy item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template"])
+        kv_list = [KVPair("ref", relay_policy_ref)]
+        match, existing = self.get_object_from_list(self.schema_objects["template_bd"].details.get("dhcpLabels"), kv_list)
+        if not match and fail_module:
+            msg = "Provided Relay Policy Reference '{0}' not matching existing relay policy reference(s): {1}".format(relay_policy_ref, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["template_bd_dhcp_relay_policy"] = match
+
     def set_template_anp(self, anp, fail_module=True):
         """
         Get template application profile item that matches the name of an anp.

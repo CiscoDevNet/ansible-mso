@@ -332,6 +332,33 @@
       - add_epg_again.current.externalEpgRef.externalEpgName == "ansible_test_1"
       - add_epg_again.current.externalEpgRef.templateName == "Template1"
 
+  - name: Update external EPG to site with l3out_on_apic true
+    cisco.mso.mso_schema_site_external_epg: &add_ext_epg_l3out_apic
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template1
+      external_epg: ansible_test_1
+      l3out: L3out1
+      l3out_on_apic: true
+      state: present
+    register: nm_add_ext_epg_l3out_apic
+  
+  - name: Update external EPG to site with l3out_on_apic true again
+    cisco.mso.mso_schema_site_external_epg:
+      <<: *add_ext_epg_l3out_apic
+    register: nm_add_ext_epg_l3out_apic_again
+
+  - name: Verify add_epg_again
+    ansible.builtin.assert:
+      that:
+      - nm_add_ext_epg_l3out_apic is changed
+      - nm_add_ext_epg_l3out_apic.previous.l3outRef is defined
+      - nm_add_ext_epg_l3out_apic.previous.l3outDn == "uni/tn-ansible_test/out-L3out1"
+      - nm_add_ext_epg_l3out_apic.current.l3outRef is not defined
+      - nm_add_ext_epg_l3out_apic.current.l3outDn == "uni/tn-ansible_test/out-L3out1"
+      - nm_add_ext_epg_l3out_apic_again is not changed
+
   # QUERY ALL EPG
   - name: Query all external EPGs in site (check_mode)
     cisco.mso.mso_schema_site_external_epg:
@@ -980,47 +1007,52 @@
     state: present
   register: nm_add_ext_epg_4
 
-- name: Add azure site to a schema Template4
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
-    template: Template4
-    state: present
-  when: version.current.version is version('3.3', '>=')
-  register: add_cloud_site
+- name: Execute azure tasks
+  when:
+  - version.current.version is version('3.3', '>=')
+  - version.current.version is version('4.3', '<')
+  block:
+  - name: Add azure site to a schema Template4
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: 'azure_{{ mso_site | default("ansible_test") }}'
+      template: Template4
+      state: present
+    when: version.current.version is version('3.3', '>=')
+    register: add_cloud_site
 
-- name: Add external EPG to site (normal mode)
-  cisco.mso.mso_schema_site_external_epg: 
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
-    template: Template4
-    external_epg: ext_epg_4
-    route_reachability: site-ext
-    state: present
-  register: nm_add_ext_epg_site
+  - name: Add external EPG to site (normal mode)
+    cisco.mso.mso_schema_site_external_epg: 
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: 'azure_{{ mso_site | default("ansible_test") }}'
+      template: Template4
+      external_epg: ext_epg_4
+      route_reachability: site-ext
+      state: present
+    register: nm_add_ext_epg_site
 
-- name: Verify nm_add_ext_epg_site
-  ansible.builtin.assert:
-    that:
-    - nm_add_ext_epg_site.current.externalEpgRef.externalEpgName == "ext_epg_4"
-    - nm_add_ext_epg_site.current.routeReachabilityInternetType == "site-ext"
+  - name: Verify nm_add_ext_epg_site
+    ansible.builtin.assert:
+      that:
+      - nm_add_ext_epg_site.current.externalEpgRef.externalEpgName == "ext_epg_4"
+      - nm_add_ext_epg_site.current.routeReachabilityInternetType == "site-ext"
 
-- name: Add external EPG to site again(normal mode)
-  cisco.mso.mso_schema_site_external_epg: 
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
-    template: Template4
-    external_epg: ext_epg_4
-    route_reachability: site-ext
-    state: present
-  register: nm_add_ext_epg_site_again
+  - name: Add external EPG to site again(normal mode)
+    cisco.mso.mso_schema_site_external_epg: 
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: 'azure_{{ mso_site | default("ansible_test") }}'
+      template: Template4
+      external_epg: ext_epg_4
+      route_reachability: site-ext
+      state: present
+    register: nm_add_ext_epg_site_again
 
-- name: Verify nm_add_ext_epg_site_again
-  ansible.builtin.assert:
-    that:
-    - nm_add_ext_epg_site_again is not changed
-    - nm_add_ext_epg_site_again.current.externalEpgRef.externalEpgName == "ext_epg_4"
-    - nm_add_ext_epg_site_again.current.routeReachabilityInternetType == "site-ext"
+  - name: Verify nm_add_ext_epg_site_again
+    ansible.builtin.assert:
+      that:
+      - nm_add_ext_epg_site_again is not changed
+      - nm_add_ext_epg_site_again.current.externalEpgRef.externalEpgName == "ext_epg_4"
+      - nm_add_ext_epg_site_again.current.routeReachabilityInternetType == "site-ext"

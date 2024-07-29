@@ -48,6 +48,10 @@ options:
     - The template that defines the referenced L3Out.
     - If this parameter is unspecified, it defaults to the current template.
     type: str
+  l3out_on_apic:
+    description:
+    - If this parameter is specified, the constructed l3out reference will refer to a distinguished name (DN) in APIC.
+    type: bool
   external_epg:
     description:
     - The name of the External EPG to be managed.
@@ -140,6 +144,7 @@ def main():
         l3out=dict(type="str", aliases=["l3out_name"]),
         l3out_schema=dict(type="str"),
         l3out_template=dict(type="str"),
+        l3out_on_apic=dict(type="bool"),
         external_epg=dict(type="str", aliases=["name"]),
         route_reachability=dict(type="str", default="internet", choices=["internet", "site-ext"]),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
@@ -161,6 +166,7 @@ def main():
     l3out = module.params.get("l3out")
     l3out_schema = module.params.get("l3out_schema")
     l3out_template = module.params.get("l3out_template")
+    l3out_on_apic = module.params.get("l3out_on_apic")
     route_reachability = module.params.get("route_reachability")
     state = module.params.get("state")
 
@@ -210,7 +216,7 @@ def main():
 
     elif state == "present":
         # Get external EPGs type from template level and verify template_external_epg type.
-        if mso_objects.get("template_external_epg").details.get("extEpgType") != "cloud":
+        if mso_objects.get("template_external_epg") is not None and mso_objects.get("template_external_epg").details.get("extEpgType") != "cloud":
             if l3out is not None:
                 path = "tenants/{0}".format(mso_objects.get("template").details.get("tenantId"))
                 tenant_name = mso.request(path, method="GET").get("name")
@@ -225,13 +231,17 @@ def main():
                 externalEpgName=external_epg,
             ),
             l3outDn=l3out_dn,
-            l3outRef=dict(
-                schemaId=l3out_schema_id,
-                templateName=l3out_template,
-                l3outName=l3out,
-            ),
             routeReachabilityInternetType=route_reachability,
         )
+
+        if not l3out_on_apic:
+            payload.update(
+                l3outRef=dict(
+                    schemaId=l3out_schema_id,
+                    templateName=l3out_template,
+                    l3outName=l3out,
+                ),
+            )
 
         mso.sanitize(payload, collate=True)
 

@@ -71,9 +71,9 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    schema: Schema 1
-    template: Template 1
-    bd: BD 1
+    schema: Schema1
+    template: Template1
+    bd: BD1
     dhcp_relay_policy: ansible_test_relay
     dhcp_relay_policy_template: ansible_tenant_template
     dhcp_option_policy: ansible_test_option
@@ -84,9 +84,9 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    schema: Schema 1
-    template: Template 1
-    bd: BD 1
+    schema: Schema1
+    template: Template1
+    bd: BD1
     dhcp_relay_policy: ansible_test_relay
     dhcp_relay_policy_template: ansible_tenant_template
     state: query
@@ -97,9 +97,9 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    schema: Schema 1
-    template: Template 1
-    bd: BD 1
+    schema: Schema1
+    template: Template1
+    bd: BD1
     state: query
   register: query_result
 
@@ -108,9 +108,9 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    schema: Schema 1
-    template: Template 1
-    bd: BD 1
+    schema: Schema1
+    template: Template1
+    bd: BD1
     dhcp_relay_policy: ansible_test_relay
     dhcp_relay_policy_template: ansible_tenant_template
     state: absent

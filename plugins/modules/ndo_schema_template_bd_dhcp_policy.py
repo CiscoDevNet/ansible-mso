@@ -13,7 +13,7 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_schema_template_bd_dhcp_policy
-short_description: Manage BD DHCP Policy in schema templates
+short_description: Manage BD DHCP Policies in schema templates
 description:
 - Manage BD DHCP policies in schema templates on Cisco ACI Multi-Site.
 author:
@@ -36,11 +36,11 @@ options:
     required: true
   dhcp_relay_policy:
     description:
-    - The DHCP Relay Policy
+    - The name of the DHCP Relay Policy.
     type: str
   dhcp_relay_policy_template:
     description:
-    - The tenant template name in which the DHCP Relay Policy resides
+    - The tenant template name in which the DHCP Relay Policy resides.
     - This parameter is required when the O(dhcp_relay_policy) is provided.
     type: str
   dhcp_option_policy:
@@ -50,7 +50,7 @@ options:
     type: str
   dhcp_option_policy_template:
     description:
-    - The tenant template name in which the DHCP Option Policy resides
+    - The tenant template name in which the DHCP Option Policy resides.
     - This parameter will use the O(dhcp_relay_policy_template) when not provided.
     type: str
   state:

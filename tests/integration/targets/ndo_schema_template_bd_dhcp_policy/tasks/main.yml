@@ -188,7 +188,6 @@
         template: ansible_test_dhcp_policy
         bd: ansible_test_bd_dhcp_policy
         dhcp_relay_policy: ansible_test_relay_policy
-        dhcp_relay_policy_template: ansible_tenant_template
         state: present
       check_mode: true
       register: cm_create_ndo_schema_template_bd_dhcp_policy
@@ -247,7 +246,6 @@
       cisco.mso.ndo_schema_template_bd_dhcp_policy:
         <<: *update_ndo_schema_template_bd_dhcp_policy
         dhcp_option_policy: ansible_test_option_policy_2
-        dhcp_option_policy_template: ansible_tenant_template_2
       register: nm_update_ndo_schema_template_bd_dhcp_policy_different_template
 
     - name: Assert template bd dhcp relay policy was updated
@@ -294,7 +292,6 @@
       cisco.mso.ndo_schema_template_bd_dhcp_policy: &create_ndo_schema_template_bd_dhcp_policy_2
         <<: *create_ndo_schema_template_bd_dhcp_policy
         dhcp_relay_policy: ansible_test_relay_policy_2
-        dhcp_relay_policy_template: ansible_tenant_template_2
 
     - name: Query a template bd dhcp relay policy with template_name
       cisco.mso.ndo_schema_template_bd_dhcp_policy:
@@ -323,14 +320,6 @@
 
     # ERRORS
 
-    - name: Error dhcp_relay_policy without template
-      cisco.mso.ndo_schema_template_bd_dhcp_policy:
-        <<: *create_ndo_schema_template_bd_dhcp_policy
-        dhcp_relay_policy: '{{ fakevar | default(omit)}}'
-        dhcp_relay_policy_template: '{{ fakevar | default(omit)}}'
-      ignore_errors: true
-      register: err_relay_policy_without_template
-
     - name: Error query a template bd dhcp relay policy that does not exist
       cisco.mso.ndo_schema_template_bd_dhcp_policy:
         <<: *create_ndo_schema_template_bd_dhcp_policy_2
@@ -339,13 +328,21 @@
       ignore_errors: true
       register: err_relay_policy_not_exist
     
+    - name: Error create a template with a bd dhcp relay policy that does not exist
+      cisco.mso.ndo_schema_template_bd_dhcp_policy:
+        <<: *create_ndo_schema_template_bd_dhcp_policy
+        dhcp_option_policy: fake_option_policy
+        state: present
+      ignore_errors: true
+      register: err_option_policy_not_exist
+
     - name: Assert errors
       assert:
         that:
-          - err_relay_policy_without_template is failed
-          - err_relay_policy_without_template.msg == "state is present but all of the following are missing{{":"}} dhcp_relay_policy"
           - err_relay_policy_not_exist is failed
-          - err_relay_policy_not_exist.msg == "Provided DHCP Relay Policy with '[KVPair(key='name', value='fake_relay_policy')]' not matching existing object(s){{":"}} ansible_test_relay_policy_2"
+          - err_relay_policy_not_exist.msg == "Provided DHCP Relay Policy with 'fake_relay_policy' not found."
+          - err_option_policy_not_exist is failed
+          - err_option_policy_not_exist.msg == "Provided DHCP Option Policy with 'fake_option_policy' not found."
 
     # DELETE
 

@@ -38,20 +38,10 @@ options:
     description:
     - The name of the DHCP Relay Policy.
     type: str
-  dhcp_relay_policy_template:
-    description:
-    - The tenant template name in which the DHCP Relay Policy resides.
-    - This parameter is required when the O(dhcp_relay_policy) is provided.
-    type: str
   dhcp_option_policy:
     description:
     - The name of the DHCP Option Policy.
     - When the O(dhcp_option_policy) is provided, the O(dhcp_relay_policy) must also be provided.
-    type: str
-  dhcp_option_policy_template:
-    description:
-    - The tenant template name in which the DHCP Option Policy resides.
-    - This parameter will use the O(dhcp_relay_policy_template) when not provided.
     type: str
   state:
     description:
@@ -75,7 +65,6 @@ EXAMPLES = r"""
     template: Template1
     bd: BD1
     dhcp_relay_policy: ansible_test_relay
-    dhcp_relay_policy_template: ansible_tenant_template
     dhcp_option_policy: ansible_test_option
     state: present
 
@@ -88,7 +77,6 @@ EXAMPLES = r"""
     template: Template1
     bd: BD1
     dhcp_relay_policy: ansible_test_relay
-    dhcp_relay_policy_template: ansible_tenant_template
     state: query
   register: query_result
 
@@ -112,7 +100,6 @@ EXAMPLES = r"""
     template: Template1
     bd: BD1
     dhcp_relay_policy: ansible_test_relay
-    dhcp_relay_policy_template: ansible_tenant_template
     state: absent
 """
 
@@ -122,10 +109,6 @@ RETURN = r"""
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
-from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
-
-# Template cache is created to limit the amount of API calls for ref to name translations
-TEMPLATE_CACHE = {}
 
 
 def main():
@@ -135,9 +118,7 @@ def main():
         template=dict(type="str", required=True),
         bd=dict(type="str", required=True),
         dhcp_relay_policy=dict(type="str"),
-        dhcp_relay_policy_template=dict(type="str"),
         dhcp_option_policy=dict(type="str"),
-        dhcp_option_policy_template=dict(type="str"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -148,18 +129,13 @@ def main():
             ["state", "absent", ["dhcp_relay_policy"]],
             ["state", "present", ["dhcp_relay_policy"]],
         ],
-        required_together=[
-            ["dhcp_relay_policy", "dhcp_relay_policy_template"],
-        ],
     )
 
     schema = module.params.get("schema")
     template = module.params.get("template").replace(" ", "")
     bd = module.params.get("bd")
     dhcp_relay_policy = module.params.get("dhcp_relay_policy")
-    dhcp_relay_policy_template = module.params.get("dhcp_relay_policy_template")
     dhcp_option_policy = module.params.get("dhcp_option_policy")
-    dhcp_option_policy_template = module.params.get("dhcp_option_policy_template")
     state = module.params.get("state")
 
     dhcp_labels_path = "/templates/{0}/bds/{1}/dhcpLabels".format(template, bd)
@@ -169,36 +145,28 @@ def main():
     mso_schema = MSOSchema(mso, schema, template)
     mso_schema.set_template_bd(bd)
 
-    templates = []
     tenant_id = mso_schema.schema_objects["template"].details.get("tenantId")
 
     if dhcp_relay_policy:
-        dhcp_option_label_ref = ""
-        dhcp_option_label_name = ""
         existing_dhcp_relay_policy = {}
-
-        dhcp_relay_policy_match = get_dhcp_relay_policy_match_from_template(dhcp_relay_policy_template, mso, "name", dhcp_relay_policy, fail_module=True)
-        mso_schema.set_template_bd_dhcp_relay_policy(dhcp_relay_policy_match.details.get("uuid"), False)
+        dhcp_relay_policy_uuid = get_dhcp_relay_policy_uuid(mso, tenant_id, dhcp_relay_policy)
+        mso_schema.set_template_bd_dhcp_relay_policy(dhcp_relay_policy_uuid, False)
         if mso_schema.schema_objects.get("template_bd_dhcp_relay_policy") is not None:
             dhcp_labels_path = "{0}/{1}".format(dhcp_labels_path, mso_schema.schema_objects["template_bd_dhcp_relay_policy"].index)
             mso_schema.schema_objects["template_bd_dhcp_relay_policy"].details["name"] = dhcp_relay_policy
-
             dhcp_option_label_ref = mso_schema.schema_objects["template_bd_dhcp_relay_policy"].details.get("dhcpOptionLabel", {}).get("ref")
             if dhcp_option_label_ref:
-                templates = [template for template in [dhcp_relay_policy_template, dhcp_option_policy_template] if template]
-                dhcp_option_label_name = get_dhcp_option_label(mso, dhcp_option_label_ref, templates, tenant_id).details.get("name")
-                mso_schema.schema_objects["template_bd_dhcp_relay_policy"].details["dhcpOptionLabel"]["name"] = dhcp_option_label_name
-
+                mso_schema.schema_objects["template_bd_dhcp_relay_policy"].details["dhcpOptionLabel"]["name"] = get_dhcp_option_label_name(
+                    mso, dhcp_option_label_ref
+                )
             existing_dhcp_relay_policy = mso_schema.schema_objects["template_bd_dhcp_relay_policy"].details
     else:
         existing_dhcp_relay_policy = mso_schema.schema_objects["template_bd"].details.get("dhcpLabels", [])
         for dhcp_relay_policy in existing_dhcp_relay_policy:
-            dhcp_relay_policy["name"] = get_dhcp_relay_label(mso, dhcp_relay_policy.get("ref"), tenant_id).details.get("name")
+            dhcp_relay_policy["name"] = get_dhcp_relay_label_name(mso, dhcp_relay_policy.get("ref"))
             dhcp_option_label_ref = dhcp_relay_policy.get("dhcpOptionLabel", {}).get("ref")
             if dhcp_option_label_ref:
-                option = get_dhcp_option_label(mso, dhcp_option_label_ref, templates, tenant_id)
-                if option:
-                    dhcp_relay_policy["dhcpOptionLabel"]["name"] = option.details.get("name")
+                dhcp_relay_policy["dhcpOptionLabel"]["name"] = get_dhcp_option_label_name(mso, dhcp_option_label_ref)
 
     if state == "query":
         mso.existing = existing_dhcp_relay_policy
@@ -214,21 +182,11 @@ def main():
 
     if state == "present":
 
-        payload = dict(ref=dhcp_relay_policy_match.details.get("uuid"), name=dhcp_relay_policy)
+        payload = dict(ref=dhcp_relay_policy_uuid, name=dhcp_relay_policy)
 
         if dhcp_option_policy:
-
-            if dhcp_option_label_name == dhcp_option_policy:
-                payload.update(dhcpOptionLabel=dict(ref=dhcp_option_label_ref, name=dhcp_option_policy))
-            else:
-                if (not dhcp_option_policy_template or dhcp_option_policy_template == dhcp_relay_policy_template) and TEMPLATE_CACHE.get(
-                    dhcp_relay_policy_template
-                ):
-                    TEMPLATE_CACHE[dhcp_option_policy_template] = TEMPLATE_CACHE[dhcp_relay_policy_template]
-
-                dhcp_option_policy_match = get_dhcp_option_policy_match_from_template(dhcp_option_policy_template, mso, "name", dhcp_option_policy, True)
-
-                payload.update(dhcpOptionLabel=dict(ref=dhcp_option_policy_match.details.get("uuid"), name=dhcp_option_policy))
+            dhcp_option_policy_uuid = get_dhcp_option_policy_uuid(mso, tenant_id, dhcp_option_policy)
+            payload.update(dhcpOptionLabel=dict(ref=dhcp_option_policy_uuid, name=dhcp_option_policy))
 
         mso.sanitize(payload, collate=True)
 
@@ -245,54 +203,32 @@ def main():
     mso.exit_json()
 
 
-def get_dhcp_option_label(mso, dhcp_option_label_ref, templates, tenant_id):
-    # Check if the DHCP Option Label exists in the provided templates since they are most likely to be used
-    for template_name in templates:
-        match = get_dhcp_option_policy_match_from_template(template_name, mso, "uuid", dhcp_option_label_ref)
-        if match:
-            return match
-
-    # Check all other existing tenant templates for the DHCP Option Label Name when not found in the provided templates
-    tenant_templates = MSOTemplate(mso, "tenant")
-    for template in tenant_templates.template:
-        # Check only tenant templates that belong to the same tenant as the BD
-        if template.get("templateName") in templates or template.get("tenantId") != tenant_id:
-            continue
-        match = get_dhcp_option_policy_match_from_template(template.get("templateName"), mso, "uuid", dhcp_option_label_ref)
-        if match:
-            return match
+def get_dhcp_relay_label_name(mso, dhcp_relay_uuid):
+    dhcp_relay = mso.request("templates/objects?type=dhcpRelay&uuid={0}".format(dhcp_relay_uuid), "GET")
+    if dhcp_relay:
+        return dhcp_relay.get("name")
 
 
-def get_dhcp_option_policy_match_from_template(template_name, mso, key, dhcp_option_label, fail_module=False):
-    kv_list = [KVPair(key, dhcp_option_label)]
-    template = TEMPLATE_CACHE.get(template_name)
-    if not template:
-        template = MSOTemplate(mso, "tenant", template_name)
-        TEMPLATE_CACHE[template_name] = template
-    existing_dhcp_option_policies = template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("dhcpOptionPolicies", [])
-    return template.get_object_by_key_value_pairs("DHCP Option Policy", existing_dhcp_option_policies, kv_list, fail_module)
+def get_dhcp_option_label_name(mso, dhcp_option_uuid):
+    dhcp_option = mso.request("templates/objects?type=dhcpOption&uuid={0}".format(dhcp_option_uuid), "GET")
+    if dhcp_option:
+        return dhcp_option.get("name")
 
 
-def get_dhcp_relay_label(mso, dhcp_relay_label_ref, tenant_id):
-    # Check all other existing tenant templates for the DHCP Relay Label Name when not found in the provided templates
-    tenant_templates = MSOTemplate(mso, "tenant")
-    for template in tenant_templates.template:
-        # Check only tenant templates that belong to the same tenant as the BD
-        if template.get("tenantId") != tenant_id:
-            continue
-        match = get_dhcp_relay_policy_match_from_template(template.get("templateName"), mso, "uuid", dhcp_relay_label_ref)
-        if match:
-            return match
+def get_dhcp_option_policy_uuid(mso, tenant_id, dhcp_option_label):
+    dhcp_options = mso.request("templates/objects?type=dhcpOption&name={0}".format(dhcp_option_label), "GET")
+    for dhcp_option in dhcp_options:
+        if dhcp_option.get("tenantId") == tenant_id and dhcp_option.get("name") == dhcp_option_label:
+            return dhcp_option.get("uuid")
+    mso.fail_json("Provided DHCP Option Policy with '{0}' not found.".format(dhcp_option_label))
 
 
-def get_dhcp_relay_policy_match_from_template(template_name, mso, key, dhcp_relay_label, fail_module=False):
-    kv_list = [KVPair(key, dhcp_relay_label)]
-    template = TEMPLATE_CACHE.get(template_name)
-    if not template:
-        template = MSOTemplate(mso, "tenant", template_name)
-        TEMPLATE_CACHE[template_name] = template
-    existing_dhcp_relay_policies = template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("dhcpRelayPolicies", [])
-    return template.get_object_by_key_value_pairs("DHCP Relay Policy", existing_dhcp_relay_policies, kv_list, fail_module)
+def get_dhcp_relay_policy_uuid(mso, tenant_id, dhcp_relay_label):
+    dhcp_relays = mso.request("templates/objects?type=dhcpRelay&name={0}".format(dhcp_relay_label), "GET")
+    for dhcp_relay in dhcp_relays:
+        if dhcp_relay.get("tenantId") == tenant_id and dhcp_relay.get("name") == dhcp_relay_label:
+            return dhcp_relay.get("uuid")
+    mso.fail_json("Provided DHCP Relay Policy with '{0}' not found.".format(dhcp_relay_label))
 
 
 if __name__ == "__main__":

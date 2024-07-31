@@ -173,7 +173,9 @@ def main():
         site=dict(type="str", required=True),
         template=dict(type="str", required=True),
         bd=dict(type="str", required=True),
-        l3out=dict(type="dict", options=mso_l3out_reference_spec(), aliases=["name"]),  # This parameter is not required for querying all objects
+        l3out=dict(
+            type="dict", options=mso_l3out_reference_spec(), aliases=["name"], mutually_exclusive=[("tenant", "schema"), ("tenant", "template")]
+        ),  # This parameter is not required for querying all objects
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -206,9 +208,6 @@ def main():
     payload = dict()
 
     if l3out:
-
-        if l3out.get("tenant") and (l3out.get("schema") or l3out.get("template")):
-            module.fail_json(msg="L3out tenant cannot be specified in combination with schema or template")
 
         if l3out.get("tenant"):
             l3out_ref = "uni/tn-{0}/out-{1}".format(l3out.get("tenant"), l3out.get("name"))

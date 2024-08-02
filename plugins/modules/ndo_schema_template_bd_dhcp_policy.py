@@ -51,7 +51,7 @@ options:
     choices: [ absent, present, query ]
     default: present
 notes:
-- This module can only be used on versions of MSO that are 4.x or greater.
+- This module can only be used on versions of NDO that are 4.x or greater.
 extends_documentation_fragment: cisco.mso.modules
 """
 
@@ -175,12 +175,10 @@ def main():
     ops = []
     mso.previous = existing_dhcp_relay_policy
 
-    if state == "absent":
-        if existing_dhcp_relay_policy:
-            mso.sent = mso.existing = {}
-            ops.append(dict(op="remove", path=dhcp_labels_path))
+    if state == "absent" and existing_dhcp_relay_policy:
+        ops.append(dict(op="remove", path=dhcp_labels_path))
 
-    if state == "present":
+    elif state == "present":
 
         payload = dict(ref=dhcp_relay_policy_uuid, name=dhcp_relay_policy)
 

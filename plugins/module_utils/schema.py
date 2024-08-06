@@ -114,7 +114,7 @@ class MSOSchema:
 
     def set_template_bd_dhcp_relay_policy(self, relay_policy_ref, fail_module=True):
         """
-        Get template bridge domain item that matches the name of a bd.
+        Get template bridge domain dhcp relay policy item that matches the name of a bd.
         :param relay_policy_ref: Reference of the relay policy to match. -> Str
         :param fail_module: When match is not found fail the ansible module. -> Bool
         :return: Template bd relay policy item. -> Item(Int, Dict) | None

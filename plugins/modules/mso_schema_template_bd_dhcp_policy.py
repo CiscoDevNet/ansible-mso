@@ -67,6 +67,7 @@ options:
     default: present
 notes:
 - This module can only be used on versions of MSO that are 3.1.1h or greater.
+- This module can only be used on versions of NDO that are 3.7.2i or lower.
 extends_documentation_fragment: cisco.mso.modules
 """
 

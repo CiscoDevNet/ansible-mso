@@ -6,6 +6,26 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.9.0
+======
+
+Release Summary
+---------------
+
+Release v2.9.0 of the ``ansible-mso`` collection on 2024-08-06.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.8.0.
+
+Minor Changes
+-------------
+
+- Add new module ndo_schema_template_bd_dhcp_policy to support BD DHCP Policy configuration in NDO version 4.1 and later
+- Add support to use an APIC DN as VRF reference in mso_schema_site_bd_l3out
+
+Bugfixes
+--------
+
+- Fix to be able to reference APIC only L3Out in mso_schema_site_external_epg
+
 v2.8.0
 ======
 

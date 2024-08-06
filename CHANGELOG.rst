@@ -6,6 +6,20 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.8.1
+======
+
+Release Summary
+---------------
+
+Release v2.8.1 of the ``ansible-mso`` collection on 2024-08-06.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.8.0.
+
+Bugfixes
+--------
+
+- Fix to be able to reference apic only l3out in mso_schema_site_external_epg
+
 v2.8.0
 ======
 

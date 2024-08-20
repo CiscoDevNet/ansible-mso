@@ -46,14 +46,11 @@
         state: present
 
     # CREATE
-
     - name: Create a new syncE interface policy (check mode)
       cisco.mso.ndo_synce_interface_policy: &add_synce_interface_policy
         <<: *mso_info
         template: ansible_fabric_policy_template
         interface_policy: ansible_test_synce_interface_policy
-        src_priority: 100
-        wait_to_restore: 5
         state: present
       check_mode: true
       register: cm_add_synce_interface_policy
@@ -96,8 +93,8 @@
         <<: *add_synce_interface_policy
         description: changed_description
         admin_state: enabled
-        sync_state_msg: true
-        selection_input: true
+        sync_state_msg: enabled
+        selection_input: enabled
         src_priority: 110
         wait_to_restore: 12
         state: present
@@ -120,7 +117,7 @@
           - cm_update_synce_interface_policy is changed
           - cm_update_synce_interface_policy.previous.description == ""
           - cm_update_synce_interface_policy.previous.adminState == "disabled"
-          # - cm_update_synce_interface_policy.previous.syncStateMsgEnabled == false
+          - cm_update_synce_interface_policy.previous.syncStateMsgEnabled == false
           - cm_update_synce_interface_policy.previous.selectionInputEnabled == false
           - cm_update_synce_interface_policy.previous.srcPriority == 100
           - cm_update_synce_interface_policy.previous.waitToRestore == 5
@@ -128,16 +125,16 @@
           - nm_update_synce_interface_policy.current.description == "changed_description"
           - nm_update_synce_interface_policy.current.adminState == "enabled"
           - nm_update_synce_interface_policy.current.syncStateMsgEnabled == true
-          # - nm_update_synce_interface_policy.current.selectionInputEnabled == true
+          - nm_update_synce_interface_policy.current.selectionInputEnabled == true
           - nm_update_synce_interface_policy.current.srcPriority == 110
           - nm_update_synce_interface_policy.current.waitToRestore == 12
-          # - nm_update_synce_interface_policy_again is not changed
-          # - nm_update_synce_interface_policy_again.previous.description == nm_update_synce_interface_policy_again.current.description == "changed_description"
-          # - nm_update_synce_interface_policy_again.previous.adminState == nm_update_synce_interface_policy_again.current.adminState == "enabled"
-          # - nm_update_synce_interface_policy_again.previous.syncStateMsgEnabled == nm_update_synce_interface_policy_again.current.syncStateMsgEnabled == true
-          # - nm_update_synce_interface_policy_again.previous.selectionInputEnabled == nm_update_synce_interface_policy_again.current.selectionInputEnabled == true
-          # - nm_update_synce_interface_policy_again.previous.srcPriority == nm_update_synce_interface_policy_again.current.srcPriority == 110
-          # - nm_update_synce_interface_policy_again.previous.waitToRestore == nm_update_synce_interface_policy_again.current.waitToRestore == 12
+          - nm_update_synce_interface_policy_again is not changed
+          - nm_update_synce_interface_policy_again.previous.description == nm_update_synce_interface_policy_again.current.description == "changed_description"
+          - nm_update_synce_interface_policy_again.previous.adminState == nm_update_synce_interface_policy_again.current.adminState == "enabled"
+          - nm_update_synce_interface_policy_again.previous.syncStateMsgEnabled == nm_update_synce_interface_policy_again.current.syncStateMsgEnabled == true
+          - nm_update_synce_interface_policy_again.previous.selectionInputEnabled == nm_update_synce_interface_policy_again.current.selectionInputEnabled == true
+          - nm_update_synce_interface_policy_again.previous.srcPriority == nm_update_synce_interface_policy_again.current.srcPriority == 110
+          - nm_update_synce_interface_policy_again.previous.waitToRestore == nm_update_synce_interface_policy_again.current.waitToRestore == 12
 
     # QUERY
 
@@ -220,8 +217,7 @@
     - name: Error - sync_state_msg set to invalid value
       cisco.mso.ndo_synce_interface_policy:
         <<: *add_synce_interface_policy_2
-        sync_state_msg: 2 # "msg": "argument 'sync_state_msg' is of type <class 'int'> and we were unable to convert to bool: The value '2' is not a valid boolean.  Valid booleans include: 'false', 1, '0', 0, 'y', 'yes', 't', 'off', 'f', 'n', 'on', 'no', 'true', '1'"
-        state: present
+        sync_state_msg: invalid
       register: error_sync_state_msg
       ignore_errors: true
 

@@ -49,18 +49,21 @@ options:
     - The default value is disabled.
     type: str
     choices: [ enabled, disabled ]
+    default: disabled
   sync_state_msg:
     description:
     - The sync state message of the syncE Interface Policy.
     - The default value is disabled.
-    type: bool
-    default: false
+    type: str
+    choices: [ enabled, disabled ]
+    default: disabled
   selection_input:
     description:
     - The selection input of the syncE Interface Policy.
     - The default value is disabled.
-    type: bool
-    default: false
+    type: str
+    choices: [ enabled, disabled ]
+    default: disabled
   src_priority:
     description:
     - The source priority of the syncE Interface Policy.
@@ -135,6 +138,7 @@ RETURN = r"""
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
+from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
 
 
 def main():
@@ -145,11 +149,11 @@ def main():
             interface_policy=dict(type="str", aliases=["name"]),
             interface_policy_uuid=dict(type="str", aliases=["uuid"]),
             description=dict(type="str"),
-            admin_state=dict(type="str", choices=["enabled", "disabled"]),
-            sync_state_msg=dict(type="bool", default=False),
-            selection_input=dict(type="bool", default=False),
-            src_priority=dict(type="int"),
-            wait_to_restore=dict(type="int"),
+            admin_state=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
+            sync_state_msg=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
+            selection_input=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
+            src_priority=dict(type="int", default=100),
+            wait_to_restore=dict(type="int", default=5),
             state=dict(type="str", choices=["absent", "query", "present"], default="query"),
         )
     )
@@ -158,8 +162,8 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "present", ["interface_policy", "src_priority", "wait_to_restore"]],
-            ["state", "absent", ["interface_policy"]]
+            ["state", "present", ["interface_policy"]],
+            ["state", "absent", ["interface_policy"]],
         ]
     )
 
@@ -203,6 +207,8 @@ def main():
         mso.existing = {}
 
         if match:
+            sync_state_msg_value = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(sync_state_msg)
+            selection_input_value = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(selection_input)
 
             if interface_policy and match.details.get("name") != interface_policy:
                 ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=interface_policy))
@@ -216,13 +222,13 @@ def main():
                 ops.append(dict(op="replace", path="{0}/{1}/adminState".format(path, match.index), value=admin_state))
                 match.details["adminState"] = admin_state
 
-            if sync_state_msg and match.details.get("syncStateMsg") != sync_state_msg:
-                ops.append(dict(op="replace", path="{0}/{1}/syncStateMsg".format(path, match.index), value=sync_state_msg))
-                match.details["syncStateMsg"] = sync_state_msg
+            if sync_state_msg_value and match.details.get("syncStateMsgEnabled") != sync_state_msg_value:
+                ops.append(dict(op="replace", path="{0}/{1}/syncStateMsgEnabled".format(path, match.index), value=sync_state_msg_value))
+                match.details["syncStateMsgEnabled"] = sync_state_msg_value
 
-            if selection_input and match.details.get("selectionInput") != selection_input:
-                ops.append(dict(op="replace", path="{0}/{1}/selectionInput".format(path, match.index), value=selection_input))
-                match.details["selectionInput"] = selection_input
+            if selection_input_value and match.details.get("selectionInputEnabled") != selection_input_value:
+                ops.append(dict(op="replace", path="{0}/{1}/selectionInputEnabled".format(path, match.index), value=selection_input_value))
+                match.details["selectionInputEnabled"] = selection_input_value
 
             if src_priority and match.details.get("srcPriority") != src_priority:
                 ops.append(dict(op="replace", path="{0}/{1}/srcPriority".format(path, match.index), value=src_priority))
@@ -242,9 +248,9 @@ def main():
             if admin_state:
                 payload["adminState"] = admin_state
             if sync_state_msg:
-                payload["syncStateMsgEnabled"] = sync_state_msg
+                payload["syncStateMsgEnabled"] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(sync_state_msg)
             if selection_input:
-                payload["selectionInputEnabled"] = selection_input
+                payload["selectionInputEnabled"] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(selection_input)
             if src_priority:
                 payload["srcPriority"] = src_priority
             if wait_to_restore:

@@ -18,6 +18,8 @@ SERVICE_NODE_CONNECTOR_MAP = {
 
 YES_OR_NO_TO_BOOL_STRING_MAP = {"yes": "true", "no": "false", True: "yes", False: "no"}
 
+ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP = {"enabled": True, "disabled": False}
+
 NDO_4_UNIQUE_IDENTIFIERS = ["templateID", "autoRouteTargetImport", "autoRouteTargetExport"]
 
 NDO_API_VERSION_FORMAT = "/mso/api/{api_version}"

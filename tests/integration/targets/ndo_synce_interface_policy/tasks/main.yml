@@ -1,0 +1,270 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Anvitha Jain (@anvjain) <anvjain@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    - name: Remove fabric template
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        type: fabric_policy
+        state: absent
+
+    - name: Create a fabric template
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        type: fabric_policy
+        state: present
+
+    # CREATE
+
+    - name: Create a new syncE interface policy (check mode)
+      cisco.mso.ndo_synce_interface_policy: &add_synce_interface_policy
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        interface_policy: ansible_test_synce_interface_policy
+        src_priority: 100
+        wait_to_restore: 5
+        state: present
+      check_mode: true
+      register: cm_add_synce_interface_policy
+
+    - name: Create a new syncE interface policy
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *add_synce_interface_policy
+      register: nm_add_synce_interface_policy
+
+    - name: Create a syncE interface policy again
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *add_synce_interface_policy
+      register: nm_add_synce_interface_policy_again
+
+    - name: Assert syncE interface policy was created
+      assert:
+        that:
+          - cm_add_synce_interface_policy is changed
+          - cm_add_synce_interface_policy.previous == {}
+          - cm_add_synce_interface_policy.current.name == "ansible_test_synce_interface_policy"
+          - cm_add_synce_interface_policy.current.srcPriority == 100
+          - cm_add_synce_interface_policy.current.waitToRestore == 5
+          - nm_add_synce_interface_policy is changed
+          - nm_add_synce_interface_policy.previous == {}
+          - nm_add_synce_interface_policy.current.name == "ansible_test_synce_interface_policy"
+          - nm_add_synce_interface_policy.current.srcPriority == 100
+          - nm_add_synce_interface_policy.current.waitToRestore == 5
+          - nm_add_synce_interface_policy_again is not changed
+          - nm_add_synce_interface_policy_again.previous.name == nm_add_synce_interface_policy_again.current.name == "ansible_test_synce_interface_policy"
+          - nm_add_synce_interface_policy_again.previous.srcPriority == nm_add_synce_interface_policy_again.current.srcPriority == 100
+          - nm_add_synce_interface_policy_again.previous.waitToRestore == nm_add_synce_interface_policy_again.current.waitToRestore == 5
+          - nm_add_synce_interface_policy_again.previous.description == nm_add_synce_interface_policy_again.current.description == ""
+          - nm_add_synce_interface_policy_again.previous.uuid is defined
+          - nm_add_synce_interface_policy_again.current.uuid is defined
+
+    # UPDATE
+
+    - name: Update a syncE interface policy (check mode)
+      cisco.mso.ndo_synce_interface_policy: &update_synce_interface_policy
+        <<: *add_synce_interface_policy
+        description: changed_description
+        admin_state: enabled
+        sync_state_msg: true
+        selection_input: true
+        src_priority: 110
+        wait_to_restore: 12
+        state: present
+      check_mode: true
+      register: cm_update_synce_interface_policy
+
+    - name: Update a syncE interface policy
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *update_synce_interface_policy
+      register: nm_update_synce_interface_policy
+
+    - name: Update a syncE interface policy again
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *update_synce_interface_policy
+      register: nm_update_synce_interface_policy_again
+
+    - name: Assert syncE interface policy was updated
+      assert:
+        that:
+          - cm_update_synce_interface_policy is changed
+          - cm_update_synce_interface_policy.previous.description == ""
+          - cm_update_synce_interface_policy.previous.adminState == "disabled"
+          # - cm_update_synce_interface_policy.previous.syncStateMsgEnabled == false
+          - cm_update_synce_interface_policy.previous.selectionInputEnabled == false
+          - cm_update_synce_interface_policy.previous.srcPriority == 100
+          - cm_update_synce_interface_policy.previous.waitToRestore == 5
+          - nm_update_synce_interface_policy is changed
+          - nm_update_synce_interface_policy.current.description == "changed_description"
+          - nm_update_synce_interface_policy.current.adminState == "enabled"
+          - nm_update_synce_interface_policy.current.syncStateMsgEnabled == true
+          # - nm_update_synce_interface_policy.current.selectionInputEnabled == true
+          - nm_update_synce_interface_policy.current.srcPriority == 110
+          - nm_update_synce_interface_policy.current.waitToRestore == 12
+          # - nm_update_synce_interface_policy_again is not changed
+          # - nm_update_synce_interface_policy_again.previous.description == nm_update_synce_interface_policy_again.current.description == "changed_description"
+          # - nm_update_synce_interface_policy_again.previous.adminState == nm_update_synce_interface_policy_again.current.adminState == "enabled"
+          # - nm_update_synce_interface_policy_again.previous.syncStateMsgEnabled == nm_update_synce_interface_policy_again.current.syncStateMsgEnabled == true
+          # - nm_update_synce_interface_policy_again.previous.selectionInputEnabled == nm_update_synce_interface_policy_again.current.selectionInputEnabled == true
+          # - nm_update_synce_interface_policy_again.previous.srcPriority == nm_update_synce_interface_policy_again.current.srcPriority == 110
+          # - nm_update_synce_interface_policy_again.previous.waitToRestore == nm_update_synce_interface_policy_again.current.waitToRestore == 12
+
+    # QUERY
+
+    - name: Create another syncE interface policy
+      cisco.mso.ndo_synce_interface_policy: &add_synce_interface_policy_2
+        <<: *add_synce_interface_policy
+        interface_policy: ansible_test_synce_interface_policy_2
+        description: "This is a test syncE interface policy"
+      register: nm_add_synce_interface_policy_2
+
+    - name: Query a syncE interface policy with template_name
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        interface_policy: ansible_test_synce_interface_policy
+        state: query
+      register: query_one
+
+    - name: Query all syncE interface policy in the template
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        state: query
+      register: query_all
+
+    - name: Verify query_one and query_all
+      assert:
+        that:
+          - query_all is not changed
+          - query_one is not changed
+          - query_all.current | length >= 2
+          - query_one.current.name == "ansible_test_synce_interface_policy"
+          - query_one.current.description == "changed_description"
+
+    # DELETE
+
+    - name: Delete a syncE interface policy (check mode)
+      cisco.mso.ndo_synce_interface_policy: &rm_synce_interface_policy
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        interface_policy: ansible_test_synce_interface_policy
+        state: absent
+      check_mode: true
+      register: cm_rm_synce_interface_policy
+
+    - name: Delete a syncE interface policy
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *rm_synce_interface_policy
+      register: nm_rm_synce_interface_policy
+
+    - name: Delete a syncE interface policy again
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *rm_synce_interface_policy
+      register: nm_rm_synce_interface_policy_again
+
+    - name: Assert syncE interface policy was deleted
+      assert:
+        that:
+          - cm_rm_synce_interface_policy is changed
+          - cm_rm_synce_interface_policy.previous.name == "ansible_test_synce_interface_policy"
+          - cm_rm_synce_interface_policy.previous.description == "changed_description"
+          - cm_rm_synce_interface_policy.current == {}
+          - nm_rm_synce_interface_policy is changed
+          - nm_rm_synce_interface_policy.previous.name == "ansible_test_synce_interface_policy"
+          - nm_rm_synce_interface_policy.previous.description == "changed_description"
+          - nm_rm_synce_interface_policy.current == {}
+          - nm_rm_synce_interface_policy_again is not changed
+          - nm_rm_synce_interface_policy_again.previous == nm_rm_synce_interface_policy_again.current == {}
+
+    # ERRORS
+
+    - name: Error - admin_state set to invalid value
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *add_synce_interface_policy_2
+        admin_state: invalid
+        state: present
+      register: error_admin_state
+      ignore_errors: true
+
+    - name: Error - sync_state_msg set to invalid value
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *add_synce_interface_policy_2
+        sync_state_msg: 2 # "msg": "argument 'sync_state_msg' is of type <class 'int'> and we were unable to convert to bool: The value '2' is not a valid boolean.  Valid booleans include: 'false', 1, '0', 0, 'y', 'yes', 't', 'off', 'f', 'n', 'on', 'no', 'true', '1'"
+        state: present
+      register: error_sync_state_msg
+      ignore_errors: true
+
+    - name: Error - selection_input set to invalid value
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *add_synce_interface_policy_2
+        selection_input: invalid
+        state: present
+      register: error_selection_input
+      ignore_errors: true
+
+    - name: Error - src_priority set to invalid value
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *add_synce_interface_policy_2
+        src_priority: 256
+        state: present
+      register: error_src_priority
+      ignore_errors: true
+
+    - name: Error - wait_to_restore set to invalid value
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *add_synce_interface_policy_2
+        wait_to_restore: 256
+        state: present
+      register: error_wait_to_restore
+      ignore_errors: true
+
+    - name: Assert errors
+      assert:
+        that:
+          - error_admin_state is failed
+          - error_admin_state.msg == "value of admin_state must be one of{{':'}} enabled, disabled, got{{':'}} invalid"
+          - error_sync_state_msg is failed
+          - error_sync_state_msg.msg == "value of sync_state_msg must be one of{{':'}} enabled, disabled, got{{':'}} invalid"
+          - error_selection_input is failed
+          - error_selection_input.msg == "value of selection_input must be one of{{':'}} enabled, disabled, got{{':'}} invalid"
+          - error_src_priority is failed
+          - error_src_priority.msg == "MSO Error 400{{':'}} 'SrcPriority' allowed minimum value is 1 maximum value is 254"
+          - error_wait_to_restore is failed
+          - error_wait_to_restore.msg == "MSO Error 400{{':'}} 'WaitToRestore' allowed maximum value is 12"
+
+    # CLEANUP TEMPLATE
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

@@ -103,32 +103,32 @@ EXAMPLES = r"""
     state: present
 
 - name: Query a syncE interface policy with template_name
-    cisco.mso.ndo_synce_interface_policy:
-        host: mso_host
-        username: admin
-        password: SomeSecretPassword
-        template: ansible_fabric_policy_template
-        interface_policy: ansible_test_interface_policy
-        state: query
-    register: query_one
+  cisco.mso.ndo_synce_interface_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_fabric_policy_template
+    interface_policy: ansible_test_interface_policy
+    state: query
+  register: query_one
 
 - name: Query all syncE interface policy in the template
-    cisco.mso.ndo_synce_interface_policy:
-        host: mso_host
-        username: admin
-        password: SomeSecretPassword
-        template: ansible_fabric_policy_template
-        state: query
-    register: query_all
+  cisco.mso.ndo_synce_interface_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_fabric_policy_template
+    state: query
+  register: query_all
 
 - name: Delete a syncE interface policy
-    cisco.mso.ndo_synce_interface_policy:
-        host: mso_host
-        username: admin
-        password: SomeSecretPassword
-        template: ansible_fabric_policy_template
-        interface_policy: ansible_test_interface_policy
-        state: absent
+  cisco.mso.ndo_synce_interface_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_fabric_policy_template
+    interface_policy: ansible_test_interface_policy
+    state: absent
 """
 
 RETURN = r"""
@@ -164,7 +164,7 @@ def main():
         required_if=[
             ["state", "present", ["interface_policy"]],
             ["state", "absent", ["interface_policy"]],
-        ]
+        ],
     )
 
     mso = MSOModule(module)

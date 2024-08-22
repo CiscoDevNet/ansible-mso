@@ -341,7 +341,7 @@ def main():
                     if contract not in found_contracts
                 ]
                 mso.fail_json(msg=not_found_contracts)
-        elif not mso.existing:
+        elif contract and not mso.existing:
             mso.fail_json(msg="Contract with Reference '{0}' and type '{1}' not found".format(contract_ref, contract.get("type")))
         mso.exit_json()
 

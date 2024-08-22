@@ -148,7 +148,7 @@ options:
       send_redistributed_lsas:
         description:
         - This option is for the OSPF NSSA (not-so-stubby area).
-        - When this option is disabled. The redistributed routes are not sent into this NSSA area from the border leaf.
+        - When this option is disabled, the redistributed routes are not sent into this NSSA area from the border leaf.
         - This is typically used when the O(ospf_area_config.originate_summary_lsa) option is also disabled.
         - Because disabling the O(ospf_area_config.originate_summary_lsa) option creates and sends a default route to the NSSA or stub area.
         type: bool

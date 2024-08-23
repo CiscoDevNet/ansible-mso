@@ -18,7 +18,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -70,14 +70,11 @@
         that:
           - cm_add_synce_interface_policy is changed
           - cm_add_synce_interface_policy.previous == {}
-          - cm_add_synce_interface_policy.current.name == "ansible_test_synce_interface_policy"
-          - cm_add_synce_interface_policy.current.srcPriority == 100
-          - cm_add_synce_interface_policy.current.waitToRestore == 5
+          - cm_add_synce_interface_policy.current == nm_add_synce_interface_policy.proposed
+          - cm_add_synce_interface_policy.current.name == cm_add_synce_interface_policy.proposed.name == "ansible_test_synce_interface_policy"
           - nm_add_synce_interface_policy is changed
           - nm_add_synce_interface_policy.previous == {}
           - nm_add_synce_interface_policy.current.name == "ansible_test_synce_interface_policy"
-          - nm_add_synce_interface_policy.current.srcPriority == 100
-          - nm_add_synce_interface_policy.current.waitToRestore == 5
           - nm_add_synce_interface_policy_again is not changed
           - nm_add_synce_interface_policy_again.previous.name == nm_add_synce_interface_policy_again.current.name == "ansible_test_synce_interface_policy"
           - nm_add_synce_interface_policy_again.previous.srcPriority == nm_add_synce_interface_policy_again.current.srcPriority == 100
@@ -93,7 +90,7 @@
         <<: *add_synce_interface_policy
         description: changed_description
         admin_state: enabled
-        sync_state_msg: enabled
+        sync_state_msg: disabled
         selection_input: enabled
         src_priority: 110
         wait_to_restore: 12
@@ -117,39 +114,67 @@
           - cm_update_synce_interface_policy is changed
           - cm_update_synce_interface_policy.previous.description == ""
           - cm_update_synce_interface_policy.previous.adminState == "disabled"
-          - cm_update_synce_interface_policy.previous.syncStateMsgEnabled == false
+          - cm_update_synce_interface_policy.previous.syncStateMsgEnabled == true
           - cm_update_synce_interface_policy.previous.selectionInputEnabled == false
           - cm_update_synce_interface_policy.previous.srcPriority == 100
           - cm_update_synce_interface_policy.previous.waitToRestore == 5
+          - cm_update_synce_interface_policy.current == cm_update_synce_interface_policy.proposed
+          - cm_update_synce_interface_policy.current.description == cm_update_synce_interface_policy.proposed.description == "changed_description"
+          - cm_update_synce_interface_policy.current.adminState == cm_update_synce_interface_policy.proposed.adminState == "enabled"
+          - cm_update_synce_interface_policy.current.syncStateMsgEnabled == cm_update_synce_interface_policy.proposed.syncStateMsgEnabled == false
+          - cm_update_synce_interface_policy.current.selectionInputEnabled == cm_update_synce_interface_policy.proposed.selectionInputEnabled == true
+          - cm_update_synce_interface_policy.current.srcPriority == cm_update_synce_interface_policy.proposed.srcPriority == 110
+          - cm_update_synce_interface_policy.current.waitToRestore == cm_update_synce_interface_policy.proposed.waitToRestore == 12
           - nm_update_synce_interface_policy is changed
           - nm_update_synce_interface_policy.current.description == "changed_description"
           - nm_update_synce_interface_policy.current.adminState == "enabled"
-          - nm_update_synce_interface_policy.current.syncStateMsgEnabled == true
+          - nm_update_synce_interface_policy.current.syncStateMsgEnabled == false
           - nm_update_synce_interface_policy.current.selectionInputEnabled == true
           - nm_update_synce_interface_policy.current.srcPriority == 110
           - nm_update_synce_interface_policy.current.waitToRestore == 12
           - nm_update_synce_interface_policy_again is not changed
           - nm_update_synce_interface_policy_again.previous.description == nm_update_synce_interface_policy_again.current.description == "changed_description"
           - nm_update_synce_interface_policy_again.previous.adminState == nm_update_synce_interface_policy_again.current.adminState == "enabled"
-          - nm_update_synce_interface_policy_again.previous.syncStateMsgEnabled == nm_update_synce_interface_policy_again.current.syncStateMsgEnabled == true
+          - nm_update_synce_interface_policy_again.previous.syncStateMsgEnabled == nm_update_synce_interface_policy_again.current.syncStateMsgEnabled == false
           - nm_update_synce_interface_policy_again.previous.selectionInputEnabled == nm_update_synce_interface_policy_again.current.selectionInputEnabled == true
           - nm_update_synce_interface_policy_again.previous.srcPriority == nm_update_synce_interface_policy_again.current.srcPriority == 110
           - nm_update_synce_interface_policy_again.previous.waitToRestore == nm_update_synce_interface_policy_again.current.waitToRestore == 12
+
+    - name: Update a syncE interface policy name
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *update_synce_interface_policy
+        interface_policy_uuid: '{{ nm_update_synce_interface_policy.current.uuid }}'
+        interface_policy: ansible_test_synce_interface_policy_changed
+      register: nm_update_synce_interface_policy_name
+
+    - name: Assert syncE interface policy was updated
+      assert:
+        that:
+          - nm_update_synce_interface_policy_name is changed
+          - nm_update_synce_interface_policy_name.previous.name == "ansible_test_synce_interface_policy"
+          - nm_update_synce_interface_policy_name.current.name == "ansible_test_synce_interface_policy_changed"
 
     # QUERY
 
     - name: Create another syncE interface policy
       cisco.mso.ndo_synce_interface_policy: &add_synce_interface_policy_2
-        <<: *add_synce_interface_policy
+        <<: *mso_info
+        template: ansible_fabric_policy_template
         interface_policy: ansible_test_synce_interface_policy_2
         description: "This is a test syncE interface policy"
+        admin_state: enabled
+        sync_state_msg: enabled
+        selection_input: enabled
+        src_priority: 250
+        wait_to_restore: 1
+        state: present
       register: nm_add_synce_interface_policy_2
 
-    - name: Query a syncE interface policy with template_name
+    - name: Query a syncE interface policy with interface_policy name
       cisco.mso.ndo_synce_interface_policy:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy: ansible_test_synce_interface_policy
+        interface_policy: ansible_test_synce_interface_policy_2
         state: query
       register: query_one
 
@@ -166,8 +191,22 @@
           - query_all is not changed
           - query_one is not changed
           - query_all.current | length >= 2
-          - query_one.current.name == "ansible_test_synce_interface_policy"
-          - query_one.current.description == "changed_description"
+          - query_one.current.name == "ansible_test_synce_interface_policy_2"
+          - query_one.current.description == "This is a test syncE interface policy"
+
+    - name: Query a syncE interface policy with interface_policy uuid
+      cisco.mso.ndo_synce_interface_policy:
+        <<: *update_synce_interface_policy
+        interface_policy_uuid: '{{ nm_update_synce_interface_policy.current.uuid }}'
+        interface_policy: ansible_test_synce_interface_policy_changed
+        state: query
+      register: query_one_uuid
+
+    - name: Verify query_one_uuid
+      assert:
+        that:
+          - query_one_uuid is not changed
+          - query_one_uuid.current.name == "ansible_test_synce_interface_policy_changed"
 
     # DELETE
 
@@ -175,7 +214,7 @@
       cisco.mso.ndo_synce_interface_policy: &rm_synce_interface_policy
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy: ansible_test_synce_interface_policy
+        interface_policy: ansible_test_synce_interface_policy_changed
         state: absent
       check_mode: true
       register: cm_rm_synce_interface_policy
@@ -194,11 +233,11 @@
       assert:
         that:
           - cm_rm_synce_interface_policy is changed
-          - cm_rm_synce_interface_policy.previous.name == "ansible_test_synce_interface_policy"
+          - cm_rm_synce_interface_policy.previous.name == "ansible_test_synce_interface_policy_changed"
           - cm_rm_synce_interface_policy.previous.description == "changed_description"
           - cm_rm_synce_interface_policy.current == {}
           - nm_rm_synce_interface_policy is changed
-          - nm_rm_synce_interface_policy.previous.name == "ansible_test_synce_interface_policy"
+          - nm_rm_synce_interface_policy.previous.name == "ansible_test_synce_interface_policy_changed"
           - nm_rm_synce_interface_policy.previous.description == "changed_description"
           - nm_rm_synce_interface_policy.current == {}
           - nm_rm_synce_interface_policy_again is not changed
@@ -259,8 +298,8 @@
           - error_wait_to_restore is failed
           - error_wait_to_restore.msg == "MSO Error 400{{':'}} 'WaitToRestore' allowed maximum value is 12"
 
-    # CLEANUP TEMPLATE
+    # # CLEANUP TEMPLATE
 
-    - name: Ensure templates do not exist
-      cisco.mso.ndo_template:
-        <<: *template_absent
+    # - name: Ensure templates do not exist
+    #   cisco.mso.ndo_template:
+    #     <<: *template_absent

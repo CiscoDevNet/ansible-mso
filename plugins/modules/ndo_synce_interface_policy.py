@@ -6,7 +6,6 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
-import copy
 
 __metaclass__ = type
 
@@ -28,7 +27,7 @@ options:
     - The template must be a fabric policy template.
     type: str
     required: true
-  inteface_policy:
+  interface_policy:
     description:
     - The name of the syncE Interface Policy.
     type: str
@@ -49,21 +48,18 @@ options:
     - The default value is disabled.
     type: str
     choices: [ enabled, disabled ]
-    default: disabled
   sync_state_msg:
     description:
     - The sync state message of the syncE Interface Policy.
-    - The default value is disabled.
+    - The default value is enabled.
     type: str
     choices: [ enabled, disabled ]
-    default: disabled
   selection_input:
     description:
     - The selection input of the syncE Interface Policy.
     - The default value is disabled.
     type: str
     choices: [ enabled, disabled ]
-    default: disabled
   src_priority:
     description:
     - The source priority of the syncE Interface Policy.
@@ -96,8 +92,8 @@ EXAMPLES = r"""
     template: ansible_fabric_policy_template
     interface_policy: ansible_test_interface_policy
     admin_state: enabled
-    sync_state_msg: true
-    selection_input: true
+    sync_state_msg: enabled
+    selection_input: enabled
     src_priority: 100
     wait_to_restore: 5
     state: present
@@ -139,6 +135,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
+import copy
 
 
 def main():
@@ -149,11 +146,11 @@ def main():
             interface_policy=dict(type="str", aliases=["name"]),
             interface_policy_uuid=dict(type="str", aliases=["uuid"]),
             description=dict(type="str"),
-            admin_state=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
-            sync_state_msg=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
-            selection_input=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
-            src_priority=dict(type="int", default=100),
-            wait_to_restore=dict(type="int", default=5),
+            admin_state=dict(type="str", choices=["enabled", "disabled"]),
+            sync_state_msg=dict(type="str", choices=["enabled", "disabled"]),
+            selection_input=dict(type="str", choices=["enabled", "disabled"]),
+            src_priority=dict(type="int"),
+            wait_to_restore=dict(type="int"),
             state=dict(type="str", choices=["absent", "query", "present"], default="query"),
         )
     )
@@ -222,11 +219,11 @@ def main():
                 ops.append(dict(op="replace", path="{0}/{1}/adminState".format(path, match.index), value=admin_state))
                 match.details["adminState"] = admin_state
 
-            if sync_state_msg_value and match.details.get("syncStateMsgEnabled") != sync_state_msg_value:
+            if sync_state_msg and match.details.get("syncStateMsgEnabled") != sync_state_msg_value:
                 ops.append(dict(op="replace", path="{0}/{1}/syncStateMsgEnabled".format(path, match.index), value=sync_state_msg_value))
                 match.details["syncStateMsgEnabled"] = sync_state_msg_value
 
-            if selection_input_value and match.details.get("selectionInputEnabled") != selection_input_value:
+            if selection_input and match.details.get("selectionInputEnabled") != selection_input_value:
                 ops.append(dict(op="replace", path="{0}/{1}/selectionInputEnabled".format(path, match.index), value=selection_input_value))
                 match.details["selectionInputEnabled"] = selection_input_value
 

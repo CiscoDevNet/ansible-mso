@@ -143,6 +143,7 @@
     state: present
   loop:
   - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_1' }
+  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', epg: 'ansible_test_2' }
   - { schema: '{{ mso_schema | default("ansible_test") }}_2', template: 'Template 3', epg: 'ansible_test_3' }
 
 # ADD Contract to EPG
@@ -201,7 +202,6 @@
     - cm_add_contract_rel_again.previous.relationshipType == "consumer"
     - cm_add_contract_rel_again.current.relationshipType == "consumer"
     - cm_add_contract_rel_again.previous.contractRef.schemaId ==  cm_add_contract_rel_again.current.contractRef.schemaId
-
 
 - name: Add Contract to EPG again (normal mode)
   cisco.mso.mso_schema_template_anp_epg_contract:
@@ -282,12 +282,20 @@
     <<: *contract_epg_query
   register: nm_query_all_contract_rels
 
+- name: Query all contract relationship for EPG without contracts (normal mode)
+  cisco.mso.mso_schema_template_anp_epg_contract:
+    <<: *contract_epg_query
+    epg: ansible_test_2
+  register: nm_query_all_contract_rels_no_contracts
+
 - name: Verify query_all_contract_rels
   ansible.builtin.assert:
     that:
     - cm_query_all_contract_rels is not changed
     - nm_query_all_contract_rels is not changed
     - cm_query_all_contract_rels.current | length == nm_query_all_contract_rels.current | length == 3
+    - nm_query_all_contract_rels_no_contracts is not changed
+    - nm_query_all_contract_rels_no_contracts.current | length == 0
 
 
 # QUERY A Contract to EPG
@@ -460,7 +468,7 @@
     - cm_query_non_epg is not changed
     - nm_query_non_epg is not changed
     - cm_query_non_epg == nm_query_non_epg
-    - cm_query_non_epg.msg == nm_query_non_epg.msg == "Provided EPG 'non_existing_epg' not matching existing epg(s){{":"}} ansible_test_1"
+    - cm_query_non_epg.msg == nm_query_non_epg.msg == "Provided EPG 'non_existing_epg' not matching existing epg(s){{":"}} ansible_test_1, ansible_test_2"
 
 # QUERY NON-EXISTING ANP
 - name: Query non-existing ANP (check_mode)

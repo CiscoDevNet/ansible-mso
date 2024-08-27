@@ -46,9 +46,9 @@ options:
   admin_state:
     description:
     - The administrative state of the MACSec Policy. (Enables or disables the policy)
+    - The default value is enabled.
     type: str
     choices: [ enabled, disabled ]
-    default: enabled
   type:
     description:
     - The type of the interfaces this policy will be applied to.
@@ -58,38 +58,39 @@ options:
   cipher_suite:
     description:
     - The cipher suite to be used for encryption.
+    - The default value is 256_gcm_aes_xpn.
     type: str
     choices: [ 128_gcm_aes, 128_gcm_aes_xpn, 256_gcm_aes, 256_gcm_aes_xpn ]
-    default: 256_gcm_aes_xpn
   window_size:
     description:
     - The window size for the MACSec Policy.
+    - The value must be between 0 and 4294967295.
+    - The default value is 0.
     type: int
-    default: 64
   security_policy:
     description:
     - The security policy to allow trafic on the link for the MACSec Policy.
+    - The default value is should_secure.
     type: str
     choices: [ should_secure, must_secure ]
-    default: should_secure
   sak_expiry_time:
     description:
     - The expiry time for the Security Association Key (SAK) for the MACSec Policy.
-    - The value must be 0 or between 60 and 2592000
+    - The value must be 0 or between 60 and 2592000.
+    - The default value is 0.
     type: int
-    default: 0
   confidentiality_offset:
     description:
     - The confidentiality offset for the MACSec Policy.
     type: int
     choices: [0, 30, 50]
-    default: offset0
+    default: 0
   key_server_priority:
     description:
     - The key server priority for the MACSec Policy.
-    - The value must be between 0 and 255
+    - The value must be between 0 and 255.
+    - The default value is 0.
     type: int
-    default: 16
   mac_sec_key:
     description:
     - List of the MACSec Keys.
@@ -102,27 +103,25 @@ options:
         - Key Name has to be Hex chars [0-9a-fA-F]
         type: str
         required: true
-    psk:
+      psk:
         description:
         - The Pre-Shared Key (PSK) for the MACSec Key.
         - PSK has to be 64 chars long.
         - PSK has to be Hex chars [0-9a-fA-F]
         type: str
         required: true
-    start_time:
+      start_time:
         description:
         - The start time for the MACSec Key.
         - The date time format - YYYY-MM-DD HH:MM:SS or 'now'
+        - The default value is now.
         type: str
-        default: now
-    end_time:
+      end_time:
         description:
         - The end time for the MACSec Key.
         - The date time format - YYYY-MM-DD HH:MM:SS or 'infinite'
+        - The default value is infinite.
         type: str
-        default: infinite
-
-
   state:
     description:
     - Use C(absent) for removing.
@@ -191,22 +190,22 @@ def main():
             mac_sec_policy=dict(type="str", aliases=["name"]),
             mac_sec_policy_uuid=dict(type="str", aliases=["uuid"]),
             description=dict(type="str"),
-            admin_state=dict(type="str", choices=["enabled", "disabled"], default="enabled"),
+            admin_state=dict(type="str", choices=["enabled", "disabled"]),
             type=dict(type="str", choices=["fabric", "access"], default="fabric"),
-            cipher_suite=dict(type="str", choices=["128_gcm_aes", "128_gcm_aes_xpn", "256_gcm_aes", "256_gcm_aes_xpn"], default="256_gcm_aes_xpn"),
-            window_size=dict(type="int", default=64),
-            security_policy=dict(type="str", choices=["should_secure", "must_secure"], default="should_secure"),
-            sak_expiry_time=dict(type="int", default=0),
+            cipher_suite=dict(type="str", choices=["128_gcm_aes", "128_gcm_aes_xpn", "256_gcm_aes", "256_gcm_aes_xpn"]),
+            window_size=dict(type="int"),
+            security_policy=dict(type="str", choices=["should_secure", "must_secure"]),
+            sak_expiry_time=dict(type="int"),
             confidentiality_offset=dict(type="int", choices=[0, 30, 50], default=0),
-            key_server_priority=dict(type="int", default=16),
+            key_server_priority=dict(type="int"),
             mac_sec_key=dict(
                 type="list",
                 elements="dict",
                 options=dict(
                     key_name=dict(type="str", required=True),
                     psk=dict(type="str", required=True),
-                    start_time=dict(type="str", default="now"),
-                    end_time=dict(type="str", default="infinite"),
+                    start_time=dict(type="str"),
+                    end_time=dict(type="str"),
                 ),
             ),
             state=dict(type="str", choices=["absent", "query", "present"], default="query"),
@@ -265,63 +264,102 @@ def main():
     if state == "present":
 
         mso.existing = {}
+        mso.stdout += str("\n match ") + str(match)
 
         if match:
-            mso.stdout += str("\n match ") + str(match)
 
             if mac_sec_policy and match.details.get("name") != mac_sec_policy:
-                mso.fail_json(
-                    msg=f"MACSec Policy '{match.details.get('name')}' already exists with a different name '{mac_sec_policy}'"
-                )
+                ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=mac_sec_policy))
+                match.details["name"] = mac_sec_policy
 
             if description and match.details.get("description") != description:
-                ops.append(mso_template.update_object_description(match, description))
+                ops.append(dict(op="replace", path="{0}/{1}/description".format(path, match.index), value=description))
+                match.details["description"] = description
 
             if admin_state and match.details.get("adminState") != admin_state:
-                ops.append(mso_template.update_object_admin_state(match, admin_state))
+                ops.append(dict(op="replace", path="{0}/{1}/adminState".format(path, match.index), value=admin_state))
+                match.details["adminState"] = admin_state
 
             if type and match.details.get("type") != type:
-                ops.append(mso_template.update_object_type(match, type))
+                ops.append(dict(op="replace", path="{0}/{1}/type".format(path, match.index), value=type))
+                match.details["type"] = type
 
+            if cipher_suite and match.details.get("macsecParams")["cipherSuite"] != cipher_suite:
+                ops.append(dict(op="replace", path="{0}/{1}/macsecParams/cipherSuite".format(path, match.index), value=NDO_CIPHER_SUITE_MAP.get(cipher_suite)))
+                match.details["macsecParams"]["cipherSuite"] = NDO_CIPHER_SUITE_MAP.get(cipher_suite)
 
+            if window_size and match.details.get("macsecParams")["windowSize"] != window_size:
+                ops.append(dict(op="replace", path="{0}/{1}/macsecParams/windowSize".format(path, match.index), value=window_size))
+                match.details["macsecParams"]["windowSize"] = window_size
 
-            if cipher_suite and match.details.get("cipherSuite") != cipher_suite:
-                ops.append(mso_template.update_object_cipher_suite(match, cipher_suite))
+            if security_policy and match.details.get("macsecParams")["securityPol"] != security_policy:
+                ops.append(dict(op="replace", path="{0}/{1}/macsecParams/securityPol".format(path, match.index), value=NDO_SECURITY_POLICY_MAP.get(security_policy)))
+                match.details["macsecParams"]["securityPol"] = NDO_SECURITY_POLICY_MAP.get(security_policy)
 
-            if window_size and match.details.get("windowSize") != window_size:
-                ops.append(mso_template.update_object_window_size(match, window_size))
-
-            if security_policy and match.details.get("securityPol") != security_policy:
-                ops.append(mso_template.update_object_security_policy(match, security_policy))
-
-            if sak_expiry_time and match.details.get("sakExpiryTime") != sak_expiry_time:
-                ops.append(mso_template.update_object_sak_expiry_time(match, sak_expiry_time))
-
-            if confidentiality_offset and match.details.get("confOffSet") != confidentiality_offset:
-                ops.append(mso_template.update_object_confidentiality_offset(match, confidentiality_offset))
-
-            if key_server_priority and match.details.get("keyServerPrio") != key_server_priority:
-                ops.append(mso_template.update_object_key_server_priority(match, key_server_priority))
-
-        else:
-
-            payload = {"name": mac_sec_policy, "templateId": mso_template.template.get("templateId"), "schemaId": mso_template.template.get("schemaId")}
-            if description:
-                payload["description"] = description
-            payload["adminState"] = admin_state
-            payload["type"] = type
-            
-            mac_sec_param_map ={}
-            mac_sec_param_map["cipherSuite"] = NDO_CIPHER_SUITE_MAP.get(cipher_suite)
-            mac_sec_param_map["windowSize"] = window_size
-            mac_sec_param_map["securityPol"] = NDO_SECURITY_POLICY_MAP.get(security_policy)
-            mac_sec_param_map["sakExpiryTime"] = sak_expiry_time
+            if sak_expiry_time and match.details.get("macsecParams")["sakExpiryTime"] != sak_expiry_time:
+                ops.append(dict(op="replace", path="{0}/{1}/macsecParams/sakExpiryTime".format(path, match.index), value=sak_expiry_time))
+                match.details["macsecParams"]["sakExpiryTime"] = sak_expiry_time
 
             if type == "access":
-                mac_sec_param_map["confOffSet"] = confidentiality_offset
-                mac_sec_param_map["keyServerPrio"] = key_server_priority
+                mso.stdout += ("\n IN IF access")
+                if confidentiality_offset and match.details.get("macsecParams")["confOffSet"] != confidentiality_offset:
+                    ops.append(dict(op="replace", path="{0}/{1}/macsecParams/confOffSet".format(path, match.index), value=confidentiality_offset))
+                    match.details["macsecParams"]["confOffSet"] = confidentiality_offset
 
-            payload["mac_sec_param_map"] = mac_sec_param_map
+                if key_server_priority and match.details.get("macsecParams")["keyServerPrio"] != key_server_priority:
+                    ops.append(dict(op="replace", path="{0}/{1}/macsecParams/keyServerPrio".format(path, match.index), value=key_server_priority))
+                    match.details["macsecParams"]["keyServerPrio"] = key_server_priority
+
+                # if mac_sec_keys:
+                #     mac_sec_keys_list = []
+                #     for mac_sec_key in mac_sec_keys:
+                #         # if mac_sec_key.get("key_name") and match.details.get("macsecParams")["macsecKeys"]:
+
+                #         keyname = mac_sec_key.get("key_name")
+                #         psk = mac_sec_key.get("psk")
+                #         start = mac_sec_key.get("start_time")
+                #         end = mac_sec_key.get("end_time")
+
+                #         mac_sec_keys_list.append(
+                #             dict(
+                #                 keyname=keyname,
+                #                 psk=psk,
+                #                 start=start,
+                #                 end=end,
+                #             )
+                #         )
+                #     ops.append(dict(op="replace", path="{0}/{1}/macsecKeys".format(path, match.index), value=mac_sec_keys_list))
+                #     match.details["macsecParams"]["macsecKeys"] = mac_sec_keys_list
+                
+
+            mso.sanitize(match.details)
+
+        else:
+            mac_sec_param_map ={}
+
+            payload = {"name": mac_sec_policy, "templateId": mso_template.template.get("templateId"), "schemaId": mso_template.template.get("schemaId")}
+            payload["adminState"] = admin_state
+            payload["type"] = type
+
+            if description:
+                payload["description"] = description
+
+            if cipher_suite:
+                mac_sec_param_map["cipherSuite"] = NDO_CIPHER_SUITE_MAP.get(cipher_suite)
+            if window_size:
+                mac_sec_param_map["windowSize"] = window_size
+            if security_policy:
+                mac_sec_param_map["securityPol"] = NDO_SECURITY_POLICY_MAP.get(security_policy)
+            if sak_expiry_time:
+                mac_sec_param_map["sakExpiryTime"] = sak_expiry_time
+
+            if type == "access":
+                if confidentiality_offset:
+                    mac_sec_param_map["confOffSet"] = confidentiality_offset
+                if key_server_priority:
+                    mac_sec_param_map["keyServerPrio"] = key_server_priority
+
+            payload["macsecParams"] = mac_sec_param_map
 
             mac_sec_keys_list = []
             if mac_sec_keys:
@@ -355,6 +393,7 @@ def main():
 
     if not module.check_mode and ops:
         mso.request(mso_template.template_path, method="PATCH", data=ops)
+        mso.stdout += str("\n\n ops ") + str(ops) + str("\n request ") + str(mso_template.template_path)
 
     mso.exit_json()
 

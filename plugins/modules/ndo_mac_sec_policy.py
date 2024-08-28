@@ -6,7 +6,6 @@
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
-import copy
 
 __metaclass__ = type
 
@@ -63,9 +62,10 @@ options:
     choices: [ 128_gcm_aes, 128_gcm_aes_xpn, 256_gcm_aes, 256_gcm_aes_xpn ]
   window_size:
     description:
-    - The window size for the MACSec Policy.
+    - The window size defines the maximum number of frames that can be received out of order
+    - before a replay attack is detected.
     - The value must be between 0 and 4294967295.
-    - The default value is 0.
+    - The default value is 0 for type fabric and 64 for type access.
     type: int
   security_policy:
     description:
@@ -82,18 +82,19 @@ options:
   confidentiality_offset:
     description:
     - The confidentiality offset for the MACSec Policy.
+    - The value must be 0, 30 or 50.
+    - The default value is 0.
     type: int
-    choices: [0, 30, 50]
-    default: 0
   key_server_priority:
     description:
     - The key server priority for the MACSec Policy.
     - The value must be between 0 and 255.
-    - The default value is 0.
+    - The default value is 0 for type fabric and 16 for type access.
     type: int
   mac_sec_key:
     description:
     - List of the MACSec Keys.
+    - Only one mac_sec_key can be added during creation.
     type: list
     elements: dict
     suboptions:
@@ -106,7 +107,8 @@ options:
       psk:
         description:
         - The Pre-Shared Key (PSK) for the MACSec Key.
-        - PSK has to be 64 chars long.
+        - PSK has to be 64 chars long if cipher suite is 256_gcm_aes or 256_gcm_aes_xpn.
+        - PSK has to be 32 chars long if cipher suite is 128_gcm_aes or 128_gcm_aes_xpn.
         - PSK has to be Hex chars [0-9a-fA-F]
         type: str
         required: true
@@ -114,6 +116,7 @@ options:
         description:
         - The start time for the MACSec Key.
         - The date time format - YYYY-MM-DD HH:MM:SS or 'now'
+        - The start time for each key_name should be unique.
         - The default value is now.
         type: str
       end_time:
@@ -144,7 +147,7 @@ EXAMPLES = r"""
     description: "Ansible Test MACSec Policy"
     state: present
 
-- name: Query a MACSec Policy
+- name: Query a MACSec Policy with mac_sec_policy name
   cisco.mso.ndo_mac_sec_policy:
     host: mso_host
     username: admin
@@ -161,6 +164,16 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     state: query
   register: query_all
+
+- name: Query a MACSec Policy with mac_sec_policy uuid
+  cisco.mso.ndo_mac_sec_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    mac_sec_policy: ansible_test_mac_sec_policy
+    state: query
+  register: query_uuid
 
 - name: Delete a MACSec Policy
   cisco.mso.ndo_mac_sec_policy:
@@ -180,6 +193,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.constants import NDO_CIPHER_SUITE_MAP, NDO_SECURITY_POLICY_MAP
+import copy
 
 
 def main():
@@ -196,17 +210,18 @@ def main():
             window_size=dict(type="int"),
             security_policy=dict(type="str", choices=["should_secure", "must_secure"]),
             sak_expiry_time=dict(type="int"),
-            confidentiality_offset=dict(type="int", choices=[0, 30, 50], default=0),
+            confidentiality_offset=dict(type="int"),
             key_server_priority=dict(type="int"),
             mac_sec_key=dict(
                 type="list",
                 elements="dict",
                 options=dict(
                     key_name=dict(type="str", required=True),
-                    psk=dict(type="str", required=True),
+                    psk=dict(type="str", required=True, no_log=True),
                     start_time=dict(type="str"),
                     end_time=dict(type="str"),
                 ),
+                no_log=False,
             ),
             state=dict(type="str", choices=["absent", "query", "present"], default="query"),
         )
@@ -218,11 +233,10 @@ def main():
         required_if=[
             ["state", "present", ["mac_sec_policy"]],
             ["state", "absent", ["mac_sec_policy"]],
-        ]
+        ],
     )
 
     mso = MSOModule(module)
-    mso.stdout = str(" ANVITHA ")
 
     template = module.params.get("template")
     mac_sec_policy = module.params.get("mac_sec_policy")
@@ -234,7 +248,7 @@ def main():
     window_size = module.params.get("window_size")
     security_policy = module.params.get("security_policy")
     sak_expiry_time = module.params.get("sak_expiry_time")
-    confidentiality_offset = "offset" + str(module.params.get("confidentiality_offset"))
+    confidentiality_offset = module.params.get("confidentiality_offset")
     key_server_priority = module.params.get("key_server_priority")
     mac_sec_keys = module.params.get("mac_sec_key")
     state = module.params.get("state")
@@ -248,8 +262,7 @@ def main():
     path = "/fabricPolicyTemplate/template/macsecPolicies"
 
     existing_mac_sec_policies = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("macsecPolicies", [])
-    mso.stdout += str("\n existing_mac_sec_policies ") + str(existing_mac_sec_policies)
-    if mac_sec_policy:
+    if mac_sec_policy or mac_sec_policy_uuid:
         object_description = "MACSec Policy"
         if mac_sec_policy_uuid:
             match = mso_template.get_object_by_uuid(object_description, existing_mac_sec_policies, mac_sec_policy_uuid)
@@ -264,7 +277,6 @@ def main():
     if state == "present":
 
         mso.existing = {}
-        mso.stdout += str("\n match ") + str(match)
 
         if match:
 
@@ -281,8 +293,7 @@ def main():
                 match.details["adminState"] = admin_state
 
             if type and match.details.get("type") != type:
-                ops.append(dict(op="replace", path="{0}/{1}/type".format(path, match.index), value=type))
-                match.details["type"] = type
+                mso.fail_json(msg="Type cannot be changed for an existing MACSec Policy.")
 
             if cipher_suite and match.details.get("macsecParams")["cipherSuite"] != cipher_suite:
                 ops.append(dict(op="replace", path="{0}/{1}/macsecParams/cipherSuite".format(path, match.index), value=NDO_CIPHER_SUITE_MAP.get(cipher_suite)))
@@ -293,7 +304,9 @@ def main():
                 match.details["macsecParams"]["windowSize"] = window_size
 
             if security_policy and match.details.get("macsecParams")["securityPol"] != security_policy:
-                ops.append(dict(op="replace", path="{0}/{1}/macsecParams/securityPol".format(path, match.index), value=NDO_SECURITY_POLICY_MAP.get(security_policy)))
+                ops.append(
+                    dict(op="replace", path="{0}/{1}/macsecParams/securityPol".format(path, match.index), value=NDO_SECURITY_POLICY_MAP.get(security_policy))
+                )
                 match.details["macsecParams"]["securityPol"] = NDO_SECURITY_POLICY_MAP.get(security_policy)
 
             if sak_expiry_time and match.details.get("macsecParams")["sakExpiryTime"] != sak_expiry_time:
@@ -301,41 +314,39 @@ def main():
                 match.details["macsecParams"]["sakExpiryTime"] = sak_expiry_time
 
             if type == "access":
-                mso.stdout += ("\n IN IF access")
                 if confidentiality_offset and match.details.get("macsecParams")["confOffSet"] != confidentiality_offset:
-                    ops.append(dict(op="replace", path="{0}/{1}/macsecParams/confOffSet".format(path, match.index), value=confidentiality_offset))
-                    match.details["macsecParams"]["confOffSet"] = confidentiality_offset
+                    ops.append(
+                        dict(op="replace", path="{0}/{1}/macsecParams/confOffSet".format(path, match.index), value="offset" + str(confidentiality_offset))
+                    )
+                    match.details["macsecParams"]["confOffSet"] = "offset" + str(confidentiality_offset)
 
                 if key_server_priority and match.details.get("macsecParams")["keyServerPrio"] != key_server_priority:
                     ops.append(dict(op="replace", path="{0}/{1}/macsecParams/keyServerPrio".format(path, match.index), value=key_server_priority))
                     match.details["macsecParams"]["keyServerPrio"] = key_server_priority
 
-                # if mac_sec_keys:
-                #     mac_sec_keys_list = []
-                #     for mac_sec_key in mac_sec_keys:
-                #         # if mac_sec_key.get("key_name") and match.details.get("macsecParams")["macsecKeys"]:
+                if mac_sec_keys:
+                    mac_sec_keys_list = []
+                    for mac_sec_key in mac_sec_keys:
+                        mac_sec_keys_list.append(
+                            dict(
+                                keyname=mac_sec_key.get("key_name"),
+                                psk=mac_sec_key.get("psk"),
+                                start=mac_sec_key.get("start_time"),
+                                end=mac_sec_key.get("end_time"),
+                            )
+                        )
 
-                #         keyname = mac_sec_key.get("key_name")
-                #         psk = mac_sec_key.get("psk")
-                #         start = mac_sec_key.get("start_time")
-                #         end = mac_sec_key.get("end_time")
-
-                #         mac_sec_keys_list.append(
-                #             dict(
-                #                 keyname=keyname,
-                #                 psk=psk,
-                #                 start=start,
-                #                 end=end,
-                #             )
-                #         )
-                #     ops.append(dict(op="replace", path="{0}/{1}/macsecKeys".format(path, match.index), value=mac_sec_keys_list))
-                #     match.details["macsecParams"]["macsecKeys"] = mac_sec_keys_list
-                
+                    ops.append(dict(op="replace", path="{0}/{1}/macsecKeys".format(path, match.index), value=mac_sec_keys_list))
+                    match.details["macsecKeys"] = mac_sec_keys
+                elif mac_sec_keys == []:
+                    # remove mac_sec_keys if the list is empty
+                    ops.append(dict(op="remove", path="{0}/{1}/macsecKeys".format(path, match.index)))
+                    match.details.pop("macsecKeys")
 
             mso.sanitize(match.details)
 
         else:
-            mac_sec_param_map ={}
+            mac_sec_param_map = {}
 
             payload = {"name": mac_sec_policy, "templateId": mso_template.template.get("templateId"), "schemaId": mso_template.template.get("schemaId")}
             payload["adminState"] = admin_state
@@ -355,30 +366,26 @@ def main():
 
             if type == "access":
                 if confidentiality_offset:
-                    mac_sec_param_map["confOffSet"] = confidentiality_offset
+                    mac_sec_param_map["confOffSet"] = "offset" + str(confidentiality_offset)
                 if key_server_priority:
                     mac_sec_param_map["keyServerPrio"] = key_server_priority
 
-            payload["macsecParams"] = mac_sec_param_map
+                payload["macsecParams"] = mac_sec_param_map
 
-            mac_sec_keys_list = []
-            if mac_sec_keys:
-                for mac_sec_key in mac_sec_keys:
-                    keyname = mac_sec_key.get("key_name")
-                    psk = mac_sec_key.get("psk")
-                    start = mac_sec_key.get("start_time")
-                    end = mac_sec_key.get("end_time")
+                mac_sec_keys_list = []
+                if mac_sec_keys:
+                    for mac_sec_key in mac_sec_keys:
+                        mac_sec_key_dict = {
+                            "keyname": mac_sec_key.get("key_name"),
+                            "psk": mac_sec_key.get("psk"),
+                        }
+                        if mac_sec_key.get("start_time"):
+                            mac_sec_key_dict["startTime"] = mac_sec_key.get("start_time")
+                        if mac_sec_key.get("end_time"):
+                            mac_sec_key_dict["endTime"] = mac_sec_key.get("end_time")
+                        mac_sec_keys_list.append(mac_sec_key_dict)
 
-                    mac_sec_keys_list.append(
-                        dict(
-                            keyname=keyname,
-                            psk=psk,
-                            start=start,
-                            end=end,
-                        )
-                    )
-                payload["macsecKeys"] = mac_sec_keys_list
-
+                    payload["macsecKeys"] = mac_sec_keys_list
 
             ops.append(dict(op="add", path="{0}/-".format(path), value=copy.deepcopy(payload)))
 
@@ -393,11 +400,9 @@ def main():
 
     if not module.check_mode and ops:
         mso.request(mso_template.template_path, method="PATCH", data=ops)
-        mso.stdout += str("\n\n ops ") + str(ops) + str("\n request ") + str(mso_template.template_path)
 
     mso.exit_json()
 
 
 if __name__ == "__main__":
     main()
-

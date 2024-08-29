@@ -72,7 +72,7 @@ EXAMPLES = r"""
     state: undeploy
 
 - name: Get deployment status
-  cisco.mso.mso_schema:
+  cisco.mso.mso_schema_template_deploy:
     host: mso_host
     username: admin
     password: SomeSecretPassword

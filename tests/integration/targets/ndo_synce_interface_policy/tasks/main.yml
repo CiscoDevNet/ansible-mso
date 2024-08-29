@@ -178,7 +178,7 @@
         state: query
       register: query_one
 
-    - name: Query all syncE interface policy in the template
+    - name: Query all syncE interface policies in the template
       cisco.mso.ndo_synce_interface_policy:
         <<: *mso_info
         template: ansible_fabric_policy_template
@@ -196,7 +196,8 @@
 
     - name: Query a syncE interface policy with interface_policy uuid
       cisco.mso.ndo_synce_interface_policy:
-        <<: *update_synce_interface_policy
+        <<: *mso_info
+        template: ansible_fabric_policy_template
         interface_policy_uuid: '{{ nm_update_synce_interface_policy.current.uuid }}'
         interface_policy: ansible_test_synce_interface_policy_changed
         state: query
@@ -298,8 +299,8 @@
           - error_wait_to_restore is failed
           - error_wait_to_restore.msg == "MSO Error 400{{':'}} 'WaitToRestore' allowed maximum value is 12"
 
-    # # CLEANUP TEMPLATE
+    # CLEANUP TEMPLATE
 
-    # - name: Ensure templates do not exist
-    #   cisco.mso.ndo_template:
-    #     <<: *template_absent
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

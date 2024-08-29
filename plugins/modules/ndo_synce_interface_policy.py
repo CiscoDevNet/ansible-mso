@@ -68,7 +68,7 @@ options:
     type: int
   wait_to_restore:
     description:
-    - The wait to restore of the syncE Interface Policy.
+    - The delay before attempting to restore synchronization on a SyncE interface after a disruption.
     - The value must be an integer between 0 and 12.
     - The default value is 5.
     type: int
@@ -98,7 +98,7 @@ EXAMPLES = r"""
     wait_to_restore: 5
     state: present
 
-- name: Query a syncE interface policy with template_name
+- name: Query a syncE interface policy with interface_policy name
   cisco.mso.ndo_synce_interface_policy:
     host: mso_host
     username: admin
@@ -108,7 +108,7 @@ EXAMPLES = r"""
     state: query
   register: query_one
 
-- name: Query all syncE interface policy in the template
+- name: Query all syncE interface policies in the template
   cisco.mso.ndo_synce_interface_policy:
     host: mso_host
     username: admin
@@ -116,6 +116,16 @@ EXAMPLES = r"""
     template: ansible_fabric_policy_template
     state: query
   register: query_all
+
+- name: Query a syncE interface policy with interface_policy uuid
+  cisco.mso.ndo_synce_interface_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_fabric_policy_template
+    interface_policy_uuid: uuid
+    state: query
+  register: query_one_by_uuid
 
 - name: Delete a syncE interface policy
   cisco.mso.ndo_synce_interface_policy:

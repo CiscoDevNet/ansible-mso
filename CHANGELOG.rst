@@ -6,6 +6,20 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.10.0
+=======
+
+Release Summary
+---------------
+
+Release v2.10.0 of the ``ansible-mso`` collection on 2024-08-31.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.9.0.
+
+Minor Changes
+-------------
+
+- Added new module ndo_synce_interface_policy (#521)
+
 v2.9.0
 ======
 

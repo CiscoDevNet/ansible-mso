@@ -98,12 +98,12 @@ options:
     type: bool
   inbound_route_map:
     description:
-    - The name of the Route Map Policy for Route Control that needs to be associated with inbound route map when the O(routing_protocols) is "bgp".
+    - The name of the Route Map Policy for Route Control that needs to be associated with inbound route map when the O(routing_protocols=bgp).
     type: str
     aliases: [ import_route, inbound_route ]
   outbound_route_map:
     description:
-    - The name of the Route Map Policy for Route Control that needs to be associated with outbound route map when the O(routing_protocols) is "bgp".
+    - The name of the Route Map Policy for Route Control that needs to be associated with outbound route map when the O(routing_protocols=bgp).
     type: str
     aliases: [ export_route, outbound_route ]
   routing_protocols:
@@ -149,7 +149,7 @@ options:
         description:
         - This option is for the OSPF NSSA (not-so-stubby area).
         - When this option is disabled, the redistributed routes are not sent into this NSSA area from the border leaf.
-        - This is typically used when the O(ospf_area_config.originate_summary_lsa) option is also disabled.
+        - This is typically used when the O(ospf_area_config.originate_summary_lsa=false).
         - Because disabling the O(ospf_area_config.originate_summary_lsa) option creates and sends a default route to the NSSA or Stub area.
         type: bool
         aliases: [ redistributed_lsas ]
@@ -168,7 +168,7 @@ options:
     - The Originate Default Route option in an L3Out configuration allows the ACI fabric to advertise a default route (0.0.0.0/0) to external networks.
     - Use C("") to clear the Originate Default Route option.
     type: str
-    choices: [ only, inAddition, "" ]
+    choices: [ only, in_addition, "" ]
   originate_default_route_always:
     description:
     - This option is applicable only if OSPF is configured on the L3Out.
@@ -201,13 +201,13 @@ options:
       route_dampening_ipv4:
         description:
         - The name of the Route Map Policy for Route Control that needs to be associated with Route Dampening IPv4 route map.
-        - This option is applicable only when the O(routing_protocols) is "bgp".
+        - This option is applicable only when the O(routing_protocols=bgp).
         type: str
         aliases: [ dampening_ipv4 ]
       route_dampening_ipv6:
         description:
         - The name of the Route Map Policy for Route Control that needs to be associated with Route Dampening IPv6 route map.
-        - This option is applicable only when the O(routing_protocols) is "bgp".
+        - This option is applicable only when the O(routing_protocols=bgp).
         type: str
         aliases: [ dampening_ipv6 ]
   state:
@@ -300,7 +300,7 @@ import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
-from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ROUTING_PROTOCOLS_MAP
+from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ROUTING_PROTOCOLS_MAP, ORIGINATE_DEFAULT_ROUTE
 
 
 def main():
@@ -341,7 +341,7 @@ def main():
             ),
             aliases=["ospf_config"],
         ),
-        originate_default_route=dict(type="str", choices=["only", "inAddition", ""]),
+        originate_default_route=dict(type="str", choices=list(ORIGINATE_DEFAULT_ROUTE)),
         originate_default_route_always=dict(type="bool", aliases=["always"]),
         advanced_route_map=dict(
             type="dict",
@@ -380,9 +380,8 @@ def main():
     outbound_route_map = module.params.get("outbound_route_map")
     routing_protocols = sorted(module.params.get("routing_protocols") if module.params.get("routing_protocols") else [])
     ospf_area_config_dict = module.params.get("ospf_area_config") if module.params.get("ospf_area_config") else {}
-    originate_default_route = module.params.get("originate_default_route")
+    originate_default_route = ORIGINATE_DEFAULT_ROUTE.get(module.params.get("originate_default_route"))
     advanced_route_map_dict = module.params.get("advanced_route_map") if module.params.get("advanced_route_map") else {}
-
     originate_default_route_always = module.params.get("originate_default_route_always")
 
     state = module.params.get("state")
@@ -395,7 +394,6 @@ def main():
     l3out_template_object.validate_template("l3out")
     l3out_template_id = l3out_template_object.template.get("templateId")
 
-    tenant_id = tenant_name = None
     tenant_id = l3out_template_object.template_summary.get("tenantId")
     tenant_name = l3out_template_object.template_summary.get("tenantName")
 
@@ -438,11 +436,13 @@ def main():
 
         if routing_protocols == ["bgp"] and ospf_area_config_dict:
             mso.fail_json(
-                msg="Invalid configuration in L3Out '{0}', 'ospf_area_config' must be empty when the routing_protocols is bgp".format(l3out_identifier)
+                msg="Invalid configuration in L3Out '{0}', 'ospf_area_config' must be empty when the routing_protocols={1}".format(
+                    l3out_identifier, routing_protocols
+                )
             )
         elif routing_protocols in (["ospf"], ["bgp", "ospf"]) and not ospf_area_config_dict:
             mso.fail_json(
-                msg="Invalid configuration in L3Out '{0}', 'ospf_area_config' must be specified when the routing_protocols is {1}".format(
+                msg="Invalid configuration in L3Out '{0}', 'ospf_area_config' must be specified when the routing_protocols={1}".format(
                     l3out_identifier, routing_protocols
                 )
             )
@@ -450,12 +450,12 @@ def main():
             mso.fail_json(
                 msg=(
                     "Invalid configuration in L3Out '{0}', 'advanced_route_map.route_dampening_ipv4'"
-                    + "'advanced_route_map.route_dampening_ipv6' must be empty when the routing_protocols is {1}"
+                    + "'advanced_route_map.route_dampening_ipv6' must be empty when the routing_protocols={1}"
                 ).format(l3out_identifier, routing_protocols)
             )
         elif routing_protocols != ["ospf"] and originate_default_route_always is True:
             mso.fail_json(
-                msg="Invalid configuration in L3Out '{0}', 'originate_default_route_always' must be 'false' when the routing_protocols is {1}".format(
+                msg="Invalid configuration in L3Out '{0}', 'originate_default_route_always' must be 'false' when the routing_protocols={1}".format(
                     l3out_identifier, routing_protocols
                 )
             )
@@ -470,7 +470,7 @@ def main():
             vrf_object = l3out_template_object.get_vrf_object(vrf_dict, tenant_id, templates_objects_path)
             if pim and vrf_object.details.get("l3MCast") is False:
                 mso.fail_json(
-                    msg="Invalid configuration in L3Out '{0}', 'pim' cannot be enabled while using the VRF '{1}' with L3 Multicast disabled".format(
+                    msg="Invalid configuration in L3Out '{0}', 'PIM' cannot be enabled while using the VRF '{1}' with L3 Multicast disabled".format(
                         l3out_identifier, vrf_dict.get("name")
                     )
                 )

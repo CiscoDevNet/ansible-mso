@@ -1189,7 +1189,7 @@
       ansible.builtin.assert:
         that:
           - create_l3out_4_tmp is not changed
-          - create_l3out_4_tmp.msg == "Invalid configuration in L3Out 'Name{{':'}} l3out_4_tmp', 'ospf_area_config' must be empty when the routing_protocols is bgp"
+          - create_l3out_4_tmp.msg == "Invalid configuration in L3Out 'Name{{':'}} l3out_4_tmp', 'ospf_area_config' must be empty when the routing_protocols=['bgp']"
 
     - name: Create again l3out_4_tmp object with routing_protocols bgp, ospf and without ospf_area_config (Negative test)
       cisco.mso.ndo_l3out_template:
@@ -1213,7 +1213,7 @@
       ansible.builtin.assert:
         that:
           - create_l3out_4_tmp_1 is not changed
-          - create_l3out_4_tmp_1.msg == "Invalid configuration in L3Out 'Name{{':'}} l3out_4_tmp', 'ospf_area_config' must be specified when the routing_protocols is ['bgp', 'ospf']"
+          - create_l3out_4_tmp_1.msg == "Invalid configuration in L3Out 'Name{{':'}} l3out_4_tmp', 'ospf_area_config' must be specified when the routing_protocols=['bgp', 'ospf']"
 
     - name: Create l3out_4_tmp object with routing_protocols ospf and with ipv4 and ipv6 route maps (Negative test)
       cisco.mso.ndo_l3out_template:
@@ -1244,7 +1244,7 @@
       ansible.builtin.assert:
         that:
           - create_l3out_4_tmp_2 is not changed
-          - create_l3out_4_tmp_2.msg == "Invalid configuration in L3Out 'Name{{':'}} l3out_4_tmp', 'advanced_route_map.route_dampening_ipv4''advanced_route_map.route_dampening_ipv6' must be empty when the routing_protocols is ['ospf']"
+          - create_l3out_4_tmp_2.msg == "Invalid configuration in L3Out 'Name{{':'}} l3out_4_tmp', 'advanced_route_map.route_dampening_ipv4''advanced_route_map.route_dampening_ipv6' must be empty when the routing_protocols=['ospf']"
 
     - name: Create l3out_4_tmp object with routing_protocols bgp and with originate_default_route_always is true (Negative test)
       cisco.mso.ndo_l3out_template:
@@ -1265,7 +1265,7 @@
       ansible.builtin.assert:
         that:
           - l3out_4_tmp_2_with_always_true is not changed
-          - l3out_4_tmp_2_with_always_true.msg == "Invalid configuration in L3Out 'Name{{':'}} l3out_4_tmp', 'originate_default_route_always' must be 'false' when the routing_protocols is ['bgp']"
+          - l3out_4_tmp_2_with_always_true.msg == "Invalid configuration in L3Out 'Name{{':'}} l3out_4_tmp', 'originate_default_route_always' must be 'false' when the routing_protocols=['bgp']"
 
     - name: Create l3out_5 object with routing_protocols ospf and with originate_default_route_always is true
       cisco.mso.ndo_l3out_template:
@@ -1442,7 +1442,7 @@
       ansible.builtin.assert:
         that:
           - enable_pim_with_l3multicast_disabled_vrf is not changed
-          - enable_pim_with_l3multicast_disabled_vrf.msg ==  "Invalid configuration in L3Out 'Name{{':'}} l3out_3', 'pim' cannot be enabled while using the VRF 'VRF1' with L3 Multicast disabled"
+          - enable_pim_with_l3multicast_disabled_vrf.msg ==  "Invalid configuration in L3Out 'Name{{':'}} l3out_3', 'PIM' cannot be enabled while using the VRF 'VRF1' with L3 Multicast disabled"
 
     - name: Update l3out object with invalid uuid (Negative test)
       cisco.mso.ndo_l3out_template:

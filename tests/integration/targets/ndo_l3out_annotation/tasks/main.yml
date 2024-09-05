@@ -1,0 +1,457 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version > 4.2
+  when: version.current.version is version('4.2', '>')
+  block:
+    # Setup Part
+    - name: Ensure l3out template not exist
+      cisco.mso.ndo_template: &ndo_l3out_template_absent
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template_type: l3out
+        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_test schema template not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: '{{ ansible_schema | default("ansible_test") }}'
+        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        template: "Template1"
+        state: absent
+
+    - name: Ensure ansible_test site exist
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: query
+      register: ansible_test_site
+
+    - name: Ensure ansible_test tenant exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+      register: ansible_test_tenant
+      when: ansible_test_site.current.common.name == 'ansible_test'
+
+    # Schema Template Setup for the VRF
+    - name: Add an ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+        state: present
+
+    - name: Add a new VRF1
+      cisco.mso.mso_schema_template_vrf: &vrf1_present
+        <<: *mso_info
+        schema: '{{ ansible_schema | default("ansible_test") }}'
+        template: "Template1"
+        vrf: VRF1
+        state: present
+
+    - name: Add a new VRF2 with layer3_multicast
+      cisco.mso.mso_schema_template_vrf:
+        <<: *vrf1_present
+        vrf: VRF2
+        layer3_multicast: true
+        state: present
+
+    # L3Out Template Setup
+    - name: Create a new l3out template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+        state: present
+      register: create_new_l3out_policy_template
+
+    # Test Part
+    - name: Query all annotations when the L3Out not present
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        state: query
+      ignore_errors: true
+      register: query_all_when_l3out_is_empty
+
+    - name: Create L3out object with default values
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: "L3OutAnnotation"
+        vrf:
+          name: "VRF1"
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+          template: "Template1"
+        state: "present"
+
+    - name: Query all annotations when the L3Out is empty
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        state: query
+      ignore_errors: true
+      register: query_all_when_l3out_is_empty
+
+    - name: Assertion check for query all annotations when the L3Out is empty
+      ansible.builtin.assert:
+        that:
+          - query_all_when_l3out_is_empty is not changed
+          - query_all_when_l3out_is_empty.current == []
+
+    - name: Query an annotation with key when the L3Out is empty
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_1"
+        state: query
+      ignore_errors: true
+      register: query_when_l3out_is_empty
+
+    - name: Assertion check for query an annotation with key when the L3Out is empty
+      ansible.builtin.assert:
+        that:
+          - query_when_l3out_is_empty is not changed
+          - query_when_l3out_is_empty.current == {}
+
+    - name: Add an annotation without value
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_1"
+        state: present
+      ignore_errors: true
+      register: nt_add_without_value
+
+    - name: Assertion check for add an annotation without value
+      ansible.builtin.assert:
+        that:
+          - nt_add_without_value is not changed
+          - nt_add_without_value.msg == "state is present but all of the following are missing{{':'}} annotation_value"
+
+    - name: Add an annotation without key
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_value: "annotation_value_1"
+        state: present
+      ignore_errors: true
+      register: nt_add_without_key
+
+    - name: Assertion check for add an annotation without key
+      ansible.builtin.assert:
+        that:
+          - nt_add_without_key is not changed
+          - nt_add_without_key.msg == "state is present but all of the following are missing{{':'}} annotation_key"
+
+    - name: Add an annotation with key and value - check_mode
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_1"
+        annotation_value: "annotation_value_1"
+        state: present
+        output_level: debug
+      check_mode: true
+      ignore_errors: true
+      register: cm_add
+
+    - name: Assertion check for add an annotation with key and value - check_mode
+      ansible.builtin.assert:
+        that:
+          - cm_add is changed
+          - cm_add.current.tagKey == "annotation_key_1"
+          - cm_add.current.tagValue == "annotation_value_1"
+          - cm_add.previous == {}
+          - cm_add.proposed.tagKey == "annotation_key_1"
+          - cm_add.proposed.tagValue == "annotation_value_1"
+
+    - name: Add an annotation with key and value
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_1"
+        annotation_value: "annotation_value_1"
+        state: present
+      ignore_errors: true
+      register: nm_add
+
+    - name: Assertion check for add an annotation with key and value
+      ansible.builtin.assert:
+        that:
+          - nm_add is changed
+          - nm_add.current.tagKey == "annotation_key_1"
+          - nm_add.current.tagValue == "annotation_value_1"
+          - nm_add.previous == {}
+
+    - name: Add an annotation with key and value - again
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_1"
+        annotation_value: "annotation_value_1"
+        state: present
+      ignore_errors: true
+      register: nm_add_again
+
+    - name: Assertion check for add an annotation with key and value - again
+      ansible.builtin.assert:
+        that:
+          - nm_add_again is not changed
+          - nm_add_again.current.tagKey == "annotation_key_1"
+          - nm_add_again.current.tagValue == "annotation_value_1"
+          - nm_add_again.previous.tagKey == "annotation_key_1"
+          - nm_add_again.previous.tagValue == "annotation_value_1"
+
+    - name: Query all annotations
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        state: query
+      ignore_errors: true
+      register: query_all_after_creation
+
+    - name: Assertion check for query all annotations
+      ansible.builtin.assert:
+        that:
+          - query_all_after_creation is not changed
+          - query_all_after_creation.current | length == 1
+          - query_all_after_creation.current.0.tagKey == "annotation_key_1"
+          - query_all_after_creation.current.0.tagValue == "annotation_value_1"
+
+    - name: Query an annotation with key
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_1"
+        state: query
+      ignore_errors: true
+      register: query_with_key_after_creation
+
+    - name: Assertion check for query an annotation with key
+      ansible.builtin.assert:
+        that:
+          - query_with_key_after_creation is not changed
+          - query_with_key_after_creation.current.tagKey == "annotation_key_1"
+          - query_with_key_after_creation.current.tagValue == "annotation_value_1"
+
+    - name: Update an annotation value - check mode
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_1"
+        annotation_value: "annotation_value_1_updated"
+        state: present
+        output_level: debug
+      check_mode: true
+      ignore_errors: true
+      register: cm_update
+
+    - name: Assertion check for update an annotation value - check mode
+      ansible.builtin.assert:
+        that:
+          - cm_update is changed
+          - cm_update.current.tagKey == "annotation_key_1"
+          - cm_update.current.tagValue == "annotation_value_1_updated"
+          - cm_update.previous.tagKey == "annotation_key_1"
+          - cm_update.previous.tagValue == "annotation_value_1"
+          - cm_update.proposed.tagKey == "annotation_key_1"
+          - cm_update.proposed.tagValue == "annotation_value_1_updated"
+
+    - name: Update an annotation value
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_1"
+        annotation_value: "annotation_value_1_updated"
+        state: present
+      ignore_errors: true
+      register: nm_update
+
+    - name: Assertion check for update an annotation value
+      ansible.builtin.assert:
+        that:
+          - nm_update is changed
+          - nm_update.current.tagKey == "annotation_key_1"
+          - nm_update.current.tagValue == "annotation_value_1_updated"
+          - nm_update.previous.tagKey == "annotation_key_1"
+          - nm_update.previous.tagValue == "annotation_value_1"
+
+    - name: Update an annotation value - again
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_1"
+        annotation_value: "annotation_value_1_updated"
+        state: present
+      ignore_errors: true
+      register: nm_update_again
+
+    - name: Assertion check for update an annotation value - again
+      ansible.builtin.assert:
+        that:
+          - nm_update_again is not changed
+          - nm_update_again.current.tagKey == "annotation_key_1"
+          - nm_update_again.current.tagValue == "annotation_value_1_updated"
+          - nm_update_again.previous.tagKey == "annotation_key_1"
+          - nm_update_again.previous.tagValue == "annotation_value_1_updated"
+
+    - name: Query an annotation with key
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_1"
+        state: query
+      ignore_errors: true
+      register: query_after_update
+
+    - name: Assertion check for query an annotation with key
+      ansible.builtin.assert:
+        that:
+          - query_after_update is not changed
+          - query_after_update.current.tagKey == "annotation_key_1"
+          - query_after_update.current.tagValue == "annotation_value_1_updated"
+
+    - name: Add an annotation_key_2
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_2"
+        annotation_value: "annotation_value_2"
+        state: present
+      ignore_errors: true
+      register: add_key_2
+
+    - name: Assertion check for add an annotation_key_2
+      ansible.builtin.assert:
+        that:
+          - add_key_2 is changed
+          - add_key_2.current.tagKey == "annotation_key_2"
+          - add_key_2.current.tagValue == "annotation_value_2"
+          - add_key_2.previous == {}
+
+    - name: Query all annotations
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        state: query
+      ignore_errors: true
+      register: query_all_annotations
+
+    - name: Assertion check for query all annotations
+      ansible.builtin.assert:
+        that:
+          - query_all_annotations is not changed
+          - query_all_annotations.current | length == 2
+
+    - name: Remove an annotation - check_mode
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_1"
+        state: absent
+        output_level: debug
+      check_mode: true
+      ignore_errors: true
+      register: cm_remove
+
+    - name: Assertion check for remove an annotation - check_mode
+      ansible.builtin.assert:
+        that:
+          - cm_remove is changed
+          - cm_remove.current == {}
+          - cm_remove.previous.tagKey == "annotation_key_1"
+          - cm_remove.previous.tagValue == "annotation_value_1_updated"
+          - cm_remove.proposed == {}
+
+    - name: Remove an annotation
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_1"
+        state: absent
+      ignore_errors: true
+      register: nm_remove
+
+    - name: Assertion check for remove an annotation
+      ansible.builtin.assert:
+        that:
+          - nm_remove is changed
+          - nm_remove.current == {}
+          - nm_remove.previous.tagKey == "annotation_key_1"
+          - nm_remove.previous.tagValue == "annotation_value_1_updated"
+
+    - name: Remove an annotation - again
+      cisco.mso.ndo_l3out_annotation:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "L3OutAnnotation"
+        annotation_key: "annotation_key_1"
+        state: absent
+      ignore_errors: true
+      register: nm_remove_again
+
+    - name: Assertion check for remove an annotation - again
+      ansible.builtin.assert:
+        that:
+          - nm_remove_again is not changed
+          - nm_remove_again.current == {}
+          - nm_remove_again.previous == {}
+
+    # Cleanup Part
+    - name: Remove l3out tenant template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+
+    - name: Remove ansible_test schema template not exist
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent

@@ -96,46 +96,74 @@ options:
     - The protocol independent multicast (PIM) flag of the L3Out.
     - By default, PIM is disabled. To enable the PIM, Layer 3 Multicast must be enabled on the O(vrf).
     type: bool
-  inbound_route_map:
+  interleak:
     description:
-    - The name of the Route Map Policy for Route Control that needs to be associated with inbound route map when the O(routing_protocols=bgp).
+    - The name of the Route Map Policy for Route Control that needs to be associated with Interleak route map.
     type: str
-    aliases: [ import_route, inbound_route ]
-  outbound_route_map:
+  static_route_redistribution:
     description:
-    - The name of the Route Map Policy for Route Control that needs to be associated with outbound route map when the O(routing_protocols=bgp).
+    - The name of the Route Map Policy for Route Control that needs to be associated with Static Route Redistribution route map.
     type: str
-    aliases: [ export_route, outbound_route ]
-  routing_protocols:
+    aliases: [ static_route ]
+  connected_route_redistribution:
     description:
-    - The routing protocols of the L3Out.
-    type: list
-    elements: str
-    choices: [bgp, ospf]
-  ospf_area_config:
+    - The name of the Route Map Policy for Route Control that needs to be associated with Connected Route Redistribution route map.
+    type: str
+    aliases: [ connected_route ]
+  attached_host_route_redistribution:
     description:
-    - The OSPF area configuration of the L3Out.
-    aliases: [ ospf_config ]
+    - The name of the Route Map Policy for Route Control that needs to be associated with Attached Host Route Redistribution route map.
+    type: str
+    aliases: [ attached_host_route ]
+  bgp:
+    description:
+    - The BGP routing protocol configuration of the L3Out.
+    - Use empty dict ({}) to clear the complete BGP configuration.
+    - Use empty string ("") to clear the BGP sub options configuration.
     type: dict
     suboptions:
-      ospf_area_id:
+      inbound_route_map:
+        description:
+        - The name of the Route Map Policy for Route Control that needs to be associated with inbound route map.
+        type: str
+        aliases: [ import_route, inbound_route ]
+      outbound_route_map:
+        description:
+        - The name of the Route Map Policy for Route Control that needs to be associated with outbound route map.
+        type: str
+        aliases: [ export_route, outbound_route ]
+      route_dampening_ipv4:
+        description:
+        - The name of the Route Map Policy for Route Control that needs to be associated with Route Dampening IPv4 route map.
+        type: str
+        aliases: [ dampening_ipv4 ]
+      route_dampening_ipv6:
+        description:
+        - The name of the Route Map Policy for Route Control that needs to be associated with Route Dampening IPv6 route map.
+        type: str
+        aliases: [ dampening_ipv6 ]
+  ospf:
+    description:
+    - The OSPF routing protocol configuration of the L3Out.
+    - Use empty dict ({}) to clear the complete OSPF configuration.
+    - Use empty string ("") to clear the OSPF sub options configuration.
+    type: dict
+    suboptions:
+      area_id:
         description:
         - The area id of the OSPF area.
         type: str
-        aliases: [ area_id ]
         required: true
-      ospf_area_type:
+      area_type:
         description:
         - The area type of the OSPF area.
         type: str
         choices: [regular, stub, nssa]
-        aliases: [ area_type ]
         required: true
-      ospf_cost:
+      cost:
         description:
         - The cost of the OSPF area.
         type: int
-        aliases: [ cost ]
         required: true
       originate_summary_lsa:
         description:
@@ -149,8 +177,8 @@ options:
         description:
         - This option is for the OSPF NSSA (not-so-stubby area).
         - When this option is disabled, the redistributed routes are not sent into this NSSA area from the border leaf.
-        - This is typically used when the O(ospf_area_config.originate_summary_lsa=false).
-        - Because disabling the O(ospf_area_config.originate_summary_lsa) option creates and sends a default route to the NSSA or Stub area.
+        - This is typically used when the O(ospf.originate_summary_lsa=false).
+        - Because disabling the O(ospf.originate_summary_lsa) option creates and sends a default route to the NSSA or Stub area.
         type: bool
         aliases: [ redistributed_lsas ]
       suppress_forwarding_addr_translated_lsa:
@@ -163,53 +191,17 @@ options:
         - Enabling this option prevents the ABR from adding a forwarding address during the Type-7 to Type-5 translation, thereby avoiding this issue.
         type: bool
         aliases: [ suppress_fa_lsa ]
-  originate_default_route:
-    description:
-    - The Originate Default Route option in an L3Out configuration allows the ACI fabric to advertise a default route (0.0.0.0/0) to external networks.
-    - Use C("") to clear the Originate Default Route option.
-    type: str
-    choices: [ only, in_addition, "" ]
-  originate_default_route_always:
-    description:
-    - This option is applicable only if OSPF is configured on the L3Out.
-    type: bool
-    aliases: [ always ]
-  advanced_route_map:
-    description:
-    - The advanced route map of the L3Out.
-    type: dict
-    suboptions:
-      interleak:
+      originate_default_route:
         description:
-        - The name of the Route Map Policy for Route Control that needs to be associated with Interleak route map.
+        - The Originate Default Route option in an L3Out configuration allows the ACI fabric to advertise a default route (0.0.0.0/0) to external networks.
+        - Use C("") to clear the Originate Default Route option.
         type: str
-      static_route_redistribution:
+        choices: [ only, in_addition, "" ]
+      originate_default_route_always:
         description:
-        - The name of the Route Map Policy for Route Control that needs to be associated with Static Route Redistribution route map.
-        type: str
-        aliases: [ static_route ]
-      connected_route_redistribution:
-        description:
-        - The name of the Route Map Policy for Route Control that needs to be associated with Connected Route Redistribution route map.
-        type: str
-        aliases: [ connected_route ]
-      attached_host_route_redistribution:
-        description:
-        - The name of the Route Map Policy for Route Control that needs to be associated with Attached Host Route Redistribution route map.
-        type: str
-        aliases: [ attached_host_route ]
-      route_dampening_ipv4:
-        description:
-        - The name of the Route Map Policy for Route Control that needs to be associated with Route Dampening IPv4 route map.
-        - This option is applicable only when the O(routing_protocols=bgp).
-        type: str
-        aliases: [ dampening_ipv4 ]
-      route_dampening_ipv6:
-        description:
-        - The name of the Route Map Policy for Route Control that needs to be associated with Route Dampening IPv6 route map.
-        - This option is applicable only when the O(routing_protocols=bgp).
-        type: str
-        aliases: [ dampening_ipv6 ]
+        - This option is applicable only if OSPF is configured on the L3Out.
+        type: bool
+        aliases: [ always ]
   state:
     description:
     - Use C(absent) for removing.
@@ -218,6 +210,17 @@ options:
     type: str
     choices: [ absent, query, present ]
     default: query
+notes:
+- The O(template) must exist before using this module in your playbook.
+  Use M(cisco.mso.ndo_template) to create the L3Out template.
+- The O(vrf) must exist before using this module in your playbook.
+  Use M(cisco.mso.mso_schema_template_vrf) to create the VRF.
+- The O(l3_domain) must exist before using this module in your playbook.
+  Use M(cisco.mso.ndo_l3_domain) to create the L3Out domain.
+seealso:
+- module: cisco.mso.mso_schema_template_vrf
+- module: cisco.mso.ndo_template
+- module: cisco.mso.ndo_l3_domain
 extends_documentation_fragment: cisco.mso.modules
 """
 
@@ -243,6 +246,47 @@ EXAMPLES = r"""
     l3out_template: l3out_template
     uuid: "uuid"
     description: "updated description"
+    state: "present"
+
+- name: Create a new L3Out object with routing protocols
+  cisco.mso.ndo_l3out_template:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    l3out_template: l3out_template
+    name: "l3out_1"
+    vrf:
+      name: "VRF1"
+      schema: "Schema1"
+      template: "Template1"
+    bgp:
+      inbound_route_map: "ans_route_map"
+      outbound_route_map: "ans_route_map"
+      route_dampening_ipv4: "ans_route_map"
+      route_dampening_ipv6: "ans_route_map"
+    ospf:
+      area_id: "0.0.0.1"
+      area_type: "regular"
+      cost: 1
+      send_redistributed_lsas: true
+      originate_summary_lsa: true
+      suppress_forwarding_addr_translated_lsa: true
+      originate_default_route: "only"
+      originate_default_route_always: false
+    interleak: "ans_route_map"
+    static_route_redistribution: "ans_route_map"
+    connected_route_redistribution: "ans_route_map"
+    attached_host_route_redistribution: "ans_route_map"
+    state: "present"
+
+- name: Clear an OSPF routing protocol from the existing L3Out with UUID
+  cisco.mso.ndo_l3out_template:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    l3out_template: l3out_template
+    uuid: "uuid"
+    ospf: {}
     state: "present"
 
 - name: Query a L3Out object with name
@@ -300,7 +344,7 @@ import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
-from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ROUTING_PROTOCOLS_MAP, ORIGINATE_DEFAULT_ROUTE
+from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ORIGINATE_DEFAULT_ROUTE
 
 
 def main():
@@ -321,35 +365,28 @@ def main():
         l3_domain=dict(type="str"),
         target_dscp=dict(type="str", choices=list(TARGET_DSCP_MAP)),
         pim=dict(type="bool"),
-        inbound_route_map=dict(type="str", aliases=["import_route", "inbound_route"]),
-        outbound_route_map=dict(type="str", aliases=["export_route", "outbound_route"]),
-        routing_protocols=dict(type="list", elements="str", choices=["bgp", "ospf"]),
-        ospf_area_config=dict(
+        interleak=dict(type="str"),
+        static_route_redistribution=dict(type="str", aliases=["static_route"]),
+        connected_route_redistribution=dict(type="str", aliases=["connected_route"]),
+        attached_host_route_redistribution=dict(type="str", aliases=["attached_host_route"]),
+        ospf=dict(
             type="dict",
             options=dict(
-                ospf_area_id=dict(type="str", aliases=["area_id"], required=True),
-                ospf_area_type=dict(
-                    type="str",
-                    choices=["regular", "stub", "nssa"],
-                    aliases=["area_type"],
-                    required=True,
-                ),
-                ospf_cost=dict(type="int", aliases=["cost"], required=True),
+                area_id=dict(type="str", required=True),
+                area_type=dict(type="str", choices=["regular", "stub", "nssa"], required=True),
+                cost=dict(type="int", required=True),
                 send_redistributed_lsas=dict(type="bool", aliases=["redistributed_lsas"]),
                 originate_summary_lsa=dict(type="bool", aliases=["originate_lsa"]),
                 suppress_forwarding_addr_translated_lsa=dict(type="bool", aliases=["suppress_fa_lsa"]),
+                originate_default_route=dict(type="str", choices=list(ORIGINATE_DEFAULT_ROUTE)),
+                originate_default_route_always=dict(type="bool", aliases=["always"]),
             ),
-            aliases=["ospf_config"],
         ),
-        originate_default_route=dict(type="str", choices=list(ORIGINATE_DEFAULT_ROUTE)),
-        originate_default_route_always=dict(type="bool", aliases=["always"]),
-        advanced_route_map=dict(
+        bgp=dict(
             type="dict",
             options=dict(
-                interleak=dict(type="str"),
-                static_route_redistribution=dict(type="str", aliases=["static_route"]),
-                connected_route_redistribution=dict(type="str", aliases=["connected_route"]),
-                attached_host_route_redistribution=dict(type="str", aliases=["attached_host_route"]),
+                inbound_route_map=dict(type="str", aliases=["import_route", "inbound_route"]),
+                outbound_route_map=dict(type="str", aliases=["export_route", "outbound_route"]),
                 route_dampening_ipv4=dict(type="str", aliases=["dampening_ipv4"]),
                 route_dampening_ipv6=dict(type="str", aliases=["dampening_ipv6"]),
             ),
@@ -373,17 +410,16 @@ def main():
     name = module.params.get("name")
     uuid = module.params.get("uuid")
     description = module.params.get("description")
-    vrf_dict = module.params.get("vrf") if module.params.get("vrf") else {}
     l3_domain = module.params.get("l3_domain")
-    target_dscp = TARGET_DSCP_MAP.get(module.params.get("target_dscp"))
     pim = module.params.get("pim")
-    outbound_route_map = module.params.get("outbound_route_map")
-    routing_protocols = sorted(module.params.get("routing_protocols") if module.params.get("routing_protocols") else [])
-    ospf_area_config_dict = module.params.get("ospf_area_config") if module.params.get("ospf_area_config") else {}
-    originate_default_route = ORIGINATE_DEFAULT_ROUTE.get(module.params.get("originate_default_route"))
-    advanced_route_map_dict = module.params.get("advanced_route_map") if module.params.get("advanced_route_map") else {}
-    originate_default_route_always = module.params.get("originate_default_route_always")
-
+    interleak = module.params.get("interleak")
+    static_route_redistribution = module.params.get("static_route_redistribution")
+    connected_route_redistribution = module.params.get("connected_route_redistribution")
+    attached_host_route_redistribution = module.params.get("attached_host_route_redistribution")
+    target_dscp = TARGET_DSCP_MAP.get(module.params.get("target_dscp"))
+    vrf_dict = module.params.get("vrf") if module.params.get("vrf") else {}
+    ospf = module.params.get("ospf") if module.params.get("ospf") else {}
+    bgp = module.params.get("bgp") if module.params.get("bgp") else {}
     state = module.params.get("state")
 
     l3out_identifier = None
@@ -392,7 +428,6 @@ def main():
 
     l3out_template_object = MSOTemplate(mso, "l3out", l3out_template)
     l3out_template_object.validate_template("l3out")
-    l3out_template_id = l3out_template_object.template.get("templateId")
 
     tenant_id = l3out_template_object.template_summary.get("tenantId")
     tenant_name = l3out_template_object.template_summary.get("tenantName")
@@ -430,35 +465,10 @@ def main():
         proposed_payload = copy.deepcopy(l3out_object[0].details)
 
     ops = []
+
     if state == "present":
         if uuid and not mso.existing:
             mso.fail_json(msg="L3Out with the uuid: '{0}' not found".format(uuid))
-
-        if routing_protocols == ["bgp"] and ospf_area_config_dict:
-            mso.fail_json(
-                msg="Invalid configuration in L3Out '{0}', 'ospf_area_config' must be empty when the routing_protocols={1}".format(
-                    l3out_identifier, routing_protocols
-                )
-            )
-        elif routing_protocols in (["ospf"], ["bgp", "ospf"]) and not ospf_area_config_dict:
-            mso.fail_json(
-                msg="Invalid configuration in L3Out '{0}', 'ospf_area_config' must be specified when the routing_protocols={1}".format(
-                    l3out_identifier, routing_protocols
-                )
-            )
-        elif routing_protocols == ["ospf"] and (advanced_route_map_dict.get("route_dampening_ipv4") or advanced_route_map_dict.get("route_dampening_ipv6")):
-            mso.fail_json(
-                msg=(
-                    "Invalid configuration in L3Out '{0}', 'advanced_route_map.route_dampening_ipv4'"
-                    + "'advanced_route_map.route_dampening_ipv6' must be empty when the routing_protocols={1}"
-                ).format(l3out_identifier, routing_protocols)
-            )
-        elif routing_protocols != ["ospf"] and originate_default_route_always is True:
-            mso.fail_json(
-                msg="Invalid configuration in L3Out '{0}', 'originate_default_route_always' must be 'false' when the routing_protocols={1}".format(
-                    l3out_identifier, routing_protocols
-                )
-            )
 
         templates_objects_path = "templates/objects"
         route_map_params = {"type": "routeMap", "tenant-id": tenant_id}
@@ -475,6 +485,18 @@ def main():
                     )
                 )
             vrf_ref = vrf_object.details.get("uuid")
+
+        routing_protocols = ""  # Initially routing_protocols="" during the create
+
+        if mso.existing:  # During the update routing_protocols=None to identify the valid change
+            routing_protocols = None
+
+        if bgp and ospf:
+            routing_protocols = "bgpOspf"
+        elif bgp and ospf == {}:
+            routing_protocols = "bgp"
+        elif bgp == {} and ospf:
+            routing_protocols = "ospf"
 
         if not mso.existing and name:
             payload = dict(name=name)
@@ -494,104 +516,107 @@ def main():
                 payload["pim"] = pim
 
             if routing_protocols:
-                payload["routingProtocol"] = ROUTING_PROTOCOLS_MAP.get(",".join(routing_protocols))
+                payload["routingProtocol"] = routing_protocols
 
-            if advanced_route_map_dict:
-                payload["advancedRouteMapRefs"] = dict()
-
-            if advanced_route_map_dict.get("interleak"):
-                payload["advancedRouteMapRefs"]["interleakRef"] = l3out_template_object.get_route_map(
+            outer_route_maps = dict()
+            if interleak:
+                outer_route_maps["interleakRef"] = l3out_template_object.get_route_map(
                     "interleak",
                     tenant_id,
                     tenant_name,
-                    advanced_route_map_dict.get("interleak"),
+                    interleak,
                     route_map_objects,
                 ).get("uuid", "")
 
-            if advanced_route_map_dict.get("static_route_redistribution"):
-                payload["advancedRouteMapRefs"]["staticRouteRedistRef"] = l3out_template_object.get_route_map(
+            if static_route_redistribution:
+                outer_route_maps["staticRouteRedistRef"] = l3out_template_object.get_route_map(
                     "static_route_redistribution",
                     tenant_id,
                     tenant_name,
-                    advanced_route_map_dict.get("static_route_redistribution"),
+                    static_route_redistribution,
                     route_map_objects,
                 ).get("uuid", "")
 
-            if advanced_route_map_dict.get("connected_route_redistribution"):
-                payload["advancedRouteMapRefs"]["connectedRouteRedistRef"] = l3out_template_object.get_route_map(
+            if connected_route_redistribution:
+                outer_route_maps["connectedRouteRedistRef"] = l3out_template_object.get_route_map(
                     "connected_route_redistribution",
                     tenant_id,
                     tenant_name,
-                    advanced_route_map_dict.get("connected_route_redistribution"),
+                    connected_route_redistribution,
                     route_map_objects,
                 ).get("uuid", "")
 
-            if advanced_route_map_dict.get("attached_host_route_redistribution"):
-                payload["advancedRouteMapRefs"]["attachedHostRouteRedistRef"] = l3out_template_object.get_route_map(
+            if attached_host_route_redistribution:
+                outer_route_maps["attachedHostRouteRedistRef"] = l3out_template_object.get_route_map(
                     "attached_host_route_redistribution",
                     tenant_id,
                     tenant_name,
-                    advanced_route_map_dict.get("attached_host_route_redistribution"),
+                    attached_host_route_redistribution,
                     route_map_objects,
                 ).get("uuid", "")
 
-            if routing_protocols in (["bgp"], ["bgp", "ospf"]):
-                if module.params.get("inbound_route_map"):
+            if outer_route_maps:
+                payload["advancedRouteMapRefs"] = outer_route_maps
+
+            if bgp:
+                if bgp.get("inbound_route_map"):
                     payload["importRouteMapRef"] = l3out_template_object.get_route_map(
                         "inbound_route_map",
                         tenant_id,
                         tenant_name,
-                        module.params.get("inbound_route_map"),
+                        bgp.get("inbound_route_map"),
                         route_map_objects,
                     ).get("uuid", "")
 
                 payload["importRouteControl"] = True if payload.get("importRouteMapRef") else False
 
-                if module.params.get("outbound_route_map"):
+                if bgp.get("outbound_route_map"):
                     payload["exportRouteMapRef"] = l3out_template_object.get_route_map(
                         "outbound_route_map",
                         tenant_id,
                         tenant_name,
-                        module.params.get("outbound_route_map"),
+                        bgp.get("outbound_route_map"),
                         route_map_objects,
                     ).get("uuid", "")
 
-                if advanced_route_map_dict.get("route_dampening_ipv4"):
+                if bgp.get("route_dampening_ipv4"):
                     payload["advancedRouteMapRefs"]["routeDampeningV4Ref"] = l3out_template_object.get_route_map(
                         "route_dampening_ipv4",
                         tenant_id,
                         tenant_name,
-                        advanced_route_map_dict.get("route_dampening_ipv4"),
+                        bgp.get("route_dampening_ipv4"),
                         route_map_objects,
                     ).get("uuid", "")
 
-                if advanced_route_map_dict.get("route_dampening_ipv6"):
+                if bgp.get("route_dampening_ipv6"):
                     payload["advancedRouteMapRefs"]["routeDampeningV6Ref"] = l3out_template_object.get_route_map(
                         "route_dampening_ipv6",
                         tenant_id,
                         tenant_name,
-                        advanced_route_map_dict.get("route_dampening_ipv6"),
+                        bgp.get("route_dampening_ipv6"),
                         route_map_objects,
                     ).get("uuid", "")
 
-            if originate_default_route:
-                payload["defaultRouteLeak"] = dict(
-                    originateDefaultRoute=originate_default_route,
+            if ospf:
+                payload["ospfAreaConfig"] = dict(
+                    cost=ospf.get("cost"),
+                    id=ospf.get("area_id"),
+                    areaType=ospf.get("area_type"),
                 )
 
-            if originate_default_route_always is not None:
-                payload["defaultRouteLeak"]["always"] = originate_default_route_always
+                default_route_leak = dict()
+                if ospf.get("originate_default_route"):
+                    default_route_leak["originateDefaultRoute"] = ORIGINATE_DEFAULT_ROUTE.get(ospf.get("originate_default_route"))
 
-            if routing_protocols in (["ospf"], ["bgp", "ospf"]):
-                payload["ospfAreaConfig"] = dict()
+                if ospf.get("originate_default_route_always") is not None:
+                    default_route_leak["always"] = ospf.get("originate_default_route_always")
 
-                payload["ospfAreaConfig"]["cost"] = ospf_area_config_dict.get("ospf_cost")
-                payload["ospfAreaConfig"]["id"] = ospf_area_config_dict.get("ospf_area_id")
-                payload["ospfAreaConfig"]["areaType"] = ospf_area_config_dict.get("ospf_area_type")
+                if default_route_leak:
+                    payload["defaultRouteLeak"] = default_route_leak
 
-                redistribute = ospf_area_config_dict.get("send_redistributed_lsas")
-                originate = ospf_area_config_dict.get("originate_summary_lsa")
-                suppress_fa = ospf_area_config_dict.get("suppress_forwarding_addr_translated_lsa")
+                redistribute = ospf.get("send_redistributed_lsas")
+                originate = ospf.get("originate_summary_lsa")
+                suppress_fa = ospf.get("suppress_forwarding_addr_translated_lsa")
 
                 control = dict()
                 if redistribute is not None:
@@ -636,33 +661,40 @@ def main():
                 update_ops.append(dict(op="replace", path=l3out_attrs_path + "/pim", value=pim))
                 proposed_payload["pim"] = pim
 
-            if routing_protocols is not None and mso.existing.get("routingProtocol") != ROUTING_PROTOCOLS_MAP.get(",".join(routing_protocols)):
-                update_ops.append(dict(op="replace", path=l3out_attrs_path + "/routingProtocol", value=ROUTING_PROTOCOLS_MAP.get(",".join(routing_protocols))))
-                proposed_payload["routingProtocol"] = ROUTING_PROTOCOLS_MAP.get(",".join(routing_protocols))
+            if routing_protocols is not None and routing_protocols != "" and mso.existing.get("routingProtocol") != routing_protocols:
+                update_ops.append(dict(op="replace", path=l3out_attrs_path + "/routingProtocol", value=routing_protocols))
+                proposed_payload["routingProtocol"] = routing_protocols
 
-            if advanced_route_map_dict and not mso.existing.get("advancedRouteMapRefs"):
+            if (
+                interleak is not None
+                or static_route_redistribution is not None
+                or connected_route_redistribution is not None
+                or attached_host_route_redistribution is not None
+            ) and not mso.existing.get("advancedRouteMapRefs"):
                 update_ops.append(dict(op="add", path=l3out_attrs_path + "/advancedRouteMapRefs", value=dict()))
                 proposed_payload["advancedRouteMapRefs"] = dict()
 
-            if advanced_route_map_dict.get("interleak") is not None:
+            outer_route_maps = dict()
+
+            if interleak is not None:
                 interleak_ref = l3out_template_object.get_route_map(
                     "interleak",
                     tenant_id,
                     tenant_name,
-                    advanced_route_map_dict.get("interleak"),
+                    interleak,
                     route_map_objects,
                 ).get("uuid", "")
 
                 if interleak_ref and mso.existing.get("advancedRouteMapRefs", {}).get("interleakRef") != interleak_ref:
                     update_ops.append(dict(op="replace", path=l3out_attrs_path + "/advancedRouteMapRefs/interleakRef", value=interleak_ref))
-                    proposed_payload["advancedRouteMapRefs"]["interleakRef"] = interleak_ref
+                    outer_route_maps["interleakRef"] = interleak_ref
 
-            if advanced_route_map_dict.get("static_route_redistribution") is not None:
+            if static_route_redistribution is not None:
                 static_route_redistribution_ref = l3out_template_object.get_route_map(
                     "static_route_redistribution",
                     tenant_id,
                     tenant_name,
-                    advanced_route_map_dict.get("static_route_redistribution"),
+                    static_route_redistribution,
                     route_map_objects,
                 ).get("uuid", "")
 
@@ -673,14 +705,14 @@ def main():
                     update_ops.append(
                         dict(op="replace", path=l3out_attrs_path + "/advancedRouteMapRefs/staticRouteRedistRef", value=static_route_redistribution_ref)
                     )
-                    proposed_payload["advancedRouteMapRefs"]["staticRouteRedistRef"] = static_route_redistribution_ref
+                    outer_route_maps["staticRouteRedistRef"] = static_route_redistribution_ref
 
-            if advanced_route_map_dict.get("connected_route_redistribution") is not None:
+            if connected_route_redistribution is not None:
                 connected_route_redistribution_ref = l3out_template_object.get_route_map(
                     "connected_route_redistribution",
                     tenant_id,
                     tenant_name,
-                    advanced_route_map_dict.get("connected_route_redistribution"),
+                    connected_route_redistribution,
                     route_map_objects,
                 ).get("uuid", "")
 
@@ -691,14 +723,14 @@ def main():
                     update_ops.append(
                         dict(op="replace", path=l3out_attrs_path + "/advancedRouteMapRefs/connectedRouteRedistRef", value=connected_route_redistribution_ref)
                     )
-                    proposed_payload["advancedRouteMapRefs"]["connectedRouteRedistRef"] = connected_route_redistribution_ref
+                    outer_route_maps["connectedRouteRedistRef"] = connected_route_redistribution_ref
 
-            if advanced_route_map_dict.get("attached_host_route_redistribution") is not None:
+            if attached_host_route_redistribution is not None:
                 attached_host_route_redistribution_ref = l3out_template_object.get_route_map(
                     "attached_host_route_redistribution",
                     tenant_id,
                     tenant_name,
-                    advanced_route_map_dict.get("attached_host_route_redistribution"),
+                    attached_host_route_redistribution,
                     route_map_objects,
                 ).get("uuid", "")
 
@@ -713,102 +745,116 @@ def main():
                             value=attached_host_route_redistribution_ref,
                         )
                     )
-                    proposed_payload["advancedRouteMapRefs"]["attachedHostRouteRedistRef"] = attached_host_route_redistribution_ref
+                    outer_route_maps["attachedHostRouteRedistRef"] = attached_host_route_redistribution_ref
 
-            if module.params.get("inbound_route_map") is not None:
-                inbound_route_map_ref = l3out_template_object.get_route_map(
-                    "inbound_route_map",
-                    tenant_id,
-                    tenant_name,
-                    module.params.get("inbound_route_map"),
-                    route_map_objects,
-                ).get("uuid", "")
+            proposed_payload["advancedRouteMapRefs"] = outer_route_maps
 
-                if inbound_route_map_ref and mso.existing.get("importRouteMapRef") != inbound_route_map_ref:
-                    update_ops.append(dict(op="replace", path=l3out_attrs_path + "/importRouteMapRef", value=inbound_route_map_ref))
-                    update_ops.append(dict(op="replace", path=l3out_attrs_path + "/importRouteControl", value=True if inbound_route_map_ref else False))
-                    proposed_payload["importRouteMapRef"] = inbound_route_map_ref
-                    proposed_payload["importRouteControl"] = True if inbound_route_map_ref else False
+            if bgp:
+                if bgp.get("inbound_route_map") is not None:
+                    inbound_route_map_ref = l3out_template_object.get_route_map(
+                        "inbound_route_map",
+                        tenant_id,
+                        tenant_name,
+                        bgp.get("inbound_route_map"),
+                        route_map_objects,
+                    ).get("uuid", "")
 
-            if module.params.get("outbound_route_map") is not None:
-                outbound_route_map_ref = l3out_template_object.get_route_map(
-                    "outbound_route_map",
-                    tenant_id,
-                    tenant_name,
-                    module.params.get("outbound_route_map"),
-                    route_map_objects,
-                ).get("uuid", "")
+                    if inbound_route_map_ref and mso.existing.get("importRouteMapRef") != inbound_route_map_ref:
+                        update_ops.append(dict(op="replace", path=l3out_attrs_path + "/importRouteMapRef", value=inbound_route_map_ref))
+                        update_ops.append(dict(op="replace", path=l3out_attrs_path + "/importRouteControl", value=True if inbound_route_map_ref else False))
+                        proposed_payload["importRouteMapRef"] = inbound_route_map_ref
+                        proposed_payload["importRouteControl"] = True if inbound_route_map_ref else False
 
-                if outbound_route_map_ref and mso.existing.get("exportRouteMapRef") != outbound_route_map_ref:
-                    update_ops.append(dict(op="replace", path=l3out_attrs_path + "/exportRouteMapRef", value=outbound_route_map_ref))
-                    proposed_payload["exportRouteMapRef"] = outbound_route_map_ref
+                if bgp.get("outbound_route_map") is not None:
+                    outbound_route_map_ref = l3out_template_object.get_route_map(
+                        "outbound_route_map",
+                        tenant_id,
+                        tenant_name,
+                        bgp.get("outbound_route_map"),
+                        route_map_objects,
+                    ).get("uuid", "")
 
-            if advanced_route_map_dict.get("route_dampening_ipv4") is not None:
-                route_dampening_ipv4_ref = l3out_template_object.get_route_map(
-                    "route_dampening_ipv4",
-                    tenant_id,
-                    tenant_name,
-                    advanced_route_map_dict.get("route_dampening_ipv4"),
-                    route_map_objects,
-                ).get("uuid", "")
+                    if outbound_route_map_ref and mso.existing.get("exportRouteMapRef") != outbound_route_map_ref:
+                        update_ops.append(dict(op="replace", path=l3out_attrs_path + "/exportRouteMapRef", value=outbound_route_map_ref))
+                        proposed_payload["exportRouteMapRef"] = outbound_route_map_ref
 
-                if route_dampening_ipv4_ref and mso.existing.get("advancedRouteMapRefs", {}).get("routeDampeningV4Ref") != route_dampening_ipv4_ref:
-                    update_ops.append(dict(op="replace", path=l3out_attrs_path + "/advancedRouteMapRefs/routeDampeningV4Ref", value=route_dampening_ipv4_ref))
-                    proposed_payload["advancedRouteMapRefs"]["routeDampeningV4Ref"] = route_dampening_ipv4_ref
+                if bgp.get("route_dampening_ipv4") is not None:
+                    route_dampening_ipv4_ref = l3out_template_object.get_route_map(
+                        "route_dampening_ipv4",
+                        tenant_id,
+                        tenant_name,
+                        bgp.get("route_dampening_ipv4"),
+                        route_map_objects,
+                    ).get("uuid", "")
 
-            if advanced_route_map_dict.get("route_dampening_ipv6") is not None:
-                route_dampening_ipv6_ref = l3out_template_object.get_route_map(
-                    "route_dampening_ipv6",
-                    tenant_id,
-                    tenant_name,
-                    advanced_route_map_dict.get("route_dampening_ipv6"),
-                    route_map_objects,
-                ).get("uuid", "")
+                    if route_dampening_ipv4_ref and mso.existing.get("advancedRouteMapRefs", {}).get("routeDampeningV4Ref") != route_dampening_ipv4_ref:
+                        update_ops.append(
+                            dict(op="replace", path=l3out_attrs_path + "/advancedRouteMapRefs/routeDampeningV4Ref", value=route_dampening_ipv4_ref)
+                        )
+                        proposed_payload["advancedRouteMapRefs"]["routeDampeningV4Ref"] = route_dampening_ipv4_ref
 
-                if route_dampening_ipv6_ref and mso.existing.get("advancedRouteMapRefs", {}).get("routeDampeningV6Ref") != route_dampening_ipv6_ref:
-                    update_ops.append(dict(op="replace", path=l3out_attrs_path + "/advancedRouteMapRefs/routeDampeningV6Ref", value=route_dampening_ipv6_ref))
-                    proposed_payload["advancedRouteMapRefs"]["routeDampeningV6Ref"] = route_dampening_ipv6_ref
+                if bgp.get("route_dampening_ipv6") is not None:
+                    route_dampening_ipv6_ref = l3out_template_object.get_route_map(
+                        "route_dampening_ipv6",
+                        tenant_id,
+                        tenant_name,
+                        bgp.get("route_dampening_ipv6"),
+                        route_map_objects,
+                    ).get("uuid", "")
 
-            if originate_default_route is not None and originate_default_route != "":
-                if not mso.existing.get("defaultRouteLeak"):
-                    update_ops.append(dict(op="replace", path=l3out_attrs_path + "/defaultRouteLeak", value=dict()))
-                    proposed_payload["defaultRouteLeak"] = dict()
+                    if route_dampening_ipv6_ref and mso.existing.get("advancedRouteMapRefs", {}).get("routeDampeningV6Ref") != route_dampening_ipv6_ref:
+                        update_ops.append(
+                            dict(op="replace", path=l3out_attrs_path + "/advancedRouteMapRefs/routeDampeningV6Ref", value=route_dampening_ipv6_ref)
+                        )
+                        proposed_payload["advancedRouteMapRefs"]["routeDampeningV6Ref"] = route_dampening_ipv6_ref
 
-                if originate_default_route != mso.existing.get("defaultRouteLeak", {}).get("originateDefaultRoute"):
-                    update_ops.append(dict(op="replace", path=l3out_attrs_path + "/defaultRouteLeak/originateDefaultRoute", value=originate_default_route))
-                    proposed_payload["defaultRouteLeak"]["originateDefaultRoute"] = originate_default_route
+            if ospf:
+                originate_default_route = ORIGINATE_DEFAULT_ROUTE.get(ospf.get("originate_default_route"))
+                originate_default_route_always = ospf.get("originate_default_route_always")
 
-                if originate_default_route_always is not None and originate_default_route_always != mso.existing.get("defaultRouteLeak", {}).get("always"):
-                    update_ops.append(dict(op="replace", path=l3out_attrs_path + "/defaultRouteLeak/always", value=originate_default_route_always))
-                    proposed_payload["defaultRouteLeak"]["always"] = originate_default_route_always
+                if originate_default_route is not None and originate_default_route != "":
+                    if not mso.existing.get("defaultRouteLeak"):
+                        update_ops.append(dict(op="replace", path=l3out_attrs_path + "/defaultRouteLeak", value=dict()))
+                        proposed_payload["defaultRouteLeak"] = dict()
 
-            elif mso.existing.get("defaultRouteLeak") and originate_default_route == "":
-                update_ops.append(dict(op="remove", path=l3out_attrs_path + "/defaultRouteLeak"))
-                del proposed_payload["defaultRouteLeak"]
-                del mso.existing["defaultRouteLeak"]
+                    if originate_default_route != mso.existing.get("defaultRouteLeak", {}).get("originateDefaultRoute"):
+                        update_ops.append(
+                            dict(
+                                op="replace",
+                                path=l3out_attrs_path + "/defaultRouteLeak/originateDefaultRoute",
+                                value=originate_default_route,
+                            )
+                        )
+                        proposed_payload["defaultRouteLeak"]["originateDefaultRoute"] = originate_default_route
 
-            if routing_protocols in (["ospf"], ["bgp", "ospf"]):
+                    if originate_default_route_always is not None and originate_default_route_always != mso.existing.get("defaultRouteLeak", {}).get("always"):
+                        update_ops.append(dict(op="replace", path=l3out_attrs_path + "/defaultRouteLeak/always", value=originate_default_route_always))
+                        proposed_payload["defaultRouteLeak"]["always"] = originate_default_route_always
+
+                elif mso.existing.get("defaultRouteLeak") and originate_default_route == "":
+                    update_ops.append(dict(op="remove", path=l3out_attrs_path + "/defaultRouteLeak"))
+                    del proposed_payload["defaultRouteLeak"]
+                    del mso.existing["defaultRouteLeak"]
+
                 if not mso.existing.get("ospfAreaConfig"):
                     update_ops.append(dict(op="replace", path=l3out_attrs_path + "/ospfAreaConfig", value=dict()))
                     proposed_payload["ospfAreaConfig"] = dict()
 
-                if ospf_area_config_dict.get("ospf_cost") != mso.existing.get("ospfAreaConfig", {}).get("cost"):
-                    update_ops.append(dict(op="replace", path=l3out_attrs_path + "/ospfAreaConfig/cost", value=ospf_area_config_dict.get("ospf_cost")))
-                    proposed_payload["ospfAreaConfig"]["cost"] = ospf_area_config_dict.get("ospf_cost")
+                if ospf.get("cost") != mso.existing.get("ospfAreaConfig", {}).get("cost"):
+                    update_ops.append(dict(op="replace", path=l3out_attrs_path + "/ospfAreaConfig/cost", value=ospf.get("cost")))
+                    proposed_payload["ospfAreaConfig"]["cost"] = ospf.get("cost")
 
-                if ospf_area_config_dict.get("ospf_area_id") != mso.existing.get("ospfAreaConfig", {}).get("id"):
-                    update_ops.append(dict(op="replace", path=l3out_attrs_path + "/ospfAreaConfig/id", value=ospf_area_config_dict.get("ospf_area_id")))
-                    proposed_payload["ospfAreaConfig"]["id"] = ospf_area_config_dict.get("ospf_area_id")
+                if ospf.get("area_id") != mso.existing.get("ospfAreaConfig", {}).get("id"):
+                    update_ops.append(dict(op="replace", path=l3out_attrs_path + "/ospfAreaConfig/id", value=ospf.get("area_id")))
+                    proposed_payload["ospfAreaConfig"]["id"] = ospf.get("area_id")
 
-                if ospf_area_config_dict.get("ospf_area_type") != mso.existing.get("ospfAreaConfig", {}).get("areaType"):
-                    update_ops.append(
-                        dict(op="replace", path=l3out_attrs_path + "/ospfAreaConfig/areaType", value=ospf_area_config_dict.get("ospf_area_type"))
-                    )
-                    proposed_payload["ospfAreaConfig"]["areaType"] = ospf_area_config_dict.get("ospf_area_type")
+                if ospf.get("area_type") != mso.existing.get("ospfAreaConfig", {}).get("areaType"):
+                    update_ops.append(dict(op="replace", path=l3out_attrs_path + "/ospfAreaConfig/areaType", value=ospf.get("area_type")))
+                    proposed_payload["ospfAreaConfig"]["areaType"] = ospf.get("area_type")
 
-                redistribute = ospf_area_config_dict.get("send_redistributed_lsas")
-                originate = ospf_area_config_dict.get("originate_summary_lsa")
-                suppress_fa = ospf_area_config_dict.get("suppress_forwarding_addr_translated_lsa")
+                redistribute = ospf.get("send_redistributed_lsas")
+                originate = ospf.get("originate_summary_lsa")
+                suppress_fa = ospf.get("suppress_forwarding_addr_translated_lsa")
 
                 if (redistribute is not None or originate is not None or suppress_fa is not None) and not mso.existing.get("ospfAreaConfig", {}).get(
                     "control"
@@ -828,7 +874,7 @@ def main():
                     update_ops.append(dict(op="replace", path=l3out_attrs_path + "/ospfAreaConfig/control/suppressFA", value=suppress_fa))
                     proposed_payload["ospfAreaConfig"]["control"]["suppressFA"] = suppress_fa
 
-            elif routing_protocols not in (["ospf"], ["bgp", "ospf"]) and mso.existing.get("ospfAreaConfig") and ospf_area_config_dict == {}:
+            elif mso.existing.get("ospfAreaConfig") and not ospf:
                 update_ops.append(dict(op="remove", path=l3out_attrs_path + "/ospfAreaConfig"))
                 del proposed_payload["ospfAreaConfig"]
                 del mso.existing["ospfAreaConfig"]

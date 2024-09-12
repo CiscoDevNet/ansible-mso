@@ -1,0 +1,582 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Shreyas Srish (@shrsr)
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    
+    - name: Ensure sites exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ item.site }}'
+        apic_username: '{{ apic_username }}'
+        apic_password: '{{ apic_password }}'
+        apic_site_id: '{{ item.apic_site_id }}'
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+      loop:
+        - {site: "ansible_test", apic_site_id: 101}
+        - {site: "ansible_test_2", apic_site_id: 102}
+    
+    - name: Ensure tenant exist
+      cisco.mso.mso_tenant: 
+        <<: *mso_info
+        tenant: '{{ item }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+          - ansible_test_2
+        state: present
+      loop:
+        - ansible_test
+    
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_tenant_template
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+
+    - name: Ensure schemas do not exist
+      cisco.mso.mso_schema: &remove_schemas
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        state: absent
+    
+    - name: Ensure schema with template exists
+      cisco.mso.mso_schema_template:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: ansible_test
+        template: ansible_test
+        state: present
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+
+    # CREATE
+
+    - name: Create a new IPSLA monitoring policy (check_mode)
+      cisco.mso.ndo_ipsla_monitoring_policy: &create_ipsla_monitoring_policy
+        <<: *mso_info
+        template: ansible_tenant_template
+        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
+        sla_type: icmp
+        sla_frequency: 60
+        description: icmp_type
+        state: present
+      check_mode: true
+      register: cm_create_new_ipsla_monitoring_policy
+    
+    - name: Create a new IPSLA monitoring policy
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *create_ipsla_monitoring_policy
+      register: nm_create_new_ipsla_monitoring_policy
+    
+    - name: Create a new IPSLA monitoring policy again
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *create_ipsla_monitoring_policy
+      register: nm_create_new_ipsla_monitoring_policy_again
+
+    - name: Assert IPSLA monitoring policy was created
+      assert:
+        that:
+          - cm_create_new_ipsla_monitoring_policy is changed
+          - cm_create_new_ipsla_monitoring_policy.previous == {}
+          - cm_create_new_ipsla_monitoring_policy.current.name == "ansible_test_ipsla_monitoring_policy"
+          - cm_create_new_ipsla_monitoring_policy.current.slaType == "icmp"
+          - cm_create_new_ipsla_monitoring_policy.current.slaFrequency == 60
+          - cm_create_new_ipsla_monitoring_policy.current.description == "icmp_type"
+          - nm_create_new_ipsla_monitoring_policy is changed
+          - nm_create_new_ipsla_monitoring_policy.previous == {}
+          - nm_create_new_ipsla_monitoring_policy.current.name == "ansible_test_ipsla_monitoring_policy"
+          - nm_create_new_ipsla_monitoring_policy.current.slaType == "icmp"
+          - nm_create_new_ipsla_monitoring_policy.current.slaFrequency == 60
+          - nm_create_new_ipsla_monitoring_policy.current.description == "icmp_type"
+          - nm_create_new_ipsla_monitoring_policy_again is not changed
+          - nm_create_new_ipsla_monitoring_policy_again.previous.name == "ansible_test_ipsla_monitoring_policy"
+          - nm_create_new_ipsla_monitoring_policy_again.previous.slaType == "icmp"
+          - nm_create_new_ipsla_monitoring_policy_again.previous.slaFrequency == 60
+          - nm_create_new_ipsla_monitoring_policy_again.current.name == "ansible_test_ipsla_monitoring_policy"
+          - nm_create_new_ipsla_monitoring_policy_again.current.slaType == "icmp"
+          - nm_create_new_ipsla_monitoring_policy_again.current.description == "icmp_type"
+          - nm_create_new_ipsla_monitoring_policy_again.current.slaFrequency == 60
+
+    # UPDATE
+
+    - name: Update an IPSLA monitoring policy (check_mode)
+      cisco.mso.ndo_ipsla_monitoring_policy: &update_ipsla_monitoring_policy
+        <<: *create_ipsla_monitoring_policy
+        sla_type: http
+        http_version: HTTP11
+        http_uri: /test
+        sla_frequency: 120
+        detect_multiplier: 5
+        request_data_size: 64
+        type_of_service: 16
+        operation_timeout: 1000
+        threshold: 1000
+        ipv6_traffic_class: 32
+        description: http_type
+      check_mode: true
+      register: cm_update_ipsla_monitoring_policy
+
+    - name: Update an IPSLA monitoring policy (normal_mode)
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *update_ipsla_monitoring_policy
+      register: nm_update_ipsla_monitoring_policy
+
+    - name: Update an IPSLA monitoring policy again
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *update_ipsla_monitoring_policy
+      register: nm_update_ipsla_monitoring_policy_again
+
+    - name: Assert IPSLA monitoring policy was updated
+      assert:
+        that:
+          - cm_update_ipsla_monitoring_policy is changed
+          - cm_update_ipsla_monitoring_policy.previous.slaType == "icmp"
+          - cm_update_ipsla_monitoring_policy.current.slaType == "http"
+          - cm_update_ipsla_monitoring_policy.previous.slaPort == 0
+          - cm_update_ipsla_monitoring_policy.current.slaPort == 80
+          - cm_update_ipsla_monitoring_policy.previous.description == "icmp_type"
+          - cm_update_ipsla_monitoring_policy.current.description == "http_type"
+          - cm_update_ipsla_monitoring_policy.previous.httpVersion == "HTTP10"
+          - cm_update_ipsla_monitoring_policy.current.httpVersion == "HTTP11"
+          - cm_update_ipsla_monitoring_policy.previous.httpUri == "/"
+          - cm_update_ipsla_monitoring_policy.current.httpUri == "/test"
+          - cm_update_ipsla_monitoring_policy.previous.slaFrequency == 60
+          - cm_update_ipsla_monitoring_policy.current.slaFrequency == 120
+          - cm_update_ipsla_monitoring_policy.previous.slaDetectMultiplier == 3
+          - cm_update_ipsla_monitoring_policy.current.slaDetectMultiplier == 5
+          - cm_update_ipsla_monitoring_policy.previous.reqDataSize == 28
+          - cm_update_ipsla_monitoring_policy.current.reqDataSize == 64
+          - cm_update_ipsla_monitoring_policy.previous.ipv4ToS == 0
+          - cm_update_ipsla_monitoring_policy.current.ipv4ToS == 16
+          - cm_update_ipsla_monitoring_policy.previous.timeout == 900
+          - cm_update_ipsla_monitoring_policy.current.timeout == 1000
+          - cm_update_ipsla_monitoring_policy.previous.threshold == 900
+          - cm_update_ipsla_monitoring_policy.current.threshold == 1000
+          - cm_update_ipsla_monitoring_policy.previous.ipv6TrfClass == 0
+          - cm_update_ipsla_monitoring_policy.current.ipv6TrfClass == 32
+          - nm_update_ipsla_monitoring_policy is changed
+          - nm_update_ipsla_monitoring_policy.previous.slaType == "icmp"
+          - nm_update_ipsla_monitoring_policy.current.slaType == "http"
+          - nm_update_ipsla_monitoring_policy.previous.slaPort == 0
+          - nm_update_ipsla_monitoring_policy.current.slaPort == 80
+          - nm_update_ipsla_monitoring_policy.previous.description == "icmp_type"
+          - nm_update_ipsla_monitoring_policy.current.description == "http_type"
+          - nm_update_ipsla_monitoring_policy.previous.httpVersion == "HTTP10"
+          - nm_update_ipsla_monitoring_policy.current.httpVersion == "HTTP11"
+          - nm_update_ipsla_monitoring_policy.previous.httpUri == "/"
+          - nm_update_ipsla_monitoring_policy.current.httpUri == "/test"
+          - nm_update_ipsla_monitoring_policy.previous.slaFrequency == 60
+          - nm_update_ipsla_monitoring_policy.current.slaFrequency == 120
+          - nm_update_ipsla_monitoring_policy.previous.slaDetectMultiplier == 3
+          - nm_update_ipsla_monitoring_policy.current.slaDetectMultiplier == 5
+          - nm_update_ipsla_monitoring_policy.previous.reqDataSize == 28
+          - nm_update_ipsla_monitoring_policy.current.reqDataSize == 64
+          - nm_update_ipsla_monitoring_policy.previous.ipv4ToS == 0
+          - nm_update_ipsla_monitoring_policy.current.ipv4ToS == 16
+          - nm_update_ipsla_monitoring_policy.previous.timeout == 900
+          - nm_update_ipsla_monitoring_policy.current.timeout == 1000
+          - nm_update_ipsla_monitoring_policy.previous.threshold == 900
+          - nm_update_ipsla_monitoring_policy.current.threshold == 1000
+          - nm_update_ipsla_monitoring_policy.previous.ipv6TrfClass == 0
+          - nm_update_ipsla_monitoring_policy.current.ipv6TrfClass == 32
+          - nm_update_ipsla_monitoring_policy_again is not changed
+          - nm_update_ipsla_monitoring_policy_again.previous.slaType == "http"
+          - nm_update_ipsla_monitoring_policy_again.current.slaType == "http"
+          - nm_update_ipsla_monitoring_policy_again.previous.slaPort == 80
+          - nm_update_ipsla_monitoring_policy_again.current.slaPort == 80
+          - nm_update_ipsla_monitoring_policy_again.previous.httpVersion == "HTTP11"
+          - nm_update_ipsla_monitoring_policy_again.current.httpVersion == "HTTP11"
+          - nm_update_ipsla_monitoring_policy_again.previous.httpUri == "/test"
+          - nm_update_ipsla_monitoring_policy_again.current.httpUri == "/test"
+          - nm_update_ipsla_monitoring_policy_again.previous.slaFrequency == 120
+          - nm_update_ipsla_monitoring_policy_again.current.slaFrequency == 120
+          - nm_update_ipsla_monitoring_policy_again.previous.slaDetectMultiplier == 5
+          - nm_update_ipsla_monitoring_policy_again.current.slaDetectMultiplier == 5
+          - nm_update_ipsla_monitoring_policy_again.previous.reqDataSize == 64
+          - nm_update_ipsla_monitoring_policy_again.current.reqDataSize == 64
+          - nm_update_ipsla_monitoring_policy_again.previous.ipv4ToS == 16
+          - nm_update_ipsla_monitoring_policy_again.current.ipv4ToS == 16
+          - nm_update_ipsla_monitoring_policy_again.previous.timeout == 1000
+          - nm_update_ipsla_monitoring_policy_again.current.timeout == 1000
+          - nm_update_ipsla_monitoring_policy_again.previous.threshold == 1000
+          - nm_update_ipsla_monitoring_policy_again.current.threshold == 1000
+          - nm_update_ipsla_monitoring_policy_again.previous.ipv6TrfClass == 32
+          - nm_update_ipsla_monitoring_policy_again.current.ipv6TrfClass == 32
+          - nm_update_ipsla_monitoring_policy_again.previous.description == "http_type"
+          - nm_update_ipsla_monitoring_policy_again.current.description == "http_type"
+
+    - name: Update an IPSLA monitoring policy name
+      cisco.mso.ndo_ipsla_monitoring_policy: &update_ipsla_monitoring_policy_name
+        <<: *update_ipsla_monitoring_policy
+        ipsla_monitoring_policy_uuid: '{{ nm_update_ipsla_monitoring_policy.current.uuid }}'
+        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy_changed
+      register: nm_update_ipsla_monitoring_policy_name
+    
+    - name: Assert IPSLA monitoring policy name was updated
+      assert:
+        that:
+          - nm_update_ipsla_monitoring_policy_name is changed
+          - nm_update_ipsla_monitoring_policy_name.previous.name == "ansible_test_ipsla_monitoring_policy"
+          - nm_update_ipsla_monitoring_policy_name.current.name == "ansible_test_ipsla_monitoring_policy_changed"
+
+    # QUERY
+
+    - name: Create another IPSLA monitoring policy
+      cisco.mso.ndo_ipsla_monitoring_policy: &create_ipsla_monitoring_policy_2
+        <<: *create_ipsla_monitoring_policy
+        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy_2
+
+    - name: Query an IPSLA monitoring policy with name
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<:  *create_ipsla_monitoring_policy_2
+        state: query
+      register: query_one
+
+    - name: Query all IPSLA monitoring policies in the template
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        state: query
+      register: query_all
+
+    - name: Query an IPSLA monitoring policy with UUID
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        ipsla_monitoring_policy_uuid: "{{ query_one.current.uuid }}"
+        state: query
+      register: query_one_uuid
+    
+    - name: Assert IPSLA monitoring policy was queried
+      assert:
+        that:
+          - query_one is not changed
+          - query_one.current.name == "ansible_test_ipsla_monitoring_policy_2"
+          - query_one_uuid is not changed
+          - query_one_uuid.current.name == "ansible_test_ipsla_monitoring_policy_2"
+          - query_all is not changed
+          - query_all.current | length == 2
+
+    # ERRORS
+
+    # Error test for invalid sla_frequency
+    - name: Error sla_frequency provided out of range on create
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *create_ipsla_monitoring_policy
+        sla_frequency: 301
+      register: err_sla_frequency_create_out_of_range
+      ignore_errors: true
+
+    - name: Assert error for invalid sla_frequency
+      assert:
+        that:
+          - err_sla_frequency_create_out_of_range is failed
+          - err_sla_frequency_create_out_of_range.msg == "Invalid value provided for sla_frequency{{":"}} 301; it must be in the range 1 - 300"
+
+    # Error test for invalid detect_multiplier
+    - name: Error detect_multiplier provided out of range on create
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *create_ipsla_monitoring_policy
+        detect_multiplier: 101
+      register: err_detect_multiplier_create_out_of_range
+      ignore_errors: true
+
+    - name: Assert error for invalid detect_multiplier
+      assert:
+        that:
+          - err_detect_multiplier_create_out_of_range is failed
+          - err_detect_multiplier_create_out_of_range.msg == "Invalid value provided for detect_multiplier{{":"}} 101; it must be in the range 1 - 100"
+
+    # Error test for invalid request_data_size
+    - name: Error request_data_size provided out of range on create
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *create_ipsla_monitoring_policy
+        request_data_size: 17514
+      register: err_request_data_size_create_out_of_range
+      ignore_errors: true
+
+    - name: Assert error for invalid request_data_size
+      assert:
+        that:
+          - err_request_data_size_create_out_of_range is failed
+          - err_request_data_size_create_out_of_range.msg == "Invalid value provided for request_data_size{{":"}} 17514; it must be in the range 0 - 17513"
+
+    # Error test for invalid type_of_service
+    - name: Error type_of_service provided out of range on create
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *create_ipsla_monitoring_policy
+        type_of_service: 256
+      register: err_type_of_service_create_out_of_range
+      ignore_errors: true
+
+    - name: Assert error for invalid type_of_service
+      assert:
+        that:
+          - err_type_of_service_create_out_of_range is failed
+          - err_type_of_service_create_out_of_range.msg == "Invalid value provided for type_of_service{{":"}} 256; it must be in the range 0 - 255"
+
+    # Error test for invalid operation_timeout
+    - name: Error operation_timeout provided out of range on create
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *create_ipsla_monitoring_policy
+        sla_frequency: 60
+        operation_timeout: 61000
+      register: err_operation_timeout_create_out_of_range
+      ignore_errors: true
+
+    - name: Assert error for invalid operation_timeout
+      assert:
+        that:
+          - err_operation_timeout_create_out_of_range is failed
+          - err_operation_timeout_create_out_of_range.msg == "Invalid value provided for operation_timeout{{":"}} 61000; must be less than or equal to{{":"}} 60000"
+
+    # Error test for invalid threshold
+    - name: Error threshold provided out of range on create
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *create_ipsla_monitoring_policy
+        operation_timeout: 1000
+        threshold: 2000
+      register: err_threshold_create_out_of_range
+      ignore_errors: true
+
+    - name: Assert error for invalid threshold
+      assert:
+        that:
+          - err_threshold_create_out_of_range is failed
+          - err_threshold_create_out_of_range.msg == "Invalid value provided for threshold{{":"}} 2000; it must be less than or equal to the operation_timeout{{":"}} 1000"
+
+    # Error test for invalid ipv6_traffic_class
+    - name: Error ipv6_traffic_class provided out of range on create
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *create_ipsla_monitoring_policy
+        ipv6_traffic_class: 256
+      register: err_ipv6_traffic_class_create_out_of_range
+      ignore_errors: true
+
+    - name: Assert error for invalid ipv6_traffic_class
+      assert:
+        that:
+          - err_ipv6_traffic_class_create_out_of_range is failed
+          - err_ipv6_traffic_class_create_out_of_range.msg == "Invalid value provided for ipv6_traffic_class{{":"}} 256; it must be in the range 0 - 255"
+
+    # Error test for invalid http attributes
+    - name: Error invalid http attributes
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy_icmp
+        sla_type: icmp
+        http_version: HTTP11
+        state: present
+      register: err_invalid_http_attributes
+      ignore_errors: true
+
+    - name: Assert error for invalid http attributes
+      assert:
+        that:
+          - err_invalid_http_attributes is failed
+          - err_invalid_http_attributes.msg == "http_version and http_uri can only be used when sla_type is 'http'"
+
+    # DELETE
+
+    - name: Delete an IPSLA monitoring policy (check_mode)
+      cisco.mso.ndo_ipsla_monitoring_policy: &delete_ipsla_monitoring_policy
+        <<: *update_ipsla_monitoring_policy_name
+        state: absent
+      check_mode: true
+      register: cm_delete_ipsla_monitoring_policy
+    
+    - name: Delete an IPSLA monitoring policy
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *delete_ipsla_monitoring_policy
+      register: nm_delete_ipsla_monitoring_policy
+    
+    - name: Delete an IPSLA monitoring policy again
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *delete_ipsla_monitoring_policy
+      register: nm_delete_ipsla_monitoring_policy_again
+
+    - name: Assert IPSLA monitoring policy was deleted
+      assert:
+        that:
+          - cm_delete_ipsla_monitoring_policy is changed
+          - cm_delete_ipsla_monitoring_policy.previous.name == 'ansible_test_ipsla_monitoring_policy_changed'
+          - cm_delete_ipsla_monitoring_policy.previous.slaType == 'http'
+          - cm_delete_ipsla_monitoring_policy.current == {}
+          - nm_delete_ipsla_monitoring_policy is changed
+          - nm_delete_ipsla_monitoring_policy.previous.name == 'ansible_test_ipsla_monitoring_policy_changed'
+          - nm_delete_ipsla_monitoring_policy.previous.slaType == 'http'
+          - nm_delete_ipsla_monitoring_policy.current == {}
+          - nm_delete_ipsla_monitoring_policy_again is not changed
+          - nm_delete_ipsla_monitoring_policy_again.previous == {}
+          - nm_delete_ipsla_monitoring_policy_again.current == {}
+
+    # To cover the code for updating the destination port
+    - name: Create a new IPSLA monitoring policy of type http
+      cisco.mso.ndo_ipsla_monitoring_policy: &create_another_ipsla_monitoring_policy
+        <<: *mso_info
+        template: ansible_tenant_template
+        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy2
+        sla_type: http
+        sla_frequency: 120
+        detect_multiplier: 5
+        request_data_size: 64
+        type_of_service: 16
+        operation_timeout: 1000
+        threshold: 1000
+        ipv6_traffic_class: 32
+        destination_port: 80
+        state: present
+      register: nm_create_another_ipsla_monitoring_policy
+
+    - name: Assert creation of IPSLA monitoring policy of type http
+      assert:
+        that:
+          - nm_create_another_ipsla_monitoring_policy is changed
+          - nm_create_another_ipsla_monitoring_policy.current.name == "ansible_test_ipsla_monitoring_policy2"
+          - nm_create_another_ipsla_monitoring_policy.current.slaType == "http"
+          - nm_create_another_ipsla_monitoring_policy.current.slaPort == 80
+          - nm_create_another_ipsla_monitoring_policy.current.httpVersion == "HTTP10"
+          - nm_create_another_ipsla_monitoring_policy.current.httpUri == "/"
+          - nm_create_another_ipsla_monitoring_policy.current.slaFrequency == 120
+          - nm_create_another_ipsla_monitoring_policy.current.slaDetectMultiplier == 5
+          - nm_create_another_ipsla_monitoring_policy.current.reqDataSize == 64
+          - nm_create_another_ipsla_monitoring_policy.current.ipv4ToS == 16
+          - nm_create_another_ipsla_monitoring_policy.current.timeout == 1000
+          - nm_create_another_ipsla_monitoring_policy.current.threshold == 1000
+          - nm_create_another_ipsla_monitoring_policy.current.ipv6TrfClass == 32
+
+    - name: Update an IPSLA monitoring policy destination port
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *create_another_ipsla_monitoring_policy
+        destination_port: 10
+        sla_type: tcp
+      register: update_ipsla_monitoring_policy_destination_port
+
+    - name: Assert IPSLA monitoring policy destination port was updated
+      assert:
+        that:
+          - update_ipsla_monitoring_policy_destination_port is changed
+          - update_ipsla_monitoring_policy_destination_port.previous.slaPort == 80
+          - update_ipsla_monitoring_policy_destination_port.current.slaPort == 10
+          - update_ipsla_monitoring_policy_destination_port.previous.slaType == "http"
+          - update_ipsla_monitoring_policy_destination_port.current.slaType == "tcp"
+
+    - name: Delete the IPSLA monitoring policy using UUID
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        ipsla_monitoring_policy_uuid: "{{ nm_create_another_ipsla_monitoring_policy.current.uuid }}"
+        state: absent
+      register: nm_delete_another_ipsla_monitoring_policy
+
+    - name: Assert deletion of another IPSLA monitoring policy
+      assert:
+        that:
+          - nm_delete_another_ipsla_monitoring_policy is changed
+          - nm_delete_another_ipsla_monitoring_policy.previous.name == "ansible_test_ipsla_monitoring_policy2"
+          - nm_delete_another_ipsla_monitoring_policy.previous.slaType == "tcp"
+          - nm_delete_another_ipsla_monitoring_policy.previous.slaPort == 10
+          - nm_delete_another_ipsla_monitoring_policy.previous.slaFrequency == 120
+          - nm_delete_another_ipsla_monitoring_policy.previous.slaDetectMultiplier == 5
+          - nm_delete_another_ipsla_monitoring_policy.previous.reqDataSize == 64
+          - nm_delete_another_ipsla_monitoring_policy.previous.ipv4ToS == 16
+          - nm_delete_another_ipsla_monitoring_policy.previous.timeout == 1000
+          - nm_delete_another_ipsla_monitoring_policy.previous.threshold == 1000
+          - nm_delete_another_ipsla_monitoring_policy.previous.ipv6TrfClass == 32
+          - nm_delete_another_ipsla_monitoring_policy.current == {}
+
+    # To cover the code for first-time creation of a policy of type http with http_version and http_uri
+    - name: Create an IPSLA monitoring policy of type http with http_version and http_uri
+      cisco.mso.ndo_ipsla_monitoring_policy: &create_ipsla_monitoring_policy_with_http_attributes
+        <<: *mso_info
+        template: ansible_tenant_template
+        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy3
+        sla_type: http
+        http_uri: /test
+        http_version: HTTP11
+        sla_frequency: 120
+        detect_multiplier: 5
+        request_data_size: 64
+        type_of_service: 16
+        operation_timeout: 1000
+        threshold: 1000
+        ipv6_traffic_class: 32
+        destination_port: 80
+        state: present
+      register: nm_create_another_ipsla_monitoring_policy_with_http_attributes
+
+    - name: Assert creation of an IPSLA monitoring policy of type http with http_version and http_uri
+      assert:
+        that:
+          - nm_create_another_ipsla_monitoring_policy_with_http_attributes is changed
+          - nm_create_another_ipsla_monitoring_policy_with_http_attributes.current.name == "ansible_test_ipsla_monitoring_policy3"
+          - nm_create_another_ipsla_monitoring_policy_with_http_attributes.current.slaType == "http"
+          - nm_create_another_ipsla_monitoring_policy_with_http_attributes.current.slaPort == 80
+          - nm_create_another_ipsla_monitoring_policy_with_http_attributes.current.httpVersion == "HTTP11"
+          - nm_create_another_ipsla_monitoring_policy_with_http_attributes.current.httpUri == "/test"
+          - nm_create_another_ipsla_monitoring_policy_with_http_attributes.current.slaFrequency == 120
+          - nm_create_another_ipsla_monitoring_policy_with_http_attributes.current.slaDetectMultiplier == 5
+          - nm_create_another_ipsla_monitoring_policy_with_http_attributes.current.reqDataSize == 64
+          - nm_create_another_ipsla_monitoring_policy_with_http_attributes.current.ipv4ToS == 16
+          - nm_create_another_ipsla_monitoring_policy_with_http_attributes.current.timeout == 1000
+          - nm_create_another_ipsla_monitoring_policy_with_http_attributes.current.threshold == 1000
+          - nm_create_another_ipsla_monitoring_policy_with_http_attributes.current.ipv6TrfClass == 32
+
+    - name: Delete the IPSLA monitoring policy with http attributes
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *create_ipsla_monitoring_policy_with_http_attributes
+        state: absent
+      register: nm_delete_ipsla_monitoring_policy_with_http_attributes
+
+    - name: Assert IPSLA monitoring policy with http attributes was deleted
+      assert:
+        that:
+          - nm_delete_ipsla_monitoring_policy_with_http_attributes is changed
+          - nm_delete_ipsla_monitoring_policy_with_http_attributes.current == {}
+    
+    # CLEANUP TEMPLATE
+    
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+    
+    - name: Ensure schemas do not exist
+      cisco.mso.mso_schema:
+        <<: *remove_schemas

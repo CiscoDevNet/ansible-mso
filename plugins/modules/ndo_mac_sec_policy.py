@@ -45,10 +45,10 @@ options:
   admin_state:
     description:
     - The administrative state of the MACSec Policy. (Enables or disables the policy)
-    - The default value is enabled.
+    - The default value is C(enabled).
     type: str
     choices: [ enabled, disabled ]
-  type:
+  interface_type:
     description:
     - The type of the interfaces this policy will be applied to.
     type: str
@@ -57,7 +57,7 @@ options:
   cipher_suite:
     description:
     - The cipher suite to be used for encryption.
-    - The default value is 256_gcm_aes_xpn.
+    - The default value is C(256_gcm_aes_xpn).
     type: str
     choices: [ 128_gcm_aes, 128_gcm_aes_xpn, 256_gcm_aes, 256_gcm_aes_xpn ]
   window_size:
@@ -65,12 +65,12 @@ options:
     - The window size defines the maximum number of frames that can be received out of order
     - before a replay attack is detected.
     - The value must be between 0 and 4294967295.
-    - The default value is 0 for type fabric and 64 for type access.
+    - The default value is 0 for type  C(fabric) and 64 for type C(access).
     type: int
   security_policy:
     description:
     - The security policy to allow trafic on the link for the MACSec Policy.
-    - The default value is should_secure.
+    - The default value is C(should_secure).
     type: str
     choices: [ should_secure, must_secure ]
   sak_expiry_time:
@@ -89,7 +89,7 @@ options:
     description:
     - The key server priority for the MACSec Policy.
     - The value must be between 0 and 255.
-    - The default value is 0 for type fabric and 16 for type access.
+    - The default value is 0 for type C(fabric) and 16 for type C(access).
     type: int
   mac_sec_key:
     description:
@@ -107,8 +107,8 @@ options:
       psk:
         description:
         - The Pre-Shared Key (PSK) for the MACSec Key.
-        - PSK has to be 64 chars long if cipher suite is 256_gcm_aes or 256_gcm_aes_xpn.
-        - PSK has to be 32 chars long if cipher suite is 128_gcm_aes or 128_gcm_aes_xpn.
+        - PSK has to be 64 chars long if cipher suite is C(256_gcm_aes) or C(256_gcm_aes_xpn).
+        - PSK has to be 32 chars long if cipher suite is C(128_gcm_aes) or C(128_gcm_aes_xpn).
         - PSK has to be Hex chars [0-9a-fA-F]
         type: str
         required: true
@@ -117,13 +117,13 @@ options:
         - The start time for the MACSec Key.
         - The date time format - YYYY-MM-DD HH:MM:SS or 'now'
         - The start time for each key_name should be unique.
-        - The default value is now.
+        - The default value is C(now).
         type: str
       end_time:
         description:
         - The end time for the MACSec Key.
         - The date time format - YYYY-MM-DD HH:MM:SS or 'infinite'
-        - The default value is infinite.
+        - The default value is C(infinite).
         type: str
   state:
     description:
@@ -171,7 +171,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
-    mac_sec_policy: ansible_test_mac_sec_policy
+    mac_sec_policy_uuid: ansible_test_mac_sec_policy_uuid
     state: query
   register: query_uuid
 
@@ -205,7 +205,7 @@ def main():
             mac_sec_policy_uuid=dict(type="str", aliases=["uuid"]),
             description=dict(type="str"),
             admin_state=dict(type="str", choices=["enabled", "disabled"]),
-            type=dict(type="str", choices=["fabric", "access"], default="fabric"),
+            interface_type=dict(type="str", choices=["fabric", "access"], default="fabric"),
             cipher_suite=dict(type="str", choices=["128_gcm_aes", "128_gcm_aes_xpn", "256_gcm_aes", "256_gcm_aes_xpn"]),
             window_size=dict(type="int"),
             security_policy=dict(type="str", choices=["should_secure", "must_secure"]),
@@ -243,7 +243,7 @@ def main():
     mac_sec_policy_uuid = module.params.get("mac_sec_policy_uuid")
     description = module.params.get("description")
     admin_state = module.params.get("admin_state")
-    type = module.params.get("type")
+    interface_type = module.params.get("interface_type")
     cipher_suite = module.params.get("cipher_suite")
     window_size = module.params.get("window_size")
     security_policy = module.params.get("security_policy")
@@ -292,7 +292,7 @@ def main():
                 ops.append(dict(op="replace", path="{0}/{1}/adminState".format(path, match.index), value=admin_state))
                 match.details["adminState"] = admin_state
 
-            if type and match.details.get("type") != type:
+            if interface_type and match.details.get("type") != interface_type:
                 mso.fail_json(msg="Type cannot be changed for an existing MACSec Policy.")
 
             if cipher_suite and match.details.get("macsecParams")["cipherSuite"] != cipher_suite:
@@ -313,7 +313,7 @@ def main():
                 ops.append(dict(op="replace", path="{0}/{1}/macsecParams/sakExpiryTime".format(path, match.index), value=sak_expiry_time))
                 match.details["macsecParams"]["sakExpiryTime"] = sak_expiry_time
 
-            if type == "access":
+            if interface_type == "access":
                 if confidentiality_offset and match.details.get("macsecParams")["confOffSet"] != confidentiality_offset:
                     ops.append(
                         dict(op="replace", path="{0}/{1}/macsecParams/confOffSet".format(path, match.index), value="offset" + str(confidentiality_offset))
@@ -350,7 +350,7 @@ def main():
 
             payload = {"name": mac_sec_policy, "templateId": mso_template.template.get("templateId"), "schemaId": mso_template.template.get("schemaId")}
             payload["adminState"] = admin_state
-            payload["type"] = type
+            payload["type"] = interface_type
 
             if description:
                 payload["description"] = description
@@ -364,7 +364,7 @@ def main():
             if sak_expiry_time:
                 mac_sec_param_map["sakExpiryTime"] = sak_expiry_time
 
-            if type == "access":
+            if interface_type == "access":
                 if confidentiality_offset:
                     mac_sec_param_map["confOffSet"] = "offset" + str(confidentiality_offset)
                 if key_server_priority:

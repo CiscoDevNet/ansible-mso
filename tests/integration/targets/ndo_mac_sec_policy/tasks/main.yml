@@ -35,20 +35,20 @@
       cisco.mso.ndo_template: &template_absent
         <<: *mso_info
         name: ansible_fabric_policy_template
-        type: fabric_policy
+        interface_type: fabric_policy
         state: absent
 
     - name: Create a fabric template
       cisco.mso.ndo_template:
         <<: *mso_info
         name: ansible_fabric_policy_template
-        type: fabric_policy
+        interface_type: fabric_policy
         state: present
 
     # CREATE
 
-    # MACsec policy type fabric
-    - name: Create a MACsec policy of type 'fabric' (check mode)
+    # MACsec policy interface_type fabric
+    - name: Create a MACsec policy of interface_type 'fabric' (check mode)
       cisco.mso.ndo_mac_sec_policy: &add_mac_sec_policy
         <<: *mso_info
         template: ansible_fabric_policy_template
@@ -57,7 +57,7 @@
       check_mode: true
       register: cm_add_mac_sec_policy
 
-    - name: Create a MACsec policy of type 'fabric'
+    - name: Create a MACsec policy of interface_type 'fabric'
       cisco.mso.ndo_mac_sec_policy:
         <<: *add_mac_sec_policy
       register: nm_add_mac_sec_policy
@@ -82,14 +82,18 @@
           - nm_add_mac_sec_policy_again.previous.type == nm_add_mac_sec_policy_again.current.type == 'fabric'
           - nm_add_mac_sec_policy_again.previous.uuid is defined
           - nm_add_mac_sec_policy_again.current.uuid is defined
+          - nm_add_mac_sec_policy.previous.macsecParams.cipherSuite == '256GcmAesXpn'
+          - nm_add_mac_sec_policy.previous.macsecParams.sakExpiryTime == 0
+          - nm_add_mac_sec_policy.previous.macsecParams.securityPol == 'shouldSecure'
+          - nm_add_mac_sec_policy.previous.macsecParams.windowSize == 0
 
-    # MACsec policy type access
-    - name: Create a MACSec policy of type 'access'
+    # MACsec policy interface_type access
+    - name: Create a MACSec policy of interface_type 'access'
       cisco.mso.ndo_mac_sec_policy: &add_mac_sec_policy_access
         <<: *mso_info
         template: ansible_fabric_policy_template
         mac_sec_policy: ansible_mac_sec_policy_access
-        type: access
+        interface_type: access
         state: present
       register: add_mac_sec_policy_access
 
@@ -104,7 +108,7 @@
     # UPDATE
 
     # Only one mac_sec_key can be added during creation
-    - name: Create another MACsec policy of type 'access'
+    - name: Create another MACsec policy of interface_type 'access'
       cisco.mso.ndo_mac_sec_policy: &add_mac_sec_policy_2
         <<: *mso_info
         template: ansible_fabric_policy_template
@@ -117,7 +121,7 @@
         sak_expiry_time: 99
         confidentiality_offset: 50
         key_server_priority: 11
-        type: access
+        interface_type: access
         mac_sec_key:
           - key_name: abc12
             psk: 'AA111111111111111111111111111111111111111111111111111111111111aa'
@@ -126,7 +130,7 @@
         state: present
       register: nm_add_mac_sec_policy_2
 
-    - name: Update the MACsec policy of type 'access' (check mode)
+    - name: Update the MACsec policy of interface_type 'access' (check mode)
       cisco.mso.ndo_mac_sec_policy: &update_mac_sec_policy
         <<: *add_mac_sec_policy_2
         description: 'Updated description'
@@ -151,13 +155,13 @@
       check_mode: true
       register: cm_update_mac_sec_policy
 
-    - name: Update the MACsec policy of type 'access'
+    - name: Update the MACsec policy of interface_type 'access'
       cisco.mso.ndo_mac_sec_policy:
         <<: *update_mac_sec_policy
       register: nm_update_mac_sec_policy
 
     # Idempotency for update cannot be checked as the psk is encrypted and the encrypted value changes every time
-    - name: Update MACsec policy of type 'access' again
+    - name: Update MACsec policy of interface_type 'access' again
       cisco.mso.ndo_mac_sec_policy:
         <<: *update_mac_sec_policy
       ignore_errors: true
@@ -279,24 +283,24 @@
           - query_uuid.current.description == ''
 
     # ERROR
-    - name: Update the type of exisiting MACsec policy
+    - name: Update the interface_type of exisiting MACsec policy
       cisco.mso.ndo_mac_sec_policy:
         <<: *mso_info
         template: ansible_fabric_policy_template
         mac_sec_policy: ansible_mac_sec_policy_changed
-        type: access
+        interface_type: access
         state: present
       ignore_errors: true
       register: nm_update_mac_sec_policy_type
 
-    - name: Assert that the MACsec policy type cannot be updated
+    - name: Assert that the MACsec policy interface_type cannot be updated
       assert:
         that:
           - nm_update_mac_sec_policy_type is failed
           - nm_update_mac_sec_policy_type.msg == 'Type cannot be changed for an existing MACSec Policy.'
 
     # DELETE
-    - name: Delete a MACsec policy of type 'fabric' (check mode)
+    - name: Delete a MACsec policy of interface_type 'fabric' (check mode)
       cisco.mso.ndo_mac_sec_policy: &delete_mac_sec_policy
         <<: *mso_info
         template: ansible_fabric_policy_template
@@ -305,12 +309,12 @@
       check_mode: true
       register: cm_delete_mac_sec_policy
 
-    - name: Delete a MACsec policy of type 'fabric'
+    - name: Delete a MACsec policy of interface_type 'fabric'
       cisco.mso.ndo_mac_sec_policy:
         <<: *delete_mac_sec_policy
       register: nm_delete_mac_sec_policy
 
-    - name: Delete MACsec policy of type 'fabric' again
+    - name: Delete MACsec policy of interface_type 'fabric' again
       cisco.mso.ndo_mac_sec_policy:
         <<: *delete_mac_sec_policy
       register: nm_delete_mac_sec_policy_again

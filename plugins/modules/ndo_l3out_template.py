@@ -257,7 +257,7 @@ EXAMPLES = r"""
     state: "query"
   register: query_l3out_name
 
-- name: Update a L3Out object with UUID
+- name: Update a L3Out object name with UUID
   cisco.mso.ndo_l3out_template:
     host: mso_host
     username: admin
@@ -665,7 +665,7 @@ def main():
                     payload["ospfAreaConfig"]["control"] = control
 
             mso.sanitize(payload)
-            ops = [dict(op="add", path="/l3outTemplate/l3outs/-", value=payload)]
+            ops.append(dict(op="add", path="/l3outTemplate/l3outs/-", value=payload))
         elif mso.existing:
             proposed_payload = copy.deepcopy(match.details)
             l3out_attrs_path = "/l3outTemplate/l3outs/{0}".format(match.index)
@@ -922,7 +922,7 @@ def main():
 
     elif state == "absent":
         if mso.existing:
-            ops = [dict(op="remove", path="/l3outTemplate/l3outs/{0}".format(match.index))]
+            ops.append(dict(op="remove", path="/l3outTemplate/l3outs/{0}".format(match.index)))
         mso.existing = {}
 
     if not module.check_mode and ops:

@@ -157,4 +157,4 @@ TARGET_DSCP_MAP = {
 }
 
 ORIGINATE_DEFAULT_ROUTE = {"only": "only", "in_addition": "inAddition", "": ""}
-ROUTING_PROTOCOLS = {"bgp": "bgp", "ospf": "ospf", "bgpospf": "bgpOspf", "bgpOspf": ["bgp", "ospf"], "ospfbgp": "bgpOspf"}
+L3OUT_ROUTING_PROTOCOLS = {"bgp": ["bgp"], "ospf": ["ospf"], "bgpOspf": ["bgp", "ospf"], None: [None], "": None, "bgpospf": "bgpOspf", "ospfbgp": "bgpOspf"}

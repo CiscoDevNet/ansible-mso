@@ -166,14 +166,14 @@
       register: create_new_l3out_policy_template
 
     # Test Part
-    - name: Query all L3Out objects when the template is empty
+    - name: Query all L3Out objects when the L3Out template is empty
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
         l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
         state: "query"
       register: query_all_l3outs_with_empty_template
 
-    - name: Assertion check for query all L3Out objects when the template is empty
+    - name: Assertion check for query all L3Out objects when the L3Out template is empty
       ansible.builtin.assert:
         that:
           - query_all_l3outs_with_empty_template is not changed
@@ -198,9 +198,11 @@
         that:
           - cm_l3out_1_present is changed
           - cm_l3out_1_present.current.name == "l3out_1"
+          - cm_l3out_1_present.current.routingProtocol == "none"
           - cm_l3out_1_present.current.vrfRef != ""
           - cm_l3out_1_present.previous == {}
           - cm_l3out_1_present.proposed.name == "l3out_1"
+          - cm_l3out_1_present.proposed.routingProtocol == "none"
           - cm_l3out_1_present.proposed.vrfRef != ""
 
     - name: Create L3Out object with default values - normal_mode
@@ -213,9 +215,11 @@
         that:
           - nm_l3out_1_present is changed
           - nm_l3out_1_present.current.name == "l3out_1"
+          - nm_l3out_1_present.current.routingProtocol == "none"
           - nm_l3out_1_present.current.vrfRef != ""
           - nm_l3out_1_present.previous == {}
           - nm_l3out_1_present.proposed.name == "l3out_1"
+          - nm_l3out_1_present.proposed.routingProtocol == "none"
           - nm_l3out_1_present.proposed.vrfRef != ""
 
     - name: Create L3Out object with default values - normal_mode - again
@@ -268,22 +272,26 @@
         description: "test description"
         pim: false
         target_dscp: "unspecified"
-        routing_protocols: ["bgp", "ospf"]
+        interleak: "ans_route_map"
+        static_route_redistribution: "ans_route_map"
+        connected_route_redistribution: "ans_route_map"
+        attached_host_route_redistribution: "ans_route_map"
         ospf:
+          state: enabled
           area_id: "0.0.0.1"
           area_type: "regular"
           cost: 1
           send_redistributed_lsas: true
           originate_summary_lsa: true
           suppress_forwarding_addr_translated_lsa: true
+          originate_default_route: "only"
+          originate_default_route_always: false
         bgp:
+          state: enabled
           route_dampening_ipv4: "ans_route_map"
+          route_dampening_ipv6: "ans_route_map"
           inbound_route_map: "ans_route_map"
           outbound_route_map: "ans_route_map"
-        interleak: "ans_route_map"
-        static_route_redistribution: "ans_route_map"
-        connected_route_redistribution: "ans_route_map"
-        attached_host_route_redistribution: "ans_route_map"
         state: "present"
         output_level: debug
       register: cm_l3out_1_update
@@ -297,7 +305,10 @@
           - cm_l3out_1_update.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
           - cm_l3out_1_update.current.advancedRouteMapRefs.interleakRef != ""
           - cm_l3out_1_update.current.advancedRouteMapRefs.routeDampeningV4Ref != ""
+          - cm_l3out_1_update.current.advancedRouteMapRefs.routeDampeningV6Ref != ""
           - cm_l3out_1_update.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - cm_l3out_1_update.current.defaultRouteLeak.always == false
+          - cm_l3out_1_update.current.defaultRouteLeak.originateDefaultRoute == "only"
           - cm_l3out_1_update.current.description == "test description"
           - cm_l3out_1_update.current.exportRouteMapRef != ""
           - cm_l3out_1_update.current.importRouteControl == true
@@ -329,7 +340,10 @@
           - cm_l3out_1_update.proposed.advancedRouteMapRefs.connectedRouteRedistRef != ""
           - cm_l3out_1_update.proposed.advancedRouteMapRefs.interleakRef != ""
           - cm_l3out_1_update.proposed.advancedRouteMapRefs.routeDampeningV4Ref != ""
+          - cm_l3out_1_update.proposed.advancedRouteMapRefs.routeDampeningV6Ref != ""
           - cm_l3out_1_update.proposed.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - cm_l3out_1_update.proposed.defaultRouteLeak.always == false
+          - cm_l3out_1_update.proposed.defaultRouteLeak.originateDefaultRoute == "only"
           - cm_l3out_1_update.proposed.description == "test description"
           - cm_l3out_1_update.proposed.exportRouteMapRef != ""
           - cm_l3out_1_update.proposed.importRouteControl == true
@@ -362,7 +376,10 @@
           - nm_l3out_1_update.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
           - nm_l3out_1_update.current.advancedRouteMapRefs.interleakRef != ""
           - nm_l3out_1_update.current.advancedRouteMapRefs.routeDampeningV4Ref != ""
+          - nm_l3out_1_update.current.advancedRouteMapRefs.routeDampeningV6Ref != ""
           - nm_l3out_1_update.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - nm_l3out_1_update.current.defaultRouteLeak.always == false
+          - nm_l3out_1_update.current.defaultRouteLeak.originateDefaultRoute == "only"
           - nm_l3out_1_update.current.description == "test description"
           - nm_l3out_1_update.current.exportRouteMapRef != ""
           - nm_l3out_1_update.current.importRouteControl == true
@@ -394,7 +411,10 @@
           - nm_l3out_1_update.proposed.advancedRouteMapRefs.connectedRouteRedistRef != ""
           - nm_l3out_1_update.proposed.advancedRouteMapRefs.interleakRef != ""
           - nm_l3out_1_update.proposed.advancedRouteMapRefs.routeDampeningV4Ref != ""
+          - nm_l3out_1_update.proposed.advancedRouteMapRefs.routeDampeningV6Ref != ""
           - nm_l3out_1_update.proposed.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - nm_l3out_1_update.proposed.defaultRouteLeak.always == false
+          - nm_l3out_1_update.proposed.defaultRouteLeak.originateDefaultRoute == "only"
           - nm_l3out_1_update.proposed.description == "test description"
           - nm_l3out_1_update.proposed.exportRouteMapRef != ""
           - nm_l3out_1_update.proposed.importRouteControl == true
@@ -427,7 +447,10 @@
           - nm_l3out_1_update_again.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
           - nm_l3out_1_update_again.current.advancedRouteMapRefs.interleakRef != ""
           - nm_l3out_1_update_again.current.advancedRouteMapRefs.routeDampeningV4Ref != ""
+          - nm_l3out_1_update_again.current.advancedRouteMapRefs.routeDampeningV6Ref != ""
           - nm_l3out_1_update_again.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - nm_l3out_1_update_again.current.defaultRouteLeak.always == false
+          - nm_l3out_1_update_again.current.defaultRouteLeak.originateDefaultRoute == "only"
           - nm_l3out_1_update_again.current.description == "test description"
           - nm_l3out_1_update_again.current.exportRouteMapRef != ""
           - nm_l3out_1_update_again.current.importRouteControl == true
@@ -450,7 +473,10 @@
           - nm_l3out_1_update_again.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
           - nm_l3out_1_update_again.previous.advancedRouteMapRefs.interleakRef != ""
           - nm_l3out_1_update_again.previous.advancedRouteMapRefs.routeDampeningV4Ref != ""
+          - nm_l3out_1_update_again.previous.advancedRouteMapRefs.routeDampeningV6Ref != ""
           - nm_l3out_1_update_again.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - nm_l3out_1_update_again.previous.defaultRouteLeak.always == false
+          - nm_l3out_1_update_again.previous.defaultRouteLeak.originateDefaultRoute == "only"
           - nm_l3out_1_update_again.previous.description == "test description"
           - nm_l3out_1_update_again.previous.exportRouteMapRef != ""
           - nm_l3out_1_update_again.previous.importRouteControl == true
@@ -473,7 +499,10 @@
           - nm_l3out_1_update_again.proposed.advancedRouteMapRefs.connectedRouteRedistRef != ""
           - nm_l3out_1_update_again.proposed.advancedRouteMapRefs.interleakRef != ""
           - nm_l3out_1_update_again.proposed.advancedRouteMapRefs.routeDampeningV4Ref != ""
+          - nm_l3out_1_update_again.proposed.advancedRouteMapRefs.routeDampeningV6Ref != ""
           - nm_l3out_1_update_again.proposed.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - nm_l3out_1_update_again.proposed.defaultRouteLeak.always == false
+          - nm_l3out_1_update_again.proposed.defaultRouteLeak.originateDefaultRoute == "only"
           - nm_l3out_1_update_again.proposed.description == "test description"
           - nm_l3out_1_update_again.proposed.exportRouteMapRef != ""
           - nm_l3out_1_update_again.proposed.importRouteControl == true
@@ -495,7 +524,8 @@
 
     - name: Update L3Out l3out_1 object name, vrf and pim value
       cisco.mso.ndo_l3out_template:
-        <<: *nm_l3out_1_update
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
         uuid: "{{ nm_l3out_1_update_again.current.uuid}}"
         name: l3out_1_updated
         vrf:
@@ -504,25 +534,35 @@
           template: "Template1"
         pim: true
         target_dscp: "af11"
-        routing_protocols: ["bgp"]
-        ospf: {}
-        bgp:
-          route_dampening_ipv6: "ans_route_map_2"
+        state: present
       register: l3out_1_update_vrf
 
     - name: Assertion check for update L3Out l3out_1 object name, vrf and pim value
       ansible.builtin.assert:
         that:
           - l3out_1_update_vrf is changed
+          - l3out_1_update_vrf.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_vrf.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_vrf.current.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_vrf.current.advancedRouteMapRefs.routeDampeningV4Ref != ""
           - l3out_1_update_vrf.current.advancedRouteMapRefs.routeDampeningV6Ref != ""
+          - l3out_1_update_vrf.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_vrf.current.defaultRouteLeak.always == false
+          - l3out_1_update_vrf.current.defaultRouteLeak.originateDefaultRoute == "only"
           - l3out_1_update_vrf.current.description == "test description"
           - l3out_1_update_vrf.current.exportRouteMapRef != ""
           - l3out_1_update_vrf.current.importRouteControl == true
           - l3out_1_update_vrf.current.importRouteMapRef != ""
           - l3out_1_update_vrf.current.l3domain == "ans_l3_domain"
           - l3out_1_update_vrf.current.name == "l3out_1_updated"
+          - l3out_1_update_vrf.current.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_vrf.current.ospfAreaConfig.control.originate == true
+          - l3out_1_update_vrf.current.ospfAreaConfig.control.redistribute == true
+          - l3out_1_update_vrf.current.ospfAreaConfig.control.suppressFA == true
+          - l3out_1_update_vrf.current.ospfAreaConfig.cost == 1
+          - l3out_1_update_vrf.current.ospfAreaConfig.id == "0.0.0.1"
           - l3out_1_update_vrf.current.pim == true
-          - l3out_1_update_vrf.current.routingProtocol == "bgp"
+          - l3out_1_update_vrf.current.routingProtocol == "bgpOspf"
           - l3out_1_update_vrf.current.tagAnnotations == []
           - l3out_1_update_vrf.current.targetDscp == "af11"
           - l3out_1_update_vrf.current.uuid is defined
@@ -531,7 +571,10 @@
           - l3out_1_update_vrf.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
           - l3out_1_update_vrf.previous.advancedRouteMapRefs.interleakRef != ""
           - l3out_1_update_vrf.previous.advancedRouteMapRefs.routeDampeningV4Ref != ""
+          - l3out_1_update_vrf.previous.advancedRouteMapRefs.routeDampeningV6Ref != ""
           - l3out_1_update_vrf.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_vrf.previous.defaultRouteLeak.always == false
+          - l3out_1_update_vrf.previous.defaultRouteLeak.originateDefaultRoute == "only"
           - l3out_1_update_vrf.previous.description == "test description"
           - l3out_1_update_vrf.previous.exportRouteMapRef != ""
           - l3out_1_update_vrf.previous.importRouteControl == true
@@ -550,194 +593,227 @@
           - l3out_1_update_vrf.previous.targetDscp == "unspecified"
           - l3out_1_update_vrf.previous.uuid is defined
           - l3out_1_update_vrf.previous.vrfRef != ""
-          - l3out_1_update_vrf.proposed.advancedRouteMapRefs.routeDampeningV6Ref != ""
-          - l3out_1_update_vrf.proposed.description == "test description"
-          - l3out_1_update_vrf.proposed.exportRouteMapRef != ""
-          - l3out_1_update_vrf.proposed.importRouteControl == true
-          - l3out_1_update_vrf.proposed.importRouteMapRef != ""
-          - l3out_1_update_vrf.proposed.l3domain == "ans_l3_domain"
-          - l3out_1_update_vrf.proposed.name == "l3out_1_updated"
-          - l3out_1_update_vrf.proposed.pim == true
-          - l3out_1_update_vrf.proposed.routingProtocol == "bgp"
-          - l3out_1_update_vrf.proposed.tagAnnotations == []
-          - l3out_1_update_vrf.proposed.targetDscp == "af11"
-          - l3out_1_update_vrf.proposed.uuid is defined
-          - l3out_1_update_vrf.proposed.vrfRef != ""
 
-    - name: Create l3out_1_temp object without bgp inbound, outbound, ipv4 and ipv6 route maps
+    - name: Update L3Out l3out_1_updated object bgp route map values
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
         l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "l3out_1_temp"
-        l3_domain: ans_l3_domain
-        pim: false
-        vrf:
-          name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
-          template: "Template1"
-        description: "test description"
-        target_dscp: "unspecified"
-        routing_protocols: ["ospf"]
-        ospf:
-          area_id: "0.0.0.1"
-          area_type: "regular"
-          cost: 1
-          send_redistributed_lsas: true
-          originate_summary_lsa: true
-          suppress_forwarding_addr_translated_lsa: true
-          originate_default_route: "only"
-          originate_default_route_always: true
-        interleak: "ans_route_map"
-        static_route_redistribution: "ans_route_map"
-        connected_route_redistribution: "ans_route_map"
-        attached_host_route_redistribution: "ans_route_map"
-        state: "present"
-      register: create_l3out_1_temp
+        name: l3out_1_updated
+        interleak: "ans_route_map_2"
+        static_route_redistribution: "ans_route_map_2"
+        connected_route_redistribution: "ans_route_map_2"
+        attached_host_route_redistribution: "ans_route_map_2"
+        bgp:
+          route_dampening_ipv4: "ans_route_map_2"
+          route_dampening_ipv6: "ans_route_map_2"
+          inbound_route_map: "ans_route_map_2"
+          outbound_route_map: "ans_route_map_2"
+        state: present
+      register: l3out_1_update_bgp
 
-    - name: Assertion check for create l3out_1_temp object without bgp inbound, outbound, ipv4 and ipv6 route maps
+    - name: Assertion check for update L3Out l3out_1_updated object bgp route map values
       ansible.builtin.assert:
         that:
-          - create_l3out_1_temp is changed
-          - create_l3out_1_temp.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - create_l3out_1_temp.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - create_l3out_1_temp.current.advancedRouteMapRefs.interleakRef != ""
-          - create_l3out_1_temp.current.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - create_l3out_1_temp.current.defaultRouteLeak.always == true
-          - create_l3out_1_temp.current.defaultRouteLeak.originateDefaultRoute == "only"
-          - create_l3out_1_temp.current.description == "test description"
-          - create_l3out_1_temp.current.l3domain == "ans_l3_domain"
-          - create_l3out_1_temp.current.name == "l3out_1_temp"
-          - create_l3out_1_temp.current.ospfAreaConfig.areaType == "regular"
-          - create_l3out_1_temp.current.ospfAreaConfig.control.originate == true
-          - create_l3out_1_temp.current.ospfAreaConfig.control.redistribute == true
-          - create_l3out_1_temp.current.ospfAreaConfig.control.suppressFA == true
-          - create_l3out_1_temp.current.ospfAreaConfig.cost == 1
-          - create_l3out_1_temp.current.ospfAreaConfig.id == "0.0.0.1"
-          - create_l3out_1_temp.current.pim == false
-          - create_l3out_1_temp.current.routingProtocol == "ospf"
-          - create_l3out_1_temp.current.targetDscp == "unspecified"
-          - create_l3out_1_temp.current.vrfRef != ""
-          - create_l3out_1_temp.previous == {}
+          - l3out_1_update_bgp is changed
+          - l3out_1_update_bgp.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_bgp.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_bgp.current.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_bgp.current.advancedRouteMapRefs.routeDampeningV4Ref != ""
+          - l3out_1_update_bgp.current.advancedRouteMapRefs.routeDampeningV6Ref != ""
+          - l3out_1_update_bgp.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_bgp.current.defaultRouteLeak.always == false
+          - l3out_1_update_bgp.current.defaultRouteLeak.originateDefaultRoute == "only"
+          - l3out_1_update_bgp.current.description == "test description"
+          - l3out_1_update_bgp.current.exportRouteMapRef != ""
+          - l3out_1_update_bgp.current.importRouteControl == true
+          - l3out_1_update_bgp.current.importRouteMapRef != ""
+          - l3out_1_update_bgp.current.l3domain == "ans_l3_domain"
+          - l3out_1_update_bgp.current.name == "l3out_1_updated"
+          - l3out_1_update_bgp.current.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_bgp.current.ospfAreaConfig.control.originate == true
+          - l3out_1_update_bgp.current.ospfAreaConfig.control.redistribute == true
+          - l3out_1_update_bgp.current.ospfAreaConfig.control.suppressFA == true
+          - l3out_1_update_bgp.current.ospfAreaConfig.cost == 1
+          - l3out_1_update_bgp.current.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_bgp.current.pim == true
+          - l3out_1_update_bgp.current.routingProtocol == "bgpOspf"
+          - l3out_1_update_bgp.current.tagAnnotations == []
+          - l3out_1_update_bgp.current.targetDscp == "af11"
+          - l3out_1_update_bgp.current.uuid is defined
+          - l3out_1_update_bgp.current.vrfRef != ""
+          - l3out_1_update_bgp.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_bgp.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_bgp.previous.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_bgp.previous.advancedRouteMapRefs.routeDampeningV4Ref != ""
+          - l3out_1_update_bgp.previous.advancedRouteMapRefs.routeDampeningV6Ref != ""
+          - l3out_1_update_bgp.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_bgp.previous.defaultRouteLeak.always == false
+          - l3out_1_update_bgp.previous.defaultRouteLeak.originateDefaultRoute == "only"
+          - l3out_1_update_bgp.previous.description == "test description"
+          - l3out_1_update_bgp.previous.exportRouteMapRef != ""
+          - l3out_1_update_bgp.previous.importRouteControl == true
+          - l3out_1_update_bgp.previous.importRouteMapRef != ""
+          - l3out_1_update_bgp.previous.l3domain == "ans_l3_domain"
+          - l3out_1_update_bgp.previous.name == "l3out_1_updated"
+          - l3out_1_update_bgp.previous.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_bgp.previous.ospfAreaConfig.control.originate == true
+          - l3out_1_update_bgp.previous.ospfAreaConfig.control.redistribute == true
+          - l3out_1_update_bgp.previous.ospfAreaConfig.control.suppressFA == true
+          - l3out_1_update_bgp.previous.ospfAreaConfig.cost == 1
+          - l3out_1_update_bgp.previous.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_bgp.previous.pim == true
+          - l3out_1_update_bgp.previous.routingProtocol == "bgpOspf"
+          - l3out_1_update_bgp.previous.tagAnnotations == []
+          - l3out_1_update_bgp.previous.targetDscp == "af11"
+          - l3out_1_update_bgp.previous.uuid is defined
+          - l3out_1_update_bgp.previous.vrfRef != ""
 
-    - name: Create l3out_2 (bgp, ospf) - object
+    - name: Set bgp route maps with empty string for L3Out l3out_1_updated object
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
         l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "l3out_2"
-        l3_domain: ans_l3_domain
-        pim: false
-        vrf:
-          name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
-          template: "Template1"
-        description: "test description"
-        target_dscp: "unspecified"
-        routing_protocols: ["bgp", "ospf"]
+        name: l3out_1_updated
+        interleak: "ans_route_map_2"
+        static_route_redistribution: "ans_route_map_2"
+        connected_route_redistribution: "ans_route_map_2"
+        attached_host_route_redistribution: "ans_route_map_2"
+        description: "add_log"
         bgp:
-          inbound_route_map: "ans_route_map"
-          outbound_route_map: "ans_route_map"
-          route_dampening_ipv4: "ans_route_map"
-          route_dampening_ipv6: "ans_route_map"
+          route_dampening_ipv4: ""
+          route_dampening_ipv6: ""
+          inbound_route_map: ""
+          outbound_route_map: ""
+        state: present
+      register: l3out_1_update_empty_bgp
+
+    - name: Assertion check for set bgp route maps with empty string for L3Out l3out_1_updated object
+      ansible.builtin.assert:
+        that:
+          - l3out_1_update_empty_bgp is changed
+          - l3out_1_update_empty_bgp.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_empty_bgp.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_empty_bgp.current.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_empty_bgp.current.advancedRouteMapRefs.routeDampeningV4Ref == ""
+          - l3out_1_update_empty_bgp.current.advancedRouteMapRefs.routeDampeningV6Ref == ""
+          - l3out_1_update_empty_bgp.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_empty_bgp.current.defaultRouteLeak.always == false
+          - l3out_1_update_empty_bgp.current.defaultRouteLeak.originateDefaultRoute == "only"
+          - l3out_1_update_empty_bgp.current.description == "add_log"
+          - l3out_1_update_empty_bgp.current.exportRouteMapRef == ""
+          - l3out_1_update_empty_bgp.current.importRouteControl == false
+          - l3out_1_update_empty_bgp.current.importRouteMapRef == ""
+          - l3out_1_update_empty_bgp.current.l3domain == "ans_l3_domain"
+          - l3out_1_update_empty_bgp.current.name == "l3out_1_updated"
+          - l3out_1_update_empty_bgp.current.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_empty_bgp.current.ospfAreaConfig.control.originate == true
+          - l3out_1_update_empty_bgp.current.ospfAreaConfig.control.redistribute == true
+          - l3out_1_update_empty_bgp.current.ospfAreaConfig.control.suppressFA == true
+          - l3out_1_update_empty_bgp.current.ospfAreaConfig.cost == 1
+          - l3out_1_update_empty_bgp.current.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_empty_bgp.current.pim == true
+          - l3out_1_update_empty_bgp.current.routingProtocol == "bgpOspf"
+          - l3out_1_update_empty_bgp.current.tagAnnotations == []
+          - l3out_1_update_empty_bgp.current.targetDscp == "af11"
+          - l3out_1_update_empty_bgp.current.uuid is defined
+          - l3out_1_update_empty_bgp.current.vrfRef != ""
+          - l3out_1_update_empty_bgp.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_empty_bgp.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_empty_bgp.previous.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_empty_bgp.previous.advancedRouteMapRefs.routeDampeningV4Ref != ""
+          - l3out_1_update_empty_bgp.previous.advancedRouteMapRefs.routeDampeningV6Ref != ""
+          - l3out_1_update_empty_bgp.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_empty_bgp.previous.defaultRouteLeak.always == false
+          - l3out_1_update_empty_bgp.previous.defaultRouteLeak.originateDefaultRoute == "only"
+          - l3out_1_update_empty_bgp.previous.description == "test description"
+          - l3out_1_update_empty_bgp.previous.exportRouteMapRef != ""
+          - l3out_1_update_empty_bgp.previous.importRouteControl == true
+          - l3out_1_update_empty_bgp.previous.importRouteMapRef != ""
+          - l3out_1_update_empty_bgp.previous.l3domain == "ans_l3_domain"
+          - l3out_1_update_empty_bgp.previous.name == "l3out_1_updated"
+          - l3out_1_update_empty_bgp.previous.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_empty_bgp.previous.ospfAreaConfig.control.originate == true
+          - l3out_1_update_empty_bgp.previous.ospfAreaConfig.control.redistribute == true
+          - l3out_1_update_empty_bgp.previous.ospfAreaConfig.control.suppressFA == true
+          - l3out_1_update_empty_bgp.previous.ospfAreaConfig.cost == 1
+          - l3out_1_update_empty_bgp.previous.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_empty_bgp.previous.pim == true
+          - l3out_1_update_empty_bgp.previous.routingProtocol == "bgpOspf"
+          - l3out_1_update_empty_bgp.previous.tagAnnotations == []
+          - l3out_1_update_empty_bgp.previous.targetDscp == "af11"
+          - l3out_1_update_empty_bgp.previous.uuid is defined
+          - l3out_1_update_empty_bgp.previous.vrfRef != ""
+
+    - name: Update L3Out l3out_1_updated object ospf values
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: l3out_1_updated
         ospf:
           area_id: "0.0.0.1"
           area_type: "regular"
           cost: 1
-          send_redistributed_lsas: true
-          originate_summary_lsa: true
-          suppress_forwarding_addr_translated_lsa: true
-          originate_default_route: "only"
+          send_redistributed_lsas: false
+          originate_summary_lsa: false
+          suppress_forwarding_addr_translated_lsa: false
+          originate_default_route: "in_addition"
           originate_default_route_always: false
-        interleak: "ans_route_map"
-        static_route_redistribution: "ans_route_map"
-        connected_route_redistribution: "ans_route_map"
-        attached_host_route_redistribution: "ans_route_map"
-        state: "present"
-      register: create_l3out_2
+        state: present
+      register: l3out_1_update_ospf
 
-    - name: Assertion check for create l3out_2 (bgp, ospf) - object
+    - name: Assertion check for update L3Out l3out_1_updated object ospf values
       ansible.builtin.assert:
         that:
-          - create_l3out_2 is changed
-          - create_l3out_2.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - create_l3out_2.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - create_l3out_2.current.advancedRouteMapRefs.interleakRef != ""
-          - create_l3out_2.current.advancedRouteMapRefs.routeDampeningV4Ref != ""
-          - create_l3out_2.current.advancedRouteMapRefs.routeDampeningV6Ref != ""
-          - create_l3out_2.current.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - create_l3out_2.current.defaultRouteLeak.always == false
-          - create_l3out_2.current.defaultRouteLeak.originateDefaultRoute == "only"
-          - create_l3out_2.current.description == "test description"
-          - create_l3out_2.current.exportRouteMapRef != ""
-          - create_l3out_2.current.importRouteControl == true
-          - create_l3out_2.current.importRouteMapRef != ""
-          - create_l3out_2.current.l3domain == "ans_l3_domain"
-          - create_l3out_2.current.name == "l3out_2"
-          - create_l3out_2.current.ospfAreaConfig.areaType == "regular"
-          - create_l3out_2.current.ospfAreaConfig.control.originate == true
-          - create_l3out_2.current.ospfAreaConfig.control.redistribute == true
-          - create_l3out_2.current.ospfAreaConfig.control.suppressFA == true
-          - create_l3out_2.current.ospfAreaConfig.cost == 1
-          - create_l3out_2.current.ospfAreaConfig.id == "0.0.0.1"
-          - create_l3out_2.current.pim == false
-          - create_l3out_2.current.routingProtocol == "bgpOspf"
-          - create_l3out_2.current.targetDscp == "unspecified"
-          - create_l3out_2.current.vrfRef != ""
-          - create_l3out_2.previous == {}
+          - l3out_1_update_ospf is changed
+          - l3out_1_update_ospf.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_ospf.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_ospf.current.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_ospf.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_ospf.current.defaultRouteLeak.always == false
+          - l3out_1_update_ospf.current.defaultRouteLeak.originateDefaultRoute == "inAddition"
+          - l3out_1_update_ospf.current.description == "add_log"
+          - l3out_1_update_ospf.current.importRouteControl == false
+          - l3out_1_update_ospf.current.l3domain == "ans_l3_domain"
+          - l3out_1_update_ospf.current.name == "l3out_1_updated"
+          - l3out_1_update_ospf.current.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_ospf.current.ospfAreaConfig.control.originate == false
+          - l3out_1_update_ospf.current.ospfAreaConfig.control.redistribute == false
+          - l3out_1_update_ospf.current.ospfAreaConfig.control.suppressFA == false
+          - l3out_1_update_ospf.current.ospfAreaConfig.cost == 1
+          - l3out_1_update_ospf.current.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_ospf.current.pim == true
+          - l3out_1_update_ospf.current.routingProtocol == "bgpOspf"
+          - l3out_1_update_ospf.current.tagAnnotations == []
+          - l3out_1_update_ospf.current.targetDscp == "af11"
+          - l3out_1_update_ospf.current.uuid is defined
+          - l3out_1_update_ospf.current.vrfRef != ""
+          - l3out_1_update_ospf.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_ospf.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_ospf.previous.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_ospf.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_ospf.previous.defaultRouteLeak.always == false
+          - l3out_1_update_ospf.previous.defaultRouteLeak.originateDefaultRoute == "only"
+          - l3out_1_update_ospf.previous.description == "add_log"
+          - l3out_1_update_ospf.previous.importRouteControl == false
+          - l3out_1_update_ospf.previous.l3domain == "ans_l3_domain"
+          - l3out_1_update_ospf.previous.name == "l3out_1_updated"
+          - l3out_1_update_ospf.previous.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_ospf.previous.ospfAreaConfig.control.originate == true
+          - l3out_1_update_ospf.previous.ospfAreaConfig.control.redistribute == true
+          - l3out_1_update_ospf.previous.ospfAreaConfig.control.suppressFA == true
+          - l3out_1_update_ospf.previous.ospfAreaConfig.cost == 1
+          - l3out_1_update_ospf.previous.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_ospf.previous.pim == true
+          - l3out_1_update_ospf.previous.routingProtocol == "bgpOspf"
+          - l3out_1_update_ospf.previous.tagAnnotations == []
+          - l3out_1_update_ospf.previous.targetDscp == "af11"
+          - l3out_1_update_ospf.previous.uuid is defined
+          - l3out_1_update_ospf.previous.vrfRef != ""
 
-    - name: Query l3out_2 object to get UUID
+    - name: Clear ospf originate_default_route for L3Out l3out_1_updated object
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
         l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "l3out_2"
-        state: "query"
-      register: l3out_2_query
-
-    - name: Assertion check for query l3out_2 object to get UUID
-      ansible.builtin.assert:
-        that:
-          - l3out_2_query is not changed
-          - l3out_2_query.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - l3out_2_query.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - l3out_2_query.current.advancedRouteMapRefs.interleakRef != ""
-          - l3out_2_query.current.advancedRouteMapRefs.routeDampeningV4Ref != ""
-          - l3out_2_query.current.advancedRouteMapRefs.routeDampeningV6Ref != ""
-          - l3out_2_query.current.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - l3out_2_query.current.defaultRouteLeak.always == false
-          - l3out_2_query.current.defaultRouteLeak.originateDefaultRoute == "only"
-          - l3out_2_query.current.description == "test description"
-          - l3out_2_query.current.exportRouteMapRef != ""
-          - l3out_2_query.current.importRouteControl == true
-          - l3out_2_query.current.importRouteMapRef != ""
-          - l3out_2_query.current.l3domain == "ans_l3_domain"
-          - l3out_2_query.current.name == "l3out_2"
-          - l3out_2_query.current.ospfAreaConfig.areaType == "regular"
-          - l3out_2_query.current.ospfAreaConfig.control.originate == true
-          - l3out_2_query.current.ospfAreaConfig.control.redistribute == true
-          - l3out_2_query.current.ospfAreaConfig.control.suppressFA == true
-          - l3out_2_query.current.ospfAreaConfig.cost == 1
-          - l3out_2_query.current.ospfAreaConfig.id == "0.0.0.1"
-          - l3out_2_query.current.pim == false
-          - l3out_2_query.current.routingProtocol == "bgpOspf"
-          - l3out_2_query.current.tagAnnotations == []
-          - l3out_2_query.current.targetDscp == "unspecified"
-          - l3out_2_query.current.uuid is defined
-          - l3out_2_query.current.vrfRef != ""
-
-    - name: Update l3out_2 (bgp, ospf) - object using uuid
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        uuid: "{{ l3out_2_query.current.uuid }}"
-        l3_domain: ans_l3_domain
-        pim: false
-        description: "test description"
-        target_dscp: "unspecified"
-        routing_protocols: ["bgp", "ospf"]
-        bgp:
-          inbound_route_map: "ans_route_map"
-          outbound_route_map: "ans_route_map"
-          route_dampening_ipv4: "ans_route_map"
-          route_dampening_ipv6: "ans_route_map"
+        name: l3out_1_updated
         ospf:
           area_id: "0.0.0.1"
           area_type: "regular"
@@ -746,909 +822,708 @@
           originate_summary_lsa: false
           suppress_forwarding_addr_translated_lsa: false
           originate_default_route: ""
-        interleak: "ans_route_map"
-        static_route_redistribution: "ans_route_map"
-        connected_route_redistribution: "ans_route_map"
-        attached_host_route_redistribution: "ans_route_map"
-        state: "present"
-      register: update_l3out_2
+          originate_default_route_always: false
+        state: present
+      register: l3out_1_update_ospf_default_route
 
-    - name: Assertion check for update l3out_2 (bgp, ospf) - object using uuid
+    - name: Assertion check for clear ospf originate_default_route for L3Out l3out_1_updated object
       ansible.builtin.assert:
         that:
-          - update_l3out_2 is changed
-          - update_l3out_2.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - update_l3out_2.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - update_l3out_2.current.advancedRouteMapRefs.interleakRef != ""
-          - update_l3out_2.current.advancedRouteMapRefs.routeDampeningV4Ref != ""
-          - update_l3out_2.current.advancedRouteMapRefs.routeDampeningV6Ref != ""
-          - update_l3out_2.current.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - update_l3out_2.current.description == "test description"
-          - update_l3out_2.current.exportRouteMapRef != ""
-          - update_l3out_2.current.importRouteControl == true
-          - update_l3out_2.current.importRouteMapRef != ""
-          - update_l3out_2.current.l3domain == "ans_l3_domain"
-          - update_l3out_2.current.name == "l3out_2"
-          - update_l3out_2.current.ospfAreaConfig.areaType == "regular"
-          - update_l3out_2.current.ospfAreaConfig.control.originate == false
-          - update_l3out_2.current.ospfAreaConfig.control.redistribute == false
-          - update_l3out_2.current.ospfAreaConfig.control.suppressFA == false
-          - update_l3out_2.current.ospfAreaConfig.cost == 1
-          - update_l3out_2.current.ospfAreaConfig.id == "0.0.0.1"
-          - update_l3out_2.current.pim == false
-          - update_l3out_2.current.routingProtocol == "bgpOspf"
-          - update_l3out_2.current.tagAnnotations == []
-          - update_l3out_2.current.targetDscp == "unspecified"
-          - update_l3out_2.current.uuid is defined
-          - update_l3out_2.current.vrfRef != ""
-          - update_l3out_2.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - update_l3out_2.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - update_l3out_2.previous.advancedRouteMapRefs.interleakRef != ""
-          - update_l3out_2.previous.advancedRouteMapRefs.routeDampeningV4Ref != ""
-          - update_l3out_2.previous.advancedRouteMapRefs.routeDampeningV6Ref != ""
-          - update_l3out_2.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - update_l3out_2.previous.defaultRouteLeak.always == false
-          - update_l3out_2.previous.defaultRouteLeak.originateDefaultRoute == "only"
-          - update_l3out_2.previous.description == "test description"
-          - update_l3out_2.previous.exportRouteMapRef != ""
-          - update_l3out_2.previous.importRouteControl == true
-          - update_l3out_2.previous.importRouteMapRef != ""
-          - update_l3out_2.previous.l3domain == "ans_l3_domain"
-          - update_l3out_2.previous.name == "l3out_2"
-          - update_l3out_2.previous.ospfAreaConfig.areaType == "regular"
-          - update_l3out_2.previous.ospfAreaConfig.control.originate == true
-          - update_l3out_2.previous.ospfAreaConfig.control.redistribute == true
-          - update_l3out_2.previous.ospfAreaConfig.control.suppressFA == true
-          - update_l3out_2.previous.ospfAreaConfig.cost == 1
-          - update_l3out_2.previous.ospfAreaConfig.id == "0.0.0.1"
-          - update_l3out_2.previous.pim == false
-          - update_l3out_2.previous.routingProtocol == "bgpOspf"
-          - update_l3out_2.previous.tagAnnotations == []
-          - update_l3out_2.previous.targetDscp == "unspecified"
-          - update_l3out_2.previous.uuid is defined
-          - update_l3out_2.previous.vrfRef != ""
+          - l3out_1_update_ospf_default_route is changed
+          - l3out_1_update_ospf_default_route.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_ospf_default_route.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_ospf_default_route.current.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_ospf_default_route.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_ospf_default_route.current.description == "add_log"
+          - l3out_1_update_ospf_default_route.current.importRouteControl == false
+          - l3out_1_update_ospf_default_route.current.l3domain == "ans_l3_domain"
+          - l3out_1_update_ospf_default_route.current.name == "l3out_1_updated"
+          - l3out_1_update_ospf_default_route.current.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_ospf_default_route.current.ospfAreaConfig.control.originate == false
+          - l3out_1_update_ospf_default_route.current.ospfAreaConfig.control.redistribute == false
+          - l3out_1_update_ospf_default_route.current.ospfAreaConfig.control.suppressFA == false
+          - l3out_1_update_ospf_default_route.current.ospfAreaConfig.cost == 1
+          - l3out_1_update_ospf_default_route.current.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_ospf_default_route.current.pim == true
+          - l3out_1_update_ospf_default_route.current.routingProtocol == "bgpOspf"
+          - l3out_1_update_ospf_default_route.current.tagAnnotations == []
+          - l3out_1_update_ospf_default_route.current.targetDscp == "af11"
+          - l3out_1_update_ospf_default_route.current.uuid is defined
+          - l3out_1_update_ospf_default_route.current.vrfRef != ""
+          - l3out_1_update_ospf_default_route.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_ospf_default_route.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_ospf_default_route.previous.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_ospf_default_route.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_ospf_default_route.previous.defaultRouteLeak.always == false
+          - l3out_1_update_ospf_default_route.previous.defaultRouteLeak.originateDefaultRoute == "inAddition"
+          - l3out_1_update_ospf_default_route.previous.description == "add_log"
+          - l3out_1_update_ospf_default_route.previous.importRouteControl == false
+          - l3out_1_update_ospf_default_route.previous.l3domain == "ans_l3_domain"
+          - l3out_1_update_ospf_default_route.previous.name == "l3out_1_updated"
+          - l3out_1_update_ospf_default_route.previous.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_ospf_default_route.previous.ospfAreaConfig.control.originate == false
+          - l3out_1_update_ospf_default_route.previous.ospfAreaConfig.control.redistribute == false
+          - l3out_1_update_ospf_default_route.previous.ospfAreaConfig.control.suppressFA == false
+          - l3out_1_update_ospf_default_route.previous.ospfAreaConfig.cost == 1
+          - l3out_1_update_ospf_default_route.previous.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_ospf_default_route.previous.pim == true
+          - l3out_1_update_ospf_default_route.previous.routingProtocol == "bgpOspf"
+          - l3out_1_update_ospf_default_route.previous.tagAnnotations == []
+          - l3out_1_update_ospf_default_route.previous.targetDscp == "af11"
+          - l3out_1_update_ospf_default_route.previous.uuid is defined
+          - l3out_1_update_ospf_default_route.previous.vrfRef != ""
 
-    - name: Create l3out_2_tmp (ospf) - object with OSPF config and route maps
+    - name: Clear bgp from L3Out l3out_1_updated object
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
         l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "l3out_2_tmp"
-        l3_domain: ans_l3_domain
-        pim: false
-        vrf:
-          name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
-          template: "Template1"
-        description: "test description"
-        target_dscp: "unspecified"
-        routing_protocols: ["ospf"]
+        name: l3out_1_updated
+        bgp:
+          state: disabled
+        state: present
+      register: l3out_1_update_disable_bgp
+
+    - name: Assertion check for clear bgp from L3Out l3out_1_updated object
+      ansible.builtin.assert:
+        that:
+          - l3out_1_update_disable_bgp is changed
+          - l3out_1_update_disable_bgp.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_disable_bgp.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_disable_bgp.current.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_disable_bgp.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_disable_bgp.current.description == "add_log"
+          - l3out_1_update_disable_bgp.current.importRouteControl == false
+          - l3out_1_update_disable_bgp.current.l3domain == "ans_l3_domain"
+          - l3out_1_update_disable_bgp.current.name == "l3out_1_updated"
+          - l3out_1_update_disable_bgp.current.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_disable_bgp.current.ospfAreaConfig.control.originate == false
+          - l3out_1_update_disable_bgp.current.ospfAreaConfig.control.redistribute == false
+          - l3out_1_update_disable_bgp.current.ospfAreaConfig.control.suppressFA == false
+          - l3out_1_update_disable_bgp.current.ospfAreaConfig.cost == 1
+          - l3out_1_update_disable_bgp.current.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_disable_bgp.current.pim == true
+          - l3out_1_update_disable_bgp.current.routingProtocol == "ospf"
+          - l3out_1_update_disable_bgp.current.tagAnnotations == []
+          - l3out_1_update_disable_bgp.current.targetDscp == "af11"
+          - l3out_1_update_disable_bgp.current.uuid is defined
+          - l3out_1_update_disable_bgp.current.vrfRef != ""
+          - l3out_1_update_disable_bgp.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_disable_bgp.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_disable_bgp.previous.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_disable_bgp.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_disable_bgp.previous.description == "add_log"
+          - l3out_1_update_disable_bgp.previous.importRouteControl == false
+          - l3out_1_update_disable_bgp.previous.l3domain == "ans_l3_domain"
+          - l3out_1_update_disable_bgp.previous.name == "l3out_1_updated"
+          - l3out_1_update_disable_bgp.previous.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_disable_bgp.previous.ospfAreaConfig.control.originate == false
+          - l3out_1_update_disable_bgp.previous.ospfAreaConfig.control.redistribute == false
+          - l3out_1_update_disable_bgp.previous.ospfAreaConfig.control.suppressFA == false
+          - l3out_1_update_disable_bgp.previous.ospfAreaConfig.cost == 1
+          - l3out_1_update_disable_bgp.previous.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_disable_bgp.previous.pim == true
+          - l3out_1_update_disable_bgp.previous.routingProtocol == "bgpOspf"
+          - l3out_1_update_disable_bgp.previous.tagAnnotations == []
+          - l3out_1_update_disable_bgp.previous.targetDscp == "af11"
+          - l3out_1_update_disable_bgp.previous.uuid is defined
+          - l3out_1_update_disable_bgp.previous.vrfRef != ""
+
+    - name: Update L3Out l3out_1_updated object ospf originate_default_route_always to true
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: l3out_1_updated
         ospf:
-          area_id: "0.0.0.1"
-          area_type: "regular"
-          cost: 1
+          # when you enable originate_default_route_always, originate_default_route set to "only" when it is not configured and specified in the config
+          originate_default_route_always: true
+        state: present
+      register: l3out_1_update_ospf_default_route_true
+
+    - name: Assertion check for update L3Out l3out_1_updated object ospf originate_default_route_always to true
+      ansible.builtin.assert:
+        that:
+          - l3out_1_update_ospf_default_route_true is changed
+          - l3out_1_update_ospf_default_route_true.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_ospf_default_route_true.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_ospf_default_route_true.current.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_ospf_default_route_true.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_ospf_default_route_true.current.defaultRouteLeak.always == true
+          - l3out_1_update_ospf_default_route_true.current.description == "add_log"
+          - l3out_1_update_ospf_default_route_true.current.importRouteControl == false
+          - l3out_1_update_ospf_default_route_true.current.l3domain == "ans_l3_domain"
+          - l3out_1_update_ospf_default_route_true.current.name == "l3out_1_updated"
+          - l3out_1_update_ospf_default_route_true.current.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_ospf_default_route_true.current.ospfAreaConfig.control.originate == false
+          - l3out_1_update_ospf_default_route_true.current.ospfAreaConfig.control.redistribute == false
+          - l3out_1_update_ospf_default_route_true.current.ospfAreaConfig.control.suppressFA == false
+          - l3out_1_update_ospf_default_route_true.current.ospfAreaConfig.cost == 1
+          - l3out_1_update_ospf_default_route_true.current.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_ospf_default_route_true.current.pim == true
+          - l3out_1_update_ospf_default_route_true.current.routingProtocol == "ospf"
+          - l3out_1_update_ospf_default_route_true.current.tagAnnotations == []
+          - l3out_1_update_ospf_default_route_true.current.targetDscp == "af11"
+          - l3out_1_update_ospf_default_route_true.current.uuid is defined
+          - l3out_1_update_ospf_default_route_true.current.vrfRef != ""
+          - l3out_1_update_ospf_default_route_true.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_ospf_default_route_true.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_ospf_default_route_true.previous.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_ospf_default_route_true.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_ospf_default_route_true.previous.description == "add_log"
+          - l3out_1_update_ospf_default_route_true.previous.importRouteControl == false
+          - l3out_1_update_ospf_default_route_true.previous.l3domain == "ans_l3_domain"
+          - l3out_1_update_ospf_default_route_true.previous.name == "l3out_1_updated"
+          - l3out_1_update_ospf_default_route_true.previous.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_ospf_default_route_true.previous.ospfAreaConfig.control.originate == false
+          - l3out_1_update_ospf_default_route_true.previous.ospfAreaConfig.control.redistribute == false
+          - l3out_1_update_ospf_default_route_true.previous.ospfAreaConfig.control.suppressFA == false
+          - l3out_1_update_ospf_default_route_true.previous.ospfAreaConfig.cost == 1
+          - l3out_1_update_ospf_default_route_true.previous.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_ospf_default_route_true.previous.pim == true
+          - l3out_1_update_ospf_default_route_true.previous.routingProtocol == "ospf"
+          - l3out_1_update_ospf_default_route_true.previous.tagAnnotations == []
+          - l3out_1_update_ospf_default_route_true.previous.targetDscp == "af11"
+          - l3out_1_update_ospf_default_route_true.previous.uuid is defined
+          - l3out_1_update_ospf_default_route_true.previous.vrfRef != ""
+
+    - name: Update L3Out l3out_1_updated object ospf area_type, cost and originate_default_route
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: l3out_1_updated
+        ospf:
+          area_type: "stub"
+          cost: 3
           originate_default_route: "only"
-        interleak: "ans_route_map"
-        static_route_redistribution: "ans_route_map"
-        connected_route_redistribution: "ans_route_map"
-        attached_host_route_redistribution: "ans_route_map"
-        state: "present"
-      register: create_l3out_2_tmp
+        state: present
+      register: l3out_1_update_ospf_type_and_cost
 
-    - name: Assertion check for create l3out_2_tmp (ospf) - object with OSPF config and route maps
+    - name: Assertion check for update L3Out l3out_1_updated object ospf area_type, cost and originate_default_route
       ansible.builtin.assert:
         that:
-          - create_l3out_2_tmp is changed
-          - create_l3out_2_tmp.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - create_l3out_2_tmp.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - create_l3out_2_tmp.current.advancedRouteMapRefs.interleakRef != ""
-          - create_l3out_2_tmp.current.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - create_l3out_2_tmp.current.defaultRouteLeak.originateDefaultRoute == "only"
-          - create_l3out_2_tmp.current.description == "test description"
-          - create_l3out_2_tmp.current.l3domain == "ans_l3_domain"
-          - create_l3out_2_tmp.current.name == "l3out_2_tmp"
-          - create_l3out_2_tmp.current.ospfAreaConfig.areaType == "regular"
-          - create_l3out_2_tmp.current.ospfAreaConfig.cost == 1
-          - create_l3out_2_tmp.current.ospfAreaConfig.id == "0.0.0.1"
-          - create_l3out_2_tmp.current.pim == false
-          - create_l3out_2_tmp.current.routingProtocol == "ospf"
-          - create_l3out_2_tmp.current.targetDscp == "unspecified"
-          - create_l3out_2_tmp.current.vrfRef != ""
-          - create_l3out_2_tmp.previous == {}
+          - l3out_1_update_ospf_type_and_cost is changed
+          - l3out_1_update_ospf_type_and_cost.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_ospf_type_and_cost.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_ospf_type_and_cost.current.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_ospf_type_and_cost.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_ospf_type_and_cost.current.defaultRouteLeak.always == true
+          - l3out_1_update_ospf_type_and_cost.current.defaultRouteLeak.originateDefaultRoute == "only"
+          - l3out_1_update_ospf_type_and_cost.current.description == "add_log"
+          - l3out_1_update_ospf_type_and_cost.current.importRouteControl == false
+          - l3out_1_update_ospf_type_and_cost.current.l3domain == "ans_l3_domain"
+          - l3out_1_update_ospf_type_and_cost.current.name == "l3out_1_updated"
+          - l3out_1_update_ospf_type_and_cost.current.ospfAreaConfig.areaType == "stub"
+          - l3out_1_update_ospf_type_and_cost.current.ospfAreaConfig.control.originate == false
+          - l3out_1_update_ospf_type_and_cost.current.ospfAreaConfig.control.redistribute == false
+          - l3out_1_update_ospf_type_and_cost.current.ospfAreaConfig.control.suppressFA == false
+          - l3out_1_update_ospf_type_and_cost.current.ospfAreaConfig.cost == 3
+          - l3out_1_update_ospf_type_and_cost.current.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_ospf_type_and_cost.current.pim == true
+          - l3out_1_update_ospf_type_and_cost.current.routingProtocol == "ospf"
+          - l3out_1_update_ospf_type_and_cost.current.tagAnnotations == []
+          - l3out_1_update_ospf_type_and_cost.current.targetDscp == "af11"
+          - l3out_1_update_ospf_type_and_cost.current.uuid is defined
+          - l3out_1_update_ospf_type_and_cost.current.vrfRef != ""
+          - l3out_1_update_ospf_type_and_cost.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_ospf_type_and_cost.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_ospf_type_and_cost.previous.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_ospf_type_and_cost.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_ospf_type_and_cost.previous.defaultRouteLeak.always == true
+          - l3out_1_update_ospf_type_and_cost.previous.defaultRouteLeak.originateDefaultRoute == "only"
+          - l3out_1_update_ospf_type_and_cost.previous.description == "add_log"
+          - l3out_1_update_ospf_type_and_cost.previous.importRouteControl == false
+          - l3out_1_update_ospf_type_and_cost.previous.l3domain == "ans_l3_domain"
+          - l3out_1_update_ospf_type_and_cost.previous.name == "l3out_1_updated"
+          - l3out_1_update_ospf_type_and_cost.previous.ospfAreaConfig.areaType == "regular"
+          - l3out_1_update_ospf_type_and_cost.previous.ospfAreaConfig.control.originate == false
+          - l3out_1_update_ospf_type_and_cost.previous.ospfAreaConfig.control.redistribute == false
+          - l3out_1_update_ospf_type_and_cost.previous.ospfAreaConfig.control.suppressFA == false
+          - l3out_1_update_ospf_type_and_cost.previous.ospfAreaConfig.cost == 1
+          - l3out_1_update_ospf_type_and_cost.previous.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_ospf_type_and_cost.previous.pim == true
+          - l3out_1_update_ospf_type_and_cost.previous.routingProtocol == "ospf"
+          - l3out_1_update_ospf_type_and_cost.previous.tagAnnotations == []
+          - l3out_1_update_ospf_type_and_cost.previous.targetDscp == "af11"
+          - l3out_1_update_ospf_type_and_cost.previous.uuid is defined
+          - l3out_1_update_ospf_type_and_cost.previous.vrfRef != ""
 
-    - name: Query l3out_2_tmp object to get UUID
+    - name: Update L3Out l3out_1_updated object ospf area_id
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
         l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "l3out_2_tmp"
-        state: "query"
-      register: l3out_2_tmp_query
-
-    - name: Assertion check for query l3out_2_tmp object to get UUID
-      ansible.builtin.assert:
-        that:
-          - l3out_2_tmp_query is not changed
-          - l3out_2_tmp_query.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - l3out_2_tmp_query.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - l3out_2_tmp_query.current.advancedRouteMapRefs.interleakRef != ""
-          - l3out_2_tmp_query.current.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - l3out_2_tmp_query.current.defaultRouteLeak.always == false
-          - l3out_2_tmp_query.current.defaultRouteLeak.originateDefaultRoute == "only"
-          - l3out_2_tmp_query.current.description == "test description"
-          - l3out_2_tmp_query.current.importRouteControl == false
-          - l3out_2_tmp_query.current.l3domain == "ans_l3_domain"
-          - l3out_2_tmp_query.current.name == "l3out_2_tmp"
-          - l3out_2_tmp_query.current.ospfAreaConfig.areaType == "regular"
-          - l3out_2_tmp_query.current.ospfAreaConfig.control.originate == false
-          - l3out_2_tmp_query.current.ospfAreaConfig.control.redistribute == false
-          - l3out_2_tmp_query.current.ospfAreaConfig.control.suppressFA == false
-          - l3out_2_tmp_query.current.ospfAreaConfig.cost == 1
-          - l3out_2_tmp_query.current.ospfAreaConfig.id == "0.0.0.1"
-          - l3out_2_tmp_query.current.pim == false
-          - l3out_2_tmp_query.current.routingProtocol == "ospf"
-          - l3out_2_tmp_query.current.tagAnnotations == []
-          - l3out_2_tmp_query.current.targetDscp == "unspecified"
-          - l3out_2_tmp_query.current.uuid is defined
-          - l3out_2_tmp_query.current.vrfRef != ""
-
-    - name: Update l3out_2_tmp (ospf) - object without OSPF control config
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        uuid: "{{ l3out_2_tmp_query.current.uuid }}"
-        description: "test description"
-        target_dscp: "unspecified"
-        routing_protocols: ["ospf"]
+        name: l3out_1_updated
         ospf:
-          area_id: "0.0.0.1"
-          area_type: "regular"
-          cost: 1
-          originate_default_route: in_addition
-          originate_default_route_always: true
-        state: "present"
-      register: update_l3out_2_tmp
+          area_id: "0.0.0.2"
+        state: present
+      register: l3out_1_update_ospf_id
 
-    - name: Assertion check for update l3out_2_tmp (ospf) - object without OSPF control config
+    - name: Assertion check for update L3Out l3out_1_updated object ospf area_id
       ansible.builtin.assert:
         that:
-          - update_l3out_2_tmp is changed
-          - update_l3out_2_tmp.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - update_l3out_2_tmp.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - update_l3out_2_tmp.current.advancedRouteMapRefs.interleakRef != ""
-          - update_l3out_2_tmp.current.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - update_l3out_2_tmp.current.defaultRouteLeak.always == true
-          - update_l3out_2_tmp.current.defaultRouteLeak.originateDefaultRoute == "inAddition"
-          - update_l3out_2_tmp.current.description == "test description"
-          - update_l3out_2_tmp.current.importRouteControl == false
-          - update_l3out_2_tmp.current.l3domain == "ans_l3_domain"
-          - update_l3out_2_tmp.current.name == "l3out_2_tmp"
-          - update_l3out_2_tmp.current.ospfAreaConfig.areaType == "regular"
-          - update_l3out_2_tmp.current.ospfAreaConfig.control.originate == false
-          - update_l3out_2_tmp.current.ospfAreaConfig.control.redistribute == false
-          - update_l3out_2_tmp.current.ospfAreaConfig.control.suppressFA == false
-          - update_l3out_2_tmp.current.ospfAreaConfig.cost == 1
-          - update_l3out_2_tmp.current.ospfAreaConfig.id == "0.0.0.1"
-          - update_l3out_2_tmp.current.pim == false
-          - update_l3out_2_tmp.current.routingProtocol == "ospf"
-          - update_l3out_2_tmp.current.tagAnnotations == []
-          - update_l3out_2_tmp.current.targetDscp == "unspecified"
-          - update_l3out_2_tmp.current.uuid is defined
-          - update_l3out_2_tmp.current.vrfRef != ""
-          - update_l3out_2_tmp.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - update_l3out_2_tmp.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - update_l3out_2_tmp.previous.advancedRouteMapRefs.interleakRef != ""
-          - update_l3out_2_tmp.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - update_l3out_2_tmp.previous.defaultRouteLeak.always == false
-          - update_l3out_2_tmp.previous.defaultRouteLeak.originateDefaultRoute == "only"
-          - update_l3out_2_tmp.previous.description == "test description"
-          - update_l3out_2_tmp.previous.importRouteControl == false
-          - update_l3out_2_tmp.previous.l3domain == "ans_l3_domain"
-          - update_l3out_2_tmp.previous.name == "l3out_2_tmp"
-          - update_l3out_2_tmp.previous.ospfAreaConfig.areaType == "regular"
-          - update_l3out_2_tmp.previous.ospfAreaConfig.control.originate == false
-          - update_l3out_2_tmp.previous.ospfAreaConfig.control.redistribute == false
-          - update_l3out_2_tmp.previous.ospfAreaConfig.control.suppressFA == false
-          - update_l3out_2_tmp.previous.ospfAreaConfig.cost == 1
-          - update_l3out_2_tmp.previous.ospfAreaConfig.id == "0.0.0.1"
-          - update_l3out_2_tmp.previous.pim == false
-          - update_l3out_2_tmp.previous.routingProtocol == "ospf"
-          - update_l3out_2_tmp.previous.tagAnnotations == []
-          - update_l3out_2_tmp.previous.targetDscp == "unspecified"
-          - update_l3out_2_tmp.previous.uuid is defined
-          - update_l3out_2_tmp.previous.vrfRef != ""
+          - l3out_1_update_ospf_id is changed
+          - l3out_1_update_ospf_id.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_ospf_id.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_ospf_id.current.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_ospf_id.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_ospf_id.current.defaultRouteLeak.always == true
+          - l3out_1_update_ospf_id.current.defaultRouteLeak.originateDefaultRoute == "only"
+          - l3out_1_update_ospf_id.current.description == "add_log"
+          - l3out_1_update_ospf_id.current.importRouteControl == false
+          - l3out_1_update_ospf_id.current.l3domain == "ans_l3_domain"
+          - l3out_1_update_ospf_id.current.name == "l3out_1_updated"
+          - l3out_1_update_ospf_id.current.ospfAreaConfig.areaType == "stub"
+          - l3out_1_update_ospf_id.current.ospfAreaConfig.control.originate == false
+          - l3out_1_update_ospf_id.current.ospfAreaConfig.control.redistribute == false
+          - l3out_1_update_ospf_id.current.ospfAreaConfig.control.suppressFA == false
+          - l3out_1_update_ospf_id.current.ospfAreaConfig.cost == 3
+          - l3out_1_update_ospf_id.current.ospfAreaConfig.id == "0.0.0.2"
+          - l3out_1_update_ospf_id.current.pim == true
+          - l3out_1_update_ospf_id.current.routingProtocol == "ospf"
+          - l3out_1_update_ospf_id.current.tagAnnotations == []
+          - l3out_1_update_ospf_id.current.targetDscp == "af11"
+          - l3out_1_update_ospf_id.current.uuid is defined
+          - l3out_1_update_ospf_id.current.vrfRef != ""
+          - l3out_1_update_ospf_id.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_update_ospf_id.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_update_ospf_id.previous.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_update_ospf_id.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_update_ospf_id.previous.defaultRouteLeak.always == true
+          - l3out_1_update_ospf_id.previous.defaultRouteLeak.originateDefaultRoute == "only"
+          - l3out_1_update_ospf_id.previous.description == "add_log"
+          - l3out_1_update_ospf_id.previous.importRouteControl == false
+          - l3out_1_update_ospf_id.previous.l3domain == "ans_l3_domain"
+          - l3out_1_update_ospf_id.previous.name == "l3out_1_updated"
+          - l3out_1_update_ospf_id.previous.ospfAreaConfig.areaType == "stub"
+          - l3out_1_update_ospf_id.previous.ospfAreaConfig.control.originate == false
+          - l3out_1_update_ospf_id.previous.ospfAreaConfig.control.redistribute == false
+          - l3out_1_update_ospf_id.previous.ospfAreaConfig.control.suppressFA == false
+          - l3out_1_update_ospf_id.previous.ospfAreaConfig.cost == 3
+          - l3out_1_update_ospf_id.previous.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_1_update_ospf_id.previous.pim == true
+          - l3out_1_update_ospf_id.previous.routingProtocol == "ospf"
+          - l3out_1_update_ospf_id.previous.tagAnnotations == []
+          - l3out_1_update_ospf_id.previous.targetDscp == "af11"
+          - l3out_1_update_ospf_id.previous.uuid is defined
+          - l3out_1_update_ospf_id.previous.vrfRef != ""
 
-    - name: Update again l3out_2_tmp bgp with empty dict
+    - name: Clear ospf from L3Out l3out_1_updated object
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
         l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        uuid: "{{ l3out_2_tmp_query.current.uuid }}"
-        description: "test description"
-        target_dscp: "unspecified"
-        bgp: {}
-        routing_protocols: ["ospf"]
+        name: l3out_1_updated
         ospf:
-          originate_default_route: in_addition
-          originate_default_route_always: true
-        state: "present"
-        output_level: debug
-      register: update_again_l3out_2_tmp
+          state: disabled
+        state: present
+      register: l3out_1_disable_ospf
 
-    - name: Assertion check for update again l3out_2_tmp bgp with empty dict
+    - name: Assertion check for clear ospf from L3Out l3out_1_updated object
       ansible.builtin.assert:
         that:
-          - update_again_l3out_2_tmp is not changed
-          - update_again_l3out_2_tmp.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - update_again_l3out_2_tmp.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - update_again_l3out_2_tmp.current.advancedRouteMapRefs.interleakRef != ""
-          - update_again_l3out_2_tmp.current.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - update_again_l3out_2_tmp.current.defaultRouteLeak.always == true
-          - update_again_l3out_2_tmp.current.defaultRouteLeak.originateDefaultRoute == "inAddition"
-          - update_again_l3out_2_tmp.current.description == "test description"
-          - update_again_l3out_2_tmp.current.importRouteControl == false
-          - update_again_l3out_2_tmp.current.l3domain == "ans_l3_domain"
-          - update_again_l3out_2_tmp.current.name == "l3out_2_tmp"
-          - update_again_l3out_2_tmp.current.ospfAreaConfig.areaType == "regular"
-          - update_again_l3out_2_tmp.current.ospfAreaConfig.control.originate == false
-          - update_again_l3out_2_tmp.current.ospfAreaConfig.control.redistribute == false
-          - update_again_l3out_2_tmp.current.ospfAreaConfig.control.suppressFA == false
-          - update_again_l3out_2_tmp.current.ospfAreaConfig.cost == 1
-          - update_again_l3out_2_tmp.current.ospfAreaConfig.id == "0.0.0.1"
-          - update_again_l3out_2_tmp.current.pim == false
-          - update_again_l3out_2_tmp.current.routingProtocol == "ospf"
-          - update_again_l3out_2_tmp.current.tagAnnotations == []
-          - update_again_l3out_2_tmp.current.targetDscp == "unspecified"
-          - update_again_l3out_2_tmp.current.uuid is defined
-          - update_again_l3out_2_tmp.current.vrfRef != ""
-          - update_again_l3out_2_tmp.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - update_again_l3out_2_tmp.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - update_again_l3out_2_tmp.previous.advancedRouteMapRefs.interleakRef != ""
-          - update_again_l3out_2_tmp.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - update_again_l3out_2_tmp.previous.defaultRouteLeak.always == true
-          - update_again_l3out_2_tmp.previous.defaultRouteLeak.originateDefaultRoute == "inAddition"
-          - update_again_l3out_2_tmp.previous.description == "test description"
-          - update_again_l3out_2_tmp.previous.importRouteControl == false
-          - update_again_l3out_2_tmp.previous.l3domain == "ans_l3_domain"
-          - update_again_l3out_2_tmp.previous.name == "l3out_2_tmp"
-          - update_again_l3out_2_tmp.previous.ospfAreaConfig.areaType == "regular"
-          - update_again_l3out_2_tmp.previous.ospfAreaConfig.control.originate == false
-          - update_again_l3out_2_tmp.previous.ospfAreaConfig.control.redistribute == false
-          - update_again_l3out_2_tmp.previous.ospfAreaConfig.control.suppressFA == false
-          - update_again_l3out_2_tmp.previous.ospfAreaConfig.cost == 1
-          - update_again_l3out_2_tmp.previous.ospfAreaConfig.id == "0.0.0.1"
-          - update_again_l3out_2_tmp.previous.pim == false
-          - update_again_l3out_2_tmp.previous.routingProtocol == "ospf"
-          - update_again_l3out_2_tmp.previous.tagAnnotations == []
-          - update_again_l3out_2_tmp.previous.targetDscp == "unspecified"
-          - update_again_l3out_2_tmp.previous.uuid is defined
-          - update_again_l3out_2_tmp.previous.vrfRef != ""
-          - update_again_l3out_2_tmp.proposed.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - update_again_l3out_2_tmp.proposed.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - update_again_l3out_2_tmp.proposed.advancedRouteMapRefs.interleakRef != ""
-          - update_again_l3out_2_tmp.proposed.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - update_again_l3out_2_tmp.proposed.defaultRouteLeak.always == true
-          - update_again_l3out_2_tmp.proposed.defaultRouteLeak.originateDefaultRoute == "inAddition"
-          - update_again_l3out_2_tmp.proposed.description == "test description"
-          - update_again_l3out_2_tmp.proposed.importRouteControl == false
-          - update_again_l3out_2_tmp.proposed.l3domain == "ans_l3_domain"
-          - update_again_l3out_2_tmp.proposed.name == "l3out_2_tmp"
-          - update_again_l3out_2_tmp.proposed.ospfAreaConfig.areaType == "regular"
-          - update_again_l3out_2_tmp.proposed.ospfAreaConfig.control.originate == false
-          - update_again_l3out_2_tmp.proposed.ospfAreaConfig.control.redistribute == false
-          - update_again_l3out_2_tmp.proposed.ospfAreaConfig.control.suppressFA == false
-          - update_again_l3out_2_tmp.proposed.ospfAreaConfig.cost == 1
-          - update_again_l3out_2_tmp.proposed.ospfAreaConfig.id == "0.0.0.1"
-          - update_again_l3out_2_tmp.proposed.pim == false
-          - update_again_l3out_2_tmp.proposed.routingProtocol == "ospf"
-          - update_again_l3out_2_tmp.proposed.tagAnnotations == []
-          - update_again_l3out_2_tmp.proposed.targetDscp == "unspecified"
-          - update_again_l3out_2_tmp.proposed.uuid is defined
-          - update_again_l3out_2_tmp.proposed.vrfRef != ""
+          - l3out_1_disable_ospf is changed
+          - l3out_1_disable_ospf.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_disable_ospf.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_disable_ospf.current.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_disable_ospf.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_disable_ospf.current.description == "add_log"
+          - l3out_1_disable_ospf.current.importRouteControl == false
+          - l3out_1_disable_ospf.current.l3domain == "ans_l3_domain"
+          - l3out_1_disable_ospf.current.name == "l3out_1_updated"
+          - l3out_1_disable_ospf.current.pim == true
+          - l3out_1_disable_ospf.current.routingProtocol == "none"
+          - l3out_1_disable_ospf.current.tagAnnotations == []
+          - l3out_1_disable_ospf.current.targetDscp == "af11"
+          - l3out_1_disable_ospf.current.uuid is defined
+          - l3out_1_disable_ospf.current.vrfRef != ""
+          - l3out_1_disable_ospf.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_disable_ospf.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_disable_ospf.previous.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_disable_ospf.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_disable_ospf.previous.defaultRouteLeak.always == true
+          - l3out_1_disable_ospf.previous.defaultRouteLeak.originateDefaultRoute == "only"
+          - l3out_1_disable_ospf.previous.description == "add_log"
+          - l3out_1_disable_ospf.previous.importRouteControl == false
+          - l3out_1_disable_ospf.previous.l3domain == "ans_l3_domain"
+          - l3out_1_disable_ospf.previous.name == "l3out_1_updated"
+          - l3out_1_disable_ospf.previous.ospfAreaConfig.areaType == "stub"
+          - l3out_1_disable_ospf.previous.ospfAreaConfig.control.originate == false
+          - l3out_1_disable_ospf.previous.ospfAreaConfig.control.redistribute == false
+          - l3out_1_disable_ospf.previous.ospfAreaConfig.control.suppressFA == false
+          - l3out_1_disable_ospf.previous.ospfAreaConfig.cost == 3
+          - l3out_1_disable_ospf.previous.ospfAreaConfig.id == "0.0.0.2"
+          - l3out_1_disable_ospf.previous.pim == true
+          - l3out_1_disable_ospf.previous.routingProtocol == "ospf"
+          - l3out_1_disable_ospf.previous.tagAnnotations == []
+          - l3out_1_disable_ospf.previous.targetDscp == "af11"
+          - l3out_1_disable_ospf.previous.uuid is defined
+          - l3out_1_disable_ospf.previous.vrfRef != ""
 
-    - name: Query l3out_2_tmp after updating the bgp with empty dict - the routingProtocol should be bgpOspf
+    - name: Clear bgp and ospf from L3Out l3out_1_updated object when it is not configured
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
         l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        uuid: "{{ l3out_2_tmp_query.current.uuid }}"
-        state: "query"
-        output_level: debug
-      register: query_l3out_2_tmp_1
-
-    - name: Assertion check for query l3out_2_tmp after updating the bgp with empty dict - the routingProtocol should be bgpOspf
-      ansible.builtin.assert:
-        that:
-          - query_l3out_2_tmp_1 is not changed
-          - query_l3out_2_tmp_1.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - query_l3out_2_tmp_1.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - query_l3out_2_tmp_1.current.advancedRouteMapRefs.interleakRef != ""
-          - query_l3out_2_tmp_1.current.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - query_l3out_2_tmp_1.current.defaultRouteLeak.always == true
-          - query_l3out_2_tmp_1.current.defaultRouteLeak.originateDefaultRoute == "inAddition"
-          - query_l3out_2_tmp_1.current.description == "test description"
-          - query_l3out_2_tmp_1.current.importRouteControl == false
-          - query_l3out_2_tmp_1.current.l3domain == "ans_l3_domain"
-          - query_l3out_2_tmp_1.current.name == "l3out_2_tmp"
-          - query_l3out_2_tmp_1.current.ospfAreaConfig.areaType == "regular"
-          - query_l3out_2_tmp_1.current.ospfAreaConfig.control.originate == false
-          - query_l3out_2_tmp_1.current.ospfAreaConfig.control.redistribute == false
-          - query_l3out_2_tmp_1.current.ospfAreaConfig.control.suppressFA == false
-          - query_l3out_2_tmp_1.current.ospfAreaConfig.cost == 1
-          - query_l3out_2_tmp_1.current.ospfAreaConfig.id == "0.0.0.1"
-          - query_l3out_2_tmp_1.current.pim == false
-          - query_l3out_2_tmp_1.current.routingProtocol == "ospf"
-          - query_l3out_2_tmp_1.current.tagAnnotations == []
-          - query_l3out_2_tmp_1.current.targetDscp == "unspecified"
-          - query_l3out_2_tmp_1.current.uuid is defined
-          - query_l3out_2_tmp_1.current.vrfRef != ""
-
-    - name: Update again l3out_2_tmp object without ospf full config (Negative test)
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        uuid: "{{ l3out_2_tmp_query.current.uuid }}"
-        description: "test description"
-        target_dscp: "unspecified"
+        name: l3out_1_updated
+        bgp:
+          state: disabled
         ospf:
-          originate_default_route: ""
-        state: "present"
-      register: update_l3out_2_tmp_1
+          state: disabled
+        state: present
+      register: l3out_1_disable_bgp_ospf_again
 
-    - name: Assertion check for update again l3out_2_tmp object without ospf full config (Negative test)
+    - name: Assertion check for clear bgp and ospf from L3Out l3out_1_updated object when it is not configured
       ansible.builtin.assert:
         that:
-          - update_l3out_2_tmp_1 is changed
-          - update_l3out_2_tmp_1.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - update_l3out_2_tmp_1.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - update_l3out_2_tmp_1.current.advancedRouteMapRefs.interleakRef != ""
-          - update_l3out_2_tmp_1.current.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - update_l3out_2_tmp_1.current.description == "test description"
-          - update_l3out_2_tmp_1.current.importRouteControl == false
-          - update_l3out_2_tmp_1.current.l3domain == "ans_l3_domain"
-          - update_l3out_2_tmp_1.current.name == "l3out_2_tmp"
-          - update_l3out_2_tmp_1.current.ospfAreaConfig.areaType == "regular"
-          - update_l3out_2_tmp_1.current.ospfAreaConfig.control.originate == false
-          - update_l3out_2_tmp_1.current.ospfAreaConfig.control.redistribute == false
-          - update_l3out_2_tmp_1.current.ospfAreaConfig.control.suppressFA == false
-          - update_l3out_2_tmp_1.current.ospfAreaConfig.cost == 1
-          - update_l3out_2_tmp_1.current.ospfAreaConfig.id == "0.0.0.1"
-          - update_l3out_2_tmp_1.current.pim == false
-          - update_l3out_2_tmp_1.current.routingProtocol == "ospf"
-          - update_l3out_2_tmp_1.current.tagAnnotations == []
-          - update_l3out_2_tmp_1.current.targetDscp == "unspecified"
-          - update_l3out_2_tmp_1.current.uuid is defined
-          - update_l3out_2_tmp_1.current.vrfRef != ""
-          - update_l3out_2_tmp_1.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - update_l3out_2_tmp_1.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - update_l3out_2_tmp_1.previous.advancedRouteMapRefs.interleakRef != ""
-          - update_l3out_2_tmp_1.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - update_l3out_2_tmp_1.previous.defaultRouteLeak.always == true
-          - update_l3out_2_tmp_1.previous.defaultRouteLeak.originateDefaultRoute == "inAddition"
-          - update_l3out_2_tmp_1.previous.description == "test description"
-          - update_l3out_2_tmp_1.previous.importRouteControl == false
-          - update_l3out_2_tmp_1.previous.l3domain == "ans_l3_domain"
-          - update_l3out_2_tmp_1.previous.name == "l3out_2_tmp"
-          - update_l3out_2_tmp_1.previous.ospfAreaConfig.areaType == "regular"
-          - update_l3out_2_tmp_1.previous.ospfAreaConfig.control.originate == false
-          - update_l3out_2_tmp_1.previous.ospfAreaConfig.control.redistribute == false
-          - update_l3out_2_tmp_1.previous.ospfAreaConfig.control.suppressFA == false
-          - update_l3out_2_tmp_1.previous.ospfAreaConfig.cost == 1
-          - update_l3out_2_tmp_1.previous.ospfAreaConfig.id == "0.0.0.1"
-          - update_l3out_2_tmp_1.previous.pim == false
-          - update_l3out_2_tmp_1.previous.routingProtocol == "ospf"
-          - update_l3out_2_tmp_1.previous.tagAnnotations == []
-          - update_l3out_2_tmp_1.previous.targetDscp == "unspecified"
-          - update_l3out_2_tmp_1.previous.uuid is defined
-          - update_l3out_2_tmp_1.previous.vrfRef != ""
+          - l3out_1_disable_bgp_ospf_again is not changed
+          - l3out_1_disable_bgp_ospf_again.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_disable_bgp_ospf_again.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_disable_bgp_ospf_again.current.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_disable_bgp_ospf_again.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_disable_bgp_ospf_again.current.description == "add_log"
+          - l3out_1_disable_bgp_ospf_again.current.importRouteControl == false
+          - l3out_1_disable_bgp_ospf_again.current.l3domain == "ans_l3_domain"
+          - l3out_1_disable_bgp_ospf_again.current.name == "l3out_1_updated"
+          - l3out_1_disable_bgp_ospf_again.current.pim == true
+          - l3out_1_disable_bgp_ospf_again.current.routingProtocol == "none"
+          - l3out_1_disable_bgp_ospf_again.current.tagAnnotations == []
+          - l3out_1_disable_bgp_ospf_again.current.targetDscp == "af11"
+          - l3out_1_disable_bgp_ospf_again.current.uuid is defined
+          - l3out_1_disable_bgp_ospf_again.current.vrfRef != ""
+          - l3out_1_disable_bgp_ospf_again.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_1_disable_bgp_ospf_again.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_1_disable_bgp_ospf_again.previous.advancedRouteMapRefs.interleakRef != ""
+          - l3out_1_disable_bgp_ospf_again.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_1_disable_bgp_ospf_again.previous.description == "add_log"
+          - l3out_1_disable_bgp_ospf_again.previous.importRouteControl == false
+          - l3out_1_disable_bgp_ospf_again.previous.l3domain == "ans_l3_domain"
+          - l3out_1_disable_bgp_ospf_again.previous.name == "l3out_1_updated"
+          - l3out_1_disable_bgp_ospf_again.previous.pim == true
+          - l3out_1_disable_bgp_ospf_again.previous.routingProtocol == "none"
+          - l3out_1_disable_bgp_ospf_again.previous.tagAnnotations == []
+          - l3out_1_disable_bgp_ospf_again.previous.targetDscp == "af11"
+          - l3out_1_disable_bgp_ospf_again.previous.uuid is defined
+          - l3out_1_disable_bgp_ospf_again.previous.vrfRef != ""
 
-    - name: Create l3out_3_tmp object without routing_protocols
+    - name: Create l3out_2 object with full details
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
         l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "l3out_3_tmp"
+        name: "l3out_2"
+        l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
           schema: '{{ ansible_schema | default("ansible_test") }}'
           template: "Template1"
-        state: "present"
-      register: create_l3out_3_tmp
-
-    - name: Assertion check for create l3out_3_tmp object without routing_protocols
-      ansible.builtin.assert:
-        that:
-          - create_l3out_3_tmp is changed
-          - create_l3out_3_tmp.current.name == "l3out_3_tmp"
-          - create_l3out_3_tmp.current.vrfRef != ""
-          - create_l3out_3_tmp.previous == {}
-
-    - name: Query l3out_3_tmp object to get UUID
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "l3out_3_tmp"
-        state: "query"
-      register: l3out_3_tmp_query
-
-    - name: Assertion check for query l3out_3_tmp object to get UUID
-      ansible.builtin.assert:
-        that:
-          - l3out_3_tmp_query is not changed
-          - l3out_3_tmp_query.current.importRouteControl == false
-          - l3out_3_tmp_query.current.l3domain == ""
-          - l3out_3_tmp_query.current.name == "l3out_3_tmp"
-          - l3out_3_tmp_query.current.pim == false
-          - l3out_3_tmp_query.current.routingProtocol == "none"
-          - l3out_3_tmp_query.current.tagAnnotations == []
-          - l3out_3_tmp_query.current.targetDscp == "unspecified"
-          - l3out_3_tmp_query.current.uuid is defined
-          - l3out_3_tmp_query.current.vrfRef != ""
-
-    - name: Update l3out_3_tmp object without routing_protocols
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        uuid: "{{ l3out_3_tmp_query.current.uuid }}"
         description: "test description"
-        state: "present"
-      register: update_l3out_3_tmp
-
-    - name: Assertion check for update l3out_3_tmp object without routing_protocols
-      ansible.builtin.assert:
-        that:
-          - update_l3out_3_tmp is changed
-          - update_l3out_3_tmp.current.description == "test description"
-          - update_l3out_3_tmp.current.importRouteControl == false
-          - update_l3out_3_tmp.current.l3domain == ""
-          - update_l3out_3_tmp.current.name == "l3out_3_tmp"
-          - update_l3out_3_tmp.current.pim == false
-          - update_l3out_3_tmp.current.routingProtocol == "none"
-          - update_l3out_3_tmp.current.tagAnnotations == []
-          - update_l3out_3_tmp.current.targetDscp == "unspecified"
-          - update_l3out_3_tmp.current.uuid is defined
-          - update_l3out_3_tmp.current.vrfRef != ""
-          - update_l3out_3_tmp.previous.importRouteControl == false
-          - update_l3out_3_tmp.previous.l3domain == ""
-          - update_l3out_3_tmp.previous.name == "l3out_3_tmp"
-          - update_l3out_3_tmp.previous.pim == false
-          - update_l3out_3_tmp.previous.routingProtocol == "none"
-          - update_l3out_3_tmp.previous.tagAnnotations == []
-          - update_l3out_3_tmp.previous.targetDscp == "unspecified"
-          - update_l3out_3_tmp.previous.uuid is defined
-          - update_l3out_3_tmp.previous.vrfRef != ""
-
-    - name: Update l3out_3_tmp object with ospf
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        uuid: "{{ l3out_3_tmp_query.current.uuid }}"
-        description: "test description"
-        routing_protocols: ["ospf"]
+        pim: false
+        target_dscp: "unspecified"
+        interleak: "ans_route_map"
+        static_route_redistribution: "ans_route_map"
+        connected_route_redistribution: "ans_route_map"
+        attached_host_route_redistribution: "ans_route_map"
         ospf:
+          state: enabled
           area_id: "0.0.0.1"
           area_type: "regular"
           cost: 1
+          send_redistributed_lsas: true
+          originate_summary_lsa: true
+          suppress_forwarding_addr_translated_lsa: true
+          originate_default_route: "only"
+          originate_default_route_always: false
+        bgp:
+          state: enabled
+          route_dampening_ipv4: "ans_route_map"
+          route_dampening_ipv6: "ans_route_map"
+          inbound_route_map: "ans_route_map"
+          outbound_route_map: "ans_route_map"
         state: "present"
-      register: update_l3out_3_tmp_ospf
+      register: l3out_2_full_config
 
-    - name: Assertion check for update l3out_3_tmp object with ospf
+    - name: Assertion check for create l3out_2 object with full details
       ansible.builtin.assert:
         that:
-          - update_l3out_3_tmp_ospf is changed
-          - update_l3out_3_tmp_ospf.current.description == "test description"
-          - update_l3out_3_tmp_ospf.current.importRouteControl == false
-          - update_l3out_3_tmp_ospf.current.l3domain == ""
-          - update_l3out_3_tmp_ospf.current.name == "l3out_3_tmp"
-          - update_l3out_3_tmp_ospf.current.ospfAreaConfig.areaType == "regular"
-          - update_l3out_3_tmp_ospf.current.ospfAreaConfig.cost == 1
-          - update_l3out_3_tmp_ospf.current.ospfAreaConfig.id == "0.0.0.1"
-          - update_l3out_3_tmp_ospf.current.pim == false
-          - update_l3out_3_tmp_ospf.current.routingProtocol == "ospf"
-          - update_l3out_3_tmp_ospf.current.tagAnnotations == []
-          - update_l3out_3_tmp_ospf.current.targetDscp == "unspecified"
-          - update_l3out_3_tmp_ospf.current.uuid is defined
-          - update_l3out_3_tmp_ospf.current.vrfRef != ""
-          - update_l3out_3_tmp_ospf.previous.description == "test description"
-          - update_l3out_3_tmp_ospf.previous.importRouteControl == false
-          - update_l3out_3_tmp_ospf.previous.l3domain == ""
-          - update_l3out_3_tmp_ospf.previous.name == "l3out_3_tmp"
-          - update_l3out_3_tmp_ospf.previous.pim == false
-          - update_l3out_3_tmp_ospf.previous.routingProtocol == "none"
-          - update_l3out_3_tmp_ospf.previous.tagAnnotations == []
-          - update_l3out_3_tmp_ospf.previous.targetDscp == "unspecified"
-          - update_l3out_3_tmp_ospf.previous.uuid is defined
-          - update_l3out_3_tmp_ospf.previous.vrfRef != ""
+          - l3out_2_full_config is changed
+          - l3out_2_full_config.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_2_full_config.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_2_full_config.current.advancedRouteMapRefs.interleakRef != ""
+          - l3out_2_full_config.current.advancedRouteMapRefs.routeDampeningV4Ref != ""
+          - l3out_2_full_config.current.advancedRouteMapRefs.routeDampeningV6Ref != ""
+          - l3out_2_full_config.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_2_full_config.current.defaultRouteLeak.always == false
+          - l3out_2_full_config.current.defaultRouteLeak.originateDefaultRoute == "only"
+          - l3out_2_full_config.current.description == "test description"
+          - l3out_2_full_config.current.exportRouteMapRef != ""
+          - l3out_2_full_config.current.importRouteControl == true
+          - l3out_2_full_config.current.importRouteMapRef != ""
+          - l3out_2_full_config.current.l3domain == "ans_l3_domain"
+          - l3out_2_full_config.current.name == "l3out_2"
+          - l3out_2_full_config.current.ospfAreaConfig.areaType == "regular"
+          - l3out_2_full_config.current.ospfAreaConfig.control.originate == true
+          - l3out_2_full_config.current.ospfAreaConfig.control.redistribute == true
+          - l3out_2_full_config.current.ospfAreaConfig.control.suppressFA == true
+          - l3out_2_full_config.current.ospfAreaConfig.cost == 1
+          - l3out_2_full_config.current.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_2_full_config.current.pim == false
+          - l3out_2_full_config.current.routingProtocol == "bgpOspf"
+          - l3out_2_full_config.current.targetDscp == "unspecified"
+          - l3out_2_full_config.current.vrfRef != ""
+          - l3out_2_full_config.previous == {}
 
-    - name: Update l3out_3_tmp object with ospf with originate_default_route
+    - name: Create l3out_3 object with min config of bgp and ospf
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
         l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        uuid: "{{ l3out_3_tmp_query.current.uuid }}"
+        name: "l3out_3"
+        l3_domain: ans_l3_domain
+        vrf:
+          name: "VRF1"
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+          template: "Template1"
         description: "test description"
-        routing_protocols: ["ospf"]
+        pim: false
+        target_dscp: "unspecified"
+        interleak: "ans_route_map"
+        static_route_redistribution: "ans_route_map"
+        connected_route_redistribution: "ans_route_map"
+        attached_host_route_redistribution: "ans_route_map"
         ospf:
+          state: enabled
           area_id: "0.0.0.1"
           area_type: "regular"
           cost: 1
-          originate_default_route: only
-          originate_default_route_always: true
+        bgp:
+          state: enabled
         state: "present"
-      register: update_l3out_3_tmp_ospf_1
+      register: l3out_3_min_config
 
-    - name: Assertion check for update l3out_3_tmp object with ospf
+    - name: Assertion check for create l3out_3 object with min config of bgp and ospf
       ansible.builtin.assert:
         that:
-          - update_l3out_3_tmp_ospf_1 is changed
-          - update_l3out_3_tmp_ospf_1.current.defaultRouteLeak.always == true
-          - update_l3out_3_tmp_ospf_1.current.defaultRouteLeak.originateDefaultRoute == "only"
-          - update_l3out_3_tmp_ospf_1.current.description == "test description"
-          - update_l3out_3_tmp_ospf_1.current.importRouteControl == false
-          - update_l3out_3_tmp_ospf_1.current.l3domain == ""
-          - update_l3out_3_tmp_ospf_1.current.name == "l3out_3_tmp"
-          - update_l3out_3_tmp_ospf_1.current.ospfAreaConfig.areaType == "regular"
-          - update_l3out_3_tmp_ospf_1.current.ospfAreaConfig.cost == 1
-          - update_l3out_3_tmp_ospf_1.current.ospfAreaConfig.id == "0.0.0.1"
-          - update_l3out_3_tmp_ospf_1.current.pim == false
-          - update_l3out_3_tmp_ospf_1.current.routingProtocol == "ospf"
-          - update_l3out_3_tmp_ospf_1.current.targetDscp == "unspecified"
-          - update_l3out_3_tmp_ospf_1.previous.description == "test description"
-          - update_l3out_3_tmp_ospf_1.previous.importRouteControl == false
-          - update_l3out_3_tmp_ospf_1.previous.l3domain == ""
-          - update_l3out_3_tmp_ospf_1.previous.name == "l3out_3_tmp"
-          - update_l3out_3_tmp_ospf_1.previous.pim == false
-          - update_l3out_3_tmp_ospf_1.previous.routingProtocol == "ospf"
+          - l3out_3_min_config is changed
+          - l3out_3_min_config.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - l3out_3_min_config.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - l3out_3_min_config.current.advancedRouteMapRefs.interleakRef != ""
+          - l3out_3_min_config.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - l3out_3_min_config.current.description == "test description"
+          - l3out_3_min_config.current.importRouteControl == false
+          - l3out_3_min_config.current.l3domain == "ans_l3_domain"
+          - l3out_3_min_config.current.name == "l3out_3"
+          - l3out_3_min_config.current.ospfAreaConfig.areaType == "regular"
+          - l3out_3_min_config.current.ospfAreaConfig.cost == 1
+          - l3out_3_min_config.current.ospfAreaConfig.id == "0.0.0.1"
+          - l3out_3_min_config.current.pim == false
+          - l3out_3_min_config.current.routingProtocol == "bgpOspf"
+          - l3out_3_min_config.current.targetDscp == "unspecified"
+          - l3out_3_min_config.current.vrfRef != ""
+          - l3out_3_min_config.previous == {}
 
-    - name: Query all L3Out objects with valid template
+    - name: Update l3out_3 object with min config of bgp
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: "l3out_3"
+        l3_domain: ans_l3_domain
+        vrf:
+          name: "VRF1"
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+          template: "Template1"
+        description: "test description"
+        pim: false
+        target_dscp: "unspecified"
+        interleak: "ans_route_map"
+        static_route_redistribution: "ans_route_map"
+        connected_route_redistribution: "ans_route_map"
+        attached_host_route_redistribution: "ans_route_map"
+        bgp:
+          state: enabled
+        state: "present"
+      register: update_l3out_3_bgp_min_config
+
+    - name: Assertion check for update l3out_3 object with min config of bgp
+      ansible.builtin.assert:
+        that:
+          - update_l3out_3_bgp_min_config is not changed
+          - update_l3out_3_bgp_min_config.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - update_l3out_3_bgp_min_config.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - update_l3out_3_bgp_min_config.current.advancedRouteMapRefs.interleakRef != ""
+          - update_l3out_3_bgp_min_config.current.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - update_l3out_3_bgp_min_config.current.description == "test description"
+          - update_l3out_3_bgp_min_config.current.importRouteControl == false
+          - update_l3out_3_bgp_min_config.current.l3domain == "ans_l3_domain"
+          - update_l3out_3_bgp_min_config.current.name == "l3out_3"
+          - update_l3out_3_bgp_min_config.current.ospfAreaConfig.areaType == "regular"
+          - update_l3out_3_bgp_min_config.current.ospfAreaConfig.control.originate == false
+          - update_l3out_3_bgp_min_config.current.ospfAreaConfig.control.redistribute == false
+          - update_l3out_3_bgp_min_config.current.ospfAreaConfig.control.suppressFA == false
+          - update_l3out_3_bgp_min_config.current.ospfAreaConfig.cost == 1
+          - update_l3out_3_bgp_min_config.current.ospfAreaConfig.id == "0.0.0.1"
+          - update_l3out_3_bgp_min_config.current.pim == false
+          - update_l3out_3_bgp_min_config.current.routingProtocol == "bgpOspf"
+          - update_l3out_3_bgp_min_config.current.tagAnnotations == []
+          - update_l3out_3_bgp_min_config.current.targetDscp == "unspecified"
+          - update_l3out_3_bgp_min_config.current.uuid is defined
+          - update_l3out_3_bgp_min_config.current.vrfRef != ""
+          - update_l3out_3_bgp_min_config.previous.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
+          - update_l3out_3_bgp_min_config.previous.advancedRouteMapRefs.connectedRouteRedistRef != ""
+          - update_l3out_3_bgp_min_config.previous.advancedRouteMapRefs.interleakRef != ""
+          - update_l3out_3_bgp_min_config.previous.advancedRouteMapRefs.staticRouteRedistRef != ""
+          - update_l3out_3_bgp_min_config.previous.description == "test description"
+          - update_l3out_3_bgp_min_config.previous.importRouteControl == false
+          - update_l3out_3_bgp_min_config.previous.l3domain == "ans_l3_domain"
+          - update_l3out_3_bgp_min_config.previous.name == "l3out_3"
+          - update_l3out_3_bgp_min_config.previous.ospfAreaConfig.areaType == "regular"
+          - update_l3out_3_bgp_min_config.previous.ospfAreaConfig.control.originate == false
+          - update_l3out_3_bgp_min_config.previous.ospfAreaConfig.control.redistribute == false
+          - update_l3out_3_bgp_min_config.previous.ospfAreaConfig.control.suppressFA == false
+          - update_l3out_3_bgp_min_config.previous.ospfAreaConfig.cost == 1
+          - update_l3out_3_bgp_min_config.previous.ospfAreaConfig.id == "0.0.0.1"
+          - update_l3out_3_bgp_min_config.previous.pim == false
+          - update_l3out_3_bgp_min_config.previous.routingProtocol == "bgpOspf"
+          - update_l3out_3_bgp_min_config.previous.tagAnnotations == []
+          - update_l3out_3_bgp_min_config.previous.targetDscp == "unspecified"
+          - update_l3out_3_bgp_min_config.previous.uuid is defined
+          - update_l3out_3_bgp_min_config.previous.vrfRef != ""
+
+    - name: Delete l3out_2 object - check_mode
+      cisco.mso.ndo_l3out_template: &cm_l3out_2_absent
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: "l3out_2"
+        state: absent
+        output_level: debug
+      check_mode: true
+      register: cm_l3out_2_absent
+
+    - name: Assertion check for delete l3out_2 object - check_mode
+      ansible.builtin.assert:
+        that:
+          - cm_l3out_2_absent is changed
+          - cm_l3out_2_absent.current == {}
+          - cm_l3out_2_absent.previous.name == "l3out_2"
+
+    - name: Delete l3out_2 object - normal_mode
+      cisco.mso.ndo_l3out_template:
+        <<: *cm_l3out_2_absent
+      register: nm_l3out_2_absent
+
+    - name: Assertion check for delete l3out_2 object - normal_mode
+      ansible.builtin.assert:
+        that:
+          - nm_l3out_2_absent is changed
+          - nm_l3out_2_absent.current == {}
+          - nm_l3out_2_absent.previous.name == "l3out_2"
+
+    - name: Delete l3out_2 object - normal_mode again
+      cisco.mso.ndo_l3out_template:
+        <<: *cm_l3out_2_absent
+      register: nm_l3out_2_absent_again
+
+    - name: Assertion check for delete l3out_2 object - normal_mode again
+      ansible.builtin.assert:
+        that:
+          - nm_l3out_2_absent_again is not changed
+          - nm_l3out_2_absent_again.current == {}
+          - nm_l3out_2_absent_again.previous == {}
+
+    - name: Enable pim with L3 Multicast disabled vrf
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: "l3out_nt"
+        l3_domain: ans_l3_domain
+        vrf:
+          name: "VRF1"
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+          template: "Template1"
+        pim: true
+        state: present
+      register: enable_pim_with_invalid_vrf
+      ignore_errors: true
+
+    - name: Assertion check for enable pim with L3 Multicast disabled vrf
+      ansible.builtin.assert:
+        that:
+          - enable_pim_with_invalid_vrf is not changed
+          - enable_pim_with_invalid_vrf.current == {}
+          - enable_pim_with_invalid_vrf.msg == "Invalid configuration in L3Out 'l3out_nt', 'PIM' cannot be enabled while using the VRF 'VRF1' with L3 Multicast disabled"
+          - enable_pim_with_invalid_vrf.previous == {}
+
+    - name: Create L3Out object without ospf area_id
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: "l3out_nt"
+        l3_domain: ans_l3_domain
+        vrf:
+          name: "VRF1"
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+          template: "Template1"
+        ospf:
+          area_type: "stub"
+        state: present
+      register: create_ospf_without_area_id
+      ignore_errors: true
+
+    - name: Assertion check for create L3Out object without ospf area_id
+      ansible.builtin.assert:
+        that:
+          - create_ospf_without_area_id is not changed
+          - create_ospf_without_area_id.current == {}
+          - create_ospf_without_area_id.msg == "The O(ospf) - area_id, area_type is required during the creation."
+          - create_ospf_without_area_id.previous == {}
+
+    - name: Create L3Out object without ospf area_type
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: "l3out_nt"
+        l3_domain: ans_l3_domain
+        vrf:
+          name: "VRF1"
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+          template: "Template1"
+        ospf:
+          area_id: "0.0.0.1"
+        state: present
+      register: create_ospf_without_area_type
+      ignore_errors: true
+
+    - name: Assertion check for create L3Out object without ospf area_type
+      ansible.builtin.assert:
+        that:
+          - create_ospf_without_area_type is not changed
+          - create_ospf_without_area_type.current == {}
+          - create_ospf_without_area_type.msg == "The O(ospf) - area_id, area_type is required during the creation."
+          - create_ospf_without_area_type.previous == {}
+
+    - name: Create L3Out object without vrf
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: "l3out_nt"
+        l3_domain: ans_l3_domain
+        state: present
+      register: create_without_vrf
+      ignore_errors: true
+
+    - name: Assertion check for create L3Out object without vrf
+      ansible.builtin.assert:
+        that:
+          - create_without_vrf is not changed
+          - create_without_vrf.current == {}
+          - create_without_vrf.msg == "The O(vrf) is required during the creation."
+          - create_without_vrf.previous == {}
+
+    - name: Query all L3Out objects
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
         l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
         state: "query"
       register: query_all_l3outs
 
-    - name: Assertion check for query all L3Out objects with valid template
+    - name: Assertion check for query all L3Out objects
       ansible.builtin.assert:
         that:
           - query_all_l3outs is not changed
-          - query_all_l3outs.current | length == 5
-
-    - name: Query l3out_2 object using name
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: l3out_2
-        state: "query"
-      register: query_l3out_2
-
-    - name: Assertion check for query l3out_2 object using name
-      ansible.builtin.assert:
-        that:
-          - query_l3out_2 is not changed
-          - query_l3out_2.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - query_l3out_2.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - query_l3out_2.current.advancedRouteMapRefs.interleakRef != ""
-          - query_l3out_2.current.advancedRouteMapRefs.routeDampeningV4Ref != ""
-          - query_l3out_2.current.advancedRouteMapRefs.routeDampeningV6Ref != ""
-          - query_l3out_2.current.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - query_l3out_2.current.description == "test description"
-          - query_l3out_2.current.exportRouteMapRef != ""
-          - query_l3out_2.current.importRouteControl == true
-          - query_l3out_2.current.importRouteMapRef != ""
-          - query_l3out_2.current.l3domain == "ans_l3_domain"
-          - query_l3out_2.current.name == "l3out_2"
-          - query_l3out_2.current.ospfAreaConfig.areaType == "regular"
-          - query_l3out_2.current.ospfAreaConfig.control.originate == false
-          - query_l3out_2.current.ospfAreaConfig.control.redistribute == false
-          - query_l3out_2.current.ospfAreaConfig.control.suppressFA == false
-          - query_l3out_2.current.ospfAreaConfig.cost == 1
-          - query_l3out_2.current.ospfAreaConfig.id == "0.0.0.1"
-          - query_l3out_2.current.pim == false
-          - query_l3out_2.current.routingProtocol == "bgpOspf"
-          - query_l3out_2.current.tagAnnotations == []
-          - query_l3out_2.current.targetDscp == "unspecified"
-          - query_l3out_2.current.uuid is defined
-          - query_l3out_2.current.vrfRef != ""
-
-    - name: Query l3out_2 object using uuid
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        uuid: "{{ query_l3out_2.current.uuid }}"
-        state: "query"
-      register: query_l3out_2_with_uuid
-
-    - name: Assertion check for query l3out_2 object using uuid
-      ansible.builtin.assert:
-        that:
-          - query_l3out_2_with_uuid is not changed
-          - query_l3out_2_with_uuid.current.advancedRouteMapRefs.attachedHostRouteRedistRef != ""
-          - query_l3out_2_with_uuid.current.advancedRouteMapRefs.connectedRouteRedistRef != ""
-          - query_l3out_2_with_uuid.current.advancedRouteMapRefs.interleakRef != ""
-          - query_l3out_2_with_uuid.current.advancedRouteMapRefs.routeDampeningV4Ref != ""
-          - query_l3out_2_with_uuid.current.advancedRouteMapRefs.routeDampeningV6Ref != ""
-          - query_l3out_2_with_uuid.current.advancedRouteMapRefs.staticRouteRedistRef != ""
-          - query_l3out_2_with_uuid.current.description == "test description"
-          - query_l3out_2_with_uuid.current.exportRouteMapRef != ""
-          - query_l3out_2_with_uuid.current.importRouteControl == true
-          - query_l3out_2_with_uuid.current.importRouteMapRef != ""
-          - query_l3out_2_with_uuid.current.l3domain == "ans_l3_domain"
-          - query_l3out_2_with_uuid.current.name == "l3out_2"
-          - query_l3out_2_with_uuid.current.ospfAreaConfig.areaType == "regular"
-          - query_l3out_2_with_uuid.current.ospfAreaConfig.control.originate == false
-          - query_l3out_2_with_uuid.current.ospfAreaConfig.control.redistribute == false
-          - query_l3out_2_with_uuid.current.ospfAreaConfig.control.suppressFA == false
-          - query_l3out_2_with_uuid.current.ospfAreaConfig.cost == 1
-          - query_l3out_2_with_uuid.current.ospfAreaConfig.id == "0.0.0.1"
-          - query_l3out_2_with_uuid.current.pim == false
-          - query_l3out_2_with_uuid.current.routingProtocol == "bgpOspf"
-          - query_l3out_2_with_uuid.current.tagAnnotations == []
-          - query_l3out_2_with_uuid.current.targetDscp == "unspecified"
-          - query_l3out_2_with_uuid.current.uuid is defined
-          - query_l3out_2_with_uuid.current.vrfRef != ""
-
-    - name: Query invalid l3out_3 object
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: l3out_3
-        state: "query"
-      register: query_l3out_3
-
-    - name: Assertion check for query invalid l3out_3 object
-      ansible.builtin.assert:
-        that:
-          - query_l3out_3 is not changed
-          - query_l3out_3.current == {}
-
-    - name: Create L3Out object with bgp empty dict
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "l3out_4"
-        vrf:
-          name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
-          template: "Template1"
-        routing_protocols: ["bgp", "ospf"]
-        bgp: {}
-        ospf:
-          area_id: "0.0.0.1"
-          area_type: "regular"
-          cost: 1
-        state: "present"
-        output_level: debug
-      check_mode: true
-      register: cm_l3out_1_present
-
-    - name: Assertion check for create L3Out object with bgp empty dict
-      ansible.builtin.assert:
-        that:
-          - cm_l3out_1_present is changed
-          - cm_l3out_1_present.current.importRouteControl == false
-          - cm_l3out_1_present.current.name == "l3out_4"
-          - cm_l3out_1_present.current.ospfAreaConfig.areaType == "regular"
-          - cm_l3out_1_present.current.ospfAreaConfig.cost == 1
-          - cm_l3out_1_present.current.ospfAreaConfig.id == "0.0.0.1"
-          - cm_l3out_1_present.current.routingProtocol == "bgpOspf"
-          - cm_l3out_1_present.current.vrfRef != ""
-          - cm_l3out_1_present.previous == {}
-          - cm_l3out_1_present.proposed.importRouteControl == false
-          - cm_l3out_1_present.proposed.name == "l3out_4"
-          - cm_l3out_1_present.proposed.ospfAreaConfig.areaType == "regular"
-          - cm_l3out_1_present.proposed.ospfAreaConfig.cost == 1
-          - cm_l3out_1_present.proposed.ospfAreaConfig.id == "0.0.0.1"
-          - cm_l3out_1_present.proposed.routingProtocol == "bgpOspf"
-          - cm_l3out_1_present.proposed.vrfRef != ""
-
-    - name: Remove l3out object without name and uuid (Negative test)
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        state: "absent"
-      register: nt_del_l3out
-      ignore_errors: true
-
-    - name: Assertion check for remove l3out object without name and uuid (Negative test)
-      ansible.builtin.assert:
-        that:
-          - nt_del_l3out is not changed
-          - nt_del_l3out.msg == "state is absent but any of the following are missing{{':'}} name, uuid"
-
-    - name: Create l3out object without name and vrf (Negative test)
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        state: "present"
-      register: create_l3out_without_name_uuid
-      ignore_errors: true
-
-    - name: Assertion check for create l3out object without name and vrf (Negative test)
-      ansible.builtin.assert:
-        that:
-          - create_l3out_without_name_uuid is not changed
-          - create_l3out_without_name_uuid.msg == "state is present but any of the following are missing{{':'}} vrf, uuid"
-
-    - name: Enable pim with L3 Multicast disabled vrf (Negative test)
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: l3out_3
-        vrf:
-          name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
-          template: "Template1"
-        pim: true
-        state: "present"
-      register: enable_pim_with_l3multicast_disabled_vrf
-      ignore_errors: true
-
-    - name: Assertion check for enable pim with L3 Multicast disabled vrf (Negative test)
-      ansible.builtin.assert:
-        that:
-          - enable_pim_with_l3multicast_disabled_vrf is not changed
-          - enable_pim_with_l3multicast_disabled_vrf.current == {}
-          - enable_pim_with_l3multicast_disabled_vrf.msg == "Invalid configuration in L3Out 'Name{{':'}} l3out_3', 'PIM' cannot be enabled while using the VRF 'VRF1' with L3 Multicast disabled"
-          - enable_pim_with_l3multicast_disabled_vrf.previous == {}
-
-    - name: Update l3out object with invalid uuid (Negative test)
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        uuid: "uuid"
-        state: "present"
-      register: update_l3out_with_invalid_uuid
-      ignore_errors: true
-
-    - name: Assertion check for update l3out object with invalid uuid (Negative test)
-      ansible.builtin.assert:
-        that:
-          - update_l3out_with_invalid_uuid is not changed
-          - update_l3out_with_invalid_uuid.current == {}
-          - update_l3out_with_invalid_uuid.msg == "L3Out with the uuid{{':'}} 'uuid' not found"
-          - update_l3out_with_invalid_uuid.previous == {}
-
-    - name: Create l3out with only ospf - (Negative test - 1)
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "nt_l3out_2_tmp_ospf_1"
-        l3_domain: ans_l3_domain
-        vrf:
-          name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
-          template: "Template1"
-        routing_protocols: ["ospf"]
-        ospf:
-          area_id: "0.0.0.1"
-          area_type: "regular"
-          originate_default_route: "only"
-        state: present
-      register: nt_l3out_2_tmp_ospf_1
-      ignore_errors: true
-
-    - name: Create l3out with only ospf - (Negative test - 2)
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "nt_l3out_2_tmp_ospf_2"
-        l3_domain: ans_l3_domain
-        vrf:
-          name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
-          template: "Template1"
-        routing_protocols: ["ospf"]
-        state: present
-      register: nt_l3out_2_tmp_ospf_2
-      ignore_errors: true
-
-    - name: Create l3out with only ospf - (Negative test - 3)
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "nt_l3out_2_tmp_ospf_3"
-        l3_domain: ans_l3_domain
-        vrf:
-          name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
-          template: "Template1"
-        ospf:
-          area_id: "0.0.0.1"
-          area_type: "regular"
-          cost: 1
-          originate_default_route: "only"
-        state: present
-      register: nt_l3out_2_tmp_ospf_3
-      ignore_errors: true
-
-    - name: Create l3out with only ospf - (Negative test - 4)
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "nt_l3out_2_tmp_ospf_4"
-        l3_domain: ans_l3_domain
-        vrf:
-          name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
-          template: "Template1"
-        routing_protocols: ["bgp"]
-        ospf:
-          area_id: "0.0.0.1"
-          area_type: "regular"
-          cost: 1
-          originate_default_route: "only"
-        state: present
-      register: nt_l3out_2_tmp_ospf_4
-      ignore_errors: true
-
-    - name: Create l3out with only ospf - (Negative test - 5)
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "nt_l3out_2_tmp_ospf_5"
-        l3_domain: ans_l3_domain
-        vrf:
-          name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
-          template: "Template1"
-        routing_protocols: ["ospf"]
-        ospf:
-          originate_default_route: "only"
-        state: present
-      register: nt_l3out_2_tmp_ospf_5
-      ignore_errors: true
-
-    - name: Assertion check for create l3out Negative test
-      ansible.builtin.assert:
-        that:
-          - nt_l3out_2_tmp_ospf_1 is not changed
-          - nt_l3out_2_tmp_ospf_1.msg == "parameters are required together{{':'}} area_id, area_type, cost found in ospf"
-          - nt_l3out_2_tmp_ospf_2 is not changed
-          - nt_l3out_2_tmp_ospf_2.current == {}
-          - nt_l3out_2_tmp_ospf_2.msg == "The O(ospf) - area_id, area_type, cost is required, when the O(routing_protocols=ospf) during the creation."
-          - nt_l3out_2_tmp_ospf_2.previous == {}
-          - nt_l3out_2_tmp_ospf_3 is not changed
-          - nt_l3out_2_tmp_ospf_3.current == {}
-          - nt_l3out_2_tmp_ospf_3.msg == "The O(ospf) must be None, when the O(routing_protocols=None) during the creation."
-          - nt_l3out_2_tmp_ospf_3.previous == {}
-          - nt_l3out_2_tmp_ospf_4 is not changed
-          - nt_l3out_2_tmp_ospf_4.current == {}
-          - nt_l3out_2_tmp_ospf_4.msg == "The O(ospf) must be None, when the O(routing_protocols=bgp) during the creation."
-          - nt_l3out_2_tmp_ospf_4.previous == {}
-          - nt_l3out_2_tmp_ospf_5 is not changed
-          - nt_l3out_2_tmp_ospf_5.current == {}
-          - nt_l3out_2_tmp_ospf_5.msg == "The O(ospf) - area_id, area_type, cost is required during the creation."
-          - nt_l3out_2_tmp_ospf_5.previous == {}
-
-    - name: Delete l3out_2 object with check_mode
-      cisco.mso.ndo_l3out_template: &cm_del_l3out_2
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "l3out_2"
-        state: "absent"
-        output_level: debug
-      check_mode: true
-      register: cm_del_l3out_2
-
-    - name: Delete l3out_2 object with normal_mode
-      cisco.mso.ndo_l3out_template: &nm_del_l3out_2
-        <<: *cm_del_l3out_2
-      register: nm_del_l3out_2
-
-    - name: Delete l3out_2 object with normal_mode - again
-      cisco.mso.ndo_l3out_template:
-        <<: *nm_del_l3out_2
-      register: nm_del_l3out_2_again
-
-    - name: Assertion check for delete l3out_2
-      ansible.builtin.assert:
-        that:
-          - cm_del_l3out_2 is changed
-          - cm_del_l3out_2.current == {}
-          - cm_del_l3out_2.previous.name == "l3out_2"
-          - cm_del_l3out_2.proposed == {}
-          - nm_del_l3out_2 is changed
-          - nm_del_l3out_2.current == {}
-          - nm_del_l3out_2.previous.name == "l3out_2"
-          - nm_del_l3out_2.proposed == {}
-          - nm_del_l3out_2_again is not changed
-          - nm_del_l3out_2_again.current == {}
-          - nm_del_l3out_2_again.previous == {}
-          - nm_del_l3out_2_again.proposed == {}
+          - query_all_l3outs.current | length == 2
 
     # Cleanup Part
     - name: Remove l3out tenant template

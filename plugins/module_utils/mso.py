@@ -1602,6 +1602,14 @@ class MSOModule(object):
                 self.fail_json(msg=msg)
             return {}
 
+    def verify_time_format(self, date_time):
+        if date_time != "now" or date_time != "infinite":
+            try:
+                formatted_date_time = datetime.datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")
+                return str(formatted_date_time)
+            except ValueError:
+                return self.fail_json(msg="TIME FORMAT ERROR: The time must be in 'YYYY-MM-DD HH:MM:SS' format.")
+
 
 def service_node_ref_str_to_dict(serviceNodeRefStr):
     serviceNodeRefTokens = serviceNodeRefStr.split("/")

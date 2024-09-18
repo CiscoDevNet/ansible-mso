@@ -35,14 +35,14 @@
       cisco.mso.ndo_template: &template_absent
         <<: *mso_info
         name: ansible_fabric_policy_template
-        interface_type: fabric_policy
+        type: fabric_policy
         state: absent
 
     - name: Create a fabric template
       cisco.mso.ndo_template:
         <<: *mso_info
         name: ansible_fabric_policy_template
-        interface_type: fabric_policy
+        type: fabric_policy
         state: present
 
     # CREATE
@@ -82,10 +82,10 @@
           - nm_add_mac_sec_policy_again.previous.type == nm_add_mac_sec_policy_again.current.type == 'fabric'
           - nm_add_mac_sec_policy_again.previous.uuid is defined
           - nm_add_mac_sec_policy_again.current.uuid is defined
-          - nm_add_mac_sec_policy.previous.macsecParams.cipherSuite == '256GcmAesXpn'
-          - nm_add_mac_sec_policy.previous.macsecParams.sakExpiryTime == 0
-          - nm_add_mac_sec_policy.previous.macsecParams.securityPol == 'shouldSecure'
-          - nm_add_mac_sec_policy.previous.macsecParams.windowSize == 0
+          - nm_add_mac_sec_policy_again.previous.macsecParams.cipherSuite == '256GcmAesXpn'
+          - nm_add_mac_sec_policy_again.previous.macsecParams.sakExpiryTime == 0
+          - nm_add_mac_sec_policy_again.previous.macsecParams.securityPol == 'shouldSecure'
+          - nm_add_mac_sec_policy_again.previous.macsecParams.windowSize == 0
 
     # MACsec policy interface_type access
     - name: Create a MACSec policy of interface_type 'access'
@@ -298,6 +298,28 @@
         that:
           - nm_update_mac_sec_policy_type is failed
           - nm_update_mac_sec_policy_type.msg == 'Type cannot be changed for an existing MACSec Policy.'
+
+    - name: Validate MACsec policy with invalide time format
+      cisco.mso.ndo_mac_sec_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        mac_sec_policy: ansible_mac_sec_policy_2
+        description: 'Ansible MACsec Policy description'
+        interface_type: access
+        mac_sec_key:
+          - key_name: abc12
+            psk: 'AA111111111111111111111111111111111111111111111111111111111111aa'
+            start_time: 'wrong-time 11:12:13'
+            end_time: '2030-12-11 11:12:13'
+        state: present
+      ignore_errors: true
+      register: validate_invalid_time
+
+    - name: Assert that the MACsec policy interface_type cannot be updated
+      assert:
+        that:
+          - validate_invalid_time is failed
+          - validate_invalid_time.msg == "TIME FORMAT ERROR{{":"}} The time must be in 'YYYY-MM-DD HH:MM:SS' format."
 
     # DELETE
     - name: Delete a MACsec policy of interface_type 'fabric' (check mode)

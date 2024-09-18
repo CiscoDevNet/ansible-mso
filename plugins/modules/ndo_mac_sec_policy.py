@@ -65,7 +65,7 @@ options:
     - The window size defines the maximum number of frames that can be received out of order
     - before a replay attack is detected.
     - The value must be between 0 and 4294967295.
-    - The default value is 0 for type  C(fabric) and 64 for type C(access).
+    - The default value is 0 for type C(fabric) and 64 for type C(access).
     type: int
   security_policy:
     description:
@@ -82,9 +82,9 @@ options:
   confidentiality_offset:
     description:
     - The confidentiality offset for the MACSec Policy.
-    - The value must be 0, 30 or 50.
     - The default value is 0.
     type: int
+    choices: [ 0, 30, 50 ]
   key_server_priority:
     description:
     - The key server priority for the MACSec Policy.
@@ -94,7 +94,7 @@ options:
   mac_sec_key:
     description:
     - List of the MACSec Keys.
-    - Only one mac_sec_key can be added during creation.
+    - Only one mac_sec_key can be added during creation and multiple mac_sec_keys can be added during an update.
     type: list
     elements: dict
     suboptions:
@@ -137,7 +137,7 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-- name: Create a new MACSec Policy
+- name: Create a new MACSec Policy  of interface_type fabric
   cisco.mso.ndo_mac_sec_policy:
     host: mso_host
     username: admin
@@ -145,6 +145,21 @@ EXAMPLES = r"""
     template: ansible_test_template
     mac_sec_policy: ansible_test_mac_sec_policy
     description: "Ansible Test MACSec Policy"
+    state: present
+
+- name: Create a new MACSec Policy of interface_type access
+  cisco.mso.ndo_mac_sec_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    mac_sec_policy: ansible_test_mac_sec_policy
+    description: "Ansible Test MACSec Policy"
+    mac_sec_key:
+      - key_name: ansible_test_key
+        psk: 'AA111111111111111111111111111111111111111111111111111111111111aa'
+        start_time: '2029-12-11 11:12:13'
+        end_time: 'infinite'
     state: present
 
 - name: Query a MACSec Policy with mac_sec_policy name
@@ -210,7 +225,7 @@ def main():
             window_size=dict(type="int"),
             security_policy=dict(type="str", choices=["should_secure", "must_secure"]),
             sak_expiry_time=dict(type="int"),
-            confidentiality_offset=dict(type="int"),
+            confidentiality_offset=dict(type="int", choices=[0, 30, 50]),
             key_server_priority=dict(type="int"),
             mac_sec_key=dict(
                 type="list",
@@ -284,7 +299,7 @@ def main():
                 ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=mac_sec_policy))
                 match.details["name"] = mac_sec_policy
 
-            if description and match.details.get("description") != description:
+            if description is not None and match.details.get("description") != description:
                 ops.append(dict(op="replace", path="{0}/{1}/description".format(path, match.index), value=description))
                 match.details["description"] = description
 
@@ -331,8 +346,8 @@ def main():
                             dict(
                                 keyname=mac_sec_key.get("key_name"),
                                 psk=mac_sec_key.get("psk"),
-                                start=mac_sec_key.get("start_time"),
-                                end=mac_sec_key.get("end_time"),
+                                start=mso.verify_time_format(mac_sec_key.get("start_time")) if mac_sec_key.get("start_time") else None,
+                                end=mso.verify_time_format(mac_sec_key.get("end_time")) if mac_sec_key.get("end_time") else None,
                             )
                         )
 
@@ -380,9 +395,9 @@ def main():
                             "psk": mac_sec_key.get("psk"),
                         }
                         if mac_sec_key.get("start_time"):
-                            mac_sec_key_dict["startTime"] = mac_sec_key.get("start_time")
+                            mac_sec_key_dict["startTime"] = mso.verify_time_format(mac_sec_key.get("start_time"))
                         if mac_sec_key.get("end_time"):
-                            mac_sec_key_dict["endTime"] = mac_sec_key.get("end_time")
+                            mac_sec_key_dict["endTime"] = mso.verify_time_format(mac_sec_key.get("end_time"))
                         mac_sec_keys_list.append(mac_sec_key_dict)
 
                     payload["macsecKeys"] = mac_sec_keys_list

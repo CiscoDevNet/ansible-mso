@@ -935,6 +935,8 @@
         name: l3out_1_updated
         ospf:
           # when you enable originate_default_route_always, originate_default_route set to "only" when it is not configured and specified in the config
+          area_id: "0.0.0.1"
+          area_type: "regular"
           originate_default_route_always: true
         state: present
       register: l3out_1_update_ospf_default_route_true
@@ -991,6 +993,7 @@
         l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
         name: l3out_1_updated
         ospf:
+          area_id: "0.0.0.1"
           area_type: "stub"
           cost: 3
           originate_default_route: "only"
@@ -1053,6 +1056,7 @@
         name: l3out_1_updated
         ospf:
           area_id: "0.0.0.2"
+          area_type: "stub"
         state: present
       register: l3out_1_update_ospf_id
 
@@ -1423,6 +1427,29 @@
           - nm_l3out_2_absent_again.current == {}
           - nm_l3out_2_absent_again.previous == {}
 
+    # Negative test part begins
+    - name: Update l3out_3 object without ospf - id and type
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: "l3out_3"
+        l3_domain: ans_l3_domain
+        vrf:
+          name: "VRF1"
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+          template: "Template1"
+        ospf:
+          cost: 5
+        state: "present"
+      register: update_l3out_3_ospf_nt
+      ignore_errors: true
+
+    - name: Assertion check for update l3out_3 object without ospf - id and type
+      ansible.builtin.assert:
+        that:
+          - update_l3out_3_ospf_nt is not changed
+          - update_l3out_3_ospf_nt.msg == "state is enabled but all of the following are missing{{':'}} area_id, area_type found in ospf"
+
     - name: Enable pim with L3 Multicast disabled vrf
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
@@ -1466,33 +1493,7 @@
       ansible.builtin.assert:
         that:
           - create_ospf_without_area_id is not changed
-          - create_ospf_without_area_id.current == {}
-          - create_ospf_without_area_id.msg == "The O(ospf) - area_id, area_type is required during the creation."
-          - create_ospf_without_area_id.previous == {}
-
-    - name: Create L3Out object without ospf area_type
-      cisco.mso.ndo_l3out_template:
-        <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
-        name: "l3out_nt"
-        l3_domain: ans_l3_domain
-        vrf:
-          name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
-          template: "Template1"
-        ospf:
-          area_id: "0.0.0.1"
-        state: present
-      register: create_ospf_without_area_type
-      ignore_errors: true
-
-    - name: Assertion check for create L3Out object without ospf area_type
-      ansible.builtin.assert:
-        that:
-          - create_ospf_without_area_type is not changed
-          - create_ospf_without_area_type.current == {}
-          - create_ospf_without_area_type.msg == "The O(ospf) - area_id, area_type is required during the creation."
-          - create_ospf_without_area_type.previous == {}
+          - create_ospf_without_area_id.msg == "state is enabled but all of the following are missing{{':'}} area_id found in ospf"
 
     - name: Create L3Out object without vrf
       cisco.mso.ndo_l3out_template:
@@ -1511,6 +1512,8 @@
           - create_without_vrf.current == {}
           - create_without_vrf.msg == "The O(vrf) is required during the creation."
           - create_without_vrf.previous == {}
+
+    # Negative test part ends
 
     - name: Query all L3Out objects
       cisco.mso.ndo_l3out_template:

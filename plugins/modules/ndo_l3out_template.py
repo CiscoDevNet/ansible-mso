@@ -130,6 +130,7 @@ options:
         - Use C(enabled) to configure the BGP routing protocol.
         - Use C(disabled) to remove the BGP routing protocol.
         type: str
+        default: enabled
         choices: [enabled, disabled]
       inbound_route_map:
         description:
@@ -165,14 +166,17 @@ options:
         - Use C(enabled) to configure the OSPF routing protocol.
         - Use C(disabled) to remove the OSPF routing protocol.
         type: str
+        default: enabled
         choices: [enabled, disabled]
       area_id:
         description:
         - The area id of the OSPF area.
+        - This option is required when the O(ospf.state=enabled).
         type: str
       area_type:
         description:
         - The area type of the OSPF area.
+        - This option is required when the O(ospf.state=enabled).
         type: str
         choices: [regular, stub, nssa]
       cost:
@@ -288,13 +292,11 @@ EXAMPLES = r"""
       template: "Template1"
     routing_protocols: ["bgp", "ospf"]
     bgp:
-      state: enabled
       inbound_route_map: "ans_route_map"
       outbound_route_map: "ans_route_map"
       route_dampening_ipv4: "ans_route_map"
       route_dampening_ipv6: "ans_route_map"
     ospf:
-      state: enabled
       area_id: "0.0.0.1"
       area_type: "regular"
       cost: 1
@@ -387,10 +389,10 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_
 def get_routing_protocol(existing_protocol, ospf_state, bgp_state):
     protocols = set()
 
-    if bgp_state == "enabled" or (bgp_state is None and "bgp" in L3OUT_ROUTING_PROTOCOLS.get(existing_protocol)):
+    if bgp_state == "enabled" or (bgp_state == "ignore" and "bgp" in L3OUT_ROUTING_PROTOCOLS.get(existing_protocol)):
         protocols.add("bgp")
 
-    if ospf_state == "enabled" or (ospf_state is None and "ospf" in L3OUT_ROUTING_PROTOCOLS.get(existing_protocol)):
+    if ospf_state == "enabled" or (ospf_state == "ignore" and "ospf" in L3OUT_ROUTING_PROTOCOLS.get(existing_protocol)):
         protocols.add("ospf")
 
     return "".join(protocols) if len(protocols) < 2 else L3OUT_ROUTING_PROTOCOLS.get("".join(protocols))
@@ -421,7 +423,7 @@ def main():
         ospf=dict(
             type="dict",
             options=dict(
-                state=dict(type="str", choices=["enabled", "disabled"]),
+                state=dict(type="str", choices=["enabled", "disabled"], default="enabled"),
                 area_id=dict(type="str"),
                 area_type=dict(type="str", choices=["regular", "stub", "nssa"]),
                 cost=dict(type="int"),
@@ -431,30 +433,19 @@ def main():
                 originate_default_route=dict(type="str", choices=list(ORIGINATE_DEFAULT_ROUTE)),
                 originate_default_route_always=dict(type="bool", aliases=["always"]),
             ),
-            required_one_of=[
-                (
-                    "state",
-                    "area_id",
-                    "area_type",
-                    "cost",
-                    "send_redistributed_lsas",
-                    "originate_summary_lsa",
-                    "suppress_forwarding_addr_translated_lsa",
-                    "originate_default_route",
-                    "originate_default_route_always",
-                )
+            required_if=[
+                ["state", "enabled", ["area_id", "area_type"]],
             ],
         ),
         bgp=dict(
             type="dict",
             options=dict(
-                state=dict(type="str", choices=["enabled", "disabled"]),
+                state=dict(type="str", choices=["enabled", "disabled"], default="enabled"),
                 inbound_route_map=dict(type="str", aliases=["import_route", "inbound_route"]),
                 outbound_route_map=dict(type="str", aliases=["export_route", "outbound_route"]),
                 route_dampening_ipv4=dict(type="str", aliases=["dampening_ipv4"]),
                 route_dampening_ipv6=dict(type="str", aliases=["dampening_ipv6"]),
             ),
-            required_one_of=[("state", "inbound_route_map", "outbound_route_map", "route_dampening_ipv4", "route_dampening_ipv6")],
         ),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
@@ -532,24 +523,8 @@ def main():
 
         existing_routing_protocols = mso.existing.get("routingProtocol", None)
 
-        if existing_routing_protocols in [None, "none"]:
-            if ospf is not None and ospf.get("state") in [None, "enabled"]:
-                ospf_state = "enabled"
-            elif ospf is not None and ospf.get("state") == "disabled":
-                ospf_state = "disabled"
-            else:
-                ospf_state = False
-
-            if bgp is not None and bgp.get("state") in [None, "enabled"]:
-                bgp_state = "enabled"
-            elif bgp is not None and bgp.get("state") == "disabled":
-                bgp_state = "disabled"
-            else:
-                bgp_state = False
-        else:
-            # Update the existing protocol status
-            ospf_state = ospf.get("state") if ospf else None
-            bgp_state = bgp.get("state") if bgp else None
+        ospf_state = ospf.get("state") if ospf else "ignore"
+        bgp_state = bgp.get("state") if bgp else "ignore"
 
         res_routing_protocols = get_routing_protocol(None if existing_routing_protocols == "none" else existing_routing_protocols, ospf_state, bgp_state)
 
@@ -657,9 +632,6 @@ def main():
                     ).get("uuid", "")
 
             if ospf:
-                if not (ospf.get("area_id") and ospf.get("area_type")):
-                    mso.fail_json(msg="The O(ospf) - area_id, area_type is required during the creation.")
-
                 payload["ospfAreaConfig"] = dict(
                     cost=ospf.get("cost"),
                     id=ospf.get("area_id"),

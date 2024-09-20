@@ -357,6 +357,16 @@ EXAMPLES = r"""
       state: disabled
     state: "present"
 
+- name: Query a L3Out object with uuid
+  cisco.mso.ndo_l3out_template:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    l3out_template: l3out_template
+    uuid: "{{ query_l3out_name.current.uuid }}"
+    state: "query"
+  register: query_l3out_name
+
 - name: Query all L3Out objects
   cisco.mso.ndo_l3out_template:
     host: mso_host
@@ -374,6 +384,15 @@ EXAMPLES = r"""
     l3out_template: l3out_template
     name: "l3out_1"
     state: "absent"
+
+- name: Delete a L3Out object with uuid
+  cisco.mso.ndo_l3out_template:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    l3out_template: l3out_template
+    uuid: "{{ query_l3out_name.current.uuid }}"
+    state: "absent"
 """
 
 RETURN = r"""
@@ -384,6 +403,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ORIGINATE_DEFAULT_ROUTE, L3OUT_ROUTING_PROTOCOLS
+from ansible_collections.cisco.mso.plugins.module_utils.utils import generate_api_endpoint
 
 
 def get_routing_protocol(existing_protocol, ospf_state, bgp_state):
@@ -454,8 +474,8 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "absent", ["name"]],
-            ["state", "present", ["name"]],
+            ["state", "absent", ["name", "uuid"], True],
+            ["state", "present", ["name", "uuid"], True],
         ],
     )
 
@@ -490,7 +510,7 @@ def main():
         mso.exit_json()
     elif state == "query" and not (name or uuid):
         mso.existing = l3outs
-    elif l3outs and name:
+    elif l3outs and (name or uuid):
         object_description = "L3Out"
 
         if uuid:
@@ -505,9 +525,12 @@ def main():
     ops = []
 
     if state == "present":
+        if uuid and not mso.existing:
+            mso.fail_json(msg="L3Out with the uuid: '{0}' not found".format(uuid))
+
         templates_objects_path = "templates/objects"
         route_map_params = {"type": "routeMap", "tenant-id": tenant_id}
-        route_map_path = l3out_template_object.generate_api_endpoint(templates_objects_path, **route_map_params)
+        route_map_path = generate_api_endpoint(templates_objects_path, **route_map_params)
         route_map_objects = mso.query_objs(route_map_path)
 
         vrf_ref = None
@@ -515,8 +538,8 @@ def main():
             vrf_object = l3out_template_object.get_vrf_object(vrf_dict, tenant_id, templates_objects_path)
             if pim and vrf_object.details.get("l3MCast") is False:
                 mso.fail_json(
-                    msg="Invalid configuration in L3Out '{0}', 'PIM' cannot be enabled while using the VRF '{1}' with L3 Multicast disabled".format(
-                        name, vrf_dict.get("name")
+                    msg="Invalid configuration in L3Out {0}, 'PIM' cannot be enabled while using the VRF '{1}' with L3 Multicast disabled".format(
+                        "UUID: {0}".format(uuid) if uuid else "Name: {0}".format(name), vrf_dict.get("name")
                     )
                 )
             vrf_ref = vrf_object.details.get("uuid")
@@ -671,7 +694,7 @@ def main():
             proposed_payload = copy.deepcopy(match.details)
             l3out_attrs_path = "/l3outTemplate/l3outs/{0}".format(match.index)
 
-            if name is not None and mso.existing.get("name") != name:
+            if name is not [None, ""] and mso.existing.get("name") != name:
                 ops.append(dict(op="replace", path=l3out_attrs_path + "/name", value=name))
                 proposed_payload["name"] = name
 

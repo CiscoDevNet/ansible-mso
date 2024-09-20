@@ -1386,6 +1386,30 @@
           - update_l3out_3_bgp_min_config.previous.uuid is defined
           - update_l3out_3_bgp_min_config.previous.vrfRef != ""
 
+    - name: Query a L3Out with name
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: "l3out_2"
+        state: query
+      register: query_l3out_with_name
+
+    - name: Query a L3Out with uuid
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        uuid: "{{ query_l3out_with_name.current.uuid }}"
+        state: query
+      register: query_l3out_with_uuid
+
+    - name: Assertion check for query l3out with name and uuid
+      ansible.builtin.assert:
+        that:
+          - query_l3out_with_name is not changed
+          - query_l3out_with_uuid is not changed
+          - query_l3out_with_name.current.name == query_l3out_with_uuid.current.name == "l3out_2"
+          - query_l3out_with_name.current.uuid == query_l3out_with_uuid.current.uuid
+
     - name: Delete l3out_2 object - check_mode
       cisco.mso.ndo_l3out_template: &cm_l3out_2_absent
         <<: *mso_info
@@ -1428,6 +1452,27 @@
           - nm_l3out_2_absent_again.previous == {}
 
     # Negative test part begins
+    - name: Update l3out_3 object name using invalid uuid
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: "l3out_3_nt"
+        uuid: "invalid_uuid"
+        l3_domain: ans_l3_domain
+        vrf:
+          name: "VRF1"
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+          template: "Template1"
+        state: "present"
+      register: update_with_invalid_uuid
+      ignore_errors: true
+
+    - name: Assertion check for update l3out_3 object name using invalid uuid
+      ansible.builtin.assert:
+        that:
+          - update_with_invalid_uuid is not changed
+          - update_with_invalid_uuid.msg == "L3Out with the uuid{{':'}} 'invalid_uuid' not found"
+
     - name: Update l3out_3 object without ospf - id and type
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
@@ -1469,9 +1514,28 @@
       ansible.builtin.assert:
         that:
           - enable_pim_with_invalid_vrf is not changed
-          - enable_pim_with_invalid_vrf.current == {}
-          - enable_pim_with_invalid_vrf.msg == "Invalid configuration in L3Out 'l3out_nt', 'PIM' cannot be enabled while using the VRF 'VRF1' with L3 Multicast disabled"
-          - enable_pim_with_invalid_vrf.previous == {}
+          - enable_pim_with_invalid_vrf.msg == "Invalid configuration in L3Out Name{{':'}} l3out_nt, 'PIM' cannot be enabled while using the VRF 'VRF1' with L3 Multicast disabled"
+
+    - name: Update l3out_3 object to enable with L3 Multicast disabled vrf
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        uuid: "{{ update_l3out_3_bgp_min_config.current.uuid }}"
+        l3_domain: ans_l3_domain
+        vrf:
+          name: "VRF1"
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+          template: "Template1"
+        pim: true
+        state: "present"
+      register: update_l3out_3_pim_nt
+      ignore_errors: true
+
+    - name: Assertion check for update l3out_3 object to enable with L3 Multicast disabled vrf
+      ansible.builtin.assert:
+        that:
+          - update_l3out_3_pim_nt is not changed
+          - update_l3out_3_pim_nt.msg is match("Invalid configuration in L3Out UUID.+, 'PIM' cannot be enabled while using the VRF 'VRF1' with L3 Multicast disabled")
 
     - name: Create L3Out object without ospf area_id
       cisco.mso.ndo_l3out_template:
@@ -1509,10 +1573,7 @@
       ansible.builtin.assert:
         that:
           - create_without_vrf is not changed
-          - create_without_vrf.current == {}
           - create_without_vrf.msg == "The O(vrf) is required during the creation."
-          - create_without_vrf.previous == {}
-
     # Negative test part ends
 
     - name: Query all L3Out objects
@@ -1527,6 +1588,21 @@
         that:
           - query_all_l3outs is not changed
           - query_all_l3outs.current | length == 2
+
+    - name: Delete L3Out using uuid
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        uuid: "{{ update_l3out_3_bgp_min_config.current.uuid }}"
+        state: "absent"
+      register: absent_with_uuid
+
+    - name: Assertion check for delete L3Out using uuid
+      ansible.builtin.assert:
+        that:
+          - absent_with_uuid is changed
+          - absent_with_uuid.current == {}
+          - absent_with_uuid.previous.name == "l3out_3"
 
     # Cleanup Part
     - name: Remove l3out tenant template

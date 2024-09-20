@@ -8,6 +8,7 @@ from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
 from ansible_collections.cisco.mso.plugins.module_utils.constants import TEMPLATE_TYPES
+from ansible_collections.cisco.mso.plugins.module_utils.utils import generate_api_endpoint
 from collections import namedtuple
 
 KVPair = namedtuple("KVPair", "key value")
@@ -144,16 +145,12 @@ class MSOTemplate:
     def get_route_map(self, attr_name, tenant_id, tenant_name, route_map, route_map_objects):
         """
         Retrieves the details of a specific route map object based on the provided attributes.
-
-        Args:
-            attr_name: The attribute name for error messaging. -> Str
-            tenant_id: The ID of the tenant. -> Str
-            tenant_name: The name of the tenant. -> Str
-            route_map: The name of the route map. -> Str
-            route_map_objects: The list of route map objects to search from. -> List
-
-        Returns:
-            The details of the route map object if found, otherwise an empty dictionary. -> Dict
+        :param attr_name: The attribute name for error messaging. -> Str
+        :param tenant_id: The ID of the tenant. -> Str
+        :param tenant_name: The name of the tenant. -> Str
+        :param route_map: The name of the route map. -> Str
+        :param route_map_objects: The list of route map objects to search from. -> List
+        :return: The details of the route map object if found, otherwise an empty dictionary. -> Dict
         """
         if route_map and tenant_id and route_map_objects:
             route_map_object = self.get_object_from_list(
@@ -175,8 +172,8 @@ class MSOTemplate:
         :param templates_objects_path: Path to the templates objects. -> Str
         :return: VRF object if found, otherwise fail with an error message. -> Dict
         """
-        vrf_params = {"type": "vrf", "tenant-id": tenant_id, "include-common": "true"}
-        vrf_path = self.generate_api_endpoint(templates_objects_path, **vrf_params)
+
+        vrf_path = generate_api_endpoint(templates_objects_path, **{"type": "vrf", "tenant-id": tenant_id, "include-common": "true"})
         vrf_objects = self.mso.query_objs(vrf_path)
         vrf_kv_list = [
             KVPair("name", vrf_dict.get("name")),
@@ -191,21 +188,3 @@ class MSOTemplate:
             return vrf_object[0]
         else:
             self.mso.fail_json(msg="Provided VRF {0} not found.".format(vrf_dict.get("name")))
-
-    @staticmethod
-    def generate_api_endpoint(path, **kwargs):
-        """
-        Generates an API endpoint with query strings based on the provided keyword arguments.
-
-        :param path: The base URL of the API endpoint. -> Str
-        :param kwargs: Keyword arguments representing query parameters. -> Dict
-        :return: A string representing the full API endpoint with query parameters. -> Str
-        """
-        if not kwargs:
-            return path
-
-        query_strings = ["{0}={1}".format(key, value) for key, value in kwargs.items()]
-        query_string = "&".join(query_strings)
-        full_url = "{0}?{1}".format(path, query_string)
-
-        return full_url

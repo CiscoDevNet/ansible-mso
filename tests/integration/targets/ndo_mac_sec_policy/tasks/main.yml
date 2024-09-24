@@ -127,6 +127,8 @@
             psk: 'AA111111111111111111111111111111111111111111111111111111111111aa'
             start_time: '2029-12-11 11:12:13'
             end_time: '2030-12-11 11:12:13'
+          - key_name: ABC
+            psk: 'AAabcdabcdabcdabcdabcdabcdabcdab11111111111111111111111111111aaa'
         state: present
       register: nm_add_mac_sec_policy_2
 
@@ -196,6 +198,7 @@
           - nm_update_mac_sec_policy.previous.macsecParams.sakExpiryTime == 99
           - nm_update_mac_sec_policy.previous.macsecParams.confOffSet == 'offset50'
           - nm_update_mac_sec_policy.previous.macsecParams.keyServerPrio == 11
+          - nm_update_mac_sec_policy.previous.macsecKeys | length == 2
           - nm_update_mac_sec_policy.current.description =='Updated description'
           - nm_update_mac_sec_policy.current.adminState == 'disabled'
           - nm_update_mac_sec_policy.current.macsecParams.cipherSuite == '128GcmAes'
@@ -204,6 +207,7 @@
           - nm_update_mac_sec_policy.current.macsecParams.sakExpiryTime == 100
           - nm_update_mac_sec_policy.current.macsecParams.confOffSet == 'offset30'
           - nm_update_mac_sec_policy.current.macsecParams.keyServerPrio == 10
+          - nm_update_mac_sec_policy.current.macsecKeys | length == 3
           - nm_update_mac_sec_policy_again is changed
           - nm_update_mac_sec_policy_again.previous.name == cm_update_mac_sec_policy.current.name == nm_update_mac_sec_policy.current.name == 'ansible_mac_sec_policy_2'
           - nm_update_mac_sec_policy_again.previous.type == cm_update_mac_sec_policy.current.type == nm_update_mac_sec_policy.current.type == 'access'

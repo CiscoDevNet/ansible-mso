@@ -505,22 +505,16 @@ def main():
     tenant_name = l3out_template_object.template_summary.get("tenantName")
 
     l3outs = l3out_template_object.template.get("l3outTemplate", {}).get("l3outs", [])
+    object_description = "L3Out"
 
     if state in ["query", "absent"] and l3outs == []:
         mso.exit_json()
     elif state == "query" and not (name or uuid):
         mso.existing = l3outs
     elif l3outs and (name or uuid):
-        object_description = "L3Out"
-
-        if uuid:
-            match = l3out_template_object.get_object_by_uuid(object_description, l3outs, uuid)
-        else:
-            match = l3out_template_object.get_object_by_key_value_pairs(object_description, l3outs, [KVPair("name", name)])
-
+        match = l3out_template_object.get_object_by_key_value_pairs(object_description, l3outs, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
         if match:
-            mso.existing = copy.deepcopy(match.details)
-            mso.previous = copy.deepcopy(match.details)
+            mso.existing = mso.previous = copy.deepcopy(match.details)
 
     ops = []
 
@@ -875,9 +869,7 @@ def main():
 
                 if originate_default_route is not None and originate_default_route == "" and mso.existing.get("defaultRouteLeak"):
                     ops.append(dict(op="remove", path=l3out_attrs_path + "/defaultRouteLeak"))
-
                     proposed_payload.pop("defaultRouteLeak", None)
-                    mso.existing.pop("defaultRouteLeak", None)
 
                 elif (originate_default_route is not None and originate_default_route != "") or (originate_default_route_always is not None):
                     if not mso.existing.get("defaultRouteLeak"):
@@ -938,27 +930,28 @@ def main():
 
             elif ospf_state == "disabled":
                 ops.append(dict(op="remove", path=l3out_attrs_path + "/ospfAreaConfig"))
-
                 proposed_payload.pop("ospfAreaConfig", None)
-                mso.existing.pop("ospfAreaConfig", None)
 
                 ops.append(dict(op="remove", path=l3out_attrs_path + "/defaultRouteLeak"))
-
                 proposed_payload.pop("defaultRouteLeak", None)
-                mso.existing.pop("defaultRouteLeak", None)
 
             mso.sanitize(proposed_payload, collate=True)
-
-        mso.existing = mso.proposed
 
     elif state == "absent":
         if mso.existing:
             ops.append(dict(op="remove", path="/l3outTemplate/l3outs/{0}".format(match.index)))
-        mso.existing = {}
 
     if not module.check_mode and ops:
         l3out_template_path = "{0}/{1}".format(l3out_template_object.templates_path, l3out_template_object.template_id)
-        mso.request(l3out_template_path, method="PATCH", data=ops)
+        response_object = mso.request(l3out_template_path, method="PATCH", data=ops)
+        l3outs = response_object.get("l3outTemplate", {}).get("l3outs", [])
+        match = l3out_template_object.get_object_by_key_value_pairs(object_description, l3outs, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
+        if match:
+            mso.existing = match.details  # When the state is present
+        else:
+            mso.existing = {}  # When the state is absent
+    elif module.check_mode and state != "query":  # When the state is present/absent with check mode
+        mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
 

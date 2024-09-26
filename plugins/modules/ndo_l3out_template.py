@@ -942,8 +942,7 @@ def main():
             ops.append(dict(op="remove", path="/l3outTemplate/l3outs/{0}".format(match.index)))
 
     if not module.check_mode and ops:
-        l3out_template_path = "{0}/{1}".format(l3out_template_object.templates_path, l3out_template_object.template_id)
-        response_object = mso.request(l3out_template_path, method="PATCH", data=ops)
+        response_object = mso.request(l3out_template_object.template_path, method="PATCH", data=ops)
         l3outs = response_object.get("l3outTemplate", {}).get("l3outs", [])
         match = l3out_template_object.get_object_by_key_value_pairs(object_description, l3outs, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
         if match:

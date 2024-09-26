@@ -218,3 +218,37 @@ class MSOTemplate:
         kv_list = [KVPair("name", interface_policy_group)]
         match = self.get_object_by_key_value_pairs("Interface Policy Groups", existing_policy_groups, kv_list, fail_module=True)
         return match.details.get("uuid")
+
+    def get_l3out_object(self, uuid=None, name=None, fail_module=False):
+        """
+        Get the L3Out by uuid or name.
+        :param uuid: UUID of the L3Out to search for -> Str
+        :param name: Name of the L3Out to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        existing_l3outs = self.template.get("l3outTemplate", {}).get("l3outs", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs("L3Out", existing_l3outs, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+        return existing_l3outs  # Query all objects
+
+    def get_l3out_node_group(self, name, l3out_object, fail_module=False):
+        """
+        Get the L3Out Node/Interface Group Policy by name.
+        :param name: Name of the L3Out Node/Interface Group Policy to search for -> Str
+        :param l3out_object: L3Out object to search Node/Interface Group Policy -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        existing_l3out_node_groups = l3out_object.get("nodeGroups", [])
+        if name:  # Query a specific object
+            return self.get_object_by_key_value_pairs("L3Out Node/Interface Group Policy", existing_l3out_node_groups, [KVPair("name", name)], fail_module)
+        return existing_l3out_node_groups  # Query all objects

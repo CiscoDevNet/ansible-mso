@@ -90,6 +90,47 @@ LISTENER_REDIRECT_CODE_MAP = {
     "temporary_redirect": "temporary",
 }
 
+PORT_CHANNEL_MODE_MAP = {
+    "lacp_active": "active",
+    "lacp_passive": "passive",
+    "static_channel_mode_on": "off",
+    "mac_pinning": "mac-pin",
+    "mac_pinning_physical_nic_load": "mac-pin-nicload",
+    "use_explicit_failover_order": "explicit-failover",
+}
+
+CONTROL_MAP = {
+    "fast_sel_hot_stdby": "fast-sel-hot-stdby",
+    "graceful_conv": "graceful-conv",
+    "susp_individual": "susp-individual",
+    "load_defer": "load-defer",
+    "symmetric_hash": "symmetric-hash",
+}
+
+LINK_LEVEL_FEC_MAP = {
+    "inherit": "inherit",
+    "cl74_fc_fec": "cl74-fc-fec",
+    "cl91_rs_fec": "cl91-rs-fec",
+    "cons16_rs_fec": "cons16-rs-fec",
+    "ieee_rs_fec": "ieee-rs-fec",
+    "kp_fec": "kp-fec",
+    "disable_fec": "disable-fec",
+}
+
+L2_INTERFACE_QIN_Q_MAP = {
+    "double_q_tag_port": "doubleQtagPort",
+    "core_port": "corePort",
+    "edge_port": "edgePort",
+    "disabled": "disabled",
+}
+
+LOAD_BALANCE_HASHING_MAP = {
+    "destination_ip": "dst-ip",
+    "layer_4_destination_ip": "l4-dst-port",
+    "layer_4_source_ip": "l4-src-port",
+    "source_ip": "src-ip",
+}
+
 TEMPLATE_TYPES = {
     "tenant": {
         "template_type": "tenantPolicy",  # templateType in payload

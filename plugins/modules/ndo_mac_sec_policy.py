@@ -178,10 +178,11 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
+    template: ansible_test_template
     state: query
   register: query_all
 
-- name: Query a MACSec Policy with mac_sec_policy uuid
+- name: Query a MACSec Policy with mac_sec_policy UUID
   cisco.mso.ndo_mac_sec_policy:
     host: mso_host
     username: admin
@@ -191,13 +192,22 @@ EXAMPLES = r"""
     state: query
   register: query_uuid
 
-- name: Delete a MACSec Policy
+- name: Delete a MACSec Policy with name
   cisco.mso.ndo_mac_sec_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
     mac_sec_policy: ansible_test_mac_sec_policy
+    state: absent
+
+- name: Delete a MACSec Policy with UUID
+  cisco.mso.ndo_mac_sec_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    mac_sec_policy_uuid: ansible_test_mac_sec_policy_uuid
     state: absent
 """
 
@@ -248,7 +258,7 @@ def main():
         supports_check_mode=True,
         required_if=[
             ["state", "present", ["mac_sec_policy"]],
-            ["state", "absent", ["mac_sec_policy"]],
+            ["state", "absent", ["mac_sec_policy", "mac_sec_policy_uuid"], True],
         ],
     )
 
@@ -276,15 +286,15 @@ def main():
     mso_template.validate_template("fabricPolicy")
 
     path = "/fabricPolicyTemplate/template/macsecPolicies"
+    object_description = "MACSec Policy"
 
     existing_mac_sec_policies = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("macsecPolicies", [])
     if mac_sec_policy or mac_sec_policy_uuid:
-        object_description = "MACSec Policy"
-        if mac_sec_policy_uuid:
-            match = mso_template.get_object_by_uuid(object_description, existing_mac_sec_policies, mac_sec_policy_uuid)
-        else:
-            kv_list = [KVPair("name", mac_sec_policy)]
-            match = mso_template.get_object_by_key_value_pairs(object_description, existing_mac_sec_policies, kv_list)
+        match = mso_template.get_object_by_key_value_pairs(
+            object_description,
+            existing_mac_sec_policies,
+            [KVPair("uuid", mac_sec_policy_uuid) if mac_sec_policy_uuid else KVPair("name", mac_sec_policy)],
+        )
         if match:
             mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
@@ -410,10 +420,21 @@ def main():
     elif state == "absent":
         if match:
             ops.append(dict(op="remove", path="{0}/{1}".format(path, match.index)))
-        mso.existing = {}
 
     if not module.check_mode and ops:
-        mso.request(mso_template.template_path, method="PATCH", data=ops)
+        response = mso.request(mso_template.template_path, method="PATCH", data=ops)
+        macsec_policies = response.get("fabricPolicyTemplate", {}).get("template", {}).get("macsecPolicies", [])
+        match = mso_template.get_object_by_key_value_pairs(
+            object_description,
+            macsec_policies,
+            [KVPair("uuid", mac_sec_policy_uuid) if mac_sec_policy_uuid else KVPair("name", mac_sec_policy)],
+        )
+        if match:
+            mso.existing = match.details
+        else:
+            mso.existing = {}
+    elif module.check_mode and state != "query":
+        mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
 

@@ -40,9 +40,7 @@
 
     - name: Create a fabric template
       cisco.mso.ndo_template:
-        <<: *mso_info
-        name: ansible_fabric_policy_template
-        type: fabric_policy
+        <<: *template_absent
         state: present
 
     # CREATE
@@ -77,15 +75,23 @@
           - nm_add_mac_sec_policy is changed
           - nm_add_mac_sec_policy.current.name == 'ansible_mac_sec_policy'
           - nm_add_mac_sec_policy.current.type == 'fabric'
+          - nm_add_mac_sec_policy.current.description == ''
+          - nm_add_mac_sec_policy.current.adminState == 'enabled'
+          - nm_add_mac_sec_policy.current.macsecParams.cipherSuite == '256GcmAesXpn'
+          - nm_add_mac_sec_policy.current.macsecParams.sakExpiryTime == 0
+          - nm_add_mac_sec_policy.current.macsecParams.securityPol == 'shouldSecure'
+          - nm_add_mac_sec_policy.current.macsecParams.windowSize == 0
+          - nm_add_mac_sec_policy.current.uuid is defined
           - nm_add_mac_sec_policy_again is not changed
           - nm_add_mac_sec_policy_again.previous.name == nm_add_mac_sec_policy_again.current.name == 'ansible_mac_sec_policy'
           - nm_add_mac_sec_policy_again.previous.type == nm_add_mac_sec_policy_again.current.type == 'fabric'
+          - nm_add_mac_sec_policy_again.previous.description == nm_add_mac_sec_policy_again.current.description == ''
           - nm_add_mac_sec_policy_again.previous.uuid is defined
           - nm_add_mac_sec_policy_again.current.uuid is defined
-          - nm_add_mac_sec_policy_again.previous.macsecParams.cipherSuite == '256GcmAesXpn'
-          - nm_add_mac_sec_policy_again.previous.macsecParams.sakExpiryTime == 0
-          - nm_add_mac_sec_policy_again.previous.macsecParams.securityPol == 'shouldSecure'
-          - nm_add_mac_sec_policy_again.previous.macsecParams.windowSize == 0
+          - nm_add_mac_sec_policy_again.previous.macsecParams.cipherSuite == nm_add_mac_sec_policy_again.current.macsecParams.cipherSuite == '256GcmAesXpn'
+          - nm_add_mac_sec_policy_again.previous.macsecParams.sakExpiryTime == nm_add_mac_sec_policy_again.current.macsecParams.sakExpiryTime == 0
+          - nm_add_mac_sec_policy_again.previous.macsecParams.securityPol == nm_add_mac_sec_policy_again.current.macsecParams.securityPol == 'shouldSecure'
+          - nm_add_mac_sec_policy_again.previous.macsecParams.windowSize == nm_add_mac_sec_policy_again.current.macsecParams.windowSize == 0
 
     # MACsec policy interface_type access
     - name: Create a MACSec policy of interface_type 'access'
@@ -104,6 +110,15 @@
           - add_mac_sec_policy_access.previous == {}
           - add_mac_sec_policy_access.current.name == 'ansible_mac_sec_policy_access'
           - add_mac_sec_policy_access.current.type == 'access'
+          - add_mac_sec_policy_access.current.description == ''
+          - add_mac_sec_policy_access.current.adminState == 'enabled'
+          - add_mac_sec_policy_access.current.macsecParams.cipherSuite == '256GcmAesXpn'
+          - add_mac_sec_policy_access.current.macsecParams.sakExpiryTime == 0
+          - add_mac_sec_policy_access.current.macsecParams.securityPol == 'shouldSecure'
+          - add_mac_sec_policy_access.current.macsecParams.windowSize == 64
+          - add_mac_sec_policy_access.current.macsecParams.confOffSet == 'offset0'
+          - add_mac_sec_policy_access.current.macsecParams.keyServerPrio == 16
+          - add_mac_sec_policy_access.current.uuid is defined
 
     # UPDATE
 
@@ -208,10 +223,13 @@
           - nm_update_mac_sec_policy.current.macsecParams.confOffSet == 'offset30'
           - nm_update_mac_sec_policy.current.macsecParams.keyServerPrio == 10
           - nm_update_mac_sec_policy.current.macsecKeys | length == 3
+          - nm_update_mac_sec_policy.current.uuid is defined
           - nm_update_mac_sec_policy_again is changed
           - nm_update_mac_sec_policy_again.previous.name == cm_update_mac_sec_policy.current.name == nm_update_mac_sec_policy.current.name == 'ansible_mac_sec_policy_2'
           - nm_update_mac_sec_policy_again.previous.type == cm_update_mac_sec_policy.current.type == nm_update_mac_sec_policy.current.type == 'access'
           - nm_update_mac_sec_policy_again.previous.description == cm_update_mac_sec_policy.current.description == nm_update_mac_sec_policy.current.description == 'Updated description'
+          - nm_update_mac_sec_policy_again.current.uuid is defined
+          - nm_update_mac_sec_policy_again.previous.uuid is defined
 
     - name: Update the MACsec policy name
       cisco.mso.ndo_mac_sec_policy:
@@ -229,6 +247,14 @@
           - nm_update_mac_sec_policy_uuid.previous.name == 'ansible_mac_sec_policy'
           - nm_update_mac_sec_policy_uuid.current.name == 'ansible_mac_sec_policy_changed'
           - nm_update_mac_sec_policy_uuid.current.type == nm_update_mac_sec_policy_uuid.current.type == 'fabric'
+          - nm_update_mac_sec_policy_uuid.current.description == nm_update_mac_sec_policy_uuid.current.description == ''
+          - nm_update_mac_sec_policy_uuid.current.adminState == nm_update_mac_sec_policy_uuid.current.adminState == 'enabled'
+          - nm_update_mac_sec_policy_uuid.current.macsecParams.cipherSuite == nm_update_mac_sec_policy_uuid.current.macsecParams.cipherSuite == '256GcmAesXpn'
+          - nm_update_mac_sec_policy_uuid.current.macsecParams.sakExpiryTime == nm_update_mac_sec_policy_uuid.current.macsecParams.sakExpiryTime == 0
+          - nm_update_mac_sec_policy_uuid.current.macsecParams.securityPol == nm_update_mac_sec_policy_uuid.current.macsecParams.securityPol == 'shouldSecure'
+          - nm_update_mac_sec_policy_uuid.current.macsecParams.windowSize == nm_update_mac_sec_policy_uuid.current.macsecParams.windowSize == 0
+          - nm_update_mac_sec_policy_uuid.previous.uuid == nm_update_mac_sec_policy_uuid.current.uuid
+          - nm_update_mac_sec_policy_uuid.current.uuid is defined
 
     - name: Update the MACsec policy by removing the mac_sec_key
       cisco.mso.ndo_mac_sec_policy:
@@ -245,7 +271,7 @@
           - rm_update_mac_sec_policy_key.current.macsecKeys is not defined
 
     # QUERY
-    - name: Query a MACsec policy  with mac_sec_policy name
+    - name: Query a MACsec policy  with name
       cisco.mso.ndo_mac_sec_policy:
         <<: *mso_info
         template: ansible_fabric_policy_template
@@ -270,7 +296,7 @@
           - query_all is not changed
           - query_all.current | length >= 2
 
-    - name: Query a MACsec policy with mac_sec_policy uuid
+    - name: Query a MACsec policy with UUID
       cisco.mso.ndo_mac_sec_policy:
         <<: *mso_info
         template: ansible_fabric_policy_template
@@ -278,7 +304,7 @@
         state: query
       register: query_uuid
 
-    - name: Assert that the MACsec policy was queried with mac_sec_policy uuid
+    - name: Assert that the MACsec policy was queried with mac_sec_policy UUID
       assert:
         that:
           - query_uuid is not changed
@@ -326,21 +352,21 @@
           - validate_invalid_time.msg == "TIME FORMAT ERROR{{":"}} The time must be in 'YYYY-MM-DD HH:MM:SS' format."
 
     # DELETE
-    - name: Delete a MACsec policy of interface_type 'fabric' (check mode)
+    - name: Delete a MACsec policy with name (check mode)
       cisco.mso.ndo_mac_sec_policy: &delete_mac_sec_policy
         <<: *mso_info
         template: ansible_fabric_policy_template
-        mac_sec_policy: ansible_mac_sec_policy_changed
+        mac_sec_policy: ansible_mac_sec_policy_2
         state: absent
       check_mode: true
       register: cm_delete_mac_sec_policy
 
-    - name: Delete a MACsec policy of interface_type 'fabric'
+    - name: Delete a MACsec policy with name
       cisco.mso.ndo_mac_sec_policy:
         <<: *delete_mac_sec_policy
       register: nm_delete_mac_sec_policy
 
-    - name: Delete MACsec policy of interface_type 'fabric' again
+    - name: Delete a MACsec policy with name again
       cisco.mso.ndo_mac_sec_policy:
         <<: *delete_mac_sec_policy
       register: nm_delete_mac_sec_policy_again
@@ -351,3 +377,26 @@
           - cm_delete_mac_sec_policy is changed
           - nm_delete_mac_sec_policy is changed
           - nm_delete_mac_sec_policy_again is not changed
+          - nm_delete_mac_sec_policy.previous.name == 'ansible_mac_sec_policy_2'
+          - nm_delete_mac_sec_policy.current == {}
+          - nm_delete_mac_sec_policy_again.current == nm_delete_mac_sec_policy_again.previous == {}
+
+    - name: Delete a MACSec policy with UUID
+      cisco.mso.ndo_mac_sec_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        mac_sec_policy_uuid: '{{ nm_update_mac_sec_policy_uuid.current.uuid }}'
+        state: absent
+      register: delete_mac_sec_policy_uuid
+
+    - name: Assert that the MACsec policy was deleted using UUID
+      assert:
+        that:
+          - delete_mac_sec_policy_uuid is changed
+          - delete_mac_sec_policy_uuid.previous.name == 'ansible_mac_sec_policy_changed'
+          - delete_mac_sec_policy_uuid.current == {}
+
+    # CLEANUP
+    - name: Remove fabric template
+      cisco.mso.ndo_template:
+        <<: *template_absent

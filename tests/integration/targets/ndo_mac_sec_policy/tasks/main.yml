@@ -122,7 +122,7 @@
 
     # UPDATE
 
-    # Only one mac_sec_key can be added during creation
+    # Only one mac_sec_keys can be added during creation
     - name: Create another MACsec policy of interface_type 'access'
       cisco.mso.ndo_mac_sec_policy: &add_mac_sec_policy_2
         <<: *mso_info
@@ -137,7 +137,7 @@
         confidentiality_offset: 50
         key_server_priority: 11
         interface_type: access
-        mac_sec_key:
+        mac_sec_keys:
           - key_name: abc12
             psk: 'AA111111111111111111111111111111111111111111111111111111111111aa'
             start_time: '2029-12-11 11:12:13'
@@ -158,7 +158,7 @@
         sak_expiry_time: 100
         confidentiality_offset: 30
         key_server_priority: 10
-        mac_sec_key:
+        mac_sec_keys:
           - key_name: abc12
             psk: 'AAabcdabcdabcdabcdabcdabcdabcdab'
             start_time: '2029-12-11 11:12:13'
@@ -256,14 +256,14 @@
           - nm_update_mac_sec_policy_uuid.previous.uuid == nm_update_mac_sec_policy_uuid.current.uuid
           - nm_update_mac_sec_policy_uuid.current.uuid is defined
 
-    - name: Update the MACsec policy by removing the mac_sec_key
+    - name: Update the MACsec policy by removing the mac_sec_keys
       cisco.mso.ndo_mac_sec_policy:
         <<: *update_mac_sec_policy
-        mac_sec_key: []
+        mac_sec_keys: []
         state: present
       register: rm_update_mac_sec_policy_key
 
-    - name: Assert that the MACsec policy was updated by removing the mac_sec_key
+    - name: Assert that the MACsec policy was updated by removing the mac_sec_keys
       assert:
         that:
           - rm_update_mac_sec_policy_key is changed
@@ -336,7 +336,7 @@
         mac_sec_policy: ansible_mac_sec_policy_2
         description: 'Ansible MACsec Policy description'
         interface_type: access
-        mac_sec_key:
+        mac_sec_keys:
           - key_name: abc12
             psk: 'AA111111111111111111111111111111111111111111111111111111111111aa'
             start_time: 'wrong-time 11:12:13'

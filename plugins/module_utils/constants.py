@@ -25,8 +25,17 @@ NDO_4_UNIQUE_IDENTIFIERS = ["templateID", "autoRouteTargetImport", "autoRouteTar
 NDO_API_VERSION_FORMAT = "/mso/api/{api_version}"
 NDO_API_VERSION_PATH_FORMAT = "/mso/api/{api_version}/{path}"
 
-NDO_CIPHER_SUITE_MAP = {"128_gcm_aes": "128GcmAes", "128_gcm_aes_xpn": "128GcmAesXpn", "256_gcm_aes": "256GcmAes", "256_gcm_aes_xpn": "256GcmAesXpn"}
-NDO_SECURITY_POLICY_MAP = {"should_secure": "shouldSecure", "must_secure": "mustSecure"}
+NDO_CIPHER_SUITE_MAP = {
+    "128_gcm_aes": "128GcmAes",
+    "128_gcm_aes_xpn": "128GcmAesXpn",
+    "256_gcm_aes": "256GcmAes",
+    "256_gcm_aes_xpn": "256GcmAesXpn",
+}
+
+NDO_SECURITY_POLICY_MAP = {
+    "should_secure": "shouldSecure",
+    "must_secure": "mustSecure",
+}
 
 EPG_U_SEG_ATTR_TYPE_MAP = {
     "ip": "ip",

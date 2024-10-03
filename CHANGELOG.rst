@@ -6,6 +6,23 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.10.0
+=======
+
+Release Summary
+---------------
+
+Release v2.10.0 of the ``ansible-mso`` collection on 2024-10-03.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.9.0.
+
+Minor Changes
+-------------
+
+- Added ndo_l3out_annotation module to manage L3Out annotations
+- Added ndo_l3out_template module and test file
+- Added new module ndo_synce_interface_policy (#521)
+- Fixed ndo_l3out_template module doc string
+
 v2.9.0
 ======
 

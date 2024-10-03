@@ -1,0 +1,731 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    - name: Ensure sites exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: "{{ item.site }}"
+        apic_username: "{{ apic_username }}"
+        apic_password: "{{ apic_password }}"
+        apic_site_id: "{{ item.apic_site_id }}"
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+      loop:
+        - { site: "ansible_test", apic_site_id: 101 }
+        - { site: "ansible_test_2", apic_site_id: 102 }
+
+    - name: Ensure tenants exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: "{{ item }}"
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+          - ansible_test_2
+        state: present
+      loop:
+        - ansible_test
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: '{{ ansible_tenant_template | default("ansible_test") }}'
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+
+    # Test Part
+    - name: Query all L3Out Node Routing Policy when it is empty
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        state: query
+      register: query_all_with_empty_template
+
+    - name: Assertion check for query all L3Out Node Routing Policy when it is empty
+      ansible.builtin.assert:
+        that:
+          - query_all_with_empty_template is not changed
+          - query_all_with_empty_template.current == {}
+
+    - name: Create a new L3Out Node Routing Policy with default values - check_mode
+      cisco.mso.ndo_l3out_node_routing_policy: &cm_nrp_1_present
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nrp_1
+        bfd_multi_hop_settings:
+          state: enabled
+        bgp_node_settings:
+          state: enabled
+        state: present
+        output_level: debug
+      check_mode: true
+      register: cm_nrp_1_present
+
+    - name: Assertion check for create a new L3Out Node Routing Policy with default values - check_mode
+      ansible.builtin.assert:
+        that:
+          - cm_nrp_1_present is changed
+          - cm_nrp_1_present.current.bfdMultiHopPol == {}
+          - cm_nrp_1_present.current.bgpTimerPol == {}
+          - cm_nrp_1_present.current.name == "nrp_1"
+          - cm_nrp_1_present.previous == {}
+          - cm_nrp_1_present.proposed.bfdMultiHopPol == {}
+          - cm_nrp_1_present.proposed.bgpTimerPol == {}
+          - cm_nrp_1_present.proposed.name == "nrp_1"
+
+    - name: Create a new L3Out Node Routing Policy with default values - normal_mode
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *cm_nrp_1_present
+      register: nm_nrp_1_present
+
+    - name: Assertion check for create a new L3Out Node Routing Policy with default values - normal_mode
+      ansible.builtin.assert:
+        that:
+          - nm_nrp_1_present is changed
+          - nm_nrp_1_present.current.bfdMultiHopPol.adminState == "enabled"
+          - nm_nrp_1_present.current.bfdMultiHopPol.detectionMultiplier == 3
+          - nm_nrp_1_present.current.bfdMultiHopPol.minRxInterval == 250
+          - nm_nrp_1_present.current.bfdMultiHopPol.minTxInterval == 250
+          - nm_nrp_1_present.current.bgpTimerPol.gracefulRestartHelper == true
+          - nm_nrp_1_present.current.bgpTimerPol.holdInterval == 180
+          - nm_nrp_1_present.current.bgpTimerPol.keepAliveInterval == 60
+          - nm_nrp_1_present.current.bgpTimerPol.maxAslimit == 0
+          - nm_nrp_1_present.current.bgpTimerPol.staleInterval == 300
+          - nm_nrp_1_present.current.name == "nrp_1"
+          - nm_nrp_1_present.current.uuid is defined
+          - nm_nrp_1_present.previous == {}
+          - nm_nrp_1_present.proposed.bfdMultiHopPol == {}
+          - nm_nrp_1_present.proposed.bgpTimerPol == {}
+          - nm_nrp_1_present.proposed.name == "nrp_1"
+
+    - name: Create a new L3Out Node Routing Policy with default values - normal_mode again
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *cm_nrp_1_present
+      register: nm_nrp_1_present_again
+
+    - name: Assertion check for create a new L3Out Node Routing Policy with default values - normal_mode again
+      ansible.builtin.assert:
+        that:
+          - nm_nrp_1_present_again is not changed
+          - nm_nrp_1_present_again.current.bfdMultiHopPol.adminState == "enabled"
+          - nm_nrp_1_present_again.current.bfdMultiHopPol.detectionMultiplier == 3
+          - nm_nrp_1_present_again.current.bfdMultiHopPol.minRxInterval == 250
+          - nm_nrp_1_present_again.current.bfdMultiHopPol.minTxInterval == 250
+          - nm_nrp_1_present_again.current.bgpTimerPol.gracefulRestartHelper == true
+          - nm_nrp_1_present_again.current.bgpTimerPol.holdInterval == 180
+          - nm_nrp_1_present_again.current.bgpTimerPol.keepAliveInterval == 60
+          - nm_nrp_1_present_again.current.bgpTimerPol.maxAslimit == 0
+          - nm_nrp_1_present_again.current.bgpTimerPol.staleInterval == 300
+          - nm_nrp_1_present_again.current.name == "nrp_1"
+          - nm_nrp_1_present_again.current.uuid is defined
+          - nm_nrp_1_present_again.previous.bfdMultiHopPol.adminState == "enabled"
+          - nm_nrp_1_present_again.previous.bfdMultiHopPol.detectionMultiplier == 3
+          - nm_nrp_1_present_again.previous.bfdMultiHopPol.minRxInterval == 250
+          - nm_nrp_1_present_again.previous.bfdMultiHopPol.minTxInterval == 250
+          - nm_nrp_1_present_again.previous.bgpTimerPol.gracefulRestartHelper == true
+          - nm_nrp_1_present_again.previous.bgpTimerPol.holdInterval == 180
+          - nm_nrp_1_present_again.previous.bgpTimerPol.keepAliveInterval == 60
+          - nm_nrp_1_present_again.previous.bgpTimerPol.maxAslimit == 0
+          - nm_nrp_1_present_again.previous.bgpTimerPol.staleInterval == 300
+          - nm_nrp_1_present_again.previous.name == "nrp_1"
+          - nm_nrp_1_present_again.previous.uuid is defined
+
+    - name: Update nrp_1 L3Out Node Routing Policy - check_mode
+      cisco.mso.ndo_l3out_node_routing_policy: &cm_nrp_1_update
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        uuid: "{{ nm_nrp_1_present_again.current.uuid }}"
+        name: nrp_1_update
+        description: Updated
+        bfd_multi_hop_settings:
+          admin_state: disabled
+          detection_multiplier: 10
+          min_receive_interval: 450
+          min_transmit_interval: 550
+        bgp_node_settings:
+          graceful_restart_helper: disabled
+          keep_alive_interval: 15
+          hold_interval: 115
+          stale_interval: 215
+          max_as_limit: 25
+        as_path_multipath_relax: enabled
+        state: present
+        output_level: debug
+      check_mode: true
+      register: cm_nrp_1_update
+
+    - name: Assertion check for update nrp_1 L3Out Node Routing Policy - check_mode
+      ansible.builtin.assert:
+        that:
+          - cm_nrp_1_update is changed
+          - cm_nrp_1_update.current.asPathPol.asPathMultipathRelax == true
+          - cm_nrp_1_update.current.bfdMultiHopPol.adminState == "disabled"
+          - cm_nrp_1_update.current.bfdMultiHopPol.detectionMultiplier == 10
+          - cm_nrp_1_update.current.bfdMultiHopPol.minRxInterval == 450
+          - cm_nrp_1_update.current.bfdMultiHopPol.minTxInterval == 550
+          - cm_nrp_1_update.current.bgpTimerPol.gracefulRestartHelper == true
+          - cm_nrp_1_update.current.bgpTimerPol.holdInterval == 115
+          - cm_nrp_1_update.current.bgpTimerPol.keepAliveInterval == 15
+          - cm_nrp_1_update.current.bgpTimerPol.maxAslimit == 25
+          - cm_nrp_1_update.current.bgpTimerPol.staleInterval == 215
+          - cm_nrp_1_update.current.description == "Updated"
+          - cm_nrp_1_update.current.name == "nrp_1_update"
+          - cm_nrp_1_update.current.uuid is defined
+          - cm_nrp_1_update.previous.bfdMultiHopPol.adminState == "enabled"
+          - cm_nrp_1_update.previous.bfdMultiHopPol.detectionMultiplier == 3
+          - cm_nrp_1_update.previous.bfdMultiHopPol.minRxInterval == 250
+          - cm_nrp_1_update.previous.bfdMultiHopPol.minTxInterval == 250
+          - cm_nrp_1_update.previous.bgpTimerPol.gracefulRestartHelper == true
+          - cm_nrp_1_update.previous.bgpTimerPol.holdInterval == 180
+          - cm_nrp_1_update.previous.bgpTimerPol.keepAliveInterval == 60
+          - cm_nrp_1_update.previous.bgpTimerPol.maxAslimit == 0
+          - cm_nrp_1_update.previous.bgpTimerPol.staleInterval == 300
+          - cm_nrp_1_update.previous.name == "nrp_1"
+          - cm_nrp_1_update.previous.uuid is defined
+          - cm_nrp_1_update.proposed.asPathPol.asPathMultipathRelax == true
+          - cm_nrp_1_update.proposed.bfdMultiHopPol.adminState == "disabled"
+          - cm_nrp_1_update.proposed.bfdMultiHopPol.detectionMultiplier == 10
+          - cm_nrp_1_update.proposed.bfdMultiHopPol.minRxInterval == 450
+          - cm_nrp_1_update.proposed.bfdMultiHopPol.minTxInterval == 550
+          - cm_nrp_1_update.proposed.bgpTimerPol.gracefulRestartHelper == true
+          - cm_nrp_1_update.proposed.bgpTimerPol.holdInterval == 115
+          - cm_nrp_1_update.proposed.bgpTimerPol.keepAliveInterval == 15
+          - cm_nrp_1_update.proposed.bgpTimerPol.maxAslimit == 25
+          - cm_nrp_1_update.proposed.bgpTimerPol.staleInterval == 215
+          - cm_nrp_1_update.proposed.description == "Updated"
+          - cm_nrp_1_update.proposed.name == "nrp_1_update"
+          - cm_nrp_1_update.proposed.uuid is defined
+
+    - name: Update nrp_1 L3Out Node Routing Policy - normal_mode
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *cm_nrp_1_update
+      register: nm_nrp_1_update
+
+    - name: Assertion check for update nrp_1 L3Out Node Routing Policy - normal_mode
+      ansible.builtin.assert:
+        that:
+          - nm_nrp_1_update is changed
+          - nm_nrp_1_update.current.asPathPol.asPathMultipathRelax == true
+          - nm_nrp_1_update.current.bfdMultiHopPol.adminState == "disabled"
+          - nm_nrp_1_update.current.bfdMultiHopPol.detectionMultiplier == 10
+          - nm_nrp_1_update.current.bfdMultiHopPol.minRxInterval == 450
+          - nm_nrp_1_update.current.bfdMultiHopPol.minTxInterval == 550
+          - nm_nrp_1_update.current.bgpTimerPol.gracefulRestartHelper == true
+          - nm_nrp_1_update.current.bgpTimerPol.holdInterval == 115
+          - nm_nrp_1_update.current.bgpTimerPol.keepAliveInterval == 15
+          - nm_nrp_1_update.current.bgpTimerPol.maxAslimit == 25
+          - nm_nrp_1_update.current.bgpTimerPol.staleInterval == 215
+          - nm_nrp_1_update.current.description == "Updated"
+          - nm_nrp_1_update.current.name == "nrp_1_update"
+          - nm_nrp_1_update.current.uuid is defined
+          - nm_nrp_1_update.previous.bfdMultiHopPol.adminState == "enabled"
+          - nm_nrp_1_update.previous.bfdMultiHopPol.detectionMultiplier == 3
+          - nm_nrp_1_update.previous.bfdMultiHopPol.minRxInterval == 250
+          - nm_nrp_1_update.previous.bfdMultiHopPol.minTxInterval == 250
+          - nm_nrp_1_update.previous.bgpTimerPol.gracefulRestartHelper == true
+          - nm_nrp_1_update.previous.bgpTimerPol.holdInterval == 180
+          - nm_nrp_1_update.previous.bgpTimerPol.keepAliveInterval == 60
+          - nm_nrp_1_update.previous.bgpTimerPol.maxAslimit == 0
+          - nm_nrp_1_update.previous.bgpTimerPol.staleInterval == 300
+          - nm_nrp_1_update.previous.name == "nrp_1"
+          - nm_nrp_1_update.previous.uuid is defined
+          - nm_nrp_1_update.proposed.asPathPol.asPathMultipathRelax == true
+          - nm_nrp_1_update.proposed.bfdMultiHopPol.adminState == "disabled"
+          - nm_nrp_1_update.proposed.bfdMultiHopPol.detectionMultiplier == 10
+          - nm_nrp_1_update.proposed.bfdMultiHopPol.minRxInterval == 450
+          - nm_nrp_1_update.proposed.bfdMultiHopPol.minTxInterval == 550
+          - nm_nrp_1_update.proposed.bgpTimerPol.gracefulRestartHelper == true
+          - nm_nrp_1_update.proposed.bgpTimerPol.holdInterval == 115
+          - nm_nrp_1_update.proposed.bgpTimerPol.keepAliveInterval == 15
+          - nm_nrp_1_update.proposed.bgpTimerPol.maxAslimit == 25
+          - nm_nrp_1_update.proposed.bgpTimerPol.staleInterval == 215
+          - nm_nrp_1_update.proposed.description == "Updated"
+          - nm_nrp_1_update.proposed.name == "nrp_1_update"
+          - nm_nrp_1_update.proposed.uuid is defined
+
+    - name: Update nrp_1 L3Out Node Routing Policy - normal_mode again
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *cm_nrp_1_update
+      register: nm_nrp_1_update_again
+
+    - name: Assertion check for update nrp_1 L3Out Node Routing Policy - normal_mode again
+      ansible.builtin.assert:
+        that:
+          - nm_nrp_1_update_again is not changed
+          - nm_nrp_1_update_again.current.asPathPol.asPathMultipathRelax == true
+          - nm_nrp_1_update_again.current.bfdMultiHopPol.adminState == "disabled"
+          - nm_nrp_1_update_again.current.bfdMultiHopPol.detectionMultiplier == 10
+          - nm_nrp_1_update_again.current.bfdMultiHopPol.minRxInterval == 450
+          - nm_nrp_1_update_again.current.bfdMultiHopPol.minTxInterval == 550
+          - nm_nrp_1_update_again.current.bgpTimerPol.gracefulRestartHelper == true
+          - nm_nrp_1_update_again.current.bgpTimerPol.holdInterval == 115
+          - nm_nrp_1_update_again.current.bgpTimerPol.keepAliveInterval == 15
+          - nm_nrp_1_update_again.current.bgpTimerPol.maxAslimit == 25
+          - nm_nrp_1_update_again.current.bgpTimerPol.staleInterval == 215
+          - nm_nrp_1_update_again.current.description == "Updated"
+          - nm_nrp_1_update_again.current.name == "nrp_1_update"
+          - nm_nrp_1_update_again.current.uuid is defined
+          - nm_nrp_1_update_again.previous.asPathPol.asPathMultipathRelax == true
+          - nm_nrp_1_update_again.previous.bfdMultiHopPol.adminState == "disabled"
+          - nm_nrp_1_update_again.previous.bfdMultiHopPol.detectionMultiplier == 10
+          - nm_nrp_1_update_again.previous.bfdMultiHopPol.minRxInterval == 450
+          - nm_nrp_1_update_again.previous.bfdMultiHopPol.minTxInterval == 550
+          - nm_nrp_1_update_again.previous.bgpTimerPol.gracefulRestartHelper == true
+          - nm_nrp_1_update_again.previous.bgpTimerPol.holdInterval == 115
+          - nm_nrp_1_update_again.previous.bgpTimerPol.keepAliveInterval == 15
+          - nm_nrp_1_update_again.previous.bgpTimerPol.maxAslimit == 25
+          - nm_nrp_1_update_again.previous.bgpTimerPol.staleInterval == 215
+          - nm_nrp_1_update_again.previous.description == "Updated"
+          - nm_nrp_1_update_again.previous.name == "nrp_1_update"
+          - nm_nrp_1_update_again.previous.uuid is defined
+
+    - name: Create nrp_2 L3Out Node Routing Policy
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nrp_2
+        description: Created
+        as_path_multipath_relax: enabled
+        state: present
+      register: nm_nrp_2_present
+
+    - name: Assertion check for create nrp_2 L3Out Node Routing Policy
+      ansible.builtin.assert:
+        that:
+          - nm_nrp_2_present is changed
+          - nm_nrp_2_present.current.asPathPol.asPathMultipathRelax == true
+          - nm_nrp_2_present.current.description == "Created"
+          - nm_nrp_2_present.current.name == "nrp_2"
+          - nm_nrp_2_present.current.uuid is defined
+          - nm_nrp_2_present.previous == {}
+
+    - name: Update nrp_2 L3Out Node Routing Policy bfd_multi_hop_settings and bgp_node_settings
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nrp_2
+        description: Created
+        bfd_multi_hop_settings:
+          admin_state: enabled
+          detection_multiplier: 10
+          min_receive_interval: 450
+          min_transmit_interval: 550
+        bgp_node_settings:
+          graceful_restart_helper: enabled
+          keep_alive_interval: 15
+          hold_interval: 115
+          stale_interval: 215
+          max_as_limit: 25
+        as_path_multipath_relax: enabled
+        state: present
+      register: nm_nrp_2_update
+
+    - name: Assertion check for update nrp_2 L3Out Node Routing Policy bfd_multi_hop_settings and bgp_node_settings
+      ansible.builtin.assert:
+        that:
+          - nm_nrp_2_update is changed
+          - nm_nrp_2_update.current.asPathPol.asPathMultipathRelax == true
+          - nm_nrp_2_update.current.bfdMultiHopPol.adminState == "enabled"
+          - nm_nrp_2_update.current.bfdMultiHopPol.detectionMultiplier == 10
+          - nm_nrp_2_update.current.bfdMultiHopPol.minRxInterval == 450
+          - nm_nrp_2_update.current.bfdMultiHopPol.minTxInterval == 550
+          - nm_nrp_2_update.current.bgpTimerPol.gracefulRestartHelper == true
+          - nm_nrp_2_update.current.bgpTimerPol.holdInterval == 115
+          - nm_nrp_2_update.current.bgpTimerPol.keepAliveInterval == 15
+          - nm_nrp_2_update.current.bgpTimerPol.maxAslimit == 25
+          - nm_nrp_2_update.current.bgpTimerPol.staleInterval == 215
+          - nm_nrp_2_update.current.description == "Created"
+          - nm_nrp_2_update.current.name == "nrp_2"
+          - nm_nrp_2_update.current.uuid is defined
+          - nm_nrp_2_update.previous.asPathPol.asPathMultipathRelax == true
+          - nm_nrp_2_update.previous.description == "Created"
+          - nm_nrp_2_update.previous.name == "nrp_2"
+          - nm_nrp_2_update.previous.uuid is defined
+
+    - name: Create nrp_3 L3Out Node Routing Policy with bfd_multi_hop_settings and bgp_node_settings
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nrp_3
+        description: Created
+        bfd_multi_hop_settings:
+          admin_state: enabled
+          detection_multiplier: 10
+          min_receive_interval: 450
+          min_transmit_interval: 550
+        bgp_node_settings:
+          graceful_restart_helper: enabled
+          keep_alive_interval: 15
+          hold_interval: 115
+          stale_interval: 215
+          max_as_limit: 25
+        state: present
+      register: nm_nrp_3_create
+
+    - name: Assertion check for create nrp_3 L3Out Node Routing Policy with bfd_multi_hop_settings and bgp_node_settings
+      ansible.builtin.assert:
+        that:
+          - nm_nrp_3_create is changed
+          - nm_nrp_3_create.current.bfdMultiHopPol.adminState == "enabled"
+          - nm_nrp_3_create.current.bfdMultiHopPol.detectionMultiplier == 10
+          - nm_nrp_3_create.current.bfdMultiHopPol.minRxInterval == 450
+          - nm_nrp_3_create.current.bfdMultiHopPol.minTxInterval == 550
+          - nm_nrp_3_create.current.description == "Created"
+          - nm_nrp_3_create.current.name == "nrp_3"
+          - nm_nrp_3_create.current.uuid is defined
+          - nm_nrp_3_create.previous == {}
+
+    - name: Query L3Out Node Routing Policy with name
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        name: nrp_1_update
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        state: query
+      register: query_with_name
+
+    - name: Assertion check for query L3Out Node Routing Policy with name
+      ansible.builtin.assert:
+        that:
+          - query_with_name is not changed
+          - query_with_name.current.asPathPol.asPathMultipathRelax == true
+          - query_with_name.current.bfdMultiHopPol.adminState == "disabled"
+          - query_with_name.current.bfdMultiHopPol.detectionMultiplier == 10
+          - query_with_name.current.bfdMultiHopPol.minRxInterval == 450
+          - query_with_name.current.bfdMultiHopPol.minTxInterval == 550
+          - query_with_name.current.bgpTimerPol.gracefulRestartHelper == true
+          - query_with_name.current.bgpTimerPol.holdInterval == 115
+          - query_with_name.current.bgpTimerPol.keepAliveInterval == 15
+          - query_with_name.current.bgpTimerPol.maxAslimit == 25
+          - query_with_name.current.bgpTimerPol.staleInterval == 215
+          - query_with_name.current.description == "Updated"
+          - query_with_name.current.name == "nrp_1_update"
+          - query_with_name.current.uuid is defined
+
+    - name: Query L3Out Node Routing Policy with uuid
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        uuid: "{{ query_with_name.current.uuid }}"
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        state: query
+      register: query_with_uuid
+
+    - name: Assertion check for query L3Out Node Routing Policy with uuid
+      ansible.builtin.assert:
+        that:
+          - query_with_uuid is not changed
+          - query_with_uuid.current.asPathPol.asPathMultipathRelax == true
+          - query_with_uuid.current.bfdMultiHopPol.adminState == "disabled"
+          - query_with_uuid.current.bfdMultiHopPol.detectionMultiplier == 10
+          - query_with_uuid.current.bfdMultiHopPol.minRxInterval == 450
+          - query_with_uuid.current.bfdMultiHopPol.minTxInterval == 550
+          - query_with_uuid.current.bgpTimerPol.gracefulRestartHelper == true
+          - query_with_uuid.current.bgpTimerPol.holdInterval == 115
+          - query_with_uuid.current.bgpTimerPol.keepAliveInterval == 15
+          - query_with_uuid.current.bgpTimerPol.maxAslimit == 25
+          - query_with_uuid.current.bgpTimerPol.staleInterval == 215
+          - query_with_uuid.current.description == "Updated"
+          - query_with_uuid.current.name == "nrp_1_update"
+          - query_with_uuid.current.uuid is defined
+
+    - name: Query all L3Out Node Routing Policy
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        state: query
+      register: query_all
+
+    - name: Assertion check for query all L3Out Node Routing Policy
+      ansible.builtin.assert:
+        that:
+          - query_all is not changed
+          - query_all.current | length == 3
+
+    - name: Clear nrp_1_update L3Out Node Routing Policy bfd_multi_hop_settings with uuid
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        uuid: "{{ nm_nrp_1_present_again.current.uuid }}"
+        bfd_multi_hop_settings:
+          state: disabled
+        state: present
+      register: clear_bfd_settings
+
+    - name: Assertion check for clear nrp_1_update L3Out Node Routing Policy bfd_multi_hop_settings with uuid
+      ansible.builtin.assert:
+        that:
+          - clear_bfd_settings is changed
+          - clear_bfd_settings.current.asPathPol.asPathMultipathRelax == true
+          - clear_bfd_settings.current.bgpTimerPol.gracefulRestartHelper == true
+          - clear_bfd_settings.current.bgpTimerPol.holdInterval == 115
+          - clear_bfd_settings.current.bgpTimerPol.keepAliveInterval == 15
+          - clear_bfd_settings.current.bgpTimerPol.maxAslimit == 25
+          - clear_bfd_settings.current.bgpTimerPol.staleInterval == 215
+          - clear_bfd_settings.current.bfdMultiHopPol is not defined
+          - clear_bfd_settings.current.description == "Updated"
+          - clear_bfd_settings.current.name == "nrp_1_update"
+          - clear_bfd_settings.current.uuid is defined
+          - clear_bfd_settings.previous.asPathPol.asPathMultipathRelax == true
+          - clear_bfd_settings.previous.bfdMultiHopPol.adminState == "disabled"
+          - clear_bfd_settings.previous.bfdMultiHopPol.detectionMultiplier == 10
+          - clear_bfd_settings.previous.bfdMultiHopPol.minRxInterval == 450
+          - clear_bfd_settings.previous.bfdMultiHopPol.minTxInterval == 550
+          - clear_bfd_settings.previous.bgpTimerPol.gracefulRestartHelper == true
+          - clear_bfd_settings.previous.bgpTimerPol.holdInterval == 115
+          - clear_bfd_settings.previous.bgpTimerPol.keepAliveInterval == 15
+          - clear_bfd_settings.previous.bgpTimerPol.maxAslimit == 25
+          - clear_bfd_settings.previous.bgpTimerPol.staleInterval == 215
+          - clear_bfd_settings.previous.description == "Updated"
+          - clear_bfd_settings.previous.name == "nrp_1_update"
+          - clear_bfd_settings.previous.uuid is defined
+
+    - name: Clear nrp_1_update L3Out Node Routing Policy bgp_node_settings with uuid
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        uuid: "{{ nm_nrp_1_present_again.current.uuid }}"
+        bgp_node_settings:
+          state: disabled
+        state: present
+      register: clear_bgp_settings
+
+    - name: Assertion check for clear nrp_1_update L3Out Node Routing Policy bgp_node_settings with uuid
+      ansible.builtin.assert:
+        that:
+          - clear_bgp_settings is changed
+          - clear_bgp_settings.current.asPathPol.asPathMultipathRelax == true
+          - clear_bgp_settings.current.bgpTimerPol is not defined
+          - clear_bgp_settings.current.description == "Updated"
+          - clear_bgp_settings.current.name == "nrp_1_update"
+          - clear_bgp_settings.current.uuid is defined
+          - clear_bgp_settings.previous.asPathPol.asPathMultipathRelax == true
+          - clear_bgp_settings.previous.bgpTimerPol.gracefulRestartHelper == true
+          - clear_bgp_settings.previous.bgpTimerPol.holdInterval == 115
+          - clear_bgp_settings.previous.bgpTimerPol.keepAliveInterval == 15
+          - clear_bgp_settings.previous.bgpTimerPol.maxAslimit == 25
+          - clear_bgp_settings.previous.bgpTimerPol.staleInterval == 215
+          - clear_bgp_settings.previous.description == "Updated"
+          - clear_bgp_settings.previous.name == "nrp_1_update"
+          - clear_bgp_settings.previous.uuid is defined
+
+    - name: Create nrp_4 L3Out Node Routing Policy with as_path_multipath_relax
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nrp_4
+        as_path_multipath_relax: enabled
+        state: present
+      register: nrp_4_create
+
+    - name: Assertion check for create nrp_4 L3Out Node Routing Policy with as_path_multipath_relax
+      ansible.builtin.assert:
+        that:
+          - nrp_4_create is changed
+          - nrp_4_create.current.asPathPol.asPathMultipathRelax == true
+          - nrp_4_create.current.name == "nrp_4"
+          - nrp_4_create.current.uuid is defined
+          - nrp_4_create.previous == {}
+
+    - name: Clear as_path_multipath_relax from nrp_4 L3Out Node Routing Policy
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nrp_4
+        as_path_multipath_relax: ""
+        bgp_node_settings:
+          state: enabled
+        state: present
+      register: nrp_4_update
+
+    - name: Assertion check for clear as_path_multipath_relax from nrp_4 L3Out Node Routing Policy
+      ansible.builtin.assert:
+        that:
+          - nrp_4_update is changed
+          - nrp_4_update.current.asPathPol is not defined
+          - nrp_4_update.current.bgpTimerPol.gracefulRestartHelper == true
+          - nrp_4_update.current.bgpTimerPol.holdInterval == 180
+          - nrp_4_update.current.bgpTimerPol.keepAliveInterval == 60
+          - nrp_4_update.current.bgpTimerPol.maxAslimit == 0
+          - nrp_4_update.current.bgpTimerPol.staleInterval == 300
+          - nrp_4_update.current.name == "nrp_4"
+          - nrp_4_update.current.uuid is defined
+          - nrp_4_update.previous.asPathPol.asPathMultipathRelax == true
+          - nrp_4_update.previous.name == "nrp_4"
+          - nrp_4_update.previous.uuid is defined
+
+    - name: Query L3Out Node Routing Policy with name
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        name: nrp_4
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        state: query
+      register: query_nrp_4_update
+
+    - name: Assertion check for query L3Out Node Routing Policy with name
+      ansible.builtin.assert:
+        that:
+          - query_nrp_4_update is not changed
+          - query_nrp_4_update.current.bgpTimerPol.gracefulRestartHelper == true
+          - query_nrp_4_update.current.bgpTimerPol.holdInterval == 180
+          - query_nrp_4_update.current.bgpTimerPol.keepAliveInterval == 60
+          - query_nrp_4_update.current.bgpTimerPol.maxAslimit == 0
+          - query_nrp_4_update.current.bgpTimerPol.staleInterval == 300
+          - query_nrp_4_update.current.name == "nrp_4"
+          - query_nrp_4_update.current.uuid is defined
+
+    # Negative test begins
+    - name: Clear nrp_1_update L3Out Node Routing Policy bfd_multi_hop_settings, bgp_node_settings and as_path_multipath_relax using name (Negative test)
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nrp_1_update
+        bfd_multi_hop_settings:
+          state: disabled
+        bgp_node_settings:
+          state: disabled
+        as_path_multipath_relax: ""
+        state: present
+      register: nt_clear_all_settings
+      ignore_errors: true
+
+    - name: Assertion check for clear nrp_1_update L3Out Node Routing Policy bfd_multi_hop_settings, bgp_node_settings and as_path_multipath_relax using name (Negative test)
+      ansible.builtin.assert:
+        that:
+          - nt_clear_all_settings is not changed
+          - nt_clear_all_settings.msg == "MSO Error 400{{':'}} Invalid configuration for L3Out Node Routing Policy 'nrp_1_update'{{':'}} At least 1 policy must be configured"
+
+    - name: Create a new L3Out Node Routing Policy with only name (Negative test)
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nrp_nt_1
+        state: present
+      register: nrp_nt_1
+      ignore_errors: true
+
+    - name: Assertion check for create a new L3Out Node Routing Policy with only name (Negative test)
+      ansible.builtin.assert:
+        that:
+          - nrp_nt_1 is not changed
+          - nrp_nt_1.current == {}
+          - nrp_nt_1.msg == "At least one of the following attributes must be specified when creating L3Out Node Routing Policy{{':'}} 'bfd_multi_hop_settings', 'bgp_node_settings', or 'as_path_multipath_relax'."
+          - nrp_nt_1.previous == {}
+
+    - name: Query L3Out Node Routing Policy with invalid name
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        name: invalid_nrp_1
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        state: query
+      register: query_with_invalid_name
+      ignore_errors: true
+
+    - name: Assertion check for query L3Out Node Routing Policy with invalid name
+      ansible.builtin.assert:
+        that:
+          - query_with_invalid_name is not changed
+          - query_with_invalid_name.current == {}
+
+    - name: Query L3Out Node Routing Policy with invalid uuid
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        uuid: "xyz"
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        state: query
+      register: query_with_invalid_uuid
+      ignore_errors: true
+
+    - name: Assertion check for query L3Out Node Routing Policy with invalid uuid
+      ansible.builtin.assert:
+        that:
+          - query_with_invalid_uuid is not changed
+          - query_with_invalid_uuid.current == {}
+    # Negative test ends
+
+    - name: Remove L3Out Node Routing Policy with name - check_mode
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nrp_1_update
+        state: absent
+        output_level: debug
+      check_mode: true
+      register: cm_rm_with_name
+
+    - name: Assertion check for remove L3Out Node Routing Policy with name - check_mode
+      ansible.builtin.assert:
+        that:
+          - cm_rm_with_name is changed
+          - cm_rm_with_name.current == {}
+          - cm_rm_with_name.previous != {}
+
+    - name: Remove L3Out Node Routing Policy with name - normal_mode
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nrp_1_update
+        state: absent
+      register: nm_rm_with_name
+
+    - name: Assertion check for remove L3Out Node Routing Policy with name - normal_mode
+      ansible.builtin.assert:
+        that:
+          - nm_rm_with_name is changed
+          - nm_rm_with_name.current == {}
+          - nm_rm_with_name.previous != {}
+
+    - name: Remove L3Out Node Routing Policy with name - normal_mode again
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nrp_1_update
+        state: absent
+      register: nm_rm_with_name_again
+
+    - name: Assertion check for remove L3Out Node Routing Policy with name - normal_mode again
+      ansible.builtin.assert:
+        that:
+          - nm_rm_with_name_again is not changed
+          - nm_rm_with_name_again.current == {}
+          - nm_rm_with_name_again.previous == {}
+
+    # Cleanup Part
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

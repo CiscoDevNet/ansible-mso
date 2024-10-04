@@ -676,6 +676,75 @@
         that:
           - query_with_invalid_uuid is not changed
           - query_with_invalid_uuid.current == {}
+
+    - name: Invalid value check for bfd_multi_hop_settings.detection_multiplier - $nt_detection_multiplier_min
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nt_value_check
+        bfd_multi_hop_settings:
+          detection_multiplier: -1
+        state: present
+      register: nt_detection_multiplier_min
+      ignore_errors: true
+
+    - name: Invalid value check for bfd_multi_hop_settings.detection_multiplier - $nt_detection_multiplier_max
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nt_value_check
+        bfd_multi_hop_settings:
+          detection_multiplier: 51
+        state: present
+      register: nt_detection_multiplier_max
+      ignore_errors: true
+
+    - name: Invalid value check for bfd_multi_hop_settings.keep_alive_interval - $nt_keep_alive_interval
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nt_value_check
+        bgp_node_settings:
+          keep_alive_interval: -1
+        state: present
+      register: nt_keep_alive_interval
+      ignore_errors: true
+
+    - name: Invalid value check for bfd_multi_hop_settings.hold_interval - $nt_hold_interval_min
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nt_value_check
+        bgp_node_settings:
+          hold_interval: 2
+        state: present
+      register: nt_hold_interval_min
+      ignore_errors: true
+
+    - name: Invalid value check for bfd_multi_hop_settings.hold_interval - $nt_hold_interval_max
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nt_value_check
+        bgp_node_settings:
+          hold_interval: 3601
+        state: present
+      register: nt_hold_interval_max
+      ignore_errors: true
+
+    - name: Assertion check for invalid value checks
+      ansible.builtin.assert:
+        that:
+          - nt_detection_multiplier_min is not changed
+          - nt_detection_multiplier_min.msg == "Invalid value provided for bfd_multi_hop_settings.detection_multiplier{{':'}} -1; The value must be between 1 and 50."
+          - nt_detection_multiplier_max is not changed
+          - nt_detection_multiplier_max.msg == "Invalid value provided for bfd_multi_hop_settings.detection_multiplier{{':'}} 51; The value must be between 1 and 50."
+          - nt_keep_alive_interval is not changed
+          - nt_keep_alive_interval.msg == "Invalid value provided for bgp_node_settings.keep_alive_interval{{':'}} -1; The value must be between 0 and 3600."
+          - nt_hold_interval_min is not changed
+          - nt_hold_interval_min.msg == "Invalid value provided for bgp_node_settings.hold_interval{{':'}} 2; The value must be 0 or between 3 and 3600."
+          - nt_hold_interval_max is not changed
+          - nt_hold_interval_max.msg == "Invalid value provided for bgp_node_settings.hold_interval{{':'}} 3601; The value must be 0 or between 3 and 3600."
     # Negative test ends
 
     - name: Remove L3Out Node Routing Policy with name - check_mode

@@ -135,7 +135,7 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-- name: Create a new L3Out Node Routing Policy
+- name: Create a new L3Out Node Routing Policy with empty bgp_node and bfd_multi_hop settings
   cisco.mso.ndo_l3out_node_routing_policy:
     host: mso_host
     username: admin
@@ -146,6 +146,27 @@ EXAMPLES = r"""
       state: enabled
     bgp_node_settings:
       state: enabled
+    as_path_multipath_relax: disabled
+    state: present
+
+- name: Create a new L3Out Node Routing Policy with valid bgp_node and bfd_multi_hop settings
+  cisco.mso.ndo_l3out_node_routing_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_tenant_template
+    name: nrp_2
+    bfd_multi_hop_settings:
+      admin_state: enabled
+      detection_multiplier: 10
+      min_receive_interval: 450
+      min_transmit_interval: 550
+    bgp_node_settings:
+      graceful_restart_helper: enabled
+      keep_alive_interval: 15
+      hold_interval: 115
+      stale_interval: 215
+      max_as_limit: 25
     as_path_multipath_relax: disabled
     state: present
 
@@ -207,6 +228,13 @@ def get_l3out_node_routing_policy_object(mso_template_object, uuid, name):
     return existing_l3out_node_routing_policy  # Query all objects
 
 
+def check_int_between(mso_object, attribute_name, attribute_value, min_value, max_value):
+    if attribute_value is not None and not min_value <= attribute_value <= max_value:
+        mso_object.fail_json(
+            msg="Invalid value provided for {0}: {1}; The value must be between {2} and {3}.".format(attribute_name, attribute_value, min_value, max_value)
+        )
+
+
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
@@ -258,6 +286,24 @@ def main():
     bgp_node_settings = module.params.get("bgp_node_settings")
     as_path_multipath_relax = module.params.get("as_path_multipath_relax")
     state = module.params.get("state")
+
+    if bfd_multi_hop_settings is not None:
+        check_int_between(mso, "bfd_multi_hop_settings.detection_multiplier", bfd_multi_hop_settings.get("detection_multiplier"), 1, 50)
+        check_int_between(mso, "bfd_multi_hop_settings.min_receive_interval", bfd_multi_hop_settings.get("min_receive_interval"), 250, 999)
+        check_int_between(mso, "bfd_multi_hop_settings.min_transmit_interval", bfd_multi_hop_settings.get("min_transmit_interval"), 250, 999)
+
+    if bgp_node_settings is not None:
+        check_int_between(mso, "bgp_node_settings.keep_alive_interval", bgp_node_settings.get("keep_alive_interval"), 0, 3600)
+        check_int_between(mso, "bgp_node_settings.stale_interval", bgp_node_settings.get("stale_interval"), 1, 3600)
+        check_int_between(mso, "bgp_node_settings.max_as_limit", bgp_node_settings.get("max_as_limit"), 0, 2000)
+
+        if bgp_node_settings.get("hold_interval") is not None:
+            if not (bgp_node_settings.get("hold_interval") == 0 or 3 <= bgp_node_settings.get("hold_interval") <= 3600):
+                mso.fail_json(
+                    msg="Invalid value provided for bgp_node_settings.hold_interval: {0}; The value must be 0 or between 3 and 3600.".format(
+                        bgp_node_settings.get("hold_interval")
+                    )
+                )
 
     mso_template = MSOTemplate(mso, "tenant", template)
     mso_template.validate_template("tenantPolicy")

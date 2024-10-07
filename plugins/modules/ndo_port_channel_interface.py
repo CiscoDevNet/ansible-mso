@@ -55,6 +55,7 @@ options:
         - The list of used Interface IDs.
         type: list
         elements: str
+        aliases: [ members ]
     interface_policy:
         description:
         - The name of the Port Channel Interface Setting Policy.
@@ -75,7 +76,7 @@ options:
                 description:
                 - The interface ID to which attach a description.
                 type: str
-            interface_description:
+            description:
                 description:
                 - The description of the interface.
                 type: str
@@ -292,7 +293,7 @@ def main():
                                 "description": interface.get("description"),
                             }
                             for interface in interface_descriptions
-                       ],
+                        ],
                     )
                 )
                 match.details["interfaceDescriptions"] = interface_descriptions

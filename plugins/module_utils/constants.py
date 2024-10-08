@@ -83,7 +83,7 @@ TEMPLATE_TYPES = {
         "template_type": "tenantPolicy",  # templateType in payload
         "template_type_container": "tenantPolicyTemplate",  # templateType container in payload
         "tenant": True,  # tenant required
-        "site_amount": 0,  # site amount, 0 = no sites, 1 = 1 site, 2 = multiple sites
+        "site_amount": 2,  # 1 = 1 site, 2 = multiple sites
         "template_container": True,  # configuration is set in template container in payload
     },
     "l3out": {

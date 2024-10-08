@@ -231,6 +231,9 @@
         template: ansible_tenant_policy_changed
         template_id: '{{ nm_create_new_tenant_policy_template_again.current.templateId }}'
         state: present
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: ansible_test_2
       check_mode: true
       register: cm_update_tenant_policy_template
     
@@ -306,6 +309,7 @@
           - cm_update_tenant_policy_template.current.templateType == 'tenantPolicy'
           - cm_update_tenant_policy_template.current.templateId is defined
           - cm_update_tenant_policy_template.current.tenantPolicyTemplate.template.tenantId is defined
+          - cm_update_tenant_policy_template.current.tenantPolicyTemplate.sites | length == 2
           - nm_update_tenant_policy_template is changed
           - nm_update_tenant_policy_template.previous.displayName == 'ansible_tenant_policy'
           - nm_update_tenant_policy_template.previous.templateType == 'tenantPolicy'
@@ -314,16 +318,19 @@
           - nm_update_tenant_policy_template.current.displayName == 'ansible_tenant_policy_changed'
           - nm_update_tenant_policy_template.current.templateType == 'tenantPolicy'
           - nm_update_tenant_policy_template.current.templateId is defined
+          - nm_update_tenant_policy_template.current.tenantPolicyTemplate.sites | length == 2
           - nm_update_tenant_policy_template.current.tenantPolicyTemplate.template.tenantId is defined
           - nm_update_tenant_policy_template_again is not changed
           - nm_update_tenant_policy_template_again.previous.displayName == 'ansible_tenant_policy_changed'
           - nm_update_tenant_policy_template_again.previous.templateType == 'tenantPolicy'
           - nm_update_tenant_policy_template_again.previous.templateId is defined
           - nm_update_tenant_policy_template_again.previous.tenantPolicyTemplate.template.tenantId is defined
+          - nm_update_tenant_policy_template_again.previous.tenantPolicyTemplate.sites | length == 2
           - nm_update_tenant_policy_template_again.current.displayName == 'ansible_tenant_policy_changed'
           - nm_update_tenant_policy_template_again.current.templateType == 'tenantPolicy'
           - nm_update_tenant_policy_template_again.current.templateId is defined
           - nm_update_tenant_policy_template_again.current.tenantPolicyTemplate.template.tenantId is defined
+          - nm_update_tenant_policy_template_again.current.tenantPolicyTemplate.sites | length == 2
           - nm_update_new_fabric_policy_template_0_2_sites is changed
           - nm_update_new_fabric_policy_template_0_2_sites.previous.displayName == 'ansible_fabric_policy_template'
           - nm_update_new_fabric_policy_template_0_2_sites.previous.fabricPolicyTemplate.sites is not defined
@@ -414,15 +421,6 @@
         state: present
       register: err_unknown_template_id
       ignore_errors: true
-    
-    - name: Error on not allowed input site
-      cisco.mso.ndo_template:
-        <<: *update_tenant_policy_template
-        sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
-        state: present
-      register: err_not_allowed_site_id
-      ignore_errors: true
 
     - name: Error on not allowed template_type change
       cisco.mso.ndo_template:
@@ -501,8 +499,6 @@
         that:
           - err_unknown_template_id is failed
           - err_unknown_template_id.msg.startswith("Provided template id 'unknown_id' does not exist. Existing templates:")
-          - err_not_allowed_site_id is failed
-          - err_not_allowed_site_id.msg == "Site cannot be attached to template of type tenant."
           - err_not_allowed_template_type_change is failed
           - err_not_allowed_template_type_change.msg == "Template type cannot be changed."
           - err_not_allowed_site_change is failed

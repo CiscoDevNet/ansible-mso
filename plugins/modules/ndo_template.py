@@ -83,6 +83,8 @@ EXAMPLES = r"""
     template: ansible_tenant_policy
     template_type: tenant
     tenant: ansible_test_tenant
+    sites:
+      - name: ansible_test_site
     state: present
 
 - name: Create a new l3out policy template
@@ -182,9 +184,6 @@ def main():
         if tenant_id and not TEMPLATE_TYPES[template_type]["tenant"]:
             mso.fail_json(msg="Tenant cannot be attached to template of type {0}.".format(template_type))
 
-        if site_ids and TEMPLATE_TYPES[template_type]["site_amount"] == 0:
-            mso.fail_json(msg="Site cannot be attached to template of type {0}.".format(template_type))
-
         if not tenant_id and TEMPLATE_TYPES[template_type]["tenant"]:
             mso.fail_json(msg="Tenant must be provided for template of type {0}.".format(template_type))
 
@@ -233,7 +232,7 @@ def main():
 
             # Set template specific payload in functions to increase readability due to the amount of different templates with small differences
             if template_type == "tenant":
-                set_tenant_template_payload(payload, template_type, tenant_id)
+                set_tenant_template_payload(payload, template_type, tenant_id, site_ids)
             elif template_type == "l3out":
                 set_l3out_template_payload(payload, template_type, tenant_id, site_ids[0])
             elif template_type == "fabric_policy":
@@ -263,8 +262,9 @@ def main():
     mso.exit_json()
 
 
-def set_tenant_template_payload(payload, template_type, tenant_id):
+def set_tenant_template_payload(payload, template_type, tenant_id, site_ids):
     payload[TEMPLATE_TYPES[template_type]["template_type_container"]].update({"template": {"tenantId": tenant_id}})
+    payload[TEMPLATE_TYPES[template_type]["template_type_container"]].update({"sites": [{"siteId": site_id} for site_id in site_ids]})
 
 
 def set_l3out_template_payload(payload, template_type, tenant_id, site_id):

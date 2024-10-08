@@ -117,7 +117,7 @@ LINK_LEVEL_FEC_MAP = {
     "disable_fec": "disable-fec",
 }
 
-L2_INTERFACE_QIN_Q_MAP = {
+L2_INTERFACE_QINQ_MAP = {
     "double_q_tag_port": "doubleQtagPort",
     "core_port": "corePort",
     "edge_port": "edgePort",

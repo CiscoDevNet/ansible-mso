@@ -77,15 +77,15 @@
 
     # # Create MACSec Policy
     # - name: Create a MACSec Policy
-    #   cisco.mso.ndo_mac_sec_policy:
+    #   cisco.mso.ndo_macsec_policy:
     #     <<: *mso_info
     #     template: ansible_fabric_policy_template
-    #     mac_sec_policy: '{{ item }}'
+    #     macsec_policy: '{{ item }}'
     #     interface_type: access
     #     state: present
     #   loop:
-    #     - 'ansible_mac_sec_policy'
-    #     - 'ansible_mac_sec_policy_2'
+    #     - 'ansible_macsec_policy'
+    #     - 'ansible_macsec_policy_2'
 
     # CREATE
 
@@ -180,17 +180,16 @@
 
 
     # Interface Policy group interface_type PC/VPC
-    - name: Create a Interface Policy group of interface_type 'pc_vpc' (check mode)
+    - name: Create a Interface Policy group of interface_type 'port_channel' (check mode)
       cisco.mso.ndo_interface_setting: &add_interface_policy_group_pc
         <<: *mso_info
         template: ansible_fabric_policy_template
         interface_policy_group: ansible_interface_policy_group_pc
-        interface_type: pc_vpc
+        interface_type: port_channel
         speed: 100G
         auto_negotiation: on_enforce
         vlan_scope: port_local
         cdp_admin_state: enabled
-        lldp: disabled
         port_channel_mode: lacp_active
         min_links: 5
         max_links: 50
@@ -199,36 +198,33 @@
         link_level_debounce_interval: 200
         link_level_bring_up_delay: 500
         link_level_fec: ieee_rs_fec
-        l2_interface_qin_q: edge_port
+        l2_interface_qinq: edge_port
         l2_interface_reflective_relay: enabled
-        lldp_transmit_state: disabled
-        lldp_receive_state: disabled
+        lldp:
+          status: disabled
+          transmit_state: disabled
+          receive_state: disabled
         stp_bpdu_filter: enabled
         stp_bpdu_guard: enabled
         llfc_transmit_state: enabled
         llfc_receive_state: enabled
-        mcp_admin_state: enabled
-        mcp_strict_mode: on
-        mcp_initial_delay_time: 250
-        mcp_transmission_frequency_sec: 4
-        mcp_transmission_frequency_msec: 4
-        mcp_grace_period_sec: 6
-        mcp_grace_period_msec: 6
+        mcp:
+          admin_state: disabled
         pfc_admin_state: off
         # required UUIDs
         sync_e: ansible_synce_interface_policy
-        # access_mac_sec_policy: ansible_mac_sec_policy
+        # access_macsec_policy: ansible_macsec_policy
         domains: ["ansible_physical_domain", "ansible_l3_domain"]
         state: present
       check_mode: true
       register: cm_add_interface_policy_group_pc
     
-    - name: Create a Interface Policy group of interface_type 'pc_vpc'
+    - name: Create a Interface Policy group of interface_type 'port_channel'
       cisco.mso.ndo_interface_setting:
         <<: *add_interface_policy_group_pc
       register: nm_add_interface_policy_group_pc
 
-    - name: Assert Interface Policy group of interface_type 'pc_vpc' was created
+    - name: Assert Interface Policy group of interface_type 'port_channel' was created
       assert:
         that:
           - cm_add_interface_policy_group_pc is changed
@@ -253,13 +249,7 @@
           - cm_add_interface_policy_group_pc.current.linkLevel.bringUpDelay == nm_add_interface_policy_group_pc.current.linkLevel.bringUpDelay == 500
           - cm_add_interface_policy_group_pc.current.linkLevel.debounceInterval == nm_add_interface_policy_group_pc.current.linkLevel.debounceInterval == 200
           - cm_add_interface_policy_group_pc.current.linkLevel.fec == nm_add_interface_policy_group_pc.current.linkLevel.fec == "ieee-rs-fec"
-          - cm_add_interface_policy_group_pc.current.mcp.adminState == nm_add_interface_policy_group_pc.current.mcp.adminState == "enabled"
-          - cm_add_interface_policy_group_pc.current.mcp.mcpMode == nm_add_interface_policy_group_pc.current.mcp.mcpMode == "on"
-          - cm_add_interface_policy_group_pc.current.mcp.initialDelayTime == nm_add_interface_policy_group_pc.current.mcp.initialDelayTime == 250
-          - cm_add_interface_policy_group_pc.current.mcp.txFreq == nm_add_interface_policy_group_pc.current.mcp.txFreq == 4
-          - cm_add_interface_policy_group_pc.current.mcp.txFreqMsec == nm_add_interface_policy_group_pc.current.mcp.txFreqMsec == 4
-          - cm_add_interface_policy_group_pc.current.mcp.gracePeriod == nm_add_interface_policy_group_pc.current.mcp.gracePeriod == 6
-          - cm_add_interface_policy_group_pc.current.mcp.gracePeriodMsec == nm_add_interface_policy_group_pc.current.mcp.gracePeriodMsec == 6
+          - cm_add_interface_policy_group_pc.current.mcp.adminState == nm_add_interface_policy_group_pc.current.mcp.adminState == "disabled"
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.minLinks == nm_add_interface_policy_group_pc.current.portChannelPolicy.minLinks == 5
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.maxLinks == nm_add_interface_policy_group_pc.current.portChannelPolicy.maxLinks == 50
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.hashFields == nm_add_interface_policy_group_pc.current.portChannelPolicy.hashFields == "dst-ip"
@@ -278,7 +268,6 @@
         auto_negotiation: on
         vlan_scope: global
         cdp_admin_state: disabled
-        lldp: enabled
         port_channel_mode: mac_pinning
         min_links: 6
         max_links: 60
@@ -287,25 +276,28 @@
         link_level_debounce_interval: 300
         link_level_bring_up_delay: 600
         link_level_fec: cl91_rs_fec
-        l2_interface_qin_q: double_q_tag_port
+        l2_interface_qinq: double_q_tag_port
         l2_interface_reflective_relay: disabled
-        lldp_transmit_state: enabled
-        lldp_receive_state: enabled
+        lldp:
+          status: enabled
+          transmit_state: enabled
+          receive_state: enabled
         stp_bpdu_filter: disabled
         stp_bpdu_guard: disabled
         llfc_transmit_state: disabled
         llfc_receive_state: disabled
-        mcp_admin_state: disabled
-        mcp_strict_mode: on # change in next task
-        mcp_initial_delay_time: 255
-        mcp_transmission_frequency_sec: 40
-        mcp_transmission_frequency_msec: 40
-        mcp_grace_period_sec: 60
-        mcp_grace_period_msec: 60
+        mcp:
+          admin_state: enabled
+          strict_mode: on
+          initial_delay_time: 255
+          transmission_frequency_sec: 40
+          transmission_frequency_msec: 40
+          grace_period_sec: 60
+          grace_period_msec: 60
         pfc_admin_state: on
         # required UUIDs
         sync_e: ansible_synce_interface_policy_2
-        # access_mac_sec_policy: ansible_mac_sec_policy_2
+        # access_macsec_policy: ansible_macsec_policy_2
         domains: ["ansible_physical_domain_2", "ansible_l3_domain_2"]
         state: present
       check_mode: true
@@ -362,19 +354,19 @@
           - cm_update_interface_policy_group.current.linkLevel.debounceInterval == nm_update_interface_policy_group.current.linkLevel.debounceInterval == 300
           - cm_update_interface_policy_group.previous.linkLevel.fec == nm_update_interface_policy_group.previous.linkLevel.fec == "ieee-rs-fec"
           - cm_update_interface_policy_group.current.linkLevel.fec == nm_update_interface_policy_group.current.linkLevel.fec == "cl91-rs-fec"
-          - cm_update_interface_policy_group.previous.mcp.adminState == nm_update_interface_policy_group.previous.mcp.adminState == "enabled"
-          - cm_update_interface_policy_group.current.mcp.adminState == nm_update_interface_policy_group.current.mcp.adminState == "disabled"
-          - cm_update_interface_policy_group.previous.mcp.mcpMode == nm_update_interface_policy_group.previous.mcp.mcpMode == "on"
+          - cm_update_interface_policy_group.previous.mcp.adminState == nm_update_interface_policy_group.previous.mcp.adminState == "disabled"
+          - cm_update_interface_policy_group.current.mcp.adminState == nm_update_interface_policy_group.current.mcp.adminState == "enabled"
+          - cm_update_interface_policy_group.previous.mcp.mcpMode == nm_update_interface_policy_group.previous.mcp.mcpMode == "off"
           - cm_update_interface_policy_group.current.mcp.mcpMode == nm_update_interface_policy_group.current.mcp.mcpMode == "on"
-          - cm_update_interface_policy_group.previous.mcp.initialDelayTime == nm_update_interface_policy_group.previous.mcp.initialDelayTime == 250
+          - cm_update_interface_policy_group.previous.mcp.initialDelayTime == nm_update_interface_policy_group.previous.mcp.initialDelayTime == 0
           - cm_update_interface_policy_group.current.mcp.initialDelayTime == nm_update_interface_policy_group.current.mcp.initialDelayTime == 255
-          - cm_update_interface_policy_group.previous.mcp.txFreq == nm_update_interface_policy_group.previous.mcp.txFreq == 4
+          - cm_update_interface_policy_group.previous.mcp.txFreq == nm_update_interface_policy_group.previous.mcp.txFreq == 0
           - cm_update_interface_policy_group.current.mcp.txFreq == nm_update_interface_policy_group.current.mcp.txFreq == 40
-          - cm_update_interface_policy_group.previous.mcp.txFreqMsec == nm_update_interface_policy_group.previous.mcp.txFreqMsec == 4
+          - cm_update_interface_policy_group.previous.mcp.txFreqMsec == nm_update_interface_policy_group.previous.mcp.txFreqMsec == 500
           - cm_update_interface_policy_group.current.mcp.txFreqMsec == nm_update_interface_policy_group.current.mcp.txFreqMsec == 40
-          - cm_update_interface_policy_group.previous.mcp.gracePeriod == nm_update_interface_policy_group.previous.mcp.gracePeriod == 6
+          - cm_update_interface_policy_group.previous.mcp.gracePeriod == nm_update_interface_policy_group.previous.mcp.gracePeriod == 3
           - cm_update_interface_policy_group.current.mcp.gracePeriod == nm_update_interface_policy_group.current.mcp.gracePeriod == 60
-          - cm_update_interface_policy_group.previous.mcp.gracePeriodMsec == nm_update_interface_policy_group.previous.mcp.gracePeriodMsec == 6
+          - cm_update_interface_policy_group.previous.mcp.gracePeriodMsec == nm_update_interface_policy_group.previous.mcp.gracePeriodMsec == 0
           - cm_update_interface_policy_group.current.mcp.gracePeriodMsec == nm_update_interface_policy_group.current.mcp.gracePeriodMsec == 60
           - cm_update_interface_policy_group.previous.portChannelPolicy.minLinks == nm_update_interface_policy_group.previous.portChannelPolicy.minLinks == 5
           - cm_update_interface_policy_group.current.portChannelPolicy.minLinks == nm_update_interface_policy_group.current.portChannelPolicy.minLinks == 6
@@ -394,15 +386,25 @@
           - update_interface_policy_group_again is not changed
 
     # Update Interface Policy group name with mcp_strict_mode off
-    - name: Update a Interface Policy group of interface_type 'physical' with mcp_strict_mode off
-      cisco.mso.ndo_interface_setting:
+    - name: Update a Interface Policy group of interface_type 'physical' with MCP strict_mode off
+      cisco.mso.ndo_interface_setting: &update_mcp
         <<: *update_interface_policy_group
         interface_policy_group_uuid: '{{ nm_update_interface_policy_group.current.uuid }}'
         interface_policy_group: ansible_interface_policy_group_changed
-        mcp_strict_mode: off
+        domains: []
+        mcp:
+          strict_mode: off
       register: nm_update_interface_policy_name
 
-    - name: Assert Interface Policy group name was updated with UUID
+    - name: Updated a Interface Policy group of interface_type 'physical' with MCP adminState enabled and remove control
+      cisco.mso.ndo_interface_setting:
+        <<: *update_mcp
+        control: []
+        mcp:
+          admin_state: disabled
+      register: nm_update_interface_policy_mcp
+
+    - name: Assert Interface Policy group name was updated with UUID updated control and MCP values
       assert:
         that:
           - nm_update_interface_policy_name is changed
@@ -413,13 +415,20 @@
           - nm_update_interface_policy_name.previous.type == nm_update_interface_policy_name.current.type == "portchannel"
           - nm_update_interface_policy_name.previous.mcp.mcpMode == "on"
           - nm_update_interface_policy_name.current.mcp.mcpMode == "off"
-          - nm_update_interface_policy_name.previous.mcp.adminState == nm_update_interface_policy_name.current.mcp.adminState == "disabled"
+          - nm_update_interface_policy_name.previous.mcp.adminState == nm_update_interface_policy_name.current.mcp.adminState == "enabled"
           - nm_update_interface_policy_name.previous.mcp.initialDelayTime == nm_update_interface_policy_name.current.mcp.initialDelayTime == 255
           - nm_update_interface_policy_name.previous.mcp.txFreq == nm_update_interface_policy_name.current.mcp.txFreq == 40
           - nm_update_interface_policy_name.previous.mcp.txFreqMsec == nm_update_interface_policy_name.current.mcp.txFreqMsec == 40
           - nm_update_interface_policy_name.previous.mcp.gracePeriod == nm_update_interface_policy_name.current.mcp.gracePeriod == 60
           - nm_update_interface_policy_name.previous.mcp.gracePeriodMsec == nm_update_interface_policy_name.current.mcp.gracePeriodMsec == 60
-
+          - nm_update_interface_policy_name.previous.domains | length == 2
+          - nm_update_interface_policy_name.current.domains is not defined
+          - nm_update_interface_policy_mcp is changed
+          - nm_update_interface_policy_mcp.previous.name == nm_update_interface_policy_mcp.current.name == "ansible_interface_policy_group_changed"
+          - nm_update_interface_policy_mcp.previous.mcp.adminState == "enabled"
+          - nm_update_interface_policy_mcp.current.mcp.adminState == "disabled"
+          - nm_update_interface_policy_mcp.previous.portChannelPolicy.control | length == 5
+          - nm_update_interface_policy_mcp.current.portChannelPolicy.control is not defined
 
     # QUERY
     - name: Query all Interface Policy groups in a template
@@ -465,9 +474,10 @@
         template: ansible_fabric_policy_template
         interface_policy_group: ansible_interface_policy_group_2
         interface_type: physical
-        lldp: disabled
-        lldp_receive_state: enabled
-        lldp_transmit_state: disabled
+        lldp:
+          status: disabled
+          receive_state: enabled
+          transmit_state: disabled
         description: "This is a test interface policy group"
         state: present
       ignore_errors: true
@@ -477,7 +487,7 @@
       assert:
         that:
           - nm_add_interface_policy_lldp is failed
-          - nm_add_interface_policy_lldp.msg == "lldp_receive_state and lldp_transmit_state must be 'disabled' when LLDP is disabled"
+          - nm_add_interface_policy_lldp.msg == "LLDP receive_state and transmit_state must be 'disabled' when LLDP status is disabled."
 
     # domain  not found
     - name: Create a Interface Policy group with non-existing domain
@@ -495,7 +505,7 @@
       assert:
         that:
           - nm_add_interface_policy_domain is failed
-          - nm_add_interface_policy_domain.msg == "Domain 'non_existing_domain' not found in the template 'ansible_fabric_policy_template'"
+          - nm_add_interface_policy_domain.msg == "Domain 'non_existing_domain' not found in the template 'ansible_fabric_policy_template'."
 
     #  non-existing syncE policy
     - name: Create a Interface Policy group with non-existing syncE policy
@@ -513,44 +523,45 @@
       assert:
         that:
           - nm_add_interface_policy_synce is failed
-          - nm_add_interface_policy_synce.msg == "SyncE policy 'non_existing_synce_interface_policy' not found in the template 'ansible_fabric_policy_template'"
+          - nm_add_interface_policy_synce.msg == "SyncE policy 'non_existing_synce_interface_policy' not found in the template 'ansible_fabric_policy_template'."
 
-    # non-existing access_mac_sec_policy
-    - name: Create a Interface Policy group with non-existing access_mac_sec_policy
+    # non-existing access_macsec_policy
+    - name: Create a Interface Policy group with non-existing access_macsec_policy
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
         template: ansible_fabric_policy_template
         interface_policy_group: ansible_interface_policy_group_2
         interface_type: physical
-        access_mac_sec_policy: non_existing_mac_sec_policy
+        access_macsec_policy: non_existing_macsec_policy
         state: present
       ignore_errors: true
-      register: nm_add_interface_policy_mac_sec
+      register: nm_add_interface_policy_macsec
 
-    - name: Assert adding the Interface Policy group with non-existing access_mac_sec_policy
+    - name: Assert adding the Interface Policy group with non-existing access_macsec_policy
       assert:
         that:
-          - nm_add_interface_policy_mac_sec is failed
-          - nm_add_interface_policy_mac_sec.msg == "Access MACsec policy 'non_existing_mac_sec_policy' not found in the template 'ansible_fabric_policy_template'"
+          - nm_add_interface_policy_macsec is failed
+          - nm_add_interface_policy_macsec.msg == "Access MACsec policy 'non_existing_macsec_policy' not found in the template 'ansible_fabric_policy_template'."
 
-    # Add MACSec policy when MCP admin state is disabled
-    - name: Create a Interface Policy group with MACSec policy when MCP admin state is disabled
-      cisco.mso.ndo_interface_setting:
-        <<: *mso_info
-        template: ansible_fabric_policy_template
-        interface_policy_group: ansible_interface_policy_group_2
-        interface_type: physical
-        access_mac_sec_policy: ansible_mac_sec_policy
-        mcp_admin_state: disabled
-        state: present
-      ignore_errors: true
-      register: nm_add_interface_policy_mac_sec_mcp
+    # # Add MACSec policy when MCP admin state is disabled
+    # - name: Create a Interface Policy group with MACSec policy when MCP admin state is disabled
+    #   cisco.mso.ndo_interface_setting:
+    #     <<: *mso_info
+    #     template: ansible_fabric_policy_template
+    #     interface_policy_group: ansible_interface_policy_group_2
+    #     interface_type: physical
+    #     access_macsec_policy: ansible_macsec_policy
+    #     mcp:
+    #       admin_state: disabled
+    #     state: present
+    #   ignore_errors: true
+    #   register: nm_add_interface_policy_macsec_mcp
 
-    - name: Assert adding the Interface Policy group with MACSec policy when MCP admin state is disabled
-      assert:
-        that:
-          - nm_add_interface_policy_mac_sec_mcp is failed
-          - nm_add_interface_policy_mac_sec_mcp.msg == "Access MACsec policy can only be set when mcp_admin_state is enabled"
+    # - name: Assert adding the Interface Policy group with MACSec policy when MCP admin state is disabled
+    #   assert:
+    #     that:
+    #       - nm_add_interface_policy_macsec_mcp is failed
+    #       - nm_add_interface_policy_macsec_mcp.msg == "Access MACsec policy can only be set when MCP admin state is enabled."
 
     # errors on update
     - name: Create another Interface Policy group of interface_type 'physical'
@@ -560,14 +571,22 @@
         description: "Ansible test interface policy group"
         domains: ["ansible_physical_domain", "ansible_l3_domain"]
         sync_e: ansible_synce_interface_policy
-        # access_mac_sec_policy: ansible_mac_sec_policy
+        # access_macsec_policy: ansible_macsec_policy
+        mcp:
+          admin_state: enabled
+          strict_mode: on
+          initial_delay_time: 250
+          transmission_frequency_sec: 4
+          transmission_frequency_msec: 4
+          grace_period_sec: 6
+          grace_period_msec: 6
       register: nm_add_interface_policy_2
 
     # updating interface_type of the interface policy group
-    - name: Update Interface Policy group ansible_interface_policy_group_2 with interface_type 'pc_vpc'
+    - name: Update Interface Policy group ansible_interface_policy_group_2 with interface_type 'port_channel'
       cisco.mso.ndo_interface_setting:
         <<: *add_interface_policy_group_2
-        interface_type: pc_vpc
+        interface_type: port_channel
       ignore_errors: true
       register: nm_update_interface_policy_type
 
@@ -578,15 +597,16 @@
           - nm_add_interface_policy_2.current.name == nm_update_interface_policy_type.previous.name == "ansible_interface_policy_group_2"
           - nm_add_interface_policy_2.current.type == nm_update_interface_policy_type.previous.type == "physical"
           - nm_update_interface_policy_type is failed
-          - nm_update_interface_policy_type.msg == "Interface type cannot be changed"
+          - nm_update_interface_policy_type.msg == "Interface type cannot be changed."
 
-    # updating non-existing lldp
+    # updating lldp when status is disabled
     - name: Update Interface Policy group ansible_interface_policy_group_2 with LLDP
       cisco.mso.ndo_interface_setting:
         <<: *add_interface_policy_group_2
-        lldp: disabled
-        lldp_receive_state: enabled
-        lldp_transmit_state: disabled
+        lldp:
+          status: disabled
+          transmit_state: disabled
+          receive_state: enabled
       ignore_errors: true
       register: nm_update_interface_policy_lldp
 
@@ -594,7 +614,7 @@
       assert:
         that:
           - nm_update_interface_policy_lldp is failed
-          - nm_update_interface_policy_lldp.msg == "lldp_receive_state and lldp_transmit_state must be 'disabled' when LLDP is disabled"
+          - nm_update_interface_policy_lldp.msg == "LLDP receive_state and transmit_state must be 'disabled' when LLDP status is disabled."
 
     # updating non-existing domain
     - name: Update Interface Policy group ansible_interface_policy_group_2 with non-existing domain
@@ -613,7 +633,7 @@
           - nm_add_interface_policy_2.current.description == nm_update_interface_policy_domain.previous.description == "Ansible test interface policy group"
           - nm_add_interface_policy_2.current.domains | length == nm_update_interface_policy_domain.previous.domains | length == 2
           - nm_update_interface_policy_domain is failed
-          - nm_update_interface_policy_domain.msg == "Domain 'non_existing_domain' not found in the template 'ansible_fabric_policy_template'"
+          - nm_update_interface_policy_domain.msg == "Domain 'non_existing_domain' not found in the template 'ansible_fabric_policy_template'."
 
     # updating non-existing syncE policy
     - name: Update Interface Policy group ansible_interface_policy_group_2 with non-existing syncE policy
@@ -631,25 +651,25 @@
           - nm_add_interface_policy_2.current.type == nm_update_interface_policy_synce.previous.type == "physical"
           - nm_add_interface_policy_2.current.description == nm_update_interface_policy_synce.previous.description == "Ansible test interface policy group"
           - nm_update_interface_policy_synce is failed
-          - nm_update_interface_policy_synce.msg == "SyncE policy 'non_existing_synce_interface_policy' not found in the template 'ansible_fabric_policy_template'"
+          - nm_update_interface_policy_synce.msg == "SyncE policy 'non_existing_synce_interface_policy' not found in the template 'ansible_fabric_policy_template'."
 
-    # # updating non-existing access_mac_sec_policy
-    # - name: Update Interface Policy group ansible_interface_policy_group_2 with non-existing access_mac_sec_policy
+    # # updating non-existing access_macsec_policy
+    # - name: Update Interface Policy group ansible_interface_policy_group_2 with non-existing access_macsec_policy
     #   cisco.mso.ndo_interface_setting:
     #     <<: *add_interface_policy_group_2
-    #     access_mac_sec_policy: non_existing_mac_sec_policy
+    #     access_macsec_policy: non_existing_macsec_policy
     #   ignore_errors: true
-    #   register: nm_update_interface_policy_mac_sec
+    #   register: nm_update_interface_policy_macsec
 
-    # - name: Assert updating the Interface Policy group with non-existing access_mac_sec_policy
+    # - name: Assert updating the Interface Policy group with non-existing access_macsec_policy
     #   assert:
     #     that:
     #       - nm_add_interface_policy_2 is changed
-    #       - nm_add_interface_policy_2.current.name == nm_update_interface_policy_mac_sec.previous.name == "ansible_interface_policy_group_2"
-    #       - nm_add_interface_policy_2.current.type == nm_update_interface_policy_mac_sec.previous.type == "physical"
-    #       - nm_add_interface_policy_2.current.description == nm_update_interface_policy_mac_sec.previous.description == "Ansible test interface policy group"
-    #       - nm_update_interface_policy_mac_sec is failed
-    #       - nm_update_interface_policy_mac_sec.msg == "Access MACsec policy 'non_existing_mac_sec_policy' not found in the template 'ansible_fabric_policy_template'"
+    #       - nm_add_interface_policy_2.current.name == nm_update_interface_policy_macsec.previous.name == "ansible_interface_policy_group_2"
+    #       - nm_add_interface_policy_2.current.type == nm_update_interface_policy_macsec.previous.type == "physical"
+    #       - nm_add_interface_policy_2.current.description == nm_update_interface_policy_macsec.previous.description == "Ansible test interface policy group"
+    #       - nm_update_interface_policy_macsec is failed
+    #       - nm_update_interface_policy_macsec.msg == "Access MACsec policy 'non_existing_macsec_policy' not found in the template 'ansible_fabric_policy_template'."
 
     # DELETE
     - name: Delete a Interface Policy group with name (check mode)

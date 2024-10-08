@@ -550,6 +550,13 @@
         template: '{{ ansible_tenant_template | default("ansible_test") }}'
         name: nrp_4
         as_path_multipath_relax: enabled
+        bgp_node_settings:
+          keep_alive_interval: 65
+          stale_interval: 10
+          graceful_restart_helper: disabled
+        bfd_multi_hop_settings:
+          detection_multiplier: 5
+          min_receive_interval: 255
         state: present
       register: nrp_4_create
 
@@ -558,6 +565,11 @@
         that:
           - nrp_4_create is changed
           - nrp_4_create.current.asPathPol.asPathMultipathRelax == true
+          - nrp_4_create.current.bfdMultiHopPol.detectionMultiplier == 5
+          - nrp_4_create.current.bfdMultiHopPol.minRxInterval == 255
+          - nrp_4_create.current.bgpTimerPol.gracefulRestartHelper == false
+          - nrp_4_create.current.bgpTimerPol.keepAliveInterval == 65
+          - nrp_4_create.current.bgpTimerPol.staleInterval == 10
           - nrp_4_create.current.name == "nrp_4"
           - nrp_4_create.current.uuid is defined
           - nrp_4_create.previous == {}
@@ -578,11 +590,6 @@
         that:
           - nrp_4_update is changed
           - nrp_4_update.current.asPathPol is not defined
-          - nrp_4_update.current.bgpTimerPol.gracefulRestartHelper == true
-          - nrp_4_update.current.bgpTimerPol.holdInterval == 180
-          - nrp_4_update.current.bgpTimerPol.keepAliveInterval == 60
-          - nrp_4_update.current.bgpTimerPol.maxAslimit == 0
-          - nrp_4_update.current.bgpTimerPol.staleInterval == 300
           - nrp_4_update.current.name == "nrp_4"
           - nrp_4_update.current.uuid is defined
           - nrp_4_update.previous.asPathPol.asPathMultipathRelax == true
@@ -601,11 +608,7 @@
       ansible.builtin.assert:
         that:
           - query_nrp_4_update is not changed
-          - query_nrp_4_update.current.bgpTimerPol.gracefulRestartHelper == true
-          - query_nrp_4_update.current.bgpTimerPol.holdInterval == 180
-          - query_nrp_4_update.current.bgpTimerPol.keepAliveInterval == 60
-          - query_nrp_4_update.current.bgpTimerPol.maxAslimit == 0
-          - query_nrp_4_update.current.bgpTimerPol.staleInterval == 300
+          - query_nrp_4_update.current.asPathPol is not defined
           - query_nrp_4_update.current.name == "nrp_4"
           - query_nrp_4_update.current.uuid is defined
 
@@ -677,18 +680,7 @@
           - query_with_invalid_uuid is not changed
           - query_with_invalid_uuid.current == {}
 
-    - name: Invalid value check for bfd_multi_hop_settings.detection_multiplier - $nt_detection_multiplier_min
-      cisco.mso.ndo_l3out_node_routing_policy:
-        <<: *mso_info
-        template: '{{ ansible_tenant_template | default("ansible_test") }}'
-        name: nt_value_check
-        bfd_multi_hop_settings:
-          detection_multiplier: -1
-        state: present
-      register: nt_detection_multiplier_min
-      ignore_errors: true
-
-    - name: Invalid value check for bfd_multi_hop_settings.detection_multiplier - $nt_detection_multiplier_max
+    - name: Invalid value check for bfd_multi_hop_settings.detection_multiplier
       cisco.mso.ndo_l3out_node_routing_policy:
         <<: *mso_info
         template: '{{ ansible_tenant_template | default("ansible_test") }}'
@@ -699,52 +691,24 @@
       register: nt_detection_multiplier_max
       ignore_errors: true
 
-    - name: Invalid value check for bfd_multi_hop_settings.keep_alive_interval - $nt_keep_alive_interval
+    - name: Invalid value check for bfd_multi_hop_settings.keep_alive_interval
       cisco.mso.ndo_l3out_node_routing_policy:
         <<: *mso_info
         template: '{{ ansible_tenant_template | default("ansible_test") }}'
         name: nt_value_check
         bgp_node_settings:
-          keep_alive_interval: -1
+          keep_alive_interval: 3601
         state: present
       register: nt_keep_alive_interval
-      ignore_errors: true
-
-    - name: Invalid value check for bfd_multi_hop_settings.hold_interval - $nt_hold_interval_min
-      cisco.mso.ndo_l3out_node_routing_policy:
-        <<: *mso_info
-        template: '{{ ansible_tenant_template | default("ansible_test") }}'
-        name: nt_value_check
-        bgp_node_settings:
-          hold_interval: 2
-        state: present
-      register: nt_hold_interval_min
-      ignore_errors: true
-
-    - name: Invalid value check for bfd_multi_hop_settings.hold_interval - $nt_hold_interval_max
-      cisco.mso.ndo_l3out_node_routing_policy:
-        <<: *mso_info
-        template: '{{ ansible_tenant_template | default("ansible_test") }}'
-        name: nt_value_check
-        bgp_node_settings:
-          hold_interval: 3601
-        state: present
-      register: nt_hold_interval_max
       ignore_errors: true
 
     - name: Assertion check for invalid value checks
       ansible.builtin.assert:
         that:
-          - nt_detection_multiplier_min is not changed
-          - nt_detection_multiplier_min.msg == "Invalid value provided for bfd_multi_hop_settings.detection_multiplier{{':'}} -1; The value must be between 1 and 50."
           - nt_detection_multiplier_max is not changed
-          - nt_detection_multiplier_max.msg == "Invalid value provided for bfd_multi_hop_settings.detection_multiplier{{':'}} 51; The value must be between 1 and 50."
+          - nt_detection_multiplier_max.msg == "MSO Error 400{{':'}} 'DetectionMultiplier' allowed minimum value is 1 maximum value is 50"
           - nt_keep_alive_interval is not changed
-          - nt_keep_alive_interval.msg == "Invalid value provided for bgp_node_settings.keep_alive_interval{{':'}} -1; The value must be between 0 and 3600."
-          - nt_hold_interval_min is not changed
-          - nt_hold_interval_min.msg == "Invalid value provided for bgp_node_settings.hold_interval{{':'}} 2; The value must be 0 or between 3 and 3600."
-          - nt_hold_interval_max is not changed
-          - nt_hold_interval_max.msg == "Invalid value provided for bgp_node_settings.hold_interval{{':'}} 3601; The value must be 0 or between 3 and 3600."
+          - nt_keep_alive_interval.msg == "MSO Error 400{{':'}} 'KeepAliveInterval' allowed maximum value is 3600"
     # Negative test ends
 
     - name: Remove L3Out Node Routing Policy with name - check_mode
@@ -793,6 +757,21 @@
           - nm_rm_with_name_again is not changed
           - nm_rm_with_name_again.current == {}
           - nm_rm_with_name_again.previous == {}
+
+    - name: Remove a L3Out Node Routing Policy with uuid
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        uuid: "{{ query_nrp_4_update.current.uuid }}"
+        state: absent
+      register: remove_with_uuid
+
+    - name: Assertion check for remove L3Out Node Routing Policy with uuid
+      ansible.builtin.assert:
+        that:
+          - remove_with_uuid is changed
+          - remove_with_uuid.current == {}
+          - remove_with_uuid.previous != {}
 
     # Cleanup Part
     - name: Ensure templates do not exist

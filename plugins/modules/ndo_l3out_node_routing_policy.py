@@ -207,6 +207,15 @@ EXAMPLES = r"""
     template: ansible_tenant_template
     name: nrp_1
     state: absent
+
+- name: Delete a L3Out Node Routing Policy using UUID
+  cisco.mso.ndo_l3out_node_routing_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_tenant_template
+    uuid: "{{ query_with_name.current.uuid }}"
+    state: absent
 """
 
 RETURN = r"""
@@ -226,13 +235,6 @@ def get_l3out_node_routing_policy_object(mso_template_object, uuid, name):
             "L3Out Node Routing Policy", existing_l3out_node_routing_policy, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
         )
     return existing_l3out_node_routing_policy  # Query all objects
-
-
-def check_int_between(mso_object, attribute_name, attribute_value, min_value, max_value):
-    if attribute_value is not None and not min_value <= attribute_value <= max_value:
-        mso_object.fail_json(
-            msg="Invalid value provided for {0}: {1}; The value must be between {2} and {3}.".format(attribute_name, attribute_value, min_value, max_value)
-        )
 
 
 def main():
@@ -286,24 +288,6 @@ def main():
     bgp_node_settings = module.params.get("bgp_node_settings")
     as_path_multipath_relax = module.params.get("as_path_multipath_relax")
     state = module.params.get("state")
-
-    if bfd_multi_hop_settings is not None:
-        check_int_between(mso, "bfd_multi_hop_settings.detection_multiplier", bfd_multi_hop_settings.get("detection_multiplier"), 1, 50)
-        check_int_between(mso, "bfd_multi_hop_settings.min_receive_interval", bfd_multi_hop_settings.get("min_receive_interval"), 250, 999)
-        check_int_between(mso, "bfd_multi_hop_settings.min_transmit_interval", bfd_multi_hop_settings.get("min_transmit_interval"), 250, 999)
-
-    if bgp_node_settings is not None:
-        check_int_between(mso, "bgp_node_settings.keep_alive_interval", bgp_node_settings.get("keep_alive_interval"), 0, 3600)
-        check_int_between(mso, "bgp_node_settings.stale_interval", bgp_node_settings.get("stale_interval"), 1, 3600)
-        check_int_between(mso, "bgp_node_settings.max_as_limit", bgp_node_settings.get("max_as_limit"), 0, 2000)
-
-        if bgp_node_settings.get("hold_interval") is not None:
-            if not (bgp_node_settings.get("hold_interval") == 0 or 3 <= bgp_node_settings.get("hold_interval") <= 3600):
-                mso.fail_json(
-                    msg="Invalid value provided for bgp_node_settings.hold_interval: {0}; The value must be 0 or between 3 and 3600.".format(
-                        bgp_node_settings.get("hold_interval")
-                    )
-                )
 
     mso_template = MSOTemplate(mso, "tenant", template)
     mso_template.validate_template("tenantPolicy")
@@ -520,19 +504,19 @@ def main():
             if bgp_node_settings is not None:
                 bgp_timer_pol = dict()
                 if bgp_node_settings.get("graceful_restart_helper"):
-                    payload["gracefulRestartHelper"] = True if bgp_node_settings.get("graceful_restart_helper") == "enabled" else False
+                    bgp_timer_pol["gracefulRestartHelper"] = True if bgp_node_settings.get("graceful_restart_helper") == "enabled" else False
 
                 if bgp_node_settings.get("keep_alive_interval"):
-                    payload["keepAliveInterval"] = bgp_node_settings.get("keep_alive_interval")
+                    bgp_timer_pol["keepAliveInterval"] = bgp_node_settings.get("keep_alive_interval")
 
                 if bgp_node_settings.get("hold_interval"):
-                    payload["holdInterval"] = bgp_node_settings.get("hold_interval")
+                    bgp_timer_pol["holdInterval"] = bgp_node_settings.get("hold_interval")
 
                 if bgp_node_settings.get("stale_interval"):
-                    payload["staleInterval"] = bgp_node_settings.get("stale_interval")
+                    bgp_timer_pol["staleInterval"] = bgp_node_settings.get("stale_interval")
 
                 if bgp_node_settings.get("max_as_limit"):
-                    payload["maxAslimit"] = bgp_node_settings.get("max_as_limit")
+                    bgp_timer_pol["maxAslimit"] = bgp_node_settings.get("max_as_limit")
 
                 if bgp_timer_pol or bgp_node_settings.get("state") == "enabled":
                     payload["bgpTimerPol"] = bgp_timer_pol

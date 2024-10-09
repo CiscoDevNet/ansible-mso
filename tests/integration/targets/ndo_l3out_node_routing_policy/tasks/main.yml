@@ -544,7 +544,7 @@
           - clear_bgp_settings.previous.name == "nrp_1_update"
           - clear_bgp_settings.previous.uuid is defined
 
-    - name: Create nrp_4 L3Out Node Routing Policy with as_path_multipath_relax
+    - name: Create nrp_4 L3Out Node Routing Policy
       cisco.mso.ndo_l3out_node_routing_policy:
         <<: *mso_info
         template: '{{ ansible_tenant_template | default("ansible_test") }}'
@@ -560,7 +560,7 @@
         state: present
       register: nrp_4_create
 
-    - name: Assertion check for create nrp_4 L3Out Node Routing Policy with as_path_multipath_relax
+    - name: Assertion check for create nrp_4 L3Out Node Routing Policy
       ansible.builtin.assert:
         that:
           - nrp_4_create is changed
@@ -611,6 +611,30 @@
           - query_nrp_4_update.current.asPathPol is not defined
           - query_nrp_4_update.current.name == "nrp_4"
           - query_nrp_4_update.current.uuid is defined
+
+    - name: Create nrp_5 L3Out Node Routing Policy with as_path_multipath_relax
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: nrp_5
+        as_path_multipath_relax: enabled
+        bgp_node_settings:
+          state: disabled
+        bfd_multi_hop_settings:
+          state: disabled
+        state: present
+      register: nrp_5_create
+
+    - name: Assertion check for create nrp_4 L3Out Node Routing Policy
+      ansible.builtin.assert:
+        that:
+          - nrp_5_create is changed
+          - nrp_5_create.current.asPathPol.asPathMultipathRelax == true
+          - nrp_5_create.current.bfdMultiHopPol is not defined
+          - nrp_5_create.current.bgpTimerPol is not defined
+          - nrp_5_create.current.name == "nrp_5"
+          - nrp_5_create.current.uuid is defined
+          - nrp_5_create.previous == {}
 
     # Negative test begins
     - name: Clear nrp_1_update L3Out Node Routing Policy bfd_multi_hop_settings, bgp_node_settings and as_path_multipath_relax using name (Negative test)

@@ -188,3 +188,17 @@ class MSOTemplate:
             return vrf_object[0]
         else:
             self.mso.fail_json(msg="Provided VRF {0} not found.".format(vrf_dict.get("name")))
+
+    def get_l3out_node_routing_policy_object(self, uuid, name):
+        """
+        Get the L3Out Node Routing Policy by uuid or name.
+        :param uuid: UUID of the L3Out Node Routing Policy to search for -> Str
+        :param name: Name of the L3Out Node Routing Policy to search for -> Str
+        :return: The L3Out Node Routing Policy object. -> Str
+        """
+        existing_l3out_node_routing_policy = self.template.get("tenantPolicyTemplate", {}).get("template", {}).get("l3OutNodePolGroups", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs(
+                "L3Out Node Routing Policy", existing_l3out_node_routing_policy, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
+            )
+        return existing_l3out_node_routing_policy  # Query all objects

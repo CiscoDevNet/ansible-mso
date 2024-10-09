@@ -149,7 +149,7 @@ EXAMPLES = r"""
     as_path_multipath_relax: disabled
     state: present
 
-- name: Create a new L3Out Node Routing Policy with valid bgp_node and bfd_multi_hop settings
+- name: Create a new L3Out Node Routing Policy with full config of bgp_node and bfd_multi_hop settings
   cisco.mso.ndo_l3out_node_routing_policy:
     host: mso_host
     username: admin
@@ -168,6 +168,20 @@ EXAMPLES = r"""
       stale_interval: 215
       max_as_limit: 25
     as_path_multipath_relax: disabled
+    state: present
+  register: nrp_2
+
+- name: Update L3Out Node Routing Policy name and bgp_node_settings attributes
+  cisco.mso.ndo_l3out_node_routing_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_tenant_template
+    uuid: "{{ nrp_2.current.uuid }}
+    name: nrp_2_updated
+    bgp_node_settings:
+      graceful_restart_helper: disabled
+      keep_alive_interval: 20
     state: present
 
 - name: Query a L3Out Node Routing Policies with name
@@ -228,15 +242,6 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 
 
-def get_l3out_node_routing_policy_object(mso_template_object, uuid, name):
-    existing_l3out_node_routing_policy = mso_template_object.template.get("tenantPolicyTemplate", {}).get("template", {}).get("l3OutNodePolGroups", [])
-    if uuid or name:  # Query a specific object
-        return mso_template_object.get_object_by_key_value_pairs(
-            "L3Out Node Routing Policy", existing_l3out_node_routing_policy, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
-        )
-    return existing_l3out_node_routing_policy  # Query all objects
-
-
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
@@ -294,7 +299,7 @@ def main():
 
     path = "/tenantPolicyTemplate/template/l3OutNodePolGroups"
 
-    l3out_node_routing_policy = get_l3out_node_routing_policy_object(mso_template, uuid, name)
+    l3out_node_routing_policy = mso_template.get_l3out_node_routing_policy_object(uuid, name)
 
     if uuid or name:
         if l3out_node_routing_policy:
@@ -530,7 +535,7 @@ def main():
 
     if not module.check_mode and ops:
         mso_template.template = mso.request(mso_template.template_path, method="PATCH", data=ops)
-        l3out_node_routing_policy = get_l3out_node_routing_policy_object(mso_template, uuid, name)
+        l3out_node_routing_policy = mso_template.get_l3out_node_routing_policy_object(uuid, name)
         if l3out_node_routing_policy:
             mso.existing = l3out_node_routing_policy.details  # When the state is present
         else:

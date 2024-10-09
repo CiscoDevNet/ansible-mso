@@ -33,7 +33,7 @@ options:
     aliases: [ l3out_node_routing_policy_name ]
   uuid:
     description:
-    - The uuid of the L3Out Node Routing Policy.
+    - The UUID of the L3Out Node Routing Policy.
     - This parameter is required when the O(name) needs to be updated.
     type: str
     aliases: [ l3out_node_routing_policy_uuid ]
@@ -194,7 +194,7 @@ EXAMPLES = r"""
     state: query
   register: query_with_name
 
-- name: Query a L3Out Node Routing Policies with uuid
+- name: Query a L3Out Node Routing Policies with UUID
   cisco.mso.ndo_l3out_node_routing_policy:
     host: mso_host
     username: admin
@@ -239,7 +239,7 @@ RETURN = r"""
 import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
-from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
+from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
 
 
 def main():

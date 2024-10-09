@@ -1608,7 +1608,7 @@ class MSOModule(object):
                 formatted_date_time = datetime.datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")
                 return str(formatted_date_time)
             except ValueError:
-                return self.fail_json(msg="TIME FORMAT ERROR: The time must be in 'YYYY-MM-DD HH:MM:SS' format.")
+                return self.fail_json(msg="ERROR: The time must be in 'YYYY-MM-DD HH:MM:SS' format.")
 
 
 def service_node_ref_str_to_dict(serviceNodeRefStr):

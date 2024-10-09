@@ -13,10 +13,10 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 
 DOCUMENTATION = r"""
 ---
-module: ndo_mac_sec_policy
-short_description: Manage MACSec Policies on Cisco Nexus Dashboard Orchestrator (NDO).
+module: ndo_macsec_policy
+short_description: Manage MACsec Policies on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
-- Manage MACSec Policies on Cisco Nexus Dashboard Orchestrator (NDO).
+- Manage MACsec Policies on Cisco Nexus Dashboard Orchestrator (NDO).
 - This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Anvitha Jain (@anvjain)
@@ -27,24 +27,24 @@ options:
     - The template must be a fabric policy template.
     type: str
     required: true
-  mac_sec_policy:
+  macsec_policy:
     description:
-    - The name of the MACSec Policy.
+    - The name of the MACsec Policy.
     type: str
     aliases: [ name ]
-  mac_sec_policy_uuid:
+  macsec_policy_uuid:
     description:
-    - The uuid of the MACSec Policy.
-    - This parameter is required when the O(mac_sec_policy) needs to be updated.
+    - The UUID of the MACsec Policy.
+    - This parameter is required when the O(macsec_policy) needs to be updated.
     type: str
     aliases: [ uuid ]
   description:
     description:
-    - The description of the MACSec Policy.
+    - The description of the MACsec Policy.
     type: str
   admin_state:
     description:
-    - The administrative state of the MACSec Policy. (Enables or disables the policy)
+    - The administrative state of the MACsec Policy. (Enables or disables the policy)
     - The default value is C(enabled).
     type: str
     choices: [ enabled, disabled ]
@@ -69,47 +69,47 @@ options:
     type: int
   security_policy:
     description:
-    - The security policy to allow trafic on the link for the MACSec Policy.
+    - The security policy to allow traffic on the link for the MACsec Policy.
     - The default value is C(should_secure).
     type: str
     choices: [ should_secure, must_secure ]
   sak_expiry_time:
     description:
-    - The expiry time for the Security Association Key (SAK) for the MACSec Policy.
+    - The expiry time for the Security Association Key (SAK) for the MACsec Policy.
     - The value must be 0 or between 60 and 2592000.
     - The default value is 0.
     type: int
   confidentiality_offset:
     description:
-    - The confidentiality offset for the MACSec Policy.
+    - The confidentiality offset for the MACsec Policy.
     - The default value is 0.
     - This parameter is only available for type C(access).
     type: int
     choices: [ 0, 30, 50 ]
   key_server_priority:
     description:
-    - The key server priority for the MACSec Policy.
+    - The key server priority for the MACsec Policy.
     - The value must be between 0 and 255.
     - The default value 16 for type C(access).
     - This parameter is only available for type C(access).
     type: int
-  mac_sec_keys:
+  macsec_keys:
     description:
-    - List of the MACSec Keys.
-    - Providing an empty list will remove the O(mac_sec_keys) from the MACSec Policy.
-    - The old O(mac_sec_keys) entries will be replaced with the new entries during update.
+    - List of the MACsec Keys.
+    - Providing an empty list will remove the O(macsec_keys) from the MACsec Policy.
+    - The old O(macsec_keys) entries will be replaced with the new entries during update.
     type: list
     elements: dict
     suboptions:
       key_name:
         description:
-        - The name of the MACSec Key.
+        - The name of the MACsec Key.
         - Key Name has to be Hex chars [0-9a-fA-F]
         type: str
         required: true
       psk:
         description:
-        - The Pre-Shared Key (PSK) for the MACSec Key.
+        - The Pre-Shared Key (PSK) for the MACsec Key.
         - PSK has to be 64 chars long if cipher suite is C(256_gcm_aes) or C(256_gcm_aes_xpn).
         - PSK has to be 32 chars long if cipher suite is C(128_gcm_aes) or C(128_gcm_aes_xpn).
         - PSK has to be Hex chars [0-9a-fA-F]
@@ -117,14 +117,14 @@ options:
         required: true
       start_time:
         description:
-        - The start time for the MACSec Key.
+        - The start time for the MACsec Key.
         - The date time format - YYYY-MM-DD HH:MM:SS or 'now'
         - The start time for each key_name should be unique.
         - The default value is C(now).
         type: str
       end_time:
         description:
-        - The end time for the MACSec Key.
+        - The end time for the MACsec Key.
         - The date time format - YYYY-MM-DD HH:MM:SS or 'infinite'
         - The default value is C(infinite).
         type: str
@@ -140,43 +140,43 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-- name: Create a new MACSec Policy of interface_type fabric
-  cisco.mso.ndo_mac_sec_policy:
+- name: Create a new MACsec Policy of interface_type fabric
+  cisco.mso.ndo_macsec_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
-    mac_sec_policy: ansible_test_mac_sec_policy
-    description: "Ansible Test MACSec Policy"
+    macsec_policy: ansible_test_macsec_policy
+    description: "Ansible Test MACsec Policy"
     state: present
 
-- name: Create a new MACSec Policy of interface_type access
-  cisco.mso.ndo_mac_sec_policy:
+- name: Create a new MACsec Policy of interface_type access
+  cisco.mso.ndo_macsec_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
-    mac_sec_policy: ansible_test_mac_sec_policy
-    description: "Ansible Test MACSec Policy"
-    mac_sec_keys:
+    macsec_policy: ansible_test_macsec_policy
+    description: "Ansible Test MACsec Policy"
+    macsec_keys:
       - key_name: ansible_test_key
         psk: 'AA111111111111111111111111111111111111111111111111111111111111aa'
         start_time: '2029-12-11 11:12:13'
         end_time: 'infinite'
     state: present
 
-- name: Query a MACSec Policy with mac_sec_policy name
-  cisco.mso.ndo_mac_sec_policy:
+- name: Query a MACsec Policy with macsec_policy name
+  cisco.mso.ndo_macsec_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
-    mac_sec_policy: ansible_test_mac_sec_policy
+    macsec_policy: ansible_test_macsec_policy
     state: query
   register: query_one
 
-- name: Query all MACSec Policies
-  cisco.mso.ndo_mac_sec_policy:
+- name: Query all MACsec Policies
+  cisco.mso.ndo_macsec_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -184,32 +184,32 @@ EXAMPLES = r"""
     state: query
   register: query_all
 
-- name: Query a MACSec Policy with mac_sec_policy UUID
-  cisco.mso.ndo_mac_sec_policy:
+- name: Query a MACsec Policy with macsec_policy UUID
+  cisco.mso.ndo_macsec_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
-    mac_sec_policy_uuid: ansible_test_mac_sec_policy_uuid
+    macsec_policy_uuid: ansible_test_macsec_policy_uuid
     state: query
   register: query_uuid
 
-- name: Delete a MACSec Policy with name
-  cisco.mso.ndo_mac_sec_policy:
+- name: Delete a MACsec Policy with name
+  cisco.mso.ndo_macsec_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
-    mac_sec_policy: ansible_test_mac_sec_policy
+    macsec_policy: ansible_test_macsec_policy
     state: absent
 
-- name: Delete a MACSec Policy with UUID
-  cisco.mso.ndo_mac_sec_policy:
+- name: Delete a MACsec Policy with UUID
+  cisco.mso.ndo_macsec_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
-    mac_sec_policy_uuid: ansible_test_mac_sec_policy_uuid
+    macsec_policy_uuid: ansible_test_macsec_policy_uuid
     state: absent
 """
 
@@ -229,8 +229,8 @@ def main():
     argument_spec.update(
         dict(
             template=dict(type="str", required=True),
-            mac_sec_policy=dict(type="str", aliases=["name"]),
-            mac_sec_policy_uuid=dict(type="str", aliases=["uuid"]),
+            macsec_policy=dict(type="str", aliases=["name"]),
+            macsec_policy_uuid=dict(type="str", aliases=["uuid"]),
             description=dict(type="str"),
             admin_state=dict(type="str", choices=["enabled", "disabled"]),
             interface_type=dict(type="str", choices=["fabric", "access"], default="fabric"),
@@ -240,7 +240,7 @@ def main():
             sak_expiry_time=dict(type="int"),
             confidentiality_offset=dict(type="int", choices=[0, 30, 50]),
             key_server_priority=dict(type="int"),
-            mac_sec_keys=dict(
+            macsec_keys=dict(
                 type="list",
                 elements="dict",
                 options=dict(
@@ -259,16 +259,16 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "present", ["mac_sec_policy", "mac_sec_policy_uuid"], True],
-            ["state", "absent", ["mac_sec_policy", "mac_sec_policy_uuid"], True],
+            ["state", "present", ["macsec_policy", "macsec_policy_uuid"], True],
+            ["state", "absent", ["macsec_policy", "macsec_policy_uuid"], True],
         ],
     )
 
     mso = MSOModule(module)
 
     template = module.params.get("template")
-    mac_sec_policy = module.params.get("mac_sec_policy")
-    mac_sec_policy_uuid = module.params.get("mac_sec_policy_uuid")
+    macsec_policy = module.params.get("macsec_policy")
+    macsec_policy_uuid = module.params.get("macsec_policy_uuid")
     description = module.params.get("description")
     admin_state = module.params.get("admin_state")
     interface_type = module.params.get("interface_type")
@@ -278,7 +278,7 @@ def main():
     sak_expiry_time = module.params.get("sak_expiry_time")
     confidentiality_offset = module.params.get("confidentiality_offset")
     key_server_priority = module.params.get("key_server_priority")
-    mac_sec_keys = module.params.get("mac_sec_keys")
+    macsec_keys = module.params.get("macsec_keys")
     state = module.params.get("state")
 
     ops = []
@@ -288,27 +288,27 @@ def main():
     mso_template.validate_template("fabricPolicy")
 
     path = "/fabricPolicyTemplate/template/macsecPolicies"
-    object_description = "MACSec Policy"
+    object_description = "MACsec Policy"
 
-    existing_mac_sec_policies = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("macsecPolicies", [])
-    if mac_sec_policy or mac_sec_policy_uuid:
+    existing_macsec_policies = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("macsecPolicies", [])
+    if macsec_policy or macsec_policy_uuid:
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
-            existing_mac_sec_policies,
-            [KVPair("uuid", mac_sec_policy_uuid) if mac_sec_policy_uuid else KVPair("name", mac_sec_policy)],
+            existing_macsec_policies,
+            [KVPair("uuid", macsec_policy_uuid) if macsec_policy_uuid else KVPair("name", macsec_policy)],
         )
         if match:
             mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
-        mso.existing = mso.previous = existing_mac_sec_policies
+        mso.existing = mso.previous = existing_macsec_policies
 
     if state == "present":
 
         if match:
 
-            if mac_sec_policy and match.details.get("name") != mac_sec_policy:
-                ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=mac_sec_policy))
-                match.details["name"] = mac_sec_policy
+            if macsec_policy and match.details.get("name") != macsec_policy:
+                ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=macsec_policy))
+                match.details["name"] = macsec_policy
 
             if description is not None and match.details.get("description") != description:
                 ops.append(dict(op="replace", path="{0}/{1}/description".format(path, match.index), value=description))
@@ -319,7 +319,7 @@ def main():
                 match.details["adminState"] = admin_state
 
             if interface_type and match.details.get("type") != interface_type:
-                mso.fail_json(msg="Type cannot be changed for an existing MACSec Policy.")
+                mso.fail_json(msg="Type cannot be changed for an existing MACsec Policy.")
 
             if cipher_suite and match.details.get("macsecParams")["cipherSuite"] != cipher_suite:
                 ops.append(dict(op="replace", path="{0}/{1}/macsecParams/cipherSuite".format(path, match.index), value=cipher_suite))
@@ -348,33 +348,33 @@ def main():
                     ops.append(dict(op="replace", path="{0}/{1}/macsecParams/keyServerPrio".format(path, match.index), value=key_server_priority))
                     match.details["macsecParams"]["keyServerPrio"] = key_server_priority
 
-            if mac_sec_keys:
-                # updating mac_sec_keys modifies the existing list with the new list
-                mac_sec_keys_list = []
-                for mac_sec_key in mac_sec_keys:
-                    mac_sec_keys_list.append(
+            if macsec_keys:
+                # updating macsec_keys modifies the existing list with the new list
+                macsec_keys_list = []
+                for macsec_key in macsec_keys:
+                    macsec_keys_list.append(
                         dict(
-                            keyname=mac_sec_key.get("key_name"),
-                            psk=mac_sec_key.get("psk"),
-                            start=mso.verify_time_format(mac_sec_key.get("start_time")) if mac_sec_key.get("start_time") else None,
-                            end=mso.verify_time_format(mac_sec_key.get("end_time")) if mac_sec_key.get("end_time") else None,
+                            keyname=macsec_key.get("key_name"),
+                            psk=macsec_key.get("psk"),
+                            start=mso.verify_time_format(macsec_key.get("start_time")) if macsec_key.get("start_time") else None,
+                            end=mso.verify_time_format(macsec_key.get("end_time")) if macsec_key.get("end_time") else None,
                         )
                     )
 
-                if mac_sec_keys_list != match.details.get("macsecKeys", []):
-                    ops.append(dict(op="replace", path="{0}/{1}/macsecKeys".format(path, match.index), value=mac_sec_keys_list))
-                match.details["macsecKeys"] = mac_sec_keys
-            elif mac_sec_keys == []:
-                # remove mac_sec_keys if the list is empty
+                if macsec_keys_list != match.details.get("macsecKeys", []):
+                    ops.append(dict(op="replace", path="{0}/{1}/macsecKeys".format(path, match.index), value=macsec_keys_list))
+                match.details["macsecKeys"] = macsec_keys
+            elif macsec_keys == []:
+                # remove macsec_keys if the list is empty
                 ops.append(dict(op="remove", path="{0}/{1}/macsecKeys".format(path, match.index)))
                 match.details.pop("macsecKeys", None)
 
             mso.sanitize(match.details)
 
         else:
-            mac_sec_param_map = {}
+            macsec_param_map = {}
 
-            payload = {"name": mac_sec_policy, "templateId": mso_template.template.get("templateId"), "schemaId": mso_template.template.get("schemaId")}
+            payload = {"name": macsec_policy, "templateId": mso_template.template.get("templateId"), "schemaId": mso_template.template.get("schemaId")}
             payload["type"] = interface_type
 
             if description:
@@ -382,34 +382,34 @@ def main():
             if admin_state:
                 payload["adminState"] = admin_state
             if cipher_suite:
-                mac_sec_param_map["cipherSuite"] = cipher_suite
+                macsec_param_map["cipherSuite"] = cipher_suite
             if window_size:
-                mac_sec_param_map["windowSize"] = window_size
+                macsec_param_map["windowSize"] = window_size
             if security_policy:
-                mac_sec_param_map["securityPol"] = security_policy
+                macsec_param_map["securityPol"] = security_policy
             if sak_expiry_time:
-                mac_sec_param_map["sakExpiryTime"] = sak_expiry_time
+                macsec_param_map["sakExpiryTime"] = sak_expiry_time
 
             if interface_type == "access":
                 if confidentiality_offset:
-                    mac_sec_param_map["confOffSet"] = "offset{0}".format(confidentiality_offset)
+                    macsec_param_map["confOffSet"] = "offset{0}".format(confidentiality_offset)
                 if key_server_priority:
-                    mac_sec_param_map["keyServerPrio"] = key_server_priority
-                payload["macsecParams"] = mac_sec_param_map
+                    macsec_param_map["keyServerPrio"] = key_server_priority
+                payload["macsecParams"] = macsec_param_map
 
-            mac_sec_keys_list = []
-            if mac_sec_keys:
-                for mac_sec_key in mac_sec_keys:
-                    mac_sec_key_dict = {
-                        "keyname": mac_sec_key.get("key_name"),
-                        "psk": mac_sec_key.get("psk"),
+            if macsec_keys:
+                macsec_keys_list = []
+                for macsec_key in macsec_keys:
+                    macsec_key_dict = {
+                        "keyname": macsec_key.get("key_name"),
+                        "psk": macsec_key.get("psk"),
                     }
-                    if mac_sec_key.get("start_time"):
-                        mac_sec_key_dict["start"] = mac_sec_key.get("start_time")
-                    if mac_sec_key.get("end_time"):
-                        mac_sec_key_dict["end"] = mac_sec_key.get("end_time")
-                    mac_sec_keys_list.append(mac_sec_key_dict)
-                payload["macsecKeys"] = mac_sec_keys_list
+                    if macsec_key.get("start_time"):
+                        macsec_key_dict["start"] = macsec_key.get("start_time")
+                    if macsec_key.get("end_time"):
+                        macsec_key_dict["end"] = macsec_key.get("end_time")
+                    macsec_keys_list.append(macsec_key_dict)
+                payload["macsecKeys"] = macsec_keys_list
 
             ops.append(dict(op="add", path="{0}/-".format(path), value=copy.deepcopy(payload)))
 
@@ -427,7 +427,7 @@ def main():
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
             macsec_policies,
-            [KVPair("uuid", mac_sec_policy_uuid) if mac_sec_policy_uuid else KVPair("name", mac_sec_policy)],
+            [KVPair("uuid", macsec_policy_uuid) if macsec_policy_uuid else KVPair("name", macsec_policy)],
         )
         if match:
             mso.existing = match.details

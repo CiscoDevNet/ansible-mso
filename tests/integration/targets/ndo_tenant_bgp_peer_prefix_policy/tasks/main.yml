@@ -1,0 +1,341 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+
+    - name: Ensure sites exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ item.site }}'
+        apic_username: '{{ apic_username }}'
+        apic_password: '{{ apic_password }}'
+        apic_site_id: '{{ item.apic_site_id }}'
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+      loop:
+        - {site: "ansible_test", apic_site_id: 101}
+        - {site: "ansible_test_2", apic_site_id: 102}
+
+    - name: Ensure tenants exist
+      cisco.mso.mso_tenant: 
+        <<: *mso_info
+        tenant: '{{ item }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+          - ansible_test_2
+        state: present
+      loop:
+        - ansible_test
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_tenant_template
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+
+    # CREATE
+
+    - name: Create a new BGP Peer Prefix Policy (check_mode)
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy: &create_bgp_peer_prefix_policy
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_test_bgp_peer_prefix_policy
+        state: present
+      check_mode: true
+      register: cm_create_new_bgp_peer_prefix_policy
+
+    - name: Create a new BGP Peer Prefix Policy
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
+        <<: *create_bgp_peer_prefix_policy
+      register: nm_create_new_bgp_peer_prefix_policy
+
+    - name: Create a new BGP Peer Prefix Policy again
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
+        <<: *create_bgp_peer_prefix_policy
+      register: nm_create_new_bgp_peer_prefix_policy_again
+
+    - name: Assert BGP Peer Prefix Policy was created
+      assert:
+        that:
+          - cm_create_new_bgp_peer_prefix_policy is changed
+          - cm_create_new_bgp_peer_prefix_policy.previous == {}
+          - cm_create_new_bgp_peer_prefix_policy.current.name == "ansible_test_bgp_peer_prefix_policy"
+          - nm_create_new_bgp_peer_prefix_policy is changed
+          - nm_create_new_bgp_peer_prefix_policy.previous == {}
+          - nm_create_new_bgp_peer_prefix_policy.current.name == "ansible_test_bgp_peer_prefix_policy"
+          - nm_create_new_bgp_peer_prefix_policy.current.action == "reject"
+          - nm_create_new_bgp_peer_prefix_policy.current.maxPrefixes == 20000
+          - nm_create_new_bgp_peer_prefix_policy.current.restartTime == 65535
+          - nm_create_new_bgp_peer_prefix_policy.current.threshold == 75
+          - nm_create_new_bgp_peer_prefix_policy.current.uuid is defined
+          - nm_create_new_bgp_peer_prefix_policy_again is not changed
+          - nm_create_new_bgp_peer_prefix_policy_again.previous.name == "ansible_test_bgp_peer_prefix_policy"
+          - nm_create_new_bgp_peer_prefix_policy_again.previous.action == "reject"
+          - nm_create_new_bgp_peer_prefix_policy_again.previous.maxPrefixes == 20000
+          - nm_create_new_bgp_peer_prefix_policy_again.previous.restartTime == 65535
+          - nm_create_new_bgp_peer_prefix_policy_again.previous.threshold == 75
+          - nm_create_new_bgp_peer_prefix_policy_again.previous.uuid is defined
+          - nm_create_new_bgp_peer_prefix_policy_again.current.name == "ansible_test_bgp_peer_prefix_policy"
+          - nm_create_new_bgp_peer_prefix_policy_again.current.action == "reject"
+          - nm_create_new_bgp_peer_prefix_policy_again.current.maxPrefixes == 20000
+          - nm_create_new_bgp_peer_prefix_policy_again.current.restartTime == 65535
+          - nm_create_new_bgp_peer_prefix_policy_again.current.threshold == 75
+          - nm_create_new_bgp_peer_prefix_policy_again.current.uuid is defined
+
+    # UPDATE
+
+    - name: Update a BGP Peer Prefix Policy (check_mode)
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy: &update_bgp_peer_prefix_policy
+        <<: *create_bgp_peer_prefix_policy
+        description: changed_description
+        action: restart
+        max_number_of_prefixes: 1000
+        threshold_percentage: 50
+        restart_time: 60
+      check_mode: true
+      register: cm_update_bgp_peer_prefix_policy
+
+    - name: Update a BGP Peer Prefix Policy description
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
+        <<: *update_bgp_peer_prefix_policy
+      register: nm_update_bgp_peer_prefix_policy
+
+    - name: Update a BGP Peer Prefix Policy description again
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
+        <<: *update_bgp_peer_prefix_policy
+      register: nm_update_bgp_peer_prefix_policy_again
+
+    - name: Assert BGP Peer Prefix Policy was updated
+      assert:
+        that:
+          - cm_update_bgp_peer_prefix_policy is changed
+          - cm_update_bgp_peer_prefix_policy.previous.name == "ansible_test_bgp_peer_prefix_policy"
+          - cm_update_bgp_peer_prefix_policy.previous.action == "reject"
+          - cm_update_bgp_peer_prefix_policy.previous.maxPrefixes == 20000
+          - cm_update_bgp_peer_prefix_policy.previous.restartTime == 65535
+          - cm_update_bgp_peer_prefix_policy.previous.threshold == 75
+          - cm_update_bgp_peer_prefix_policy.previous.uuid is defined
+          - cm_update_bgp_peer_prefix_policy.previous.description is not defined
+          - cm_update_bgp_peer_prefix_policy.current.name == "ansible_test_bgp_peer_prefix_policy"
+          - cm_update_bgp_peer_prefix_policy.current.action == "restart"
+          - cm_update_bgp_peer_prefix_policy.current.maxPrefixes == 1000
+          - cm_update_bgp_peer_prefix_policy.current.restartTime == 60
+          - cm_update_bgp_peer_prefix_policy.current.threshold == 50
+          - cm_update_bgp_peer_prefix_policy.current.uuid is defined
+          - cm_update_bgp_peer_prefix_policy.current.description == "changed_description"
+          - nm_update_bgp_peer_prefix_policy is changed
+          - nm_update_bgp_peer_prefix_policy.previous.name == "ansible_test_bgp_peer_prefix_policy"
+          - nm_update_bgp_peer_prefix_policy.previous.action == "reject"
+          - nm_update_bgp_peer_prefix_policy.previous.maxPrefixes == 20000
+          - nm_update_bgp_peer_prefix_policy.previous.restartTime == 65535
+          - nm_update_bgp_peer_prefix_policy.previous.threshold == 75
+          - nm_update_bgp_peer_prefix_policy.previous.uuid is defined
+          - nm_update_bgp_peer_prefix_policy.previous.description is not defined
+          - nm_update_bgp_peer_prefix_policy.current.name == "ansible_test_bgp_peer_prefix_policy"
+          - nm_update_bgp_peer_prefix_policy.current.action == "restart"
+          - nm_update_bgp_peer_prefix_policy.current.maxPrefixes == 1000
+          - nm_update_bgp_peer_prefix_policy.current.restartTime == 60
+          - nm_update_bgp_peer_prefix_policy.current.threshold == 50
+          - nm_update_bgp_peer_prefix_policy.current.uuid is defined
+          - nm_update_bgp_peer_prefix_policy.current.description == "changed_description"
+          - nm_update_bgp_peer_prefix_policy_again is not changed
+          - nm_update_bgp_peer_prefix_policy_again.previous.name == "ansible_test_bgp_peer_prefix_policy"
+          - nm_update_bgp_peer_prefix_policy_again.previous.action == "restart"
+          - nm_update_bgp_peer_prefix_policy_again.previous.maxPrefixes == 1000
+          - nm_update_bgp_peer_prefix_policy_again.previous.restartTime == 60
+          - nm_update_bgp_peer_prefix_policy_again.previous.threshold == 50
+          - nm_update_bgp_peer_prefix_policy_again.previous.uuid is defined
+          - nm_update_bgp_peer_prefix_policy_again.previous.description == "changed_description"
+          - nm_update_bgp_peer_prefix_policy_again.current.name == "ansible_test_bgp_peer_prefix_policy"
+          - nm_update_bgp_peer_prefix_policy_again.current.action == "restart"
+          - nm_update_bgp_peer_prefix_policy_again.current.maxPrefixes == 1000
+          - nm_update_bgp_peer_prefix_policy_again.current.restartTime == 60
+          - nm_update_bgp_peer_prefix_policy_again.current.threshold == 50
+          - nm_update_bgp_peer_prefix_policy_again.current.uuid is defined
+          - nm_update_bgp_peer_prefix_policy_again.current.description == "changed_description"
+
+    - name: Update a BGP Peer Prefix Policy name
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy: &update_bgp_peer_prefix_policy_name
+        <<: *update_bgp_peer_prefix_policy
+        uuid: '{{ nm_update_bgp_peer_prefix_policy.current.uuid }}'
+        name: ansible_test_bgp_peer_prefix_policy_changed
+      register: nm_update_bgp_peer_prefix_policy_name
+
+    - name: Assert BGP Peer Prefix Policy was updated
+      assert:
+        that:
+          - nm_update_bgp_peer_prefix_policy_name is changed
+          - nm_update_bgp_peer_prefix_policy_name.previous.name == "ansible_test_bgp_peer_prefix_policy"
+          - nm_update_bgp_peer_prefix_policy_name.current.name == "ansible_test_bgp_peer_prefix_policy_changed"
+
+    # QUERY
+
+    - name: Create another BGP Peer Prefix Policy
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy: &create_bgp_peer_prefix_policy_2
+        <<: *create_bgp_peer_prefix_policy
+        name: ansible_test_bgp_peer_prefix_policy_2
+        description: "This is a test BGP Peer Prefix Policy 2"
+        action: "shutdown"
+        max_number_of_prefixes: 5000
+        threshold_percentage: 25
+        restart_time: 30
+
+    - name: Query a BGP Peer Prefix Policy with template_name
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
+        <<: *create_bgp_peer_prefix_policy_2
+        state: query
+      register: query_one
+
+    - name: Query a BGP Peer Prefix Policy with template_name and UUID
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy: &query_bgp_peer_prefix_policy_uuid
+        <<: *create_bgp_peer_prefix_policy_2
+        uuid: '{{ query_one.current.uuid }}'
+        name: '{{ fakevar | default(omit)}}'
+        state: query
+      register: query_one_uuid
+
+    - name: Query all BGP Peer Prefix Policy in the template
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        state: query
+      register: query_all
+
+    - name: Assert BGP Peer Prefix Policy was queried
+      assert:
+        that:
+          - query_one is not changed
+          - query_one.current.name == "ansible_test_bgp_peer_prefix_policy_2"
+          - query_one_uuid is not changed
+          - query_one_uuid.current.name == "ansible_test_bgp_peer_prefix_policy_2"
+          - query_all is not changed
+          - query_all.current | length == 2
+
+    # DELETE
+
+    - name: Delete a BGP Peer Prefix Policy (check_mode)
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy: &delete_bgp_peer_prefix_policy
+        <<: *update_bgp_peer_prefix_policy_name
+        state: absent
+      check_mode: true
+      register: cm_delete_bgp_peer_prefix_policy
+
+    - name: Delete a BGP Peer Prefix Policy
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
+        <<: *delete_bgp_peer_prefix_policy
+      register: nm_delete_bgp_peer_prefix_policy
+
+    - name: Delete a BGP Peer Prefix Policy again
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
+        <<: *delete_bgp_peer_prefix_policy
+      register: nm_delete_bgp_peer_prefix_policy_again
+
+    - name: Assert BGP Peer Prefix Policy was deleted
+      assert:
+        that:
+          - cm_delete_bgp_peer_prefix_policy is changed
+          - cm_delete_bgp_peer_prefix_policy.previous.name == "ansible_test_bgp_peer_prefix_policy_changed"
+          - cm_delete_bgp_peer_prefix_policy.previous.action == "restart"
+          - cm_delete_bgp_peer_prefix_policy.previous.maxPrefixes == 1000
+          - cm_delete_bgp_peer_prefix_policy.previous.restartTime == 60
+          - cm_delete_bgp_peer_prefix_policy.previous.threshold == 50
+          - cm_delete_bgp_peer_prefix_policy.previous.uuid is defined
+          - cm_delete_bgp_peer_prefix_policy.previous.description == "changed_description"
+          - cm_delete_bgp_peer_prefix_policy.current == {}
+          - nm_delete_bgp_peer_prefix_policy is changed
+          - nm_delete_bgp_peer_prefix_policy.previous.name == 'ansible_test_bgp_peer_prefix_policy_changed'
+          - nm_delete_bgp_peer_prefix_policy.previous.action == "restart"
+          - nm_delete_bgp_peer_prefix_policy.previous.maxPrefixes == 1000
+          - nm_delete_bgp_peer_prefix_policy.previous.restartTime == 60
+          - nm_delete_bgp_peer_prefix_policy.previous.threshold == 50
+          - nm_delete_bgp_peer_prefix_policy.previous.uuid is defined
+          - nm_delete_bgp_peer_prefix_policy.previous.description == "changed_description"
+          - nm_delete_bgp_peer_prefix_policy.current == {}
+          - nm_delete_bgp_peer_prefix_policy_again is not changed
+          - nm_delete_bgp_peer_prefix_policy_again.previous == {}
+          - nm_delete_bgp_peer_prefix_policy_again.current == {}
+
+    - name: Delete a BGP Peer Prefix Policy with UUID
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
+        <<: *query_bgp_peer_prefix_policy_uuid
+        state: absent
+      register: nm_delete_bgp_peer_prefix_policy_uuid
+
+    - name: Assert BGP Peer Prefix Policy was deleted with UUID
+      assert:
+        that:
+          - nm_delete_bgp_peer_prefix_policy_uuid is changed
+          - nm_delete_bgp_peer_prefix_policy_uuid.previous.name == 'ansible_test_bgp_peer_prefix_policy_2'
+          - nm_delete_bgp_peer_prefix_policy_uuid.previous.description == "This is a test BGP Peer Prefix Policy 2"
+          - nm_delete_bgp_peer_prefix_policy_uuid.current == {}
+    
+    # Errors and no policies found
+
+    - name: Query all BGP Peer Prefix Policy in the template when all are deleted
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        state: query
+      register: query_all_none
+    
+    - name: Update with non-existing UUID
+      cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        uuid: non-existing-uuid
+        state: present
+      ignore_errors: true
+      register: update_non_existing_uuid
+
+    - name: Assert no BGP Peer Prefix Policy found
+      assert:
+        that:
+          - query_all_none is not changed
+          - query_all_none.current == {}
+          - update_non_existing_uuid is failed
+          - update_non_existing_uuid.msg == "BGP Peer Prefix Policy with the uuid{{":"}} 'non-existing-uuid' not found"
+  
+    # CLEANUP TEMPLATE
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

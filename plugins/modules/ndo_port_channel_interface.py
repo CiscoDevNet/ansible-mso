@@ -50,9 +50,10 @@ options:
         description:
         - The node ID.
         type: str
-    member_interfaces:
+    interfaces:
         description:
         - The list of used Interface IDs.
+        - Ranges of Interface IDs can be used.
         type: list
         elements: str
         aliases: [ members ]
@@ -74,7 +75,7 @@ options:
         suboptions:
             interface_id:
                 description:
-                - The interface ID to which attach a description.
+                - The interface ID.
                 type: str
             description:
                 description:
@@ -101,12 +102,17 @@ EXAMPLES = r"""
     description: My Ansible Port Channel
     port_channel_interface: ansible_port_channel_interface
     node: 101
-    member_interfaces:
+    interfaces:
       - 1/1
+      - 1/10-11
     interface_policy_uuid: ansible_port_channel_policy
     interface_descriptions:
       - interface_id: 1/1
         description: My first Ansible Interface
+      - interface_id: 1/10
+        description: My second Ansible Interface
+      - interface_id: 1/11
+        description: My third Ansible Interface
     state: present
 
 - name: Query an Port Channel Interface with template_name
@@ -117,14 +123,16 @@ EXAMPLES = r"""
     template: ansible_fabric_resource_template
     port_channel_interface: ansible_port_channel_interface
     state: query
+  register: query_one
 
-- name: Query all IPort Channel Interfaces in the template
+- name: Query all Port Channel Interfaces in the template
   cisco.mso.ndo_port_channel_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_fabric_resource_template
     state: query
+  register: query_all
 
 - name: Delete an Port Channel Interface
   cisco.mso.ndo_port_channel_interface:
@@ -140,6 +148,7 @@ RETURN = r"""
 """
 
 import copy
+import re
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import (
     MSOModule,
@@ -151,6 +160,26 @@ from ansible_collections.cisco.mso.plugins.module_utils.template import (
 )
 
 
+def lookup_valid_interfaces(interfaces):
+    interface_ids = []
+    errors_interfaces = []
+    modified_interfaces = interfaces.replace(" ", "").split(",")
+    for interface in modified_interfaces:
+        if re.fullmatch(r"((\d+/)+\d+-\d+$)", interface):
+            slots = interface.rsplit("/", 1)[0]
+            range_start, range_stop = interface.rsplit("/", 1)[1].split("-")
+            if int(range_stop) > int(range_start):
+                for x in range(int(range_start), int(range_stop) + 1):
+                    interface_ids.append("{0}/{1}".format(slots, x))
+            else:
+                errors_interfaces.append(interface)
+        elif re.fullmatch(r"((\d+/)+\d+$)", interface):
+            interface_ids.append(interface)
+        else:
+            errors_interfaces.append(interface)
+    return set(interface_ids), errors_interfaces
+
+
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
@@ -159,7 +188,7 @@ def main():
         port_channel_interface_uuid=dict(type="str", aliases=["uuid", "port_channel_uuid"]),
         description=dict(type="str"),
         node=dict(type="str"),
-        member_interfaces=dict(type="list", elements="str", aliases=["members"]),
+        interfaces=dict(type="list", elements="str", aliases=["members"]),
         interface_policy=dict(type="str", aliases=["policy", "pc_policy"]),
         interface_policy_uuid=dict(type="str", aliases=["policy_uuid", "pc_policy_uuid"]),
         interface_descriptions=dict(
@@ -177,8 +206,8 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "absent", ["port_channel_interface"]],
-            ["state", "present", ["port_channel_interface"]],
+            ["state", "absent", ["template", "port_channel_interface"]],
+            ["state", "present", ["template", "port_channel_interface"]],
         ],
     )
 
@@ -189,7 +218,7 @@ def main():
     port_channel_interface_uuid = module.params.get("port_channel_interface_uuid")
     description = module.params.get("description")
     node = module.params.get("node")
-    member_interfaces = module.params.get("member_interfaces")
+    interfaces = ",".join(module.params.get("interfaces")) if module.params.get("interfaces") else None
     interface_policy = module.params.get("interface_policy")
     interface_policy_uuid = module.params.get("interface_policy_uuid")
     interface_descriptions = module.params.get("interface_descriptions")
@@ -231,97 +260,105 @@ def main():
                 mso.fail_json(msg="No existing Port Channel policy")
 
         if match:
-            if match.details.get("name") != port_channel_interface:
-                ops.append(
-                    dict(
-                        op="replace",
-                        path="{0}/{1}/name".format(path, match.index),
-                        value=port_channel_interface,
-                    )
-                )
+            if port_channel_interface and match.details.get("name") != port_channel_interface:
+                ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=port_channel_interface))
                 match.details["name"] = port_channel_interface
 
-            if match.details.get("description") != description:
-                ops.append(
-                    dict(
-                        op="replace",
-                        path="{0}/{1}/description".format(path, match.index),
-                        value=description,
-                    )
-                )
+            if description and match.details.get("description") != description:
+                ops.append(dict(op="replace", path="{0}/{1}/description".format(path, match.index), value=description))
                 match.details["description"] = description
 
-            if match.details.get("node") != node:
-                ops.append(
-                    dict(
-                        op="replace",
-                        path="{0}/{1}/node".format(path, match.index),
-                        value=node,
-                    )
-                )
+            node_changed = False
+            if node and match.details.get("node") != node:
+                ops.append(dict(op="replace", path="{0}/{1}/node".format(path, match.index), value=node))
                 match.details["node"] = node
+                node_changed = True
 
-            if match.details.get("memberInterfaces") != member_interfaces:
-                ops.append(
-                    dict(
-                        op="replace",
-                        path="{0}/{1}/memberInterfaces".format(path, match.index),
-                        value=",".join(member_interfaces),
-                    )
-                )
-                match.details["memberInterfaces"] = member_interfaces
-
-            if match.details.get("policy") != interface_policy_uuid:
-                ops.append(
-                    dict(
-                        op="replace",
-                        path="{0}/{1}/policy".format(path, match.index),
-                        value=interface_policy_uuid,
-                    )
-                )
+            if interface_policy_uuid and match.details.get("policy") != interface_policy_uuid:
+                ops.append(dict(op="replace", path="{0}/{1}/policy".format(path, match.index), value=interface_policy_uuid))
                 match.details["policy"] = interface_policy_uuid
 
-            if interface_descriptions is not None and match.details.get("interfaceDescriptions") != interface_descriptions:
-                ops.append(
-                    dict(
-                        op="replace",
-                        path="{0}/{1}/interfaceDescriptions".format(path, match.index),
-                        value=[
-                            {
-                                "nodeID": node,
-                                "interfaceID": interface.get("interface_id"),
-                                "description": interface.get("description"),
-                            }
-                            for interface in interface_descriptions
-                        ],
-                    )
-                )
-                match.details["interfaceDescriptions"] = interface_descriptions
+            if interfaces and match.details.get("memberInterfaces") != interfaces:
+                interface_ids, errors_interfaces = lookup_valid_interfaces(interfaces)
+                if errors_interfaces:
+                    mso.fail_json(msg=("Invalid interface inputs, {0}".format(errors_interfaces)))
+                else:
+                    ops.append(dict(op="replace", path="{0}/{1}/memberInterfaces".format(path, match.index), value=interfaces))
+                    match.details["memberInterfaces"] = interfaces
+            else:
+                interface_ids, errors_interfaces = lookup_valid_interfaces(match.details.get("memberInterfaces"))
+
+            if interface_descriptions or (node_changed and match.details.get("interfaceDescriptions")):
+                if node_changed and interface_descriptions is None:
+                    interface_descriptions = [
+                        {
+                            "nodeID": node,
+                            "interfaceID": interface.get("interfaceID"),
+                            "description": interface.get("description"),
+                        }
+                        for interface in match.details["interfaceDescriptions"]
+                    ]
+                else:
+                    interface_descriptions = [
+                        {
+                            "nodeID": match.details["node"],
+                            "interfaceID": interface.get("interface_id"),
+                            "description": interface.get("description"),
+                        }
+                        for interface in interface_descriptions
+                    ]
+                    error_descriptions = []
+                    for interface_description in interface_descriptions:
+                        if interface_description["interfaceID"] not in interface_ids:
+                            error_descriptions.append(interface_description["interfaceID"])
+                    if error_descriptions:
+                        mso.fail_json(
+                            msg=("Interface IDs with description {0} not in list of current interfaces {1}".format(error_descriptions, list(interface_ids)))
+                        )
+                if interface_descriptions != match.details.get("interfaceDescriptions"):
+                    ops.append(dict(op="replace", path="{0}/{1}/interfaceDescriptions".format(path, match.index), value=interface_descriptions))
+                    match.details["interfaceDescriptions"] = interface_descriptions
+            elif interface_descriptions == [] and match.details["interfaceDescriptions"]:
+                ops.append(dict(op="remove", path="{0}/{1}/interfaceDescriptions".format(path, match.index)))
 
             mso.sanitize(match.details)
 
         else:
-            payload = {
-                "name": port_channel_interface,
-                "description": description,
-                "node": node,
-                "memberInterfaces": ",".join(member_interfaces),
-                "policy": interface_policy_uuid,
-            }
+            config = {"node": node, "memberInterfaces": interfaces, "policy": interface_policy_uuid}
+            missing_required_attributes = []
+            for attribute_name, attribute_value in config.items():
+                if not attribute_value:
+                    missing_required_attributes.append(attribute_name)
+            if missing_required_attributes:
+                mso.fail_json(msg=("Missing required attributes {0} for creating a Port Channel Interface".format(missing_required_attributes)))
+            else:
+                payload = {"name": port_channel_interface} | config
+                interface_ids, errors_interfaces = lookup_valid_interfaces(payload["memberInterfaces"])
+                if errors_interfaces:
+                    mso.fail_json(msg=("Invalid interface inputs, {0}".format(errors_interfaces)))
+                if description:
+                    payload["description"] = description
+                if interface_descriptions:
+                    error_descriptions = []
+                    for interface_description in interface_descriptions:
+                        if interface_description["interface_id"] not in interface_ids:
+                            error_descriptions.append(interface_description["interface_id"])
+                    if error_descriptions:
+                        mso.fail_json(
+                            msg=("Interface IDs with description {0} not in list of current interfaces {1}".format(error_descriptions, list(interface_ids)))
+                        )
+                    payload["interfaceDescriptions"] = [
+                        {
+                            "nodeID": node,
+                            "interfaceID": interface.get("interface_id"),
+                            "description": interface.get("description"),
+                        }
+                        for interface in interface_descriptions
+                    ]
 
-            if interface_descriptions:
-                payload["interfaceDescriptions"] = [
-                    {
-                        "nodeID": node,
-                        "interfaceID": interface.get("interface_id"),
-                        "description": interface.get("description"),
-                    }
-                    for interface in interface_descriptions
-                ]
+                ops.append(dict(op="add", path="{0}/-".format(path), value=payload))
 
-            ops.append(dict(op="add", path="{0}/-".format(path), value=payload))
-
-            mso.sanitize(payload)
+                mso.sanitize(payload)
 
     elif state == "absent":
         if match:

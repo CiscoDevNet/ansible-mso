@@ -17,6 +17,7 @@ module: ndo_tenant_bgp_peer_prefix_policy
 short_description: Manage BGP Peer Prefix Policies in Tenant Policy Templates on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage BGP Peer Prefix Policies in Tenant Policy Templates on Cisco Nexus Dashboard Orchestrator (NDO).
+- This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Akini Ross (@akinross)
 options:

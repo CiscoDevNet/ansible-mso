@@ -119,7 +119,7 @@ EXAMPLES = r"""
     state: query
   register: query_uuid
 
-- name: Query a BGP Peer Prefix Policy object with uuid
+- name: Query a BGP Peer Prefix Policy object with UUID
   cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
     host: mso_host
     username: admin
@@ -147,7 +147,7 @@ EXAMPLES = r"""
     name: bgp_peer_prefix_policy_1
     state: absent
 
-- name: Delete a BGP Peer Prefix Policy object with uuid
+- name: Delete a BGP Peer Prefix Policy object with UUID
   cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
     host: mso_host
     username: admin

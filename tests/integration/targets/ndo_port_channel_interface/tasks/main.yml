@@ -67,7 +67,7 @@
         port_channel_interface: ansible_port_channel_interface
         description: Ansible Port Channel test
         node: 101
-        member_interfaces: 1/1
+        interfaces: 1/1
         interface_policy: Gaspard_Interface_setting_test
         interface_descriptions:
           - interface_id: 1/1
@@ -119,7 +119,60 @@
           - nm_create_new_port_channel_interface_again.current.interfaceDescriptions.0.nodeID == "101"
           - nm_create_new_port_channel_interface_again.current.interfaceDescriptions.0.interfaceID == "1/1"
           - nm_create_new_port_channel_interface_again.current.interfaceDescriptions.0.description == "first Ansible interface test"
-          
+
+    # CREATION ERRORS
+
+    - name: Create a new port channel interface without a node
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        port_channel_interface: ansible_port_channel_interface_error
+        interfaces: 1/1
+        interface_policy: Gaspard_Interface_setting_test
+        state: present
+      ignore_errors: true
+      register: nm_create_missing_node
+    
+    - name: Create a new port channel interface with invalid interface
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        port_channel_interface: ansible_port_channel_interface_error
+        node: 101
+        interfaces:
+          - error
+          - 1
+        interface_policy: Gaspard_Interface_setting_test
+        interface_descriptions:
+          - interface_id: 1/1
+            description: first Ansible interface test
+        state: present
+      ignore_errors: true
+      register: nm_create_interface_invalid_interface
+
+    - name: Create a new port channel interface with invalid interface descriptions
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        port_channel_interface: ansible_port_channel_interface_error
+        node: 101
+        interfaces: 1/1
+        interface_policy: Gaspard_Interface_setting_test
+        interface_descriptions:
+          - interface_id: 1/1
+            description: first Ansible interface test
+          - interface_id: 1/2
+            description: second Ansible interface test
+        state: present
+      ignore_errors: true
+      register: nm_create_invalid_interface_descriptions
+
+    - name: Assert port channel interface creation errors tasks
+      assert:
+        that:
+          - nm_create_missing_node.msg == "Missing required attributes ['node'] for creating a Port Channel Interface"
+          - nm_create_interface_invalid_interface.msg == "Invalid interface inputs, ['error', '1']"
+          - nm_create_invalid_interface_descriptions.msg == "Interface IDs with description ['1/2'] not in list of current interfaces ['1/1']"
 
     # UPDATE
 
@@ -139,15 +192,24 @@
       cisco.mso.ndo_port_channel_interface:
         <<: *update_port_channel_interface
       register: nm_update_port_channel_interface_node_again
+
+    - name: Update a port channel interface node without previous configurations
+      cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_node
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        port_channel_interface: ansible_port_channel_interface
+        node: 103
+        state: present
+      register: nm_update_node_without_previous_config
     
     - name: Update a port channel interface name
       cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_name
-        <<: *update_port_channel_interface
+        <<: *update_port_channel_interface_node
         port_channel_interface_uuid: '{{ nm_update_port_channel_interface_node.current.uuid }}'
         port_channel_interface: ansible_port_channel_interface_changed
       register: nm_update_port_channel_interface_name
 
-    - name: Update a port channel interface policy
+    - name: Update a port channel interface description
       cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_description
         <<: *update_port_channel_interface_name
         description: Ansible Port Channel test updated
@@ -162,7 +224,7 @@
     - name: Update a port channel interface members
       cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_members
         <<: *update_port_channel_interface_policy
-        member_interfaces: 1/1-3
+        interfaces: 1/1-3
       register: nm_update_port_channel_interface_members
     
     - name: Update a port channel interface members descriptions
@@ -177,10 +239,16 @@
             description: third Ansible interface test
       register: nm_update_port_channel_interface_descriptions
     
-    - name: Delete a port channel interface member
-      cisco.mso.ndo_port_channel_interface: &delete_port_channel_interface_member
+    - name: Delete a port channel interface members descriptions
+      cisco.mso.ndo_port_channel_interface: &delete_port_channel_interface_desciptions
         <<: *update_port_channel_interface_descriptions
-        member_interfaces: 1/1-2
+        interface_descriptions: []
+      register: nm_delete_port_channel_interface_descriptions
+
+    - name: Delete a port channel interface member and add descriptions again
+      cisco.mso.ndo_port_channel_interface: &delete_port_channel_interface_member
+        <<: *delete_port_channel_interface_desciptions
+        interfaces: 1/1-2
         interface_descriptions:
           - interface_id: 1/1
             description:  new first Ansible interface test
@@ -202,6 +270,12 @@
           - nm_update_port_channel_interface_node_again is not changed
           - nm_update_port_channel_interface_node_again.current.node == "102"
           - nm_update_port_channel_interface_node_again.current == nm_update_port_channel_interface_node_again.previous
+          - nm_update_node_without_previous_config is changed
+          - nm_update_node_without_previous_config.current.node == "103"
+          - nm_update_node_without_previous_config.current.interfaceDescriptions | length == 1
+          - nm_update_node_without_previous_config.current.interfaceDescriptions.0.nodeID == "103"
+          - nm_update_node_without_previous_config.current.interfaceDescriptions.0.interfaceID == "1/1"
+          - nm_update_node_without_previous_config.current.interfaceDescriptions.0.description == "first Ansible interface test"
           - nm_update_port_channel_interface_name is changed
           - nm_update_port_channel_interface_name.current.name == "ansible_port_channel_interface_changed"
           - nm_update_port_channel_interface_description is changed
@@ -209,36 +283,79 @@
           - nm_update_port_channel_interface_members is changed
           - nm_update_port_channel_interface_members.current.memberInterfaces == "1/1-3"
           - nm_update_port_channel_interface_members.current.interfaceDescriptions | length == 1
-          - nm_update_port_channel_interface_members.current.interfaceDescriptions.0.nodeID == "102"
+          - nm_update_port_channel_interface_members.current.interfaceDescriptions.0.nodeID == "103"
           - nm_update_port_channel_interface_members.current.interfaceDescriptions.0.interfaceID == "1/1"
           - nm_update_port_channel_interface_members.current.interfaceDescriptions.0.description == "first Ansible interface test"
           - nm_update_port_channel_interface_descriptions is changed
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions | length == 3
-          - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.0.nodeID == "102"
+          - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.0.nodeID == "103"
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.0.interfaceID == "1/1"
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.0.description == "new first Ansible interface test"
-          - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.1.nodeID == "102"
+          - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.1.nodeID == "103"
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.1.interfaceID == "1/2"
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.1.description == "second Ansible interface test"
-          - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.2.nodeID == "102"
+          - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.2.nodeID == "103"
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.2.interfaceID == "1/3"
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.2.description == "third Ansible interface test"
+          - nm_delete_port_channel_interface_descriptions is changed
+          - "'interfaceDescriptions' not in nm_delete_port_channel_interface_descriptions.current"
           - nm_delete_port_channel_interface_member is changed
           - nm_delete_port_channel_interface_member.current.memberInterfaces == "1/1-2"
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions | length == 2
-          - nm_delete_port_channel_interface_member.current.interfaceDescriptions.0.nodeID == "102"
+          - nm_delete_port_channel_interface_member.current.interfaceDescriptions.0.nodeID == "103"
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions.0.interfaceID == "1/1"
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions.0.description == "new first Ansible interface test"
-          - nm_delete_port_channel_interface_member.current.interfaceDescriptions.1.nodeID == "102"
+          - nm_delete_port_channel_interface_member.current.interfaceDescriptions.1.nodeID == "103"
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions.1.interfaceID == "1/2"
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions.1.description == "second Ansible interface test"
-    
+
+    # UPDATE ERRORS
+
+    - name: Udpate a port channel interface with invalid interface
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        port_channel_interface: ansible_port_channel_interface_changed
+        interfaces:
+          - error
+          - 1/2-1
+        state: present
+      ignore_errors: true
+      register: nm_update_nterface_invalid_interface
+
+    - name: Update a port channel interface with invalid interface descriptions
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        port_channel_interface: ansible_port_channel_interface_changed
+        interface_descriptions:
+          - interface_id: 1/1
+            description: first Ansible interface test
+          - interface_id: 1/2
+            description: second Ansible interface test
+          - interface_id: 1/3
+            description: third Ansible interface test
+        state: present
+      ignore_errors: true
+      register: nm_update_invalid_interface_descriptions
+
+    - name: Assert port channel interface creation errors tasks
+      assert:
+        that:
+          - nm_update_nterface_invalid_interface.msg == "Invalid interface inputs, ['error', '1/2-1']"
+          - nm_update_invalid_interface_descriptions.msg == "Interface IDs with description ['1/3'] not in list of current interfaces ['1/1', '1/2']"
+
     # QUERY
 
     - name: Create another port channel interface
       cisco.mso.ndo_port_channel_interface: &create_port_channel_interface_2
-        <<: *create_port_channel_interface
+        <<: *mso_info
+        template: ansible_fabric_resource_template
         port_channel_interface: ansible_port_channel_interface_2
+        node: 101
+        interfaces: 1/1
+        interface_policy: Gaspard_Interface_setting_test
+        state: present
 
     - name: Query a port channel interface with template_name
       cisco.mso.ndo_port_channel_interface:

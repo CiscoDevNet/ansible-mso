@@ -177,7 +177,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    uuid: "{{ nrp_2.current.uuid }}
+    uuid: "{{ nrp_2.current.uuid }}"
     name: nrp_2_updated
     bgp_node_settings:
       graceful_restart_helper: disabled

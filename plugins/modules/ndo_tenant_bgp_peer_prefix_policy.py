@@ -225,7 +225,7 @@ def main():
 
     if state == "present":
         if uuid and not mso.existing:
-            mso.fail_json(msg="{0} with the uuid: '{1}' not found".format(object_description, uuid))
+            mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
         if mso.existing:
             proposed_payload = copy.deepcopy(match.details)

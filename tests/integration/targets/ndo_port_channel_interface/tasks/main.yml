@@ -226,6 +226,15 @@
         <<: *update_port_channel_interface_policy
         interfaces: 1/1-3
       register: nm_update_port_channel_interface_members
+
+    - name: Update a port channel interface members again
+      cisco.mso.ndo_port_channel_interface:
+        <<: *update_port_channel_interface_members
+        interfaces:
+          - 1/1
+          - 1/3
+          - 1/2
+      register: nm_update_port_channel_interface_members_again
     
     - name: Update a port channel interface members descriptions
       cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_descriptions
@@ -286,6 +295,8 @@
           - nm_update_port_channel_interface_members.current.interfaceDescriptions.0.nodeID == "103"
           - nm_update_port_channel_interface_members.current.interfaceDescriptions.0.interfaceID == "1/1"
           - nm_update_port_channel_interface_members.current.interfaceDescriptions.0.description == "first Ansible interface test"
+          - nm_update_port_channel_interface_members_again is not changed
+          - nm_update_port_channel_interface_members_again.current.memberInterfaces == "1/1-3"
           - nm_update_port_channel_interface_descriptions is changed
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions | length == 3
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.0.nodeID == "103"

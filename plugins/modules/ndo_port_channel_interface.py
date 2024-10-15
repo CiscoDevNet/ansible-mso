@@ -38,7 +38,7 @@ options:
         aliases: [ name, port_channel ]
     port_channel_interface_uuid:
         description:
-        - The uuid of the Port Channel Interface.
+        - The UUID of the Port Channel Interface.
         - This parameter is required when the O(port_channel_interface) needs to be updated.
         type: str
         aliases: [ uuid, port_channel_uuid ]
@@ -49,27 +49,32 @@ options:
     node:
         description:
         - The node ID.
+        - This is only required when creating a new Port Channel Interface.
         type: str
     interfaces:
         description:
         - The list of used Interface IDs.
         - Ranges of Interface IDs can be used.
+        - This is only required when creating a new Port Channel Interface.
         type: list
         elements: str
         aliases: [ members ]
     interface_policy:
         description:
         - The name of the Port Channel Interface Setting Policy.
+        - It can be used instead of O(interface_policy_uuid).
         type: str
         aliases: [ policy, pc_policy ]
     interface_policy_uuid:
         description:
         - The UUID of the Port Channel Interface Setting Policy.
+        - This is only required when creating a new Port Channel Interface.
         type: str
         aliases: [ policy_uuid, pc_policy_uuid ]
     interface_descriptions:
         description:
         - The list of descriptions for each interface.
+        - The interface must exist when a description is provided.
         type: list
         elements: dict
         suboptions:
@@ -255,9 +260,9 @@ def main():
                         interface_policy_uuid = policy_group["spec"]["uuid"]
                         break
                 if not interface_policy_uuid:
-                    mso.fail_json(msg="Port Channel policy '{0}' not found in the list of existing Port Channel policy groups".format(interface_policy))
+                    mso.fail_json(msg="ERROR: Port Channel policy '{0}' not found in the list of existing Port Channel policy groups".format(interface_policy))
             else:
-                mso.fail_json(msg="No existing Port Channel policy")
+                mso.fail_json(msg="ERROR: No existing Port Channel policy")
 
         if match:
             if port_channel_interface and match.details.get("name") != port_channel_interface:
@@ -278,11 +283,12 @@ def main():
                 ops.append(dict(op="replace", path="{0}/{1}/policy".format(path, match.index), value=interface_policy_uuid))
                 match.details["policy"] = interface_policy_uuid
 
-            if interfaces and match.details.get("memberInterfaces") != interfaces:
+            if interfaces:
+                existing_interfaces_ids, errors_interfaces = lookup_valid_interfaces(match.details.get("memberInterfaces"))
                 interface_ids, errors_interfaces = lookup_valid_interfaces(interfaces)
                 if errors_interfaces:
-                    mso.fail_json(msg=("Invalid interface inputs, {0}".format(errors_interfaces)))
-                else:
+                    mso.fail_json(msg=("ERROR: Invalid interface inputs, {0}".format(errors_interfaces)))
+                elif sorted(interface_ids) != sorted(existing_interfaces_ids):
                     ops.append(dict(op="replace", path="{0}/{1}/memberInterfaces".format(path, match.index), value=interfaces))
                     match.details["memberInterfaces"] = interfaces
             else:
@@ -313,7 +319,12 @@ def main():
                             error_descriptions.append(interface_description["interfaceID"])
                     if error_descriptions:
                         mso.fail_json(
-                            msg=("Interface IDs with description {0} not in list of current interfaces {1}".format(error_descriptions, list(interface_ids)))
+                            msg=(
+                                "ERROR: Interface IDs with description {0} not in list of current interfaces {1}".format(
+                                    error_descriptions,
+                                    list(interface_ids),
+                                )
+                            )
                         )
                 if interface_descriptions != match.details.get("interfaceDescriptions"):
                     ops.append(dict(op="replace", path="{0}/{1}/interfaceDescriptions".format(path, match.index), value=interface_descriptions))
@@ -330,12 +341,12 @@ def main():
                 if not attribute_value:
                     missing_required_attributes.append(attribute_name)
             if missing_required_attributes:
-                mso.fail_json(msg=("Missing required attributes {0} for creating a Port Channel Interface".format(missing_required_attributes)))
+                mso.fail_json(msg=("ERROR: Missing required attributes {0} for creating a Port Channel Interface".format(missing_required_attributes)))
             else:
                 payload = {"name": port_channel_interface} | config
                 interface_ids, errors_interfaces = lookup_valid_interfaces(payload["memberInterfaces"])
                 if errors_interfaces:
-                    mso.fail_json(msg=("Invalid interface inputs, {0}".format(errors_interfaces)))
+                    mso.fail_json(msg=("ERROR: Invalid interface inputs, {0}".format(errors_interfaces)))
                 if description:
                     payload["description"] = description
                 if interface_descriptions:
@@ -345,7 +356,12 @@ def main():
                             error_descriptions.append(interface_description["interface_id"])
                     if error_descriptions:
                         mso.fail_json(
-                            msg=("Interface IDs with description {0} not in list of current interfaces {1}".format(error_descriptions, list(interface_ids)))
+                            msg=(
+                                "ERROR: Interface IDs with description {0} not in list of current interfaces {1}".format(
+                                    error_descriptions,
+                                    list(interface_ids),
+                                )
+                            )
                         )
                     payload["interfaceDescriptions"] = [
                         {

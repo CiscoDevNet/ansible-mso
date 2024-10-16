@@ -170,9 +170,9 @@
     - name: Assert port channel interface creation errors tasks
       assert:
         that:
-          - nm_create_missing_node.msg == "Missing required attributes ['node'] for creating a Port Channel Interface"
-          - nm_create_interface_invalid_interface.msg == "Invalid interface inputs, ['error', '1']"
-          - nm_create_invalid_interface_descriptions.msg == "Interface IDs with description ['1/2'] not in list of current interfaces ['1/1']"
+          - nm_create_missing_node.msg == "ERROR: Missing required attributes ['node'] for creating a Port Channel Interface"
+          - nm_create_interface_invalid_interface.msg == "ERROR: Invalid interface inputs, ['error', '1']"
+          - nm_create_invalid_interface_descriptions.msg == "ERROR: Interface IDs with description ['1/2'] not in list of current interfaces ['1/1']"
 
     # UPDATE
 
@@ -224,7 +224,10 @@
     - name: Update a port channel interface members
       cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_members
         <<: *update_port_channel_interface_policy
-        interfaces: 1/1-3
+        interfaces: 
+          - 1/1-3
+          - 1/8-10
+          - 2/3-5
       register: nm_update_port_channel_interface_members
 
     - name: Update a port channel interface members again
@@ -234,6 +237,12 @@
           - 1/1
           - 1/3
           - 1/2
+          - 2/4
+          - 2/5
+          - 2/3
+          - 1/9
+          - 1/8
+          - 1/10
       register: nm_update_port_channel_interface_members_again
     
     - name: Update a port channel interface members descriptions
@@ -290,13 +299,13 @@
           - nm_update_port_channel_interface_description is changed
           - nm_update_port_channel_interface_description.current.description == "Ansible Port Channel test updated"
           - nm_update_port_channel_interface_members is changed
-          - nm_update_port_channel_interface_members.current.memberInterfaces == "1/1-3"
+          - nm_update_port_channel_interface_members.current.memberInterfaces == "1/1-3,1/8-10,2/3-5"
           - nm_update_port_channel_interface_members.current.interfaceDescriptions | length == 1
           - nm_update_port_channel_interface_members.current.interfaceDescriptions.0.nodeID == "103"
           - nm_update_port_channel_interface_members.current.interfaceDescriptions.0.interfaceID == "1/1"
           - nm_update_port_channel_interface_members.current.interfaceDescriptions.0.description == "first Ansible interface test"
           - nm_update_port_channel_interface_members_again is not changed
-          - nm_update_port_channel_interface_members_again.current.memberInterfaces == "1/1-3"
+          - nm_update_port_channel_interface_members_again.current.memberInterfaces == "1/1-3,1/8-10,2/3-5"
           - nm_update_port_channel_interface_descriptions is changed
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions | length == 3
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.0.nodeID == "103"
@@ -309,7 +318,7 @@
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.2.interfaceID == "1/3"
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.2.description == "third Ansible interface test"
           - nm_delete_port_channel_interface_descriptions is changed
-          - "'interfaceDescriptions' not in nm_delete_port_channel_interface_descriptions.current"
+          - nm_delete_port_channel_interface_descriptions.current.interfaceDescriptions is not defined
           - nm_delete_port_channel_interface_member is changed
           - nm_delete_port_channel_interface_member.current.memberInterfaces == "1/1-2"
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions | length == 2
@@ -353,8 +362,8 @@
     - name: Assert port channel interface creation errors tasks
       assert:
         that:
-          - nm_update_nterface_invalid_interface.msg == "Invalid interface inputs, ['error', '1/2-1']"
-          - nm_update_invalid_interface_descriptions.msg == "Interface IDs with description ['1/3'] not in list of current interfaces ['1/1', '1/2']"
+          - nm_update_nterface_invalid_interface.msg == "ERROR: Invalid interface inputs, ['error', '1/2-1']"
+          - nm_update_invalid_interface_descriptions.msg == "ERROR: Interface IDs with description ['1/3'] not in list of current interfaces ['1/1', '1/2']"
 
     # QUERY
 

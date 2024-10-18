@@ -75,17 +75,17 @@
         - 'ansible_synce_interface_policy'
         - 'ansible_synce_interface_policy_2'
 
-    # # Create MACSec Policy
-    # - name: Create a MACSec Policy
-    #   cisco.mso.ndo_macsec_policy:
-    #     <<: *mso_info
-    #     template: ansible_fabric_policy_template
-    #     macsec_policy: '{{ item }}'
-    #     interface_type: access
-    #     state: present
-    #   loop:
-    #     - 'ansible_macsec_policy'
-    #     - 'ansible_macsec_policy_2'
+    # Create MACsec Policy
+    - name: Create a MACsec Policy
+      cisco.mso.ndo_macsec_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        macsec_policy: '{{ item }}'
+        interface_type: access
+        state: present
+      loop:
+        - 'ansible_macsec_policy'
+        - 'ansible_macsec_policy_2'
 
     # CREATE
 
@@ -213,7 +213,7 @@
         pfc_admin_state: off
         # required UUIDs
         sync_e: ansible_synce_interface_policy
-        # access_macsec_policy: ansible_macsec_policy
+        access_macsec_policy: ansible_macsec_policy
         domains: ["ansible_physical_domain", "ansible_l3_domain"]
         state: present
       check_mode: true
@@ -255,7 +255,7 @@
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.hashFields == nm_add_interface_policy_group_pc.current.portChannelPolicy.hashFields == "dst-ip"
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.control | length == nm_add_interface_policy_group_pc.current.portChannelPolicy.control | length == 4
           - cm_add_interface_policy_group_pc.current.syncEthPolicy == nm_add_interface_policy_group_pc.current.syncEthPolicy
-          # - cm_add_interface_policy_group_pc.current.accessMacSecPolicy == nm_add_interface_policy_group_pc.current.accessMacSecPolicy
+          - cm_add_interface_policy_group_pc.current.accessMACsecPolicy == nm_add_interface_policy_group_pc.current.accessMACsecPolicy
           - cm_add_interface_policy_group_pc.current.domains | length == nm_add_interface_policy_group_pc.current.domains | length == 2
 
 
@@ -297,7 +297,7 @@
         pfc_admin_state: on
         # required UUIDs
         sync_e: ansible_synce_interface_policy_2
-        # access_macsec_policy: ansible_macsec_policy_2
+        access_macsec_policy: ansible_macsec_policy_2
         domains: ["ansible_physical_domain_2", "ansible_l3_domain_2"]
         state: present
       check_mode: true
@@ -378,8 +378,8 @@
           - cm_update_interface_policy_group.current.portChannelPolicy.control | length == nm_update_interface_policy_group.current.portChannelPolicy.control | length == 5
           - cm_update_interface_policy_group.previous.syncEthPolicy == nm_update_interface_policy_group.previous.syncEthPolicy
           - cm_update_interface_policy_group.current.syncEthPolicy == nm_update_interface_policy_group.current.syncEthPolicy
-          # - cm_update_interface_policy_group.previous.accessMacSecPolicy == nm_update_interface_policy_group.previous.accessMacSecPolicy
-          # - cm_update_interface_policy_group.current.accessMacSecPolicy == nm_update_interface_policy_group.current.accessMacSecPolicy
+          - cm_update_interface_policy_group.previous.accessMACsecPolicy == nm_update_interface_policy_group.previous.accessMACsecPolicy
+          - cm_update_interface_policy_group.current.accessMACsecPolicy == nm_update_interface_policy_group.current.accessMACsecPolicy
           - cm_update_interface_policy_group.current.domains | length == nm_update_interface_policy_group.current.domains | length == 2
           - cm_update_interface_policy_group.current.domains[0] == nm_update_interface_policy_group.current.domains[0]
           - cm_update_interface_policy_group.current.domains[1] == nm_update_interface_policy_group.current.domains[1]
@@ -543,26 +543,6 @@
           - nm_add_interface_policy_macsec is failed
           - nm_add_interface_policy_macsec.msg == "Access MACsec policy 'non_existing_macsec_policy' not found in the template 'ansible_fabric_policy_template'."
 
-    # # Add MACSec policy when MCP admin state is disabled
-    # - name: Create a Interface Policy group with MACSec policy when MCP admin state is disabled
-    #   cisco.mso.ndo_interface_setting:
-    #     <<: *mso_info
-    #     template: ansible_fabric_policy_template
-    #     interface_policy_group: ansible_interface_policy_group_2
-    #     interface_type: physical
-    #     access_macsec_policy: ansible_macsec_policy
-    #     mcp:
-    #       admin_state: disabled
-    #     state: present
-    #   ignore_errors: true
-    #   register: nm_add_interface_policy_macsec_mcp
-
-    # - name: Assert adding the Interface Policy group with MACSec policy when MCP admin state is disabled
-    #   assert:
-    #     that:
-    #       - nm_add_interface_policy_macsec_mcp is failed
-    #       - nm_add_interface_policy_macsec_mcp.msg == "Access MACsec policy can only be set when MCP admin state is enabled."
-
     # errors on update
     - name: Create another Interface Policy group of interface_type 'physical'
       cisco.mso.ndo_interface_setting: &add_interface_policy_group_2
@@ -571,7 +551,7 @@
         description: "Ansible test interface policy group"
         domains: ["ansible_physical_domain", "ansible_l3_domain"]
         sync_e: ansible_synce_interface_policy
-        # access_macsec_policy: ansible_macsec_policy
+        access_macsec_policy: ansible_macsec_policy
         mcp:
           admin_state: enabled
           strict_mode: on
@@ -653,23 +633,23 @@
           - nm_update_interface_policy_synce is failed
           - nm_update_interface_policy_synce.msg == "SyncE policy 'non_existing_synce_interface_policy' not found in the template 'ansible_fabric_policy_template'."
 
-    # # updating non-existing access_macsec_policy
-    # - name: Update Interface Policy group ansible_interface_policy_group_2 with non-existing access_macsec_policy
-    #   cisco.mso.ndo_interface_setting:
-    #     <<: *add_interface_policy_group_2
-    #     access_macsec_policy: non_existing_macsec_policy
-    #   ignore_errors: true
-    #   register: nm_update_interface_policy_macsec
+    # updating non-existing access_macsec_policy
+    - name: Update Interface Policy group ansible_interface_policy_group_2 with non-existing access_macsec_policy
+      cisco.mso.ndo_interface_setting:
+        <<: *add_interface_policy_group_2
+        access_macsec_policy: non_existing_macsec_policy
+      ignore_errors: true
+      register: nm_update_interface_policy_macsec
 
-    # - name: Assert updating the Interface Policy group with non-existing access_macsec_policy
-    #   assert:
-    #     that:
-    #       - nm_add_interface_policy_2 is changed
-    #       - nm_add_interface_policy_2.current.name == nm_update_interface_policy_macsec.previous.name == "ansible_interface_policy_group_2"
-    #       - nm_add_interface_policy_2.current.type == nm_update_interface_policy_macsec.previous.type == "physical"
-    #       - nm_add_interface_policy_2.current.description == nm_update_interface_policy_macsec.previous.description == "Ansible test interface policy group"
-    #       - nm_update_interface_policy_macsec is failed
-    #       - nm_update_interface_policy_macsec.msg == "Access MACsec policy 'non_existing_macsec_policy' not found in the template 'ansible_fabric_policy_template'."
+    - name: Assert updating the Interface Policy group with non-existing access_macsec_policy
+      assert:
+        that:
+          - nm_add_interface_policy_2 is changed
+          - nm_add_interface_policy_2.current.name == nm_update_interface_policy_macsec.previous.name == "ansible_interface_policy_group_2"
+          - nm_add_interface_policy_2.current.type == nm_update_interface_policy_macsec.previous.type == "physical"
+          - nm_add_interface_policy_2.current.description == nm_update_interface_policy_macsec.previous.description == "Ansible test interface policy group"
+          - nm_update_interface_policy_macsec is failed
+          - nm_update_interface_policy_macsec.msg == "Access MACsec policy 'non_existing_macsec_policy' not found in the template 'ansible_fabric_policy_template'."
 
     # DELETE
     - name: Delete a Interface Policy group with name (check mode)
@@ -719,3 +699,9 @@
           - nm_delete_interface_policy_group_uuid.previous.name == "ansible_interface_policy_group"
           - nm_delete_interface_policy_group_uuid.previous.type == "physical"
           - nm_delete_interface_policy_group_uuid.current == {}
+
+    # CLEANUP TEMPLATE
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

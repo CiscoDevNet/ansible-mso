@@ -86,7 +86,7 @@ options:
     - The default value is C(static_channel_mode_on).
     - The value is available only when the interface_type is C(port_channel).
     type: str
-    choices: [ static_channel_mode_on, lacp_passive, lacp_active,  mac_pinning, mac_pinning_physical_nic_load, use_explicit_failover_order ]
+    choices: [ static_channel_mode_on, lacp_passive, lacp_active, mac_pinning, mac_pinning_physical_nic_load, use_explicit_failover_order ]
   min_links:
     description:
     - The minimum links of the interface policy group.
@@ -456,11 +456,8 @@ def main():
     min_links = module.params.get("min_links")
     max_links = module.params.get("max_links")
     control = module.params.get("control")
-    if control is not None:
-        if control != []:
-            control = [CONTROL_MAP.get(v) for v in module.params.get("control")]
-    else:
-        control = None
+    if control:
+        control = [CONTROL_MAP.get(v) for v in control]
     load_balance_hashing = LOAD_BALANCE_HASHING_MAP.get(module.params.get("load_balance_hashing"))
     sync_e = module.params.get("sync_e")
     link_level_debounce_interval = module.params.get("link_level_debounce_interval")
@@ -488,7 +485,7 @@ def main():
 
     template_info = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {})
 
-    existing_interface_policies = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("interfacePolicyGroups", [])
+    existing_interface_policies = template_info.get("interfacePolicyGroups", [])
     if interface_policy_group or interface_policy_group_uuid:
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
@@ -527,7 +524,7 @@ def main():
                         domain_uuid.append(existing_l3_domains[item])
                     else:
                         mso.fail_json(msg="Domain '{0}' not found in the template '{1}'.".format(item, template))
-                if set(domain_uuid) != set(match.details.get("domains")):
+                if set(domain_uuid) != set(match.details.get("domains", [])):
                     ops.append(dict(op="replace", path="{0}/{1}/domains".format(path, match.index), value=domain_uuid))
                 match.details["domains"] = domain_uuid
             elif domains == []:
@@ -548,7 +545,7 @@ def main():
             if access_macsec_policy:
                 # existing_access_macsec_policy contains names and uuids of existing MACsec policies
                 existing_access_macsec_policy = {macsec_policy["name"]: macsec_policy["uuid"] for macsec_policy in template_info.get("macsecPolicies", [])}
-                if access_macsec_policy in existing_access_macsec_policy:
+                if access_macsec_policy not in existing_access_macsec_policy:
                     mso.fail_json(msg="Access MACsec policy '{0}' not found in the template '{1}'.".format(access_macsec_policy, template))
                 else:
                     if existing_access_macsec_policy[access_macsec_policy] != match.details.get("accessMACsecPolicy"):

@@ -120,7 +120,7 @@ EXAMPLES = r"""
         description: My third Ansible Interface
     state: present
 
-- name: Query an Port Channel Interface with template_name
+- name: Query a Port Channel Interface with template_name
   cisco.mso.ndo_port_channel_interface:
     host: mso_host
     username: admin
@@ -139,7 +139,7 @@ EXAMPLES = r"""
     state: query
   register: query_all
 
-- name: Delete an Port Channel Interface
+- name: Delete a Port Channel Interface
   cisco.mso.ndo_port_channel_interface:
     host: mso_host
     username: admin
@@ -153,36 +153,16 @@ RETURN = r"""
 """
 
 import copy
-import re
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import (
     MSOModule,
     mso_argument_spec,
+    lookup_valid_interfaces,
 )
 from ansible_collections.cisco.mso.plugins.module_utils.template import (
     MSOTemplate,
     KVPair,
 )
-
-
-def lookup_valid_interfaces(interfaces):
-    interface_ids = []
-    errors_interfaces = []
-    modified_interfaces = interfaces.replace(" ", "").split(",")
-    for interface in modified_interfaces:
-        if re.fullmatch(r"((\d+/)+\d+-\d+$)", interface):
-            slots = interface.rsplit("/", 1)[0]
-            range_start, range_stop = interface.rsplit("/", 1)[1].split("-")
-            if int(range_stop) > int(range_start):
-                for x in range(int(range_start), int(range_stop) + 1):
-                    interface_ids.append("{0}/{1}".format(slots, x))
-            else:
-                errors_interfaces.append(interface)
-        elif re.fullmatch(r"((\d+/)+\d+$)", interface):
-            interface_ids.append(interface)
-        else:
-            errors_interfaces.append(interface)
-    return set(interface_ids), errors_interfaces
 
 
 def main():
@@ -296,7 +276,7 @@ def main():
 
             if interface_descriptions or (node_changed and match.details.get("interfaceDescriptions")):
                 if node_changed and interface_descriptions is None:
-                    interface_descriptions = [
+                    formated_interface_descriptions = [
                         {
                             "nodeID": node,
                             "interfaceID": interface.get("interfaceID"),
@@ -305,18 +285,18 @@ def main():
                         for interface in match.details["interfaceDescriptions"]
                     ]
                 else:
-                    interface_descriptions = [
-                        {
-                            "nodeID": match.details["node"],
-                            "interfaceID": interface.get("interface_id"),
-                            "description": interface.get("description"),
-                        }
-                        for interface in interface_descriptions
-                    ]
-                    error_descriptions = []
+                    formated_interface_descriptions, error_descriptions = [], []
                     for interface_description in interface_descriptions:
-                        if interface_description["interfaceID"] not in interface_ids:
+                        if interface_description["interface_id"] not in interface_ids:
                             error_descriptions.append(interface_description["interfaceID"])
+                        else:
+                            formated_interface_descriptions.append(
+                                {
+                                    "nodeID": match.details["node"],
+                                    "interfaceID": interface_description.get("interface_id"),
+                                    "description": interface_description.get("description"),
+                                }
+                            )
                     if error_descriptions:
                         mso.fail_json(
                             msg=(
@@ -326,9 +306,9 @@ def main():
                                 )
                             )
                         )
-                if interface_descriptions != match.details.get("interfaceDescriptions"):
-                    ops.append(dict(op="replace", path="{0}/{1}/interfaceDescriptions".format(path, match.index), value=interface_descriptions))
-                    match.details["interfaceDescriptions"] = interface_descriptions
+                if formated_interface_descriptions != match.details.get("interfaceDescriptions"):
+                    ops.append(dict(op="replace", path="{0}/{1}/interfaceDescriptions".format(path, match.index), value=formated_interface_descriptions))
+                    match.details["interfaceDescriptions"] = formated_interface_descriptions
             elif interface_descriptions == [] and match.details["interfaceDescriptions"]:
                 ops.append(dict(op="remove", path="{0}/{1}/interfaceDescriptions".format(path, match.index)))
 
@@ -350,8 +330,15 @@ def main():
                 if description:
                     payload["description"] = description
                 if interface_descriptions:
-                    error_descriptions = []
+                    payload["interfaceDescriptions"], error_descriptions = [], []
                     for interface_description in interface_descriptions:
+                        payload["interfaceDescriptions"].append(
+                            {
+                                "nodeID": node,
+                                "interfaceID": interface_description.get("interface_id"),
+                                "description": interface_description.get("description"),
+                            }
+                        )
                         if interface_description["interface_id"] not in interface_ids:
                             error_descriptions.append(interface_description["interface_id"])
                     if error_descriptions:
@@ -363,15 +350,6 @@ def main():
                                 )
                             )
                         )
-                    payload["interfaceDescriptions"] = [
-                        {
-                            "nodeID": node,
-                            "interfaceID": interface.get("interface_id"),
-                            "description": interface.get("description"),
-                        }
-                        for interface in interface_descriptions
-                    ]
-
                 ops.append(dict(op="add", path="{0}/-".format(path), value=payload))
 
                 mso.sanitize(payload)

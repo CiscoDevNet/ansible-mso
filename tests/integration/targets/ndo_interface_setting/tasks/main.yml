@@ -193,7 +193,7 @@
         port_channel_mode: lacp_active
         min_links: 5
         max_links: 50
-        control: ["fast_sel_hot_stdby", "graceful_conv", "susp_individual", "symmetric_hash"]
+        controls: ["fast_sel_hot_stdby", "graceful_conv", "susp_individual", "symmetric_hash"]
         load_balance_hashing: destination_ip
         link_level_debounce_interval: 200
         link_level_bring_up_delay: 500
@@ -212,7 +212,7 @@
           admin_state: disabled
         pfc_admin_state: off
         # required UUIDs
-        sync_e: ansible_synce_interface_policy
+        synce: ansible_synce_interface_policy
         access_macsec_policy: ansible_macsec_policy
         domains: ["ansible_physical_domain", "ansible_l3_domain"]
         state: present
@@ -271,7 +271,7 @@
         port_channel_mode: mac_pinning
         min_links: 6
         max_links: 60
-        control: ["fast_sel_hot_stdby", "graceful_conv", "susp_individual", "load_defer", "symmetric_hash"]
+        controls: ["fast_sel_hot_stdby", "graceful_conv", "susp_individual", "load_defer", "symmetric_hash"]
         load_balance_hashing: source_ip
         link_level_debounce_interval: 300
         link_level_bring_up_delay: 600
@@ -296,7 +296,7 @@
           grace_period_msec: 60
         pfc_admin_state: on
         # required UUIDs
-        sync_e: ansible_synce_interface_policy_2
+        synce: ansible_synce_interface_policy_2
         access_macsec_policy: ansible_macsec_policy_2
         domains: ["ansible_physical_domain_2", "ansible_l3_domain_2"]
         state: present
@@ -399,7 +399,7 @@
     - name: Updated a Interface Policy group of interface_type 'physical' with MCP adminState enabled and remove control
       cisco.mso.ndo_interface_setting:
         <<: *update_mcp
-        control: []
+        controls: []
         mcp:
           admin_state: disabled
       register: nm_update_interface_policy_mcp
@@ -467,6 +467,22 @@
           - query_one_uuid is not changed
           - query_one_uuid.current.name == "ansible_interface_policy_group"
 
+    # Create Interface Policy group without interface_type
+    - name: Create a Interface Policy group without interface_type
+      cisco.mso.ndo_interface_setting:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        interface_policy_group: ansible_interface_policy_group_without_interface_type
+        state: present
+      ignore_errors: true
+      register: interface_policy_group_without_interface_type
+
+    - name: Assert Interface Policy group without interface_type
+      assert:
+        that:
+          - interface_policy_group_without_interface_type is failed
+          - interface_policy_group_without_interface_type.msg == "Error{{':'}} Missing required argument 'interface_type' for creating an Interface Policy Group."
+
     # ERROR for LLDP
     - name: Create another Interface Policy group of interface_type 'physical'
       cisco.mso.ndo_interface_setting:
@@ -514,7 +530,7 @@
         template: ansible_fabric_policy_template
         interface_policy_group: ansible_interface_policy_group_2
         interface_type: physical
-        sync_e: non_existing_synce_interface_policy
+        synce: non_existing_synce_interface_policy
         state: present
       ignore_errors: true
       register: nm_add_interface_policy_synce 
@@ -550,7 +566,7 @@
         interface_policy_group: ansible_interface_policy_group_2
         description: "Ansible test interface policy group"
         domains: ["ansible_physical_domain", "ansible_l3_domain"]
-        sync_e: ansible_synce_interface_policy
+        synce: ansible_synce_interface_policy
         access_macsec_policy: ansible_macsec_policy
         mcp:
           admin_state: enabled
@@ -619,7 +635,7 @@
     - name: Update Interface Policy group ansible_interface_policy_group_2 with non-existing syncE policy
       cisco.mso.ndo_interface_setting:
         <<: *add_interface_policy_group_2
-        sync_e: non_existing_synce_interface_policy
+        synce: non_existing_synce_interface_policy
       ignore_errors: true
       register: nm_update_interface_policy_synce
 

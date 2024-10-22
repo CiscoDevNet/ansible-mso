@@ -101,13 +101,13 @@ options:
     - The value must be between 1 and 64.
     - The value is available only when the interface_type is C(port_channel).
     type: int
-  control:
+  controls:
     description:
-    - The control of the interface policy group.
+    - The controls of the interface policy group.
     - The default value is C(fast_sel_hot_stdby), C(graceful_conv), C(susp_individual).
     - The value is available only when the interface_type is C(port_channel).
-    - Providing an empty list will remove the O(control) from the interface policy.
-    - The old O(control) will be replaced by the new entries during an update.
+    - Providing an empty list will remove the O(controls) from the interface policy.
+    - The old O(controls) will be replaced by the new entries during an update.
     type: list
     elements: str
     choices: [ fast_sel_hot_stdby, graceful_conv, susp_individual, load_defer, symmetric_hash ]
@@ -117,7 +117,7 @@ options:
     - The value is available only when the interface_type is C(port_channel).
     type: str
     choices: [ destination_ip, layer_4_destination_ip, layer_4_source_ip, source_ip ]
-  sync_e:
+  synce:
     description:
     - The syncE policy assigned to the interface policy group.
     - The syncE policy must be defined in the same fabric policy template.
@@ -159,31 +159,34 @@ options:
     suboptions:
       status:
         description:
-        - The LLDP status enables Link Layer Discovery Protocol (LLDP) on the interface.
+        - The status enables LLDP on the interface.
         - The default value is C(enabled).
         type: str
         choices: [ enabled, disabled ]
       transmit_state:
         description:
-        - The LLDP transmit state allows Link Layer Discovery Protocol (LLDP) packets to be sent from the interface.
+        - The transmit state allows LLDP packets to be sent from the interface.
         - The default value is C(enabled).
         type: str
         choices: [ enabled, disabled ]
       receive_state:
         description:
-        - The LLDP receive state allows LLDP packets to be received by the interface.
+        - The receive state allows LLDP packets to be received by the interface.
         - The default value is C(enabled).
         type: str
         choices: [ enabled, disabled ]
   stp_bpdu_filter:
     description:
-    - The STP Bridge Protocol Data Unit (BPDU) filter filters out any BPDUs on the port.
+    - Enabling the Bridge Protocol Data Unit (BPDU) filter prevents any BPDUs on the port.
+    - Disabling the BPDU filter allows BPDUs to be received on the port.
     - The default value is C(disabled).
     type: str
     choices: [ enabled, disabled ]
   stp_bpdu_guard:
     description:
-    - The STP BPDU guard prevents the port from receiving BPDUs.
+    - Enabling the STP BPDU guard prevents the port from receiving BPDUs.
+    - When C(enabled) the BPDUs are received on the port is put into 'errdisable' mode.
+    - Disabling the STP BPDU guard allows BPDUs to be received on the port.
     - The default value is C(disabled).
     type: str
     choices: [ enabled, disabled ]
@@ -255,7 +258,7 @@ options:
         type: int
   pfc_admin_state:
     description:
-    - The PFC admin state.
+    - The Priority Flow Control (PFC) admin state.
     - The default value is C(auto).
     type: str
     choices: [ 'on', 'off', auto ]
@@ -278,6 +281,7 @@ notes:
   Use M(cisco.mso.ndo_template) to create the Tenant template.
 seealso:
 - module: cisco.mso.ndo_template
+- module: cisco.mso.ndo_macsec_policy
 extends_documentation_fragment: cisco.mso.modules
 """
 
@@ -302,6 +306,52 @@ EXAMPLES = r"""
   interface_policy_group: ansible_test_interface_policy_group_port_channel
   description: "Interface Policy Group for Ansible Test"
   interface_type: port_channel
+  state: present
+
+- name: Create an Interface policy group with all attributes
+  cisco.mso.ndo_interface_setting:
+  host: mso_host
+  username: admin
+  password: SomeSecretPassword
+  template: ansible_test_template
+  interface_policy_group: ansible_test_interface_policy_group_all
+  description: "Interface Policy Group for Ansible Test"
+  interface_type: port_channel
+  speed: 1G
+  auto_negotiation: on_enforce
+  vlan_scope: port_local
+  cdp_admin_state: enabled
+  port_channel_mode: lacp_active
+  min_links: 1
+  max_links: 16
+  controls: ["fast_sel_hot_stdby", "graceful_conv", "susp_individual"]
+  load_balance_hashing: destination_ip
+  synce: ansible_test_sync_e
+  link_level_debounce_interval: 100
+  link_level_bring_up_delay: 0
+  link_level_fec: ieee_rs_fec
+  l2_interface_qinq: edge_port
+  l2_interface_reflective_relay: enabled
+  lldp:
+    status: enabled
+    transmit_state: enabled
+    receive_state: enabled
+  domains:
+    - ansible_test_domain1
+    - ansible_test_domain2
+  stp_bpdu_filter: enabled
+  stp_bpdu_guard: enabled
+  llfc_transmit_state: enabled
+  llfc_receive_state: enabled
+  mcp:
+    admin_state: enabled
+    strict_mode: 'on'
+    initial_delay_time: 180
+    transmission_frequency_sec: 2
+    transmission_frequency_msec: 10
+    grace_period_sec: 3
+    grace_period_msec: 10
+  pfc_admin_state: 'on'
   state: present
 
 - name: Query all Interface policy groups
@@ -394,9 +444,9 @@ def main():
             port_channel_mode=dict(type="str", choices=list(PORT_CHANNEL_MODE_MAP)),
             min_links=dict(type="int"),
             max_links=dict(type="int"),
-            control=dict(type="list", elements="str", choices=list(CONTROL_MAP)),
+            controls=dict(type="list", elements="str", choices=list(CONTROL_MAP)),
             load_balance_hashing=dict(type="str", choices=list(LOAD_BALANCE_HASHING_MAP)),
-            sync_e=dict(type="str"),
+            synce=dict(type="str"),
             link_level_debounce_interval=dict(type="int"),
             link_level_bring_up_delay=dict(type="int"),
             link_level_fec=dict(type="str", choices=list(LINK_LEVEL_FEC_MAP)),
@@ -428,7 +478,7 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "present", ["interface_policy_group", "interface_policy_group_uuid", "interface_type"], True],
+            ["state", "present", ["interface_policy_group", "interface_policy_group_uuid"], True],
             ["state", "absent", ["interface_policy_group", "interface_policy_group_uuid"], True],
         ],
     )
@@ -455,11 +505,11 @@ def main():
     port_channel_mode = PORT_CHANNEL_MODE_MAP.get(module.params.get("port_channel_mode"))
     min_links = module.params.get("min_links")
     max_links = module.params.get("max_links")
-    control = module.params.get("control")
-    if control:
-        control = [CONTROL_MAP.get(v) for v in control]
+    controls = module.params.get("controls")
+    if controls:
+        controls = [CONTROL_MAP.get(v) for v in controls]
     load_balance_hashing = LOAD_BALANCE_HASHING_MAP.get(module.params.get("load_balance_hashing"))
-    sync_e = module.params.get("sync_e")
+    synce = module.params.get("synce")
     link_level_debounce_interval = module.params.get("link_level_debounce_interval")
     link_level_bring_up_delay = module.params.get("link_level_bring_up_delay")
     link_level_fec = LINK_LEVEL_FEC_MAP.get(module.params.get("link_level_fec"))
@@ -512,53 +562,32 @@ def main():
                 mso.fail_json(msg="Interface type cannot be changed.")
 
             if domains:
-                # the existing domain list is updated by the new domain list
-                domain_uuid = []
-                # get names and uuids of existing domains
-                existing_physical_domains = {domain["name"]: domain["uuid"] for domain in template_info.get("domains", [])}
-                existing_l3_domains = {domain["name"]: domain["uuid"] for domain in template_info.get("l3Domains", [])}
-                for item in domains:
-                    if item in existing_physical_domains:
-                        domain_uuid.append(existing_physical_domains[item])
-                    elif item in existing_l3_domains:
-                        domain_uuid.append(existing_l3_domains[item])
-                    else:
-                        mso.fail_json(msg="Domain '{0}' not found in the template '{1}'.".format(item, template))
+                domain_uuid = validate_domains(mso, domains, template, template_info)
                 if set(domain_uuid) != set(match.details.get("domains", [])):
                     ops.append(dict(op="replace", path="{0}/{1}/domains".format(path, match.index), value=domain_uuid))
                 match.details["domains"] = domain_uuid
             elif domains == []:
-                # remove domains from the interface policy group if the list is empty
                 ops.append(dict(op="remove", path="{0}/{1}/domains".format(path, match.index)))
                 match.details.pop("domains", None)
 
-            if sync_e:
-                # existing_sync_e contains names and uuids of existing SyncE policies
-                existing_sync_e = {sync_e["name"]: sync_e["uuid"] for sync_e in template_info.get("syncEthIntfPolicies", [])}
-                if sync_e not in existing_sync_e:
-                    mso.fail_json(msg="SyncE policy '{0}' not found in the template '{1}'.".format(sync_e, template))
-                else:
-                    if existing_sync_e[sync_e] != match.details.get("syncEthPolicy"):
-                        ops.append(dict(op="replace", path="{0}/{1}/syncEthPolicy".format(path, match.index), value=existing_sync_e[sync_e]))
-                        match.details["syncEthPolicy"] = existing_sync_e[sync_e]
+            if synce:
+                existing_sync_e = validate_sync_e(mso, synce, template, template_info)
+                if existing_sync_e[synce] != match.details.get("syncEthPolicy"):
+                    ops.append(dict(op="replace", path="{0}/{1}/syncEthPolicy".format(path, match.index), value=existing_sync_e[synce]))
+                    match.details["syncEthPolicy"] = existing_sync_e[synce]
 
             if access_macsec_policy:
-                # existing_access_macsec_policy contains names and uuids of existing MACsec policies
-                existing_access_macsec_policy = {macsec_policy["name"]: macsec_policy["uuid"] for macsec_policy in template_info.get("macsecPolicies", [])}
-                if access_macsec_policy not in existing_access_macsec_policy:
-                    mso.fail_json(msg="Access MACsec policy '{0}' not found in the template '{1}'.".format(access_macsec_policy, template))
-                else:
-                    if existing_access_macsec_policy[access_macsec_policy] != match.details.get("accessMACsecPolicy"):
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/{1}/accessMACsecPolicy".format(path, match.index),
-                                value=existing_access_macsec_policy[access_macsec_policy],
-                            )
+                existing_access_macsec_policy = validate_macsec_policy(mso, access_macsec_policy, template, template_info)
+                if existing_access_macsec_policy[access_macsec_policy] != match.details.get("accessMACsecPolicy"):
+                    ops.append(
+                        dict(
+                            op="replace",
+                            path="{0}/{1}/accessMACsecPolicy".format(path, match.index),
+                            value=existing_access_macsec_policy[access_macsec_policy],
                         )
-                        match.details["accessMACsecPolicy"] = existing_access_macsec_policy[access_macsec_policy]
+                    )
+                    match.details["accessMACsecPolicy"] = existing_access_macsec_policy[access_macsec_policy]
 
-            # dictionaries
             if cdp_admin_state and match.details.get("cdp", {}).get("adminState") != cdp_admin_state:
                 ops.append(dict(op="replace", path="{0}/{1}/cdp/adminState".format(path, match.index), value=cdp_admin_state))
                 match.details["cdp"]["adminState"] = cdp_admin_state
@@ -596,9 +625,7 @@ def main():
                 match.details["l2Interface"]["vlanScope"] = vlan_scope
 
             if lldp:
-                # if LLDP status is disabled, then receive_state and transmit_state must be disabled
-                if lldp["status"] == "disabled" and not (lldp["receive_state"] == "disabled" and lldp["transmit_state"] == "disabled"):
-                    mso.fail_json(msg="LLDP receive_state and transmit_state must be 'disabled' when LLDP status is disabled.")
+                validate_lldp(mso, lldp)
                 if lldp["receive_state"] and match.details.get("lldp", {}).get("receiveState") != lldp["receive_state"]:
                     ops.append(dict(op="replace", path="{0}/{1}/lldp/receiveState".format(path, match.index), value=lldp["receive_state"]))
                     match.details["lldp"]["receiveState"] = lldp["receive_state"]
@@ -665,19 +692,18 @@ def main():
                 ops.append(dict(op="replace", path="{0}/{1}/portChannelPolicy/hashFields".format(path, match.index), value=load_balance_hashing))
                 match.details["portChannelPolicy"]["hashFields"] = load_balance_hashing
 
-            if control:
-                # existing control list is updated by the new control list
-                if match.details.get("portChannelPolicy", {}).get("control") != control:
-                    ops.append(dict(op="replace", path="{0}/{1}/portChannelPolicy/control".format(path, match.index), value=control))
-                    match.details["portChannelPolicy"]["control"] = control
-            elif control == []:
-                # remove existing control list
+            if controls and match.details.get("portChannelPolicy", {}).get("control") != controls:
+                ops.append(dict(op="replace", path="{0}/{1}/portChannelPolicy/control".format(path, match.index), value=controls))
+                match.details["portChannelPolicy"]["control"] = controls
+            elif controls == []:
                 ops.append(dict(op="remove", path="{0}/{1}/portChannelPolicy/control".format(path, match.index)))
-                match.details.pop("control", None)
+                match.details.pop("controls", None)
 
             mso.sanitize(match.details)
 
         else:
+            if not interface_type:
+                mso.fail_json(msg="Error: Missing required argument 'interface_type' for creating an Interface Policy Group.")
             payload = {
                 "name": interface_policy_group,
                 "type": interface_type,
@@ -695,71 +721,46 @@ def main():
             if description:
                 payload["description"] = description
 
-            if domains:  # domains is a list
-                domain_uuid = []
-                # get names and uuids of existing domains
-                existing_physical_domains = {domain["name"]: domain["uuid"] for domain in template_info.get("domains", [])}
-                existing_l3_domains = {domain["name"]: domain["uuid"] for domain in template_info.get("l3Domains", [])}
-                for item in domains:
-                    if item in existing_physical_domains:
-                        domain_uuid.append(existing_physical_domains[item])
-                    elif item in existing_l3_domains:
-                        domain_uuid.append(existing_l3_domains[item])
-                    else:
-                        mso.fail_json(msg="Domain '{0}' not found in the template '{1}'.".format(item, template))
+            if domains:
+                domain_uuid = validate_domains(mso, domains, template, template_info)
                 payload["domains"] = domain_uuid
 
-            if sync_e:
-                # existing_sync_e contains names and uuids of existing SyncE policies
-                existing_sync_e = {sync_e["name"]: sync_e["uuid"] for sync_e in template_info.get("syncEthIntfPolicies", [])}
-                if sync_e in existing_sync_e:
-                    payload["syncEthPolicy"] = existing_sync_e[sync_e]
-                else:
-                    mso.fail_json(msg="SyncE policy '{0}' not found in the template '{1}'.".format(sync_e, template))
+            if synce:
+                existing_sync_e = validate_sync_e(mso, synce, template, template_info)
+                payload["syncEthPolicy"] = existing_sync_e[synce]
 
             if access_macsec_policy:
-                # existing_access_macsec_policy contains names and uuids of existing SyncE policies
-                existing_access_macsec_policy = {
-                    access_macsec_policy["name"]: access_macsec_policy["uuid"] for access_macsec_policy in template_info.get("macsecPolicies", [])
-                }
-                if access_macsec_policy in existing_access_macsec_policy:
-                    payload["accessMACsecPolicy"] = existing_access_macsec_policy[access_macsec_policy]
-                else:
-                    mso.fail_json(msg="Access MACsec policy '{0}' not found in the template '{1}'.".format(access_macsec_policy, template))
+                existing_access_macsec_policy = validate_macsec_policy(mso, access_macsec_policy, template, template_info)
+                payload["accessMACsecPolicy"] = existing_access_macsec_policy[access_macsec_policy]
 
-            # dictionaries
-            # cdp
             if cdp_admin_state:
                 payload["cdp"] = {"adminState": cdp_admin_state}
-            # pfc
+
             if pfc_admin_state:
                 payload["pfc"] = {"adminState": pfc_admin_state}
-            # llfc
+
             if llfc_transmit_state:
                 payload["llfc"]["transmitState"] = llfc_transmit_state
             if llfc_receive_state:
                 payload["llfc"]["receiveState"] = llfc_receive_state
-            # stp
+
             if stp_bpdu_filter:
                 payload["stp"]["bpduFilterEnabled"] = stp_bpdu_filter
             if stp_bpdu_guard:
                 payload["stp"]["bpduGuardEnabled"] = stp_bpdu_guard
-            # l2Interface
+
             if l2_interface_qinq:
                 payload["l2Interface"]["qinq"] = l2_interface_qinq
             if l2_interface_reflective_relay:
                 payload["l2Interface"]["reflectiveRelay"] = l2_interface_reflective_relay
             if vlan_scope:
                 payload["l2Interface"]["vlanScope"] = vlan_scope
-            # lldp
-            if lldp:
-                if lldp["status"] == "disabled" and not (lldp["receive_state"] == "disabled" and lldp["transmit_state"] == "disabled"):
-                    mso.fail_json(msg="LLDP receive_state and transmit_state must be 'disabled' when LLDP status is disabled.")
 
+            if lldp:
+                validate_lldp(mso, lldp)
                 payload["lldp"]["receiveState"] = lldp["receive_state"]
                 payload["lldp"]["transmitState"] = lldp["transmit_state"]
 
-            # linkLevel
             if link_level_debounce_interval:
                 payload["linkLevel"]["debounceInterval"] = link_level_debounce_interval
             if link_level_bring_up_delay:
@@ -770,7 +771,7 @@ def main():
                 payload["linkLevel"]["speed"] = speed
             if auto_negotiation:
                 payload["linkLevel"]["autoNegotiation"] = auto_negotiation
-            # mcp
+
             if mcp:
                 if mcp["admin_state"]:
                     payload["mcp"]["adminState"] = mcp["admin_state"]
@@ -787,7 +788,6 @@ def main():
                 if mcp["grace_period_msec"]:
                     payload["mcp"]["gracePeriodMsec"] = mcp["grace_period_msec"]
 
-            # portChannelPolicy
             if port_channel_mode:
                 payload["portChannelPolicy"]["mode"] = port_channel_mode
             if min_links:
@@ -796,8 +796,8 @@ def main():
                 payload["portChannelPolicy"]["maxLinks"] = max_links
             if load_balance_hashing:
                 payload["portChannelPolicy"]["hashFields"] = load_balance_hashing
-            if control:
-                payload["portChannelPolicy"]["control"] = control
+            if controls:
+                payload["portChannelPolicy"]["control"] = controls
 
             ops.append(dict(op="add", path="{0}/-".format(path), value=copy.deepcopy(payload)))
 
@@ -825,6 +825,39 @@ def main():
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
+
+
+def validate_domains(mso, domains, template, template_info):
+    domain_uuid = []
+    existing_physical_domains = {domain["name"]: domain["uuid"] for domain in template_info.get("domains", [])}
+    existing_l3_domains = {domain["name"]: domain["uuid"] for domain in template_info.get("l3Domains", [])}
+    for item in domains:
+        if item in existing_physical_domains:
+            domain_uuid.append(existing_physical_domains[item])
+        elif item in existing_l3_domains:
+            domain_uuid.append(existing_l3_domains[item])
+        else:
+            mso.fail_json(msg="Domain '{0}' not found in the template '{1}'.".format(item, template))
+    return domain_uuid
+
+
+def validate_macsec_policy(mso, access_macsec_policy, template, template_info):
+    existing_access_macsec_policy = {macsec_policy["name"]: macsec_policy["uuid"] for macsec_policy in template_info.get("macsecPolicies", [])}
+    if access_macsec_policy not in existing_access_macsec_policy:
+        mso.fail_json(msg="Access MACsec policy '{0}' not found in the template '{1}'.".format(access_macsec_policy, template))
+    return existing_access_macsec_policy
+
+
+def validate_sync_e(mso, synce, template, template_info):
+    existing_sync_e = {synce["name"]: synce["uuid"] for synce in template_info.get("syncEthIntfPolicies", [])}
+    if synce not in existing_sync_e:
+        mso.fail_json(msg="SyncE policy '{0}' not found in the template '{1}'.".format(synce, template))
+    return existing_sync_e
+
+
+def validate_lldp(mso, lldp):
+    if lldp["status"] == "disabled" and not (lldp["receive_state"] == "disabled" and lldp["transmit_state"] == "disabled"):
+        mso.fail_json(msg="LLDP receive_state and transmit_state must be 'disabled' when LLDP status is disabled.")
 
 
 if __name__ == "__main__":

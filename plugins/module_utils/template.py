@@ -252,3 +252,20 @@ class MSOTemplate:
         if name:  # Query a specific object
             return self.get_object_by_key_value_pairs("L3Out Node Group Policy", existing_l3out_node_groups, [KVPair("name", name)], fail_module)
         return existing_l3out_node_groups  # Query all objects
+
+    def get_node_settings_object(self, uuid=None, name=None, fail_module=False):
+        """
+        Get the Fabric Node Settings by uuid or name.
+        :param uuid: UUID of the Node Setting to search for -> Str
+        :param name: Name of the Node Setting to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        existing_objects = self.template.get("fabricPolicyTemplate", {}).get("template", {}).get("nodePolicyGroups", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs("Node Settings", existing_objects, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+        return existing_objects  # Query all objects

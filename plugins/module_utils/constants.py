@@ -213,3 +213,4 @@ ORIGINATE_DEFAULT_ROUTE = {"only": "only", "in_addition": "inAddition", "": ""}
 L3OUT_ROUTING_PROTOCOLS = {"bgp": ["bgp"], "ospf": ["ospf"], "bgpOspf": ["bgp", "ospf"], None: [None], "": None, "bgpospf": "bgpOspf", "ospfbgp": "bgpOspf"}
 
 QOS_LEVEL = ["unspecified", "level1", "level2", "level3", "level4", "level5", "level6"]
+SYNC_E_QUALITY_LEVEL_OPTION = {"option_1": "op1", "option_2_generation_1": "op2g1", "option_2_generation_2": "op2g2"}

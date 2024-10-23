@@ -14,9 +14,9 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_l3out_node_group_policy
-short_description: Manage L3Out Node/Interface Group Policy on Cisco Nexus Dashboard Orchestrator (NDO).
+short_description: Manage L3Out Node Group Policy on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
-- Manage L3Out Node/Interface Group Policy on Cisco Nexus Dashboard Orchestrator (NDO).
+- Manage L3Out Node Group Policy on Cisco Nexus Dashboard Orchestrator (NDO).
 - This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Sabari Jaganathan (@sajagana)
@@ -26,19 +26,22 @@ options:
     - The name of the template.
     - The template must be a L3Out template.
     type: str
+    aliases: [ l3out_template ]
     required: true
   l3out:
     description:
     - The name of the L3Out.
     type: str
+    aliases: [ l3out_name ]
     required: true
   name:
     description:
-    - The name of the L3Out Node/Interface Group Policy.
+    - The name of the L3Out Node Group Policy.
     type: str
+    aliases: [ l3out_node_group_policy ]
   description:
     description:
-    - The description of the L3Out Node/Interface Group Policy.
+    - The description of the L3Out Node Group Policy.
     type: str
   node_routing_policy:
     description:
@@ -46,21 +49,21 @@ options:
     type: str
   bfd_multi_hop_authentication:
     description:
-    - The bidirectional forwarding detection (BFD) multi-hop authentication of the L3Out Node/Interface Group Policy.
+    - The bidirectional forwarding detection (BFD) multi-hop authentication of the L3Out Node Group Policy.
     - To enable the O(bfd_multi_hop_authentication) BGP routing protocol must be configured on the L3Out.
     type: str
     choices: [ enabled, disabled ]
   bfd_multi_hop_key_id:
     description:
-    - The BFD multi-hop key ID of the L3Out Node/Interface Group Policy.
+    - The BFD multi-hop key ID of the L3Out Node Group Policy.
     type: int
   bfd_multi_hop_key:
     description:
-    - The BFD multi-hop key of the L3Out Node/Interface Group Policy.
+    - The BFD multi-hop key of the L3Out Node Group Policy.
     type: str
   target_dscp:
     description:
-    - The DSCP Level of the L3Out Node/Interface Group Policy.
+    - The DSCP Level of the L3Out Node Group Policy.
     type: str
     choices:
       - af11
@@ -112,7 +115,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template: l3out_template
     l3out: l3out
-    name: "node_group_policy_1"
+    name: node_group_policy_1
     state: present
 
 - name: Update an existing L3Out node group policy
@@ -122,7 +125,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template: l3out_template
     l3out: l3out
-    name: "node_group_policy_1"
+    name: node_group_policy_1
     description: "Updated description"
     node_routing_policy: ans_node_policy_group_1
     bfd_multi_hop_authentication: enabled
@@ -138,7 +141,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template: l3out_template
     l3out: l3out
-    name: "node_group_policy_1"
+    name: node_group_policy_1
     state: query
   register: query_with_name
 
@@ -149,7 +152,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template: l3out_template
     l3out: l3out
-    name: "node_group_policy_1"
+    name: node_group_policy_1
     state: absent
 """
 
@@ -168,9 +171,9 @@ from ansible_collections.cisco.mso.plugins.module_utils.utils import generate_ap
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        template=dict(type="str", required=True),  # L3Out template name
-        l3out=dict(type="str", required=True),  # L3Out name
-        name=dict(type="str"),  # L3Out Node/Interface Group Policy name
+        template=dict(type="str", required=True, aliases=["l3out_template"]),
+        l3out=dict(type="str", required=True, aliases=["l3out_name"]),
+        name=dict(type="str", aliases=["l3out_node_group_policy"]),
         description=dict(type="str"),
         node_routing_policy=dict(type="str"),
         bfd_multi_hop_authentication=dict(type="str", choices=["enabled", "disabled"]),
@@ -186,7 +189,6 @@ def main():
         required_if=[
             ["state", "absent", ["name"]],
             ["state", "present", ["name"]],
-            ["bfd_multi_hop_authentication", "enabled", ["bfd_multi_hop_key_id", "bfd_multi_hop_key"]],
         ],
     )
 
@@ -209,9 +211,8 @@ def main():
     l3out_object = mso_template.get_l3out_object(name=l3out, fail_module=True)
     l3out_node_group = mso_template.get_l3out_node_group(name, l3out_object.details)
 
-    if name:
-        if l3out_node_group:
-            mso.existing = mso.previous = copy.deepcopy(l3out_node_group.details)  # Query a specific object
+    if name and l3out_node_group:
+        mso.existing = mso.previous = copy.deepcopy(l3out_node_group.details)  # Query a specific object
     elif l3out_node_group:
         mso.existing = l3out_node_group  # Query all objects
 
@@ -239,11 +240,7 @@ def main():
                 ops.append(dict(op="replace", path=node_group_policy_path + "/description", value=description))
                 proposed_payload["description"] = description
 
-            if (
-                node_routing_policy is not None
-                and l3out_node_routing_policy_object
-                and mso.existing.get("nodeRoutingPolicyRef") != l3out_node_routing_policy_object.details.get("uuid")
-            ):
+            if l3out_node_routing_policy_object and mso.existing.get("nodeRoutingPolicyRef") != l3out_node_routing_policy_object.details.get("uuid"):
                 ops.append(
                     dict(op="replace", path=node_group_policy_path + "/nodeRoutingPolicyRef", value=l3out_node_routing_policy_object.details.get("uuid"))
                 )
@@ -252,21 +249,30 @@ def main():
                 ops.append(dict(op="remove", path=node_group_policy_path + "/nodeRoutingPolicyRef"))
                 proposed_payload.pop("nodeRoutingPolicyRef", None)
 
-            if bfd_multi_hop_authentication == "enabled":
-                if not mso.existing.get("bfdMultiHop"):
-                    proposed_payload["bfdMultiHop"] = dict()
-                    ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop", value=dict()))
+            if (bfd_multi_hop_authentication or bfd_multi_hop_key or bfd_multi_hop_key_id) and not mso.existing.get("bfdMultiHop"):
+                ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop", value=dict()))
+                proposed_payload["bfdMultiHop"] = dict()
 
-                if mso.existing.get("bfdMultiHop", {}).get("keyID") != bfd_multi_hop_key_id:
-                    ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop/keyID", value=bfd_multi_hop_key_id))
-                    proposed_payload["bfdMultiHop"]["keyID"] = bfd_multi_hop_key_id
+            if bfd_multi_hop_authentication is not None and mso.existing.get("bfdMultiHop", {}).get("authEnabled") is not (
+                True if bfd_multi_hop_authentication == "enabled" else False
+            ):
+                ops.append(
+                    dict(
+                        op="replace",
+                        path=node_group_policy_path + "/bfdMultiHop/authEnabled",
+                        value=True if bfd_multi_hop_authentication == "enabled" else False,
+                    )
+                )
+                proposed_payload["bfdMultiHop"]["authEnabled"] = True if bfd_multi_hop_authentication == "enabled" else False
 
-                ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop/value", value=bfd_multi_hop_key))
-                proposed_payload["bfdMultiHop"]["value"] = bfd_multi_hop_key
+            if bfd_multi_hop_key_id is not None and mso.existing.get("bfdMultiHop", {}).get("keyID") != bfd_multi_hop_key_id:
+                ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop/keyID", value=bfd_multi_hop_key_id))
+                proposed_payload["bfdMultiHop"]["keyID"] = bfd_multi_hop_key_id
 
-            elif bfd_multi_hop_authentication == "disabled" and mso.existing.get("bfdMultiHop"):
-                proposed_payload.pop("bfdMultiHop", None)
-                ops.append(dict(op="remove", path=node_group_policy_path + "/bfdMultiHop"))
+            if bfd_multi_hop_key is not None:
+                ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop/key", value=dict()))
+                ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop/key/value", value=bfd_multi_hop_key))
+                proposed_payload["bfdMultiHop"]["key"] = dict(value=bfd_multi_hop_key)
 
             if target_dscp is not None and mso.existing.get("targetDscp") != target_dscp:
                 ops.append(dict(op="replace", path=node_group_policy_path + "/targetDscp", value=target_dscp))
@@ -280,11 +286,22 @@ def main():
             if description:
                 payload["description"] = description
 
-            if node_routing_policy and l3out_node_routing_policy_object:
+            if l3out_node_routing_policy_object:
                 payload["nodeRoutingPolicyRef"] = l3out_node_routing_policy_object.details.get("uuid")
 
-            if bfd_multi_hop_authentication == "enabled":
-                payload["bfdMultiHop"] = dict(authEnabled=True, keyID=bfd_multi_hop_key_id, key=dict(value=bfd_multi_hop_key))
+            bfd_multi_hop = dict()
+
+            if bfd_multi_hop_authentication is not None:
+                bfd_multi_hop["authEnabled"] = True if bfd_multi_hop_authentication == "enabled" else False
+
+            if bfd_multi_hop_key_id:
+                bfd_multi_hop["keyID"] = bfd_multi_hop_key_id
+
+            if bfd_multi_hop_key:
+                bfd_multi_hop["key"] = dict(value=bfd_multi_hop_key)
+
+            if bfd_multi_hop:
+                payload["bfdMultiHop"] = bfd_multi_hop
 
             if target_dscp:
                 payload["targetDscp"] = target_dscp

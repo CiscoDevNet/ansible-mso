@@ -46,16 +46,19 @@ options:
   node_routing_policy:
     description:
     - The name of the L3Out Node Routing Policy.
+    - Providing an empty string will remove the O(node_routing_policy="") from L3Out Node Group Policy.
     type: str
   bfd_multi_hop_authentication:
     description:
     - The Bidirectional Forwarding Detection (BFD) multi-hop authentication of the L3Out Node Group Policy.
     - To enable the O(bfd_multi_hop_authentication) BGP routing protocol must be configured on the L3Out.
+    - To clear the BFD auth configuration, provide the values O(bfd_multi_hop_authentication=""), O(bfd_multi_hop_key=""), and O(bfd_multi_hop_key_id=0).
     type: str
-    choices: [ enabled, disabled ]
+    choices: [ enabled, disabled, "" ]
   bfd_multi_hop_key_id:
     description:
     - The BFD multi-hop key ID of the L3Out Node Group Policy.
+    - Providing 0 will remove the O(bfd_multi_hop_key_id=0) from L3Out Node Group Policy.
     type: int
   bfd_multi_hop_key:
     description:
@@ -176,9 +179,9 @@ def main():
         name=dict(type="str", aliases=["l3out_node_group_policy"]),
         description=dict(type="str"),
         node_routing_policy=dict(type="str"),
-        bfd_multi_hop_authentication=dict(type="str", choices=["enabled", "disabled"]),
+        bfd_multi_hop_authentication=dict(type="str", choices=["enabled", "disabled", ""]),
         bfd_multi_hop_key_id=dict(type="int"),
-        bfd_multi_hop_key=dict(type="str", no_log=False),
+        bfd_multi_hop_key=dict(type="str", no_log=True),
         target_dscp=dict(type="str", choices=list(TARGET_DSCP_MAP)),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
@@ -235,6 +238,9 @@ def main():
 
         if mso.existing:
             proposed_payload = copy.deepcopy(mso.existing)
+            if proposed_payload.get("bfdMultiHop", {}).get("key", {}).get("ref"):
+                proposed_payload["bfdMultiHop"]["key"].pop("ref", None)
+                mso.existing["bfdMultiHop"]["key"].pop("ref", None)
 
             if description is not None and mso.existing.get("description") != description:
                 ops.append(dict(op="replace", path=node_group_policy_path + "/description", value=description))
@@ -245,41 +251,50 @@ def main():
                     dict(op="replace", path=node_group_policy_path + "/nodeRoutingPolicyRef", value=l3out_node_routing_policy_object.details.get("uuid"))
                 )
                 proposed_payload["nodeRoutingPolicyRef"] = l3out_node_routing_policy_object.details.get("uuid")
-            elif node_routing_policy == "" and mso.existing.get("nodeRoutingPolicyRef"):
-                ops.append(dict(op="remove", path=node_group_policy_path + "/nodeRoutingPolicyRef"))
-                proposed_payload.pop("nodeRoutingPolicyRef", None)
 
-            if (bfd_multi_hop_authentication or bfd_multi_hop_key or bfd_multi_hop_key_id) and not mso.existing.get("bfdMultiHop"):
-                ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop", value=dict()))
-                proposed_payload["bfdMultiHop"] = dict()
+            elif node_routing_policy == "" and mso.existing.get(
+                "nodeRoutingPolicyRef"
+            ):  # Clear the node routing policy when node_routing_policy is empty string
+                ops.append(dict(op="replace", path=node_group_policy_path + "/nodeRoutingPolicyRef", value=node_routing_policy))
+                proposed_payload["nodeRoutingPolicyRef"] = node_routing_policy
 
-            if bfd_multi_hop_authentication is not None and mso.existing.get("bfdMultiHop", {}).get("authEnabled") is not (
-                True if bfd_multi_hop_authentication == "enabled" else False
-            ):
-                ops.append(
-                    dict(
-                        op="replace",
-                        path=node_group_policy_path + "/bfdMultiHop/authEnabled",
-                        value=True if bfd_multi_hop_authentication == "enabled" else False,
+            if bfd_multi_hop_authentication or bfd_multi_hop_key or bfd_multi_hop_key_id:
+                if not mso.existing.get("bfdMultiHop"):
+                    ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop", value=dict()))
+                    proposed_payload["bfdMultiHop"] = dict()
+
+                # Ignore when bfd_multi_hop_authentication is None or empty string
+                if bfd_multi_hop_authentication and mso.existing.get("bfdMultiHop", {}).get("authEnabled") is not (
+                    True if bfd_multi_hop_authentication == "enabled" else False
+                ):
+                    ops.append(
+                        dict(
+                            op="replace",
+                            path=node_group_policy_path + "/bfdMultiHop/authEnabled",
+                            value=True if bfd_multi_hop_authentication == "enabled" else False,
+                        )
                     )
-                )
-                proposed_payload["bfdMultiHop"]["authEnabled"] = True if bfd_multi_hop_authentication == "enabled" else False
+                    proposed_payload["bfdMultiHop"]["authEnabled"] = True if bfd_multi_hop_authentication == "enabled" else False
 
-            if bfd_multi_hop_key_id is not None and mso.existing.get("bfdMultiHop", {}).get("keyID") != bfd_multi_hop_key_id:
-                ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop/keyID", value=bfd_multi_hop_key_id))
-                proposed_payload["bfdMultiHop"]["keyID"] = bfd_multi_hop_key_id
+                if bfd_multi_hop_key_id is not None and mso.existing.get("bfdMultiHop", {}).get("keyID") != bfd_multi_hop_key_id:
+                    ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop/keyID", value=bfd_multi_hop_key_id))
+                    proposed_payload["bfdMultiHop"]["keyID"] = bfd_multi_hop_key_id
 
-            if bfd_multi_hop_key is not None:
-                ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop/key", value=dict()))
-                ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop/key/value", value=bfd_multi_hop_key))
-                proposed_payload["bfdMultiHop"]["key"] = dict(value=bfd_multi_hop_key)
+                if bfd_multi_hop_key is not None:
+                    ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop/key", value=dict()))
+                    ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop/key/value", value=bfd_multi_hop_key))
+                    proposed_payload["bfdMultiHop"]["key"] = dict(value=bfd_multi_hop_key)
+
+            # Clear the complete BFD multi-hop configuration when all parameters are empty
+            elif bfd_multi_hop_authentication == "" and bfd_multi_hop_key == "" and bfd_multi_hop_key_id == 0 and mso.existing.get("bfdMultiHop"):
+                ops.append(dict(op="remove", path=node_group_policy_path + "/bfdMultiHop"))
+                proposed_payload.pop("bfdMultiHop")
 
             if target_dscp is not None and mso.existing.get("targetDscp") != target_dscp:
                 ops.append(dict(op="replace", path=node_group_policy_path + "/targetDscp", value=target_dscp))
                 proposed_payload["targetDscp"] = target_dscp
 
             mso.sanitize(proposed_payload, collate=True)
-
         else:
             payload = dict(name=name)
 
@@ -291,7 +306,7 @@ def main():
 
             bfd_multi_hop = dict()
 
-            if bfd_multi_hop_authentication is not None:
+            if bfd_multi_hop_authentication:
                 bfd_multi_hop["authEnabled"] = True if bfd_multi_hop_authentication == "enabled" else False
 
             if bfd_multi_hop_key_id:
@@ -321,6 +336,8 @@ def main():
         l3out_node_group = mso_template.get_l3out_node_group(name, l3out_object.details)
         if l3out_node_group:
             mso.existing = l3out_node_group.details  # When the state is present
+            if mso.existing.get("bfdMultiHop", {}).get("key", {}).get("ref"):
+                mso.existing["bfdMultiHop"]["key"].pop("ref")
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode

@@ -238,9 +238,9 @@ class MSOTemplate:
 
     def get_l3out_node_group(self, name, l3out_object, fail_module=False):
         """
-        Get the L3Out Node/Interface Group Policy by name.
-        :param name: Name of the L3Out Node/Interface Group Policy to search for -> Str
-        :param l3out_object: L3Out object to search Node/Interface Group Policy -> Dict
+        Get the L3Out Node Group Policy by name.
+        :param name: Name of the L3Out Node Group Policy to search for -> Str
+        :param l3out_object: L3Out object to search Node Group Policy -> Dict
         :param fail_module: When match is not found fail the ansible module -> Bool
         :return: Dict | None | List[Dict] | List[]: The processed result which could be:
                  When the UUID | Name is existing in the search list -> Dict
@@ -250,5 +250,5 @@ class MSOTemplate:
         """
         existing_l3out_node_groups = l3out_object.get("nodeGroups", [])
         if name:  # Query a specific object
-            return self.get_object_by_key_value_pairs("L3Out Node/Interface Group Policy", existing_l3out_node_groups, [KVPair("name", name)], fail_module)
+            return self.get_object_by_key_value_pairs("L3Out Node Group Policy", existing_l3out_node_groups, [KVPair("name", name)], fail_module)
         return existing_l3out_node_groups  # Query all objects

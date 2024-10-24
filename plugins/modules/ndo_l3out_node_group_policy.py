@@ -24,7 +24,7 @@ options:
   template:
     description:
     - The name of the template.
-    - The template must be a L3Out template.
+    - The template must be an L3Out template.
     type: str
     aliases: [ l3out_template ]
     required: true
@@ -49,7 +49,7 @@ options:
     type: str
   bfd_multi_hop_authentication:
     description:
-    - The bidirectional forwarding detection (BFD) multi-hop authentication of the L3Out Node Group Policy.
+    - The Bidirectional Forwarding Detection (BFD) multi-hop authentication of the L3Out Node Group Policy.
     - To enable the O(bfd_multi_hop_authentication) BGP routing protocol must be configured on the L3Out.
     type: str
     choices: [ enabled, disabled ]

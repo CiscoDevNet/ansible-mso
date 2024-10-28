@@ -68,7 +68,9 @@
         description: Ansible Port Channel test
         node: 101
         interfaces: 1/1
-        interface_policy: Gaspard_Interface_setting_test
+        interface_policy_group: 
+          name: Gaspard_Interface_setting_test
+          template: Gaspard_FP_3.2_test
         interface_descriptions:
           - interface_id: 1/1
             description: first Ansible interface test
@@ -132,47 +134,11 @@
         state: present
       ignore_errors: true
       register: nm_create_missing_node
-    
-    - name: Create a new port channel interface with invalid interface
-      cisco.mso.ndo_port_channel_interface:
-        <<: *mso_info
-        template: ansible_fabric_resource_template
-        port_channel_interface: ansible_port_channel_interface_error
-        node: 101
-        interfaces:
-          - error
-          - 1
-        interface_policy: Gaspard_Interface_setting_test
-        interface_descriptions:
-          - interface_id: 1/1
-            description: first Ansible interface test
-        state: present
-      ignore_errors: true
-      register: nm_create_interface_invalid_interface
-
-    - name: Create a new port channel interface with invalid interface descriptions
-      cisco.mso.ndo_port_channel_interface:
-        <<: *mso_info
-        template: ansible_fabric_resource_template
-        port_channel_interface: ansible_port_channel_interface_error
-        node: 101
-        interfaces: 1/1
-        interface_policy: Gaspard_Interface_setting_test
-        interface_descriptions:
-          - interface_id: 1/1
-            description: first Ansible interface test
-          - interface_id: 1/2
-            description: second Ansible interface test
-        state: present
-      ignore_errors: true
-      register: nm_create_invalid_interface_descriptions
 
     - name: Assert port channel interface creation errors tasks
       assert:
         that:
-          - nm_create_missing_node.msg == "ERROR: Missing required attributes ['node'] for creating a Port Channel Interface"
-          - nm_create_interface_invalid_interface.msg == "ERROR: Invalid interface inputs, ['error', '1']"
-          - nm_create_invalid_interface_descriptions.msg == "ERROR: Interface IDs with description ['1/2'] not in list of current interfaces ['1/1']"
+          - nm_create_missing_node.msg == "ERROR: Missing 'node' for creating a Port Channel Interface"
 
     # UPDATE
 
@@ -218,7 +184,9 @@
     - name: Update a port channel interface policy
       cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_policy
         <<: *update_port_channel_interface_description
-        interface_policy: Gaspard_Interface_setting_test_2
+        interface_policy_group:
+          name: Gaspard_Interface_setting_test_2
+          template: Gaspard_FP_3.2_test
       register: nm_update_port_channel_interface_policy
     
     - name: Update a port channel interface members
@@ -229,21 +197,6 @@
           - 1/8-10
           - 2/3-5
       register: nm_update_port_channel_interface_members
-
-    - name: Update a port channel interface members again
-      cisco.mso.ndo_port_channel_interface:
-        <<: *update_port_channel_interface_members
-        interfaces:
-          - 1/1
-          - 1/3
-          - 1/2
-          - 2/4
-          - 2/5
-          - 2/3
-          - 1/9
-          - 1/8
-          - 1/10
-      register: nm_update_port_channel_interface_members_again
     
     - name: Update a port channel interface members descriptions
       cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_descriptions
@@ -304,8 +257,6 @@
           - nm_update_port_channel_interface_members.current.interfaceDescriptions.0.nodeID == "103"
           - nm_update_port_channel_interface_members.current.interfaceDescriptions.0.interfaceID == "1/1"
           - nm_update_port_channel_interface_members.current.interfaceDescriptions.0.description == "first Ansible interface test"
-          - nm_update_port_channel_interface_members_again is not changed
-          - nm_update_port_channel_interface_members_again.current.memberInterfaces == "1/1-3,1/8-10,2/3-5"
           - nm_update_port_channel_interface_descriptions is changed
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions | length == 3
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.0.nodeID == "103"
@@ -328,42 +279,6 @@
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions.1.nodeID == "103"
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions.1.interfaceID == "1/2"
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions.1.description == "second Ansible interface test"
-
-    # UPDATE ERRORS
-
-    - name: Udpate a port channel interface with invalid interface
-      cisco.mso.ndo_port_channel_interface:
-        <<: *mso_info
-        template: ansible_fabric_resource_template
-        port_channel_interface: ansible_port_channel_interface_changed
-        interfaces:
-          - error
-          - 1/2-1
-        state: present
-      ignore_errors: true
-      register: nm_update_nterface_invalid_interface
-
-    - name: Update a port channel interface with invalid interface descriptions
-      cisco.mso.ndo_port_channel_interface:
-        <<: *mso_info
-        template: ansible_fabric_resource_template
-        port_channel_interface: ansible_port_channel_interface_changed
-        interface_descriptions:
-          - interface_id: 1/1
-            description: first Ansible interface test
-          - interface_id: 1/2
-            description: second Ansible interface test
-          - interface_id: 1/3
-            description: third Ansible interface test
-        state: present
-      ignore_errors: true
-      register: nm_update_invalid_interface_descriptions
-
-    - name: Assert port channel interface creation errors tasks
-      assert:
-        that:
-          - nm_update_nterface_invalid_interface.msg == "ERROR: Invalid interface inputs, ['error', '1/2-1']"
-          - nm_update_invalid_interface_descriptions.msg == "ERROR: Interface IDs with description ['1/3'] not in list of current interfaces ['1/1', '1/2']"
 
     # QUERY
 

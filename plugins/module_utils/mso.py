@@ -1700,23 +1700,3 @@ def listener_rules_spec():
         ),
         target_ip_type=dict(type="str", choices=["unspecified", "primary", "secondary"]),
     )
-
-
-def lookup_valid_interfaces(interfaces):
-    interface_ids = []
-    errors_interfaces = []
-    modified_interfaces = interfaces.replace(" ", "").split(",")
-    for interface in modified_interfaces:
-        if re.fullmatch(r"((\d+/)+\d+-\d+$)", interface):
-            slots = interface.rsplit("/", 1)[0]
-            range_start, range_stop = interface.rsplit("/", 1)[1].split("-")
-            if int(range_stop) > int(range_start):
-                for x in range(int(range_start), int(range_stop) + 1):
-                    interface_ids.append("{0}/{1}".format(slots, x))
-            else:
-                errors_interfaces.append(interface)
-        elif re.fullmatch(r"((\d+/)+\d+$)", interface):
-            interface_ids.append(interface)
-        else:
-            errors_interfaces.append(interface)
-    return set(interface_ids), errors_interfaces

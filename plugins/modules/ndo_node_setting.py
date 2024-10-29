@@ -76,12 +76,13 @@ options:
       node_domain:
         description:
         - The node domain number of the PTP Settings.
-        - The value must be between 24 and 43 microseconds.
+        - The value must be between 24 and 43.
         type: int
       priority_2:
         description:
         - The value that is used when advertising this clock.
-        - The value must be between 0 and 255 microseconds.
+        - The value must be between 0 and 255. Lower values take precedence.
+        - The PTP priority 1 set to the fixed value of 128.
         type: int
   state:
     description:
@@ -294,7 +295,7 @@ def main():
                         proposed_payload["ptp"] = dict()
                         ops.append(dict(op="replace", path="{0}/ptp".format(node_setting_path), value=dict()))
 
-                        # Add the Priority 1 default value, when it is configured newly
+                        # Add the Priority 1 fixed value 128 to the PTP settings during initialization
                         proposed_payload["ptp"]["prio1"] = 128
                         ops.append(
                             dict(
@@ -351,7 +352,7 @@ def main():
                     ptp_map["prio2"] = ptp.get("priority_2")
 
                 if ptp_map:
-                    # Add the Priority 1 default value, when it is configured newly
+                    # Add the Priority 1 fixed value 128 to the PTP settings during initialization
                     ptp_map["prio1"] = 128
                     payload["ptp"] = ptp_map
 

@@ -18,9 +18,9 @@ ANSIBLE_METADATA = {
 DOCUMENTATION = r"""
 ---
 module: ndo_virtual_port_channel_interface
-short_description: Manage Virtual Port Channel Interfaces_1 on Cisco Nexus Dashboard Orchestrator (NDO).
+short_description: Manage Virtual Port Channel Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
-- Manage Virtual Port Channel Interfaces_1 on Cisco Nexus Dashboard Orchestrator (NDO).
+- Manage Virtual Port Channel Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).
 - This module is only supported on ND v3.2 (NDO v4.4) and later.
 author:
 - Gaspard Micol (@gmicol)
@@ -38,13 +38,13 @@ options:
         aliases: [ name, virtual_port_channel, vpc ]
     virtual_port_channel_interface_uuid:
         description:
-        - The uuid of the Virtual Port Channel Interface.
+        - The UUID of the Virtual Port Channel Interface.
         - This parameter is required when parameter O(virtual_port_channel_interface) is updated.
         type: str
         aliases: [ uuid, virtual_port_channel_uuid, vpc_uuid ]
     description:
         description:
-        - The description of the Port Channel Interface.
+        - The description of the Virtual Port Channel Interface.
         type: str
     node_1:
         description:
@@ -54,20 +54,20 @@ options:
         description:
         - The second node ID.
         type: str
-    interfaces_1:
+    interfaces_node_1:
         description:
         - The list of used Interface IDs for the first node.
         - Ranges of Interface IDs can be used.
         type: list
         elements: str
-        aliases: [ members_1 ]
-    interfaces_2:
+        aliases: [ interfaces_1, members_1 ]
+    interfaces_node_2:
         description:
         - The list of used Interface IDs for the second node.
         - Ranges of Interface IDs can be used.
         type: list
         elements: str
-        aliases: [ members_2 ]
+        aliases: [ interfaces_2, members_2 ]
     interface_policy_group_uuid:
         description:
         - The UUID of the Port Channel Interface Setting Policy.
@@ -96,7 +96,7 @@ options:
         suboptions:
             node:
                 description:
-                - The node ID
+                - The node ID.
                 type: str
             interface_id:
                 description:
@@ -128,10 +128,10 @@ EXAMPLES = r"""
     virtual_port_channel_interface: ansible_virtual_port_channel_interface
     node_1: 101
     node_2: 102
-    interfaces_1:
+    interfaces_node_1:
       - 1/1
       - 1/10-11
-    interfaces_2:
+    interfaces_node_2:
       - 1/2
     interface_policy_group:
       name: ansible_policy_group
@@ -204,8 +204,8 @@ def main():
         description=dict(type="str"),
         node_1=dict(type="str"),
         node_2=dict(type="str"),
-        interfaces_1=dict(type="list", elements="str", aliases=["members_1"]),
-        interfaces_2=dict(type="list", elements="str", aliases=["members_2"]),
+        interfaces_node_1=dict(type="list", elements="str", aliases=["interfaces_1", "members_1"]),
+        interfaces_node_2=dict(type="list", elements="str", aliases=["interfaces_2", "members_2"]),
         interface_policy_group=dict(
             type="dict",
             options=dict(
@@ -244,12 +244,12 @@ def main():
     description = module.params.get("description")
     node_1 = module.params.get("node_1")
     node_2 = module.params.get("node_2")
-    interfaces_1 = module.params.get("interfaces_1")
-    if interfaces_1:
-        interfaces_1 = ",".join(interfaces_1)
-    interfaces_2 = module.params.get("interfaces_2")
-    if interfaces_2:
-        interfaces_2 = ",".join(interfaces_2)
+    interfaces_node_1 = module.params.get("interfaces_node_1")
+    if interfaces_node_1:
+        interfaces_node_1 = ",".join(interfaces_node_1)
+    interfaces_node_2 = module.params.get("interfaces_node_2")
+    if interfaces_node_2:
+        interfaces_node_2 = ",".join(interfaces_node_2)
     interface_policy_group = module.params.get("interface_policy_group")
     interface_policy_group_uuid = module.params.get("interface_policy_group_uuid")
     interface_descriptions = module.params.get("interface_descriptions")
@@ -303,13 +303,13 @@ def main():
                 ops.append(dict(op="replace", path="{0}/{1}/policy".format(path, match.index), value=interface_policy_group_uuid))
                 match.details["policy"] = interface_policy_group_uuid
 
-            if interfaces_1 and interfaces_1 != match.details.get("node1Details", {}).get("memberInterfaces"):
-                ops.append(dict(op="replace", path="{0}/{1}/node1Details/memberInterfaces".format(path, match.index), value=interfaces_1))
-                match.details["node1Details"]["memberInterfaces"] = interfaces_1
+            if interfaces_node_1 and interfaces_node_1 != match.details.get("node1Details", {}).get("memberInterfaces"):
+                ops.append(dict(op="replace", path="{0}/{1}/node1Details/memberInterfaces".format(path, match.index), value=interfaces_node_1))
+                match.details["node1Details"]["memberInterfaces"] = interfaces_node_1
 
-            if interfaces_2 and interfaces_2 != match.details.get("node2Details", {}).get("memberInterfaces"):
-                ops.append(dict(op="replace", path="{0}/{1}/node2Details/memberInterfaces".format(path, match.index), value=interfaces_2))
-                match.details["node2Details"]["memberInterfaces"] = interfaces_2
+            if interfaces_node_2 and interfaces_node_2 != match.details.get("node2Details", {}).get("memberInterfaces"):
+                ops.append(dict(op="replace", path="{0}/{1}/node2Details/memberInterfaces".format(path, match.index), value=interfaces_node_2))
+                match.details["node2Details"]["memberInterfaces"] = interfaces_node_2
 
             if interface_descriptions:
                 interface_descriptions = [
@@ -333,11 +333,11 @@ def main():
                 "name": virtual_port_channel_interface,
                 "node1Details": {
                     "node": node_1,
-                    "memberInterfaces": interfaces_1,
+                    "memberInterfaces": interfaces_node_1,
                 },
                 "node2Details": {
                     "node": node_2,
-                    "memberInterfaces": interfaces_2,
+                    "memberInterfaces": interfaces_node_2,
                 },
                 "policy": interface_policy_group_uuid,
             }

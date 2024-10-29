@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
 #
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -188,6 +189,7 @@
     template: Template 1
     external_epg: ansible_test_1
     subnet: 10.0.0.2/24
+    name: subnet2
     state: present
   register: add_epg_subnet_2
 
@@ -196,6 +198,7 @@
     that:
     - add_epg_subnet_2 is changed
     - add_epg_subnet_2.current.ip == "10.0.0.2/24"
+    - add_epg_subnet_2.current.name == "subnet2"
 
 # QUERY ALL EPG Subnets
 - name: Query all EPG (check_mode)
@@ -343,6 +346,14 @@
     - add_epg_subnet_no_ag.msg == "MSO Error 400{{':'}} ExternalEPG{{':'}} ansible_test_1 in Schema{{':'}} ansible_test , Template{{':'}} Template1 External EPG validation error{{':'}} aggregate should be enabled only if shared-rtctrl is enabled in Scope for subnet 10.0.0.2/24"
   when:
   - version.current.version is version('4.0', '>=')
+  - version.current.version is version('4.3', '<')
+
+- name: Verify add_epg_subnet_no_ag (version >= 4.3)
+  ansible.builtin.assert:
+    that:
+    - add_epg_subnet_no_ag.msg == "MSO Error 400{{':'}} ExternalEPG{{':'}} ansible_test_1 in Schema{{':'}} ansible_test, Template{{':'}} Template1, External EPG validation error{{':'}} aggregate should be enabled only if shared-rtctrl is enabled in Scope for subnet 10.0.0.2/24"
+  when:
+  - version.current.version is version('4.3', '>=')
 
 - name: Execute tasks only for MSO version < 4.0
   # mso_schema_validate not supported after 4.0, validation executed upon request

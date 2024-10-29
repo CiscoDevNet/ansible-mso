@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -19,6 +20,7 @@ description:
 author:
 - Devarshi Shah (@devarshishah3)
 - Anvitha Jain (@anvitha-jain)
+- Akini Ross (@akinross)
 version_added: '0.0.8'
 options:
   schema:
@@ -39,6 +41,10 @@ options:
   subnet:
     description:
     - The IP range in CIDR notation.
+    type: str
+  name:
+    description:
+    - The name of the External EPG Subnet.
     type: str
   scope:
     description:
@@ -132,6 +138,7 @@ def main():
         external_epg=dict(type="str", required=True),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
         subnet=dict(type="str"),
+        name=dict(type="str"),
         scope=dict(type="list", elements="str", default=[]),
         aggregate=dict(type="list", elements="str", default=[]),
     )
@@ -149,6 +156,7 @@ def main():
     template = module.params.get("template").replace(" ", "")
     external_epg = module.params.get("external_epg")
     subnet = module.params.get("subnet")
+    name = module.params.get("name")
     scope = module.params.get("scope")
     aggregate = module.params.get("aggregate")
     state = module.params.get("state")
@@ -201,6 +209,7 @@ def main():
             ip=subnet,
             scope=scope,
             aggregate=aggregate,
+            name=name,
         )
 
         mso.sanitize(payload, collate=True)

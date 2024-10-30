@@ -31,13 +31,13 @@ options:
     description:
     - The name of the interface policy group.
     type: str
-    aliases: [ name ]
+    aliases: [ name, interface_setting ]
   interface_policy_group_uuid:
     description:
     - The UUID of the interface policy group.
     - This parameter is required when the O(interface_policy_group) needs to be updated.
     type: str
-    aliases: [ uuid ]
+    aliases: [ uuid, interface_setting_uuid ]
   description:
     description:
     - The description of the interface policy group.
@@ -45,7 +45,7 @@ options:
   interface_type:
     description:
     - The type of the interface policy group.
-    - The default value is C(physical).
+    - This parameter is required when interface policy group needs to be created or updated.
     type: str
     choices: [ physical, port_channel ]
   speed:
@@ -279,6 +279,12 @@ options:
 notes:
 - The O(template) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_template) to create the Tenant template.
+- The O(access_macsec_policy) must exist before using this module in your playbook.
+  Use M(cisco.mso.ndo_macsec_policy) to create the MACsec policy.
+- The O(domains) must exist before using this module in your playbook.
+  Use M(cisco.mso.ndo_physical_domain) or M(cisco.mso.ndo_l3_domain) to create the domain.
+- The O(synce) must exist before using this module in your playbook.
+  Use M(cisco.mso.ndo_synce_interface_policy) to create the syncE policy.
 seealso:
 - module: cisco.mso.ndo_template
 - module: cisco.mso.ndo_macsec_policy
@@ -424,8 +430,8 @@ def main():
     argument_spec.update(
         dict(
             template=dict(type="str", required=True),
-            interface_policy_group=dict(type="str", aliases=["name"]),
-            interface_policy_group_uuid=dict(type="str", aliases=["uuid"]),
+            interface_policy_group=dict(type="str", aliases=["name", "interface_setting"]),
+            interface_policy_group_uuid=dict(type="str", aliases=["uuid", "interface_setting_uuid"]),
             description=dict(type="str"),
             interface_type=dict(type="str", choices=["physical", "port_channel"]),
             speed=dict(type="str", choices=["100M", "1G", "10G", "25G", "40G", "50G", "100G", "200G", "400G", "inherit"]),

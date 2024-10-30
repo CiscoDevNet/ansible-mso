@@ -716,6 +716,27 @@
           - nm_delete_interface_policy_group_uuid.previous.type == "physical"
           - nm_delete_interface_policy_group_uuid.current == {}
 
+    # Create Interface Policy group interface_type physical for coverage
+    - name: Create a Interface Policy group of interface_type 'physical' without MCP admin_state
+      cisco.mso.ndo_interface_setting:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        interface_policy_group: ansible_interface_policy_group_cov
+        interface_type: physical
+        mcp:
+          strict_mode: off
+        state: present
+      register: add_interface_policy_group_cov
+
+    - name: Assert Interface Policy group of interface_type 'physical' was created
+      assert:
+        that:
+          - add_interface_policy_group_cov is changed
+          - add_interface_policy_group_cov.previous == {}
+          - add_interface_policy_group_cov.current.name == "ansible_interface_policy_group_cov"
+          - add_interface_policy_group_cov.current.type == "physical"
+          - add_interface_policy_group_cov.current.mcp.strictMode == "off"
+
     # CLEANUP TEMPLATE
 
     - name: Ensure templates do not exist

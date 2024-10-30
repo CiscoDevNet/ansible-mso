@@ -39,6 +39,8 @@ options:
     virtual_port_channel_interface_uuid:
         description:
         - The UUID of the Virtual Port Channel Interface.
+        - This parameter can be used instead of O(virtual_port_channel_interface)
+          when an existing Virtual Port Channel Interface is updated.
         - This parameter is required when parameter O(virtual_port_channel_interface) is updated.
         type: str
         aliases: [ uuid, virtual_port_channel_uuid, vpc_uuid ]
@@ -58,6 +60,7 @@ options:
         description:
         - The list of used Interface IDs for the first node.
         - Ranges of Interface IDs can be used.
+        - This parameter is required during creation.
         type: list
         elements: str
         aliases: [ interfaces_1, members_1 ]
@@ -65,32 +68,35 @@ options:
         description:
         - The list of used Interface IDs for the second node.
         - Ranges of Interface IDs can be used.
+        - This parameter is required during creation.
         type: list
         elements: str
         aliases: [ interfaces_2, members_2 ]
     interface_policy_group_uuid:
         description:
-        - The UUID of the Port Channel Interface Setting Policy.
+        - The UUID of the Port Channel Interface Policy Group.
+        - An Port Channel Interface Policy Group must be attached required during creation.
         type: str
-        aliases: [ policy_uuid, interface_policy_uuid ]
+        aliases: [ policy_uuid, interface_policy_uuid, interface_setting_uuid ]
     interface_policy_group:
         description:
         - The name of the Port Channel Interface Policy Group.
         - This parameter can be used instead of O(interface_policy_group_uuid).
+        - If both parameter are used, O(interface_policy_group) will be ignored.
         type: dict
         suboptions:
             name:
                 description:
-                - The name of the Port Channel Interface Setting Policy.
+                - The name of the Port Channel Interface Policy Group.
                 type: str
             template:
                 description:
-                - The name of the template in which is referred the Port Channel Interface Policy Group.
+                - The name of the template in which the Port Channel Interface Policy Group has been created.
                 type: str
-        aliases: [ policy, interface_policy ]
+        aliases: [ policy, interface_policy, interface_setting ]
     interface_descriptions:
         description:
-        - The list of descriptions for each interface.
+        - The list of interface descriptions.
         type: list
         elements: dict
         suboptions:
@@ -151,15 +157,35 @@ EXAMPLES = r"""
         description: My first Ansible Interface for second node
     state: present
 
-- name: Query an Virtual Port Channel Interface with template_name
+- name: Update Virtual Port Channel Interface's name
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_fabric_resource_template
-    virtual_port_channel_interface: ansible_virtual_port_channel_interface
+    virtual_port_channel_interface: ansible_virtual_port_channel_interface_changed
+    virtual_port_channel_interface_uuid: 0134c73f-4427-4109-9eea-5110ecdf10ea
+    state: present
+
+- name: Query an Virtual Port Channel Interface using it's name in the template
+  cisco.mso.ndo_virtual_port_channel_interface:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_fabric_resource_template
+    virtual_port_channel_interface: ansible_virtual_port_channel_interface_changed
     state: query
   register: query_one
+
+- name: Query an Virtual Port Channel Interface using it's uuid in the template
+  cisco.mso.ndo_virtual_port_channel_interface:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_fabric_resource_template
+    virtual_port_channel_interface_uuid: 0134c73f-4427-4109-9eea-5110ecdf10ea
+    state: query
+  register: query_one_uuid
 
 - name: Query all Virtual Port Channel Interfaces in the template
   cisco.mso.ndo_virtual_port_channel_interface:
@@ -170,13 +196,22 @@ EXAMPLES = r"""
     state: query
   register: query_all
 
-- name: Delete an Virtual Port Channel Interface
+- name: Delete an Virtual Port Channel Interface using it's name
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_fabric_resource_template
-    virtual_port_channel_interface: ansible_virtual_port_channel_interface
+    virtual_port_channel_interface: ansible_virtual_port_channel_interface_changed
+    state: absent
+
+- name: Delete an Virtual Port Channel Interface using it's uuid
+  cisco.mso.ndo_virtual_port_channel_interface:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_fabric_resource_template
+    virtual_port_channel_interface_uuid: 0134c73f-4427-4109-9eea-5110ecdf10ea
     state: absent
 """
 
@@ -212,9 +247,9 @@ def main():
                 name=dict(type="str"),
                 template=dict(type="str"),
             ),
-            aliases=["policy", "interface_policy"],
+            aliases=["policy", "interface_policy", "interface_setting"],
         ),
-        interface_policy_group_uuid=dict(type="str", aliases=["policy_uuid", "interface_policy_uuid"]),
+        interface_policy_group_uuid=dict(type="str", aliases=["policy_uuid", "interface_policy_uuid", "interface_setting_uuid"]),
         interface_descriptions=dict(
             type="list",
             elements="dict",
@@ -231,8 +266,8 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "absent", ["template", "virtual_port_channel_interface"]],
-            ["state", "present", ["template", "virtual_port_channel_interface"]],
+            ["state", "absent", ["virtual_port_channel_interface", "virtual_port_channel_interface_uuid"], True],
+            ["state", "present", ["virtual_port_channel_interface", "virtual_port_channel_interface_uuid"], True],
         ],
     )
 
@@ -287,15 +322,15 @@ def main():
                 ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=virtual_port_channel_interface))
                 match.details["name"] = virtual_port_channel_interface
 
-            if description and match.details.get("description") != description:
+            if description is not None and match.details.get("description") != description:
                 ops.append(dict(op="replace", path="{0}/{1}/description".format(path, match.index), value=description))
                 match.details["description"] = description
 
-            if node_1 and match.details.get("node1Details", {}).get("node") != node_1:
+            if node_1 is not None and match.details.get("node1Details", {}).get("node") != node_1:
                 ops.append(dict(op="replace", path="{0}/{1}/node1Details/node".format(path, match.index), value=node_1))
                 match.details["node1Details"]["node"] = node_1
 
-            if node_2 and match.details.get("node2Details", {}).get("node") != node_2:
+            if node_2 is not None and match.details.get("node2Details", {}).get("node") != node_2:
                 ops.append(dict(op="replace", path="{0}/{1}/node2Details/node".format(path, match.index), value=node_2))
                 match.details["node2Details"]["node"] = node_2
 
@@ -341,7 +376,7 @@ def main():
                 },
                 "policy": interface_policy_group_uuid,
             }
-            if description:
+            if description is not None:
                 payload["description"] = description
             if interface_descriptions:
                 payload["interfaceDescriptions"] = [

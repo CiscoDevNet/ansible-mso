@@ -211,3 +211,5 @@ TARGET_DSCP_MAP = {
 
 ORIGINATE_DEFAULT_ROUTE = {"only": "only", "in_addition": "inAddition", "": ""}
 L3OUT_ROUTING_PROTOCOLS = {"bgp": ["bgp"], "ospf": ["ospf"], "bgpOspf": ["bgp", "ospf"], None: [None], "": None, "bgpospf": "bgpOspf", "ospfbgp": "bgpOspf"}
+
+ENABLED_DISABLED_BOOLEAN_MAP = {"enabled": True, "disabled": False, True: "enabled", False: "disabled"}

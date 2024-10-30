@@ -1,0 +1,1142 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    - name: Ensure sites exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: "{{ item.site }}"
+        apic_username: "{{ apic_username }}"
+        apic_password: "{{ apic_password }}"
+        apic_site_id: "{{ item.apic_site_id }}"
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+      loop:
+        - { site: "ansible_test", apic_site_id: 101 }
+        - { site: "ansible_test_2", apic_site_id: 102 }
+
+    - name: Ensure tenants exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: "{{ item }}"
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+          - ansible_test_2
+        state: present
+      loop:
+        - ansible_test
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: '{{ ansible_tenant_template | default("ansible_test") }}'
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+
+    # Test Part
+    - name: Query all L3Out Interface Routing Policy when it is empty
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        state: query
+      register: query_all_with_empty_template
+
+    - name: Assertion check for query all L3Out Interface Routing Policy when it is empty
+      ansible.builtin.assert:
+        that:
+          - query_all_with_empty_template is not changed
+          - query_all_with_empty_template.current == {}
+
+    - name: Create a new L3Out Interface Routing Policy with default values - check_mode
+      cisco.mso.ndo_l3out_interface_routing_policy: &cm_irp_1_present
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: irp_1
+        bfd_settings:
+          state: enabled
+        bfd_multi_hop_settings:
+          state: enabled
+        state: present
+        output_level: debug
+      check_mode: true
+      register: cm_irp_1_present
+
+    - name: Assertion check for create a new L3Out Interface Routing Policy with default values - check_mode
+      ansible.builtin.assert:
+        that:
+          - cm_irp_1_present is changed
+          - cm_irp_1_present.current.bfdMultiHopPol == {}
+          - cm_irp_1_present.current.bfdPol == {}
+          - cm_irp_1_present.current.name == "irp_1"
+          - cm_irp_1_present.previous == {}
+          - cm_irp_1_present.proposed.bfdMultiHopPol == {}
+          - cm_irp_1_present.proposed.bfdPol == {}
+          - cm_irp_1_present.proposed.name == "irp_1"
+
+    - name: Create a new L3Out Interface Routing Policy with default values - normal_mode
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *cm_irp_1_present
+      register: nm_irp_1_present
+
+    - name: Assertion check for create a new L3Out Interface Routing Policy with default values - normal_mode
+      ansible.builtin.assert:
+        that:
+          - nm_irp_1_present is changed
+          - nm_irp_1_present.current.bfdMultiHopPol.adminState == "enabled"
+          - nm_irp_1_present.current.bfdMultiHopPol.detectionMultiplier == 3
+          - nm_irp_1_present.current.bfdMultiHopPol.minRxInterval == 250
+          - nm_irp_1_present.current.bfdMultiHopPol.minTxInterval == 250
+          - nm_irp_1_present.current.bfdPol.adminState == "enabled"
+          - nm_irp_1_present.current.bfdPol.detectionMultiplier == 3
+          - nm_irp_1_present.current.bfdPol.echoAdminState == "enabled"
+          - nm_irp_1_present.current.bfdPol.echoRxInterval == 50
+          - nm_irp_1_present.current.bfdPol.ifControl == false
+          - nm_irp_1_present.current.bfdPol.minRxInterval == 50
+          - nm_irp_1_present.current.bfdPol.minTxInterval == 50
+          - nm_irp_1_present.current.name == "irp_1"
+          - nm_irp_1_present.current.uuid is defined
+          - nm_irp_1_present.previous == {}
+
+    - name: Create a new L3Out Interface Routing Policy with default values - normal_mode again
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *cm_irp_1_present
+      register: nm_irp_1_present_again
+
+    - name: Assertion check for create a new L3Out Interface Routing Policy with default values - normal_mode again
+      ansible.builtin.assert:
+        that:
+          - nm_irp_1_present_again is not changed
+          - nm_irp_1_present_again.current.bfdMultiHopPol.adminState == "enabled"
+          - nm_irp_1_present_again.current.bfdMultiHopPol.detectionMultiplier == 3
+          - nm_irp_1_present_again.current.bfdMultiHopPol.minRxInterval == 250
+          - nm_irp_1_present_again.current.bfdMultiHopPol.minTxInterval == 250
+          - nm_irp_1_present_again.current.bfdPol.adminState == "enabled"
+          - nm_irp_1_present_again.current.bfdPol.detectionMultiplier == 3
+          - nm_irp_1_present_again.current.bfdPol.echoAdminState == "enabled"
+          - nm_irp_1_present_again.current.bfdPol.echoRxInterval == 50
+          - nm_irp_1_present_again.current.bfdPol.ifControl == false
+          - nm_irp_1_present_again.current.bfdPol.minRxInterval == 50
+          - nm_irp_1_present_again.current.bfdPol.minTxInterval == 50
+          - nm_irp_1_present_again.current.name == "irp_1"
+          - nm_irp_1_present_again.current.uuid is defined
+          - nm_irp_1_present_again.previous.bfdMultiHopPol.adminState == "enabled"
+          - nm_irp_1_present_again.previous.bfdMultiHopPol.detectionMultiplier == 3
+          - nm_irp_1_present_again.previous.bfdMultiHopPol.minRxInterval == 250
+          - nm_irp_1_present_again.previous.bfdMultiHopPol.minTxInterval == 250
+          - nm_irp_1_present_again.previous.bfdPol.adminState == "enabled"
+          - nm_irp_1_present_again.previous.bfdPol.detectionMultiplier == 3
+          - nm_irp_1_present_again.previous.bfdPol.echoAdminState == "enabled"
+          - nm_irp_1_present_again.previous.bfdPol.echoRxInterval == 50
+          - nm_irp_1_present_again.previous.bfdPol.ifControl == false
+          - nm_irp_1_present_again.previous.bfdPol.minRxInterval == 50
+          - nm_irp_1_present_again.previous.bfdPol.minTxInterval == 50
+          - nm_irp_1_present_again.previous.name == "irp_1"
+          - nm_irp_1_present_again.previous.uuid is defined
+
+    - name: Update irp_1 L3Out Interface Routing Policy - check_mode
+      cisco.mso.ndo_l3out_interface_routing_policy: &cm_irp_1_update
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        uuid: "{{ nm_irp_1_present_again.current.uuid }}"
+        name: irp_1_update
+        description: Updated
+        bfd_multi_hop_settings:
+          admin_state: disabled
+          detection_multiplier: 10
+          min_receive_interval: 255
+          min_transmit_interval: 255
+        bfd_settings:
+          admin_state: disabled
+          detection_multiplier: 10
+          min_receive_interval: 266
+          min_transmit_interval: 266
+          echo_receive_interval: 60
+          echo_admin_state: disabled
+          interface_control: enabled
+        ospf_interface_settings:
+          network_type: point_to_point
+          priority: 10
+          cost_of_interface: 100
+          advertise_subnet: enabled
+          bfd: enabled
+          mtu_ignore: enabled
+          passive_participation: enabled
+          hello_interval: 20
+          dead_interval: 30
+          retransmit_interval: 20
+          transmit_delay: 10
+        state: present
+        output_level: debug
+      check_mode: true
+      register: cm_irp_1_update
+
+    - name: Assertion check for update irp_1 L3Out Interface Routing Policy - check_mode
+      ansible.builtin.assert:
+        that:
+          - cm_irp_1_update is changed
+          - cm_irp_1_update.current.bfdMultiHopPol.adminState == "disabled"
+          - cm_irp_1_update.current.bfdMultiHopPol.detectionMultiplier == 10
+          - cm_irp_1_update.current.bfdMultiHopPol.minRxInterval == 255
+          - cm_irp_1_update.current.bfdMultiHopPol.minTxInterval == 255
+          - cm_irp_1_update.current.bfdPol.adminState == "disabled"
+          - cm_irp_1_update.current.bfdPol.detectionMultiplier == 10
+          - cm_irp_1_update.current.bfdPol.echoAdminState == "disabled"
+          - cm_irp_1_update.current.bfdPol.echoRxInterval == 60
+          - cm_irp_1_update.current.bfdPol.gracefulRestartHelper == true
+          - cm_irp_1_update.current.bfdPol.ifControl == false
+          - cm_irp_1_update.current.bfdPol.minRxInterval == 266
+          - cm_irp_1_update.current.bfdPol.minTxInterval == 266
+          - cm_irp_1_update.current.description == "Updated"
+          - cm_irp_1_update.current.name == "irp_1_update"
+          - cm_irp_1_update.current.ospfIntfPol.cost == 100
+          - cm_irp_1_update.current.ospfIntfPol.deadInterval == 30
+          - cm_irp_1_update.current.ospfIntfPol.helloInterval == 20
+          - cm_irp_1_update.current.ospfIntfPol.ifControl.advertiseSubnet == true
+          - cm_irp_1_update.current.ospfIntfPol.ifControl.bfd == true
+          - cm_irp_1_update.current.ospfIntfPol.ifControl.ignoreMtu == true
+          - cm_irp_1_update.current.ospfIntfPol.ifControl.passiveParticipation == true
+          - cm_irp_1_update.current.ospfIntfPol.networkType == "pointToPoint"
+          - cm_irp_1_update.current.ospfIntfPol.prio == 10
+          - cm_irp_1_update.current.ospfIntfPol.retransmitInterval == 20
+          - cm_irp_1_update.current.ospfIntfPol.transmitDelay == 10
+          - cm_irp_1_update.current.uuid is defined
+          - cm_irp_1_update.previous.bfdMultiHopPol.adminState == "enabled"
+          - cm_irp_1_update.previous.bfdMultiHopPol.detectionMultiplier == 3
+          - cm_irp_1_update.previous.bfdMultiHopPol.minRxInterval == 250
+          - cm_irp_1_update.previous.bfdMultiHopPol.minTxInterval == 250
+          - cm_irp_1_update.previous.bfdPol.adminState == "enabled"
+          - cm_irp_1_update.previous.bfdPol.detectionMultiplier == 3
+          - cm_irp_1_update.previous.bfdPol.echoAdminState == "enabled"
+          - cm_irp_1_update.previous.bfdPol.echoRxInterval == 50
+          - cm_irp_1_update.previous.bfdPol.ifControl == false
+          - cm_irp_1_update.previous.bfdPol.minRxInterval == 50
+          - cm_irp_1_update.previous.bfdPol.minTxInterval == 50
+          - cm_irp_1_update.previous.name == "irp_1"
+          - cm_irp_1_update.previous.uuid is defined
+          - cm_irp_1_update.proposed.bfdMultiHopPol.adminState == "disabled"
+          - cm_irp_1_update.proposed.bfdMultiHopPol.detectionMultiplier == 10
+          - cm_irp_1_update.proposed.bfdMultiHopPol.minRxInterval == 255
+          - cm_irp_1_update.proposed.bfdMultiHopPol.minTxInterval == 255
+          - cm_irp_1_update.proposed.bfdPol.adminState == "disabled"
+          - cm_irp_1_update.proposed.bfdPol.detectionMultiplier == 10
+          - cm_irp_1_update.proposed.bfdPol.echoAdminState == "disabled"
+          - cm_irp_1_update.proposed.bfdPol.echoRxInterval == 60
+          - cm_irp_1_update.proposed.bfdPol.gracefulRestartHelper == true
+          - cm_irp_1_update.proposed.bfdPol.ifControl == false
+          - cm_irp_1_update.proposed.bfdPol.minRxInterval == 266
+          - cm_irp_1_update.proposed.bfdPol.minTxInterval == 266
+          - cm_irp_1_update.proposed.description == "Updated"
+          - cm_irp_1_update.proposed.name == "irp_1_update"
+          - cm_irp_1_update.proposed.ospfIntfPol.cost == 100
+          - cm_irp_1_update.proposed.ospfIntfPol.deadInterval == 30
+          - cm_irp_1_update.proposed.ospfIntfPol.helloInterval == 20
+          - cm_irp_1_update.proposed.ospfIntfPol.ifControl.advertiseSubnet == true
+          - cm_irp_1_update.proposed.ospfIntfPol.ifControl.bfd == true
+          - cm_irp_1_update.proposed.ospfIntfPol.ifControl.ignoreMtu == true
+          - cm_irp_1_update.proposed.ospfIntfPol.ifControl.passiveParticipation == true
+          - cm_irp_1_update.proposed.ospfIntfPol.networkType == "pointToPoint"
+          - cm_irp_1_update.proposed.ospfIntfPol.prio == 10
+          - cm_irp_1_update.proposed.ospfIntfPol.retransmitInterval == 20
+          - cm_irp_1_update.proposed.ospfIntfPol.transmitDelay == 10
+          - cm_irp_1_update.proposed.uuid is defined
+
+    - name: Update irp_1 L3Out Interface Routing Policy - normal_mode
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *cm_irp_1_update
+      register: nm_irp_1_update
+
+    - name: Assertion check for update irp_1 L3Out Interface Routing Policy - normal_mode
+      ansible.builtin.assert:
+        that:
+          - nm_irp_1_update is changed
+          - nm_irp_1_update.current.bfdMultiHopPol.adminState == "disabled"
+          - nm_irp_1_update.current.bfdMultiHopPol.detectionMultiplier == 10
+          - nm_irp_1_update.current.bfdMultiHopPol.minRxInterval == 255
+          - nm_irp_1_update.current.bfdMultiHopPol.minTxInterval == 255
+          - nm_irp_1_update.current.bfdPol.adminState == "disabled"
+          - nm_irp_1_update.current.bfdPol.detectionMultiplier == 10
+          - nm_irp_1_update.current.bfdPol.echoAdminState == "disabled"
+          - nm_irp_1_update.current.bfdPol.echoRxInterval == 60
+          - nm_irp_1_update.current.bfdPol.ifControl == false
+          - nm_irp_1_update.current.bfdPol.minRxInterval == 266
+          - nm_irp_1_update.current.bfdPol.minTxInterval == 266
+          - nm_irp_1_update.current.description == "Updated"
+          - nm_irp_1_update.current.name == "irp_1_update"
+          - nm_irp_1_update.current.ospfIntfPol.cost == 100
+          - nm_irp_1_update.current.ospfIntfPol.deadInterval == 30
+          - nm_irp_1_update.current.ospfIntfPol.helloInterval == 20
+          - nm_irp_1_update.current.ospfIntfPol.ifControl.advertiseSubnet == true
+          - nm_irp_1_update.current.ospfIntfPol.ifControl.bfd == true
+          - nm_irp_1_update.current.ospfIntfPol.ifControl.ignoreMtu == true
+          - nm_irp_1_update.current.ospfIntfPol.ifControl.passiveParticipation == true
+          - nm_irp_1_update.current.ospfIntfPol.networkType == "pointToPoint"
+          - nm_irp_1_update.current.ospfIntfPol.prio == 10
+          - nm_irp_1_update.current.ospfIntfPol.retransmitInterval == 20
+          - nm_irp_1_update.current.ospfIntfPol.transmitDelay == 10
+          - nm_irp_1_update.current.uuid is defined
+          - nm_irp_1_update.previous.bfdMultiHopPol.adminState == "enabled"
+          - nm_irp_1_update.previous.bfdMultiHopPol.detectionMultiplier == 3
+          - nm_irp_1_update.previous.bfdMultiHopPol.minRxInterval == 250
+          - nm_irp_1_update.previous.bfdMultiHopPol.minTxInterval == 250
+          - nm_irp_1_update.previous.bfdPol.adminState == "enabled"
+          - nm_irp_1_update.previous.bfdPol.detectionMultiplier == 3
+          - nm_irp_1_update.previous.bfdPol.echoAdminState == "enabled"
+          - nm_irp_1_update.previous.bfdPol.echoRxInterval == 50
+          - nm_irp_1_update.previous.bfdPol.ifControl == false
+          - nm_irp_1_update.previous.bfdPol.minRxInterval == 50
+          - nm_irp_1_update.previous.bfdPol.minTxInterval == 50
+          - nm_irp_1_update.previous.name == "irp_1"
+          - nm_irp_1_update.previous.uuid is defined
+
+    - name: Update irp_1 L3Out Interface Routing Policy - normal_mode again
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *cm_irp_1_update
+      register: nm_irp_1_update_again
+
+    - name: Assertion check for update irp_1 L3Out Interface Routing Policy - normal_mode again
+      ansible.builtin.assert:
+        that:
+          - nm_irp_1_update_again is not changed
+          - nm_irp_1_update_again.current.bfdMultiHopPol.adminState == "disabled"
+          - nm_irp_1_update_again.current.bfdMultiHopPol.detectionMultiplier == 10
+          - nm_irp_1_update_again.current.bfdMultiHopPol.minRxInterval == 255
+          - nm_irp_1_update_again.current.bfdPol.echoAdminState == "disabled"
+          - nm_irp_1_update_again.current.bfdPol.echoRxInterval == 60
+          - nm_irp_1_update_again.current.bfdPol.ifControl == false
+          - nm_irp_1_update_again.current.bfdPol.minRxInterval == 266
+          - nm_irp_1_update_again.current.bfdPol.minTxInterval == 266
+          - nm_irp_1_update_again.current.description == "Updated"
+          - nm_irp_1_update_again.current.name == "irp_1_update"
+          - nm_irp_1_update_again.current.ospfIntfPol.cost == 100
+          - nm_irp_1_update_again.current.ospfIntfPol.ifControl.ignoreMtu == true
+          - nm_irp_1_update_again.current.ospfIntfPol.ifControl.passiveParticipation == true
+          - nm_irp_1_update_again.current.ospfIntfPol.networkType == "pointToPoint"
+          - nm_irp_1_update_again.current.ospfIntfPol.prio == 10
+          - nm_irp_1_update_again.current.ospfIntfPol.retransmitInterval == 20
+          - nm_irp_1_update_again.current.ospfIntfPol.transmitDelay == 10
+          - nm_irp_1_update_again.current.uuid is defined
+          - nm_irp_1_update_again.previous.bfdMultiHopPol.adminState == "disabled"
+          - nm_irp_1_update_again.previous.bfdPol.echoRxInterval == 60
+          - nm_irp_1_update_again.previous.bfdPol.ifControl == false
+          - nm_irp_1_update_again.previous.bfdPol.minRxInterval == 266
+          - nm_irp_1_update_again.previous.bfdPol.minTxInterval == 266
+          - nm_irp_1_update_again.previous.description == "Updated"
+          - nm_irp_1_update_again.previous.name == "irp_1_update"
+          - nm_irp_1_update_again.previous.ospfIntfPol.cost == 100
+          - nm_irp_1_update_again.previous.ospfIntfPol.deadInterval == 30
+          - nm_irp_1_update_again.previous.ospfIntfPol.helloInterval == 20
+          - nm_irp_1_update_again.previous.ospfIntfPol.networkType == "pointToPoint"
+          - nm_irp_1_update_again.previous.ospfIntfPol.prio == 10
+          - nm_irp_1_update_again.previous.ospfIntfPol.retransmitInterval == 20
+          - nm_irp_1_update_again.previous.ospfIntfPol.transmitDelay == 10
+          - nm_irp_1_update_again.previous.uuid is defined
+
+    # Negative test part
+    - name: Create a L3Out Interface Routing Policy without additional configuration
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: irp_1_nt
+        state: present
+      register: nt_irp_1_create
+      ignore_errors: true
+
+    - name: Update irp_1 L3Out Interface Routing Policy with invalid range of bfd multi-hop min_receive_interval
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        uuid: "{{ nm_irp_1_present_again.current.uuid }}"
+        bfd_multi_hop_settings:
+          admin_state: disabled
+          detection_multiplier: 10
+          min_receive_interval: 1000
+          min_transmit_interval: 255
+        state: present
+      register: nt_irp_1_bfd_multi_hop
+      ignore_errors: true
+
+    - name: Update irp_1 L3Out Interface Routing Policy with invalid range of bfd_settings min_transmit_interval
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        uuid: "{{ nm_irp_1_present_again.current.uuid }}"
+        bfd_settings:
+          min_transmit_interval: 1000
+        state: present
+      register: nt_irp_1_bfd_settings
+      ignore_errors: true
+
+    - name: Update irp_1 L3Out Interface Routing Policy with invalid range of ospf dead_interval
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        uuid: "{{ nm_irp_1_present_again.current.uuid }}"
+        ospf_interface_settings:
+          dead_interval: 0
+        state: present
+      register: nt_irp_1_ospf_dead_interval
+      ignore_errors: true
+
+    - name: Assertion check for Negative tests
+      ansible.builtin.assert:
+        that:
+          - nt_irp_1_create is not changed
+          - nt_irp_1_create.msg == "MSO Error 400{{':'}} At least 1 policy must be specified for 'irp_1_nt'"
+          - nt_irp_1_bfd_multi_hop is not changed
+          - nt_irp_1_bfd_multi_hop.msg == "MSO Error 400{{':'}} 'MinRxInterval' allowed minimum value is 250 maximum value is 999"
+          - nt_irp_1_bfd_settings is not changed
+          - nt_irp_1_bfd_settings.msg == "MSO Error 400{{':'}} 'MinTxInterval' allowed minimum value is 50 maximum value is 999"
+          - nt_irp_1_ospf_dead_interval is not changed
+          - nt_irp_1_ospf_dead_interval.msg == "MSO Error 400{{':'}} 'DeadInterval' allowed minimum value is 1 maximum value is 65535"
+
+    - name: Clear bfd_multi_hop_settings from irp_1 L3Out Interface Routing Policy
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *cm_irp_1_update
+        bfd_multi_hop_settings:
+          state: disabled
+        state: present
+      register: irp_1_clear_bfd_multi_hop_settings
+
+    - name: Assertion check for clear bfd_multi_hop_settings from irp_1 L3Out Interface Routing Policy
+      ansible.builtin.assert:
+        that:
+          - irp_1_clear_bfd_multi_hop_settings is changed
+          - irp_1_clear_bfd_multi_hop_settings.current.bfdPol.adminState == "disabled"
+          - irp_1_clear_bfd_multi_hop_settings.current.bfdPol.detectionMultiplier == 10
+          - irp_1_clear_bfd_multi_hop_settings.current.bfdPol.minRxInterval == 266
+          - irp_1_clear_bfd_multi_hop_settings.current.bfdPol.minTxInterval == 266
+          - irp_1_clear_bfd_multi_hop_settings.current.description == "Updated"
+          - irp_1_clear_bfd_multi_hop_settings.current.name == "irp_1_update"
+          - irp_1_clear_bfd_multi_hop_settings.current.ospfIntfPol.cost == 100
+          - irp_1_clear_bfd_multi_hop_settings.current.ospfIntfPol.deadInterval == 30
+          - irp_1_clear_bfd_multi_hop_settings.current.ospfIntfPol.networkType == "pointToPoint"
+          - irp_1_clear_bfd_multi_hop_settings.current.ospfIntfPol.prio == 10
+          - irp_1_clear_bfd_multi_hop_settings.current.ospfIntfPol.retransmitInterval == 20
+          - irp_1_clear_bfd_multi_hop_settings.current.ospfIntfPol.transmitDelay == 10
+          - irp_1_clear_bfd_multi_hop_settings.current.uuid is defined
+          - irp_1_clear_bfd_multi_hop_settings.previous.bfdMultiHopPol.adminState == "disabled"
+          - irp_1_clear_bfd_multi_hop_settings.previous.bfdMultiHopPol.detectionMultiplier == 10
+          - irp_1_clear_bfd_multi_hop_settings.previous.bfdMultiHopPol.minRxInterval == 255
+          - irp_1_clear_bfd_multi_hop_settings.previous.bfdMultiHopPol.minTxInterval == 255
+          - irp_1_clear_bfd_multi_hop_settings.previous.bfdPol.adminState == "disabled"
+          - irp_1_clear_bfd_multi_hop_settings.previous.bfdPol.minRxInterval == 266
+          - irp_1_clear_bfd_multi_hop_settings.previous.bfdPol.minTxInterval == 266
+          - irp_1_clear_bfd_multi_hop_settings.previous.description == "Updated"
+          - irp_1_clear_bfd_multi_hop_settings.previous.name == "irp_1_update"
+          - irp_1_clear_bfd_multi_hop_settings.previous.ospfIntfPol.cost == 100
+          - irp_1_clear_bfd_multi_hop_settings.previous.ospfIntfPol.deadInterval == 30
+          - irp_1_clear_bfd_multi_hop_settings.previous.ospfIntfPol.helloInterval == 20
+          - irp_1_clear_bfd_multi_hop_settings.previous.ospfIntfPol.prio == 10
+          - irp_1_clear_bfd_multi_hop_settings.previous.ospfIntfPol.retransmitInterval == 20
+          - irp_1_clear_bfd_multi_hop_settings.previous.ospfIntfPol.transmitDelay == 10
+          - irp_1_clear_bfd_multi_hop_settings.previous.uuid is defined
+
+    - name: Clear bfd_settings from irp_1 L3Out Interface Routing Policy
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *cm_irp_1_update
+        bfd_settings:
+          state: disabled
+        state: present
+      register: irp_1_clear_bfd_settings
+
+    - name: Assertion check for clear bfd_settings from irp_1 L3Out Interface Routing Policy
+      ansible.builtin.assert:
+        that:
+          - irp_1_clear_bfd_settings is changed
+          - irp_1_clear_bfd_settings.current.bfdMultiHopPol.adminState == "disabled"
+          - irp_1_clear_bfd_settings.current.bfdMultiHopPol.detectionMultiplier == 10
+          - irp_1_clear_bfd_settings.current.bfdMultiHopPol.minRxInterval == 255
+          - irp_1_clear_bfd_settings.current.bfdMultiHopPol.minTxInterval == 255
+          - irp_1_clear_bfd_settings.current.description == "Updated"
+          - irp_1_clear_bfd_settings.current.name == "irp_1_update"
+          - irp_1_clear_bfd_settings.current.ospfIntfPol.cost == 100
+          - irp_1_clear_bfd_settings.current.ospfIntfPol.deadInterval == 30
+          - irp_1_clear_bfd_settings.current.ospfIntfPol.networkType == "pointToPoint"
+          - irp_1_clear_bfd_settings.current.ospfIntfPol.prio == 10
+          - irp_1_clear_bfd_settings.current.ospfIntfPol.retransmitInterval == 20
+          - irp_1_clear_bfd_settings.current.ospfIntfPol.transmitDelay == 10
+          - irp_1_clear_bfd_settings.current.uuid is defined
+          - irp_1_clear_bfd_settings.previous.bfdPol.adminState == "disabled"
+          - irp_1_clear_bfd_settings.previous.bfdPol.detectionMultiplier == 10
+          - irp_1_clear_bfd_settings.previous.bfdPol.echoAdminState == "disabled"
+          - irp_1_clear_bfd_settings.previous.bfdPol.echoRxInterval == 60
+          - irp_1_clear_bfd_settings.previous.bfdPol.ifControl == false
+          - irp_1_clear_bfd_settings.previous.bfdPol.minRxInterval == 266
+          - irp_1_clear_bfd_settings.previous.bfdPol.minTxInterval == 266
+          - irp_1_clear_bfd_settings.previous.description == "Updated"
+          - irp_1_clear_bfd_settings.previous.name == "irp_1_update"
+          - irp_1_clear_bfd_settings.previous.ospfIntfPol.cost == 100
+          - irp_1_clear_bfd_settings.previous.ospfIntfPol.transmitDelay == 10
+          - irp_1_clear_bfd_settings.previous.uuid is defined
+
+    - name: Clear ospf_interface_settings from irp_1 L3Out Interface Routing Policy
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *cm_irp_1_update
+        ospf_interface_settings:
+          state: disabled
+        bfd_settings: {}
+        bfd_multi_hop_settings: {}
+        state: present
+      register: irp_1_clear_ospf
+
+    - name: Assertion check for clear ospf_interface_settings from irp_1 L3Out Interface Routing Policy
+      ansible.builtin.assert:
+        that:
+          - irp_1_clear_ospf is changed
+          - irp_1_clear_ospf.current.bfdMultiHopPol.adminState == "disabled"
+          - irp_1_clear_ospf.current.bfdMultiHopPol.detectionMultiplier == 10
+          - irp_1_clear_ospf.current.bfdMultiHopPol.minRxInterval == 255
+          - irp_1_clear_ospf.current.bfdPol.minRxInterval == 50
+          - irp_1_clear_ospf.current.bfdPol.minTxInterval == 50
+          - irp_1_clear_ospf.current.description == "Updated"
+          - irp_1_clear_ospf.current.name == "irp_1_update"
+          - irp_1_clear_ospf.current.uuid is defined
+          - irp_1_clear_ospf.previous.bfdMultiHopPol.adminState == "disabled"
+          - irp_1_clear_ospf.previous.description == "Updated"
+          - irp_1_clear_ospf.previous.name == "irp_1_update"
+          - irp_1_clear_ospf.previous.ospfIntfPol.cost == 100
+          - irp_1_clear_ospf.previous.ospfIntfPol.deadInterval == 30
+          - irp_1_clear_ospf.previous.ospfIntfPol.ifControl.passiveParticipation == true
+          - irp_1_clear_ospf.previous.ospfIntfPol.networkType == "pointToPoint"
+          - irp_1_clear_ospf.previous.ospfIntfPol.prio == 10
+          - irp_1_clear_ospf.previous.ospfIntfPol.retransmitInterval == 20
+          - irp_1_clear_ospf.previous.ospfIntfPol.transmitDelay == 10
+          - irp_1_clear_ospf.previous.uuid is defined
+
+    - name: Enable ospf_interface_settings to irp_1 L3Out Interface Routing Policy
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *cm_irp_1_update
+        ospf_interface_settings:
+          state: enabled
+        bfd_settings: {}
+        bfd_multi_hop_settings: {}
+        state: present
+      register: irp_1_enable_ospf
+
+    - name: Assertion check for enable ospf_interface_settings to irp_1 L3Out Interface Routing Policy
+      ansible.builtin.assert:
+        that:
+          - irp_1_enable_ospf is changed
+          - irp_1_enable_ospf.current.bfdMultiHopPol.adminState == "disabled"
+          - irp_1_enable_ospf.current.bfdMultiHopPol.detectionMultiplier == 10
+          - irp_1_enable_ospf.current.bfdMultiHopPol.minRxInterval == 255
+          - irp_1_enable_ospf.current.bfdMultiHopPol.minTxInterval == 255
+          - irp_1_enable_ospf.current.bfdPol.adminState == "enabled"
+          - irp_1_enable_ospf.current.bfdPol.detectionMultiplier == 3
+          - irp_1_enable_ospf.current.bfdPol.echoAdminState == "enabled"
+          - irp_1_enable_ospf.current.bfdPol.echoRxInterval == 50
+          - irp_1_enable_ospf.current.bfdPol.ifControl == false
+          - irp_1_enable_ospf.current.bfdPol.minRxInterval == 50
+          - irp_1_enable_ospf.current.bfdPol.minTxInterval == 50
+          - irp_1_enable_ospf.current.description == "Updated"
+          - irp_1_enable_ospf.current.name == "irp_1_update"
+          - irp_1_enable_ospf.current.ospfIntfPol.cost == 0
+          - irp_1_enable_ospf.current.ospfIntfPol.deadInterval == 40
+          - irp_1_enable_ospf.current.ospfIntfPol.helloInterval == 10
+          - irp_1_enable_ospf.current.ospfIntfPol.ifControl.advertiseSubnet == false
+          - irp_1_enable_ospf.current.ospfIntfPol.ifControl.bfd == false
+          - irp_1_enable_ospf.current.ospfIntfPol.ifControl.ignoreMtu == false
+          - irp_1_enable_ospf.current.ospfIntfPol.ifControl.passiveParticipation == false
+          - irp_1_enable_ospf.current.ospfIntfPol.networkType == "broadcast"
+          - irp_1_enable_ospf.current.ospfIntfPol.prio == 1
+          - irp_1_enable_ospf.current.ospfIntfPol.retransmitInterval == 5
+          - irp_1_enable_ospf.current.ospfIntfPol.transmitDelay == 1
+          - irp_1_enable_ospf.current.uuid is defined
+          - irp_1_enable_ospf.previous.bfdMultiHopPol.adminState == "disabled"
+          - irp_1_enable_ospf.previous.bfdMultiHopPol.detectionMultiplier == 10
+          - irp_1_enable_ospf.previous.bfdMultiHopPol.minRxInterval == 255
+          - irp_1_enable_ospf.previous.bfdMultiHopPol.minTxInterval == 255
+          - irp_1_enable_ospf.previous.bfdPol.adminState == "enabled"
+          - irp_1_enable_ospf.previous.bfdPol.detectionMultiplier == 3
+          - irp_1_enable_ospf.previous.bfdPol.echoAdminState == "enabled"
+          - irp_1_enable_ospf.previous.bfdPol.echoRxInterval == 50
+          - irp_1_enable_ospf.previous.bfdPol.ifControl == false
+          - irp_1_enable_ospf.previous.bfdPol.minRxInterval == 50
+          - irp_1_enable_ospf.previous.bfdPol.minTxInterval == 50
+          - irp_1_enable_ospf.previous.description == "Updated"
+          - irp_1_enable_ospf.previous.name == "irp_1_update"
+          - irp_1_enable_ospf.previous.uuid is defined
+
+    - name: Create irp_2 L3Out Interface Routing Policy with full configuration
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: irp_2
+        description: Created
+        bfd_multi_hop_settings:
+          admin_state: enabled
+          detection_multiplier: 10
+          min_receive_interval: 255
+          min_transmit_interval: 255
+        bfd_settings:
+          admin_state: enabled
+          detection_multiplier: 10
+          min_receive_interval: 266
+          min_transmit_interval: 266
+          echo_receive_interval: 55
+          echo_admin_state: disabled
+          interface_control: enabled
+        ospf_interface_settings:
+          network_type: broadcast
+          priority: 10
+          cost_of_interface: 100
+          advertise_subnet: enabled
+          bfd: enabled
+          mtu_ignore: enabled
+          passive_participation: enabled
+          hello_interval: 20
+          dead_interval: 30
+          retransmit_interval: 20
+          transmit_delay: 10
+        state: present
+        output_level: debug
+      register: irp_2_present
+
+    - name: Assertion check for create irp_2 L3Out Interface Routing Policy with full configuration
+      ansible.builtin.assert:
+        that:
+          - irp_2_present is changed
+          - irp_2_present.current.bfdMultiHopPol.adminState == "enabled"
+          - irp_2_present.current.bfdMultiHopPol.detectionMultiplier == 10
+          - irp_2_present.current.bfdMultiHopPol.minRxInterval == 255
+          - irp_2_present.current.bfdMultiHopPol.minTxInterval == 255
+          - irp_2_present.current.bfdPol.adminState == "enabled"
+          - irp_2_present.current.bfdPol.detectionMultiplier == 10
+          - irp_2_present.current.bfdPol.echoAdminState == "disabled"
+          - irp_2_present.current.bfdPol.echoRxInterval == 55
+          - irp_2_present.current.bfdPol.ifControl == true
+          - irp_2_present.current.bfdPol.minRxInterval == 266
+          - irp_2_present.current.bfdPol.minTxInterval == 266
+          - irp_2_present.current.description == "Created"
+          - irp_2_present.current.name == "irp_2"
+          - irp_2_present.current.ospfIntfPol.cost == 100
+          - irp_2_present.current.ospfIntfPol.deadInterval == 30
+          - irp_2_present.current.ospfIntfPol.helloInterval == 20
+          - irp_2_present.current.ospfIntfPol.ifControl.advertiseSubnet == true
+          - irp_2_present.current.ospfIntfPol.ifControl.bfd == true
+          - irp_2_present.current.ospfIntfPol.ifControl.ignoreMtu == true
+          - irp_2_present.current.ospfIntfPol.ifControl.passiveParticipation == true
+          - irp_2_present.current.ospfIntfPol.networkType == "broadcast"
+          - irp_2_present.current.ospfIntfPol.prio == 10
+          - irp_2_present.current.ospfIntfPol.retransmitInterval == 20
+          - irp_2_present.current.ospfIntfPol.transmitDelay == 10
+          - irp_2_present.current.uuid is defined
+          - irp_2_present.previous == {}
+
+    - name: Create irp_3 L3Out Interface Routing Policy
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: irp_3
+        ospf_interface_settings:
+          state: enabled
+        state: present
+      register: irp_3_present
+
+    - name: Assertion check for create irp_3 L3Out Interface Routing Policy
+      ansible.builtin.assert:
+        that:
+          - irp_3_present is changed
+          - irp_3_present.current.name == "irp_3"
+          - irp_3_present.current.ospfIntfPol.cost == 0
+          - irp_3_present.current.ospfIntfPol.deadInterval == 40
+          - irp_3_present.current.ospfIntfPol.helloInterval == 10
+          - irp_3_present.current.ospfIntfPol.ifControl.advertiseSubnet == false
+          - irp_3_present.current.ospfIntfPol.ifControl.bfd == false
+          - irp_3_present.current.ospfIntfPol.ifControl.ignoreMtu == false
+          - irp_3_present.current.ospfIntfPol.ifControl.passiveParticipation == false
+          - irp_3_present.current.ospfIntfPol.networkType == "broadcast"
+          - irp_3_present.current.ospfIntfPol.prio == 1
+          - irp_3_present.current.ospfIntfPol.retransmitInterval == 5
+          - irp_3_present.current.ospfIntfPol.transmitDelay == 1
+          - irp_3_present.current.uuid is defined
+          - irp_3_present.previous == {}
+
+    - name: Clear ospf_interface_settings from irp_3 L3Out Interface Routing Policy
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: irp_3
+        bfd_settings: {}
+        ospf_interface_settings:
+          state: disabled
+        state: present
+      register: irp_3_clear_ospf
+
+    - name: Assertion check for clear ospf_interface_settings from irp_3 L3Out Interface Routing Policy
+      ansible.builtin.assert:
+        that:
+          - irp_3_clear_ospf is changed
+          - irp_3_clear_ospf.current.bfdPol.adminState == "enabled"
+          - irp_3_clear_ospf.current.bfdPol.detectionMultiplier == 3
+          - irp_3_clear_ospf.current.bfdPol.echoAdminState == "enabled"
+          - irp_3_clear_ospf.current.bfdPol.echoRxInterval == 50
+          - irp_3_clear_ospf.current.bfdPol.ifControl == false
+          - irp_3_clear_ospf.current.bfdPol.minRxInterval == 50
+          - irp_3_clear_ospf.current.bfdPol.minTxInterval == 50
+          - irp_3_clear_ospf.current.name == "irp_3"
+          - irp_3_clear_ospf.current.uuid is defined
+          - irp_3_clear_ospf.previous.name == "irp_3"
+          - irp_3_clear_ospf.previous.ospfIntfPol.cost == 0
+          - irp_3_clear_ospf.previous.ospfIntfPol.deadInterval == 40
+          - irp_3_clear_ospf.previous.ospfIntfPol.helloInterval == 10
+          - irp_3_clear_ospf.previous.ospfIntfPol.ifControl.advertiseSubnet == false
+          - irp_3_clear_ospf.previous.ospfIntfPol.ifControl.bfd == false
+          - irp_3_clear_ospf.previous.ospfIntfPol.ifControl.ignoreMtu == false
+          - irp_3_clear_ospf.previous.ospfIntfPol.ifControl.passiveParticipation == false
+          - irp_3_clear_ospf.previous.ospfIntfPol.networkType == "broadcast"
+          - irp_3_clear_ospf.previous.ospfIntfPol.prio == 1
+          - irp_3_clear_ospf.previous.ospfIntfPol.retransmitInterval == 5
+          - irp_3_clear_ospf.previous.ospfIntfPol.transmitDelay == 1
+          - irp_3_clear_ospf.previous.uuid is defined
+
+    - name: Create irp_4 L3Out Interface Routing Policy
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: irp_4
+        bfd_multi_hop_settings: {}
+        bfd_settings: {}
+        ospf_interface_settings:
+          state: enabled
+        state: present
+      register: irp_4_present
+
+    - name: Assertion check for create irp_4 L3Out Interface Routing Policy
+      ansible.builtin.assert:
+        that:
+          - irp_4_present is changed
+          - irp_4_present.current.name == "irp_4"
+          - irp_4_present.current.ospfIntfPol.cost == 0
+          - irp_4_present.current.ospfIntfPol.deadInterval == 40
+          - irp_4_present.current.ospfIntfPol.helloInterval == 10
+          - irp_4_present.current.ospfIntfPol.ifControl.advertiseSubnet == false
+          - irp_4_present.current.ospfIntfPol.ifControl.bfd == false
+          - irp_4_present.current.ospfIntfPol.ifControl.ignoreMtu == false
+          - irp_4_present.current.ospfIntfPol.ifControl.passiveParticipation == false
+          - irp_4_present.current.ospfIntfPol.networkType == "broadcast"
+          - irp_4_present.current.ospfIntfPol.prio == 1
+          - irp_4_present.current.ospfIntfPol.retransmitInterval == 5
+          - irp_4_present.current.ospfIntfPol.transmitDelay == 1
+          - irp_4_present.current.uuid is defined
+
+    - name: Update irp_4 enable - bfd_multi_hop_settings and disable - ospf_interface_settings
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: irp_4
+        bfd_multi_hop_settings:
+          state: enabled
+        bfd_settings:
+          state: enabled
+        ospf_interface_settings:
+          state: disabled
+        state: present
+      register: irp_4_configs
+
+    - name: Assertion check for update irp_4 enable - bfd_multi_hop_settings and disable - ospf_interface_settings
+      ansible.builtin.assert:
+        that:
+          - irp_4_configs is changed
+          - irp_4_configs.current.bfdMultiHopPol.adminState == "enabled"
+          - irp_4_configs.current.bfdMultiHopPol.detectionMultiplier == 3
+          - irp_4_configs.current.bfdMultiHopPol.minRxInterval == 250
+          - irp_4_configs.current.bfdMultiHopPol.minTxInterval == 250
+          - irp_4_configs.current.bfdPol.adminState == "enabled"
+          - irp_4_configs.current.bfdPol.detectionMultiplier == 3
+          - irp_4_configs.current.bfdPol.echoAdminState == "enabled"
+          - irp_4_configs.current.bfdPol.echoRxInterval == 50
+          - irp_4_configs.current.bfdPol.ifControl == false
+          - irp_4_configs.current.bfdPol.minRxInterval == 50
+          - irp_4_configs.current.bfdPol.minTxInterval == 50
+          - irp_4_configs.current.name == "irp_4"
+          - irp_4_configs.current.uuid is defined
+          - irp_4_configs.previous.name == "irp_4"
+          - irp_4_configs.previous.ospfIntfPol.cost == 0
+          - irp_4_configs.previous.ospfIntfPol.deadInterval == 40
+          - irp_4_configs.previous.ospfIntfPol.helloInterval == 10
+          - irp_4_configs.previous.ospfIntfPol.ifControl.advertiseSubnet == false
+          - irp_4_configs.previous.ospfIntfPol.ifControl.bfd == false
+          - irp_4_configs.previous.ospfIntfPol.ifControl.ignoreMtu == false
+          - irp_4_configs.previous.ospfIntfPol.ifControl.passiveParticipation == false
+          - irp_4_configs.previous.ospfIntfPol.networkType == "broadcast"
+          - irp_4_configs.previous.ospfIntfPol.prio == 1
+          - irp_4_configs.previous.ospfIntfPol.retransmitInterval == 5
+          - irp_4_configs.previous.ospfIntfPol.transmitDelay == 1
+          - irp_4_configs.previous.uuid is defined
+
+    - name: Create irp_5 L3Out Interface Routing Policy
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: irp_5
+        bfd_settings:
+          state: enabled
+        ospf_interface_settings: {}
+        state: present
+      register: irp_5_create
+
+    - name: Assertion check for create irp_5 L3Out Interface Routing Policy
+      ansible.builtin.assert:
+        that:
+          - irp_5_create is changed
+          - irp_5_create.current.bfdPol.adminState == "enabled"
+          - irp_5_create.current.bfdPol.detectionMultiplier == 3
+          - irp_5_create.current.bfdPol.echoAdminState == "enabled"
+          - irp_5_create.current.bfdPol.echoRxInterval == 50
+          - irp_5_create.current.bfdPol.ifControl == false
+          - irp_5_create.current.bfdPol.minRxInterval == 50
+          - irp_5_create.current.bfdPol.minTxInterval == 50
+          - irp_5_create.current.name == "irp_5"
+          - irp_5_create.current.uuid is defined
+
+    - name: Update irp_5 L3Out Interface Routing Policy
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: irp_5
+        bfd_multi_hop_settings:
+          state: enabled
+        state: present
+      register: irp_5_update
+
+    - name: Assertion check for update irp_5 L3Out Interface Routing Policy
+      ansible.builtin.assert:
+        that:
+          - irp_5_update is changed
+          - irp_5_update.current.bfdMultiHopPol.adminState == "enabled"
+          - irp_5_update.current.bfdMultiHopPol.detectionMultiplier == 3
+          - irp_5_update.current.bfdMultiHopPol.minRxInterval == 250
+          - irp_5_update.current.bfdMultiHopPol.minTxInterval == 250
+          - irp_5_update.current.bfdPol.adminState == "enabled"
+          - irp_5_update.current.bfdPol.detectionMultiplier == 3
+          - irp_5_update.current.bfdPol.echoAdminState == "enabled"
+          - irp_5_update.current.bfdPol.echoRxInterval == 50
+          - irp_5_update.current.bfdPol.ifControl == false
+          - irp_5_update.current.bfdPol.minRxInterval == 50
+          - irp_5_update.current.bfdPol.minTxInterval == 50
+          - irp_5_update.current.name == "irp_5"
+          - irp_5_update.current.uuid is defined
+          - irp_5_update.previous.bfdPol.adminState == "enabled"
+          - irp_5_update.previous.bfdPol.detectionMultiplier == 3
+          - irp_5_update.previous.bfdPol.echoAdminState == "enabled"
+          - irp_5_update.previous.bfdPol.echoRxInterval == 50
+          - irp_5_update.previous.bfdPol.ifControl == false
+          - irp_5_update.previous.bfdPol.minRxInterval == 50
+          - irp_5_update.previous.bfdPol.minTxInterval == 50
+          - irp_5_update.previous.name == "irp_5"
+          - irp_5_update.previous.uuid is defined
+
+    - name: Update irp_5 L3Out Interface Routing Policy with partial bfd, bfd multi-hop and ospf configuration using uuid
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        uuid: "{{ irp_5_update.current.uuid }}"
+        bfd_multi_hop_settings:
+          admin_state: disabled
+          detection_multiplier: 10
+          min_receive_interval: 255
+        bfd_settings:
+          admin_state: enabled
+          detection_multiplier: 10
+          echo_receive_interval: 55
+          echo_admin_state: enabled
+          interface_control: disabled
+        ospf_interface_settings:
+          network_type: broadcast
+          mtu_ignore: disabled
+          passive_participation: enabled
+          hello_interval: 20
+          dead_interval: 30
+          retransmit_interval: 20
+          transmit_delay: 10
+        state: present
+      register: irp_5_update_full_config
+
+    - name: Assertion check for update irp_5 L3Out Interface Routing Policy with partial bfd, bfd multi-hop and ospf configuration using uuid
+      ansible.builtin.assert:
+        that:
+          - irp_5_update_full_config is changed
+          - irp_5_update_full_config.current.bfdMultiHopPol.adminState == "disabled"
+          - irp_5_update_full_config.current.bfdMultiHopPol.detectionMultiplier == 10
+          - irp_5_update_full_config.current.bfdMultiHopPol.minRxInterval == 255
+          - irp_5_update_full_config.current.bfdMultiHopPol.minTxInterval == 250
+          - irp_5_update_full_config.current.bfdPol.adminState == "enabled"
+          - irp_5_update_full_config.current.bfdPol.detectionMultiplier == 10
+          - irp_5_update_full_config.current.bfdPol.echoAdminState == "enabled"
+          - irp_5_update_full_config.current.bfdPol.echoRxInterval == 55
+          - irp_5_update_full_config.current.bfdPol.ifControl == false
+          - irp_5_update_full_config.current.bfdPol.minRxInterval == 50
+          - irp_5_update_full_config.current.bfdPol.minTxInterval == 50
+          - irp_5_update_full_config.current.name == "irp_5"
+          - irp_5_update_full_config.current.ospfIntfPol.cost == 0
+          - irp_5_update_full_config.current.ospfIntfPol.deadInterval == 30
+          - irp_5_update_full_config.current.ospfIntfPol.helloInterval == 20
+          - irp_5_update_full_config.current.ospfIntfPol.ifControl.advertiseSubnet == false
+          - irp_5_update_full_config.current.ospfIntfPol.ifControl.bfd == false
+          - irp_5_update_full_config.current.ospfIntfPol.ifControl.ignoreMtu == false
+          - irp_5_update_full_config.current.ospfIntfPol.ifControl.passiveParticipation == true
+          - irp_5_update_full_config.current.ospfIntfPol.networkType == "broadcast"
+          - irp_5_update_full_config.current.ospfIntfPol.prio == 1
+          - irp_5_update_full_config.current.ospfIntfPol.retransmitInterval == 20
+          - irp_5_update_full_config.current.ospfIntfPol.transmitDelay == 10
+          - irp_5_update_full_config.current.uuid is defined
+          - irp_5_update_full_config.previous.bfdMultiHopPol.adminState == "enabled"
+          - irp_5_update_full_config.previous.bfdMultiHopPol.detectionMultiplier == 3
+          - irp_5_update_full_config.previous.bfdMultiHopPol.minRxInterval == 250
+          - irp_5_update_full_config.previous.bfdMultiHopPol.minTxInterval == 250
+          - irp_5_update_full_config.previous.bfdPol.adminState == "enabled"
+          - irp_5_update_full_config.previous.bfdPol.detectionMultiplier == 3
+          - irp_5_update_full_config.previous.bfdPol.echoAdminState == "enabled"
+          - irp_5_update_full_config.previous.bfdPol.echoRxInterval == 50
+          - irp_5_update_full_config.previous.bfdPol.ifControl == false
+          - irp_5_update_full_config.previous.bfdPol.minRxInterval == 50
+          - irp_5_update_full_config.previous.bfdPol.minTxInterval == 50
+          - irp_5_update_full_config.previous.name == "irp_5"
+          - irp_5_update_full_config.previous.uuid is defined
+
+    - name: Query all L3Out Interface Routing Policy
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        state: query
+      register: query_all
+
+    - name: Assertion check for query all L3Out Interface Routing Policy
+      ansible.builtin.assert:
+        that:
+          - query_all is not changed
+          - query_all.current | length == 5
+          - "'irp_1_update' in query_all.current | map(attribute='name') | list"
+          - "'irp_2' in query_all.current | map(attribute='name') | list"
+          - "'irp_3' in query_all.current | map(attribute='name') | list"
+          - "'irp_4' in query_all.current | map(attribute='name') | list"
+          - "'irp_5' in query_all.current | map(attribute='name') | list"
+
+    - name: Query L3Out Interface Routing Policy with name
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: irp_5
+        state: query
+      register: query_irp_5_name
+
+    - name: Assertion check for query L3Out Interface Routing Policy with name
+      ansible.builtin.assert:
+        that:
+          - query_irp_5_name is not changed
+          - query_irp_5_name.current.bfdMultiHopPol.adminState == "disabled"
+          - query_irp_5_name.current.bfdMultiHopPol.detectionMultiplier == 10
+          - query_irp_5_name.current.bfdMultiHopPol.minRxInterval == 255
+          - query_irp_5_name.current.bfdMultiHopPol.minTxInterval == 250
+          - query_irp_5_name.current.bfdPol.adminState == "enabled"
+          - query_irp_5_name.current.bfdPol.detectionMultiplier == 10
+          - query_irp_5_name.current.bfdPol.echoAdminState == "enabled"
+          - query_irp_5_name.current.bfdPol.echoRxInterval == 55
+          - query_irp_5_name.current.bfdPol.ifControl == false
+          - query_irp_5_name.current.bfdPol.minRxInterval == 50
+          - query_irp_5_name.current.bfdPol.minTxInterval == 50
+          - query_irp_5_name.current.name == "irp_5"
+          - query_irp_5_name.current.ospfIntfPol.cost == 0
+          - query_irp_5_name.current.ospfIntfPol.deadInterval == 30
+          - query_irp_5_name.current.ospfIntfPol.helloInterval == 20
+          - query_irp_5_name.current.ospfIntfPol.ifControl.advertiseSubnet == false
+          - query_irp_5_name.current.ospfIntfPol.ifControl.bfd == false
+          - query_irp_5_name.current.ospfIntfPol.ifControl.ignoreMtu == false
+          - query_irp_5_name.current.ospfIntfPol.ifControl.passiveParticipation == true
+          - query_irp_5_name.current.ospfIntfPol.networkType == "broadcast"
+          - query_irp_5_name.current.ospfIntfPol.prio == 1
+          - query_irp_5_name.current.ospfIntfPol.retransmitInterval == 20
+          - query_irp_5_name.current.ospfIntfPol.transmitDelay == 10
+          - query_irp_5_name.current.uuid is defined
+
+    - name: Query L3Out Interface Routing Policy with uuid
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        uuid: "{{ query_irp_5_name.current.uuid }}"
+        state: query
+      register: query_irp_5_uuid
+
+    - name: Assertion check for query L3Out Interface Routing Policy with uuid
+      ansible.builtin.assert:
+        that:
+          - query_irp_5_uuid is not changed
+          - query_irp_5_uuid.current.bfdMultiHopPol.adminState == "disabled"
+          - query_irp_5_uuid.current.bfdMultiHopPol.detectionMultiplier == 10
+          - query_irp_5_uuid.current.bfdMultiHopPol.minRxInterval == 255
+          - query_irp_5_uuid.current.bfdMultiHopPol.minTxInterval == 250
+          - query_irp_5_uuid.current.bfdPol.adminState == "enabled"
+          - query_irp_5_uuid.current.bfdPol.detectionMultiplier == 10
+          - query_irp_5_uuid.current.bfdPol.echoAdminState == "enabled"
+          - query_irp_5_uuid.current.bfdPol.echoRxInterval == 55
+          - query_irp_5_uuid.current.bfdPol.ifControl == false
+          - query_irp_5_uuid.current.bfdPol.minRxInterval == 50
+          - query_irp_5_uuid.current.bfdPol.minTxInterval == 50
+          - query_irp_5_uuid.current.name == "irp_5"
+          - query_irp_5_uuid.current.ospfIntfPol.cost == 0
+          - query_irp_5_uuid.current.ospfIntfPol.deadInterval == 30
+          - query_irp_5_uuid.current.ospfIntfPol.helloInterval == 20
+          - query_irp_5_uuid.current.ospfIntfPol.ifControl.advertiseSubnet == false
+          - query_irp_5_uuid.current.ospfIntfPol.ifControl.bfd == false
+          - query_irp_5_uuid.current.ospfIntfPol.ifControl.ignoreMtu == false
+          - query_irp_5_uuid.current.ospfIntfPol.ifControl.passiveParticipation == true
+          - query_irp_5_uuid.current.ospfIntfPol.networkType == "broadcast"
+          - query_irp_5_uuid.current.ospfIntfPol.prio == 1
+          - query_irp_5_uuid.current.ospfIntfPol.retransmitInterval == 20
+          - query_irp_5_uuid.current.ospfIntfPol.transmitDelay == 10
+          - query_irp_5_uuid.current.uuid is defined
+
+    - name: Remove L3Out Interface Routing Policy with name - check_mode
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: irp_1_update
+        state: absent
+        output_level: debug
+      check_mode: true
+      register: cm_rm_with_name
+
+    - name: Assertion check for remove L3Out Interface Routing Policy with name - check_mode
+      ansible.builtin.assert:
+        that:
+          - cm_rm_with_name is changed
+          - cm_rm_with_name.current == {}
+          - cm_rm_with_name.previous.bfdMultiHopPol.adminState == "disabled"
+          - cm_rm_with_name.previous.bfdMultiHopPol.detectionMultiplier == 10
+          - cm_rm_with_name.previous.bfdMultiHopPol.minRxInterval == 255
+          - cm_rm_with_name.previous.bfdMultiHopPol.minTxInterval == 255
+          - cm_rm_with_name.previous.bfdPol.adminState == "enabled"
+          - cm_rm_with_name.previous.bfdPol.detectionMultiplier == 3
+          - cm_rm_with_name.previous.bfdPol.echoAdminState == "enabled"
+          - cm_rm_with_name.previous.bfdPol.echoRxInterval == 50
+          - cm_rm_with_name.previous.bfdPol.ifControl == false
+          - cm_rm_with_name.previous.bfdPol.minRxInterval == 50
+          - cm_rm_with_name.previous.bfdPol.minTxInterval == 50
+          - cm_rm_with_name.previous.description == "Updated"
+          - cm_rm_with_name.previous.name == "irp_1_update"
+          - cm_rm_with_name.previous.ospfIntfPol.cost == 0
+          - cm_rm_with_name.previous.ospfIntfPol.deadInterval == 40
+          - cm_rm_with_name.previous.ospfIntfPol.helloInterval == 10
+          - cm_rm_with_name.previous.ospfIntfPol.ifControl.advertiseSubnet == false
+          - cm_rm_with_name.previous.ospfIntfPol.ifControl.bfd == false
+          - cm_rm_with_name.previous.ospfIntfPol.ifControl.ignoreMtu == false
+          - cm_rm_with_name.previous.ospfIntfPol.ifControl.passiveParticipation == false
+          - cm_rm_with_name.previous.ospfIntfPol.networkType == "broadcast"
+          - cm_rm_with_name.previous.ospfIntfPol.prio == 1
+          - cm_rm_with_name.previous.ospfIntfPol.retransmitInterval == 5
+          - cm_rm_with_name.previous.ospfIntfPol.transmitDelay == 1
+          - cm_rm_with_name.previous.uuid is defined
+
+    - name: Remove L3Out Interface Routing Policy with name - normal_mode
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: irp_1_update
+        state: absent
+      register: nm_rm_with_name
+
+    - name: Assertion check for remove L3Out Interface Routing Policy with name - normal_mode
+      ansible.builtin.assert:
+        that:
+          - nm_rm_with_name is changed
+          - nm_rm_with_name.current == {}
+          - nm_rm_with_name.previous.bfdMultiHopPol.adminState == "disabled"
+          - nm_rm_with_name.previous.bfdMultiHopPol.minTxInterval == 255
+          - nm_rm_with_name.previous.bfdPol.adminState == "enabled"
+          - nm_rm_with_name.previous.bfdPol.ifControl == false
+          - nm_rm_with_name.previous.bfdPol.minRxInterval == 50
+          - nm_rm_with_name.previous.bfdPol.minTxInterval == 50
+          - nm_rm_with_name.previous.description == "Updated"
+          - nm_rm_with_name.previous.name == "irp_1_update"
+          - nm_rm_with_name.previous.ospfIntfPol.cost == 0
+          - nm_rm_with_name.previous.ospfIntfPol.deadInterval == 40
+          - nm_rm_with_name.previous.ospfIntfPol.helloInterval == 10
+          - nm_rm_with_name.previous.ospfIntfPol.ifControl.advertiseSubnet == false
+          - nm_rm_with_name.previous.ospfIntfPol.networkType == "broadcast"
+          - nm_rm_with_name.previous.ospfIntfPol.prio == 1
+          - nm_rm_with_name.previous.uuid is defined
+
+    - name: Remove L3Out Interface Routing Policy with name - normal_mode again
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        name: irp_1_update
+        state: absent
+      register: nm_rm_with_name_again
+
+    - name: Assertion check for remove L3Out Interface Routing Policy with name - normal_mode again
+      ansible.builtin.assert:
+        that:
+          - nm_rm_with_name_again is not changed
+          - nm_rm_with_name_again.current == {}
+          - nm_rm_with_name_again.previous == {}
+
+    - name: Remove L3Out Interface Routing Policy with uuid
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: '{{ ansible_tenant_template | default("ansible_test") }}'
+        uuid: "{{ query_irp_5_name.current.uuid }}"
+        state: absent
+      register: nm_rm_with_uuid
+
+    - name: Assertion check for remove L3Out Interface Routing Policy with uuid
+      ansible.builtin.assert:
+        that:
+          - nm_rm_with_uuid is changed
+          - nm_rm_with_uuid.current == {}
+          - nm_rm_with_uuid.previous.bfdMultiHopPol.adminState == "disabled"
+          - nm_rm_with_uuid.previous.bfdMultiHopPol.minTxInterval == 250
+          - nm_rm_with_uuid.previous.bfdPol.adminState == "enabled"
+          - nm_rm_with_uuid.previous.bfdPol.detectionMultiplier == 10
+          - nm_rm_with_uuid.previous.bfdPol.minRxInterval == 50
+          - nm_rm_with_uuid.previous.bfdPol.minTxInterval == 50
+          - nm_rm_with_uuid.previous.name == "irp_5"
+          - nm_rm_with_uuid.previous.ospfIntfPol.cost == 0
+          - nm_rm_with_uuid.previous.ospfIntfPol.ifControl.bfd == false
+          - nm_rm_with_uuid.previous.ospfIntfPol.ifControl.ignoreMtu == false
+          - nm_rm_with_uuid.previous.ospfIntfPol.ifControl.passiveParticipation == true
+          - nm_rm_with_uuid.previous.ospfIntfPol.networkType == "broadcast"
+          - nm_rm_with_uuid.previous.uuid is defined
+
+    # Cleanup Part
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

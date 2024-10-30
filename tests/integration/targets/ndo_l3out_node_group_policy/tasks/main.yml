@@ -257,9 +257,10 @@
         <<: *nm_node_group_policy_1_present
         description: "Test description"
         node_routing_policy: ans_node_policy_group_1
-        bfd_multi_hop_authentication: enabled
-        bfd_multi_hop_key_id: 1
-        bfd_multi_hop_key: TestKey
+        bfd:
+          auth: enabled
+          key_id: 1
+          key: TestKey
         target_dscp: af11
         state: present
       check_mode: true
@@ -328,9 +329,10 @@
         name: "node_group_policy_1"
         description: "Test description updated"
         node_routing_policy: ans_node_policy_group_2
-        bfd_multi_hop_authentication: enabled
-        bfd_multi_hop_key_id: 2
-        bfd_multi_hop_key: TestKeyUpdated
+        bfd:
+          auth: enabled
+          key_id: 2
+          key: TestKeyUpdated
         target_dscp: af12
         state: present
       register: update_node_group_policy_attrs
@@ -360,7 +362,8 @@
         name: "node_group_policy_1"
         description: ""
         node_routing_policy: ""
-        bfd_multi_hop_authentication: disabled
+        bfd:
+          auth: disabled
         target_dscp: "unspecified"
         state: present
         output_level: debug
@@ -460,9 +463,10 @@
         l3out: "l3out_2"
         name: "node_group_policy_30"
         node_routing_policy: ans_node_policy_group_2
-        bfd_multi_hop_authentication: enabled
-        bfd_multi_hop_key_id: 2
-        bfd_multi_hop_key: TestKeyUpdated
+        bfd:
+          auth: enabled
+          key_id: 2
+          key: TestKeyUpdated
         target_dscp: af12
         state: present
       register: add_ngp_3_auth_disabled
@@ -485,9 +489,10 @@
         l3out: "l3out_2"
         name: "node_group_policy_3"
         node_routing_policy: ans_node_policy_group_2
-        bfd_multi_hop_authentication: disabled
-        bfd_multi_hop_key_id: 2
-        bfd_multi_hop_key: TestKeyUpdated
+        bfd:
+          auth: disabled
+          key_id: 2
+          key: TestKeyUpdated
         target_dscp: af12
         state: present
       register: add_ngp_3_auth_disabled
@@ -509,7 +514,8 @@
         template: '{{ ansible_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_3"
-        bfd_multi_hop_key_id: 3
+        bfd:
+          key_id: 3
         state: present
       register: update_ngp_3_with_key_id
 
@@ -534,7 +540,8 @@
         template: '{{ ansible_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_3"
-        bfd_multi_hop_key: TestKeyUpdated1
+        bfd:
+          key: TestKeyUpdated1
         state: present
       register: update_ngp_3_with_key
 
@@ -560,7 +567,8 @@
         l3out: "l3out_2"
         name: "node_group_policy_4"
         node_routing_policy: ans_node_policy_group_2
-        bfd_multi_hop_authentication: disabled
+        bfd:
+          auth: disabled
         target_dscp: af12
         state: present
       register: add_ngp_4_auth_disabled
@@ -581,7 +589,8 @@
         template: '{{ ansible_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_4"
-        bfd_multi_hop_key_id: 10
+        bfd:
+          key_id: 10
         state: present
       register: add_key_id_ngp_4_auth_disabled
 
@@ -606,8 +615,9 @@
         template: '{{ ansible_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_4"
-        bfd_multi_hop_authentication: disabled
-        bfd_multi_hop_key_id: 0
+        bfd:
+          auth: disabled
+          key_id: 0
         state: present
         output_level: debug
       register: clear_key_id_ngp_4_auth_disabled
@@ -656,8 +666,9 @@
         l3out: "l3out_2"
         name: "node_group_policy_5"
         node_routing_policy: ans_node_policy_group_2
-        bfd_multi_hop_key_id: 3
-        bfd_multi_hop_key: TestKeyUpdated1
+        bfd:
+          key_id: 3
+          key: TestKeyUpdated1
         state: present
       register: update_ngp_5_only_id_value
 
@@ -681,7 +692,8 @@
         l3out: "l3out_2"
         name: "node_group_policy_5"
         node_routing_policy: ans_node_policy_group_2
-        bfd_multi_hop_authentication: enabled
+        bfd:
+          auth: enabled
         state: present
       register: enable_ngp_5_auth_without_key
       ignore_errors: true
@@ -699,8 +711,9 @@
         l3out: "l3out_2"
         name: "node_group_policy_5"
         node_routing_policy: ans_node_policy_group_2
-        bfd_multi_hop_authentication: enabled
-        bfd_multi_hop_key: TestKeyUpdated4
+        bfd:
+          auth: enabled
+          key: TestKeyUpdated4
         state: present
       register: update_ngp_5_bfd_config
 
@@ -726,9 +739,8 @@
         l3out: "l3out_2"
         name: "node_group_policy_5"
         node_routing_policy: ""
-        bfd_multi_hop_authentication: ""
-        bfd_multi_hop_key_id: 0
-        bfd_multi_hop_key: ""
+        bfd:
+          state: disabled
         state: present
       register: clear_ngp_5_bfd_config
 
@@ -814,9 +826,10 @@
         l3out: "l3out_1"
         name: "node_group_policy_nt"
         node_routing_policy: ans_node_policy_group_1
-        bfd_multi_hop_authentication: enabled
-        bfd_multi_hop_key_id: 12
-        bfd_multi_hop_key: "test"
+        bfd:
+          auth: enabled
+          key_id: 12
+          key: "test"
         state: present
       register: node_group_policy_nt_with_l3out_1
       ignore_errors: true
@@ -826,6 +839,24 @@
         that:
           - node_group_policy_nt_with_l3out_1 is changed
           - node_group_policy_nt_with_l3out_1.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_nt'{{':'}} BFD Multihop is not supported with non-BGP routing protocols. Current protocol{{':'}} none"
+
+    - name: Create ngp1 with bfd state disabled
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        name: "ngp1"
+        bfd:
+          state: disabled
+        state: present
+      register: create_ngp1_bfd_disabled
+
+    - name: Assertion check for create ngp1 with bfd state disabled
+      ansible.builtin.assert:
+        that:
+          - create_ngp1_bfd_disabled is changed
+          - create_ngp1_bfd_disabled.current.name == "ngp1"
+          - create_ngp1_bfd_disabled.current.bfdMultiHop is not defined
 
     # Cleanup Part
     - name: Remove l3out tenant template

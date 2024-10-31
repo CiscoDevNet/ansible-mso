@@ -32,16 +32,18 @@ options:
     description:
     - The name of the Node Settings.
     type: str
+    aliases: [ node_setting ]
   uuid:
     description:
     - The UUID of the Node Settings.
     - This parameter is required when the O(name) needs to be updated.
     type: str
+    aliases: [ node_setting_uuid ]
   description:
     description:
     - The description of the Node Settings.
     type: str
-  sync_e:
+  synce:
     description:
     - The Synchronous Ethernet (SyncE) Interface Policy of the Node Settings.
     type: dict
@@ -82,7 +84,7 @@ options:
         description:
         - The value that is used when advertising this clock.
         - The value must be between 0 and 255. Lower values take precedence.
-        - The PTP priority 1 set to the fixed value of 128.
+        - The PTP priority 1 is set to the fixed value of 128.
         type: int
   state:
     description:
@@ -116,7 +118,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template: fabric_template
     name: ns1
-    sync_e:
+    synce:
       admin_state: enabled
       quality_level: option_2_generation_1
     state: present
@@ -154,6 +156,15 @@ EXAMPLES = r"""
     state: query
   register: query_with_name
 
+- name: Query all Node Settings
+  cisco.mso.ndo_node_setting:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: fabric_template
+    state: query
+  register: query_all
+
 - name: Delete an existing Node Settings using UUID
   cisco.mso.ndo_node_setting:
     host: mso_host
@@ -188,10 +199,10 @@ def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
         template=dict(type="str", required=True, aliases=["fabric_template"]),
-        name=dict(type="str"),
-        uuid=dict(type="str"),
+        name=dict(type="str", aliases=["node_setting"]),
+        uuid=dict(type="str", aliases=["node_setting_uuid"]),
         description=dict(type="str"),
-        sync_e=dict(
+        synce=dict(
             type="dict",
             options=dict(
                 state=dict(type="str", choices=["enabled", "disabled"]),
@@ -225,7 +236,7 @@ def main():
     name = module.params.get("name")
     uuid = module.params.get("uuid")
     description = module.params.get("description")
-    sync_e = module.params.get("sync_e")
+    synce = module.params.get("synce")
     ptp = module.params.get("ptp")
     state = module.params.get("state")
 
@@ -255,8 +266,8 @@ def main():
                 ops.append(dict(op="replace", path="{0}/description".format(node_setting_path), value=description))
                 proposed_payload["description"] = description
 
-            if sync_e is not None:
-                if sync_e.get("state") == "disabled" and proposed_payload.get("synce"):
+            if synce is not None:
+                if synce.get("state") == "disabled" and proposed_payload.get("synce"):
                     proposed_payload.pop("synce")
                     ops.append(dict(op="remove", path="{0}/synce".format(node_setting_path)))
 
@@ -265,23 +276,23 @@ def main():
                         proposed_payload["synce"] = dict()
                         ops.append(dict(op="replace", path="{0}/synce".format(node_setting_path), value=dict()))
 
-                    if sync_e.get("admin_state") is not None and proposed_payload.get("synce").get("adminState") != sync_e.get("admin_state"):
-                        proposed_payload["synce"]["adminState"] = sync_e.get("admin_state")
+                    if synce.get("admin_state") is not None and proposed_payload.get("synce").get("adminState") != synce.get("admin_state"):
+                        proposed_payload["synce"]["adminState"] = synce.get("admin_state")
                         ops.append(
                             dict(
                                 op="replace",
                                 path="{0}/synce/adminState".format(node_setting_path),
-                                value=sync_e.get("admin_state"),
+                                value=synce.get("admin_state"),
                             )
                         )
 
-                    if sync_e.get("quality_level") is not None and proposed_payload.get("synce").get("qlOption") != sync_e.get("quality_level"):
-                        proposed_payload["synce"]["qlOption"] = sync_e.get("quality_level")
+                    if synce.get("quality_level") is not None and proposed_payload.get("synce").get("qlOption") != synce.get("quality_level"):
+                        proposed_payload["synce"]["qlOption"] = synce.get("quality_level")
                         ops.append(
                             dict(
                                 op="replace",
                                 path="{0}/synce/qlOption".format(node_setting_path),
-                                value=SYNC_E_QUALITY_LEVEL_OPTION.get(sync_e.get("quality_level")),
+                                value=SYNC_E_QUALITY_LEVEL_OPTION.get(synce.get("quality_level")),
                             )
                         )
 
@@ -332,16 +343,16 @@ def main():
             if description:
                 payload["description"] = description
 
-            if sync_e is not None:
-                sync_e_map = dict()
-                if sync_e.get("admin_state"):
-                    sync_e_map["adminState"] = sync_e.get("admin_state")
+            if synce is not None:
+                synce_map = dict()
+                if synce.get("admin_state"):
+                    synce_map["adminState"] = synce.get("admin_state")
 
-                if sync_e.get("quality_level"):
-                    sync_e_map["qlOption"] = SYNC_E_QUALITY_LEVEL_OPTION.get(sync_e.get("quality_level"))
+                if synce.get("quality_level"):
+                    synce_map["qlOption"] = SYNC_E_QUALITY_LEVEL_OPTION.get(synce.get("quality_level"))
 
-                if sync_e_map:
-                    payload["synce"] = sync_e_map
+                if synce_map:
+                    payload["synce"] = synce_map
 
             if ptp is not None:
                 ptp_map = dict()

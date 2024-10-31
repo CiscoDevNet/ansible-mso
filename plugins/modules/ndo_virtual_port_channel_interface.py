@@ -60,7 +60,7 @@ options:
         description:
         - The list of used Interface IDs for the first node.
         - Ranges of Interface IDs can be used.
-        - This parameter is required during creation.
+        - This parameter is required when creating a new Virtual Port Channel Interface.
         type: list
         elements: str
         aliases: [ interfaces_1, members_1 ]
@@ -68,14 +68,14 @@ options:
         description:
         - The list of used Interface IDs for the second node.
         - Ranges of Interface IDs can be used.
-        - This parameter is required during creation.
+        - This parameter is required when creating a new Virtual Port Channel Interface.
         type: list
         elements: str
         aliases: [ interfaces_2, members_2 ]
     interface_policy_group_uuid:
         description:
         - The UUID of the Port Channel Interface Policy Group.
-        - An Port Channel Interface Policy Group must be attached required during creation.
+        - This parameter is required when creating a new Virtual Port Channel Interface.
         type: str
         aliases: [ policy_uuid, interface_policy_uuid, interface_setting_uuid ]
     interface_policy_group:
@@ -157,7 +157,7 @@ EXAMPLES = r"""
         description: My first Ansible Interface for second node
     state: present
 
-- name: Update Virtual Port Channel Interface's name
+- name: Update a Virtual Port Channel Interface's name
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
@@ -167,7 +167,7 @@ EXAMPLES = r"""
     virtual_port_channel_interface_uuid: 0134c73f-4427-4109-9eea-5110ecdf10ea
     state: present
 
-- name: Query an Virtual Port Channel Interface using it's name in the template
+- name: Query a Virtual Port Channel Interface using its name in the template
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
@@ -177,7 +177,7 @@ EXAMPLES = r"""
     state: query
   register: query_one
 
-- name: Query an Virtual Port Channel Interface using it's uuid in the template
+- name: Query a Virtual Port Channel Interface using its UUID in the template
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
@@ -196,7 +196,7 @@ EXAMPLES = r"""
     state: query
   register: query_all
 
-- name: Delete an Virtual Port Channel Interface using it's name
+- name: Delete a Virtual Port Channel Interface using its name
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
@@ -205,7 +205,7 @@ EXAMPLES = r"""
     virtual_port_channel_interface: ansible_virtual_port_channel_interface_changed
     state: absent
 
-- name: Delete an Virtual Port Channel Interface using it's uuid
+- name: Delete a Virtual Port Channel Interface using its UUID
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
@@ -223,6 +223,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import (
     MSOModule,
     mso_argument_spec,
+    format_interface_descriptions,
 )
 from ansible_collections.cisco.mso.plugins.module_utils.template import (
     MSOTemplate,
@@ -347,14 +348,7 @@ def main():
                 match.details["node2Details"]["memberInterfaces"] = interfaces_node_2
 
             if interface_descriptions:
-                interface_descriptions = [
-                    {
-                        "nodeID": interface.get("node"),
-                        "interfaceID": interface.get("interface_id"),
-                        "description": interface.get("description"),
-                    }
-                    for interface in interface_descriptions
-                ]
+                interface_descriptions = format_interface_descriptions(interface_descriptions)
                 if interface_descriptions != match.details.get("interfaceDescriptions"):
                     ops.append(dict(op="replace", path="{0}/{1}/interfaceDescriptions".format(path, match.index), value=interface_descriptions))
                     match.details["interfaceDescriptions"] = interface_descriptions
@@ -379,14 +373,7 @@ def main():
             if description is not None:
                 payload["description"] = description
             if interface_descriptions:
-                payload["interfaceDescriptions"] = [
-                    {
-                        "nodeID": interface.get("node"),
-                        "interfaceID": interface.get("interface_id"),
-                        "description": interface.get("description"),
-                    }
-                    for interface in interface_descriptions
-                ]
+                payload["interfaceDescriptions"] = format_interface_descriptions(interface_descriptions)
 
             ops.append(dict(op="add", path="{0}/-".format(path), value=payload))
 

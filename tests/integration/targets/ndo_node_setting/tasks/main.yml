@@ -112,13 +112,13 @@
           - query_ns1_with_name.current.name == "ns1"
           - query_ns1_with_name.current.uuid is defined
 
-    - name: Update ns1 object with sync_e and ptp values - check_mode
+    - name: Update ns1 object with synce and ptp values - check_mode
       cisco.mso.ndo_node_setting: &cm_update_ns1
         <<: *mso_info
         template: '{{ ansible_fabric_template | default("ansible_test") }}'
         name: "ns1"
         description: "Updated description"
-        sync_e:
+        synce:
           admin_state: "enabled"
           quality_level: "option_2_generation_1"
         ptp:
@@ -129,7 +129,7 @@
       check_mode: true
       register: cm_update_ns1
 
-    - name: Assertion check for update ns1 object with sync_e and ptp values - check_mode
+    - name: Assertion check for update ns1 object with synce and ptp values - check_mode
       ansible.builtin.assert:
         that:
           - cm_update_ns1 is changed
@@ -153,17 +153,17 @@
           - cm_update_ns1.proposed.synce.qlOption == "option_2_generation_1"
           - cm_update_ns1.proposed.uuid is defined
 
-    - name: Update ns1 object with sync_e and ptp values - normal_mode
+    - name: Update ns1 object with synce and ptp values - normal_mode
       cisco.mso.ndo_node_setting:
         <<: *cm_update_ns1
       register: nm_update_ns1
 
-    - name: Update ns1 object with sync_e and ptp values - normal_mode again
+    - name: Update ns1 object with synce and ptp values - normal_mode again
       cisco.mso.ndo_node_setting:
         <<: *cm_update_ns1
       register: nm_update_ns1_again
 
-    - name: Assertion check for update ns1 object with sync_e and ptp values - normal_mode
+    - name: Assertion check for update ns1 object with synce and ptp values - normal_mode
       ansible.builtin.assert:
         that:
           - nm_update_ns1 is changed
@@ -179,61 +179,61 @@
           - nm_update_ns1.previous.name == "ns1"
           - nm_update_ns1_again is not changed
 
-    - name: Clear ns1 sync_e values with UUID
+    - name: Clear ns1 synce values with UUID
       cisco.mso.ndo_node_setting:
         <<: *mso_info
         template: '{{ ansible_fabric_template | default("ansible_test") }}'
         uuid: "{{ nm_update_ns1.current.uuid }}"
-        sync_e:
+        synce:
           state: "disabled"
         state: "present"
-      register: clear_ns1_sync_e
+      register: clear_ns1_synce
 
-    - name: Assertion check for clear ns1 sync_e values with UUID
+    - name: Assertion check for clear ns1 synce values with UUID
       ansible.builtin.assert:
         that:
-          - clear_ns1_sync_e is changed
-          - clear_ns1_sync_e.current.description == "Updated description"
-          - clear_ns1_sync_e.current.name == "ns1"
-          - clear_ns1_sync_e.current.ptp.domain == 25
-          - clear_ns1_sync_e.current.ptp.prio1 == 128
-          - clear_ns1_sync_e.current.ptp.prio2 == 128
-          - clear_ns1_sync_e.current.uuid is defined
-          - clear_ns1_sync_e.previous.description == "Updated description"
-          - clear_ns1_sync_e.previous.name == "ns1"
-          - clear_ns1_sync_e.previous.ptp.domain == 25
-          - clear_ns1_sync_e.previous.ptp.prio1 == 128
-          - clear_ns1_sync_e.previous.ptp.prio2 == 128
-          - clear_ns1_sync_e.previous.synce.adminState == "enabled"
-          - clear_ns1_sync_e.previous.synce.qlOption == "op2g1"
+          - clear_ns1_synce is changed
+          - clear_ns1_synce.current.description == "Updated description"
+          - clear_ns1_synce.current.name == "ns1"
+          - clear_ns1_synce.current.ptp.domain == 25
+          - clear_ns1_synce.current.ptp.prio1 == 128
+          - clear_ns1_synce.current.ptp.prio2 == 128
+          - clear_ns1_synce.current.uuid is defined
+          - clear_ns1_synce.previous.description == "Updated description"
+          - clear_ns1_synce.previous.name == "ns1"
+          - clear_ns1_synce.previous.ptp.domain == 25
+          - clear_ns1_synce.previous.ptp.prio1 == 128
+          - clear_ns1_synce.previous.ptp.prio2 == 128
+          - clear_ns1_synce.previous.synce.adminState == "enabled"
+          - clear_ns1_synce.previous.synce.qlOption == "op2g1"
 
-    - name: Enable ns1 sync_e values with UUID
+    - name: Enable ns1 synce values with UUID
       cisco.mso.ndo_node_setting:
         <<: *mso_info
         template: '{{ ansible_fabric_template | default("ansible_test") }}'
         uuid: "{{ nm_update_ns1.current.uuid }}"
-        sync_e:
+        synce:
           state: "enabled"
         state: "present"
-      register: nt_ns1_sync_e
+      register: nt_ns1_synce
       ignore_errors: true
 
-    - name: Assertion check for enable ns1 sync_e values with UUID
+    - name: Assertion check for enable ns1 synce values with UUID
       ansible.builtin.assert:
         that:
-          - nt_ns1_sync_e is not changed
-          - nt_ns1_sync_e.current.description == "Updated description"
-          - nt_ns1_sync_e.current.name == "ns1"
-          - nt_ns1_sync_e.current.ptp.domain == 25
-          - nt_ns1_sync_e.current.ptp.prio1 == 128
-          - nt_ns1_sync_e.current.ptp.prio2 == 128
-          - nt_ns1_sync_e.current.uuid is defined
-          - nt_ns1_sync_e.msg == 'MSO Error 400{{":"}} {"errors"{{":"}}["validation failed for mno.ndo.cisco.com/v1.SyncEthNodePol.adminState{{":"}} invalid value ","validation failed for mno.ndo.cisco.com/v1.SyncEthNodePol.qlOption{{":"}} invalid value "]}'
-          - nt_ns1_sync_e.previous.description == "Updated description"
-          - nt_ns1_sync_e.previous.name == "ns1"
-          - nt_ns1_sync_e.previous.ptp.domain == 25
-          - nt_ns1_sync_e.previous.ptp.prio1 == 128
-          - nt_ns1_sync_e.previous.ptp.prio2 == 128
+          - nt_ns1_synce is not changed
+          - nt_ns1_synce.current.description == "Updated description"
+          - nt_ns1_synce.current.name == "ns1"
+          - nt_ns1_synce.current.ptp.domain == 25
+          - nt_ns1_synce.current.ptp.prio1 == 128
+          - nt_ns1_synce.current.ptp.prio2 == 128
+          - nt_ns1_synce.current.uuid is defined
+          - nt_ns1_synce.msg == 'MSO Error 400{{":"}} {"errors"{{":"}}["validation failed for mno.ndo.cisco.com/v1.SyncEthNodePol.adminState{{":"}} invalid value ","validation failed for mno.ndo.cisco.com/v1.SyncEthNodePol.qlOption{{":"}} invalid value "]}'
+          - nt_ns1_synce.previous.description == "Updated description"
+          - nt_ns1_synce.previous.name == "ns1"
+          - nt_ns1_synce.previous.ptp.domain == 25
+          - nt_ns1_synce.previous.ptp.prio1 == 128
+          - nt_ns1_synce.previous.ptp.prio2 == 128
 
     - name: Clear ns1 ptp values
       cisco.mso.ndo_node_setting:
@@ -298,31 +298,31 @@
           - query_ns1_with_uuid.current.name == "ns1"
           - query_ns1_with_uuid.current.uuid is defined
 
-    - name: Add ns1 sync_e values and name
+    - name: Add ns1 synce values and name
       cisco.mso.ndo_node_setting:
         <<: *mso_info
         template: '{{ ansible_fabric_template | default("ansible_test") }}'
         uuid: "{{ nm_update_ns1.current.uuid }}"
         name: "ns1_new"
         description: ""
-        sync_e:
+        synce:
           admin_state: "disabled"
           quality_level: "option_1"
         state: "present"
-      register: add_ns1_sync_e
+      register: add_ns1_synce
 
-    - name: Assertion check for add ns1 sync_e values and name
+    - name: Assertion check for add ns1 synce values and name
       ansible.builtin.assert:
         that:
-          - add_ns1_sync_e is changed
-          - add_ns1_sync_e.current.description == ""
-          - add_ns1_sync_e.current.name == "ns1_new"
-          - add_ns1_sync_e.current.synce.adminState == "disabled"
-          - add_ns1_sync_e.current.synce.qlOption == "op1"
-          - add_ns1_sync_e.current.uuid is defined
-          - add_ns1_sync_e.previous.description == "Updated description"
-          - add_ns1_sync_e.previous.name == "ns1"
-          - add_ns1_sync_e.previous.uuid is defined
+          - add_ns1_synce is changed
+          - add_ns1_synce.current.description == ""
+          - add_ns1_synce.current.name == "ns1_new"
+          - add_ns1_synce.current.synce.adminState == "disabled"
+          - add_ns1_synce.current.synce.qlOption == "op1"
+          - add_ns1_synce.current.uuid is defined
+          - add_ns1_synce.previous.description == "Updated description"
+          - add_ns1_synce.previous.name == "ns1"
+          - add_ns1_synce.previous.uuid is defined
 
     - name: Add ns1 ptp values
       cisco.mso.ndo_node_setting:
@@ -353,14 +353,14 @@
           - add_ns1_ptp.previous.synce.qlOption == "op1"
           - add_ns1_ptp.previous.uuid is defined
 
-    - name: Add ns2 with sync_e and ptp values
+    - name: Add ns2 with synce and ptp values
       cisco.mso.ndo_node_setting:
         <<: *cm_update_ns1
         name: ns2
         state: "present"
       register: add_ns2
 
-    - name: Assertion check for add ns2 with sync_e and ptp values
+    - name: Assertion check for add ns2 with synce and ptp values
       ansible.builtin.assert:
         that:
           - add_ns2 is changed
@@ -374,25 +374,25 @@
           - add_ns2.current.uuid is defined
           - add_ns2.previous == {}
 
-    - name: Create ns3 with empty sync_e
+    - name: Create ns3 with empty synce
       cisco.mso.ndo_node_setting:
         <<: *mso_info
         template: '{{ ansible_fabric_template | default("ansible_test") }}'
         name: "ns3"
-        sync_e:
+        synce:
           state: "enabled"
         state: "present"
       ignore_errors: true
-      register: add_ns3_sync_e
+      register: add_ns3_synce
 
-    - name: Assertion check for create ns3 with empty sync_e
+    - name: Assertion check for create ns3 with empty synce
       ansible.builtin.assert:
         that:
-          - add_ns3_sync_e is changed
-          - add_ns3_sync_e.current.description == ""
-          - add_ns3_sync_e.current.name == "ns3"
-          - add_ns3_sync_e.current.uuid is defined
-          - add_ns3_sync_e.current.synce is not defined
+          - add_ns3_synce is changed
+          - add_ns3_synce.current.description == ""
+          - add_ns3_synce.current.name == "ns3"
+          - add_ns3_synce.current.uuid is defined
+          - add_ns3_synce.current.synce is not defined
 
     - name: Create ns4 with empty ptp
       cisco.mso.ndo_node_setting:

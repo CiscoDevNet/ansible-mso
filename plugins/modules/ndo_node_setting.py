@@ -30,22 +30,22 @@ options:
     aliases: [ fabric_template ]
   name:
     description:
-    - The name of the Node Settings.
+    - The name of the Fabric Policies Node Settings.
     type: str
     aliases: [ node_setting ]
   uuid:
     description:
-    - The UUID of the Node Settings.
+    - The UUID of the Fabric Policies Node Settings.
     - This parameter is required when the O(name) needs to be updated.
     type: str
     aliases: [ node_setting_uuid ]
   description:
     description:
-    - The description of the Node Settings.
+    - The description of the Fabric Policies Node Settings.
     type: str
   synce:
     description:
-    - The Synchronous Ethernet (SyncE) Interface Policy of the Node Settings.
+    - The Synchronous Ethernet (SyncE) Interface Policy of the Fabric Policies Node Settings.
     type: dict
     suboptions:
       state:
@@ -66,7 +66,7 @@ options:
         choices: [ option_1, option_2_generation_1, option_2_generation_2 ]
   ptp:
     description:
-    - The Precision Time Protocol (PTP) of the Node Settings.
+    - The Precision Time Protocol (PTP) of the Fabric Policies Node Settings.
     type: dict
     suboptions:
       state:
@@ -83,7 +83,7 @@ options:
       priority_2:
         description:
         - The value that is used when advertising this clock.
-        - The value must be between 0 and 255. Lower values take precedence.
+        - The value must be between 0 and 255, lower values are prioritized.
         - The PTP priority 1 is set to the fixed value of 128.
         type: int
   state:
@@ -101,7 +101,7 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-- name: Create a new Fabric Policy Node Settings
+- name: Create a new Fabric Policies Node Setting
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -111,7 +111,7 @@ EXAMPLES = r"""
     state: present
   register: create_ns1
 
-- name: Add SyncE config to the existing Node Settings using Name
+- name: Add SyncE config to the existing Fabric Policies Node Setting using Name
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -123,7 +123,7 @@ EXAMPLES = r"""
       quality_level: option_2_generation_1
     state: present
 
-- name: Add PTP config to the existing Node Settings using UUID
+- name: Add PTP config to the existing Fabric Policies Node Setting using UUID
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -136,7 +136,7 @@ EXAMPLES = r"""
       priority_2: 100
     state: present
 
-- name: Query an existing Node Settings using UUID
+- name: Query an existing Fabric Policies Node Setting using UUID
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -146,7 +146,7 @@ EXAMPLES = r"""
     state: query
   register: query_with_uuid
 
-- name: Query an existing Node Settings using Name
+- name: Query an existing Fabric Policies Node Setting using Name
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -156,7 +156,7 @@ EXAMPLES = r"""
     state: query
   register: query_with_name
 
-- name: Query all Node Settings
+- name: Query all Fabric Policies Node Setting
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -165,7 +165,7 @@ EXAMPLES = r"""
     state: query
   register: query_all
 
-- name: Delete an existing Node Settings using UUID
+- name: Delete an existing Fabric Policies Node Setting using UUID
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -174,7 +174,7 @@ EXAMPLES = r"""
     uuid: "{{ create_ns1.current.uuid }}"
     state: absent
 
-- name: Delete an existing Node Settings using Name
+- name: Delete an existing Fabric Policies Node Setting using Name
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin

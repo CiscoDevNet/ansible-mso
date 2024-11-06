@@ -14,10 +14,10 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_physical_interface
-short_description: Manage physical interface on Cisco Nexus Dashboard Orchestrator (NDO).
+short_description: Manage Physical Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
-- Manage physical interface on Cisco Nexus Dashboard Orchestrator (NDO).
-- This module is only supported on ND v3.1 (NDO v4.3) and later.
+- Manage Physical Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).
+- This module is only supported on ND v3.2 (NDO v4.4) and later.
 author:
 - Anvitha Jain (@anvjain)
 options:
@@ -27,24 +27,24 @@ options:
     - The template must be a fabric resource policy template.
     type: str
     required: true
-  physical_interface:
+  name:
     description:
-    - The name of the physical interface.
+    - The name of the Physical Interface.
     type: str
-    aliases: [ name ]
-  physical_interface_uuid:
+    aliases: [ physical_interface ]
+  uuid:
     description:
-    - The UUID of the physical interface.
-    - This parameter is required when the O(physical_interface) needs to be updated.
+    - The UUID of the Physical Interface.
+    - This parameter is required when the O(name) needs to be updated.
     type: str
-    aliases: [ uuid ]
+    aliases: [ physical_interface_uuid ]
   description:
     description:
-    - The description of the physical interface.
+    - The description of the Physical Interface.
     type: str
   nodes:
     description:
-    - The node IDs where the physical interface policy will be deployed.
+    - The node IDs where the Physical Interface policy will be deployed.
     type: list
     elements: int
   interfaces:
@@ -61,7 +61,7 @@ options:
   physical_policy_uuid:
     description:
     - The UUID of the Interface Setting Policy.
-    - This is only required when creating a new Port Channel Interface.
+    - This is only required when creating a new Interface Setting Policy.
     - This parameter is required when O(physical_interface_type) is C(physical).
     - This parameter can be used instead of O(physical_policy).
     type: str
@@ -75,23 +75,23 @@ options:
     suboptions:
       name:
         description:
-        - The name of the Port Channel Interface Setting Policy.
+        - The name of the Interface Setting Policy.
         type: str
       template:
         description:
-        - The name of the template in which is referred the Port Channel Interface Policy Group.
+        - The name of the template in which is referred the Interface Setting Policy.
         type: str
     aliases: [ policy, interface_policy, interface_policy_group, interface_setting ]
   breakout_mode:
     description:
-    - The breakout mode enabled splitting of the ethernet ports.
+    - Breakout mode enables breaking down an ethernet port into multiple low-speed ports.
     - This parameter is available only when O(physical_interface_type) is C(breakout).
     - The default value is C(4x10G).
     type: str
     choices: [ 4x10G, 4x25G, 4x100G ]
   interface_descriptions:
     description:
-    - The interface settings defined in the interface settings policy will be applied to the interfaces on the nodes you provided.
+    - The interface settings defined in the interface settings policy will be applied to the interfaces on the node IDs configured in C(nodes).
     type: list
     elements: dict
     suboptions:
@@ -124,83 +124,83 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-- name: Create an physical interface physical_interface_type physical
+- name: Create a Physical Interface with physical_interface_type set to physical
   cisco.mso.ndo_physical_interface:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  physical_interface: ansible_test_physical_interface_physical
-  description: "physical interface for Ansible Test"
-  nodes: [101]
-  interfaces: "1/1"
-  physical_interface_type: physical
-  physical_policy: ansible_test_interface_setting_policy_uuid
-  state: present
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    name: ansible_test_physical_interface_physical
+    description: "Physical Interface for Ansible Test"
+    nodes: [101]
+    interfaces: "1/1"
+    physical_interface_type: physical
+    physical_policy: ansible_test_interface_setting_policy_uuid
+    state: present
 
-- name: Create an physical interface physical_interface_type breakout
+- name: Create a Physical Interface with physical_interface_type set to breakout
   cisco.mso.ndo_physical_interface:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  physical_interface: ansible_test_physical_interface_breakout
-  description: "breakout interface for Ansible Test"
-  nodes: [101]
-  interfaces: "1/1"
-  physical_interface_type: breakout
-  breakout_mode: 4x25G
-  interface_descriptions:
-    - interface_id: "1/1"
-      description: "Interface description for 1/1"
-  state: present
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    name: ansible_test_physical_interface_breakout
+    description: "breakout interface for Ansible Test"
+    nodes: [101]
+    interfaces: "1/1"
+    physical_interface_type: breakout
+    breakout_mode: 4x25G
+    interface_descriptions:
+      - interface_id: "1/1"
+        description: "Interface description for 1/1"
+    state: present
 
 - name: Query all physical interfaces
   cisco.mso.ndo_physical_interface:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  state: query
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    state: query
   register: query_all
 
-- name: Query a specific physical interface with name
+- name: Query a specific Physical Interface with name
   cisco.mso.ndo_physical_interface:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  physical_interface: ansible_test_physical_interface_physical
-  state: query
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    name: ansible_test_physical_interface_physical
+    state: query
   register: query_one_name
 
-- name: Query a specific physical interface with UUID
+- name: Query a specific Physical Interface with UUID
   cisco.mso.ndo_physical_interface:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  physical_interface_uuid: ansible_test_physical_interface_uuid
-  state: query
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    uuid: "{{ query_one_name.current.uuid }}"
+    state: query
   register: query_one_uuid
 
-- name: Delete an physical interface with name
+- name: Delete a Physical Interface with name
   cisco.mso.ndo_physical_interface:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  physical_interface: ansible_test_physical_interface_physical
-  state: absent
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    name: ansible_test_physical_interface_physical
+    state: absent
 
-- name: Delete an physical interface with UUID
+- name: Delete a Physical Interface with UUID
   cisco.mso.ndo_physical_interface:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  physical_interface_uuid: ansible_test_physical_interface_uuid
-  state: absent
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    uuid: "{{ query_one_uuid.current.uuid }}"
+    state: absent
 """
 
 RETURN = r"""
@@ -211,6 +211,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import (
     MSOModule,
     mso_argument_spec,
+    format_interface_descriptions,
 )
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 import copy
@@ -221,8 +222,8 @@ def main():
     argument_spec.update(
         dict(
             template=dict(type="str", required=True),
-            physical_interface=dict(type="str", aliases=["name"]),
-            physical_interface_uuid=dict(type="str", aliases=["uuid"]),
+            name=dict(type="str", aliases=["physical_interface"]),
+            uuid=dict(type="str", aliases=["physical_interface_uuid"]),
             description=dict(type="str"),
             nodes=dict(type="list", elements="int"),
             interfaces=dict(type="list", elements="str"),
@@ -253,8 +254,8 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "present", ["physical_interface", "physical_interface_uuid"], True],
-            ["state", "absent", ["physical_interface", "physical_interface_uuid"], True],
+            ["state", "present", ["name", "uuid"], True],
+            ["state", "absent", ["name", "uuid"], True],
         ],
         mutually_exclusive=[("physical_policy", "breakout_mode"), ("physical_policy", "physical_policy_uuid")],
     )
@@ -262,8 +263,8 @@ def main():
     mso = MSOModule(module)
 
     template = module.params.get("template")
-    physical_interface = module.params.get("physical_interface")
-    physical_interface_uuid = module.params.get("physical_interface_uuid")
+    name = module.params.get("name")
+    uuid = module.params.get("uuid")
     description = module.params.get("description")
     nodes = module.params.get("nodes")
     if nodes:
@@ -284,83 +285,80 @@ def main():
     mso_template = MSOTemplate(mso, "fabric_resource", template)
     mso_template.validate_template("fabricResource")
 
-    path = "/fabricResourceTemplate/template/interfaceProfiles"
     object_description = "Physical Interface Profile"
 
-    existing_interface_policies = mso_template.template.get("fabricResourceTemplate", {}).get("template", {})
-    if existing_interface_policies.get("interfaceProfiles") is not None:
-        existing_interface_policies = existing_interface_policies.get("interfaceProfiles")
-    else:
-        existing_interface_policies = []
+    existing_physical_interfaces = mso_template.template.get("fabricResourceTemplate", {}).get("template", {}).get("interfaceProfiles", [])
 
-    if physical_interface or physical_interface_uuid:
+    if state in ["query", "absent"] and not existing_physical_interfaces:
+        mso.exit_json()
+    elif state == "query" and not (name or uuid):
+        mso.existing = existing_physical_interfaces
+    elif existing_physical_interfaces and (name or uuid):
         match = mso_template.get_object_by_key_value_pairs(
-            object_description,
-            existing_interface_policies,
-            [KVPair("uuid", physical_interface_uuid) if physical_interface_uuid else KVPair("name", physical_interface)],
+            object_description, existing_physical_interfaces, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
         )
         if match:
+            physical_policy_path = "/fabricResourceTemplate/template/interfaceProfiles/{0}".format(match.index)
             mso.existing = mso.previous = copy.deepcopy(match.details)
-    else:
-        mso.existing = mso.previous = existing_interface_policies
 
     if state == "present":
+        if uuid and not mso.existing:
+            mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
         if physical_policy and not physical_policy_uuid:  # check this part and see if this is required or use mutually_exclusive
             fabric_policy_template = MSOTemplate(mso, "fabric_policy", physical_policy.get("template"))
             fabric_policy_template.validate_template("fabricPolicy")
             physical_policy_uuid = fabric_policy_template.get_interface_policy_group_uuid(physical_policy.get("name"))
 
-        if match:
+        if mso.existing:
+            proposed_payload = copy.deepcopy(match.details)
 
             if physical_interface_type and match.details.get("policyGroupType") != physical_interface_type:
                 mso.fail_json(msg="ERROR: Physical Interface type cannot be changed.")
 
-            if physical_interface and match.details.get("name") != physical_interface:
-                ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=physical_interface))
-                match.details["name"] = physical_interface
+            if name and match.details.get("name") != name:
+                ops.append(dict(op="replace", path=physical_policy_path + "/name", value=name))
+                proposed_payload["name"] = name
 
             if description is not None and match.details.get("description") != description:
-                ops.append(dict(op="replace", path="{0}/{1}/description".format(path, match.index), value=description))
-                match.details["description"] = description
+                ops.append(dict(op="replace", path=physical_policy_path + "/description", value=description))
+                proposed_payload["description"] = description
 
             if nodes and match.details.get("nodes") != nodes:
-                ops.append(dict(op="replace", path="{0}/{1}/nodes".format(path, match.index), value=nodes))
-                match.details["nodes"] = nodes
+                ops.append(dict(op="replace", path=physical_policy_path + "/nodes", value=nodes))
+                proposed_payload["nodes"] = nodes
 
             if physical_policy_uuid and match.details.get("policy") != physical_policy_uuid:
-                ops.append(dict(op="replace", path="{0}/{1}/policy".format(path, match.index), value=physical_policy_uuid))
-                match.details["policy"] = physical_policy_uuid
+                ops.append(dict(op="replace", path=physical_policy_path + "/policy", value=physical_policy_uuid))
+                proposed_payload["policy"] = physical_policy_uuid
 
             if breakout_mode and match.details.get("breakoutMode") != breakout_mode:
-                ops.append(dict(op="replace", path="{0}/{1}/breakoutMode".format(path, match.index), value=breakout_mode))
-                match.details["breakoutMode"] = breakout_mode
+                ops.append(dict(op="replace", path=physical_policy_path + "/breakoutMode", value=breakout_mode))
+                proposed_payload["breakoutMode"] = breakout_mode
 
             if interfaces and interfaces != match.details.get("interfaces"):
-                ops.append(dict(op="replace", path="{0}/{1}/interfaces".format(path, match.index), value=interfaces))
-                match.details["interfaces"] = interfaces
+                ops.append(dict(op="replace", path=physical_policy_path + "/interfaces", value=interfaces))
+                proposed_payload["interfaces"] = interfaces
 
             # Node changes are not reflected on UI
             if interface_descriptions and match.details.get("interfaceDescriptions") != interface_descriptions:
-                updated_interface_descriptions = validate_interface_description(interface_descriptions)
-                ops.append(dict(op="replace", path="{0}/{1}/interfaceDescriptions".format(path, match.index), value=updated_interface_descriptions))
-                match.details["interfaceDescriptions"] = updated_interface_descriptions
+                updated_interface_descriptions = format_interface_descriptions(interface_descriptions, "")
+                ops.append(dict(op="replace", path=physical_policy_path + "/interfaceDescriptions", value=updated_interface_descriptions))
+                proposed_payload["interfaceDescriptions"] = updated_interface_descriptions
             elif interface_descriptions == [] and match.details.get("interfaceDescriptions"):
-                ops.append(dict(op="remove", path="{0}/{1}/interfaceDescriptions".format(path, match.index)))
+                ops.append(dict(op="remove", path=physical_policy_path + "/interfaceDescriptions"))
 
-            mso.sanitize(match.details)
+            mso.sanitize(proposed_payload, collate=True)
 
         else:
             if not nodes:
                 mso.fail_json(msg=("ERROR: Missing 'nodes' for creating a Physical Interface."))
 
             if not physical_interface_type:
-                mso.fail_json(msg=("ERROR: Missing physical interface type for creating a Physical Interface."))
+                mso.fail_json(msg=("ERROR: Missing Physical Interface type for creating a Physical Interface."))
 
             payload = {
-                "name": physical_interface,
-                "templateId": mso_template.template.get("templateId"),
-                "schemaId": mso_template.template.get("schemaId"),
+                "name": name,
                 "nodes": nodes,
                 "interfaces": interfaces,
                 "policyGroupType": physical_interface_type,
@@ -376,46 +374,27 @@ def main():
                 payload["breakoutMode"] = breakout_mode
 
             if interface_descriptions:
-                payload["interfaceDescriptions"] = validate_interface_description(interface_descriptions)
-
-            ops.append(dict(op="add", path="{0}/-".format(path), value=copy.deepcopy(payload)))
+                payload["interfaceDescriptions"] = format_interface_descriptions(interface_descriptions, "")
 
             mso.sanitize(payload)
-
-        mso.existing = mso.proposed
+            ops.append(dict(op="add", path="/fabricResourceTemplate/template/interfaceProfiles/-", value=mso.sent))
 
     elif state == "absent":
         if match:
-            ops.append(dict(op="remove", path="{0}/{1}".format(path, match.index)))
+            ops.append(dict(op="remove", path=physical_policy_path))
 
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)
-        interface_policies = response.get("fabricResourceTemplate", {}).get("template", {}).get("interfaceProfiles", [])
-        match = mso_template.get_object_by_key_value_pairs(
-            object_description,
-            interface_policies,
-            [KVPair("uuid", physical_interface_uuid) if physical_interface_uuid else KVPair("name", physical_interface)],
-        )
+        physical_interfaces = response.get("fabricResourceTemplate", {}).get("template", {}).get("interfaceProfiles", [])
+        match = mso_template.get_object_by_key_value_pairs(object_description, physical_interfaces, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
         if match:
-            mso.existing = match.details
+            mso.existing = match.details  # When the state is present
         else:
-            mso.existing = {}
-    elif module.check_mode and state != "query":
+            mso.existing = {}  # When the state is absent
+    elif module.check_mode and state != "query":  # When the state is present/absent with check mode
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
-
-
-def validate_interface_description(interface_descriptions):
-    interface_descriptions = [
-        {
-            "interfaceID": interface_description.get("interface_id"),
-            "description": interface_description.get("description"),
-        }
-        for interface_description in interface_descriptions
-    ]
-
-    return interface_descriptions
 
 
 if __name__ == "__main__":

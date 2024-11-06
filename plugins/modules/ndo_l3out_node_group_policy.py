@@ -51,14 +51,9 @@ options:
   bfd:
     description:
     - The Bidirectional Forwarding Detection (BFD) multi-hop configuration of the L3Out Node Group Policy.
+    - Providing an empty dictionary will remove the O(bfd={}) from the L3Out Node Group Policy.
     type: dict
     suboptions:
-      state:
-        description:
-        - Use C(enabled) to configure the BFD multi-hop.
-        - Use C(disabled) to remove the BFD multi-hop.
-        type: str
-        choices: [ enabled, disabled ]
       auth:
         description:
         - The BFD multi-hop authentication of the L3Out Node Group Policy.
@@ -189,7 +184,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP
-from ansible_collections.cisco.mso.plugins.module_utils.utils import generate_api_endpoint
+from ansible_collections.cisco.mso.plugins.module_utils.utils import generate_api_endpoint, check_if_all_elements_are_none
 
 
 def main():
@@ -203,7 +198,6 @@ def main():
         bfd=dict(
             type="dict",
             options=dict(
-                state=dict(type="str", choices=["enabled", "disabled"]),
                 auth=dict(type="str", choices=["enabled", "disabled"], aliases=["bfd_multi_hop_authentication"]),
                 key_id=dict(type="int"),
                 key=dict(type="str", no_log=True),
@@ -285,10 +279,10 @@ def main():
                 proposed_payload["nodeRoutingPolicyRef"] = node_routing_policy
 
             if bfd:
-                if bfd.get("state") == "disabled" and proposed_payload.get("bfdMultiHop"):
+                if check_if_all_elements_are_none(list(bfd.values())) and proposed_payload.get("bfdMultiHop"):
                     proposed_payload.pop("bfdMultiHop")
                     ops.append(dict(op="remove", path=node_group_policy_path + "/bfdMultiHop"))
-                else:
+                elif not check_if_all_elements_are_none(list(bfd.values())):
                     if not proposed_payload.get("bfdMultiHop"):
                         proposed_payload["bfdMultiHop"] = dict()
                         ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop", value=dict()))
@@ -314,16 +308,14 @@ def main():
                         ops.append(dict(op="replace", path=node_group_policy_path + "/bfdMultiHop/key/value", value=bfd.get("key")))
                         proposed_payload["bfdMultiHop"]["key"] = dict(value=bfd.get("key"))
 
-            if target_dscp is not None and mso.existing.get("targetDscp") != target_dscp:
+            if target_dscp and mso.existing.get("targetDscp") != target_dscp:
                 ops.append(dict(op="replace", path=node_group_policy_path + "/targetDscp", value=target_dscp))
                 proposed_payload["targetDscp"] = target_dscp
 
             mso.sanitize(proposed_payload, collate=True)
         else:
             payload = dict(name=name)
-
-            if description:
-                payload["description"] = description
+            payload["description"] = description
 
             if l3out_node_routing_policy_object:
                 payload["nodeRoutingPolicyRef"] = l3out_node_routing_policy_object.details.get("uuid")
@@ -343,8 +335,7 @@ def main():
                 if bfd_multi_hop:
                     payload["bfdMultiHop"] = bfd_multi_hop
 
-            if target_dscp:
-                payload["targetDscp"] = target_dscp
+            payload["targetDscp"] = target_dscp
 
             mso.sanitize(payload)
             ops.append(dict(op="add", path=node_group_policy_path, value=payload))

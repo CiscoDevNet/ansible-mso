@@ -18,15 +18,6 @@ def generate_api_endpoint(path, **kwargs):
     :param kwargs: Keyword arguments representing query parameters. -> Dict
     :return: A string representing the full API endpoint with query parameters. -> Str
     """
-    # if not kwargs:
-    #     return path
-
-    # query_strings = ["{0}={1}".format(key, value) for key, value in kwargs.items()]
-    # query_string = "&".join(query_strings)
-    # full_url = "{0}?{1}".format(path, query_string)
-
-    # return full_url
-
     return path if not kwargs else "{0}?{1}".format(path, "&".join(["{0}={1}".format(key, value) for key, value in kwargs.items()]))
 
 

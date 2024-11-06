@@ -102,6 +102,8 @@ class MSOTemplate:
         :param fail_module: When match is not found fail the ansible module. -> Bool
         :return: The object. -> Dict | None
         """
+        if search_list is None or kv_list is None:
+            return None
         match, existing = self.get_object_from_list(search_list, kv_list)
         if not match and fail_module:
             msg = "Provided {0} with '{1}' not matching existing object(s): {2}".format(object_description, kv_list, ", ".join(existing))
@@ -214,7 +216,7 @@ class MSOTemplate:
         :param interface_policy_group: Name of the Interface Policy Group to search for -> Str
         :return: UUID of the Interface Policy Group. -> Str
         """
-        existing_policies = self.template.get("fabricPolicyTemplate", {}).get("template", {}).get("interfacePolicyGroups", [])
+        existing_policy_groups = self.template.get("fabricPolicyTemplate", {}).get("template", {}).get("interfacePolicyGroups", [])
         kv_list = [KVPair("name", interface_policy_group)]
-        match = self.get_object_by_key_value_pairs("Interface Policy Groups", existing_policies, kv_list, fail_module=True)
+        match = self.get_object_by_key_value_pairs("Interface Policy Groups", existing_policy_groups, kv_list, fail_module=True)
         return match.details.get("uuid")

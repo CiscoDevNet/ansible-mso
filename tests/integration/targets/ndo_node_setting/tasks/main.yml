@@ -426,6 +426,10 @@
         that:
           - query_all_ns_again is not changed
           - query_all_ns_again.current | length == 4
+          - "'ns1_new' in query_all_ns_again.current | map(attribute='name') | list"
+          - "'ns2' in query_all_ns_again.current | map(attribute='name') | list"
+          - "'ns3' in query_all_ns_again.current | map(attribute='name') | list"
+          - "'ns4' in query_all_ns_again.current | map(attribute='name') | list"
 
     - name: Remove ns4 Node Settings with UUID
       cisco.mso.ndo_node_setting:

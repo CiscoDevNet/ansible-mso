@@ -134,7 +134,7 @@ EXAMPLES = r"""
     state: present
 
 - name: Update a Port Channel Interface's name
-  cisco.mso.ndo_virtual_port_channel_interface:
+  cisco.mso.ndo_port_channel_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword

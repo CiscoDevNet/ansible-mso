@@ -455,6 +455,8 @@
         that:
           - query_all_node_group_policies is not changed
           - query_all_node_group_policies.current | length == 2
+          - "'node_group_policy_2' in query_all_node_group_policies.current | map(attribute='name') | list"
+          - "'node_group_policy_1' in query_all_node_group_policies.current | map(attribute='name') | list"
 
     - name: Create node_group_policy_30 with bfd_multi_hop_authentication enabled, key id and value
       cisco.mso.ndo_l3out_node_group_policy:

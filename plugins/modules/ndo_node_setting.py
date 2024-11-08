@@ -14,9 +14,9 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_node_setting
-short_description: Manage Fabric Policies Node Settings on Cisco Nexus Dashboard Orchestrator (NDO).
+short_description: Manage Fabric Policy Node Settings on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
-- Manage Fabric Policies Node Settings on Cisco Nexus Dashboard Orchestrator (NDO).
+- Manage Fabric Policy Node Settings on Cisco Nexus Dashboard Orchestrator (NDO).
 - This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Sabari Jaganathan (@sajagana)
@@ -24,28 +24,28 @@ options:
   template:
     description:
     - The name of the template.
-    - The template must be a Fabric Policies template.
+    - The template must be a Fabric Policy template.
     type: str
     required: true
     aliases: [ fabric_template ]
   name:
     description:
-    - The name of the Fabric Policies Node Settings.
+    - The name of the Fabric Policy Node Settings.
     type: str
     aliases: [ node_setting ]
   uuid:
     description:
-    - The UUID of the Fabric Policies Node Settings.
+    - The UUID of the Fabric Policy Node Settings.
     - This parameter is required when the O(name) needs to be updated.
     type: str
     aliases: [ node_setting_uuid ]
   description:
     description:
-    - The description of the Fabric Policies Node Settings.
+    - The description of the Fabric Policy Node Settings.
     type: str
   synce:
     description:
-    - The Synchronous Ethernet (SyncE) Interface Policy of the Fabric Policies Node Settings.
+    - The Synchronous Ethernet (SyncE) Interface Policy of the Fabric Policy Node Settings.
     type: dict
     suboptions:
       state:
@@ -66,7 +66,7 @@ options:
         choices: [ option_1, option_2_generation_1, option_2_generation_2 ]
   ptp:
     description:
-    - The Precision Time Protocol (PTP) of the Fabric Policies Node Settings.
+    - The Precision Time Protocol (PTP) of the Fabric Policy Node Settings.
     type: dict
     suboptions:
       state:
@@ -96,12 +96,12 @@ options:
     default: query
 notes:
 - The O(template) must exist before using this module in your playbook.
-  Use M(cisco.mso.ndo_template) to create the Fabric Policies template.
+  Use M(cisco.mso.ndo_template) to create the Fabric Policy template.
 extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-- name: Create a new Fabric Policies Node Setting
+- name: Create a new Fabric Policy Node Setting
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -111,7 +111,7 @@ EXAMPLES = r"""
     state: present
   register: create_ns1
 
-- name: Add SyncE config to the existing Fabric Policies Node Setting using Name
+- name: Add SyncE config to the existing Fabric Policy Node Setting using Name
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -123,7 +123,7 @@ EXAMPLES = r"""
       quality_level: option_2_generation_1
     state: present
 
-- name: Add PTP config to the existing Fabric Policies Node Setting using UUID
+- name: Add PTP config to the existing Fabric Policy Node Setting using UUID
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -136,7 +136,7 @@ EXAMPLES = r"""
       priority_2: 100
     state: present
 
-- name: Query an existing Fabric Policies Node Setting using UUID
+- name: Query an existing Fabric Policy Node Setting using UUID
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -146,7 +146,7 @@ EXAMPLES = r"""
     state: query
   register: query_with_uuid
 
-- name: Query an existing Fabric Policies Node Setting using Name
+- name: Query an existing Fabric Policy Node Setting using Name
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -156,7 +156,7 @@ EXAMPLES = r"""
     state: query
   register: query_with_name
 
-- name: Query all Fabric Policies Node Setting
+- name: Query all Fabric Policy Node Setting
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -165,7 +165,7 @@ EXAMPLES = r"""
     state: query
   register: query_all
 
-- name: Delete an existing Fabric Policies Node Setting using UUID
+- name: Delete an existing Fabric Policy Node Setting using UUID
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin
@@ -174,7 +174,7 @@ EXAMPLES = r"""
     uuid: "{{ create_ns1.current.uuid }}"
     state: absent
 
-- name: Delete an existing Fabric Policies Node Setting using Name
+- name: Delete an existing Fabric Policy Node Setting using Name
   cisco.mso.ndo_node_setting:
     host: mso_host
     username: admin

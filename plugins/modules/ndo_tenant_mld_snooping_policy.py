@@ -45,51 +45,56 @@ options:
   admin_state:
     description:
     - The administrative state of the MLD Snooping Policy.
-    - The default value is C(disabled).
+    - Defaults to C(disabled) when unset during creation.
     type: str
     choices: [ enabled, disabled ]
   fast_leave_control:
     description:
     - The fast leave control of the MLD Snooping Policy.
-    - The default value is C(disabled).
+    - Defaults to C(disabled) when unset during creation.
     type: str
     choices: [ enabled, disabled ]
   querier_control:
     description:
     - The querier control of the MLD Snooping Policy.
-    - The default value is C(disabled).
+    - Defaults to C(disabled) when unset during creation.
     type: str
     choices: [ enabled, disabled ]
   querier_version:
     description:
     - The querier version of the MLD Snooping Policy.
-    - The default value is C(v2).
+    - Defaults to C(v2) when unset during creation.
     type: str
     choices: [ v1, v2 ]
   query_interval:
     description:
     - The query interval of the MLD Snooping Policy.
-    - The default value is C(125).
+    - Defaults to 125 when unset during creation.
+    - The value must be between 1 and 18000.
     type: int
   query_response_interval:
     description:
     - The query response interval of the MLD Snooping Policy.
-    - The default value is C(10).
+    - Defaults to 10 when unset during creation.
+    - The value must be between 1 and 25.
     type: int
   last_member_query_interval:
     description:
     - The last member query interval of the MLD Snooping Policy.
-    - The default value is C(1).
+    - Defaults to 1 when unset during creation.
+    - The value must be between 1 and 25.
     type: int
   start_query_interval:
     description:
     - The start query interval of the MLD Snooping Policy.
-    - The default value is C(31).
+    - Defaults to 31 when unset during creation.
+    - The value must be between 1 and 18000.
     type: int
   start_query_count:
     description:
     - The start query count of the MLD Snooping Policy.
-    - The default value is C(2).
+    - Defaults to 2 when unset during creation.
+    - The value must be between 1 and 10.
     type: int
   state:
     description:

@@ -11,8 +11,8 @@ See the [cisco.mso collection index](https://galaxy.ansible.com/ui/repo/publishe
 
 ## Requirements
 
-- Ansible v2.15 or newer
-- Python v3.10 or newer
+- Ansible v2.15+
+- Python v3.10+
 
 Follow the [Installing Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html) guide for detailed instructions.
 

@@ -389,7 +389,7 @@
     - name: Update a Interface Policy group of interface_type 'physical' with MCP strict_mode off
       cisco.mso.ndo_interface_setting: &update_mcp
         <<: *update_interface_policy_group
-        interface_policy_group_uuid: '{{ nm_update_interface_policy_group.current.uuid }}'
+        uuid: '{{ nm_update_interface_policy_group.current.uuid }}'
         interface_policy_group: ansible_interface_policy_group_changed
         domains: []
         mcp:
@@ -457,7 +457,7 @@
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy_group_uuid: '{{ nm_add_interface_policy_group.current.uuid }}'
+        uuid: '{{ nm_add_interface_policy_group.current.uuid }}'
         state: query
       register: query_one_uuid
 
@@ -703,7 +703,7 @@
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy_group_uuid: '{{ query_one.current.uuid }}'
+        uuid: '{{ query_one.current.uuid }}'
         state: absent
       register: nm_delete_interface_policy_group_uuid
 

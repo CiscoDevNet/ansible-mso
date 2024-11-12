@@ -32,10 +32,10 @@ options:
     - The name of the interface policy group.
     type: str
     aliases: [ name, interface_setting ]
-  interface_policy_group_uuid:
+  uuid:
     description:
     - The UUID of the interface policy group.
-    - This parameter is required when the O(interface_policy_group) needs to be updated.
+    - This parameter is required when the O(interface_policy_group) attribute needs to be updated.
     type: str
     aliases: [ uuid, interface_setting_uuid ]
   description:
@@ -50,19 +50,19 @@ options:
     choices: [ physical, port_channel ]
   speed:
     description:
-    - The data transfer rate for the port in interface policy group.
+    - The port speed for the port(s) associated with the interface policy group.
     - The default value is C(inherit).
     type: str
     choices: [ 100M, 1G, 10G, 25G, 40G, 50G, 100G, 200G, 400G, inherit ]
   auto_negotiation:
     description:
-    - The auto negotiation of the port in interface policy group.
+    - The auto negotiation state of the port(s) in the interface policy group.
     - The default value is C(on).
     type: str
     choices: [ 'on', 'off', on_enforce ]
   vlan_scope:
     description:
-    - The VLAN encapsulation value to map to EPG.
+    - The scope of the VLAN encapsulation of the port(s) in the interface policy group.
     - The default value is C(global).
     type: str
     choices: [ global, port_local ]
@@ -89,21 +89,21 @@ options:
     choices: [ static_channel_mode_on, lacp_passive, lacp_active, mac_pinning, mac_pinning_physical_nic_load, use_explicit_failover_order ]
   min_links:
     description:
-    - The minimum links of the interface policy group.
+    - The minimum number of active links in a port-channel of the interface policy group.
     - The default value is 1.
     - The value must be between 1 and 16.
     - The value is available only when the interface_type is C(port_channel).
     type: int
   max_links:
     description:
-    - The maximum links of the interface policy group.
+    - The maximum number of links in a port-channel of the interface policy group.
     - The default value is 16.
     - The value must be between 1 and 64.
     - The value is available only when the interface_type is C(port_channel).
     type: int
   controls:
     description:
-    - The controls of the interface policy group.
+    - The port-channel control flags of the interface policy group.
     - The default value is C(fast_sel_hot_stdby), C(graceful_conv), C(susp_individual).
     - The value is available only when the interface_type is C(port_channel).
     - Providing an empty list will remove the O(controls) from the interface policy.
@@ -113,7 +113,7 @@ options:
     choices: [ fast_sel_hot_stdby, graceful_conv, susp_individual, load_defer, symmetric_hash ]
   load_balance_hashing:
     description:
-    - The load balance hashing of the interface policy group.
+    - The IP header information used by the port-channel load balance hashing algorithm of the interface policy group.
     - The value is available only when the interface_type is C(port_channel).
     type: str
     choices: [ destination_ip, layer_4_destination_ip, layer_4_source_ip, source_ip ]
@@ -136,30 +136,31 @@ options:
     type: int
   link_level_fec:
     description:
-    - The Forwarding Error Correction (FEC) is used for obtaining error control in data transmission.
+    - The type of Forwarding Error Correction (FEC) used by the port(s) in the interface policy group.
     - The default value is C(inherit).
     type: str
     choices: [ inherit, cl74_fc_fec, cl91_rs_fec, cons16_rs_fec, ieee_rs_fec, kp_fec, disable_fec ]
   l2_interface_qinq:
     description:
-    - The QinQ enables mapping double-tagged VLAN traffic.
+    - The QinQ state for the port(s) in the interface policy group to define how to map double-tagged VLAN traffic.
     - The default value is C(disabled).
     type: str
     choices: [ core_port, double_q_tag_port, edge_port, disabled ]
   l2_interface_reflective_relay:
     description:
-    - The reflective relay enabled forwarding traffic.
+    - The state of the reflective relay (802.1Qbg) to allows traffic to turn back out of the same port it came in on.
+    - The term Virtual Ethernet Port Aggregator (VEPA) is also used to describe 802.1Qbg functionality.
     - The default value is C(disabled).
     type: str
     choices: [ enabled, disabled ]
   lldp:
     description:
-    - The Link Layer Discovery Protocol (LLDP) on the interface.
+    - The Link Layer Discovery Protocol (LLDP) configuration of the interface policy group.
     type: dict
     suboptions:
       status:
         description:
-        - The status enables LLDP on the interface.
+        - The state of LLDP on the interface.
         - The default value is C(enabled).
         type: str
         choices: [ enabled, disabled ]
@@ -177,15 +178,15 @@ options:
         choices: [ enabled, disabled ]
   stp_bpdu_filter:
     description:
-    - Enabling the Bridge Protocol Data Unit (BPDU) filter prevents any BPDUs on the port.
+    - Enabling the Bridge Protocol Data Unit (BPDU) filter prevents any BPDUs on the port(s)
+    - in the interface policy group by filtering the BPDUs.
     - Disabling the BPDU filter allows BPDUs to be received on the port.
     - The default value is C(disabled).
     type: str
     choices: [ enabled, disabled ]
   stp_bpdu_guard:
     description:
-    - Enabling the STP BPDU guard prevents the port from receiving BPDUs.
-    - When C(enabled) the BPDUs are received on the port is put into 'errdisable' mode.
+    - Enabling the STP BPDU guard shutdown the port(s) by placing them in 'error-disable' mode when BPDUs are received.
     - Disabling the STP BPDU guard allows BPDUs to be received on the port.
     - The default value is C(disabled).
     type: str
@@ -294,118 +295,118 @@ extends_documentation_fragment: cisco.mso.modules
 EXAMPLES = r"""
 - name: Create an Interface policy group of interface_type physical
   cisco.mso.ndo_interface_setting:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  interface_policy_group: ansible_test_interface_policy_group_physical
-  description: "Interface Policy Group for Ansible Test"
-  interface_type: physical
-  state: present
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    interface_policy_group: ansible_test_interface_policy_group_physical
+    description: "Interface Policy Group for Ansible Test"
+    interface_type: physical
+    state: present
 
 - name: Create an Interface policy group of interface_type port_channel
   cisco.mso.ndo_interface_setting:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  interface_policy_group: ansible_test_interface_policy_group_port_channel
-  description: "Interface Policy Group for Ansible Test"
-  interface_type: port_channel
-  state: present
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    interface_policy_group: ansible_test_interface_policy_group_port_channel
+    description: "Interface Policy Group for Ansible Test"
+    interface_type: port_channel
+    state: present
 
 - name: Create an Interface policy group with all attributes
   cisco.mso.ndo_interface_setting:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  interface_policy_group: ansible_test_interface_policy_group_all
-  description: "Interface Policy Group for Ansible Test"
-  interface_type: port_channel
-  speed: 1G
-  auto_negotiation: on_enforce
-  vlan_scope: port_local
-  cdp_admin_state: enabled
-  port_channel_mode: lacp_active
-  min_links: 1
-  max_links: 16
-  controls: ["fast_sel_hot_stdby", "graceful_conv", "susp_individual"]
-  load_balance_hashing: destination_ip
-  synce: ansible_test_sync_e
-  link_level_debounce_interval: 100
-  link_level_bring_up_delay: 0
-  link_level_fec: ieee_rs_fec
-  l2_interface_qinq: edge_port
-  l2_interface_reflective_relay: enabled
-  lldp:
-    status: enabled
-    transmit_state: enabled
-    receive_state: enabled
-  domains:
-    - ansible_test_domain1
-    - ansible_test_domain2
-  stp_bpdu_filter: enabled
-  stp_bpdu_guard: enabled
-  llfc_transmit_state: enabled
-  llfc_receive_state: enabled
-  mcp:
-    admin_state: enabled
-    strict_mode: 'on'
-    initial_delay_time: 180
-    transmission_frequency_sec: 2
-    transmission_frequency_msec: 10
-    grace_period_sec: 3
-    grace_period_msec: 10
-  pfc_admin_state: 'on'
-  state: present
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    interface_policy_group: ansible_test_interface_policy_group_all
+    description: "Interface Policy Group for Ansible Test"
+    interface_type: port_channel
+    speed: 1G
+    auto_negotiation: on_enforce
+    vlan_scope: port_local
+    cdp_admin_state: enabled
+    port_channel_mode: lacp_active
+    min_links: 1
+    max_links: 16
+    controls: ["fast_sel_hot_stdby", "graceful_conv", "susp_individual"]
+    load_balance_hashing: destination_ip
+    synce: ansible_test_sync_e
+    link_level_debounce_interval: 100
+    link_level_bring_up_delay: 0
+    link_level_fec: ieee_rs_fec
+    l2_interface_qinq: edge_port
+    l2_interface_reflective_relay: enabled
+    lldp:
+      status: enabled
+      transmit_state: enabled
+      receive_state: enabled
+    domains:
+      - ansible_test_domain1
+      - ansible_test_domain2
+    stp_bpdu_filter: enabled
+    stp_bpdu_guard: enabled
+    llfc_transmit_state: enabled
+    llfc_receive_state: enabled
+    mcp:
+      admin_state: enabled
+      strict_mode: 'on'
+      initial_delay_time: 180
+      transmission_frequency_sec: 2
+      transmission_frequency_msec: 10
+      grace_period_sec: 3
+      grace_period_msec: 10
+    pfc_admin_state: 'on'
+    state: present
 
 - name: Query all Interface policy groups
   cisco.mso.ndo_interface_setting:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  state: query
-  register: query_all
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    state: query
+    register: query_all
 
 - name: Query a specific Interface policy group with name
   cisco.mso.ndo_interface_setting:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  interface_policy_group: ansible_test_interface_policy_group_physical
-  state: query
-  register: query_one_name
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    interface_policy_group: ansible_test_interface_policy_group_physical
+    state: query
+    register: query_one_name
 
 - name: Query a specific Interface policy group with UUID
   cisco.mso.ndo_interface_setting:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  interface_policy_group_uuid: ansible_test_interface_policy_group_uuid
-  state: query
-  register: query_one_uuid
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    uuid: "{{ query_one_name.current.uuid }}"
+    state: query
+    register: query_one_uuid
 
 - name: Delete an Interface policy group with name
   cisco.mso.ndo_interface_setting:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  interface_policy_group: ansible_test_interface_policy_group_physical
-  state: absent
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    interface_policy_group: ansible_test_interface_policy_group_physical
+    state: absent
 
 - name: Delete an Interface policy group with UUID
   cisco.mso.ndo_interface_setting:
-  host: mso_host
-  username: admin
-  password: SomeSecretPassword
-  template: ansible_test_template
-  interface_policy_group_uuid: ansible_test_interface_policy_group_uuid
-  state: absent
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test_template
+    uuid: "{{ query_one_name.current.uuid }}"
+    state: absent
 """
 
 RETURN = r"""
@@ -431,7 +432,7 @@ def main():
         dict(
             template=dict(type="str", required=True),
             interface_policy_group=dict(type="str", aliases=["name", "interface_setting"]),
-            interface_policy_group_uuid=dict(type="str", aliases=["uuid", "interface_setting_uuid"]),
+            uuid=dict(type="str", aliases=["uuid", "interface_setting_uuid"]),
             description=dict(type="str"),
             interface_type=dict(type="str", choices=["physical", "port_channel"]),
             speed=dict(type="str", choices=["100M", "1G", "10G", "25G", "40G", "50G", "100G", "200G", "400G", "inherit"]),
@@ -484,8 +485,8 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "present", ["interface_policy_group", "interface_policy_group_uuid"], True],
-            ["state", "absent", ["interface_policy_group", "interface_policy_group_uuid"], True],
+            ["state", "present", ["interface_policy_group", "uuid"], True],
+            ["state", "absent", ["interface_policy_group", "uuid"], True],
         ],
     )
 
@@ -493,7 +494,7 @@ def main():
 
     template = module.params.get("template")
     interface_policy_group = module.params.get("interface_policy_group")
-    interface_policy_group_uuid = module.params.get("interface_policy_group_uuid")
+    uuid = module.params.get("uuid")
     description = module.params.get("description")
     interface_type = module.params.get("interface_type")
     if interface_type == "port_channel":
@@ -542,11 +543,11 @@ def main():
     template_info = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {})
 
     existing_interface_policies = template_info.get("interfacePolicyGroups", [])
-    if interface_policy_group or interface_policy_group_uuid:
+    if interface_policy_group or uuid:
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
             existing_interface_policies,
-            [KVPair("uuid", interface_policy_group_uuid) if interface_policy_group_uuid else KVPair("name", interface_policy_group)],
+            [KVPair("uuid", uuid) if uuid else KVPair("name", interface_policy_group)],
         )
         if match:
             mso.existing = mso.previous = copy.deepcopy(match.details)
@@ -821,7 +822,7 @@ def main():
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
             interface_policies,
-            [KVPair("uuid", interface_policy_group_uuid) if interface_policy_group_uuid else KVPair("name", interface_policy_group)],
+            [KVPair("uuid", uuid) if uuid else KVPair("name", interface_policy_group)],
         )
         if match:
             mso.existing = match.details

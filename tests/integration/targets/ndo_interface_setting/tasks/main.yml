@@ -94,7 +94,7 @@
       cisco.mso.ndo_interface_setting: &add_interface_policy_group
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy_group: ansible_interface_policy_group
+        name: ansible_interface_policy_group
         interface_type: physical
         state: present
       check_mode: true
@@ -184,7 +184,7 @@
       cisco.mso.ndo_interface_setting: &add_interface_policy_group_pc
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy_group: ansible_interface_policy_group_pc
+        name: ansible_interface_policy_group_pc
         interface_type: port_channel
         speed: 100G
         auto_negotiation: on_enforce
@@ -384,19 +384,20 @@
           - cm_update_interface_policy_group.current.domains[0] == nm_update_interface_policy_group.current.domains[0]
           - cm_update_interface_policy_group.current.domains[1] == nm_update_interface_policy_group.current.domains[1]
           - update_interface_policy_group_again is not changed
+          - update_interface_policy_group_again.previous == update_interface_policy_group_again.current
 
-    # Update Interface Policy group name with mcp_strict_mode off
+    # Update Interface Policy group name with mcp_strict_mode off and remove domains
     - name: Update a Interface Policy group of interface_type 'physical' with MCP strict_mode off
       cisco.mso.ndo_interface_setting: &update_mcp
         <<: *update_interface_policy_group
         uuid: '{{ nm_update_interface_policy_group.current.uuid }}'
-        interface_policy_group: ansible_interface_policy_group_changed
+        name: ansible_interface_policy_group_changed
         domains: []
         mcp:
           strict_mode: off
       register: nm_update_interface_policy_name
 
-    - name: Updated a Interface Policy group of interface_type 'physical' with MCP adminState enabled and remove control
+    - name: Updated a Interface Policy group of interface_type 'physical' with MCP adminState disabled and remove control
       cisco.mso.ndo_interface_setting:
         <<: *update_mcp
         controls: []
@@ -441,7 +442,7 @@
     - name: Query one Interface Policy group in a template with name
       cisco.mso.ndo_interface_setting:
         <<: *query_interface_policy_group
-        interface_policy_group: ansible_interface_policy_group
+        name: ansible_interface_policy_group
       register: query_one
 
     - name: Verify query_one and query_all
@@ -472,7 +473,7 @@
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy_group: ansible_interface_policy_group_without_interface_type
+        name: ansible_interface_policy_group_without_interface_type
         state: present
       ignore_errors: true
       register: interface_policy_group_without_interface_type
@@ -488,7 +489,7 @@
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy_group: ansible_interface_policy_group_2
+        name: ansible_interface_policy_group_2
         interface_type: physical
         lldp:
           status: disabled
@@ -510,7 +511,7 @@
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy_group: ansible_interface_policy_group_2
+        name: ansible_interface_policy_group_2
         interface_type: physical
         domains: ["non_existing_domain"]
         state: present
@@ -528,7 +529,7 @@
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy_group: ansible_interface_policy_group_2
+        name: ansible_interface_policy_group_2
         interface_type: physical
         synce: non_existing_synce_interface_policy
         state: present
@@ -546,7 +547,7 @@
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy_group: ansible_interface_policy_group_2
+        name: ansible_interface_policy_group_2
         interface_type: physical
         access_macsec_policy: non_existing_macsec_policy
         state: present
@@ -563,7 +564,7 @@
     - name: Create another Interface Policy group of interface_type 'physical'
       cisco.mso.ndo_interface_setting: &add_interface_policy_group_2
         <<: *add_interface_policy_group
-        interface_policy_group: ansible_interface_policy_group_2
+        name: ansible_interface_policy_group_2
         description: "Ansible test interface policy group"
         domains: ["ansible_physical_domain", "ansible_l3_domain"]
         synce: ansible_synce_interface_policy
@@ -672,7 +673,7 @@
       cisco.mso.ndo_interface_setting: &delete_interface_policy_group
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy_group: ansible_interface_policy_group_changed
+        name: ansible_interface_policy_group_changed
         state: absent
       check_mode: true
       register: cm_delete_interface_policy_group
@@ -716,12 +717,45 @@
           - nm_delete_interface_policy_group_uuid.previous.type == "physical"
           - nm_delete_interface_policy_group_uuid.current == {}
 
+    # Errors and no policies found
+    - name: Delete a Interface Policy group with name
+      cisco.mso.ndo_interface_setting:
+        <<: *delete_interface_policy_group
+        name: ansible_interface_policy_group_2
+      register: nm_delete_interface_policy_group
+
+    - name: Query all Interface Policy group in the template when all are deleted
+      cisco.mso.ndo_interface_setting:
+        <<: *query_interface_policy_group
+      register: query_all_none
+
+    - name: Update Interface Policy group with non-existing UUID
+      cisco.mso.ndo_interface_setting:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        uuid: non-existing-uuid
+        state: present
+      ignore_errors: true
+      register: update_non_existing_uuid
+
+    - name: Assert no Interface Policy group found
+      assert:
+        that:
+          - nm_delete_interface_policy_group is changed
+          - nm_delete_interface_policy_group.previous.name == "ansible_interface_policy_group_2"
+          - nm_delete_interface_policy_group.previous.type == "physical"
+          - nm_delete_interface_policy_group.current == {}
+          - query_all_none is not changed
+          - query_all_none.current == {}
+          - update_non_existing_uuid is failed
+          - update_non_existing_uuid.msg == "Interface Policy Groups with the UUID{{":"}} 'non-existing-uuid' not found"
+
     # Create Interface Policy group interface_type physical for coverage
     - name: Create a Interface Policy group of interface_type 'physical' without MCP admin_state
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy_group: ansible_interface_policy_group_cov
+        name: ansible_interface_policy_group_cov
         interface_type: physical
         mcp:
           strict_mode: off

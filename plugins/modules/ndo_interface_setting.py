@@ -27,17 +27,17 @@ options:
     - The template must be a fabric policy template.
     type: str
     required: true
-  interface_policy_group:
+  name:
     description:
     - The name of the interface policy group.
     type: str
-    aliases: [ name, interface_setting ]
+    aliases: [ interface_policy_group, interface_setting ]
   uuid:
     description:
     - The UUID of the interface policy group.
-    - This parameter is required when the O(interface_policy_group) attribute needs to be updated.
+    - This parameter is required when the O(name) attribute needs to be updated.
     type: str
-    aliases: [ uuid, interface_setting_uuid ]
+    aliases: [ interface_policy_group_uuid, interface_setting_uuid ]
   description:
     description:
     - The description of the interface policy group.
@@ -299,7 +299,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
-    interface_policy_group: ansible_test_interface_policy_group_physical
+    name: ansible_test_interface_policy_group_physical
     description: "Interface Policy Group for Ansible Test"
     interface_type: physical
     state: present
@@ -310,7 +310,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
-    interface_policy_group: ansible_test_interface_policy_group_port_channel
+    name: ansible_test_interface_policy_group_port_channel
     description: "Interface Policy Group for Ansible Test"
     interface_type: port_channel
     state: present
@@ -321,7 +321,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
-    interface_policy_group: ansible_test_interface_policy_group_all
+    name: ansible_test_interface_policy_group_all
     description: "Interface Policy Group for Ansible Test"
     interface_type: port_channel
     speed: 1G
@@ -376,7 +376,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
-    interface_policy_group: ansible_test_interface_policy_group_physical
+    name: ansible_test_interface_policy_group_physical
     state: query
     register: query_one_name
 
@@ -396,7 +396,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
-    interface_policy_group: ansible_test_interface_policy_group_physical
+    name: ansible_test_interface_policy_group_physical
     state: absent
 
 - name: Delete an Interface policy group with UUID
@@ -431,8 +431,8 @@ def main():
     argument_spec.update(
         dict(
             template=dict(type="str", required=True),
-            interface_policy_group=dict(type="str", aliases=["name", "interface_setting"]),
-            uuid=dict(type="str", aliases=["uuid", "interface_setting_uuid"]),
+            name=dict(type="str", aliases=["interface_policy_group", "interface_setting"]),
+            uuid=dict(type="str", aliases=["interface_policy_group_uuid", "interface_setting_uuid"]),
             description=dict(type="str"),
             interface_type=dict(type="str", choices=["physical", "port_channel"]),
             speed=dict(type="str", choices=["100M", "1G", "10G", "25G", "40G", "50G", "100G", "200G", "400G", "inherit"]),
@@ -485,15 +485,15 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "present", ["interface_policy_group", "uuid"], True],
-            ["state", "absent", ["interface_policy_group", "uuid"], True],
+            ["state", "present", ["name", "uuid"], True],
+            ["state", "absent", ["name", "uuid"], True],
         ],
     )
 
     mso = MSOModule(module)
 
     template = module.params.get("template")
-    interface_policy_group = module.params.get("interface_policy_group")
+    name = module.params.get("name")
     uuid = module.params.get("uuid")
     description = module.params.get("description")
     interface_type = module.params.get("interface_type")
@@ -537,182 +537,181 @@ def main():
     mso_template = MSOTemplate(mso, "fabric_policy", template)
     mso_template.validate_template("fabricPolicy")
 
-    path = "/fabricPolicyTemplate/template/interfacePolicyGroups"
     object_description = "Interface Policy Groups"
 
     template_info = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {})
 
     existing_interface_policies = template_info.get("interfacePolicyGroups", [])
-    if interface_policy_group or uuid:
+
+    if state in ["query", "absent"] and existing_interface_policies == []:
+        mso.exit_json()
+    elif state == "query" and not (name or uuid):
+        mso.existing = existing_interface_policies
+    elif existing_interface_policies and (name or uuid):
         match = mso_template.get_object_by_key_value_pairs(
-            object_description,
-            existing_interface_policies,
-            [KVPair("uuid", uuid) if uuid else KVPair("name", interface_policy_group)],
+            object_description, existing_interface_policies, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
         )
         if match:
+            interface_path = "/fabricPolicyTemplate/template/interfacePolicyGroups/{0}".format(match.index)
             mso.existing = mso.previous = copy.deepcopy(match.details)
-    else:
-        mso.existing = mso.previous = existing_interface_policies
 
     if state == "present":
+        if uuid and not mso.existing:
+            mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
-        if match:
-            if interface_policy_group and match.details.get("name") != interface_policy_group:
-                ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=interface_policy_group))
-                match.details["name"] = interface_policy_group
+        if mso.existing:
+            proposed_payload = copy.deepcopy(match.details)
 
-            if description is not None and match.details.get("description") != description:
-                ops.append(dict(op="replace", path="{0}/{1}/description".format(path, match.index), value=description))
-                match.details["description"] = description
+            if name and mso.existing.get("name") != name:
+                ops.append(dict(op="replace", path=interface_path + "/name", value=name))
+                proposed_payload["name"] = name
 
-            if interface_type and match.details.get("type") != interface_type:
+            if description is not None and mso.existing.get("description") != description:
+                ops.append(dict(op="replace", path=interface_path + "/description", value=description))
+                proposed_payload["description"] = description
+
+            if interface_type and mso.existing.get("type") != interface_type:
                 mso.fail_json(msg="Interface type cannot be changed.")
 
-            if domains:
+            if domains == []:
+                ops.append(dict(op="remove", path=interface_path + "/domains"))
+                proposed_payload.pop("domains", None)
+            elif domains:
                 domain_uuid = validate_domains(mso, domains, template, template_info)
-                if set(domain_uuid) != set(match.details.get("domains", [])):
-                    ops.append(dict(op="replace", path="{0}/{1}/domains".format(path, match.index), value=domain_uuid))
-                match.details["domains"] = domain_uuid
-            elif domains == []:
-                ops.append(dict(op="remove", path="{0}/{1}/domains".format(path, match.index)))
-                match.details.pop("domains", None)
+                if set(domain_uuid) != set(mso.existing.get("domains", [])):
+                    ops.append(dict(op="replace", path=interface_path + "/domains", value=domain_uuid))
+                proposed_payload["domains"] = domain_uuid
 
             if synce:
                 existing_sync_e = validate_sync_e(mso, synce, template, template_info)
-                if existing_sync_e[synce] != match.details.get("syncEthPolicy"):
-                    ops.append(dict(op="replace", path="{0}/{1}/syncEthPolicy".format(path, match.index), value=existing_sync_e[synce]))
-                    match.details["syncEthPolicy"] = existing_sync_e[synce]
+                if existing_sync_e[synce] != mso.existing.get("syncEthPolicy"):
+                    ops.append(dict(op="replace", path=interface_path + "/syncEthPolicy", value=existing_sync_e[synce]))
+                    proposed_payload["syncEthPolicy"] = existing_sync_e[synce]
 
             if access_macsec_policy:
                 existing_access_macsec_policy = validate_macsec_policy(mso, access_macsec_policy, template, template_info)
-                if existing_access_macsec_policy[access_macsec_policy] != match.details.get("accessMACsecPolicy"):
-                    ops.append(
-                        dict(
-                            op="replace",
-                            path="{0}/{1}/accessMACsecPolicy".format(path, match.index),
-                            value=existing_access_macsec_policy[access_macsec_policy],
-                        )
-                    )
-                    match.details["accessMACsecPolicy"] = existing_access_macsec_policy[access_macsec_policy]
+                if existing_access_macsec_policy[access_macsec_policy] != mso.existing.get("accessMACsecPolicy"):
+                    ops.append(dict(op="replace", path=interface_path + "/accessMACsecPolicy", value=existing_access_macsec_policy[access_macsec_policy]))
+                    proposed_payload["accessMACsecPolicy"] = existing_access_macsec_policy[access_macsec_policy]
 
-            if cdp_admin_state and match.details.get("cdp", {}).get("adminState") != cdp_admin_state:
-                ops.append(dict(op="replace", path="{0}/{1}/cdp/adminState".format(path, match.index), value=cdp_admin_state))
-                match.details["cdp"]["adminState"] = cdp_admin_state
+            if cdp_admin_state and mso.existing.get("cdp", {}).get("adminState") != cdp_admin_state:
+                ops.append(dict(op="replace", path=interface_path + "/cdp/adminState", value=cdp_admin_state))
+                proposed_payload["cdp"]["adminState"] = cdp_admin_state
 
-            if pfc_admin_state and match.details.get("pfc", {}).get("adminState") != pfc_admin_state:
-                ops.append(dict(op="replace", path="{0}/{1}/pfc/adminState".format(path, match.index), value=pfc_admin_state))
-                match.details["pfc"]["adminState"] = pfc_admin_state
+            if pfc_admin_state and mso.existing.get("pfc", {}).get("adminState") != pfc_admin_state:
+                ops.append(dict(op="replace", path=interface_path + "/pfc/adminState", value=pfc_admin_state))
+                proposed_payload["pfc"]["adminState"] = pfc_admin_state
 
-            if llfc_transmit_state and match.details.get("llfc", {}).get("transmitState") != llfc_transmit_state:
-                ops.append(dict(op="replace", path="{0}/{1}/llfc/transmitState".format(path, match.index), value=llfc_transmit_state))
-                match.details["llfc"]["transmitState"] = llfc_transmit_state
+            if llfc_transmit_state and mso.existing.get("llfc", {}).get("transmitState") != llfc_transmit_state:
+                ops.append(dict(op="replace", path=interface_path + "/llfc/transmitState", value=llfc_transmit_state))
+                proposed_payload["llfc"]["transmitState"] = llfc_transmit_state
 
-            if llfc_receive_state and match.details.get("llfc", {}).get("receiveState") != llfc_receive_state:
-                ops.append(dict(op="replace", path="{0}/{1}/llfc/receiveState".format(path, match.index), value=llfc_receive_state))
-                match.details["llfc"]["receiveState"] = llfc_receive_state
+            if llfc_receive_state and mso.existing.get("llfc", {}).get("receiveState") != llfc_receive_state:
+                ops.append(dict(op="replace", path=interface_path + "/llfc/receiveState", value=llfc_receive_state))
+                proposed_payload["llfc"]["receiveState"] = llfc_receive_state
 
-            if stp_bpdu_filter and match.details.get("stp", {}).get("bpduFilterEnabled") != stp_bpdu_filter:
-                ops.append(dict(op="replace", path="{0}/{1}/stp/bpduFilterEnabled".format(path, match.index), value=stp_bpdu_filter))
-                match.details["stp"]["bpduFilterEnabled"] = stp_bpdu_filter
+            if stp_bpdu_filter and mso.existing.get("stp", {}).get("bpduFilterEnabled") != stp_bpdu_filter:
+                ops.append(dict(op="replace", path=interface_path + "/stp/bpduFilterEnabled", value=stp_bpdu_filter))
+                proposed_payload["stp"]["bpduFilterEnabled"] = stp_bpdu_filter
 
-            if stp_bpdu_guard and match.details.get("stp", {}).get("bpduGuardEnabled") != stp_bpdu_guard:
-                ops.append(dict(op="replace", path="{0}/{1}/stp/bpduGuardEnabled".format(path, match.index), value=stp_bpdu_guard))
-                match.details["stp"]["bpduGuardEnabled"] = stp_bpdu_guard
+            if stp_bpdu_guard and mso.existing.get("stp", {}).get("bpduGuardEnabled") != stp_bpdu_guard:
+                ops.append(dict(op="replace", path=interface_path + "/stp/bpduGuardEnabled", value=stp_bpdu_guard))
+                proposed_payload["stp"]["bpduGuardEnabled"] = stp_bpdu_guard
 
-            if l2_interface_qinq and match.details.get("l2Interface", {}).get("qinq") != l2_interface_qinq:
-                ops.append(dict(op="replace", path="{0}/{1}/l2Interface/qinq".format(path, match.index), value=l2_interface_qinq))
-                match.details["l2Interface"]["qinq"] = l2_interface_qinq
+            if l2_interface_qinq and mso.existing.get("l2Interface", {}).get("qinq") != l2_interface_qinq:
+                ops.append(dict(op="replace", path=interface_path + "/l2Interface/qinq", value=l2_interface_qinq))
+                proposed_payload["l2Interface"]["qinq"] = l2_interface_qinq
 
-            if l2_interface_reflective_relay and match.details.get("l2Interface", {}).get("reflectiveRelay") != l2_interface_reflective_relay:
-                ops.append(dict(op="replace", path="{0}/{1}/l2Interface/reflectiveRelay".format(path, match.index), value=l2_interface_reflective_relay))
-                match.details["l2Interface"]["reflectiveRelay"] = l2_interface_reflective_relay
+            if l2_interface_reflective_relay and mso.existing.get("l2Interface", {}).get("reflectiveRelay") != l2_interface_reflective_relay:
+                ops.append(dict(op="replace", path=interface_path + "/l2Interface/reflectiveRelay", value=l2_interface_reflective_relay))
+                proposed_payload["l2Interface"]["reflectiveRelay"] = l2_interface_reflective_relay
 
-            if vlan_scope and match.details.get("l2Interface", {}).get("vlanScope") != vlan_scope:
-                ops.append(dict(op="replace", path="{0}/{1}/l2Interface/vlanScope".format(path, match.index), value=vlan_scope))
-                match.details["l2Interface"]["vlanScope"] = vlan_scope
+            if vlan_scope and mso.existing.get("l2Interface", {}).get("vlanScope") != vlan_scope:
+                ops.append(dict(op="replace", path=interface_path + "/l2Interface/vlanScope", value=vlan_scope))
+                proposed_payload["l2Interface"]["vlanScope"] = vlan_scope
 
             if lldp:
                 validate_lldp(mso, lldp)
-                if lldp["receive_state"] and match.details.get("lldp", {}).get("receiveState") != lldp["receive_state"]:
-                    ops.append(dict(op="replace", path="{0}/{1}/lldp/receiveState".format(path, match.index), value=lldp["receive_state"]))
-                    match.details["lldp"]["receiveState"] = lldp["receive_state"]
-                if lldp["transmit_state"] and match.details.get("lldp", {}).get("transmitState") != lldp["transmit_state"]:
-                    ops.append(dict(op="replace", path="{0}/{1}/lldp/transmitState".format(path, match.index), value=lldp["transmit_state"]))
-                    match.details["lldp"]["transmitState"] = lldp["transmit_state"]
+                if lldp["receive_state"] and mso.existing.get("lldp", {}).get("receiveState") != lldp["receive_state"]:
+                    ops.append(dict(op="replace", path=interface_path + "/lldp/receiveState", value=lldp["receive_state"]))
+                    proposed_payload["lldp"]["receiveState"] = lldp["receive_state"]
+                if lldp["transmit_state"] and mso.existing.get("lldp", {}).get("transmitState") != lldp["transmit_state"]:
+                    ops.append(dict(op="replace", path=interface_path + "/lldp/transmitState", value=lldp["transmit_state"]))
+                    proposed_payload["lldp"]["transmitState"] = lldp["transmit_state"]
 
-            if link_level_debounce_interval and match.details.get("linkLevel", {}).get("debounceInterval") != link_level_debounce_interval:
-                ops.append(dict(op="replace", path="{0}/{1}/linkLevel/debounceInterval".format(path, match.index), value=link_level_debounce_interval))
-                match.details["linkLevel"]["debounceInterval"] = link_level_debounce_interval
+            if link_level_debounce_interval and mso.existing.get("linkLevel", {}).get("debounceInterval") != link_level_debounce_interval:
+                ops.append(dict(op="replace", path=interface_path + "/linkLevel/debounceInterval", value=link_level_debounce_interval))
+                proposed_payload["linkLevel"]["debounceInterval"] = link_level_debounce_interval
 
-            if link_level_bring_up_delay and match.details.get("linkLevel", {}).get("bringUpDelay") != link_level_bring_up_delay:
-                ops.append(dict(op="replace", path="{0}/{1}/linkLevel/bringUpDelay".format(path, match.index), value=link_level_bring_up_delay))
-                match.details["linkLevel"]["bringUpDelay"] = link_level_bring_up_delay
+            if link_level_bring_up_delay and mso.existing.get("linkLevel", {}).get("bringUpDelay") != link_level_bring_up_delay:
+                ops.append(dict(op="replace", path=interface_path + "/linkLevel/bringUpDelay", value=link_level_bring_up_delay))
+                proposed_payload["linkLevel"]["bringUpDelay"] = link_level_bring_up_delay
 
-            if link_level_fec and match.details.get("linkLevel", {}).get("fec") != link_level_fec:
-                ops.append(dict(op="replace", path="{0}/{1}/linkLevel/fec".format(path, match.index), value=link_level_fec))
-                match.details["linkLevel"]["fec"] = link_level_fec
+            if link_level_fec and mso.existing.get("linkLevel", {}).get("fec") != link_level_fec:
+                ops.append(dict(op="replace", path=interface_path + "/linkLevel/fec", value=link_level_fec))
+                proposed_payload["linkLevel"]["fec"] = link_level_fec
 
-            if speed and match.details.get("linkLevel", {}).get("speed") != speed:
-                ops.append(dict(op="replace", path="{0}/{1}/linkLevel/speed".format(path, match.index), value=speed))
-                match.details["linkLevel"]["speed"] = speed
+            if speed and mso.existing.get("linkLevel", {}).get("speed") != speed:
+                ops.append(dict(op="replace", path=interface_path + "/linkLevel/speed", value=speed))
+                proposed_payload["linkLevel"]["speed"] = speed
 
-            if auto_negotiation and match.details.get("linkLevel", {}).get("autoNegotiation") != auto_negotiation:
-                ops.append(dict(op="replace", path="{0}/{1}/linkLevel/autoNegotiation".format(path, match.index), value=auto_negotiation))
-                match.details["linkLevel"]["autoNegotiation"] = auto_negotiation
+            if auto_negotiation and mso.existing.get("linkLevel", {}).get("autoNegotiation") != auto_negotiation:
+                ops.append(dict(op="replace", path=interface_path + "/linkLevel/autoNegotiation", value=auto_negotiation))
+                proposed_payload["linkLevel"]["autoNegotiation"] = auto_negotiation
 
             if mcp:
-                if mcp["admin_state"] and match.details.get("mcp", {}).get("adminState") != mcp["admin_state"]:
-                    ops.append(dict(op="replace", path="{0}/{1}/mcp/adminState".format(path, match.index), value=mcp["admin_state"]))
-                    match.details["mcp"]["adminState"] = mcp["admin_state"]
-                if mcp["strict_mode"] and match.details.get("mcp", {}).get("mcpMode") != mcp["strict_mode"]:
-                    ops.append(dict(op="replace", path="{0}/{1}/mcp/mcpMode".format(path, match.index), value=mcp["strict_mode"]))
-                    match.details["mcp"]["mcpMode"] = mcp["strict_mode"]
-                if mcp["initial_delay_time"] and match.details.get("mcp", {}).get("initialDelayTime") != mcp["initial_delay_time"]:
-                    ops.append(dict(op="replace", path="{0}/{1}/mcp/initialDelayTime".format(path, match.index), value=mcp["initial_delay_time"]))
-                    match.details["mcp"]["initialDelayTime"] = mcp["initial_delay_time"]
-                if mcp["transmission_frequency_sec"] and match.details.get("mcp", {}).get("txFreq") != mcp["transmission_frequency_sec"]:
-                    ops.append(dict(op="replace", path="{0}/{1}/mcp/txFreq".format(path, match.index), value=mcp["transmission_frequency_sec"]))
-                    match.details["mcp"]["txFreq"] = mcp["transmission_frequency_sec"]
-                if mcp["transmission_frequency_msec"] and match.details.get("mcp", {}).get("txFreqMsec") != mcp["transmission_frequency_msec"]:
-                    ops.append(dict(op="replace", path="{0}/{1}/mcp/txFreqMsec".format(path, match.index), value=mcp["transmission_frequency_msec"]))
-                    match.details["mcp"]["txFreqMsec"] = mcp["transmission_frequency_msec"]
-                if mcp["grace_period_sec"] and match.details.get("mcp", {}).get("gracePeriod") != mcp["grace_period_sec"]:
-                    ops.append(dict(op="replace", path="{0}/{1}/mcp/gracePeriod".format(path, match.index), value=mcp["grace_period_sec"]))
-                    match.details["mcp"]["gracePeriod"] = mcp["grace_period_sec"]
-                if mcp["grace_period_msec"] and match.details.get("mcp", {}).get("gracePeriodMsec") != mcp["grace_period_msec"]:
-                    ops.append(dict(op="replace", path="{0}/{1}/mcp/gracePeriodMsec".format(path, match.index), value=mcp["grace_period_msec"]))
-                    match.details["mcp"]["gracePeriodMsec"] = mcp["grace_period_msec"]
+                if mcp["admin_state"] and mso.existing.get("mcp", {}).get("adminState") != mcp["admin_state"]:
+                    ops.append(dict(op="replace", path=interface_path + "/mcp/adminState", value=mcp["admin_state"]))
+                    proposed_payload["mcp"]["adminState"] = mcp["admin_state"]
+                if mcp["strict_mode"] and mso.existing.get("mcp", {}).get("mcpMode") != mcp["strict_mode"]:
+                    ops.append(dict(op="replace", path=interface_path + "/mcp/mcpMode", value=mcp["strict_mode"]))
+                    proposed_payload["mcp"]["mcpMode"] = mcp["strict_mode"]
+                if mcp["initial_delay_time"] and mso.existing.get("mcp", {}).get("initialDelayTime") != mcp["initial_delay_time"]:
+                    ops.append(dict(op="replace", path=interface_path + "/mcp/initialDelayTime", value=mcp["initial_delay_time"]))
+                    proposed_payload["mcp"]["initialDelayTime"] = mcp["initial_delay_time"]
+                if mcp["transmission_frequency_sec"] and mso.existing.get("mcp", {}).get("txFreq") != mcp["transmission_frequency_sec"]:
+                    ops.append(dict(op="replace", path=interface_path + "/mcp/txFreq", value=mcp["transmission_frequency_sec"]))
+                    proposed_payload["mcp"]["txFreq"] = mcp["transmission_frequency_sec"]
+                if mcp["transmission_frequency_msec"] and mso.existing.get("mcp", {}).get("txFreqMsec") != mcp["transmission_frequency_msec"]:
+                    ops.append(dict(op="replace", path=interface_path + "/mcp/txFreqMsec", value=mcp["transmission_frequency_msec"]))
+                    proposed_payload["mcp"]["txFreqMsec"] = mcp["transmission_frequency_msec"]
+                if mcp["grace_period_sec"] and mso.existing.get("mcp", {}).get("gracePeriod") != mcp["grace_period_sec"]:
+                    ops.append(dict(op="replace", path=interface_path + "/mcp/gracePeriod", value=mcp["grace_period_sec"]))
+                    proposed_payload["mcp"]["gracePeriod"] = mcp["grace_period_sec"]
+                if mcp["grace_period_msec"] and mso.existing.get("mcp", {}).get("gracePeriodMsec") != mcp["grace_period_msec"]:
+                    ops.append(dict(op="replace", path=interface_path + "/mcp/gracePeriodMsec", value=mcp["grace_period_msec"]))
+                    proposed_payload["mcp"]["gracePeriodMsec"] = mcp["grace_period_msec"]
 
-            if port_channel_mode and match.details.get("portChannelPolicy", {}).get("mode") != port_channel_mode:
-                ops.append(dict(op="replace", path="{0}/{1}/portChannelPolicy/mode".format(path, match.index), value=port_channel_mode))
-                match.details["portChannelPolicy"]["mode"] = port_channel_mode
+            if port_channel_mode and mso.existing.get("portChannelPolicy", {}).get("mode") != port_channel_mode:
+                ops.append(dict(op="replace", path=interface_path + "/portChannelPolicy/mode", value=port_channel_mode))
+                proposed_payload["portChannelPolicy"]["mode"] = port_channel_mode
 
-            if min_links and match.details.get("portChannelPolicy", {}).get("minLinks") != min_links:
-                ops.append(dict(op="replace", path="{0}/{1}/portChannelPolicy/minLinks".format(path, match.index), value=min_links))
-                match.details["portChannelPolicy"]["minLinks"] = min_links
+            if min_links and mso.existing.get("portChannelPolicy", {}).get("minLinks") != min_links:
+                ops.append(dict(op="replace", path=interface_path + "/portChannelPolicy/minLinks", value=min_links))
+                proposed_payload["portChannelPolicy"]["minLinks"] = min_links
 
-            if max_links and match.details.get("portChannelPolicy", {}).get("maxLinks") != max_links:
-                ops.append(dict(op="replace", path="{0}/{1}/portChannelPolicy/maxLinks".format(path, match.index), value=max_links))
-                match.details["portChannelPolicy"]["maxLinks"] = max_links
+            if max_links and mso.existing.get("portChannelPolicy", {}).get("maxLinks") != max_links:
+                ops.append(dict(op="replace", path=interface_path + "/portChannelPolicy/maxLinks", value=max_links))
+                proposed_payload["portChannelPolicy"]["maxLinks"] = max_links
 
-            if load_balance_hashing and match.details.get("portChannelPolicy", {}).get("hashFields") != load_balance_hashing:
-                ops.append(dict(op="replace", path="{0}/{1}/portChannelPolicy/hashFields".format(path, match.index), value=load_balance_hashing))
-                match.details["portChannelPolicy"]["hashFields"] = load_balance_hashing
+            if load_balance_hashing and mso.existing.get("portChannelPolicy", {}).get("hashFields") != load_balance_hashing:
+                ops.append(dict(op="replace", path=interface_path + "/portChannelPolicy/hashFields", value=load_balance_hashing))
+                proposed_payload["portChannelPolicy"]["hashFields"] = load_balance_hashing
 
-            if controls and match.details.get("portChannelPolicy", {}).get("control") != controls:
-                ops.append(dict(op="replace", path="{0}/{1}/portChannelPolicy/control".format(path, match.index), value=controls))
-                match.details["portChannelPolicy"]["control"] = controls
+            if controls and mso.existing.get("portChannelPolicy", {}).get("control") != controls:
+                ops.append(dict(op="replace", path=interface_path + "/portChannelPolicy/control", value=controls))
+                proposed_payload["portChannelPolicy"]["control"] = controls
             elif controls == []:
-                ops.append(dict(op="remove", path="{0}/{1}/portChannelPolicy/control".format(path, match.index)))
-                match.details.pop("controls", None)
+                ops.append(dict(op="remove", path=interface_path + "/portChannelPolicy/control"))
+                mso.existing.pop("controls", None)
 
-            mso.sanitize(match.details)
+            mso.sanitize(proposed_payload, collate=True)
 
         else:
             if not interface_type:
                 mso.fail_json(msg="Error: Missing required argument 'interface_type' for creating an Interface Policy Group.")
             payload = {
-                "name": interface_policy_group,
+                "name": name,
                 "type": interface_type,
                 "templateId": mso_template.template.get("templateId"),
                 "schemaId": mso_template.template.get("schemaId"),
@@ -806,29 +805,24 @@ def main():
             if controls:
                 payload["portChannelPolicy"]["control"] = controls
 
-            ops.append(dict(op="add", path="{0}/-".format(path), value=copy.deepcopy(payload)))
-
             mso.sanitize(payload)
+            ops.append(dict(op="add", path="/fabricPolicyTemplate/template/interfacePolicyGroups/-", value=mso.sent))
 
         mso.existing = mso.proposed
 
     elif state == "absent":
         if match:
-            ops.append(dict(op="remove", path="{0}/{1}".format(path, match.index)))
+            ops.append(dict(op="remove", path=interface_path))
 
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)
         interface_policies = response.get("fabricPolicyTemplate", {}).get("template", {}).get("interfacePolicyGroups", [])
-        match = mso_template.get_object_by_key_value_pairs(
-            object_description,
-            interface_policies,
-            [KVPair("uuid", uuid) if uuid else KVPair("name", interface_policy_group)],
-        )
+        match = mso_template.get_object_by_key_value_pairs(object_description, interface_policies, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
         if match:
-            mso.existing = match.details
+            mso.existing = match.details  # When the state is present
         else:
-            mso.existing = {}
-    elif module.check_mode and state != "query":
+            mso.existing = {}  # When the state is absent
+    elif module.check_mode and state != "query":  # When the state is present/absent with check mode
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()

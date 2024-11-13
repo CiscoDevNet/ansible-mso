@@ -14,7 +14,7 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_tenant_mld_snooping_policy
-short_description: Manage MLD Snooping Policies in Tenant Policy Templates on Cisco Nexus Dashboard Orchestrator (NDO).
+short_description: Manage Multicast Listener Discovery (MLD) Snooping Policies in Tenant Policy Templates on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage MLD Snooping Policies in Tenant Policy Templates on Cisco Nexus Dashboard Orchestrator (NDO).
 - This module is only supported on ND v3.1 (NDO v4.3) and later.
@@ -197,7 +197,7 @@ import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
-from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED_DISABLED_BOOLEAN_MAP
+from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
 
 
 def main():
@@ -235,8 +235,8 @@ def main():
     uuid = module.params.get("uuid")
     description = module.params.get("description")
     admin_state = module.params.get("admin_state")
-    fast_leave_control = ENABLED_DISABLED_BOOLEAN_MAP.get(module.params.get("fast_leave_control"))
-    querier_control = ENABLED_DISABLED_BOOLEAN_MAP.get(module.params.get("querier_control"))
+    fast_leave_control = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(module.params.get("fast_leave_control"))
+    querier_control = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(module.params.get("querier_control"))
     querier_version = module.params.get("querier_version")
     query_interval = module.params.get("query_interval")
     query_response_interval = module.params.get("query_response_interval")

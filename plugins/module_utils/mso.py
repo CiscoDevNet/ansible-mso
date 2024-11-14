@@ -319,15 +319,17 @@ def write_file(module, url, dest, content, resp, tmpsrc=None):
 
 
 def format_interface_descriptions(interface_descriptions, node=None):
-    formated_interface_descriptions = [
-        {
-            "nodeID": node if node is not None else interface_description.get("node"),
-            "interfaceID": interface_description.get("interface_id", interface_description.get("interfaceID")),
-            "description": interface_description.get("description"),
-        }
-        for interface_description in interface_descriptions
-    ]
-
+    if interface_descriptions:
+        formated_interface_descriptions = [
+            {
+                "nodeID": node if node is not None else interface_description.get("node"),
+                "interfaceID": interface_description.get("interface_id", interface_description.get("interfaceID")),
+                "description": interface_description.get("description"),
+            }
+            for interface_description in interface_descriptions
+        ]
+    else:
+        formated_interface_descriptions = []
     return formated_interface_descriptions
 
 

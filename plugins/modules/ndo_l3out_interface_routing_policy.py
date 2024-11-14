@@ -17,6 +17,7 @@ module: ndo_l3out_interface_routing_policy
 short_description: Manage L3Out Interface Routing Policies on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage L3Out Interface Routing Policies on Cisco Nexus Dashboard Orchestrator (NDO).
+- This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Sabari Jaganathan (@sajagana)
 options:
@@ -43,7 +44,7 @@ options:
     type: str
   bfd_multi_hop_settings:
     description:
-    - The BFD MultiHop Settings configuration of the L3Out Interface Routing Policy.
+    - The Bidirectional Forwarding Detection (BFD) multi-hop configuration of the L3Out Interface Routing Policy.
     type: dict
     suboptions:
       state:
@@ -101,19 +102,19 @@ options:
         type: int
       min_receive_interval:
         description:
-        - The minimum receive interval of the BFD Settings.
+        - The minimum receive interval in microseconds of the BFD Settings.
         - Defaults to 50 when unset during creation.
-        - The value must be between 50 and 999 microseconds.
+        - The value must be between 50 and 999.
         type: int
       min_transmit_interval:
         description:
-        - The minimum transmit interval of the BFD Settings.
+        - The minimum transmit interval in microseconds of the BFD Settings.
         - Defaults to 50 when unset during creation.
-        - The value must be between 50 and 999 microseconds.
+        - The value must be between 50 and 999.
         type: int
       echo_receive_interval:
         description:
-        - The echo receive interval of the BFD Settings.
+        - The echo receive interval in microseconds of the BFD Settings
         - Defaults to 50 when unset during creation.
         - The value must be between 50 and 999.
         type: int
@@ -131,7 +132,7 @@ options:
         choices: [ enabled, disabled ]
   ospf_interface_settings:
     description:
-    - The OSPF Interface Settings of the L3Out Interface Routing Policy.
+    - The Open Shortest Path First (OSPF) Interface Settings of the L3Out Interface Routing Policy.
     type: dict
     suboptions:
       state:
@@ -160,27 +161,27 @@ options:
         type: int
       hello_interval:
         description:
-        - The hello interval of the OSPF Interface Settings.
+        - The hello interval in seconds of the OSPF Interface Settings.
         - Defaults to 10 when unset during creation.
-        - The value must be between 1 and 65535 seconds.
+        - The value must be between 1 and 65535.
         type: int
       dead_interval:
         description:
-        - The dead interval of the OSPF Interface Settings.
+        - The dead interval in seconds of the OSPF Interface Settings.
         - Defaults to 40 when unset during creation.
-        - The value must be between 1 and 65535 seconds.
+        - The value must be between 1 and 65535.
         type: int
       retransmit_interval:
         description:
-        - The retransmit interval of the OSPF Interface Settings.
+        - The retransmit interval in seconds of the OSPF Interface Settings.
         - Defaults to 5 when unset during creation.
-        - The value must be between 1 and 65535 seconds.
+        - The value must be between 1 and 65535.
         type: int
       transmit_delay:
         description:
-        - The transmit delay of the OSPF Interface Settings.
+        - The transmit delay in seconds of the OSPF Interface Settings.
         - Defaults to 1 when unset during creation.
-        - The value must be between 1 and 450 seconds.
+        - The value must be between 1 and 450.
         type: int
       advertise_subnet:
         description:
@@ -190,19 +191,19 @@ options:
         choices: [ enabled, disabled ]
       bfd:
         description:
-        - The Bidirectional Forwarding Detection (BFD) of the OSPF Interface Settings.
+        - Enables or disables BFD in the OSPF Interface Settings.
         - Defaults to C(disabled) when unset during creation.
         type: str
         choices: [ enabled, disabled ]
       mtu_ignore:
         description:
-        - The Maximum Transmission Unit (MTU) of the OSPF Interface Settings.
+        - Enables or disables ignoring the Maximum Transmission Unit (MTU) in the OSPF Interface Settings.
         - Defaults to C(disabled) when unset during creation.
         type: str
         choices: [ enabled, disabled ]
       passive_participation:
         description:
-        - The passive participation of the OSPF Interface Settings.
+        - Enables or disables passive participation in the OSPF Interface Settings.
         - Defaults to C(disabled) when unset during creation.
         type: str
         choices: [ enabled, disabled ]
@@ -281,7 +282,7 @@ EXAMPLES = r"""
       state: disabled
     state: present
 
-- name: Query a L3Out Interface Routing Policies with name
+- name: Query an L3Out Interface Routing Policy with name
   cisco.mso.ndo_l3out_interface_routing_policy:
     host: mso_host
     username: admin
@@ -291,7 +292,7 @@ EXAMPLES = r"""
     state: query
   register: query_with_name
 
-- name: Query a L3Out Interface Routing Policies with UUID
+- name: Query an L3Out Interface Routing Policy with UUID
   cisco.mso.ndo_l3out_interface_routing_policy:
     host: mso_host
     username: admin
@@ -310,7 +311,7 @@ EXAMPLES = r"""
     state: query
   register: query_all
 
-- name: Delete a L3Out Interface Routing Policy
+- name: Delete an L3Out Interface Routing Policy
   cisco.mso.ndo_l3out_interface_routing_policy:
     host: mso_host
     username: admin
@@ -319,7 +320,7 @@ EXAMPLES = r"""
     name: irp_1_updated
     state: absent
 
-- name: Delete a L3Out Interface Routing Policy using UUID
+- name: Delete an L3Out Interface Routing Policy using UUID
   cisco.mso.ndo_l3out_interface_routing_policy:
     host: mso_host
     username: admin
@@ -337,6 +338,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
 from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED_DISABLED_BOOLEAN_MAP
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
 def main():
@@ -429,13 +431,9 @@ def main():
         if mso.existing:
             proposed_payload = copy.deepcopy(mso.existing)
 
-            if name and proposed_payload.get("name") != name:
-                ops.append(dict(op="replace", path="{0}/name".format(interface_routing_policy_path), value=name))
-                proposed_payload["name"] = name
+            append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, name, ("name"))
 
-            if description is not None and proposed_payload.get("description") != description:
-                ops.append(dict(op="replace", path="{0}/description".format(interface_routing_policy_path), value=description))
-                proposed_payload["description"] = description
+            append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, description, ("description"))
 
             # BFD MultiHop Settings
             if bfd_multi_hop_settings is not None:
@@ -448,53 +446,33 @@ def main():
                         proposed_payload["bfdMultiHopPol"] = dict()
                         ops.append(dict(op="replace", path="{0}/bfdMultiHopPol".format(interface_routing_policy_path), value=dict()))
 
-                    if bfd_multi_hop_settings.get("admin_state") is not None and proposed_payload.get("bfdMultiHopPol").get(
-                        "adminState"
-                    ) != bfd_multi_hop_settings.get("admin_state"):
-                        proposed_payload["bfdMultiHopPol"]["adminState"] = bfd_multi_hop_settings.get("admin_state")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/bfdMultiHopPol/adminState".format(interface_routing_policy_path),
-                                value=bfd_multi_hop_settings.get("admin_state"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops, proposed_payload, interface_routing_policy_path, bfd_multi_hop_settings.get("admin_state"), ("bfdMultiHopPol", "adminState")
+                    )
 
-                    if bfd_multi_hop_settings.get("detection_multiplier") is not None and proposed_payload.get("bfdMultiHopPol").get(
-                        "detectionMultiplier"
-                    ) != bfd_multi_hop_settings.get("detection_multiplier"):
-                        proposed_payload["bfdMultiHopPol"]["detectionMultiplier"] = bfd_multi_hop_settings.get("detection_multiplier")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/bfdMultiHopPol/detectionMultiplier".format(interface_routing_policy_path),
-                                value=bfd_multi_hop_settings.get("detection_multiplier"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops,
+                        proposed_payload,
+                        interface_routing_policy_path,
+                        bfd_multi_hop_settings.get("detection_multiplier"),
+                        ("bfdMultiHopPol", "detectionMultiplier"),
+                    )
 
-                    if bfd_multi_hop_settings.get("min_receive_interval") is not None and proposed_payload.get("bfdMultiHopPol").get(
-                        "minRxInterval"
-                    ) != bfd_multi_hop_settings.get("min_receive_interval"):
-                        proposed_payload["bfdMultiHopPol"]["minRxInterval"] = bfd_multi_hop_settings.get("min_receive_interval")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/bfdMultiHopPol/minRxInterval".format(interface_routing_policy_path),
-                                value=bfd_multi_hop_settings.get("min_receive_interval"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops,
+                        proposed_payload,
+                        interface_routing_policy_path,
+                        bfd_multi_hop_settings.get("min_receive_interval"),
+                        ("bfdMultiHopPol", "minRxInterval"),
+                    )
 
-                    if bfd_multi_hop_settings.get("min_transmit_interval") is not None and proposed_payload.get("bfdMultiHopPol").get(
-                        "minTxInterval"
-                    ) != bfd_multi_hop_settings.get("min_transmit_interval"):
-                        proposed_payload["bfdMultiHopPol"]["minTxInterval"] = bfd_multi_hop_settings.get("min_transmit_interval")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/bfdMultiHopPol/minTxInterval".format(interface_routing_policy_path),
-                                value=bfd_multi_hop_settings.get("min_transmit_interval"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops,
+                        proposed_payload,
+                        interface_routing_policy_path,
+                        bfd_multi_hop_settings.get("min_transmit_interval"),
+                        ("bfdMultiHopPol", "minTxInterval"),
+                    )
 
             # BFD Settings
             if bfd_settings is not None:
@@ -516,77 +494,31 @@ def main():
                                 value=bfd_settings.get("admin_state"),
                             )
                         )
+                    append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("admin_state"), ("bfdPol", "adminState"))
 
-                    if bfd_settings.get("detection_multiplier") is not None and proposed_payload.get("bfdPol").get("detectionMultiplier") != bfd_settings.get(
-                        "detection_multiplier"
-                    ):
-                        proposed_payload["bfdPol"]["detectionMultiplier"] = bfd_settings.get("detection_multiplier")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/bfdPol/detectionMultiplier".format(interface_routing_policy_path),
-                                value=bfd_settings.get("detection_multiplier"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("detection_multiplier"), ("bfdPol", "detectionMultiplier")
+                    )
 
-                    if bfd_settings.get("min_receive_interval") is not None and proposed_payload.get("bfdPol").get("minRxInterval") != bfd_settings.get(
-                        "min_receive_interval"
-                    ):
-                        proposed_payload["bfdPol"]["minRxInterval"] = bfd_settings.get("min_receive_interval")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/bfdPol/minRxInterval".format(interface_routing_policy_path),
-                                value=bfd_settings.get("min_receive_interval"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("min_receive_interval"), ("bfdPol", "minRxInterval")
+                    )
 
-                    if bfd_settings.get("min_transmit_interval") is not None and proposed_payload.get("bfdPol").get("minTxInterval") != bfd_settings.get(
-                        "min_transmit_interval"
-                    ):
-                        proposed_payload["bfdPol"]["minTxInterval"] = bfd_settings.get("min_transmit_interval")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/bfdPol/minTxInterval".format(interface_routing_policy_path),
-                                value=bfd_settings.get("min_transmit_interval"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("min_transmit_interval"), ("bfdPol", "minTxInterval")
+                    )
 
-                    if bfd_settings.get("echo_receive_interval") is not None and proposed_payload.get("bfdPol").get("echoRxInterval") != bfd_settings.get(
-                        "echo_receive_interval"
-                    ):
-                        proposed_payload["bfdPol"]["echoRxInterval"] = bfd_settings.get("echo_receive_interval")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/bfdPol/echoRxInterval".format(interface_routing_policy_path),
-                                value=bfd_settings.get("echo_receive_interval"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("echo_receive_interval"), ("bfdPol", "echoRxInterval")
+                    )
 
-                    if bfd_settings.get("echo_admin_state") is not None and proposed_payload.get("bfdPol").get("echoAdminState") != bfd_settings.get(
-                        "echo_admin_state"
-                    ):
-                        proposed_payload["bfdPol"]["echoAdminState"] = bfd_settings.get("echo_admin_state")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/bfdPol/echoAdminState".format(interface_routing_policy_path),
-                                value=bfd_settings.get("echo_admin_state"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("echo_admin_state"), ("bfdPol", "echoAdminState")
+                    )
 
                     interface_control_value = ENABLED_DISABLED_BOOLEAN_MAP.get(bfd_settings.get("interface_control"))
-                    if interface_control_value is not None and proposed_payload.get("bfdPol").get("gracefulRestartHelper") is not interface_control_value:
-                        proposed_payload["bfdPol"]["gracefulRestartHelper"] = interface_control_value
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/bfdPol/gracefulRestartHelper".format(interface_routing_policy_path),
-                                value=interface_control_value,
-                            )
-                        )
+
+                    append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, interface_control_value, ("bfdPol", "ifControl"))
 
             # OSPF Interface Settings
             if ospf_interface_settings is not None:
@@ -602,137 +534,56 @@ def main():
                         ops.append(dict(op="replace", path="{0}/ospfIntfPol/ifControl".format(interface_routing_policy_path), value=dict()))
 
                     network_type_value = get_ospf_network_type(ospf_interface_settings.get("network_type"))
-                    if network_type_value is not None and proposed_payload.get("ospfIntfPol").get("networkType") != network_type_value:
-                        proposed_payload["ospfIntfPol"]["networkType"] = network_type_value
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/ospfIntfPol/networkType".format(interface_routing_policy_path),
-                                value=network_type_value,
-                            )
-                        )
 
-                    if ospf_interface_settings.get("priority") is not None and proposed_payload.get("ospfIntfPol").get("prio") != ospf_interface_settings.get(
-                        "priority"
-                    ):
-                        proposed_payload["ospfIntfPol"]["prio"] = ospf_interface_settings.get("priority")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/ospfIntfPol/prio".format(interface_routing_policy_path),
-                                value=ospf_interface_settings.get("priority"),
-                            )
-                        )
+                    append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, network_type_value, ("ospfIntfPol", "networkType"))
 
-                    if ospf_interface_settings.get("cost_of_interface") is not None and proposed_payload.get("ospfIntfPol").get(
-                        "cost"
-                    ) != ospf_interface_settings.get("cost_of_interface"):
-                        proposed_payload["ospfIntfPol"]["cost"] = ospf_interface_settings.get("cost_of_interface")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/ospfIntfPol/cost".format(interface_routing_policy_path),
-                                value=ospf_interface_settings.get("cost_of_interface"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("priority"), ("ospfIntfPol", "prio")
+                    )
 
-                    if ospf_interface_settings.get("hello_interval") is not None and proposed_payload.get("ospfIntfPol").get(
-                        "helloInterval"
-                    ) != ospf_interface_settings.get("hello_interval"):
-                        proposed_payload["ospfIntfPol"]["helloInterval"] = ospf_interface_settings.get("hello_interval")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/ospfIntfPol/helloInterval".format(interface_routing_policy_path),
-                                value=ospf_interface_settings.get("hello_interval"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("cost_of_interface"), ("ospfIntfPol", "cost")
+                    )
 
-                    if ospf_interface_settings.get("dead_interval") is not None and proposed_payload.get("ospfIntfPol").get(
-                        "deadInterval"
-                    ) != ospf_interface_settings.get("dead_interval"):
-                        proposed_payload["ospfIntfPol"]["deadInterval"] = ospf_interface_settings.get("dead_interval")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/ospfIntfPol/deadInterval".format(interface_routing_policy_path),
-                                value=ospf_interface_settings.get("dead_interval"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("hello_interval"), ("ospfIntfPol", "helloInterval")
+                    )
 
-                    if ospf_interface_settings.get("retransmit_interval") is not None and proposed_payload.get("ospfIntfPol").get(
-                        "retransmitInterval"
-                    ) != ospf_interface_settings.get("retransmit_interval"):
-                        proposed_payload["ospfIntfPol"]["retransmitInterval"] = ospf_interface_settings.get("retransmit_interval")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/ospfIntfPol/retransmitInterval".format(interface_routing_policy_path),
-                                value=ospf_interface_settings.get("retransmit_interval"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("dead_interval"), ("ospfIntfPol", "deadInterval")
+                    )
 
-                    if ospf_interface_settings.get("transmit_delay") is not None and proposed_payload.get("ospfIntfPol").get(
-                        "transmitDelay"
-                    ) != ospf_interface_settings.get("transmit_delay"):
-                        proposed_payload["ospfIntfPol"]["transmitDelay"] = ospf_interface_settings.get("transmit_delay")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/ospfIntfPol/transmitDelay".format(interface_routing_policy_path),
-                                value=ospf_interface_settings.get("transmit_delay"),
-                            )
-                        )
+                    append_update_ops_data(
+                        ops,
+                        proposed_payload,
+                        interface_routing_policy_path,
+                        ospf_interface_settings.get("retransmit_interval"),
+                        ("ospfIntfPol", "retransmitInterval"),
+                    )
+
+                    append_update_ops_data(
+                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("transmit_delay"), ("ospfIntfPol", "transmitDelay")
+                    )
 
                     advertise_subnet_value = ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("advertise_subnet"))
-                    if (
-                        advertise_subnet_value is not None
-                        and proposed_payload.get("ospfIntfPol").get("ifControl").get("advertiseSubnet") is not advertise_subnet_value
-                    ):
-                        proposed_payload["ospfIntfPol"]["ifControl"]["advertiseSubnet"] = advertise_subnet_value
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/ospfIntfPol/ifControl/advertiseSubnet".format(interface_routing_policy_path),
-                                value=advertise_subnet_value,
-                            )
-                        )
+
+                    append_update_ops_data(
+                        ops, proposed_payload, interface_routing_policy_path, advertise_subnet_value, ("ospfIntfPol", "ifControl", "advertiseSubnet")
+                    )
 
                     bfd_value = ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("bfd"))
-                    if bfd_value is not None and proposed_payload.get("ospfIntfPol").get("ifControl").get("bfd") is not bfd_value:
-                        proposed_payload["ospfIntfPol"]["ifControl"]["bfd"] = bfd_value
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/ospfIntfPol/ifControl/bfd".format(interface_routing_policy_path),
-                                value=bfd_value,
-                            )
-                        )
+
+                    append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, bfd_value, ("ospfIntfPol", "ifControl", "bfd"))
 
                     mtu_ignore_value = ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("mtu_ignore"))
-                    if mtu_ignore_value is not None and proposed_payload.get("ospfIntfPol").get("ifControl").get("ignoreMtu") is not mtu_ignore_value:
-                        proposed_payload["ospfIntfPol"]["ifControl"]["ignoreMtu"] = mtu_ignore_value
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/ospfIntfPol/ifControl/ignoreMtu".format(interface_routing_policy_path),
-                                value=mtu_ignore_value,
-                            )
-                        )
+
+                    append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, mtu_ignore_value, ("ospfIntfPol", "ifControl", "ignoreMtu"))
 
                     passive_participation_value = ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("passive_participation"))
-                    if (
-                        passive_participation_value is not None
-                        and proposed_payload.get("ospfIntfPol").get("ifControl").get("passiveParticipation") is not passive_participation_value
-                    ):
-                        proposed_payload["ospfIntfPol"]["ifControl"]["passiveParticipation"] = passive_participation_value
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/ospfIntfPol/ifControl/passiveParticipation".format(interface_routing_policy_path),
-                                value=passive_participation_value,
-                            )
-                        )
+
+                    append_update_ops_data(
+                        ops, proposed_payload, interface_routing_policy_path, passive_participation_value, ("ospfIntfPol", "ifControl", "passiveParticipation")
+                    )
 
             mso.sanitize(proposed_payload)
         else:

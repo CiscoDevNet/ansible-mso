@@ -105,6 +105,16 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
                         value=copy.deepcopy(new_value),
                     )
                 )
+            # Clear the existing configuration
+            elif op == "remove":
+                data.pop(key, None)
+                ops.append(
+                    dict(
+                        op=op,
+                        path="{}/{}".format(current_path, key),
+                    )
+                )
+
         elif key in data:
             recursive_replace(data[key], "{}/{}".format(path, key), keys[1:], new_value)
 

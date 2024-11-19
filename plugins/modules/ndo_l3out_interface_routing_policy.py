@@ -431,21 +431,20 @@ def main():
         if mso.existing:
             proposed_payload = copy.deepcopy(mso.existing)
 
-            append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, name, ("name"))
+            append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, name, "name")
 
-            append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, description, ("description"))
+            append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, description, "description")
 
             # BFD MultiHop Settings
             if bfd_multi_hop_settings is not None:
                 if bfd_multi_hop_settings.get("state") == "disabled" and proposed_payload.get("bfdMultiHopPol"):
-                    append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, None, ("bfdMultiHopPol"), op="remove")
-
+                    append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, None, "bfdMultiHopPol", op="remove")
                 elif bfd_multi_hop_settings.get("state") != "disabled":
                     if not proposed_payload.get("bfdMultiHopPol"):
-                        append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, dict(), ("bfdMultiHopPol"))
+                        append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, dict(), "bfdMultiHopPol")
 
                     append_update_ops_data(
-                        ops, proposed_payload, interface_routing_policy_path, bfd_multi_hop_settings.get("admin_state"), ("bfdMultiHopPol", "adminState")
+                        ops, proposed_payload, interface_routing_policy_path, bfd_multi_hop_settings.get("admin_state"), "bfdMultiHopPol", "adminState"
                     )
 
                     append_update_ops_data(
@@ -453,7 +452,8 @@ def main():
                         proposed_payload,
                         interface_routing_policy_path,
                         bfd_multi_hop_settings.get("detection_multiplier"),
-                        ("bfdMultiHopPol", "detectionMultiplier"),
+                        "bfdMultiHopPol",
+                        "detectionMultiplier",
                     )
 
                     append_update_ops_data(
@@ -461,7 +461,8 @@ def main():
                         proposed_payload,
                         interface_routing_policy_path,
                         bfd_multi_hop_settings.get("min_receive_interval"),
-                        ("bfdMultiHopPol", "minRxInterval"),
+                        "bfdMultiHopPol",
+                        "minRxInterval",
                     )
 
                     append_update_ops_data(
@@ -469,38 +470,39 @@ def main():
                         proposed_payload,
                         interface_routing_policy_path,
                         bfd_multi_hop_settings.get("min_transmit_interval"),
-                        ("bfdMultiHopPol", "minTxInterval"),
+                        "bfdMultiHopPol",
+                        "minTxInterval",
                     )
 
             # BFD Settings
             if bfd_settings is not None:
                 if bfd_settings.get("state") == "disabled" and proposed_payload.get("bfdPol"):
-                    append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, None, ("bfdPol"), op="remove")
+                    append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, None, "bfdPol", op="remove")
 
                 elif bfd_settings.get("state") != "disabled":
                     if not proposed_payload.get("bfdPol"):
-                        append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, dict(), ("bfdPol"))
+                        append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, dict(), "bfdPol")
 
-                    append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("admin_state"), ("bfdPol", "adminState"))
+                    append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("admin_state"), "bfdPol", "adminState")
 
                     append_update_ops_data(
-                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("detection_multiplier"), ("bfdPol", "detectionMultiplier")
+                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("detection_multiplier"), "bfdPol", "detectionMultiplier"
                     )
 
                     append_update_ops_data(
-                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("min_receive_interval"), ("bfdPol", "minRxInterval")
+                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("min_receive_interval"), "bfdPol", "minRxInterval"
                     )
 
                     append_update_ops_data(
-                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("min_transmit_interval"), ("bfdPol", "minTxInterval")
+                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("min_transmit_interval"), "bfdPol", "minTxInterval"
                     )
 
                     append_update_ops_data(
-                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("echo_receive_interval"), ("bfdPol", "echoRxInterval")
+                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("echo_receive_interval"), "bfdPol", "echoRxInterval"
                     )
 
                     append_update_ops_data(
-                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("echo_admin_state"), ("bfdPol", "echoAdminState")
+                        ops, proposed_payload, interface_routing_policy_path, bfd_settings.get("echo_admin_state"), "bfdPol", "echoAdminState"
                     )
 
                     append_update_ops_data(
@@ -508,41 +510,43 @@ def main():
                         proposed_payload,
                         interface_routing_policy_path,
                         ENABLED_DISABLED_BOOLEAN_MAP.get(bfd_settings.get("interface_control")),
-                        ("bfdPol", "ifControl"),
+                        "bfdPol",
+                        "ifControl",
                     )
 
             # OSPF Interface Settings
             if ospf_interface_settings is not None:
                 if ospf_interface_settings.get("state") == "disabled" and proposed_payload.get("ospfIntfPol"):
-                    append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, None, ("ospfIntfPol"), op="remove")
+                    append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, None, "ospfIntfPol", op="remove")
 
                 elif ospf_interface_settings.get("state") != "disabled":
                     if not proposed_payload.get("ospfIntfPol"):
-                        append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, dict(), ("ospfIntfPol"))
-                        append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, dict(), ("ospfIntfPol", "ifControl"))
+                        append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, dict(), "ospfIntfPol")
+                        append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, dict(), "ospfIntfPol", "ifControl")
 
                     append_update_ops_data(
                         ops,
                         proposed_payload,
                         interface_routing_policy_path,
                         get_ospf_network_type(ospf_interface_settings.get("network_type")),
-                        ("ospfIntfPol", "networkType"),
+                        "ospfIntfPol",
+                        "networkType",
                     )
 
                     append_update_ops_data(
-                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("priority"), ("ospfIntfPol", "prio")
+                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("priority"), "ospfIntfPol", "prio"
                     )
 
                     append_update_ops_data(
-                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("cost_of_interface"), ("ospfIntfPol", "cost")
+                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("cost_of_interface"), "ospfIntfPol", "cost"
                     )
 
                     append_update_ops_data(
-                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("hello_interval"), ("ospfIntfPol", "helloInterval")
+                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("hello_interval"), "ospfIntfPol", "helloInterval"
                     )
 
                     append_update_ops_data(
-                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("dead_interval"), ("ospfIntfPol", "deadInterval")
+                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("dead_interval"), "ospfIntfPol", "deadInterval"
                     )
 
                     append_update_ops_data(
@@ -550,11 +554,12 @@ def main():
                         proposed_payload,
                         interface_routing_policy_path,
                         ospf_interface_settings.get("retransmit_interval"),
-                        ("ospfIntfPol", "retransmitInterval"),
+                        "ospfIntfPol",
+                        "retransmitInterval",
                     )
 
                     append_update_ops_data(
-                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("transmit_delay"), ("ospfIntfPol", "transmitDelay")
+                        ops, proposed_payload, interface_routing_policy_path, ospf_interface_settings.get("transmit_delay"), "ospfIntfPol", "transmitDelay"
                     )
 
                     append_update_ops_data(
@@ -562,7 +567,9 @@ def main():
                         proposed_payload,
                         interface_routing_policy_path,
                         ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("advertise_subnet")),
-                        ("ospfIntfPol", "ifControl", "advertiseSubnet"),
+                        "ospfIntfPol",
+                        "ifControl",
+                        "advertiseSubnet",
                     )
 
                     append_update_ops_data(
@@ -570,7 +577,9 @@ def main():
                         proposed_payload,
                         interface_routing_policy_path,
                         ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("bfd")),
-                        ("ospfIntfPol", "ifControl", "bfd"),
+                        "ospfIntfPol",
+                        "ifControl",
+                        "bfd",
                     )
 
                     append_update_ops_data(
@@ -578,7 +587,9 @@ def main():
                         proposed_payload,
                         interface_routing_policy_path,
                         ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("mtu_ignore")),
-                        ("ospfIntfPol", "ifControl", "ignoreMtu"),
+                        "ospfIntfPol",
+                        "ifControl",
+                        "ignoreMtu",
                     )
 
                     append_update_ops_data(
@@ -586,7 +597,9 @@ def main():
                         proposed_payload,
                         interface_routing_policy_path,
                         ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("passive_participation")),
-                        ("ospfIntfPol", "ifControl", "passiveParticipation"),
+                        "ospfIntfPol",
+                        "ifControl",
+                        "passiveParticipation",
                     )
 
             mso.sanitize(proposed_payload)

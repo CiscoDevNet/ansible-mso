@@ -96,7 +96,7 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
         key = keys[0]
         if len(keys) == 1:
             # Update the existing configuration
-            if new_value is not None and data.get(key) != new_value:
+            if new_value is not None and data.get(key) != new_value and op == "replace":
                 data[key] = new_value
                 ops.append(
                     dict(
@@ -106,12 +106,12 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
                     )
                 )
             # Clear the existing configuration
-            elif op == "remove":
-                data.pop(key, None)
+            elif op == "remove" and key in data:
+                data.pop(key)
                 ops.append(
                     dict(
                         op=op,
-                        path="{}/{}".format(current_path, key),
+                        path="{}/{}".format(path, key),
                     )
                 )
 

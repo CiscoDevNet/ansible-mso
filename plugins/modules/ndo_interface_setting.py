@@ -124,7 +124,7 @@ options:
     type: str
   link_level_debounce_interval:
     description:
-    - The debounce interval of the link level.
+    - The debounce interval of the link level in milliseconds.
     - The default value is 100.
     - The value must be an integer between 0 and 5000.
     type: int
@@ -148,7 +148,7 @@ options:
     choices: [ core_port, double_q_tag_port, edge_port, disabled ]
   l2_interface_reflective_relay:
     description:
-    - The state of the reflective relay (802.1Qbg) to allows traffic to turn back out of the same port it came in on.
+    - Enables or disables reflective relay (802.1Qbg) to forward traffic back to the destination or target.
     - The term Virtual Ethernet Port Aggregator (VEPA) is also used to describe 802.1Qbg functionality.
     - The default value is C(disabled).
     type: str
@@ -577,10 +577,10 @@ def main():
                 ops.append(dict(op="remove", path=interface_path + "/domains"))
                 proposed_payload.pop("domains", None)
             elif domains:
-                domain_uuid = validate_domains(mso, domains, template, template_info)
-                if set(domain_uuid) != set(mso.existing.get("domains", [])):
-                    ops.append(dict(op="replace", path=interface_path + "/domains", value=domain_uuid))
-                proposed_payload["domains"] = domain_uuid
+                domain_uuid_list = validate_domains(mso, domains, template, template_info)
+                if set(domain_uuid_list) != set(mso.existing.get("domains", [])):
+                    ops.append(dict(op="replace", path=interface_path + "/domains", value=domain_uuid_list))
+                proposed_payload["domains"] = domain_uuid_list
 
             if synce:
                 existing_sync_e = validate_sync_e(mso, synce, template, template_info)
@@ -728,8 +728,8 @@ def main():
                 payload["description"] = description
 
             if domains:
-                domain_uuid = validate_domains(mso, domains, template, template_info)
-                payload["domains"] = domain_uuid
+                domain_uuid_list = validate_domains(mso, domains, template, template_info)
+                payload["domains"] = domain_uuid_list
 
             if synce:
                 existing_sync_e = validate_sync_e(mso, synce, template, template_info)
@@ -829,17 +829,17 @@ def main():
 
 
 def validate_domains(mso, domains, template, template_info):
-    domain_uuid = []
+    domain_uuid_list = []
     existing_physical_domains = {domain["name"]: domain["uuid"] for domain in template_info.get("domains", [])}
     existing_l3_domains = {domain["name"]: domain["uuid"] for domain in template_info.get("l3Domains", [])}
     for item in domains:
         if item in existing_physical_domains:
-            domain_uuid.append(existing_physical_domains[item])
+            domain_uuid_list.append(existing_physical_domains[item])
         elif item in existing_l3_domains:
-            domain_uuid.append(existing_l3_domains[item])
+            domain_uuid_list.append(existing_l3_domains[item])
         else:
             mso.fail_json(msg="Domain '{0}' not found in the template '{1}'.".format(item, template))
-    return domain_uuid
+    return domain_uuid_list
 
 
 def validate_macsec_policy(mso, access_macsec_policy, template, template_info):

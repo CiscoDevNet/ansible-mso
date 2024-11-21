@@ -25,101 +25,101 @@ description:
 author:
 - Gaspard Micol (@gmicol)
 options:
-    template:
-        description:
-        - The name of the template.
-        - The template must be a fabric resource template.
-        type: str
-        required: true
-    virtual_port_channel_interface:
-        description:
-        - The name of the Virtual Port Channel Interface.
-        type: str
-        aliases: [ name, virtual_port_channel, vpc ]
-    virtual_port_channel_interface_uuid:
-        description:
-        - The UUID of the Virtual Port Channel Interface.
-        - This parameter can be used instead of O(virtual_port_channel_interface)
-          when an existing Virtual Port Channel Interface is updated.
-        - This parameter is required when parameter O(virtual_port_channel_interface) is updated.
-        type: str
-        aliases: [ uuid, virtual_port_channel_uuid, vpc_uuid ]
+  template:
     description:
+    - The name of the template.
+    - The template must be a Fabric Resource template.
+    type: str
+    required: true
+  name:
+    description:
+    - The name of the Virtual Port Channel Interface.
+    type: str
+    aliases: [ virtual_port_channel_interface, virtual_port_channel, vpc ]
+  uuid:
+    description:
+    - The UUID of the Virtual Port Channel Interface.
+    - This parameter can be used instead of O(virtual_port_channel_interface)
+      when an existing Virtual Port Channel Interface is updated.
+    - This parameter is required when parameter O(name) is updated.
+    type: str
+    aliases: [ virtual_port_channel_interface_uuid, virtual_port_channel_uuid, vpc_uuid ]
+  description:
+    description:
+    - The description of the Virtual Port Channel Interface.
+    type: str
+  node_1:
+    description:
+    - The first node ID.
+    type: str
+  node_2:
+    description:
+    - The second node ID.
+    type: str
+  interfaces_node_1:
+    description:
+    - The list of used Interface IDs for the first node.
+    - Ranges of Interface IDs can be used.
+    - This parameter is required when creating a new Virtual Port Channel Interface.
+    type: list
+    elements: str
+    aliases: [ interfaces_1, members_1 ]
+  interfaces_node_2:
+    description:
+    - The list of used Interface IDs for the second node.
+    - Ranges of Interface IDs can be used.
+    - This parameter is required when creating a new Virtual Port Channel Interface.
+    type: list
+    elements: str
+    aliases: [ interfaces_2, members_2 ]
+  interface_policy_group_uuid:
+    description:
+    - The UUID of the Port Channel Interface Policy Group.
+    - This parameter is required when creating a new Virtual Port Channel Interface.
+    type: str
+    aliases: [ policy_uuid, interface_policy_uuid, interface_setting_uuid ]
+  interface_policy_group:
+    description:
+    - The Port Channel Interface Policy Group.
+    - This parameter can be used instead of O(interface_policy_group_uuid).
+    - If both parameter are used, O(interface_policy_group) will be ignored.
+    type: dict
+    suboptions:
+      name:
         description:
-        - The description of the Virtual Port Channel Interface.
+        - The name of the Interface Policy Group.
         type: str
-    node_1:
+      template:
         description:
-        - The first node ID.
+        - The name of the template in which the Interface Policy Group has been created.
         type: str
-    node_2:
+    aliases: [ policy, interface_policy, interface_setting ]
+  interface_descriptions:
+    description:
+    - The list of interface descriptions.
+    type: list
+    elements: dict
+    suboptions:
+      node:
         description:
-        - The second node ID.
+        - The node ID.
         type: str
-    interfaces_node_1:
+      interface_id:
         description:
-        - The list of used Interface IDs for the first node.
-        - Ranges of Interface IDs can be used.
-        - This parameter is required when creating a new Virtual Port Channel Interface.
-        type: list
-        elements: str
-        aliases: [ interfaces_1, members_1 ]
-    interfaces_node_2:
-        description:
-        - The list of used Interface IDs for the second node.
-        - Ranges of Interface IDs can be used.
-        - This parameter is required when creating a new Virtual Port Channel Interface.
-        type: list
-        elements: str
-        aliases: [ interfaces_2, members_2 ]
-    interface_policy_group_uuid:
-        description:
-        - The UUID of the Port Channel Interface Policy Group.
-        - This parameter is required when creating a new Virtual Port Channel Interface.
+        - The interface ID.
         type: str
-        aliases: [ policy_uuid, interface_policy_uuid, interface_setting_uuid ]
-    interface_policy_group:
+      description:
         description:
-        - The name of the Port Channel Interface Policy Group.
-        - This parameter can be used instead of O(interface_policy_group_uuid).
-        - If both parameter are used, O(interface_policy_group) will be ignored.
-        type: dict
-        suboptions:
-            name:
-                description:
-                - The name of the Port Channel Interface Policy Group.
-                type: str
-            template:
-                description:
-                - The name of the template in which the Port Channel Interface Policy Group has been created.
-                type: str
-        aliases: [ policy, interface_policy, interface_setting ]
-    interface_descriptions:
-        description:
-        - The list of interface descriptions.
-        type: list
-        elements: dict
-        suboptions:
-            node:
-                description:
-                - The node ID.
-                type: str
-            interface_id:
-                description:
-                - The interface ID.
-                type: str
-            description:
-                description:
-                - The description of the interface.
-                type: str
-    state:
-        description:
-        - Use C(absent) for removing.
-        - Use C(query) for listing an object or multiple objects.
-        - Use C(present) for creating or updating.
+        - The description of the interface.
         type: str
-        choices: [ absent, query, present ]
-        default: query
+  state:
+    description:
+    - Use C(absent) for removing.
+    - Use C(query) for listing an object or multiple objects.
+    - Use C(present) for creating or updating.
+    type: str
+    choices: [ absent, query, present ]
+    default: query
 extends_documentation_fragment: cisco.mso.modules
 """
 
@@ -131,7 +131,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template: ansible_fabric_resource_template
     description: My Ansible Port Channel
-    virtual_port_channel_interface: ansible_virtual_port_channel_interface
+    name: ansible_virtual_port_channel_interface
     node_1: 101
     node_2: 102
     interfaces_node_1:
@@ -156,38 +156,39 @@ EXAMPLES = r"""
         interface_id: 1/2
         description: My first Ansible Interface for second node
     state: present
+  register: virtual_port_channel_interface_1
 
-- name: Update a Virtual Port Channel Interface's name
+- name: Update a Virtual Port Channel Interface's name with UUID
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_fabric_resource_template
-    virtual_port_channel_interface: ansible_virtual_port_channel_interface_changed
-    virtual_port_channel_interface_uuid: 0134c73f-4427-4109-9eea-5110ecdf10ea
+    name: ansible_virtual_port_channel_interface_changed
+    uuid: "{{ virtual_port_channel_interface_1.current.uuid }}"
     state: present
 
-- name: Query a Virtual Port Channel Interface using its name in the template
+- name: Query a Virtual Port Channel Interface with name
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_fabric_resource_template
-    virtual_port_channel_interface: ansible_virtual_port_channel_interface_changed
+    name: ansible_virtual_port_channel_interface_changed
     state: query
   register: query_one
 
-- name: Query a Virtual Port Channel Interface using its UUID in the template
+- name: Query a Virtual Port Channel Interface with UUID
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_fabric_resource_template
-    virtual_port_channel_interface_uuid: 0134c73f-4427-4109-9eea-5110ecdf10ea
+    uuid: "{{ virtual_port_channel_interface_1.current.uuid }}"
     state: query
   register: query_one_uuid
 
-- name: Query all Virtual Port Channel Interfaces in the template
+- name: Query all Virtual Port Channel Interfaces in a Fabric Resource Template
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
@@ -196,22 +197,22 @@ EXAMPLES = r"""
     state: query
   register: query_all
 
-- name: Delete a Virtual Port Channel Interface using its name
+- name: Delete a Virtual Port Channel Interface with name
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_fabric_resource_template
-    virtual_port_channel_interface: ansible_virtual_port_channel_interface_changed
+    name: ansible_virtual_port_channel_interface_changed
     state: absent
 
-- name: Delete a Virtual Port Channel Interface using its UUID
+- name: Delete a Virtual Port Channel Interface with UUID
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_fabric_resource_template
-    virtual_port_channel_interface_uuid: 0134c73f-4427-4109-9eea-5110ecdf10ea
+    uuid: "{{ virtual_port_channel_interface_1.current.uuid }}"
     state: absent
 """
 
@@ -235,8 +236,8 @@ def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
         template=dict(type="str", required=True),
-        virtual_port_channel_interface=dict(type="str", aliases=["name", "virtual_port_channel", "vpc"]),
-        virtual_port_channel_interface_uuid=dict(type="str", aliases=["uuid", "virtual_port_channel_uuid", "vpc_uuid"]),
+        name=dict(type="str", aliases=["virtual_port_channel_interface", "virtual_port_channel", "vpc"]),
+        uuid=dict(type="str", aliases=["virtual_port_channel_interface_uuid", "virtual_port_channel_uuid", "vpc_uuid"]),
         description=dict(type="str"),
         node_1=dict(type="str"),
         node_2=dict(type="str"),
@@ -267,16 +268,16 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "absent", ["virtual_port_channel_interface", "virtual_port_channel_interface_uuid"], True],
-            ["state", "present", ["virtual_port_channel_interface", "virtual_port_channel_interface_uuid"], True],
+            ["state", "absent", ["name", "uuid"], True],
+            ["state", "present", ["name", "uuid"], True],
         ],
     )
 
     mso = MSOModule(module)
 
     template = module.params.get("template")
-    virtual_port_channel_interface = module.params.get("virtual_port_channel_interface")
-    virtual_port_channel_interface_uuid = module.params.get("virtual_port_channel_interface_uuid")
+    name = module.params.get("name")
+    uuid = module.params.get("uuid")
     description = module.params.get("description")
     node_1 = module.params.get("node_1")
     node_2 = module.params.get("node_2")
@@ -300,11 +301,16 @@ def main():
 
     path = "/fabricResourceTemplate/template/virtualPortChannels"
     existing_virtual_port_channel_interfaces = mso_template.template.get("fabricResourceTemplate", {}).get("template", {}).get("virtualPortChannels", [])
-    if virtual_port_channel_interface or virtual_port_channel_interface_uuid:
+
+    if state in ["query", "absent"] and existing_virtual_port_channel_interfaces == []:
+        mso.exit_json()
+    elif state == "query" and not (name or uuid):
+        mso.existing = existing_virtual_port_channel_interfaces
+    elif existing_virtual_port_channel_interfaces and (name or uuid):
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
             existing_virtual_port_channel_interfaces,
-            [KVPair("uuid", virtual_port_channel_interface_uuid) if virtual_port_channel_interface_uuid else KVPair("name", virtual_port_channel_interface)],
+            [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
             mso.existing = mso.previous = copy.deepcopy(match.details)
@@ -312,54 +318,58 @@ def main():
         mso.existing = mso.previous = existing_virtual_port_channel_interfaces
 
     if state == "present":
+        if uuid and not mso.existing:
+            mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
         if interface_policy_group and not interface_policy_group_uuid:
             fabric_policy_template = MSOTemplate(mso, "fabric_policy", interface_policy_group.get("template"))
             fabric_policy_template.validate_template("fabricPolicy")
             interface_policy_group_uuid = fabric_policy_template.get_interface_policy_group_uuid(interface_policy_group.get("name"))
 
-        if match:
-            if virtual_port_channel_interface and match.details.get("name") != virtual_port_channel_interface:
-                ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=virtual_port_channel_interface))
-                match.details["name"] = virtual_port_channel_interface
+        if mso.existing:
+            proposed_payload = copy.deepcopy(match.details)
 
-            if description is not None and match.details.get("description") != description:
+            if name and mso.existing.get("name") != name:
+                ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=name))
+                proposed_payload["name"] = name
+
+            if description is not None and mso.existing.get("description") != description:
                 ops.append(dict(op="replace", path="{0}/{1}/description".format(path, match.index), value=description))
-                match.details["description"] = description
+                proposed_payload["description"] = description
 
-            if node_1 is not None and match.details.get("node1Details", {}).get("node") != node_1:
+            if node_1 is not None and mso.existing.get("node1Details", {}).get("node") != node_1:
                 ops.append(dict(op="replace", path="{0}/{1}/node1Details/node".format(path, match.index), value=node_1))
-                match.details["node1Details"]["node"] = node_1
+                proposed_payload["node1Details"]["node"] = node_1
 
-            if node_2 is not None and match.details.get("node2Details", {}).get("node") != node_2:
+            if node_2 is not None and mso.existing.get("node2Details", {}).get("node") != node_2:
                 ops.append(dict(op="replace", path="{0}/{1}/node2Details/node".format(path, match.index), value=node_2))
-                match.details["node2Details"]["node"] = node_2
+                proposed_payload["node2Details"]["node"] = node_2
 
-            if interface_policy_group_uuid and match.details.get("policy") != interface_policy_group_uuid:
+            if interface_policy_group_uuid and mso.existing.get("policy") != interface_policy_group_uuid:
                 ops.append(dict(op="replace", path="{0}/{1}/policy".format(path, match.index), value=interface_policy_group_uuid))
-                match.details["policy"] = interface_policy_group_uuid
+                proposed_payload["policy"] = interface_policy_group_uuid
 
-            if interfaces_node_1 and interfaces_node_1 != match.details.get("node1Details", {}).get("memberInterfaces"):
+            if interfaces_node_1 and interfaces_node_1 != mso.existing.get("node1Details", {}).get("memberInterfaces"):
                 ops.append(dict(op="replace", path="{0}/{1}/node1Details/memberInterfaces".format(path, match.index), value=interfaces_node_1))
-                match.details["node1Details"]["memberInterfaces"] = interfaces_node_1
+                proposed_payload["node1Details"]["memberInterfaces"] = interfaces_node_1
 
-            if interfaces_node_2 and interfaces_node_2 != match.details.get("node2Details", {}).get("memberInterfaces"):
+            if interfaces_node_2 and interfaces_node_2 != mso.existing.get("node2Details", {}).get("memberInterfaces"):
                 ops.append(dict(op="replace", path="{0}/{1}/node2Details/memberInterfaces".format(path, match.index), value=interfaces_node_2))
-                match.details["node2Details"]["memberInterfaces"] = interfaces_node_2
+                proposed_payload["node2Details"]["memberInterfaces"] = interfaces_node_2
 
             if interface_descriptions:
                 interface_descriptions = format_interface_descriptions(interface_descriptions)
-                if interface_descriptions != match.details.get("interfaceDescriptions"):
+                if interface_descriptions != mso.existing.get("interfaceDescriptions"):
                     ops.append(dict(op="replace", path="{0}/{1}/interfaceDescriptions".format(path, match.index), value=interface_descriptions))
-                    match.details["interfaceDescriptions"] = interface_descriptions
-            elif interface_descriptions == [] and match.details["interfaceDescriptions"]:
+                    proposed_payload["interfaceDescriptions"] = interface_descriptions
+            elif interface_descriptions == [] and mso.existing.get("interfaceDescriptions"):
                 ops.append(dict(op="remove", path="{0}/{1}/interfaceDescriptions".format(path, match.index)))
 
-            mso.sanitize(match.details)
+            mso.sanitize(proposed_payload, collate=True)
 
         else:
             payload = {
-                "name": virtual_port_channel_interface,
+                "name": name,
                 "node1Details": {
                     "node": node_1,
                     "memberInterfaces": interfaces_node_1,
@@ -369,18 +379,15 @@ def main():
                     "memberInterfaces": interfaces_node_2,
                 },
                 "policy": interface_policy_group_uuid,
+                "description": description,
+                "interfaceDescriptions": format_interface_descriptions(interface_descriptions),
             }
-            if description is not None:
-                payload["description"] = description
-            if interface_descriptions:
-                payload["interfaceDescriptions"] = format_interface_descriptions(interface_descriptions)
-
-            ops.append(dict(op="add", path="{0}/-".format(path), value=payload))
-
             mso.sanitize(payload)
 
+            ops.append(dict(op="add", path="{0}/-".format(path), value=mso.sent))
+
     elif state == "absent":
-        if match:
+        if mso.existing:
             ops.append(dict(op="remove", path="{0}/{1}".format(path, match.index)))
 
     if not module.check_mode and ops:
@@ -389,7 +396,7 @@ def main():
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
             virtual_port_channel_interfaces,
-            [KVPair("uuid", virtual_port_channel_interface_uuid) if virtual_port_channel_interface_uuid else KVPair("name", virtual_port_channel_interface)],
+            [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
             mso.existing = match.details

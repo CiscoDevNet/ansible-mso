@@ -211,7 +211,6 @@
         mcp:
           admin_state: disabled
         pfc_admin_state: off
-        # required UUIDs
         synce: ansible_synce_interface_policy
         access_macsec_policy: ansible_macsec_policy
         domains: ["ansible_physical_domain", "ansible_l3_domain"]
@@ -254,6 +253,10 @@
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.maxLinks == nm_add_interface_policy_group_pc.current.portChannelPolicy.maxLinks == 50
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.hashFields == nm_add_interface_policy_group_pc.current.portChannelPolicy.hashFields == "dst-ip"
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.control | length == nm_add_interface_policy_group_pc.current.portChannelPolicy.control | length == 4
+          - cm_add_interface_policy_group_pc.current.portChannelPolicy.control.0 == nm_add_interface_policy_group_pc.current.portChannelPolicy.control.0 == "fast-sel-hot-stdby"
+          - cm_add_interface_policy_group_pc.current.portChannelPolicy.control.1 == nm_add_interface_policy_group_pc.current.portChannelPolicy.control.1 == "graceful-conv"
+          - cm_add_interface_policy_group_pc.current.portChannelPolicy.control.2 == nm_add_interface_policy_group_pc.current.portChannelPolicy.control.2 == "susp-individual"
+          - cm_add_interface_policy_group_pc.current.portChannelPolicy.control.3 == nm_add_interface_policy_group_pc.current.portChannelPolicy.control.3 == "symmetric-hash"
           - cm_add_interface_policy_group_pc.current.syncEthPolicy == nm_add_interface_policy_group_pc.current.syncEthPolicy
           - cm_add_interface_policy_group_pc.current.accessMACsecPolicy == nm_add_interface_policy_group_pc.current.accessMACsecPolicy
           - cm_add_interface_policy_group_pc.current.domains | length == nm_add_interface_policy_group_pc.current.domains | length == 2
@@ -295,7 +298,6 @@
           grace_period_sec: 60
           grace_period_msec: 60
         pfc_admin_state: on
-        # required UUIDs
         synce: ansible_synce_interface_policy_2
         access_macsec_policy: ansible_macsec_policy_2
         domains: ["ansible_physical_domain_2", "ansible_l3_domain_2"]
@@ -375,7 +377,16 @@
           - cm_update_interface_policy_group.previous.portChannelPolicy.hashFields == nm_update_interface_policy_group.previous.portChannelPolicy.hashFields == "dst-ip"
           - cm_update_interface_policy_group.current.portChannelPolicy.hashFields == nm_update_interface_policy_group.current.portChannelPolicy.hashFields == "src-ip"
           - cm_update_interface_policy_group.previous.portChannelPolicy.control | length == nm_update_interface_policy_group.previous.portChannelPolicy.control | length == 4
+          - cm_update_interface_policy_group.previous.portChannelPolicy.control.0 == nm_update_interface_policy_group.previous.portChannelPolicy.control.0 == "fast-sel-hot-stdby"
+          - cm_update_interface_policy_group.previous.portChannelPolicy.control.1 == nm_update_interface_policy_group.previous.portChannelPolicy.control.1 == "graceful-conv"
+          - cm_update_interface_policy_group.previous.portChannelPolicy.control.2 == nm_update_interface_policy_group.previous.portChannelPolicy.control.2 == "susp-individual"
+          - cm_update_interface_policy_group.previous.portChannelPolicy.control.3 == nm_update_interface_policy_group.previous.portChannelPolicy.control.3 == "symmetric-hash"
           - cm_update_interface_policy_group.current.portChannelPolicy.control | length == nm_update_interface_policy_group.current.portChannelPolicy.control | length == 5
+          - cm_update_interface_policy_group.current.portChannelPolicy.control.0 == nm_update_interface_policy_group.current.portChannelPolicy.control.0 == "fast-sel-hot-stdby"
+          - cm_update_interface_policy_group.current.portChannelPolicy.control.1 == nm_update_interface_policy_group.current.portChannelPolicy.control.1 == "graceful-conv"
+          - cm_update_interface_policy_group.current.portChannelPolicy.control.2 == nm_update_interface_policy_group.current.portChannelPolicy.control.2 == "susp-individual"
+          - cm_update_interface_policy_group.current.portChannelPolicy.control.3 == nm_update_interface_policy_group.current.portChannelPolicy.control.3 == "load-defer"
+          - cm_update_interface_policy_group.current.portChannelPolicy.control.4 == nm_update_interface_policy_group.current.portChannelPolicy.control.4 == "symmetric-hash"
           - cm_update_interface_policy_group.previous.syncEthPolicy == nm_update_interface_policy_group.previous.syncEthPolicy
           - cm_update_interface_policy_group.current.syncEthPolicy == nm_update_interface_policy_group.current.syncEthPolicy
           - cm_update_interface_policy_group.previous.accessMACsecPolicy == nm_update_interface_policy_group.previous.accessMACsecPolicy
@@ -451,6 +462,8 @@
           - query_all is not changed
           - query_one is not changed
           - query_all.current | length >= 2
+          - query_all.current.0.name == "ansible_interface_policy_group"
+          - query_all.current.1.name == "ansible_interface_policy_group_changed"
           - query_one.current.name == "ansible_interface_policy_group"
           - query_one.current.type == "physical"
 
@@ -506,7 +519,7 @@
           - nm_add_interface_policy_lldp is failed
           - nm_add_interface_policy_lldp.msg == "LLDP receive_state and transmit_state must be 'disabled' when LLDP status is disabled."
 
-    # domain  not found
+    # Non-existing domain
     - name: Create a Interface Policy group with non-existing domain
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
@@ -524,7 +537,7 @@
           - nm_add_interface_policy_domain is failed
           - nm_add_interface_policy_domain.msg == "Domain 'non_existing_domain' not found in the template 'ansible_fabric_policy_template'."
 
-    #  non-existing syncE policy
+    #  Non-existing syncE policy
     - name: Create a Interface Policy group with non-existing syncE policy
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
@@ -542,7 +555,7 @@
           - nm_add_interface_policy_synce is failed
           - nm_add_interface_policy_synce.msg == "SyncE policy 'non_existing_synce_interface_policy' not found in the template 'ansible_fabric_policy_template'."
 
-    # non-existing access_macsec_policy
+    # Non-existing access_macsec_policy
     - name: Create a Interface Policy group with non-existing access_macsec_policy
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
@@ -560,7 +573,7 @@
           - nm_add_interface_policy_macsec is failed
           - nm_add_interface_policy_macsec.msg == "Access MACsec policy 'non_existing_macsec_policy' not found in the template 'ansible_fabric_policy_template'."
 
-    # errors on update
+    # Errors on update
     - name: Create another Interface Policy group of interface_type 'physical'
       cisco.mso.ndo_interface_setting: &add_interface_policy_group_2
         <<: *add_interface_policy_group
@@ -769,7 +782,7 @@
           - add_interface_policy_group_cov.previous == {}
           - add_interface_policy_group_cov.current.name == "ansible_interface_policy_group_cov"
           - add_interface_policy_group_cov.current.type == "physical"
-          - add_interface_policy_group_cov.current.mcp.strictMode == "off"
+          - add_interface_policy_group_cov.current.mcp.mcpMode == "off"
 
     # CLEANUP TEMPLATE
 

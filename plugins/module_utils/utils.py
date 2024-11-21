@@ -30,71 +30,137 @@ def generate_api_endpoint(path, **kwargs):
     return path if not kwargs else "{0}?{1}".format(path, "&".join(["{0}={1}".format(key, value) for key, value in kwargs.items()]))
 
 
-def append_update_ops_data(ops, existing_data, update_path, value, *existing_data_keys, op="replace"):
+def append_update_ops_data(ops, existing_data, update_path, changes=dict(), op="replace"):
     """
     Append Update ops payload data.
     :param ops: Variable which contains the PATCH replace actions for the update operation -> List
     :param existing_data: Variable which contains the existing data -> Dict
     :param update_path: The object path is used to update an existing object -> Str
-    :param value: Input value of the attribute which needs to be updated -> Any
-    :param existing_data_keys: Additional positional arguments which is used to compare and update the existing data based on the sequence of keys -> Any
+    :param changes: Input dictionary which contains the attribute to be updated and its new value -> Dict
     :param op: Defaults to "replace" when not specified, value "remove" is used clear the existing configuration -> Str
     :return: None
                 If attributes is not empty then the ops and existing_data are updated with the input value.
 
-    Sample Inputs:
-        ops = []
-        existing_data = {
-            "name": "L3OutInterfacePolicy",
-            "bfdMultiHopPol": {
-                "adminState": "enabled",
-                "detectionMultiplier": 3,
-                "minRxInterval": 250,
-                "minTxInterval": 250
+    Sample data for the replace call:
+    ---------------------------------
+
+    Sample Existing Data:
+    ---------------------
+    existing_data = {
+        "bfdMultiHopPol": {"adminState": "enabled", "minRxInterval": 250},
+        "bfdPol": {"adminState": "enabled", "detectionMultiplier": 3},
+        "name": "irp_1",
+    }
+    ops = []
+    update_path = "/tenantPolicyTemplate/template/l3OutIntfPolGroups/0"
+
+    replace_data = {
+        ("name"): "new_name",
+        "description": "new_description",
+        ("bfdMultiHopPol", "ifControl"): dict(),
+        ("bfdMultiHopPol", "ifControl", "adminState"): "enabled",
+        ("ospfIntfPol"): dict(ifControl=dict(adminState="disbaled"), cost=0),
+    }
+
+    append_update_ops_data(ops, existing_data, interface_routing_policy_path, replace_data)
+
+    Replace function call output data:
+    ----------------------------------
+
+    Standard Output Data:
+    ---------------------
+    {
+        "bfdMultiHopPol": {
+            "adminState": "enabled",
+            "minRxInterval": 250,
+            "ifControl": {"adminState": "enabled"},
+        },
+        "bfdPol": {
+            "adminState": "enabled",
+            "detectionMultiplier": 3,
+        },
+        "name": "new_name",
+        "description": "new_description",
+        "ospfIntfPol": {
+            "ifControl": {
+                "adminState": "disbaled",
             },
-        }
-        update_path = "/tenantPolicyTemplate/template/l3OutIntfPolGroups/0"
+            "cost": 0,
+        },
+    }
 
-        Sample existing_data_keys input format:
-            To update the "bfdMultiHopPol -> adminState" value:
-                existing_data_keys = "bfdMultiHopPol", "adminState"
+    API Input Data:
+    ---------------
+    [
+        {"op": "replace", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/name", "value": "new_name"},
+        {"op": "replace", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/description", "value": "new_description"},
+        {"op": "replace", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/bfdMultiHopPol/ifControl", "value": {}},
+        {"op": "replace", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/bfdMultiHopPol/ifControl/adminState", "value": "enabled"},
+        {
+            "op": "replace",
+            "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/ospfIntfPol",
+            "value": {"ifControl": {"adminState": "disbaled"}, "cost": 0},
+        },
+    ]
 
-        To update the top level key of the existing object:
-            append_update_ops_data(ops, existing_data, update_path, "L3OutInterfacePolicy_NameUpdated", "name", op="replace")
+    ----------------------------------------------------------------
 
-        To create the nested object from the scratch when the object is not available:
-            append_update_ops_data(ops, existing_data, update_path, dict(), "ospfIntfPol", op="replace")
-            append_update_ops_data(ops, existing_data, update_path, dict(), "ospfIntfPol", "ifControl", op="replace")
-            append_update_ops_data(ops, existing_data, update_path, True, "ospfIntfPol", "ifControl", "ignoreMtu", op="replace")
+    Sample data for the remove call:
+    --------------------------------
 
-        After inserting the new object:
-        existing_data = {
-            "name": "L3OutInterfacePolicy",
-            "ospfIntfPol": {
-                "networkType": "broadcast",
-                "prio": 1,
-                "cost": 0,
-                "ifControl": {
-                    "advertiseSubnet": false,
-                    "bfd": false,
-                    "ignoreMtu": false,
-                    "passiveParticipation": false
-                },
-                "helloInterval": 10,
-                "deadInterval": 40,
-                "retransmitInterval": 5,
-                "transmitDelay": 1
+    existing_data = {
+        "bfdMultiHopPol": {
+            "adminState": "enabled",
+            "minRxInterval": 250,
+            "ifControl": {"adminState": "enabled"},
+        },
+        "bfdPol": {
+            "adminState": "enabled",
+            "detectionMultiplier": 3,
+        },
+        "name": "new_name",
+        "description": "new_description",
+        "ospfIntfPol": {
+            "ifControl": {
+                "adminState": "disbaled",
             },
-        }
+            "cost": 0,
+        },
+    }
+    ops = []
+    update_path = "/tenantPolicyTemplate/template/l3OutIntfPolGroups/0"
 
-        To update the nested key of the existing object:
-            append_update_ops_data(ops, existing_data, update_path, True, "ospfIntfPol", "ifControl", "ignoreMtu", op="replace")
+    remove_data = {
+        "description": None,
+        "bfdPol": None,
+        ("bfdMultiHopPol", "ifControl", "adminState"): None,
+        ("ospfIntfPol"): None,
+    }
 
-        To delete the nested object from the existing object:
-            append_update_ops_data(ops, existing_data, update_path, None, "ospfIntfPol", "ifControl", op="remove")
+    append_update_ops_data(ops, existing_data, interface_routing_policy_path, remove_data, op="remove")
 
-        To delete the top level key from the existing object:
-            append_update_ops_data(ops, existing_data, update_path, None, "ospfIntfPol", op="remove")
+    Remove function call output data:
+    ---------------------------------
+
+    Standard Output Data:
+    ---------------------
+    {
+        "bfdMultiHopPol": {
+            "adminState": "enabled",
+            "minRxInterval": 250,
+            "ifControl": {},
+        },
+        "name": "new_name",
+    }
+
+    API Input Data:
+    -----------------
+    [
+        {"op": "remove", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/description"},
+        {"op": "remove", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/bfdPol"},
+        {"op": "remove", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/bfdMultiHopPol/ifControl/adminState"},
+        {"op": "remove", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/ospfIntfPol"},
+    ]
     """
 
     def recursive_update(data, path, keys, new_value):
@@ -126,5 +192,9 @@ def append_update_ops_data(ops, existing_data, update_path, value, *existing_dat
         elif key in data:
             recursive_update(data[key], "{}/{}".format(path, key), keys[1:], new_value)
 
-    if existing_data_keys:
-        recursive_update(existing_data, update_path, existing_data_keys, value)
+    if changes:
+        for key, value in changes.items():
+            if isinstance(key, tuple):
+                recursive_update(existing_data, update_path, key, value)
+            else:
+                recursive_update(existing_data, update_path, (key,), value)

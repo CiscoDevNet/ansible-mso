@@ -211,3 +211,15 @@ TARGET_DSCP_MAP = {
 
 ORIGINATE_DEFAULT_ROUTE = {"only": "only", "in_addition": "inAddition", "": ""}
 L3OUT_ROUTING_PROTOCOLS = {"bgp": ["bgp"], "ospf": ["ospf"], "bgpOspf": ["bgp", "ospf"], None: [None], "": None, "bgpospf": "bgpOspf", "ospfbgp": "bgpOspf"}
+
+TARGET_COS_MAP = {
+    "background": "cos0",
+    "best_effort": "cos1",
+    "excellent_effort": "cos2",
+    "critical_applications": "cos3",
+    "video": "cos4",
+    "voice": "cos5",
+    "internetwork_control": "cos6",
+    "network_control": "cos7",
+    "unspecified": "cos8",
+}

@@ -16,7 +16,7 @@ DOCUMENTATION = r"""
 module: ndo_tenant_custom_qos_policy
 short_description: Manage Custom QoS Policies in Tenant Policy Templates on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
-- Manage Custom QoS Policies in Tenant Policy Templates on Cisco Nexus Dashboard Orchestrator (NDO).
+- Manage Custom Quality of Service (QoS)  Policies in Tenant Policy Templates on Cisco Nexus Dashboard Orchestrator (NDO).
 - This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Gaspard Micol (@gmicol)
@@ -107,7 +107,7 @@ options:
           - unspecified
           - voice_admit
         aliases: [ to ]
-      target:
+      dscp_target:
         description:
         - The DSCP target value.
         type: str
@@ -135,18 +135,18 @@ options:
           - expedited_forwarding
           - unspecified
           - voice_admit
-        aliases: [ dscp_target ]
+        aliases: [ target ]
       target_cos:
         description:
         - The target CoS to be driven based on the range of input values of DSCP coming into the fabric.
         type: str
         choices: [ background, best_effort, excellent_effort, critical_applications, video, voice, internetwork_control, network_control, unspecified ]
-      priority:
+      qos_priority:
         description:
         - The desired QoS class level to be used.
         type: str
         choices: [ level1, level2, level3, level4, level5, level6, unspecified ]
-        aliases: [ prio ]
+        aliases: [ priority, prio ]
   cos_mappings:
     description:
     - The CoS mappings of the Custom QoS Policy.
@@ -165,9 +165,9 @@ options:
         type: str
         choices: [ background, best_effort, excellent_effort, critical_applications, video, voice, internetwork_control, network_control, unspecified ]
         aliases: [ to ]
-      target:
+      dscp_target:
         description:
-        - The Dot1P target value.
+        - The DSCP target value.
         type: str
         choices:
           - af11
@@ -193,18 +193,18 @@ options:
           - expedited_forwarding
           - unspecified
           - voice_admit
-        aliases: [ dot1p_target ]
+        aliases: [ target ]
       target_cos:
         description:
         - The target CoS to be driven based on the range of input values of Dot1P coming into the fabric.
         type: str
         choices: [ background, best_effort, excellent_effort, critical_applications, video, voice, internetwork_control, network_control, unspecified ]
-      priority:
+      qos_priority:
         description:
         - The desired QoS class level to be used.
         type: str
         choices: [ level1, level2, level3, level4, level5, level6, unspecified ]
-        aliases: [ prio ]
+        aliases: [ priority, prio ]
   state:
     description:
     - Use C(absent) for removing.
@@ -232,15 +232,15 @@ EXAMPLES = r"""
     dscp_mappings:
       - dscp_from: af11
         dscp_to: af12
-        target: af11
+        dscp_target: af11
         target_cos: background
-        priority: level1
+        qos_priority: level1
     cos_mappings:
       - dot1p_from: background
         dot1p_to: best_effort
         target: af11
         target_cos: background
-        priority: level1
+        qos_priority: level1
     state: present
   register: custom_qos_policy_1
 
@@ -309,7 +309,13 @@ import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
-from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, TARGET_COS_MAP
+from ansible_collections.cisco.mso.plugins.module_utils.utils import format_list_dict
+from ansible_collections.cisco.mso.plugins.module_utils.constants import (
+    TARGET_DSCP_MAP,
+    TARGET_COS_MAP,
+    DSCP_KEYS_FORMAT_MAP,
+    DOT1P_KEYS_FORMAT_MAP,
+)
 
 
 def main():
@@ -325,12 +331,12 @@ def main():
             options=dict(
                 dscp_from=dict(type="str", choices=list(TARGET_DSCP_MAP.keys()), aliases=["from"]),
                 dscp_to=dict(type="str", choices=list(TARGET_DSCP_MAP.keys()), aliases=["to"]),
-                target=dict(type="str", choices=list(TARGET_DSCP_MAP.keys()), aliases=["dscp_target"]),
+                dscp_target=dict(type="str", choices=list(TARGET_DSCP_MAP.keys()), aliases=["target"]),
                 target_cos=dict(type="str", choices=list(TARGET_COS_MAP.keys())),
-                priority=dict(
+                qos_priority=dict(
                     type="str",
                     choices=["level1", "level2", "level3", "level4", "level5", "level6", "unspecified"],
-                    aliases=["prio"],
+                    aliases=["priority", "prio"],
                 ),
             ),
         ),
@@ -340,12 +346,12 @@ def main():
             options=dict(
                 dot1p_from=dict(type="str", choices=list(TARGET_COS_MAP.keys()), aliases=["from"]),
                 dot1p_to=dict(type="str", choices=list(TARGET_COS_MAP.keys()), aliases=["to"]),
-                target=dict(type="str", choices=list(TARGET_DSCP_MAP.keys()), aliases=["dot1p_target"]),
+                dscp_target=dict(type="str", choices=list(TARGET_DSCP_MAP.keys()), aliases=["target"]),
                 target_cos=dict(type="str", choices=list(TARGET_COS_MAP.keys())),
-                priority=dict(
+                qos_priority=dict(
                     type="str",
                     choices=["level1", "level2", "level3", "level4", "level5", "level6", "unspecified"],
-                    aliases=["prio"],
+                    aliases=["priority", "prio"],
                 ),
             ),
         ),
@@ -367,8 +373,8 @@ def main():
     name = module.params.get("name")
     uuid = module.params.get("uuid")
     description = module.params.get("description")
-    dscp_mappings = module.params.get("dscp_mappings")
-    cos_mappings = module.params.get("cos_mappings")
+    dscp_mappings = format_list_dict(module.params.get("dscp_mappings"), DSCP_KEYS_FORMAT_MAP)
+    cos_mappings = format_list_dict(module.params.get("cos_mappings"), DOT1P_KEYS_FORMAT_MAP)
     state = module.params.get("state")
 
     template_object = MSOTemplate(mso, "tenant", template)
@@ -406,38 +412,16 @@ def main():
                 ops.append(dict(op="replace", path=custom_qos_policy_attrs_path + "/description", value=description))
                 proposed_payload["description"] = description
 
-            if dscp_mappings:
-                dscp_mappings = [
-                    dict(
-                        dscpFrom=TARGET_DSCP_MAP.get(dscp.get("dscp_from")),
-                        dscpTo=TARGET_DSCP_MAP.get(dscp.get("dscp_to")),
-                        dscpTarget=TARGET_DSCP_MAP.get(dscp.get("target")),
-                        targetCos=TARGET_COS_MAP.get(dscp.get("target_cos")),
-                        priority=dscp.get("priority"),
-                    )
-                    for dscp in dscp_mappings
-                ]
-                if mso.existing.get("dscpMappings") != dscp_mappings:
-                    ops.append(dict(op="replace", path=custom_qos_policy_attrs_path + "/dscpMappings", value=dscp_mappings))
-                    proposed_payload["dscpMappings"] = dscp_mappings
+            if dscp_mappings and mso.existing.get("dscpMappings") != dscp_mappings:
+                ops.append(dict(op="replace", path=custom_qos_policy_attrs_path + "/dscpMappings", value=dscp_mappings))
+                proposed_payload["dscpMappings"] = dscp_mappings
             elif dscp_mappings == [] and mso.existing.get("dscpMappings"):
                 ops.append(dict(op="remove", path=custom_qos_policy_attrs_path + "/dscpMappings"))
                 proposed_payload["dscpMappings"] = []
 
-            if cos_mappings:
-                cos_mappings = [
-                    dict(
-                        dot1pFrom=TARGET_COS_MAP.get(cos.get("dot1p_from")),
-                        dot1pTo=TARGET_COS_MAP.get(cos.get("dot1p_to")),
-                        dscpTarget=TARGET_DSCP_MAP.get(cos.get("target")),
-                        targetCos=TARGET_COS_MAP.get(cos.get("target_cos")),
-                        priority=cos.get("priority"),
-                    )
-                    for cos in cos_mappings
-                ]
-                if mso.existing.get("cosMappings") != cos_mappings:
-                    ops.append(dict(op="replace", path=custom_qos_policy_attrs_path + "/cosMappings", value=cos_mappings))
-                    proposed_payload["cosMappings"] = cos_mappings
+            if cos_mappings and mso.existing.get("cosMappings") != cos_mappings:
+                ops.append(dict(op="replace", path=custom_qos_policy_attrs_path + "/cosMappings", value=cos_mappings))
+                proposed_payload["cosMappings"] = cos_mappings
             elif cos_mappings == [] and mso.existing.get("cosMappings"):
                 ops.append(dict(op="remove", path=custom_qos_policy_attrs_path + "/cosMappings"))
                 proposed_payload["cosMappings"] = []
@@ -447,30 +431,12 @@ def main():
             payload = dict(
                 name=name,
                 description=description,
-                dscp_mappings=[
-                    dict(
-                        dscpFrom=TARGET_DSCP_MAP.get(dscp.get("dscp_from")),
-                        dscpTo=TARGET_DSCP_MAP.get(dscp.get("dscp_to")),
-                        dscpTarget=TARGET_DSCP_MAP.get(dscp.get("target")),
-                        targetCos=TARGET_COS_MAP.get(dscp.get("target_cos")),
-                        priority=dscp.get("priority"),
-                    )
-                    for dscp in dscp_mappings
-                ],
-                cos_mappings=[
-                    dict(
-                        dot1pFrom=TARGET_COS_MAP.get(cos.get("dot1p_from")),
-                        dot1pTo=TARGET_COS_MAP.get(cos.get("dot1p_to")),
-                        dscpTarget=TARGET_DSCP_MAP.get(cos.get("target")),
-                        targetCos=TARGET_COS_MAP.get(cos.get("target_cos")),
-                        priority=cos.get("priority"),
-                    )
-                    for cos in cos_mappings
-                ],
+                dscpMappings=dscp_mappings,
+                cosMappings=cos_mappings,
             )
 
             mso.sanitize(payload)
-            ops.append(dict(op="add", path="/tenantPolicyTemplate/template/mldSnoopPolicies/-", value=mso.sent))
+            ops.append(dict(op="add", path="/tenantPolicyTemplate/template/qosPolicies/-", value=mso.sent))
 
     elif state == "absent":
         if mso.existing:
@@ -478,7 +444,7 @@ def main():
 
     if not module.check_mode and ops:
         response_object = mso.request(template_object.template_path, method="PATCH", data=ops)
-        custom_qos_policies = response_object.get("tenantPolicyTemplate", {}).get("template", {}).get("mldSnoopPolicies", [])
+        custom_qos_policies = response_object.get("tenantPolicyTemplate", {}).get("template", {}).get("qosPolicies", [])
         match = template_object.get_object_by_key_value_pairs(
             object_description, custom_qos_policies, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
         )

@@ -227,3 +227,19 @@ TARGET_COS_MAP = {
     "network_control": "cos7",
     "unspecified": "cos8",
 }
+
+DSCP_KEYS_FORMAT_MAP = {
+    "dscp_from": ["dscpFrom", TARGET_DSCP_MAP],
+    "dscp_to": ["dscpTo", TARGET_DSCP_MAP],
+    "dscp_target": ["dscpTarget", TARGET_DSCP_MAP],
+    "target_cos": ["targetCos", TARGET_COS_MAP],
+    "qos_priority": "priority",
+}
+
+DOT1P_KEYS_FORMAT_MAP = {
+    "dot1p_from": ["dot1pFrom", TARGET_COS_MAP],
+    "dot1p_to": ["dot1pTo", TARGET_COS_MAP],
+    "dscp_target": ["dscpTarget", TARGET_DSCP_MAP],
+    "target_cos": ["targetCos", TARGET_COS_MAP],
+    "qos_priority": "priority",
+}

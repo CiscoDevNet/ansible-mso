@@ -30,13 +30,13 @@ def generate_api_endpoint(path, **kwargs):
     return path if not kwargs else "{0}?{1}".format(path, "&".join(["{0}={1}".format(key, value) for key, value in kwargs.items()]))
 
 
-def append_update_ops_data(ops, existing_data, update_path, changes=dict(), op="replace"):
+def append_update_ops_data(ops, existing_data, update_path, changes=None, op="replace"):
     """
     Append Update ops payload data.
     :param ops: Variable which contains the PATCH replace actions for the update operation -> List
     :param existing_data: Variable which contains the existing data -> Dict
     :param update_path: The object path is used to update an existing object -> Str
-    :param changes: Input dictionary which contains the attribute to be updated and its new value -> Dict
+    :param changes: Defaults to None when not specified, expected a dictionary object. Which contains the attribute to be updated and its new value -> Dict
     :param op: Defaults to "replace" when not specified, value "remove" is used clear the existing configuration -> Str
     :return: None
                 If attributes is not empty then the ops and existing_data are updated with the input value.
@@ -164,10 +164,7 @@ def append_update_ops_data(ops, existing_data, update_path, changes=dict(), op="
     """
 
     def recursive_update(data, path, keys, new_value):
-        if len(keys) == 0:
-            return
         key = keys[0]
-
         if len(keys) == 1:
             # Update the existing configuration
             if new_value is not None and data.get(key) != new_value and op == "replace":
@@ -191,6 +188,10 @@ def append_update_ops_data(ops, existing_data, update_path, changes=dict(), op="
 
         elif key in data:
             recursive_update(data[key], "{}/{}".format(path, key), keys[1:], new_value)
+
+    valid_ops = ["replace", "remove"]
+    if op not in valid_ops:
+        raise ValueError("Invalid op value. Expected one of: {0}. Got: {1}".format(valid_ops, op))
 
     if changes:
         for key, value in changes.items():

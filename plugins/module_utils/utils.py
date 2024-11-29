@@ -30,46 +30,22 @@ def generate_api_endpoint(path, **kwargs):
     return path if not kwargs else "{0}?{1}".format(path, "&".join(["{0}={1}".format(key, value) for key, value in kwargs.items()]))
 
 
-def append_update_ops_data(ops, existing_data, update_path, changes=None, op="replace"):
+def append_update_ops_data(ops, existing_data, update_path, replace_data=None, remove_data=None):
     """
     Append Update ops payload data.
     :param ops: Variable which contains the PATCH replace actions for the update operation -> List
     :param existing_data: Variable which contains the existing data -> Dict
     :param update_path: The object path is used to update an existing object -> Str
-    :param changes: Defaults to None when not specified, expected a dictionary object. Which contains the attribute to be updated and its new value -> Dict
-    :param op: Defaults to "replace" when not specified, value "remove" is used clear the existing configuration -> Str
+    :param replace_data: Defaults to None when not specified, expected a dictionary object. Which contains the attribute to be updated and its new value -> Dict
+    :param remove_data: Defaults to None when not specified, expected a list of string or tuple, value used to clear the existing configuration -> List
     :return: None
                 If attributes is not empty then the ops and existing_data are updated with the input value.
-
-    Sample data for the replace call:
-    ---------------------------------
 
     Sample Existing Data:
     ---------------------
     existing_data = {
-        "bfdMultiHopPol": {"adminState": "enabled", "minRxInterval": 250},
-        "bfdPol": {"adminState": "enabled", "detectionMultiplier": 3},
-        "name": "irp_1",
-    }
-    ops = []
-    update_path = "/tenantPolicyTemplate/template/l3OutIntfPolGroups/0"
-
-    replace_data = {
-        ("name"): "new_name",
-        "description": "new_description",
-        ("bfdMultiHopPol", "ifControl"): dict(),
-        ("bfdMultiHopPol", "ifControl", "adminState"): "enabled",
-        ("ospfIntfPol"): dict(ifControl=dict(adminState="disbaled"), cost=0),
-    }
-
-    append_update_ops_data(ops, existing_data, interface_routing_policy_path, replace_data)
-
-    Replace function call output data:
-    ----------------------------------
-
-    Standard Output Data:
-    ---------------------
-    {
+        "name": "name",
+        "description": "description",
         "bfdMultiHopPol": {
             "adminState": "enabled",
             "minRxInterval": 250,
@@ -78,6 +54,27 @@ def append_update_ops_data(ops, existing_data, update_path, changes=None, op="re
         "bfdPol": {
             "adminState": "enabled",
             "detectionMultiplier": 3,
+        }
+    }
+
+    ops = []
+    update_path = "/tenantPolicyTemplate/template/l3OutIntfPolGroups/0"
+    replace_data = {
+        ("name"): "new_name",
+        "description": "new_description",
+        ("ospfIntfPol"): dict(ifControl=dict(adminState="disbaled"), cost=0),
+    }
+    remove_data = [("bfdMultiHopPol", "ifControl", "adminState"), "bfdPol"]
+
+    append_update_ops_data(ops, existing_data, update_path, replace_data, remove_data)
+
+    Standard Output Data:
+    ---------------------
+    {
+        "bfdMultiHopPol": {
+            "adminState": "enabled",
+            "minRxInterval": 250,
+            "ifControl": {},
         },
         "name": "new_name",
         "description": "new_description",
@@ -94,108 +91,61 @@ def append_update_ops_data(ops, existing_data, update_path, changes=None, op="re
     [
         {"op": "replace", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/name", "value": "new_name"},
         {"op": "replace", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/description", "value": "new_description"},
-        {"op": "replace", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/bfdMultiHopPol/ifControl", "value": {}},
-        {"op": "replace", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/bfdMultiHopPol/ifControl/adminState", "value": "enabled"},
         {
             "op": "replace",
             "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/ospfIntfPol",
             "value": {"ifControl": {"adminState": "disbaled"}, "cost": 0},
         },
-    ]
-
-    ----------------------------------------------------------------
-
-    Sample data for the remove call:
-    --------------------------------
-
-    existing_data = {
-        "bfdMultiHopPol": {
-            "adminState": "enabled",
-            "minRxInterval": 250,
-            "ifControl": {"adminState": "enabled"},
-        },
-        "bfdPol": {
-            "adminState": "enabled",
-            "detectionMultiplier": 3,
-        },
-        "name": "new_name",
-        "description": "new_description",
-        "ospfIntfPol": {
-            "ifControl": {
-                "adminState": "disbaled",
-            },
-            "cost": 0,
-        },
-    }
-    ops = []
-    update_path = "/tenantPolicyTemplate/template/l3OutIntfPolGroups/0"
-
-    remove_data = {
-        "description": None,
-        "bfdPol": None,
-        ("bfdMultiHopPol", "ifControl", "adminState"): None,
-        ("ospfIntfPol"): None,
-    }
-
-    append_update_ops_data(ops, existing_data, interface_routing_policy_path, remove_data, op="remove")
-
-    Remove function call output data:
-    ---------------------------------
-
-    Standard Output Data:
-    ---------------------
-    {
-        "bfdMultiHopPol": {
-            "adminState": "enabled",
-            "minRxInterval": 250,
-            "ifControl": {},
-        },
-        "name": "new_name",
-    }
-
-    API Input Data:
-    -----------------
-    [
-        {"op": "remove", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/description"},
         {"op": "remove", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/bfdPol"},
         {"op": "remove", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/bfdMultiHopPol/ifControl/adminState"},
-        {"op": "remove", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/ospfIntfPol"},
     ]
     """
 
-    def recursive_update(data, path, keys, new_value):
+    def recursive_replace(data, path, keys, new_value):
         key = keys[0]
         if len(keys) == 1:
             # Update the existing configuration
-            if new_value is not None and data.get(key) != new_value and op == "replace":
+            if new_value is not None and data.get(key) != new_value:
                 data[key] = new_value
                 ops.append(
                     dict(
-                        op=op,
+                        op="replace",
                         path="{}/{}".format(path, key),
                         value=copy.deepcopy(new_value),
                     )
                 )
+        elif key in data:
+            recursive_replace(data[key], "{}/{}".format(path, key), keys[1:], new_value)
+
+    def recursive_delete(data, path, keys):
+        key = keys[0]
+        if len(keys) == 1:
             # Clear the existing configuration
-            elif op == "remove" and key in data:
+            if key in data:
                 data.pop(key)
                 ops.append(
                     dict(
-                        op=op,
+                        op="remove",
                         path="{}/{}".format(path, key),
                     )
                 )
-
         elif key in data:
-            recursive_update(data[key], "{}/{}".format(path, key), keys[1:], new_value)
+            recursive_delete(data[key], "{}/{}".format(path, key), keys[1:])
 
-    valid_ops = ["replace", "remove"]
-    if op not in valid_ops:
-        raise ValueError("Invalid op value. Expected one of: {0}. Got: {1}".format(valid_ops, op))
-
-    if changes:
-        for key, value in changes.items():
+    if isinstance(replace_data, dict):
+        for key, value in replace_data.items():
             if isinstance(key, tuple):
-                recursive_update(existing_data, update_path, key, value)
+                recursive_replace(existing_data, update_path, key, value)
             else:
-                recursive_update(existing_data, update_path, (key,), value)
+                recursive_replace(existing_data, update_path, (key,), value)
+    elif replace_data and not isinstance(replace_data, dict):
+        raise TypeError("replace_data must be a dict")
+
+    if isinstance(remove_data, list):
+        for key in remove_data:
+            if isinstance(key, tuple):
+                recursive_delete(existing_data, update_path, key)
+            else:
+                recursive_delete(existing_data, update_path, (key,))
+    elif remove_data and not isinstance(remove_data, list):
+        raise TypeError("remove_data must be a list of string or tuples")

@@ -204,7 +204,7 @@
           - query_all_mcp_policy.current | length == 1 # Can only be one
 
     # DELETE
-    - name: Delete a MCP Global Policy with name (check mode)
+    - name: Delete MCP Global Policy with name (check mode)
       cisco.mso.ndo_mcp_global_policy: &delete_mcp_global_policy
         <<: *mso_info
         template: ansible_fabric_policy_template
@@ -213,7 +213,7 @@
       check_mode: true
       register: cm_delete_mcp_global_policy
 
-    - name: Delete a MCP Global Policy with name
+    - name: Delete MCP Global Policy with name
       cisco.mso.ndo_mcp_global_policy:
         <<: *delete_mcp_global_policy
       register: nm_delete_mcp_global_policy
@@ -243,15 +243,6 @@
         description: An MCP Global policy to delete with UUID
       register: new_mcp_global_policy
 
-    - name: Delete the MCP Global Policy with incorrect UUID
-      cisco.mso.ndo_mcp_global_policy:
-        <<: *mso_info
-        template: ansible_fabric_policy_template
-        uuid: does-not-exist
-        state: absent
-      ignore_errors: true
-      register: no_uuid_delete_mcp_global_policy
-
     - name: Delete the MCP Global Policy with UUID
       cisco.mso.ndo_mcp_global_policy:
         <<: *mso_info
@@ -275,7 +266,20 @@
         <<: *query_mcp_global_policy
       register: query_none
 
-    - name: Create an MCP Global Policy without a name
+    - name: Create the MCP Global Policy with a UUID
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        uuid: not-possible
+        state: present
+      ignore_errors: true
+      register: create_with_uuid
+
+    - name: Create the MCP Global Policy
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *add_mcp_global_policy
+
+    - name: Update the MCP Global Policy with incorrect UUID
       cisco.mso.ndo_mcp_global_policy:
         <<: *mso_info
         template: ansible_fabric_policy_template
@@ -284,15 +288,31 @@
       ignore_errors: true
       register: update_non_existing_uuid
 
+    - name: Delete the MCP Global Policy with incorrect UUID
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        uuid: does-not-exist
+        state: absent
+      ignore_errors: true
+      register: delete_non_existing_uuid
+
+    - name: Delete the MCP Global Policy
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *add_mcp_global_policy
+        state: absent
+
     - name: Assert errors and no MCP Global Policy found
       ansible.builtin.assert:
         that:
           - query_none is not changed
           - query_none.current == {}
-          - no_uuid_delete_mcp_global_policy is failed
-          - no_uuid_delete_mcp_global_policy.msg == "MCP Global Policy with the UUID{{":"}} 'does-not-exist' not found"
           - update_non_existing_uuid is failed
-          - update_non_existing_uuid.msg == "MCP Global Policy name cannot be empty"
+          - update_non_existing_uuid.msg == "MCP Global Policy with the UUID{{":"}} 'non-existing-uuid' not found"
+          - delete_non_existing_uuid is failed
+          - delete_non_existing_uuid.msg == "MCP Global Policy with the UUID{{":"}} 'does-not-exist' not found"
+          - create_with_uuid is failed
+          - create_with_uuid.msg == "MCP Global Policy cannot be created with a UUID"
 
     # CLEANUP TEMPLATE
     - name: Ensure fabric resource policy template do not exist

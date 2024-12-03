@@ -68,25 +68,25 @@ options:
     choices: [ v1, v2 ]
   query_interval:
     description:
-    - The query interval of the MLD Snooping Policy.
+    - The query interval of the MLD Snooping Policy in seconds.
     - Defaults to 125 when unset during creation.
     - The value must be between 1 and 18000.
     type: int
   query_response_interval:
     description:
-    - The query response interval of the MLD Snooping Policy.
+    - The query response interval of the MLD Snooping Policy in seconds.
     - Defaults to 10 when unset during creation.
     - The value must be between 1 and 25.
     type: int
   last_member_query_interval:
     description:
-    - The last member query interval of the MLD Snooping Policy.
+    - The last member query interval of the MLD Snooping Policy in seconds.
     - Defaults to 1 when unset during creation.
     - The value must be between 1 and 25.
     type: int
   start_query_interval:
     description:
-    - The start query interval of the MLD Snooping Policy.
+    - The start query interval of the MLD Snooping Policy in seconds.
     - Defaults to 31 when unset during creation.
     - The value must be between 1 and 18000.
     type: int

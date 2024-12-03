@@ -70,7 +70,7 @@ options:
     aliases: [ loop_factor, loop_detection_mult_factor ]
   port_disable:
     description:
-    - Enable or disable port disabling when MCP packets are recived.
+    - Enable or disable port disabling when MCP packets are received.
     - Defaults to C(enabled) when unset during creation.
     type: str
     choices: [ enabled, disabled ]
@@ -151,7 +151,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: fabric_template
-    name: mcp_global_policy_1
+    name: mcp_global_policy_update
     uuid: "{{ mcp_global_policy_1.current.uuid }}"
     state: present
 
@@ -211,11 +211,6 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
-
-
-def check_existing_identifier(mso, object_description, uuid):
-    if uuid and mso.existing.get("uuid") != uuid:
-        mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
 
 def main():
@@ -294,10 +289,11 @@ def main():
 
     elif existing_mcp_global_policy and (name or uuid):
         mso.existing = mso.previous = copy.deepcopy(existing_mcp_global_policy)
+        if uuid and mso.existing.get("uuid") != uuid:
+            mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
     if state == "present":
         if mso.existing:
-            check_existing_identifier(mso, object_description, uuid)
             proposed_payload = copy.deepcopy(mso.existing)
             for mso_name, mso_value in mso_values.items():
                 if mso_value is not None and mso.existing.get(mso_name) != mso_value:
@@ -325,7 +321,6 @@ def main():
 
     elif state == "absent":
         if mso.existing:
-            check_existing_identifier(mso, object_description, uuid)
             ops.append(dict(op="remove", path=object_base_path))
 
     if not module.check_mode and ops:

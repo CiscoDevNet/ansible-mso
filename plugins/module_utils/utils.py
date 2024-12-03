@@ -151,6 +151,7 @@ def check_if_all_elements_are_none(values):
 def format_list_dict(list_dict, keys_map):
     """
     Convert an Python list of dictionaries into its equivalent NDO API format.
+    All keys must be definied in the keys map even if no conversion is needed for some keys.
 
     :param list_dict: The Python list of dictionaries to format. -> List[Dict]
     :param keys_map: the mapping from the Ansible argument's keys to NDO API keys. Can also include the map between values -> Dict
@@ -164,9 +165,9 @@ def format_list_dict(list_dict, keys_map):
                 for key, value in keys_map.items():
                     # keys_map can have values of type list including the API key string and the map conversion for values\
                     if isinstance(value, list):
-                        formated_dict[value[0]] = value[1].get(list_dict.get(key))
+                        formated_dict[value[0]] = value[1].get(d.get(key))
                     else:
-                        formated_dict[value] = list_dict.get(key)
+                        formated_dict[value] = d.get(key)
             return formated_dict
 
         formated_list = [format_dict(d) for d in list_dict]

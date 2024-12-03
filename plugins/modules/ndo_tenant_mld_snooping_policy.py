@@ -150,7 +150,7 @@ EXAMPLES = r"""
     template: tenant_template
     name: mld_snooping_policy_1
     state: query
-  register: query_uuid
+  register: query_name
 
 - name: Query a MLD Snooping Policy object with UUID
   cisco.mso.ndo_tenant_mld_snooping_policy:

@@ -16,7 +16,7 @@ DOCUMENTATION = r"""
 module: ndo_tenant_custom_qos_policy
 short_description: Manage Custom QoS Policies in Tenant Policy Templates on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
-- Manage Custom Quality of Service (QoS)  Policies in Tenant Policy Templates on Cisco Nexus Dashboard Orchestrator (NDO).
+- Manage Custom Quality of Service (QoS) Policies in Tenant Policy Templates on Cisco Nexus Dashboard Orchestrator (NDO).
 - This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Gaspard Micol (@gmicol)
@@ -46,12 +46,14 @@ options:
   dscp_mappings:
     description:
     - The Differentiated Services Code Point (DSCP) mappings of the Custom QoS Policy.
+    - O(dscp_mappings.dscp_from) and O(dscp_mappings.dscp_to) cannot both be C(unspecified).
     type: list
     elements: dict
     suboptions:
       dscp_from:
         description:
-        - The DSCP range starting value.
+        - The starting encoding point of the DSCP range.
+        - Defaults to unspecified when unset during creation.
         type: str
         choices:
           - af11
@@ -80,7 +82,8 @@ options:
         aliases: [ from ]
       dscp_to:
         description:
-        - The DSCP range ending value.
+        - The ending encoding point of the DSCP range.
+        - Defaults to unspecified when unset during creation.
         type: str
         choices:
           - af11
@@ -109,7 +112,8 @@ options:
         aliases: [ to ]
       dscp_target:
         description:
-        - The DSCP target value.
+        - The DSCP target encoding point for egressing traffic.
+        - Defaults to unspecified when unset during creation.
         type: str
         choices:
           - af11
@@ -138,36 +142,42 @@ options:
         aliases: [ target ]
       target_cos:
         description:
-        - The target CoS to be driven based on the range of input values of DSCP coming into the fabric.
+        - The target CoS traffic type for the egressing traffic.
+        - Defaults to unspecified when unset during creation.
         type: str
         choices: [ background, best_effort, excellent_effort, critical_applications, video, voice, internetwork_control, network_control, unspecified ]
       qos_priority:
         description:
-        - The desired QoS class level to be used.
+        - The QoS priority level to which the DSCP values will be mapped.
+        - Defaults to unspecified when unset during creation.
         type: str
         choices: [ level1, level2, level3, level4, level5, level6, unspecified ]
         aliases: [ priority, prio ]
   cos_mappings:
     description:
-    - The CoS mappings of the Custom QoS Policy.
+    - The Class of Service (CoS) mappings of the Custom QoS Policy.
+    - O(cos_mappings.dot1p_from) and O(cos_mappings.dot1p_to) cannot both be C(unspecified).
     type: list
     elements: dict
     suboptions:
       dot1p_from:
         description:
-        - The Dot1P range starting value.
+        - The starting traffic type of the CoS range.
+        - Defaults to unspecified when unset during creation.
         type: str
         choices: [ background, best_effort, excellent_effort, critical_applications, video, voice, internetwork_control, network_control, unspecified ]
         aliases: [ from ]
       dot1p_to:
         description:
-        - The Dot1P range ending value.
+        - The encoding traffic type of the CoS range.
+        - Defaults to unspecified when unset during creation.
         type: str
         choices: [ background, best_effort, excellent_effort, critical_applications, video, voice, internetwork_control, network_control, unspecified ]
         aliases: [ to ]
       dscp_target:
         description:
-        - The DSCP target value.
+        - The DSCP target encoding point for egressing traffic.
+        - Defaults to unspecified when unset during creation.
         type: str
         choices:
           - af11
@@ -196,12 +206,14 @@ options:
         aliases: [ target ]
       target_cos:
         description:
-        - The target CoS to be driven based on the range of input values of Dot1P coming into the fabric.
+        - The target CoS traffic type for the egressing traffic.
+        - Defaults to unspecified when unset during creation.
         type: str
         choices: [ background, best_effort, excellent_effort, critical_applications, video, voice, internetwork_control, network_control, unspecified ]
       qos_priority:
         description:
-        - The desired QoS class level to be used.
+        - The QoS priority level to which the DSCP values will be mapped.
+        - Defaults to unspecified when unset during creation.
         type: str
         choices: [ level1, level2, level3, level4, level5, level6, unspecified ]
         aliases: [ priority, prio ]
@@ -262,7 +274,7 @@ EXAMPLES = r"""
     template: tenant_template
     name: custom_qos_policy_1
     state: query
-  register: query_uuid
+  register: query_name
 
 - name: Query a Custom QoS Policy object with UUID
   cisco.mso.ndo_tenant_custom_qos_policy:

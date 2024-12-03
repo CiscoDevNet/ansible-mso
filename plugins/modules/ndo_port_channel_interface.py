@@ -78,10 +78,12 @@ options:
         description:
         - The name of the Interface Policy Group.
         type: str
+        required: true
       template:
         description:
         - The name of the template in which the Interface Policy Group has been created.
         type: str
+        required: true
     aliases: [ policy, interface_policy, interface_setting ]
   interface_descriptions:
     description:
@@ -91,8 +93,10 @@ options:
     suboptions:
       interface_id:
         description:
-        - The interface ID.
+        - The interface ID or a range of IDs.
+        - Using a range of interface IDs will apply the same O(description) for every ID in range.
         type: str
+        required: true
       description:
         description:
         - The description of the interface.
@@ -106,6 +110,14 @@ options:
     choices: [ absent, query, present ]
     default: query
 extends_documentation_fragment: cisco.mso.modules
+notes:
+- The O(template) must exist before using this module in your playbook.
+  Use M(cisco.mso.ndo_template) to create the Fabric Resource template.
+- The O(interface_policy_group) must exist before using this module in your playbook.
+  Use M(cisco.mso.ndo_interface_setting) to create the Interface Policy Group of type Port Channel.
+seealso:
+- module: cisco.mso.ndo_template
+- module: cisco.mso.ndo_interface_setting
 """
 
 EXAMPLES = r"""
@@ -126,11 +138,9 @@ EXAMPLES = r"""
       template: ansible_fabric_policy_template
     interface_descriptions:
       - interface_id: 1/1
-        description: My first Ansible Interface
-      - interface_id: 1/10
-        description: My second Ansible Interface
-      - interface_id: 1/11
-        description: My third Ansible Interface
+        description: My single Ansible Interface
+      - interface_id: 1/10-11
+        description: My group of Ansible Interfaces
     state: present
   register: port_channel_interface_1
 
@@ -152,7 +162,7 @@ EXAMPLES = r"""
     template: ansible_fabric_resource_template
     name: ansible_port_channel_interface_changed
     state: query
-  register: query_one
+  register: query_name
 
 - name: Query a Port Channel Interface with UUID
   cisco.mso.ndo_port_channel_interface:
@@ -162,7 +172,7 @@ EXAMPLES = r"""
     template: ansible_fabric_resource_template
     uuid: "{{ port_channel_interface_1.current.uuid }}"
     state: query
-  register: query_one
+  register: query_uuid
 
 - name: Query all Port Channel Interfaces in a Fabric Resource Template
   cisco.mso.ndo_port_channel_interface:
@@ -220,8 +230,8 @@ def main():
         interface_policy_group=dict(
             type="dict",
             options=dict(
-                name=dict(type="str"),
-                template=dict(type="str"),
+                name=dict(type="str", required=True),
+                template=dict(type="str", required=True),
             ),
             aliases=["policy", "interface_policy", "interface_setting"],
         ),
@@ -230,7 +240,7 @@ def main():
             type="list",
             elements="dict",
             options=dict(
-                interface_id=dict(type="str"),
+                interface_id=dict(type="str", required=True),
                 description=dict(type="str"),
             ),
         ),
@@ -254,7 +264,7 @@ def main():
     description = module.params.get("description")
     node = module.params.get("node")
     interfaces = module.params.get("interfaces")
-    if interfaces:
+    if isinstance(interfaces, list):
         interfaces = ",".join(interfaces)
     interface_policy_group = module.params.get("interface_policy_group")
     interface_policy_group_uuid = module.params.get("interface_policy_group_uuid")
@@ -319,9 +329,9 @@ def main():
 
             if interface_descriptions or (node_changed and mso.existing.get("interfaceDescriptions")):
                 if node_changed and interface_descriptions is None:
-                    interface_descriptions = format_interface_descriptions(mso.existing["interfaceDescriptions"], node)
+                    interface_descriptions = format_interface_descriptions(mso, mso.existing["interfaceDescriptions"], node)
                 else:
-                    interface_descriptions = format_interface_descriptions(interface_descriptions, proposed_payload["node"])
+                    interface_descriptions = format_interface_descriptions(mso, interface_descriptions, proposed_payload["node"])
                 if interface_descriptions != mso.existing.get("interfaceDescriptions"):
                     ops.append(dict(op="replace", path="{0}/{1}/interfaceDescriptions".format(path, match.index), value=interface_descriptions))
                     proposed_payload["interfaceDescriptions"] = interface_descriptions
@@ -333,14 +343,14 @@ def main():
 
         else:
             if not node:
-                mso.fail_json(msg=("ERROR: Missing parameter 'node' for creating a Port Channel Interface"))
+                mso.fail_json(msg=("Missing parameter 'node' for creating a Port Channel Interface"))
             payload = {
                 "name": name,
                 "node": node,
                 "memberInterfaces": interfaces,
                 "policy": interface_policy_group_uuid,
                 "description": description,
-                "interfaceDescriptions": format_interface_descriptions(interface_descriptions, node),
+                "interfaceDescriptions": format_interface_descriptions(mso, interface_descriptions, node),
             }
 
             mso.sanitize(payload)

@@ -318,19 +318,38 @@ def write_file(module, url, dest, content, resp, tmpsrc=None):
     os.remove(tmpsrc)
 
 
-def format_interface_descriptions(interface_descriptions, node=None):
+def format_interface_descriptions(mso, interface_descriptions, node=None):
     if interface_descriptions:
-        formated_interface_descriptions = [
-            {
-                "nodeID": node if node is not None else interface_description.get("node"),
-                "interfaceID": interface_description.get("interface_id", interface_description.get("interfaceID")),
-                "description": interface_description.get("description"),
-            }
+
+        def format_range_interfaces(format_dict):
+            ids = format_dict.get("interfaceID")
+            if re.fullmatch(r"((\d+/)+\d+$)", ids):
+                yield format_dict
+            elif re.fullmatch(r"((\d+/)+\d+-\d+$)", ids):
+                slots = ids.rsplit("/", 1)[0]
+                range_start, range_stop = ids.rsplit("/", 1)[1].split("-")
+                if int(range_stop) > int(range_start):
+                    for x in range(int(range_start), int(range_stop) + 1):
+                        copy_format_dict = deepcopy(format_dict)
+                        copy_format_dict.update(interfaceID="{0}/{1}".format(slots, x))
+                        yield copy_format_dict
+                else:
+                    mso.fail_json(msg="Range start is greater than or equal to range stop for range of IDs '{0}'".format(ids))
+            else:
+                mso.fail_json(msg="Incorrect interface ID or range of IDs. Got '{0}'".format(ids))
+
+        return [
+            item
             for interface_description in interface_descriptions
+            for item in format_range_interfaces(
+                {
+                    "nodeID": node if node is not None else interface_description.get("node"),
+                    "interfaceID": interface_description.get("interface_id", interface_description.get("interfaceID")),
+                    "description": interface_description.get("description"),
+                }
+            )
         ]
-    else:
-        formated_interface_descriptions = []
-    return formated_interface_descriptions
+    return []
 
 
 class MSOModule(object):

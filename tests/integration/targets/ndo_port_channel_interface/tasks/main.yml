@@ -58,6 +58,29 @@
         <<: *template_absent
         state: present
 
+    - name: Ensure fabric policy template does not exist
+      cisco.mso.ndo_template: &template_policy_absent
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        template_type: fabric_policy
+        state: absent
+
+    - name: Create fabric resource template
+      cisco.mso.ndo_template:
+        <<: *template_policy_absent
+        state: present
+
+    - name: Create two Interface policy groups of type port channel
+      cisco.mso.ndo_interface_setting:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: "{{ item }}"
+        interface_type: port_channel
+        state: present
+      loop:
+        - ansible_test_interface_policy_group_port_channel
+        - ansible_test_interface_policy_group_port_channel_2
+
     # CREATE
 
     - name: Create a new port channel interface (check_mode)
@@ -69,8 +92,8 @@
         node: 101
         interfaces: 1/1
         interface_policy_group: 
-          name: Gaspard_Interface_setting_test
-          template: Gaspard_FP_3.2_test
+          name: ansible_test_interface_policy_group_port_channel
+          template: ansible_fabric_policy_template
         interface_descriptions:
           - interface_id: 1/1
             description: first Ansible interface test
@@ -122,24 +145,6 @@
           - nm_create_new_port_channel_interface_again.current.interfaceDescriptions.0.interfaceID == "1/1"
           - nm_create_new_port_channel_interface_again.current.interfaceDescriptions.0.description == "first Ansible interface test"
 
-    # CREATION ERRORS
-
-    - name: Create a new port channel interface without a node
-      cisco.mso.ndo_port_channel_interface:
-        <<: *mso_info
-        template: ansible_fabric_resource_template
-        port_channel_interface: ansible_port_channel_interface_error
-        interfaces: 1/1
-        interface_policy: Gaspard_Interface_setting_test
-        state: present
-      ignore_errors: true
-      register: nm_create_missing_node
-
-    - name: Assert port channel interface creation errors tasks
-      assert:
-        that:
-          - nm_create_missing_node.msg == "ERROR: Missing 'node' for creating a Port Channel Interface"
-
     # UPDATE
 
     - name: Update a port channel interface node (check_mode)
@@ -184,9 +189,9 @@
     - name: Update a port channel interface policy
       cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_policy
         <<: *update_port_channel_interface_description
-        interface_policy_group:
-          name: Gaspard_Interface_setting_test_2
-          template: Gaspard_FP_3.2_test
+        interface_policy_group: 
+          name: ansible_test_interface_policy_group_port_channel_2
+          template: ansible_fabric_policy_template
       register: nm_update_port_channel_interface_policy
     
     - name: Update a port channel interface members
@@ -221,10 +226,8 @@
         <<: *delete_port_channel_interface_desciptions
         interfaces: 1/1-2
         interface_descriptions:
-          - interface_id: 1/1
-            description:  new first Ansible interface test
-          - interface_id: 1/2
-            description: second Ansible interface test
+          - interface_id: 1/1-2
+            description:  All Ansible interface tests
       register: nm_delete_port_channel_interface_member
 
     - name: Assert port channel interface update tasks
@@ -275,10 +278,10 @@
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions | length == 2
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions.0.nodeID == "103"
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions.0.interfaceID == "1/1"
-          - nm_delete_port_channel_interface_member.current.interfaceDescriptions.0.description == "new first Ansible interface test"
+          - nm_delete_port_channel_interface_member.current.interfaceDescriptions.0.description == "All Ansible interface tests"
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions.1.nodeID == "103"
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions.1.interfaceID == "1/2"
-          - nm_delete_port_channel_interface_member.current.interfaceDescriptions.1.description == "second Ansible interface test"
+          - nm_delete_port_channel_interface_member.current.interfaceDescriptions.1.description == "All Ansible interface tests"
 
     # QUERY
 
@@ -289,7 +292,9 @@
         port_channel_interface: ansible_port_channel_interface_2
         node: 101
         interfaces: 1/1
-        interface_policy: Gaspard_Interface_setting_test
+        interface_policy_group: 
+          name: ansible_test_interface_policy_group_port_channel_2
+          template: ansible_fabric_policy_template
         state: present
 
     - name: Query a port channel interface with template_name
@@ -313,7 +318,86 @@
           - query_all is not changed
           - query_all.current | length == 2
           - query_all.current.0.name == "ansible_port_channel_interface_changed"
-          - query_all.current.0.name == "ansible_port_channel_interface_2"
+          - query_all.current.1.name == "ansible_port_channel_interface_2"
+
+    # ERRORS
+
+    - name: Create a new port channel interface without a node
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        port_channel_interface: ansible_port_channel_interface_error
+        interfaces: 1/1
+        interface_policy_group: 
+          name: ansible_test_interface_policy_group_port_channel
+          template: ansible_fabric_policy_template
+        state: present
+      ignore_errors: true
+      register: nm_create_missing_node
+
+    - name: Create a new port channel interface without valid range IDs in interface descriptions
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        port_channel_interface: ansible_port_channel_interface_error
+        node: 101
+        interfaces: 1/1-2
+        interface_policy_group: 
+          name: ansible_test_interface_policy_group_port_channel
+          template: ansible_fabric_policy_template
+        interface_descriptions:
+          - interface_id: 1/2-1
+            description: Incorrect Range starting and ending ID values
+        state: present
+      ignore_errors: true
+      register: nm_create_invalid_range
+
+    - name: Create a new port channel interface without valid IDs values in interface descriptions
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        port_channel_interface: ansible_port_channel_interface_error
+        node: 101
+        interfaces: 1/1-2
+        interface_policy_group: 
+          name: ansible_test_interface_policy_group_port_channel
+          template: ansible_fabric_policy_template
+        interface_descriptions:
+          - interface_id: invalid_id
+            description: Invalid ID value
+        state: present
+      ignore_errors: true
+      register: nm_create_invalid_id
+
+    - name: delete first interface policy group of type port channel
+      cisco.mso.ndo_interface_setting:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: ansible_test_interface_policy_group_port_channel
+        interface_type: port_channel
+        state: absent
+
+    - name: Create a new port channel interface without an existing interface policy group
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        port_channel_interface: ansible_port_channel_interface_error
+        node: 101
+        interfaces: 1/1
+        interface_policy_group: 
+          name: ansible_test_interface_policy_group_port_channel
+          template: ansible_fabric_policy_template
+        state: present
+      ignore_errors: true
+      register: nm_create_without_existing_policy
+
+    - name: Assert port channel interface errors tasks
+      assert:
+        that:
+          - nm_create_missing_node.msg == "Missing parameter 'node' for creating a Port Channel Interface"
+          - nm_create_invalid_range.msg == "Range start is greater than or equal to range stop for range of IDs '1/2-1'"
+          - nm_create_invalid_range.msg == "Incorrect interface ID or range of IDs. Got 'invalid_id'"
+          - nm_create_without_existing_policy.msg == "Provided Interface Policy Groups with '[KVPair(key='name', value='ansible_test_interface_policy_group_port_channel')]' not matching existing object(s): ansible_test_interface_policy_group_port_channel_2"
 
     # DELETE
 
@@ -346,9 +430,39 @@
           - nm_delete_port_channel_interface_again is not changed
           - nm_delete_port_channel_interface_again.previous == {}
           - nm_delete_port_channel_interface_again.current == {}
+
+    # ERRORS AND NO PORT CHANNEL INTERFACES FOUND
+
+    - name: Query all port channel interfaces in the template when all are deleted
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        state: query
+      register: query_all_none
+    
+    - name: Update with non-existing UUID
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        uuid: non-existing-uuid
+        state: present
+      ignore_errors: true
+      register: update_non_existing_uuid
+
+    - name: Assert no Port Channel Interface found
+      assert:
+        that:
+          - query_all_none is not changed
+          - query_all_none.current == {}
+          - update_non_existing_uuid is failed
+          - update_non_existing_uuid.msg == "Port Channel Interface with the UUID{{":"}} 'non-existing-uuid' not found"
     
     # CLEANUP TEMPLATE
     
-    - name: Ensure templates do not exist
+    - name: Ensure fabric resource template does not exist
       cisco.mso.ndo_template:
         <<: *template_absent
+
+    - name: Ensure fabric policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *template_policy_absent

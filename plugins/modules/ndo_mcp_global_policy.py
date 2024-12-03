@@ -56,7 +56,8 @@ options:
     type: str
   per_vlan:
     description:
-    - Enable or disable MCP packets being sent to each End Point Group (EPG).
+    - When enabled MCP will send packets on a per End Point Group (EPG) basis.
+    - If disabled, the packets will only be sent on untagged EPGs which allows detecting loops in the native VLAN only.
     - Defaults to C(disabled) when unset during creation.
     type: str
     choices: [ enabled, disabled ]
@@ -65,7 +66,7 @@ options:
     description:
     - The amount of MCP packets that will be received before port disable loop protection action takes place.
     - Defaults to 3 when unset during creation.
-    - The value must be between 0 and 255.
+    - The value must be between 1 and 255.
     type: int
     aliases: [ loop_factor, loop_detection_mult_factor ]
   port_disable:
@@ -121,10 +122,9 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: fabric_template
-    name: mcp_global_policy_1
-    key: cisco
+    name: example_mcp_global_policy
     state: present
-  register: mcp_global_policy_1
+  register: mcp_global_policy_new
 
 - name: Create the MCP Global Policy object with all attributes
   cisco.mso.ndo_mcp_global_policy:
@@ -132,7 +132,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: fabric_template
-    name: mcp_global_policy_1
+    name: example_mcp_global_policy
     description: A Global MCP Policy
     key: cisco
     admin_state: enabled
@@ -143,7 +143,7 @@ EXAMPLES = r"""
     transmission_frequency_sec: 2
     transmission_frequency_msec: 10
     state: present
-  register: mcp_global_policy_1
+  register: mcp_global_policy_all
 
 - name: Update the MCP Global Policy object with UUID
   cisco.mso.ndo_mcp_global_policy:
@@ -152,7 +152,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template: fabric_template
     name: mcp_global_policy_update
-    uuid: "{{ mcp_global_policy_1.current.uuid }}"
+    uuid: "{{ mcp_global_policy_all.current.uuid }}"
     state: present
 
 - name: Query the MCP Global Policy object with name
@@ -161,7 +161,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: fabric_template
-    name: mcp_global_policy_1
+    name: example_mcp_global_policy
     state: query
   register: query_name
 
@@ -171,7 +171,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: fabric_template
-    uuid: "{{ mcp_global_policy_1.current.uuid }}"
+    uuid: "{{ mcp_global_policy_all.current.uuid }}"
     state: query
   register: query_uuid
 
@@ -190,7 +190,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: fabric_template
-    name: mcp_global_policy_1
+    name: example_mcp_global_policy
     state: absent
 
 - name: Delete the MCP Global Policy object with UUID
@@ -199,7 +199,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: fabric_template
-    uuid: "{{ mcp_global_policy_1.current.uuid }}"
+    uuid: "{{ mcp_global_policy_all.current.uuid }}"
     state: absent
 """
 
@@ -263,9 +263,9 @@ def main():
         "description": module.params.get("description"),
         "adminState": module.params.get("admin_state"),
         "key": module.params.get("key"),
-        "enablePduPerVlan": ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP[per_vlan] if per_vlan else None,
+        "enablePduPerVlan": ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(per_vlan),
         "loopDetectMultFactor": module.params.get("loop_detection_factor"),
-        "protectPortDisable": ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP[port_disable] if port_disable else None,
+        "protectPortDisable": ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(port_disable),
         "initialDelayTime": module.params.get("initial_delay_time"),
         "txFreq": module.params.get("transmission_frequency_sec"),
         "txFreqMsec": module.params.get("transmission_frequency_msec"),
@@ -308,8 +308,8 @@ def main():
 
             mso.sanitize(proposed_payload, collate=True)
         else:
-            if not name:
-                mso.fail_json(msg="{0} name cannot be empty".format(object_description))
+            if uuid:
+                mso.fail_json(msg="{0} cannot be created with a UUID".format(object_description))
             payload = dict()
             for mso_name, mso_value in mso_values.items():
                 if mso_value:

@@ -132,20 +132,16 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
         elif key in data:
             recursive_delete(data[key], "{}/{}".format(path, key), keys[1:])
 
-    if isinstance(replace_data, dict):
-        for key, value in replace_data.items():
-            if isinstance(key, tuple):
-                recursive_replace(existing_data, update_path, key, value)
-            else:
-                recursive_replace(existing_data, update_path, (key,), value)
-    elif replace_data and not isinstance(replace_data, dict):
-        raise TypeError("replace_data must be a dict")
+    if replace_data:
+        if not isinstance(replace_data, dict):
+            raise TypeError("replace_data must be a dict")
 
-    if isinstance(remove_data, list):
+        for key, value in replace_data.items():
+            recursive_replace(existing_data, update_path, key if isinstance(key, tuple) else (key,), value)
+
+    if remove_data:
+        if not isinstance(remove_data, list):
+            raise TypeError("remove_data must be a list of string or tuples")
+
         for key in remove_data:
-            if isinstance(key, tuple):
-                recursive_delete(existing_data, update_path, key)
-            else:
-                recursive_delete(existing_data, update_path, (key,))
-    elif remove_data and not isinstance(remove_data, list):
-        raise TypeError("remove_data must be a list of string or tuples")
+            recursive_delete(existing_data, update_path, key if isinstance(key, tuple) else (key,))

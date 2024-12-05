@@ -198,6 +198,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
 def main():
@@ -269,69 +270,25 @@ def main():
         if uuid and not mso.existing:
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
+        payload = dict(
+            name=name,
+            description=description,
+            enableAdminState=admin_state,
+            enableFastLeaveControl=fast_leave_control,
+            enableQuerierControl=querier_control,
+            mldQuerierVersion=querier_version,
+            queryInterval=query_interval,
+            queryResponseInterval=query_response_interval,
+            lastMemberQueryInterval=last_member_query_interval,
+            startQueryInterval=start_query_interval,
+            startQueryCount=start_query_count,
+        )
+
         if mso.existing:
             proposed_payload = copy.deepcopy(match.details)
-
-            if name and mso.existing.get("name") != name:
-                ops.append(dict(op="replace", path=mld_snooping_policy_attrs_path + "/name", value=name))
-                proposed_payload["name"] = name
-
-            if description is not None and mso.existing.get("description") != description:
-                ops.append(dict(op="replace", path=mld_snooping_policy_attrs_path + "/description", value=description))
-                proposed_payload["description"] = description
-
-            if admin_state and mso.existing.get("enableAdminState") != admin_state:
-                ops.append(dict(op="replace", path=mld_snooping_policy_attrs_path + "/enableAdminState", value=admin_state))
-                proposed_payload["enableAdminState"] = admin_state
-
-            if fast_leave_control and mso.existing.get("enableFastLeaveControl") != fast_leave_control:
-                ops.append(dict(op="replace", path=mld_snooping_policy_attrs_path + "/enableFastLeaveControl", value=fast_leave_control))
-                proposed_payload["enableFastLeaveControl"] = fast_leave_control
-
-            if querier_control and mso.existing.get("enableQuerierControl") != querier_control:
-                ops.append(dict(op="replace", path=mld_snooping_policy_attrs_path + "/enableQuerierControl", value=querier_control))
-                proposed_payload["enableQuerierControl"] = querier_control
-
-            if querier_version and mso.existing.get("mldQuerierVersion") != querier_version:
-                ops.append(dict(op="replace", path=mld_snooping_policy_attrs_path + "/mldQuerierVersion", value=querier_version))
-                proposed_payload["mldQuerierVersion"] = querier_version
-
-            if query_interval and mso.existing.get("queryInterval") != query_interval:
-                ops.append(dict(op="replace", path=mld_snooping_policy_attrs_path + "/queryInterval", value=query_interval))
-                proposed_payload["queryInterval"] = query_interval
-
-            if query_response_interval and mso.existing.get("queryResponseInterval") != query_response_interval:
-                ops.append(dict(op="replace", path=mld_snooping_policy_attrs_path + "/queryResponseInterval", value=query_response_interval))
-                proposed_payload["queryResponseInterval"] = query_response_interval
-
-            if last_member_query_interval and mso.existing.get("lastMemberQueryInterval") != last_member_query_interval:
-                ops.append(dict(op="replace", path=mld_snooping_policy_attrs_path + "/lastMemberQueryInterval", value=last_member_query_interval))
-                proposed_payload["lastMemberQueryInterval"] = last_member_query_interval
-
-            if start_query_interval and mso.existing.get("startQueryInterval") != start_query_interval:
-                ops.append(dict(op="replace", path=mld_snooping_policy_attrs_path + "/startQueryInterval", value=start_query_interval))
-                proposed_payload["startQueryInterval"] = start_query_interval
-
-            if start_query_count and mso.existing.get("startQueryCount") != start_query_count:
-                ops.append(dict(op="replace", path=mld_snooping_policy_attrs_path + "/startQueryCount", value=start_query_count))
-                proposed_payload["startQueryCount"] = start_query_count
-
+            append_update_ops_data(ops, proposed_payload, mld_snooping_policy_attrs_path, payload, [])
             mso.sanitize(proposed_payload, collate=True)
         else:
-            payload = dict(
-                name=name,
-                description=description,
-                enableAdminState=admin_state,
-                enableFastLeaveControl=fast_leave_control,
-                enableQuerierControl=querier_control,
-                mldQuerierVersion=querier_version,
-                queryInterval=query_interval,
-                queryResponseInterval=query_response_interval,
-                lastMemberQueryInterval=last_member_query_interval,
-                startQueryInterval=start_query_interval,
-                startQueryCount=start_query_count,
-            )
-
             mso.sanitize(payload)
             ops.append(dict(op="add", path="/tenantPolicyTemplate/template/mldSnoopPolicies/-", value=mso.sent))
 

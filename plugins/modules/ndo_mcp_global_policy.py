@@ -211,6 +211,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
 def main():
@@ -295,26 +296,12 @@ def main():
     if state == "present":
         if mso.existing:
             proposed_payload = copy.deepcopy(mso.existing)
-            for mso_name, mso_value in mso_values.items():
-                if mso_value is not None and mso.existing.get(mso_name) != mso_value:
-                    ops.append(
-                        dict(
-                            op="replace",
-                            path="{}/{}".format(object_base_path, mso_name),
-                            value=mso_value,
-                        )
-                    )
-                    proposed_payload[mso_name] = mso_value
-
+            append_update_ops_data(ops, proposed_payload, object_base_path, mso_values)
             mso.sanitize(proposed_payload, collate=True)
         else:
             if uuid:
                 mso.fail_json(msg="{0} cannot be created with a UUID".format(object_description))
-            payload = dict()
-            for mso_name, mso_value in mso_values.items():
-                if mso_value:
-                    payload[mso_name] = mso_value
-            mso.sanitize(payload)
+            mso.sanitize(mso_values)
             ops.append(dict(op="add", path=object_base_path, value=mso.sent))
 
         mso.existing = mso.proposed

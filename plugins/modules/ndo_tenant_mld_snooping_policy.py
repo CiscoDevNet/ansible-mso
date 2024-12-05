@@ -270,7 +270,7 @@ def main():
         if uuid and not mso.existing:
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
-        payload = dict(
+        mso_values = dict(
             name=name,
             description=description,
             enableAdminState=admin_state,
@@ -286,10 +286,10 @@ def main():
 
         if mso.existing:
             proposed_payload = copy.deepcopy(match.details)
-            append_update_ops_data(ops, proposed_payload, mld_snooping_policy_attrs_path, payload, [])
+            append_update_ops_data(ops, proposed_payload, mld_snooping_policy_attrs_path, mso_values, [])
             mso.sanitize(proposed_payload, collate=True)
         else:
-            mso.sanitize(payload)
+            mso.sanitize(mso_values)
             ops.append(dict(op="add", path="/tenantPolicyTemplate/template/mldSnoopPolicies/-", value=mso.sent))
 
     elif state == "absent":

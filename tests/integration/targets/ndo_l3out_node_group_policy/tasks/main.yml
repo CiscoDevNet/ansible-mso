@@ -41,7 +41,7 @@
     - name: Ensure ansible_test tenant exist
       cisco.mso.mso_tenant:
         <<: *mso_info
-        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
         users:
           - "{{ mso_username }}"
         sites:
@@ -65,9 +65,9 @@
     - name: Ensure l3out template not exist
       cisco.mso.ndo_template: &ndo_l3out_template_absent
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         template_type: l3out
-        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
         sites:
           - name: '{{ mso_site | default("ansible_test") }}'
         state: absent
@@ -77,7 +77,7 @@
         <<: *mso_info
         name: ansible_test_policy
         template_type: tenant
-        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
         state: absent
 
     - name: Ensure common tenant policy template not exists
@@ -90,8 +90,8 @@
     - name: Ensure ansible_test schema template not exist
       cisco.mso.mso_schema_template: &mso_schema_template_absent
         <<: *mso_info
-        schema: '{{ ansible_schema | default("ansible_test") }}'
-        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
         template: "Template1"
         state: absent
 
@@ -104,7 +104,7 @@
     - name: Add a new VRF1
       cisco.mso.mso_schema_template_vrf:
         <<: *mso_info
-        schema: '{{ ansible_schema | default("ansible_test") }}'
+        schema: '{{ mso_schema | default("ansible_test") }}'
         template: "Template1"
         vrf: VRF1
         layer3_multicast: true
@@ -160,11 +160,11 @@
     - name: Create l3out_1 object without routing protocols
       cisco.mso.ndo_l3out_template: &l3out_1_present
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
         name: "l3out_1"
         vrf:
           name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
         state: "present"
 
@@ -179,7 +179,7 @@
     - name: Query all L3Out node group policy objects when the L3Out is empty
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         state: query
       register: query_all_node_groups_1
@@ -193,7 +193,7 @@
     - name: Query node_group_policy_1 L3Out node group policy object when the L3Out is empty
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_1"
         state: query
@@ -208,7 +208,7 @@
     - name: Create L3Out node group policy object with default values - check mode
       cisco.mso.ndo_l3out_node_group_policy: &cm_node_group_policy_1_present
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_1"
         state: present
@@ -324,7 +324,7 @@
     - name: Update node_group_policy_1 - bfd_multi_hop_key id, value, target_dscp and node_routing_policy values
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_1"
         description: "Test description updated"
@@ -357,7 +357,7 @@
     - name: Clear node_group_policy_1 - bfd_multi_hop_key id, value, target_dscp and node_routing_policy values
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_1"
         description: ""
@@ -387,7 +387,7 @@
     - name: Query node_group_policy_1
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_1"
         state: query
@@ -405,7 +405,7 @@
     - name: Add node_group_policy_2 with common tenant node_routing_policy object
       cisco.mso.ndo_l3out_node_group_policy: &add_node_group_policy_2
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_2"
         description: "Create test description"
@@ -427,7 +427,7 @@
     - name: Query node_group_policy_2
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_2"
         state: query
@@ -445,7 +445,7 @@
     - name: Query all node_group_policies
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         state: query
       register: query_all_node_group_policies
@@ -461,7 +461,7 @@
     - name: Create node_group_policy_30 with bfd_multi_hop_authentication enabled, key id and value
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_30"
         node_routing_policy: ans_node_policy_group_2
@@ -487,7 +487,7 @@
     - name: Create node_group_policy_3 with bfd_multi_hop_authentication disabled, key id and value
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_3"
         node_routing_policy: ans_node_policy_group_2
@@ -513,7 +513,7 @@
     - name: Update node_group_policy_3 with only bfd_multi_hop_key_id
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_3"
         bfd:
@@ -539,7 +539,7 @@
     - name: Update node_group_policy_3 with only bfd_multi_hop_key - task flag changed should be false wth authentication is disabled
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_3"
         bfd:
@@ -565,7 +565,7 @@
     - name: Create node_group_policy_4 with bfd_multi_hop_authentication disabled without bfd_multi_hop_key_id and bfd_multi_hop_key
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_4"
         node_routing_policy: ans_node_policy_group_2
@@ -588,7 +588,7 @@
     - name: Add bfd_multi_hop_key_id to node_group_policy_4 when bfd_multi_hop_authentication is disabled
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_4"
         bfd:
@@ -614,7 +614,7 @@
     - name: Remove bfd_multi_hop_key_id from node_group_policy_4 when bfd_multi_hop_authentication is disabled
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_4"
         bfd:
@@ -645,7 +645,7 @@
     - name: Create node_group_policy_5 without bfd config
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_5"
         node_routing_policy: ans_node_policy_group_2
@@ -664,7 +664,7 @@
     - name: Update node_group_policy_5 with only bfd_multi_hop_key_id and bfd_multi_hop_key
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_5"
         node_routing_policy: ans_node_policy_group_2
@@ -690,7 +690,7 @@
     - name: Enable bfd_multi_hop_authentication without bfd_multi_hop_key on node_group_policy_5
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_5"
         node_routing_policy: ans_node_policy_group_2
@@ -709,7 +709,7 @@
     - name: Update node_group_policy_5 with bfd config
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_5"
         node_routing_policy: ans_node_policy_group_2
@@ -737,7 +737,7 @@
     - name: Clear complete bfd and node_routing_policy config from node_group_policy_5
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_2"
         name: "node_group_policy_5"
         node_routing_policy: ""
@@ -805,7 +805,7 @@
     - name: Create L3Out node group policy object with invalid l3out name
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_nt"
         name: "node_group_policy_nt"
         state: present
@@ -823,7 +823,7 @@
     - name: Create L3Out node group policy object with l3out_1 template
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_1"
         name: "node_group_policy_nt"
         node_routing_policy: ans_node_policy_group_1
@@ -844,7 +844,7 @@
     - name: Create ngp1 with bfd is an empty dict
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_1"
         name: "ngp1"
         bfd: {}

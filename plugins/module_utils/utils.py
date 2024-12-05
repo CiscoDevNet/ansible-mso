@@ -136,3 +136,13 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
 
         for key in remove_data:
             recursive_delete(existing_data, update_path, key if isinstance(key, tuple) else (key,))
+
+
+def check_if_all_elements_are_none(values):
+    """
+    Checks if all the elements in the provided list are None.
+
+    :param values: List of values to check. -> List
+    :return: True if all elements are None, False otherwise. -> boo
+    """
+    return all(value is None for value in values)

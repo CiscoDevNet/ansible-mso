@@ -187,15 +187,26 @@
       check_mode: true
       register: cm_update_custom_qos_policy
 
-    - name: Update a Custom QoS Policy description
+    - name: Update a Custom QoS Policy
       cisco.mso.ndo_tenant_custom_qos_policy:
         <<: *update_custom_qos_policy
       register: nm_update_custom_qos_policy
 
-    - name: Update a Custom QoS Policy description again
+    - name: Update a Custom QoS Policy again
       cisco.mso.ndo_tenant_custom_qos_policy:
         <<: *update_custom_qos_policy
       register: nm_update_custom_qos_policy_again
+
+    - name: Remove DSCP Mappings from Custom QoS Policy
+      cisco.mso.ndo_tenant_custom_qos_policy: &remove_custom_qos_policy_dscp
+        <<: *update_custom_qos_policy
+        dscp_mappings: []
+      register: nm_remove_custom_qos_policy_dscp
+
+    - name: Remove DSCP Mappings from Custom QoS Policy again
+      cisco.mso.ndo_tenant_custom_qos_policy:
+        <<: *remove_custom_qos_policy_dscp
+      register: nm_remove_custom_qos_policy_dscp_again
 
     - name: Assert Custom QoS Policy was updated
       assert:
@@ -227,7 +238,6 @@
           - cm_update_custom_qos_policy.current.cosMappings.0.targetCos == "cos1"
           - cm_update_custom_qos_policy.current.cosMappings.0.priority == "level2"         
           - cm_update_custom_qos_policy.current.uuid is defined
-          - cm_update_custom_qos_policy.current.description == "changed_description"
           - nm_update_custom_qos_policy is changed
           - nm_update_custom_qos_policy.previous.name == "ansible_test_custom_qos_policy"
           - nm_update_custom_qos_policy.previous.description == "Ansible Custom QoS policy"
@@ -285,10 +295,53 @@
           - nm_update_custom_qos_policy_again.current.cosMappings.0.targetCos == "cos1"
           - nm_update_custom_qos_policy_again.current.cosMappings.0.priority == "level2"          
           - nm_update_custom_qos_policy_again.current.uuid is defined
+          - cm_update_custom_qos_policy is changed
+          - nm_remove_custom_qos_policy_dscp.previous.name == "ansible_test_custom_qos_policy"
+          - nm_remove_custom_qos_policy_dscp.previous.description == "New Ansible Custom QoS policy"
+          - nm_remove_custom_qos_policy_dscp.previous.dscpMappings.0.dscpFrom == "af12"
+          - nm_remove_custom_qos_policy_dscp.previous.dscpMappings.0.dscpTo == "af13"
+          - nm_remove_custom_qos_policy_dscp.previous.dscpMappings.0.dscpTarget == "af12"
+          - nm_remove_custom_qos_policy_dscp.previous.dscpMappings.0.targetCos == "cos1"
+          - nm_remove_custom_qos_policy_dscp.previous.dscpMappings.0.priority == "level2"
+          - nm_remove_custom_qos_policy_dscp.previous.cosMappings.0.dot1pFrom == "cos1"
+          - nm_remove_custom_qos_policy_dscp.previous.cosMappings.0.dot1pTo == "cos2"
+          - nm_remove_custom_qos_policy_dscp.previous.cosMappings.0.dscpTarget == "af12"
+          - nm_remove_custom_qos_policy_dscp.previous.cosMappings.0.targetCos == "cos1"
+          - nm_remove_custom_qos_policy_dscp.previous.cosMappings.0.priority == "level2"
+          - nm_remove_custom_qos_policy_dscp.previous.uuid is defined
+          - nm_remove_custom_qos_policy_dscp.current.name == "ansible_test_custom_qos_policy"
+          - nm_remove_custom_qos_policy_dscp.current.description == "New Ansible Custom QoS policy"
+          - nm_remove_custom_qos_policy_dscp.current.dscpMappings is not defined
+          - nm_remove_custom_qos_policy_dscp.current.cosMappings.0.dot1pFrom == "cos1"
+          - nm_remove_custom_qos_policy_dscp.current.cosMappings.0.dot1pTo == "cos2"
+          - nm_remove_custom_qos_policy_dscp.current.cosMappings.0.dscpTarget == "af12"
+          - nm_remove_custom_qos_policy_dscp.current.cosMappings.0.targetCos == "cos1"
+          - nm_remove_custom_qos_policy_dscp.current.cosMappings.0.priority == "level2"
+          - nm_remove_custom_qos_policy_dscp.current.uuid is defined
+          - nm_remove_custom_qos_policy_dscp_again is not changed
+          - nm_remove_custom_qos_policy_dscp_again.previous.name == "ansible_test_custom_qos_policy"
+          - nm_remove_custom_qos_policy_dscp_again.previous.description == "New Ansible Custom QoS policy"
+          - nm_remove_custom_qos_policy_dscp_again.previous.dscpMappings is not defined
+          - nm_remove_custom_qos_policy_dscp_again.previous.cosMappings.0.dot1pFrom == "cos1"
+          - nm_remove_custom_qos_policy_dscp_again.previous.cosMappings.0.dot1pTo == "cos2"
+          - nm_remove_custom_qos_policy_dscp_again.previous.cosMappings.0.dscpTarget == "af12"
+          - nm_remove_custom_qos_policy_dscp_again.previous.cosMappings.0.targetCos == "cos1"
+          - nm_remove_custom_qos_policy_dscp_again.previous.cosMappings.0.priority == "level2"
+          - nm_remove_custom_qos_policy_dscp_again.previous.uuid is defined
+          - nm_remove_custom_qos_policy_dscp_again.current.name == "ansible_test_custom_qos_policy"
+          - nm_remove_custom_qos_policy_dscp_again.current.description == "New Ansible Custom QoS policy"
+          - nm_remove_custom_qos_policy_dscp_again.current.dscpMappings is not defined
+          - nm_remove_custom_qos_policy_dscp_again.current.cosMappings.0.dot1pFrom == "cos1"
+          - nm_remove_custom_qos_policy_dscp_again.current.cosMappings.0.dot1pTo == "cos2"
+          - nm_remove_custom_qos_policy_dscp_again.current.cosMappings.0.dscpTarget == "af12"
+          - nm_remove_custom_qos_policy_dscp_again.current.cosMappings.0.targetCos == "cos1"
+          - nm_remove_custom_qos_policy_dscp_again.current.cosMappings.0.priority == "level2"
+          - nm_remove_custom_qos_policy_dscp_again.current.uuid is defined
+          
 
     - name: Update a Custom QoS Policy name
       cisco.mso.ndo_tenant_custom_qos_policy: &update_custom_qos_policy_name
-        <<: *update_custom_qos_policy
+        <<: *remove_custom_qos_policy_dscp
         uuid: '{{ nm_update_custom_qos_policy.current.uuid }}'
         name: ansible_test_custom_qos_policy_changed
       register: nm_update_custom_qos_policy_name
@@ -365,12 +418,7 @@
           - cm_delete_custom_qos_policy is changed
           - cm_delete_custom_qos_policy.previous.name == "ansible_test_custom_qos_policy_changed"
           - cm_delete_custom_qos_policy.previous.description == "New Ansible Custom QoS policy"
-          - cm_delete_custom_qos_policy.previous.dscpMappings.0.dscpFrom == "af12"
-          - cm_delete_custom_qos_policy.previous.dscpMappings.0.dscpTo == "af13"
-          - cm_delete_custom_qos_policy.previous.dscpMappings.0.dscpTarget == "af12"
-          - cm_delete_custom_qos_policy.previous.dscpMappings.0.targetCos == "cos1"
-          - cm_delete_custom_qos_policy.previous.dscpMappings.0.priority == "level2"
-          - cm_delete_custom_qos_policy.previous.dscpMappings.0.priority == "level2"
+          - cm_delete_custom_qos_policy.previous.dscpMappings is not defined
           - cm_delete_custom_qos_policy.previous.cosMappings.0.dot1pFrom == "cos1"
           - cm_delete_custom_qos_policy.previous.cosMappings.0.dot1pTo == "cos2"
           - cm_delete_custom_qos_policy.previous.cosMappings.0.dscpTarget == "af12"
@@ -381,12 +429,7 @@
           - nm_delete_custom_qos_policy is changed
           - nm_delete_custom_qos_policy.previous.name == "ansible_test_custom_qos_policy_changed"
           - nm_delete_custom_qos_policy.previous.description == "New Ansible Custom QoS policy"
-          - nm_delete_custom_qos_policy.previous.dscpMappings.0.dscpFrom == "af12"
-          - nm_delete_custom_qos_policy.previous.dscpMappings.0.dscpTo == "af13"
-          - nm_delete_custom_qos_policy.previous.dscpMappings.0.dscpTarget == "af12"
-          - nm_delete_custom_qos_policy.previous.dscpMappings.0.targetCos == "cos1"
-          - nm_delete_custom_qos_policy.previous.dscpMappings.0.priority == "level2"
-          - nm_delete_custom_qos_policy.previous.dscpMappings.0.priority == "level2"
+          - nm_delete_custom_qos_policy.previous.dscpMappings is not defined
           - nm_delete_custom_qos_policy.previous.cosMappings.0.dot1pFrom == "cos1"
           - nm_delete_custom_qos_policy.previous.cosMappings.0.dot1pTo == "cos2"
           - nm_delete_custom_qos_policy.previous.cosMappings.0.dscpTarget == "af12"

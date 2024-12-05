@@ -50,7 +50,7 @@ options:
     suboptions:
       state:
         description:
-        - Use C(enabled) to configure the SyncE Interface Policy.
+        - Use C(enabled) to configure the SyncE Interface Policy. The O(synce.admin_state), O(synce.quality_level) is required when the state is C(enabled).
         - Use C(disabled) to remove the SyncE Interface Policy.
         type: str
         choices: [ enabled, disabled ]
@@ -71,7 +71,7 @@ options:
     suboptions:
       state:
         description:
-        - Use C(enabled) to configure the PTP Settings.
+        - Use C(enabled) to configure the PTP Settings. The O(ptp.node_domain), O(ptp.priority_2) is required when the state is C(enabled).
         - Use C(disabled) to remove the PTP Settings.
         type: str
         choices: [ enabled, disabled ]
@@ -193,6 +193,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
 from ansible_collections.cisco.mso.plugins.module_utils.constants import SYNC_E_QUALITY_LEVEL_OPTION
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
 def main():
@@ -257,85 +258,32 @@ def main():
     if state == "present":
         if mso.existing:
             proposed_payload = copy.deepcopy(mso.existing)
+            replace_data = dict()
+            remove_data = list()
 
-            if name and proposed_payload.get("name") != name:
-                ops.append(dict(op="replace", path="{0}/name".format(node_setting_path), value=name))
-                proposed_payload["name"] = name
-
-            if description is not None and proposed_payload.get("description") != description:
-                ops.append(dict(op="replace", path="{0}/description".format(node_setting_path), value=description))
-                proposed_payload["description"] = description
+            replace_data["name"] = name
+            replace_data["description"] = description
 
             if synce is not None:
                 if synce.get("state") == "disabled" and proposed_payload.get("synce"):
-                    proposed_payload.pop("synce")
-                    ops.append(dict(op="remove", path="{0}/synce".format(node_setting_path)))
-
+                    remove_data.append("synce")
                 else:
-                    if not proposed_payload.get("synce"):
-                        proposed_payload["synce"] = dict()
-                        ops.append(dict(op="replace", path="{0}/synce".format(node_setting_path), value=dict()))
-
-                    if synce.get("admin_state") is not None and proposed_payload.get("synce").get("adminState") != synce.get("admin_state"):
-                        proposed_payload["synce"]["adminState"] = synce.get("admin_state")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/synce/adminState".format(node_setting_path),
-                                value=synce.get("admin_state"),
-                            )
-                        )
-
-                    if synce.get("quality_level") is not None and proposed_payload.get("synce").get("qlOption") != synce.get("quality_level"):
-                        proposed_payload["synce"]["qlOption"] = synce.get("quality_level")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/synce/qlOption".format(node_setting_path),
-                                value=SYNC_E_QUALITY_LEVEL_OPTION.get(synce.get("quality_level")),
-                            )
-                        )
+                    replace_data["synce"] = dict()
+                    replace_data[("synce", "adminState")] = synce.get("admin_state")
+                    replace_data[("synce", "qlOption")] = SYNC_E_QUALITY_LEVEL_OPTION.get(synce.get("quality_level"))
 
             if ptp is not None:
                 if ptp.get("state") == "disabled" and proposed_payload.get("ptp"):
-                    proposed_payload.pop("ptp")
-                    ops.append(dict(op="remove", path="{0}/ptp".format(node_setting_path)))
-
+                    remove_data.append("ptp")
                 else:
-                    if not proposed_payload.get("ptp"):
-                        proposed_payload["ptp"] = dict()
-                        ops.append(dict(op="replace", path="{0}/ptp".format(node_setting_path), value=dict()))
+                    replace_data["ptp"] = dict()
 
-                        # Add the Priority 1 fixed value 128 to the PTP settings during initialization
-                        proposed_payload["ptp"]["prio1"] = 128
-                        ops.append(
-                            dict(
-                                op="add",
-                                path="{0}/ptp/prio1".format(node_setting_path),
-                                value=128,
-                            )
-                        )
+                    # Add the Priority 1 fixed value 128 to the PTP settings during initialization
+                    replace_data[("ptp", "prio1")] = 128
+                    replace_data[("ptp", "domain")] = ptp.get("node_domain")
+                    replace_data[("ptp", "prio2")] = ptp.get("priority_2")
 
-                    if ptp.get("node_domain") is not None and proposed_payload.get("ptp").get("domain") != ptp.get("node_domain"):
-                        proposed_payload["ptp"]["domain"] = ptp.get("node_domain")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/ptp/domain".format(node_setting_path),
-                                value=ptp.get("node_domain"),
-                            )
-                        )
-
-                    if ptp.get("priority_2") is not None and proposed_payload.get("ptp").get("prio2") != ptp.get("priority_2"):
-                        proposed_payload["ptp"]["prio2"] = ptp.get("priority_2")
-                        ops.append(
-                            dict(
-                                op="replace",
-                                path="{0}/ptp/prio2".format(node_setting_path),
-                                value=ptp.get("priority_2"),
-                            )
-                        )
-
+            append_update_ops_data(ops, proposed_payload, node_setting_path, replace_data, remove_data)
             mso.sanitize(proposed_payload)
         else:
             payload = dict(name=name)

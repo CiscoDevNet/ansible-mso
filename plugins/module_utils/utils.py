@@ -53,7 +53,7 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
     replace_data = {
         ("name"): "new_name",
         "description": "new_description",
-        ("ospfIntfPol"): dict(ifControl=dict(adminState="disbaled"), cost=0),
+        ("ospfIntfPol"): dict(ifControl=dict(adminState="disbaled"), cost=0)),
     }
     remove_data = [("bfdMultiHopPol", "ifControl", "adminState"), "bfdPol"]
 
@@ -157,13 +157,13 @@ def format_list_dict(list_dict, keys_map):
     :param keys_map: the mapping from the Ansible argument's keys to NDO API keys. Can also include the map between values -> Dict
     :return: The formatted dictionary. -> Dict
     """
-    if list_dict:
+    if isinstance(list_dict, list):
 
         def format_dict(d):
             formatted_dict = {}
-            if d:
+            if isinstance(d, dict):
                 for key, value in keys_map.items():
-                    # keys_map can have values of type list including the API key string and the map conversion for values\
+                    # keys_map can have values of type list including the API key string and the map conversion for values
                     if isinstance(value, list):
                         formatted_dict[value[0]] = value[1].get(d.get(key))
                     else:

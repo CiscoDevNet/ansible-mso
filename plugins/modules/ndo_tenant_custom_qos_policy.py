@@ -47,6 +47,7 @@ options:
     description:
     - The Differentiated Services Code Point (DSCP) mappings of the Custom QoS Policy.
     - Both O(dscp_mappings.dscp_from) and O(dscp_mappings.dscp_to) cannot be set to C(unspecified).
+    - Providing an empty list will remove the  O(cos_mappings=[]) from the Custom QoS Policy.
     type: list
     elements: dict
     suboptions:
@@ -157,6 +158,7 @@ options:
     description:
     - The Class of Service (CoS) mappings of the Custom QoS Policy.
     - Both O(cos_mappings.dot1p_from) and O(cos_mappings.dot1p_to) cannot be set to C(unspecified).
+    - Providing an empty list will remove the O(cos_mappings=[]) from the Custom QoS Policy.
     type: list
     elements: dict
     suboptions:
@@ -321,7 +323,7 @@ import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
-from ansible_collections.cisco.mso.plugins.module_utils.utils import format_list_dict
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, format_list_dict
 from ansible_collections.cisco.mso.plugins.module_utils.constants import (
     TARGET_DSCP_MAP,
     TARGET_COS_MAP,
@@ -413,40 +415,18 @@ def main():
         if uuid and not mso.existing:
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
+        payload = {
+            "name": name,
+            "description": description,
+            "cosMappings": cos_mappings,
+            "dscpMappings": dscp_mappings,
+        }
+
         if mso.existing:
             proposed_payload = copy.deepcopy(match.details)
-
-            if name and mso.existing.get("name") != name:
-                ops.append(dict(op="replace", path=custom_qos_policy_attrs_path + "/name", value=name))
-                proposed_payload["name"] = name
-
-            if description is not None and mso.existing.get("description") != description:
-                ops.append(dict(op="replace", path=custom_qos_policy_attrs_path + "/description", value=description))
-                proposed_payload["description"] = description
-
-            if dscp_mappings and mso.existing.get("dscpMappings") != dscp_mappings:
-                ops.append(dict(op="replace", path=custom_qos_policy_attrs_path + "/dscpMappings", value=dscp_mappings))
-                proposed_payload["dscpMappings"] = dscp_mappings
-            elif dscp_mappings == [] and mso.existing.get("dscpMappings"):
-                ops.append(dict(op="remove", path=custom_qos_policy_attrs_path + "/dscpMappings"))
-                proposed_payload["dscpMappings"] = []
-
-            if cos_mappings and mso.existing.get("cosMappings") != cos_mappings:
-                ops.append(dict(op="replace", path=custom_qos_policy_attrs_path + "/cosMappings", value=cos_mappings))
-                proposed_payload["cosMappings"] = cos_mappings
-            elif cos_mappings == [] and mso.existing.get("cosMappings"):
-                ops.append(dict(op="remove", path=custom_qos_policy_attrs_path + "/cosMappings"))
-                proposed_payload["cosMappings"] = []
-
+            append_update_ops_data(ops, proposed_payload, custom_qos_policy_attrs_path, payload)
             mso.sanitize(proposed_payload, collate=True)
         else:
-            payload = dict(
-                name=name,
-                description=description,
-                dscpMappings=dscp_mappings,
-                cosMappings=cos_mappings,
-            )
-
             mso.sanitize(payload)
             ops.append(dict(op="add", path="/tenantPolicyTemplate/template/qosPolicies/-", value=mso.sent))
 

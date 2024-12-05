@@ -139,7 +139,7 @@
           - cm_update_ns1.current.ptp.prio1 == 128
           - cm_update_ns1.current.ptp.prio2 == 128
           - cm_update_ns1.current.synce.adminState == "enabled"
-          - cm_update_ns1.current.synce.qlOption == "option_2_generation_1"
+          - cm_update_ns1.current.synce.qlOption == "op2g1"
           - cm_update_ns1.current.uuid is defined
           - cm_update_ns1.previous.description == ""
           - cm_update_ns1.previous.name == "ns1"
@@ -150,7 +150,7 @@
           - cm_update_ns1.proposed.ptp.prio1 == 128
           - cm_update_ns1.proposed.ptp.prio2 == 128
           - cm_update_ns1.proposed.synce.adminState == "enabled"
-          - cm_update_ns1.proposed.synce.qlOption == "option_2_generation_1"
+          - cm_update_ns1.proposed.synce.qlOption == "op2g1"
           - cm_update_ns1.proposed.uuid is defined
 
     - name: Update ns1 object with synce and ptp values - normal_mode
@@ -228,7 +228,7 @@
           - nt_ns1_synce.current.ptp.prio1 == 128
           - nt_ns1_synce.current.ptp.prio2 == 128
           - nt_ns1_synce.current.uuid is defined
-          - nt_ns1_synce.msg == 'MSO Error 400{{":"}} {"errors"{{":"}}["validation failed for mno.ndo.cisco.com/v1.SyncEthNodePol.adminState{{":"}} invalid value ","validation failed for mno.ndo.cisco.com/v1.SyncEthNodePol.qlOption{{":"}} invalid value "]}'
+          - nt_ns1_synce.msg is match ('MSO Error 400{{':'}} {"errors"{{':'}}\\["validation failed for mno.ndo.cisco.com/v1.SyncEthNodePol\\.(adminState|qlOption){{':'}} invalid value ","validation failed for mno.ndo.cisco.com/v1.SyncEthNodePol\\.(adminState|qlOption){{':'}} invalid value "\\]}')
           - nt_ns1_synce.previous.description == "Updated description"
           - nt_ns1_synce.previous.name == "ns1"
           - nt_ns1_synce.previous.ptp.domain == 25
@@ -311,6 +311,19 @@
         state: "present"
       register: add_ns1_synce
 
+    - name: Update ns1_new synce quality_level value
+      cisco.mso.ndo_node_setting:
+        <<: *mso_info
+        template: '{{ ansible_fabric_template | default("ansible_test") }}'
+        uuid: "{{ nm_update_ns1.current.uuid }}"
+        name: "ns1_new"
+        description: ""
+        synce:
+          admin_state: "disabled"
+          quality_level: "option_2_generation_2"
+        state: "present"
+      register: ns1_synce_quality_level_change
+
     - name: Assertion check for add ns1 synce values and name
       ansible.builtin.assert:
         that:
@@ -323,6 +336,9 @@
           - add_ns1_synce.previous.description == "Updated description"
           - add_ns1_synce.previous.name == "ns1"
           - add_ns1_synce.previous.uuid is defined
+          - ns1_synce_quality_level_change is changed
+          - ns1_synce_quality_level_change.current.synce.qlOption == "op2g2"
+          - ns1_synce_quality_level_change.previous.synce.qlOption == "op1"
 
     - name: Add ns1 ptp values
       cisco.mso.ndo_node_setting:
@@ -345,12 +361,12 @@
           - add_ns1_ptp.current.ptp.prio1 == 128
           - add_ns1_ptp.current.ptp.prio2 == 128
           - add_ns1_ptp.current.synce.adminState == "disabled"
-          - add_ns1_ptp.current.synce.qlOption == "op1"
+          - add_ns1_ptp.current.synce.qlOption == "op2g2"
           - add_ns1_ptp.current.uuid is defined
           - add_ns1_ptp.previous.description == ""
           - add_ns1_ptp.previous.name == "ns1_new"
           - add_ns1_ptp.previous.synce.adminState == "disabled"
-          - add_ns1_ptp.previous.synce.qlOption == "op1"
+          - add_ns1_ptp.previous.synce.qlOption == "op2g2"
           - add_ns1_ptp.previous.uuid is defined
 
     - name: Add ns2 with synce and ptp values

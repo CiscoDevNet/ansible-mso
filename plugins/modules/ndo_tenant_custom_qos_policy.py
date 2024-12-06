@@ -47,6 +47,7 @@ options:
     description:
     - The Differentiated Services Code Point (DSCP) mappings of the Custom QoS Policy.
     - Both O(dscp_mappings.dscp_from) and O(dscp_mappings.dscp_to) cannot be set to C(unspecified).
+    - Providing a new list of O(dscp_mappings) will completely replace an existing one from the Custom QoS Policy.
     - Providing an empty list will remove the  O(cos_mappings=[]) from the Custom QoS Policy.
     type: list
     elements: dict
@@ -158,6 +159,7 @@ options:
     description:
     - The Class of Service (CoS) mappings of the Custom QoS Policy.
     - Both O(cos_mappings.dot1p_from) and O(cos_mappings.dot1p_to) cannot be set to C(unspecified).
+    - Providing a new list of O(cos_mappings) will completely replace an existing one from the Custom QoS Policy.
     - Providing an empty list will remove the O(cos_mappings=[]) from the Custom QoS Policy.
     type: list
     elements: dict
@@ -343,10 +345,10 @@ def main():
             type="list",
             elements="dict",
             options=dict(
-                dscp_from=dict(type="str", choices=list(TARGET_DSCP_MAP.keys()), aliases=["from"]),
-                dscp_to=dict(type="str", choices=list(TARGET_DSCP_MAP.keys()), aliases=["to"]),
-                dscp_target=dict(type="str", choices=list(TARGET_DSCP_MAP.keys()), aliases=["target"]),
-                target_cos=dict(type="str", choices=list(TARGET_COS_MAP.keys())),
+                dscp_from=dict(type="str", choices=list(TARGET_DSCP_MAP), aliases=["from"]),
+                dscp_to=dict(type="str", choices=list(TARGET_DSCP_MAP), aliases=["to"]),
+                dscp_target=dict(type="str", choices=list(TARGET_DSCP_MAP), aliases=["target"]),
+                target_cos=dict(type="str", choices=list(TARGET_COS_MAP)),
                 qos_priority=dict(
                     type="str",
                     choices=["level1", "level2", "level3", "level4", "level5", "level6", "unspecified"],
@@ -358,10 +360,10 @@ def main():
             type="list",
             elements="dict",
             options=dict(
-                dot1p_from=dict(type="str", choices=list(TARGET_COS_MAP.keys()), aliases=["from"]),
-                dot1p_to=dict(type="str", choices=list(TARGET_COS_MAP.keys()), aliases=["to"]),
-                dscp_target=dict(type="str", choices=list(TARGET_DSCP_MAP.keys()), aliases=["target"]),
-                target_cos=dict(type="str", choices=list(TARGET_COS_MAP.keys())),
+                dot1p_from=dict(type="str", choices=list(TARGET_COS_MAP), aliases=["from"]),
+                dot1p_to=dict(type="str", choices=list(TARGET_COS_MAP), aliases=["to"]),
+                dscp_target=dict(type="str", choices=list(TARGET_DSCP_MAP), aliases=["target"]),
+                target_cos=dict(type="str", choices=list(TARGET_COS_MAP)),
                 qos_priority=dict(
                     type="str",
                     choices=["level1", "level2", "level3", "level4", "level5", "level6", "unspecified"],

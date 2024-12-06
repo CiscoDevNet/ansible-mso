@@ -153,13 +153,59 @@ def format_list_dict(list_dict, keys_map):
     Convert an Python list of dictionaries into its equivalent NDO API format.
     All keys must be defined in the keys map even if no conversion is needed for some keys.
 
-    :param list_dict: The Python list of dictionaries to format. -> List[Dict]
-    :param keys_map: the mapping from the Ansible argument's keys to NDO API keys. Can also include the map between values -> Dict
-    :return: The formatted dictionary. -> Dict
-    """
-    if isinstance(list_dict, list):
+    :param list_dict: The Python list of dictionaries to format. Can be an empty List or None -> List
+    :param keys_map: The mapping from the Ansible argument's keys to NDO API keys. Can also include the map between values -> Dict
+    :return: The formatted list of dictionaries -> Dict
 
-        def format_dict(d):
+    Sample Input Data:
+    ---------------------
+    REDUCED_TARGET_COS_MAP = {
+        "background": "cos0",
+        "best_effort": "cos1",
+        "excellent_effort": "cos2",
+    }
+
+    REDUCED_TARGET_DSCP_MAP = {
+        "af11": "af11",
+        "cs0": "cs0",
+        "voice_admit": "voiceAdmit",
+    }
+
+    COS_KEYS_FORMAT_MAP = {
+        "dot1p_from": ["dot1pFrom", REDUCED_TARGET_COS_MAP],
+        "dot1p_to": ["dot1pTo", REDUCED_TARGET_COS_MAP],
+        "dscp_target": ["dscpTarget", REDUCED_TARGET_DSCP_MAP],
+        "target_cos": ["targetCos", REDUCED_TARGET_COS_MAP],
+        "qos_priority": "priority",
+    }
+
+    ansible_cos_mappings = [
+        {
+            "dot1p_from": "background",
+            "dot1p_to": "best_effort",
+            "dscp_target": "voice_admit",
+            "target_cos": "excellent_effort",
+            "qos_priority": "level1",
+        }
+    ]
+
+    formatted_cos_mappings = format_list_dict(ansible_cos_mappings, COS_KEYS_FORMAT_MAP)
+
+    Output Data:
+    ---------------------
+    [
+        {
+            "dot1pFrom": "cos0",
+            "dot1pTo": "cos1",
+            "dscpTarget": "voiceAdmit",
+            "targetCos": "cos2",
+            "priority": "level1",
+        }
+    ]
+    """
+    if isinstance(list_dict, list) and isinstance(keys_map, dict):
+
+        def format_dict(d):  # format individual dictionary to its equivalent NDO API format
             formatted_dict = {}
             if isinstance(d, dict):
                 for key, value in keys_map.items():
@@ -168,7 +214,14 @@ def format_list_dict(list_dict, keys_map):
                         formatted_dict[value[0]] = value[1].get(d.get(key))
                     else:
                         formatted_dict[value] = d.get(key)
+            else:
+                raise TypeError("items in list_dict must be dictionaries.")
             return formatted_dict
 
-        formatted_list = [format_dict(d) for d in list_dict]
-        return formatted_list
+        return [format_dict(d) for d in list_dict]
+
+    elif list_dict is not None and not isinstance(list_dict, list):
+        raise TypeError("list_dict can either be a list of dictionaries, an empty List or None.")
+
+    elif not isinstance(keys_map, dict):
+        raise TypeError("keys_map must be a dictionary.")

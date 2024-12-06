@@ -240,6 +240,10 @@ options:
     - The Route Map Destination Filter must reside in the same tenant as the tenant associated to the schema.
     - This option can only be used when the BD has Layer 3 Multicast enabled.
     type: str
+  ep_move_detection_mode:
+    description:
+    - Enables detection of endpoint moves using Gratuitous ARP (GARP) packets.
+    type: bool
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -403,9 +407,12 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
+
+import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec, mso_bd_subnet_spec, mso_dhcp_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
 def main():
@@ -433,6 +440,7 @@ def main():
         unicast_routing=dict(type="bool"),
         multicast_route_map_source_filter=dict(type="str"),
         multicast_route_map_destination_filter=dict(type="str"),
+        ep_move_detection_mode=dict(type="bool"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -469,6 +477,7 @@ def main():
     unicast_routing = module.params.get("unicast_routing")
     multicast_route_map_source_filter = module.params.get("multicast_route_map_source_filter")
     multicast_route_map_destination_filter = module.params.get("multicast_route_map_destination_filter")
+    ep_move_detection_mode = module.params.get("ep_move_detection_mode")
     state = module.params.get("state")
 
     mso = MSOModule(module)
@@ -575,49 +584,17 @@ def main():
                 route_map_filter["mcastRtMapDestRef"] = destination_id
             payload.update(mcastRtMapFilter=route_map_filter)
 
+        if ep_move_detection_mode:
+            payload.update(epMoveDetectMode="garp")
+        elif ep_move_detection_mode is False:
+            payload.update(epMoveDetectMode="none")
+
         mso.sanitize(payload, collate=True, required=["dhcpLabel", "dhcpLabels"])
 
         if mso.existing:
             # When updating an existing BD, replace operation for each attribute to avoid existing configuration being replaced
             # This case is specifically important for subnet and dhcp policy which can be configured as a child module
-            if display_name is not None and mso.existing.get("displayName") != display_name:
-                ops.append(dict(op="replace", path=bd_path + "/displayName", value=payload.get("displayName")))
-            if subnets is not None and mso.existing.get("subnets") != subnets:
-                ops.append(dict(op="replace", path=bd_path + "/subnets", value=payload.get("subnets")))
-            if vrf_ref != mso.existing.get("vrfRef"):
-                ops.append(dict(op="replace", path=bd_path + "/vrfRef", value=payload.get("vrfRef")))
-            if intersite_bum_traffic is not None and mso.existing.get("intersiteBumTrafficAllow") != intersite_bum_traffic:
-                ops.append(dict(op="replace", path=bd_path + "/intersiteBumTrafficAllow", value=payload.get("intersiteBumTrafficAllow")))
-            if optimize_wan_bandwidth is not None and mso.existing.get("optimizeWanBandwidth") != optimize_wan_bandwidth:
-                ops.append(dict(op="replace", path=bd_path + "/optimizeWanBandwidth", value=payload.get("optimizeWanBandwidth")))
-            if layer2_stretch is not None and mso.existing.get("l2Stretch") != layer2_stretch:
-                ops.append(dict(op="replace", path=bd_path + "/l2Stretch", value=payload.get("l2Stretch")))
-            if layer2_unknown_unicast is not None and mso.existing.get("l2UnknownUnicast") != layer2_unknown_unicast:
-                ops.append(dict(op="replace", path=bd_path + "/l2UnknownUnicast", value=payload.get("l2UnknownUnicast")))
-            if layer3_multicast is not None and mso.existing.get("l3MCast") != layer3_multicast:
-                ops.append(dict(op="replace", path=bd_path + "/l3MCast", value=payload.get("l3MCast")))
-            if dhcp_label is not None and mso.existing.get("dhcpLabel") != dhcp_label:
-                ops.append(dict(op="replace", path=bd_path + "/dhcpLabel", value=payload.get("dhcpLabel")))
-            if dhcp_labels is not None and mso.existing.get("dhcpLabels") != dhcp_labels:
-                ops.append(dict(op="replace", path=bd_path + "/dhcpLabels", value=payload.get("dhcpLabels")))
-            if unknown_multicast_flooding is not None and mso.existing.get("unkMcastAct") != unknown_multicast_flooding:
-                ops.append(dict(op="replace", path=bd_path + "/unkMcastAct", value=payload.get("unkMcastAct")))
-            if multi_destination_flooding is not None and mso.existing.get("multiDstPktAct") != multi_destination_flooding:
-                ops.append(dict(op="replace", path=bd_path + "/multiDstPktAct", value=payload.get("multiDstPktAct")))
-            if ipv6_unknown_multicast_flooding is not None and mso.existing.get("v6unkMcastAct") != ipv6_unknown_multicast_flooding:
-                ops.append(dict(op="replace", path=bd_path + "/v6unkMcastAct", value=payload.get("v6unkMcastAct")))
-            if arp_flooding is not None and mso.existing.get("arpFlood") != arp_flooding:
-                ops.append(dict(op="replace", path=bd_path + "/arpFlood", value=payload.get("arpFlood")))
-            if virtual_mac_address is not None and mso.existing.get("vmac") != virtual_mac_address:
-                ops.append(dict(op="replace", path=bd_path + "/vmac", value=payload.get("vmac")))
-            if unicast_routing is not None and mso.existing.get("unicastRouting") != unicast_routing:
-                ops.append(dict(op="replace", path=bd_path + "/unicastRouting", value=payload.get("unicastRouting")))
-            if description is not None and mso.existing.get("description") != description:
-                ops.append(dict(op="replace", path=bd_path + "/description", value=payload.get("description")))
-            if multicast_route_map_source_filter or multicast_route_map_destination_filter:
-                if mso.existing.get("mcastRtMapFilter") != payload.get("mcastRtMapFilter"):
-                    ops.append(dict(op="replace", path=bd_path + "/mcastRtMapFilter", value=payload.get("mcastRtMapFilter")))
-
+            append_update_ops_data(ops, copy.deepcopy(mso.existing), bd_path, payload)
         else:
             ops.append(dict(op="add", path=bds_path + "/-", value=mso.sent))
 
@@ -626,7 +603,10 @@ def main():
     if "bdRef" in mso.previous:
         del mso.previous["bdRef"]
     if "vrfRef" in mso.previous:
-        mso.previous["vrfRef"] = mso.vrf_dict_from_ref(mso.previous.get("vrfRef"))
+        if isinstance(mso.previous.get("vrfRef"), dict):
+            mso.previous["vrfRef"] = mso.previous.get("vrfRef")
+        else:
+            mso.previous["vrfRef"] = mso.vrf_dict_from_ref(mso.previous.get("vrfRef"))
 
     if not module.check_mode and mso.proposed != mso.previous:
         mso.request(schema_path, method="PATCH", data=ops)

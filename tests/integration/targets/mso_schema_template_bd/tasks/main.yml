@@ -405,13 +405,31 @@
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template1
+    intersite_bum_traffic: true
+    arp_flooding: true
+    ep_move_detection_mode: true
   register: nm_add_bd_4
+
+- name: Update bd 4 with ep_move_detection_mode to False
+  cisco.mso.mso_schema_template_bd:
+    <<: *bd_present
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template1
+    bd: ansible_test_4
+    vrf:
+      name: VRF
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+    ep_move_detection_mode: false
+  register: nm_update_bd_4_no_ep
 
 - name: Verify nm_add_bd_2 and nm_add_bd_3
   ansible.builtin.assert:
     that:
     - nm_add_bd_2 is changed
     - nm_add_bd_3 is changed
+    - nm_add_bd_4 is changed
+    - nm_update_bd_4_no_ep is changed
     - nm_add_bd_2.current.name == "ansible_test_2"
     - nm_add_bd_3.current.name == "ansible_test_3"
     - nm_add_bd_2.current.vrfRef.templateName == "Template2"
@@ -448,6 +466,9 @@
     - nm_add_bd_2.current.subnets[3].scope == "private"
     - nm_add_bd_2.current.subnets[3].shared == false
     - nm_add_bd_2.current.subnets[3].querier == false
+    - nm_add_bd_4.current.epMoveDetectMode == "garp"
+    - nm_update_bd_4_no_ep.current.epMoveDetectMode == "none"
+    - nm_update_bd_4_no_ep.previous.epMoveDetectMode == "garp"
 
 - name: Add bd 5 (normal mode)
   cisco.mso.mso_schema_template_bd:

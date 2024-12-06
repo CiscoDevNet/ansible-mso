@@ -87,19 +87,24 @@ options:
     aliases: [ policy, interface_policy, interface_setting ]
   interface_descriptions:
     description:
-    - The list of interface descriptions.
+    - The list of interface descriptions of the Port Channel Interface.
+    - Providing a new list of O(interface_descriptions) will completely
+      replace an existing one from the Port Channel Interface.
+    - Providing an empty list will remove the O(interface_descriptions=[])
+      from the Port Channel Interface.
     type: list
     elements: dict
     suboptions:
       interface_id:
         description:
-        - The interface ID or a range of IDs.
-        - Using a range of interface IDs will apply the same O(description) for every ID in range.
+        - The interface ID or a range of interface IDs.
+        - Using a range of interface IDs will
+          apply the same O(interface_descriptions.description) for every ID in range.
         type: str
         required: true
       description:
         description:
-        - The description of the interface.
+        - The description of the interface or group of interfaces.
         type: str
   state:
     description:
@@ -152,6 +157,26 @@ EXAMPLES = r"""
     template: ansible_fabric_resource_template
     name: ansible_port_channel_interface_changed
     uuid: "{{ port_channel_interface_1.current.uuid }}"
+    state: present
+
+- name: Update a Port Channel Interface's interfaces and their descriptions
+  cisco.mso.ndo_port_channel_interface:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_fabric_resource_template
+    name: ansible_port_channel_interface_changed
+    interfaces:
+      - 1/1
+      - 1/3
+      - 1/5-7
+    interface_descriptions:
+      - interface_id: 1/1
+        description: My single unchanged Ansible Interface
+      - interface_id: 1/3
+        description: My new single Ansible Interface
+      - interface_id: 1/5-7
+        description: My new group of Ansible Interfaces
     state: present
 
 - name: Query a Port Channel Interface with name
@@ -216,6 +241,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.template import (
     MSOTemplate,
     KVPair,
 )
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
 def main():
@@ -273,10 +299,9 @@ def main():
 
     mso_template = MSOTemplate(mso, "fabric_resource", template)
     mso_template.validate_template("fabricResource")
-    object_description = "Port Channel Interface"
 
-    path = "/fabricResourceTemplate/template/portChannels"
     existing_port_channel_interfaces = mso_template.template.get("fabricResourceTemplate", {}).get("template", {}).get("portChannels", [])
+    object_description = "Port Channel Interface"
 
     if state in ["query", "absent"] and existing_port_channel_interfaces == []:
         mso.exit_json()
@@ -289,6 +314,7 @@ def main():
             [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
+            port_channel_attrs_path = "/fabricResourceTemplate/template/portChannels/{0}".format(match.index)
             mso.existing = mso.previous = copy.deepcopy(match.details)
 
     ops = []
@@ -302,63 +328,36 @@ def main():
             fabric_policy_template.validate_template("fabricPolicy")
             interface_policy_group_uuid = fabric_policy_template.get_interface_policy_group_uuid(interface_policy_group.get("name"))
 
+        mso_values = dict(
+            name=name,
+            node=node,
+            memberInterfaces=interfaces,
+            policy=interface_policy_group_uuid,
+            description=description,
+        )
+
         if mso.existing:
-            proposed_payload = copy.deepcopy(match.details)
+            if node and interface_descriptions:
+                interface_descriptions = format_interface_descriptions(mso, interface_descriptions, node)
+            elif node and interface_descriptions is None and mso.existing.get("interfaceDescriptions"):
+                interface_descriptions = format_interface_descriptions(mso, mso.existing["interfaceDescriptions"], node)
+            elif node is None and interface_descriptions:
+                interface_descriptions = format_interface_descriptions(mso, interface_descriptions, mso.existing["node"])
+            mso_values["interfaceDescriptions"] = interface_descriptions
 
-            if name and mso.existing.get("name") != name:
-                ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=name))
-                proposed_payload["name"] = name
-
-            if description is not None and mso.existing.get("description") != description:
-                ops.append(dict(op="replace", path="{0}/{1}/description".format(path, match.index), value=description))
-                proposed_payload["description"] = description
-
-            node_changed = False
-            if node and mso.existing.get("node") != node:
-                ops.append(dict(op="replace", path="{0}/{1}/node".format(path, match.index), value=node))
-                proposed_payload["node"] = node
-                node_changed = True
-
-            if interface_policy_group_uuid and mso.existing.get("policy") != interface_policy_group_uuid:
-                ops.append(dict(op="replace", path="{0}/{1}/policy".format(path, match.index), value=interface_policy_group_uuid))
-                proposed_payload["policy"] = interface_policy_group_uuid
-
-            if interfaces and interfaces != mso.existing.get("memberInterfaces"):
-                ops.append(dict(op="replace", path="{0}/{1}/memberInterfaces".format(path, match.index), value=interfaces))
-                proposed_payload["memberInterfaces"] = interfaces
-
-            if interface_descriptions or (node_changed and mso.existing.get("interfaceDescriptions")):
-                if node_changed and interface_descriptions is None:
-                    interface_descriptions = format_interface_descriptions(mso, mso.existing["interfaceDescriptions"], node)
-                else:
-                    interface_descriptions = format_interface_descriptions(mso, interface_descriptions, proposed_payload["node"])
-                if interface_descriptions != mso.existing.get("interfaceDescriptions"):
-                    ops.append(dict(op="replace", path="{0}/{1}/interfaceDescriptions".format(path, match.index), value=interface_descriptions))
-                    proposed_payload["interfaceDescriptions"] = interface_descriptions
-            elif interface_descriptions == [] and mso.existing.get("interfaceDescriptions"):
-                ops.append(dict(op="remove", path="{0}/{1}/interfaceDescriptions".format(path, match.index)))
-                proposed_payload["interfaceDescriptions"] = []
-
-            mso.sanitize(proposed_payload, collate=True)
+            append_update_ops_data(ops, match.details, port_channel_attrs_path, mso_values)
+            mso.sanitize(match.details, collate=True)
 
         else:
             if not node:
                 mso.fail_json(msg=("Missing parameter 'node' for creating a Port Channel Interface"))
-            payload = {
-                "name": name,
-                "node": node,
-                "memberInterfaces": interfaces,
-                "policy": interface_policy_group_uuid,
-                "description": description,
-                "interfaceDescriptions": format_interface_descriptions(mso, interface_descriptions, node),
-            }
-
-            mso.sanitize(payload)
-            ops.append(dict(op="add", path="{0}/-".format(path), value=mso.sent))
+            mso_values["interfaceDescriptions"] = format_interface_descriptions(mso, interface_descriptions, node)
+            mso.sanitize(mso_values)
+            ops.append(dict(op="add", path="/fabricResourceTemplate/template/portChannels/-", value=mso.sent))
 
     elif state == "absent":
         if mso.existing:
-            ops.append(dict(op="remove", path="{0}/{1}".format(path, match.index)))
+            ops.append(dict(op="remove", path=port_channel_attrs_path))
 
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)

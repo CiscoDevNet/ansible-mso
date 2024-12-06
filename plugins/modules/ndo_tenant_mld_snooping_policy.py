@@ -286,7 +286,7 @@ def main():
 
         if mso.existing:
             proposed_payload = copy.deepcopy(match.details)
-            append_update_ops_data(ops, proposed_payload, mld_snooping_policy_attrs_path, mso_values, [])
+            append_update_ops_data(ops, proposed_payload, mld_snooping_policy_attrs_path, mso_values)
             mso.sanitize(proposed_payload, collate=True)
         else:
             mso.sanitize(mso_values)

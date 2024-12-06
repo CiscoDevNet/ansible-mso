@@ -94,7 +94,7 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
         {
             "op": "replace",
             "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/ospfIntfPol",
-            "value": {"ifControl": {"adminState": "disbaled"}, "cost": 0},
+            "value": {"ifControl": {"adminState": "disabled"}, "cost": 0},
         },
         {"op": "remove", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/bfdPol"},
         {"op": "remove", "path": "/tenantPolicyTemplate/template/l3OutIntfPolGroups/1/bfdMultiHopPol/ifControl/adminState"},

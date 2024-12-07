@@ -1,0 +1,403 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+
+    - name: Ensure sites exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ item.site }}'
+        apic_username: '{{ apic_username }}'
+        apic_password: '{{ apic_password }}'
+        apic_site_id: '{{ item.apic_site_id }}'
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+      loop:
+        - {site: "ansible_test", apic_site_id: 101}
+        - {site: "ansible_test_2", apic_site_id: 102}
+
+    - name: Ensure tenants exist
+      cisco.mso.mso_tenant: 
+        <<: *mso_info
+        tenant: '{{ item }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+          - ansible_test_2
+        state: present
+      loop:
+        - ansible_test
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_tenant_template
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+
+    # CREATE
+
+    - name: Create a new MLD Snooping Policy (check_mode)
+      cisco.mso.ndo_tenant_mld_snooping_policy: &create_mld_snooping_policy
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_test_mld_snooping_policy
+        state: present
+      check_mode: true
+      register: cm_create_new_mld_snooping_policy
+
+    - name: Create a new MLD Snooping Policy
+      cisco.mso.ndo_tenant_mld_snooping_policy:
+        <<: *create_mld_snooping_policy
+      register: nm_create_new_mld_snooping_policy
+
+    - name: Create a new MLD Snooping Policy again
+      cisco.mso.ndo_tenant_mld_snooping_policy:
+        <<: *create_mld_snooping_policy
+      register: nm_create_new_mld_snooping_policy_again
+
+    - name: Assert MLD Snooping Policy was created
+      assert:
+        that:
+          - cm_create_new_mld_snooping_policy is changed
+          - cm_create_new_mld_snooping_policy.previous == {}
+          - cm_create_new_mld_snooping_policy.current.name == "ansible_test_mld_snooping_policy"
+          - nm_create_new_mld_snooping_policy is changed
+          - nm_create_new_mld_snooping_policy.previous == {}
+          - nm_create_new_mld_snooping_policy.current.name == "ansible_test_mld_snooping_policy"
+          - nm_create_new_mld_snooping_policy.current.description == ""
+          - nm_create_new_mld_snooping_policy.current.enableAdminState == "disabled"
+          - nm_create_new_mld_snooping_policy.current.enableFastLeaveControl == false
+          - nm_create_new_mld_snooping_policy.current.enableQuerierControl == false
+          - nm_create_new_mld_snooping_policy.current.lastMemberQueryInterval == 1
+          - nm_create_new_mld_snooping_policy.current.mldQuerierVersion == "v2"
+          - nm_create_new_mld_snooping_policy.current.queryInterval == 125
+          - nm_create_new_mld_snooping_policy.current.queryResponseInterval == 10
+          - nm_create_new_mld_snooping_policy.current.startQueryCount == 2
+          - nm_create_new_mld_snooping_policy.current.startQueryInterval == 31
+          - nm_create_new_mld_snooping_policy.current.uuid is defined
+          - nm_create_new_mld_snooping_policy_again is not changed
+          - nm_create_new_mld_snooping_policy_again.previous.name == "ansible_test_mld_snooping_policy"
+          - nm_create_new_mld_snooping_policy_again.previous.description == ""
+          - nm_create_new_mld_snooping_policy_again.previous.enableAdminState == "disabled"
+          - nm_create_new_mld_snooping_policy_again.previous.enableFastLeaveControl == false
+          - nm_create_new_mld_snooping_policy_again.previous.enableQuerierControl == false
+          - nm_create_new_mld_snooping_policy_again.previous.lastMemberQueryInterval == 1
+          - nm_create_new_mld_snooping_policy_again.previous.mldQuerierVersion == "v2"
+          - nm_create_new_mld_snooping_policy_again.previous.queryInterval == 125
+          - nm_create_new_mld_snooping_policy_again.previous.queryResponseInterval == 10
+          - nm_create_new_mld_snooping_policy_again.previous.startQueryCount == 2
+          - nm_create_new_mld_snooping_policy_again.previous.startQueryInterval == 31
+          - nm_create_new_mld_snooping_policy_again.previous.uuid is defined
+          - nm_create_new_mld_snooping_policy_again.current.name == "ansible_test_mld_snooping_policy"
+          - nm_create_new_mld_snooping_policy_again.current.description == ""
+          - nm_create_new_mld_snooping_policy_again.current.enableAdminState == "disabled"
+          - nm_create_new_mld_snooping_policy_again.current.enableFastLeaveControl == false
+          - nm_create_new_mld_snooping_policy_again.current.enableQuerierControl == false
+          - nm_create_new_mld_snooping_policy_again.current.lastMemberQueryInterval == 1
+          - nm_create_new_mld_snooping_policy_again.current.mldQuerierVersion == "v2"
+          - nm_create_new_mld_snooping_policy_again.current.queryInterval == 125
+          - nm_create_new_mld_snooping_policy_again.current.queryResponseInterval == 10
+          - nm_create_new_mld_snooping_policy_again.current.startQueryCount == 2
+          - nm_create_new_mld_snooping_policy_again.current.startQueryInterval == 31
+          - nm_create_new_mld_snooping_policy_again.current.uuid is defined
+
+    # UPDATE
+
+    - name: Update a MLD Snooping Policy (check_mode)
+      cisco.mso.ndo_tenant_mld_snooping_policy: &update_mld_snooping_policy
+        <<: *create_mld_snooping_policy
+        description: changed_description
+        admin_state: enabled
+        fast_leave_control: enabled
+        querier_control: enabled
+        querier_version: v1
+        query_interval: 100
+        query_response_interval: 5
+        last_member_query_interval: 2
+        start_query_interval: 25
+        start_query_count: 1
+      check_mode: true
+      register: cm_update_mld_snooping_policy
+
+    - name: Update a MLD Snooping Policy description
+      cisco.mso.ndo_tenant_mld_snooping_policy:
+        <<: *update_mld_snooping_policy
+      register: nm_update_mld_snooping_policy
+
+    - name: Update a MLD Snooping Policy description again
+      cisco.mso.ndo_tenant_mld_snooping_policy:
+        <<: *update_mld_snooping_policy
+      register: nm_update_mld_snooping_policy_again
+
+    - name: Assert MLD Snooping Policy was updated
+      assert:
+        that:
+          - cm_update_mld_snooping_policy is changed
+          - cm_update_mld_snooping_policy.previous.name == "ansible_test_mld_snooping_policy"
+          - cm_update_mld_snooping_policy.previous.description == ""
+          - cm_update_mld_snooping_policy.previous.enableAdminState == "disabled"
+          - cm_update_mld_snooping_policy.previous.enableFastLeaveControl == false
+          - cm_update_mld_snooping_policy.previous.enableQuerierControl == false
+          - cm_update_mld_snooping_policy.previous.lastMemberQueryInterval == 1
+          - cm_update_mld_snooping_policy.previous.mldQuerierVersion == "v2"
+          - cm_update_mld_snooping_policy.previous.queryInterval == 125
+          - cm_update_mld_snooping_policy.previous.queryResponseInterval == 10
+          - cm_update_mld_snooping_policy.previous.startQueryCount == 2
+          - cm_update_mld_snooping_policy.previous.startQueryInterval == 31
+          - cm_update_mld_snooping_policy.previous.uuid is defined
+          - cm_update_mld_snooping_policy.current.name == "ansible_test_mld_snooping_policy"
+          - cm_update_mld_snooping_policy.current.description == "changed_description"
+          - cm_update_mld_snooping_policy.current.enableAdminState == "enabled"
+          - cm_update_mld_snooping_policy.current.enableFastLeaveControl == true
+          - cm_update_mld_snooping_policy.current.enableQuerierControl == true
+          - cm_update_mld_snooping_policy.current.lastMemberQueryInterval == 2
+          - cm_update_mld_snooping_policy.current.mldQuerierVersion == "v1"
+          - cm_update_mld_snooping_policy.current.queryInterval == 100
+          - cm_update_mld_snooping_policy.current.queryResponseInterval == 5
+          - cm_update_mld_snooping_policy.current.startQueryCount == 1
+          - cm_update_mld_snooping_policy.current.startQueryInterval == 25          
+          - cm_update_mld_snooping_policy.current.uuid is defined
+          - cm_update_mld_snooping_policy.current.description == "changed_description"
+          - nm_update_mld_snooping_policy is changed
+          - nm_update_mld_snooping_policy.previous.name == "ansible_test_mld_snooping_policy"
+          - nm_update_mld_snooping_policy.previous.description == ""
+          - nm_update_mld_snooping_policy.previous.enableAdminState == "disabled"
+          - nm_update_mld_snooping_policy.previous.enableFastLeaveControl == false
+          - nm_update_mld_snooping_policy.previous.enableQuerierControl == false
+          - nm_update_mld_snooping_policy.previous.lastMemberQueryInterval == 1
+          - nm_update_mld_snooping_policy.previous.mldQuerierVersion == "v2"
+          - nm_update_mld_snooping_policy.previous.queryInterval == 125
+          - nm_update_mld_snooping_policy.previous.queryResponseInterval == 10
+          - nm_update_mld_snooping_policy.previous.startQueryCount == 2
+          - nm_update_mld_snooping_policy.previous.startQueryInterval == 31
+          - nm_update_mld_snooping_policy.previous.uuid is defined
+          - nm_update_mld_snooping_policy.current.name == "ansible_test_mld_snooping_policy"
+          - nm_update_mld_snooping_policy.current.description == "changed_description"
+          - nm_update_mld_snooping_policy.current.enableAdminState == "enabled"
+          - nm_update_mld_snooping_policy.current.enableFastLeaveControl == true
+          - nm_update_mld_snooping_policy.current.enableQuerierControl == true
+          - nm_update_mld_snooping_policy.current.lastMemberQueryInterval == 2
+          - nm_update_mld_snooping_policy.current.mldQuerierVersion == "v1"
+          - nm_update_mld_snooping_policy.current.queryInterval == 100
+          - nm_update_mld_snooping_policy.current.queryResponseInterval == 5
+          - nm_update_mld_snooping_policy.current.startQueryCount == 1
+          - nm_update_mld_snooping_policy.current.startQueryInterval == 25          
+          - nm_update_mld_snooping_policy.current.uuid is defined
+          - nm_update_mld_snooping_policy_again is not changed
+          - nm_update_mld_snooping_policy_again.previous.name == "ansible_test_mld_snooping_policy"
+          - nm_update_mld_snooping_policy_again.previous.description == "changed_description"
+          - nm_update_mld_snooping_policy_again.previous.enableAdminState == "enabled"
+          - nm_update_mld_snooping_policy_again.previous.enableFastLeaveControl == true
+          - nm_update_mld_snooping_policy_again.previous.enableQuerierControl == true
+          - nm_update_mld_snooping_policy_again.previous.lastMemberQueryInterval == 2
+          - nm_update_mld_snooping_policy_again.previous.mldQuerierVersion == "v1"
+          - nm_update_mld_snooping_policy_again.previous.queryInterval == 100
+          - nm_update_mld_snooping_policy_again.previous.queryResponseInterval == 5
+          - nm_update_mld_snooping_policy_again.previous.startQueryCount == 1
+          - nm_update_mld_snooping_policy_again.previous.startQueryInterval == 25          
+          - nm_update_mld_snooping_policy_again.previous.uuid is defined
+          - nm_update_mld_snooping_policy_again.current.name == "ansible_test_mld_snooping_policy"
+          - nm_update_mld_snooping_policy_again.current.description == "changed_description"
+          - nm_update_mld_snooping_policy_again.current.enableAdminState == "enabled"
+          - nm_update_mld_snooping_policy_again.current.enableFastLeaveControl == true
+          - nm_update_mld_snooping_policy_again.current.enableQuerierControl == true
+          - nm_update_mld_snooping_policy_again.current.lastMemberQueryInterval == 2
+          - nm_update_mld_snooping_policy_again.current.mldQuerierVersion == "v1"
+          - nm_update_mld_snooping_policy_again.current.queryInterval == 100
+          - nm_update_mld_snooping_policy_again.current.queryResponseInterval == 5
+          - nm_update_mld_snooping_policy_again.current.startQueryCount == 1
+          - nm_update_mld_snooping_policy_again.current.startQueryInterval == 25          
+          - nm_update_mld_snooping_policy_again.current.uuid is defined
+
+    - name: Update a MLD Snooping Policy name
+      cisco.mso.ndo_tenant_mld_snooping_policy: &update_mld_snooping_policy_name
+        <<: *update_mld_snooping_policy
+        uuid: '{{ nm_update_mld_snooping_policy.current.uuid }}'
+        name: ansible_test_mld_snooping_policy_changed
+      register: nm_update_mld_snooping_policy_name
+
+    - name: Assert MLD Snooping Policy was updated
+      assert:
+        that:
+          - nm_update_mld_snooping_policy_name is changed
+          - nm_update_mld_snooping_policy_name.previous.name == "ansible_test_mld_snooping_policy"
+          - nm_update_mld_snooping_policy_name.current.name == "ansible_test_mld_snooping_policy_changed"
+
+    # QUERY
+
+    - name: Create another MLD Snooping Policy
+      cisco.mso.ndo_tenant_mld_snooping_policy: &create_mld_snooping_policy_2
+        <<: *create_mld_snooping_policy
+        name: ansible_test_mld_snooping_policy_2
+        description: "This is a test MLD Snooping Policy 2"
+
+    - name: Query a MLD Snooping Policy with template_name
+      cisco.mso.ndo_tenant_mld_snooping_policy:
+        <<: *create_mld_snooping_policy_2
+        state: query
+      register: query_one
+
+    - name: Query a MLD Snooping Policy with template_name and UUID
+      cisco.mso.ndo_tenant_mld_snooping_policy: &query_mld_snooping_policy_uuid
+        <<: *create_mld_snooping_policy_2
+        uuid: '{{ query_one.current.uuid }}'
+        name: '{{ fakevar | default(omit)}}'
+        state: query
+      register: query_one_uuid
+
+    - name: Query all MLD Snooping Policy in the template
+      cisco.mso.ndo_tenant_mld_snooping_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        state: query
+      register: query_all
+
+    - name: Assert MLD Snooping Policy was queried
+      assert:
+        that:
+          - query_one is not changed
+          - query_one.current.name == "ansible_test_mld_snooping_policy_2"
+          - query_one_uuid is not changed
+          - query_one_uuid.current.name == "ansible_test_mld_snooping_policy_2"
+          - query_all is not changed
+          - query_all.current | length == 2
+          - query_all.current.0.name == "ansible_test_mld_snooping_policy_changed"
+          - query_all.current.1.name == "ansible_test_mld_snooping_policy_2"
+
+    # DELETE
+
+    - name: Delete a MLD Snooping Policy (check_mode)
+      cisco.mso.ndo_tenant_mld_snooping_policy: &delete_mld_snooping_policy
+        <<: *update_mld_snooping_policy_name
+        state: absent
+      check_mode: true
+      register: cm_delete_mld_snooping_policy
+
+    - name: Delete a MLD Snooping Policy
+      cisco.mso.ndo_tenant_mld_snooping_policy:
+        <<: *delete_mld_snooping_policy
+      register: nm_delete_mld_snooping_policy
+
+    - name: Delete a MLD Snooping Policy again
+      cisco.mso.ndo_tenant_mld_snooping_policy:
+        <<: *delete_mld_snooping_policy
+      register: nm_delete_mld_snooping_policy_again
+
+    - name: Assert MLD Snooping Policy was deleted
+      assert:
+        that:
+          - cm_delete_mld_snooping_policy is changed
+          - cm_delete_mld_snooping_policy.previous.name == "ansible_test_mld_snooping_policy_changed"
+          - cm_delete_mld_snooping_policy.previous.description == "changed_description"
+          - cm_delete_mld_snooping_policy.previous.enableAdminState == "enabled"
+          - cm_delete_mld_snooping_policy.previous.enableFastLeaveControl == true
+          - cm_delete_mld_snooping_policy.previous.enableQuerierControl == true
+          - cm_delete_mld_snooping_policy.previous.lastMemberQueryInterval == 2
+          - cm_delete_mld_snooping_policy.previous.mldQuerierVersion == "v1"
+          - cm_delete_mld_snooping_policy.previous.queryInterval == 100
+          - cm_delete_mld_snooping_policy.previous.queryResponseInterval == 5
+          - cm_delete_mld_snooping_policy.previous.startQueryCount == 1
+          - cm_delete_mld_snooping_policy.previous.startQueryInterval == 25          
+          - cm_delete_mld_snooping_policy.previous.uuid is defined
+          - nm_delete_mld_snooping_policy.current == {}
+          - nm_delete_mld_snooping_policy is changed
+          - nm_delete_mld_snooping_policy.previous.name == "ansible_test_mld_snooping_policy_changed"
+          - nm_delete_mld_snooping_policy.previous.description == "changed_description"
+          - nm_delete_mld_snooping_policy.previous.enableAdminState == "enabled"
+          - nm_delete_mld_snooping_policy.previous.enableFastLeaveControl == true
+          - nm_delete_mld_snooping_policy.previous.enableQuerierControl == true
+          - nm_delete_mld_snooping_policy.previous.lastMemberQueryInterval == 2
+          - nm_delete_mld_snooping_policy.previous.mldQuerierVersion == "v1"
+          - nm_delete_mld_snooping_policy.previous.queryInterval == 100
+          - nm_delete_mld_snooping_policy.previous.queryResponseInterval == 5
+          - nm_delete_mld_snooping_policy.previous.startQueryCount == 1
+          - nm_delete_mld_snooping_policy.previous.startQueryInterval == 25          
+          - nm_delete_mld_snooping_policy.previous.uuid is defined
+          - nm_delete_mld_snooping_policy.current == {}
+          - nm_delete_mld_snooping_policy_again is not changed
+          - nm_delete_mld_snooping_policy_again.previous == {}
+          - nm_delete_mld_snooping_policy_again.current == {}
+
+    - name: Delete a MLD Snooping Policy with UUID
+      cisco.mso.ndo_tenant_mld_snooping_policy:
+        <<: *query_mld_snooping_policy_uuid
+        state: absent
+      register: nm_delete_mld_snooping_policy_uuid
+
+    - name: Assert MLD Snooping Policy was deleted with UUID
+      assert:
+        that:
+          - nm_delete_mld_snooping_policy_uuid is changed
+          - nm_delete_mld_snooping_policy_uuid.previous.name == 'ansible_test_mld_snooping_policy_2'
+          - nm_delete_mld_snooping_policy_uuid.previous.description == "This is a test MLD Snooping Policy 2"
+          - nm_delete_mld_snooping_policy_uuid.current == {}
+    
+    # Errors and no policies found
+
+    - name: Query all MLD Snooping Policy in the template when all are deleted
+      cisco.mso.ndo_tenant_mld_snooping_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        state: query
+      register: query_all_none
+    
+    - name: Update with non-existing UUID
+      cisco.mso.ndo_tenant_mld_snooping_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        uuid: non-existing-uuid
+        state: present
+      ignore_errors: true
+      register: update_non_existing_uuid
+
+    - name: Assert no MLD Snooping Policy found
+      assert:
+        that:
+          - query_all_none is not changed
+          - query_all_none.current == {}
+          - update_non_existing_uuid is failed
+          - update_non_existing_uuid.msg == "MLD Snooping Policy with the UUID{{":"}} 'non-existing-uuid' not found"
+  
+    # CLEANUP TEMPLATE
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

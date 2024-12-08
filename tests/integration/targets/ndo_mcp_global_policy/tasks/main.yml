@@ -1,0 +1,320 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for MSO version >= 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    - name: Remove fabric template
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        type: fabric_policy
+        state: absent
+
+    - name: Create a fabric template
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+
+    # CREATE
+    - name: Create the MCP Global Policy (check mode)
+      cisco.mso.ndo_mcp_global_policy: &add_mcp_global_policy
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: ansible_mcp_global_policy
+        state: present
+      check_mode: true
+      register: cm_add_mcp_global_policy
+
+    - name: Create the MCP Global Policy
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *add_mcp_global_policy
+      register: nm_add_mcp_global_policy
+
+    - name: Create the MCP Global Policy again
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *add_mcp_global_policy
+      register: nm_add_mcp_global_policy_again
+
+    - name: Assert the MCP Global Policy was created
+      ansible.builtin.assert:
+        that:
+          - cm_add_mcp_global_policy is changed
+          - nm_add_mcp_global_policy is changed
+          - cm_add_mcp_global_policy.previous == nm_add_mcp_global_policy.previous == {}
+          - cm_add_mcp_global_policy.current == cm_add_mcp_global_policy.proposed
+          - cm_add_mcp_global_policy.current.name == nm_add_mcp_global_policy.current.name == "ansible_mcp_global_policy"
+          - nm_add_mcp_global_policy.current.description == ""
+          - nm_add_mcp_global_policy.current.adminState == "disabled"
+          - nm_add_mcp_global_policy.current.enablePduPerVlan == false
+          - nm_add_mcp_global_policy.current.loopDetectMultFactor == 3
+          - nm_add_mcp_global_policy.current.protectPortDisable == true
+          - nm_add_mcp_global_policy.current.initialDelayTime == 180
+          - nm_add_mcp_global_policy.current.txFreq == 2
+          - nm_add_mcp_global_policy.current.txFreqMsec == 0
+          - nm_add_mcp_global_policy.current.uuid is defined
+          - nm_add_mcp_global_policy.current.key is undefined
+          - nm_add_mcp_global_policy_again is not changed
+          - nm_add_mcp_global_policy_again.previous.name == nm_add_mcp_global_policy_again.current.name == "ansible_mcp_global_policy"
+          - nm_add_mcp_global_policy_again.previous.description == nm_add_mcp_global_policy.current.description == ""
+          - nm_add_mcp_global_policy_again.previous.adminState == nm_add_mcp_global_policy.current.adminState == "disabled"
+          - nm_add_mcp_global_policy_again.previous.enablePduPerVlan == nm_add_mcp_global_policy.current.enablePduPerVlan == false
+          - nm_add_mcp_global_policy_again.previous.loopDetectMultFactor == nm_add_mcp_global_policy.current.loopDetectMultFactor == 3
+          - nm_add_mcp_global_policy_again.previous.protectPortDisable == nm_add_mcp_global_policy.current.protectPortDisable == true
+          - nm_add_mcp_global_policy_again.previous.initialDelayTime == nm_add_mcp_global_policy.current.initialDelayTime == 180
+          - nm_add_mcp_global_policy_again.previous.txFreq == nm_add_mcp_global_policy.current.txFreq == 2
+          - nm_add_mcp_global_policy_again.previous.txFreqMsec == nm_add_mcp_global_policy.current.txFreqMsec == 0
+          - nm_add_mcp_global_policy_again.previous.uuid is defined
+          - nm_add_mcp_global_policy_again.current.uuid is defined
+
+    # Update
+    - name: Update the MCP Global Policy (check mode)
+      cisco.mso.ndo_mcp_global_policy: &update_mcp_global_policy
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: ansible_mcp_global_policy_new
+        description: A Global MCP Policy
+        key: cisco
+        admin_state: enabled
+        per_vlan: enabled
+        loop_detection_factor: 4
+        port_disable: disabled
+        initial_delay_time: 200
+        transmission_frequency_sec: 3
+        transmission_frequency_msec: 10
+        state: present
+      check_mode: true
+      register: cm_update_mcp_global_policy
+
+    - name: Update the MCP Global Policy
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *update_mcp_global_policy
+      register: nm_update_mcp_global_policy
+
+    - name: Update the MCP Global Policy again
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *update_mcp_global_policy
+      register: update_mcp_global_policy_again
+
+    - name: Update the MCP Global Policy with incorrect UUID
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *update_mcp_global_policy
+        uuid: bad-uuid
+      ignore_errors: true
+      register: nm_update_mcp_global_policy_no_uuid
+
+    - name: Assert the MCP Global Policy updated
+      ansible.builtin.assert:
+        that:
+          - cm_update_mcp_global_policy is changed
+          - nm_update_mcp_global_policy is changed
+          - cm_update_mcp_global_policy.previous == nm_update_mcp_global_policy.previous
+          - cm_update_mcp_global_policy.previous.name == nm_update_mcp_global_policy.previous.name == "ansible_mcp_global_policy"
+          - cm_update_mcp_global_policy.previous.adminState == nm_update_mcp_global_policy.previous.adminState == "disabled"
+          - cm_update_mcp_global_policy.previous.description == nm_update_mcp_global_policy.previous.description == ""
+          - cm_update_mcp_global_policy.previous.enablePduPerVlan == nm_update_mcp_global_policy.previous.enablePduPerVlan == false
+          - cm_update_mcp_global_policy.previous.key is undefined 
+          - nm_update_mcp_global_policy.previous.key is undefined
+          - cm_update_mcp_global_policy.previous.loopDetectMultFactor == nm_update_mcp_global_policy.previous.loopDetectMultFactor == 3
+          - cm_update_mcp_global_policy.previous.protectPortDisable == nm_update_mcp_global_policy.previous.protectPortDisable == true
+          - cm_update_mcp_global_policy.previous.txFreq == nm_update_mcp_global_policy.previous.txFreq == 2
+          - cm_update_mcp_global_policy.previous.txFreqMsec == nm_update_mcp_global_policy.previous.txFreqMsec == 0
+          - cm_update_mcp_global_policy.current == cm_update_mcp_global_policy.proposed
+          - cm_update_mcp_global_policy.current.name == nm_update_mcp_global_policy.current.name == "ansible_mcp_global_policy_new"
+          - cm_update_mcp_global_policy.current.adminState == nm_update_mcp_global_policy.current.adminState == "enabled"
+          - cm_update_mcp_global_policy.current.description == nm_update_mcp_global_policy.current.description == "A Global MCP Policy"
+          - cm_update_mcp_global_policy.current.enablePduPerVlan == nm_update_mcp_global_policy.current.enablePduPerVlan == true
+          - cm_update_mcp_global_policy.current.key == nm_update_mcp_global_policy.current.key == "cisco"
+          - cm_update_mcp_global_policy.current.loopDetectMultFactor == nm_update_mcp_global_policy.current.loopDetectMultFactor == 4
+          - cm_update_mcp_global_policy.current.protectPortDisable == nm_update_mcp_global_policy.current.protectPortDisable == false
+          - cm_update_mcp_global_policy.current.txFreq == nm_update_mcp_global_policy.current.txFreq == 3
+          - cm_update_mcp_global_policy.current.txFreqMsec == nm_update_mcp_global_policy.current.txFreqMsec == 10
+          - update_mcp_global_policy_again is not changed
+          - update_mcp_global_policy_again.previous == update_mcp_global_policy_again.current
+          - nm_update_mcp_global_policy_no_uuid is failed
+          - nm_update_mcp_global_policy_no_uuid.msg == "MCP Global Policy with the UUID{{":"}} 'bad-uuid' not found"
+
+    # QUERY
+    - name: Query the MCP Global Policy with name
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: ansible_mcp_global_policy_new
+        state: query
+      register: query_mcp_policy_with_name
+
+    - name: Query the MCP Global Policy with UUID
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        uuid: '{{update_mcp_global_policy_again.current.uuid}}'
+        state: query
+      register: query_mcp_policy_with_uuid
+
+    - name: Query the MCP Global Policy without name or UUID
+      cisco.mso.ndo_mcp_global_policy: &query_mcp_global_policy
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        state: query
+      register: query_all_mcp_policy
+
+    - name: Assert MCP Global Policy is queried
+      ansible.builtin.assert:
+        that:
+          - query_mcp_policy_with_name is not changed
+          - query_mcp_policy_with_uuid is not changed
+          - query_all_mcp_policy is not changed
+          - query_mcp_policy_with_uuid.current == query_mcp_policy_with_name.current
+          - query_mcp_policy_with_name.current.name == "ansible_mcp_global_policy_new"
+          - query_mcp_policy_with_name.current.key == "cisco"
+          - query_mcp_policy_with_name.current.description == "A Global MCP Policy"
+          - query_mcp_policy_with_name.current.adminState == "enabled"
+          - query_mcp_policy_with_name.current.enablePduPerVlan == true
+          - query_mcp_policy_with_name.current.protectPortDisable == false
+          - query_mcp_policy_with_name.current.loopDetectMultFactor == 4
+          - query_mcp_policy_with_name.current.txFreq == 3
+          - query_mcp_policy_with_name.current.txFreqMsec == 10
+          - query_mcp_policy_with_name.current.uuid is defined
+          - query_all_mcp_policy.current | length == 1 # Can only be one
+
+    # DELETE
+    - name: Delete MCP Global Policy with name (check mode)
+      cisco.mso.ndo_mcp_global_policy: &delete_mcp_global_policy
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: ansible_mcp_global_policy_changed
+        state: absent
+      check_mode: true
+      register: cm_delete_mcp_global_policy
+
+    - name: Delete MCP Global Policy with name
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *delete_mcp_global_policy
+      register: nm_delete_mcp_global_policy
+
+    - name: Delete MCP Global Policy with name again
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *delete_mcp_global_policy
+      register: nm_delete_mcp_global_policy_again
+
+    - name: Assert that the MCP Global Policy was deleted with name
+      ansible.builtin.assert:
+        that:
+          - cm_delete_mcp_global_policy is changed
+          - nm_delete_mcp_global_policy is changed
+          - cm_delete_mcp_global_policy.current == nm_delete_mcp_global_policy.current == {}
+          - cm_delete_mcp_global_policy.previous.name == nm_delete_mcp_global_policy.previous.name == "ansible_mcp_global_policy_new"
+          - cm_delete_mcp_global_policy.previous.key == nm_delete_mcp_global_policy.previous.key == "cisco"
+          - cm_delete_mcp_global_policy.previous.description == nm_delete_mcp_global_policy.previous.description == "A Global MCP Policy"
+          - nm_delete_mcp_global_policy.previous.uuid is defined
+          - nm_delete_mcp_global_policy_again is not changed
+          - nm_delete_mcp_global_policy_again.previous == nm_delete_mcp_global_policy_again.current == {}
+
+    - name: Create the MCP Global Policy
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *add_mcp_global_policy
+        name: ansible_mcp_global_policy_again
+        description: An MCP Global policy to delete with UUID
+      register: new_mcp_global_policy
+
+    - name: Delete the MCP Global Policy with UUID
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        uuid: '{{ new_mcp_global_policy.current.uuid }}'
+        state: absent
+      register: nm_delete_mcp_global_policy_uuid
+
+    - name: Assert that the MCP Global Policy was deleted with UUID
+      ansible.builtin.assert:
+        that:
+          - nm_delete_mcp_global_policy_uuid is changed
+          - nm_delete_mcp_global_policy_uuid.previous.uuid is defined
+          - nm_delete_mcp_global_policy_uuid.previous.name == "ansible_mcp_global_policy_again"
+          - nm_delete_mcp_global_policy_uuid.previous.description == "An MCP Global policy to delete with UUID"
+          - nm_delete_mcp_global_policy_uuid.current == {}
+
+    # Errors and no policy found
+    - name: Query the MCP Global Policy in the template when its deleted
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *query_mcp_global_policy
+      register: query_none
+
+    - name: Create the MCP Global Policy with a UUID
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        uuid: not-possible
+        state: present
+      ignore_errors: true
+      register: create_with_uuid
+
+    - name: Create the MCP Global Policy
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *add_mcp_global_policy
+
+    - name: Update the MCP Global Policy with incorrect UUID
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        uuid: non-existing-uuid
+        state: present
+      ignore_errors: true
+      register: update_non_existing_uuid
+
+    - name: Delete the MCP Global Policy with incorrect UUID
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        uuid: does-not-exist
+        state: absent
+      ignore_errors: true
+      register: delete_non_existing_uuid
+
+    - name: Delete the MCP Global Policy
+      cisco.mso.ndo_mcp_global_policy:
+        <<: *add_mcp_global_policy
+        state: absent
+
+    - name: Assert errors and no MCP Global Policy found
+      ansible.builtin.assert:
+        that:
+          - query_none is not changed
+          - query_none.current == {}
+          - update_non_existing_uuid is failed
+          - update_non_existing_uuid.msg == "MCP Global Policy with the UUID{{":"}} 'non-existing-uuid' not found"
+          - delete_non_existing_uuid is failed
+          - delete_non_existing_uuid.msg == "MCP Global Policy with the UUID{{":"}} 'does-not-exist' not found"
+          - create_with_uuid is failed
+          - create_with_uuid.msg == "MCP Global Policy cannot be created with a UUID"
+
+    # CLEANUP TEMPLATE
+    - name: Ensure fabric resource policy template do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

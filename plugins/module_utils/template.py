@@ -291,3 +291,14 @@ class MSOTemplate:
                 fail_module,
             )
         return existing_l3out_interface_routing_policy  # Query all objects
+
+    def get_route_map_policy_for_multicast_uuid(self, route_map_policy_for_multicast_name):
+        """
+        Get the UUID of an Route Map Policy for Multicast by name.
+        :param route_map_policy_for_multicast_name: Name of the Route Map Policy for Multicast to search for -> Str
+        :return: UUID of the Route Map Policy for Multicast. -> Str
+        """
+        existing_route_map_policies = self.template.get("tenantPolicyTemplate", {}).get("template", {}).get("mcastRouteMapPolicies", [])
+        kv_list = [KVPair("name", route_map_policy_for_multicast_name)]
+        match = self.get_object_by_key_value_pairs("Route Map Policy for Multicast", existing_route_map_policies, kv_list, fail_module=True)
+        return match.details.get("uuid")

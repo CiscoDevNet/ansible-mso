@@ -1,0 +1,497 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Anvitha Jain (@anvjain) <anvjain@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+
+    - name: Ensure sites exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ item.site }}'
+        apic_username: '{{ apic_username }}'
+        apic_password: '{{ apic_password }}'
+        apic_site_id: '{{ item.apic_site_id }}'
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+      loop:
+        - {site: "ansible_test", apic_site_id: 101}
+        - {site: "ansible_test_2", apic_site_id: 102}
+
+    - name: Ensure tenants exist
+      cisco.mso.mso_tenant: 
+        <<: *mso_info
+        tenant: '{{ item }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+          - ansible_test_2
+        state: present
+      loop:
+        - ansible_test
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_tenant_template
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+
+    - name: Ensure IGMP Interface Policy does not exist
+      cisco.mso.ndo_tenant_igmp_interface_policy: &igmp_interface_policy_absent
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_igmp_interface_policy
+        state: absent
+
+    #  Create route map policy for multicast
+    - name: Create first route map policy for multicast
+      cisco.mso.ndo_route_map_policy_multicast: &create_route_map_policy_multicast
+        <<: *mso_info
+        template: ansible_tenant_template
+        route_map_policy: ansible_test_route_map_policy_1
+        entries:
+          - order: 1
+            group: 226.2.2.0/24
+            source: 1.1.1.1/24
+            action: permit
+        state: present
+      register: create_route_map_policy_multicast_1
+
+    - name: Create second route map policy for multicast
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *create_route_map_policy_multicast
+        route_map_policy: ansible_test_route_map_policy_2
+      register: create_route_map_policy_multicast_2
+
+    - name: Create third route map policy for multicast
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *create_route_map_policy_multicast
+        route_map_policy: ansible_test_route_map_policy_3
+      register: create_route_map_policy_multicast_3
+
+    # CREATE
+    - name: Create a new IGMP Interface Policy (check_mode)
+      cisco.mso.ndo_tenant_igmp_interface_policy: &igmp_interface_policy_present
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_igmp_interface_policy
+        state: present
+      check_mode: true
+      register: cm_create_new_igmp_interface_policy
+
+    - name: Create a new IGMP Interface Policy
+      cisco.mso.ndo_tenant_igmp_interface_policy:
+        <<: *igmp_interface_policy_present
+      register: nm_create_new_igmp_interface_policy
+
+    - name: Create a new IGMP Interface Policy again
+      cisco.mso.ndo_tenant_igmp_interface_policy:
+        <<: *igmp_interface_policy_present
+      register: nm_create_new_igmp_interface_policy_again
+
+    - name: Assert IGMP Interface Policy was created
+      assert:
+        that:
+          - cm_create_new_igmp_interface_policy is changed
+          - cm_create_new_igmp_interface_policy.previous == {}
+          - nm_create_new_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy'
+          - nm_create_new_igmp_interface_policy is changed
+          - nm_create_new_igmp_interface_policy.previous == {}
+          - nm_create_new_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy'
+          - nm_create_new_igmp_interface_policy.current.uuid is defined
+          - nm_create_new_igmp_interface_policy.current.description == ''
+          - nm_create_new_igmp_interface_policy.current.enableFastLeaveControl == false
+          - nm_create_new_igmp_interface_policy.current.enableReportLinkLocalGroups == false
+          - nm_create_new_igmp_interface_policy.current.enableV3Asm == false
+          - nm_create_new_igmp_interface_policy.current.groupTimeout == 260
+          - nm_create_new_igmp_interface_policy.current.igmpQuerierVersion == 'v2'
+          - nm_create_new_igmp_interface_policy.current.lastMemberCount == 2
+          - nm_create_new_igmp_interface_policy.current.lastMemberResponseInterval == 1
+          - nm_create_new_igmp_interface_policy.current.maximumMulticastEntries == 4294967295
+          - nm_create_new_igmp_interface_policy.current.querierTimeout == 255
+          - nm_create_new_igmp_interface_policy.current.queryInterval == 125
+          - nm_create_new_igmp_interface_policy.current.queryResponseInterval == 10
+          - nm_create_new_igmp_interface_policy.current.reservedMulticastEntries == 0
+          - nm_create_new_igmp_interface_policy.current.robustnessFactor == 2
+          - nm_create_new_igmp_interface_policy.current.startQueryCount == 2
+          - nm_create_new_igmp_interface_policy.current.startQueryInterval == 31
+          - nm_create_new_igmp_interface_policy.current.reportPolicyRouteMapRef == ''
+          - nm_create_new_igmp_interface_policy.current.stateLimitRouteMapRef == ''
+          - nm_create_new_igmp_interface_policy.current.staticReportRouteMapRef == ''
+          - nm_create_new_igmp_interface_policy_again is not changed
+          - nm_create_new_igmp_interface_policy_again.previous.name == nm_create_new_igmp_interface_policy_again.current.name == 'ansible_igmp_interface_policy'
+          - nm_create_new_igmp_interface_policy_again.previous.description == nm_create_new_igmp_interface_policy_again.current.description == ''
+          - nm_create_new_igmp_interface_policy_again.previous.enableFastLeaveControl == nm_create_new_igmp_interface_policy_again.current.enableFastLeaveControl == false
+          - nm_create_new_igmp_interface_policy_again.previous.enableReportLinkLocalGroups == nm_create_new_igmp_interface_policy_again.current.enableReportLinkLocalGroups == false
+          - nm_create_new_igmp_interface_policy_again.previous.enableV3Asm == nm_create_new_igmp_interface_policy_again.current.enableV3Asm == false
+          - nm_create_new_igmp_interface_policy_again.previous.groupTimeout == nm_create_new_igmp_interface_policy_again.current.groupTimeout == 260
+          - nm_create_new_igmp_interface_policy_again.previous.igmpQuerierVersion == nm_create_new_igmp_interface_policy_again.current.igmpQuerierVersion == 'v2'
+          - nm_create_new_igmp_interface_policy_again.previous.lastMemberCount == nm_create_new_igmp_interface_policy_again.current.lastMemberCount == 2
+          - nm_create_new_igmp_interface_policy_again.previous.lastMemberResponseInterval == nm_create_new_igmp_interface_policy_again.current.lastMemberResponseInterval == 1
+          - nm_create_new_igmp_interface_policy_again.previous.maximumMulticastEntries == nm_create_new_igmp_interface_policy_again.current.maximumMulticastEntries == 4294967295
+          - nm_create_new_igmp_interface_policy_again.previous.querierTimeout == nm_create_new_igmp_interface_policy_again.current.querierTimeout == 255
+          - nm_create_new_igmp_interface_policy_again.previous.queryInterval == nm_create_new_igmp_interface_policy_again.current.queryInterval == 125
+          - nm_create_new_igmp_interface_policy_again.previous.queryResponseInterval == nm_create_new_igmp_interface_policy_again.current.queryResponseInterval == 10
+          - nm_create_new_igmp_interface_policy_again.previous.reservedMulticastEntries == nm_create_new_igmp_interface_policy_again.current.reservedMulticastEntries == 0
+          - nm_create_new_igmp_interface_policy_again.previous.robustnessFactor == nm_create_new_igmp_interface_policy_again.current.robustnessFactor == 2
+          - nm_create_new_igmp_interface_policy_again.previous.startQueryCount == nm_create_new_igmp_interface_policy_again.current.startQueryCount == 2
+          - nm_create_new_igmp_interface_policy_again.previous.startQueryInterval == nm_create_new_igmp_interface_policy_again.current.startQueryInterval == 31
+          - nm_create_new_igmp_interface_policy_again.previous.reportPolicyRouteMapRef == nm_create_new_igmp_interface_policy_again.current.reportPolicyRouteMapRef == ''
+          - nm_create_new_igmp_interface_policy_again.previous.stateLimitRouteMapRef == nm_create_new_igmp_interface_policy_again.current.stateLimitRouteMapRef == ''
+          - nm_create_new_igmp_interface_policy_again.previous.staticReportRouteMapRef == nm_create_new_igmp_interface_policy_again.current.staticReportRouteMapRef == ''
+          - nm_create_new_igmp_interface_policy_again.current.uuid is defined
+          - nm_create_new_igmp_interface_policy_again.previous.uuid is defined
+
+
+    - name: Create another IGMP Interface Policy
+      cisco.mso.ndo_tenant_igmp_interface_policy: &igmp_interface_policy_2
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_igmp_interface_policy_2
+        description: 'IGMP Interface Policy 2 description'
+        version3_asm: 'enabled'
+        fast_leave: 'enabled'
+        report_link_local_groups: 'enabled'
+        igmp_version: 'v3'
+        group_timeout: 300
+        query_interval: 150
+        query_response_interval: 20
+        last_member_count: 3
+        last_member_response_time: 12
+        startup_query_count: 4
+        startup_query_interval: 1000
+        querier_timeout: 700
+        robustness_variable: 6
+        state_limit_route_map:
+          name: ansible_test_route_map_policy_1
+          template: ansible_tenant_template
+        report_policy_route_map:
+          name: ansible_test_route_map_policy_2
+          template: ansible_tenant_template 
+        static_report_route_map:
+          name: ansible_test_route_map_policy_3
+          template: ansible_tenant_template
+        maximum_multicast_entries: 3244545
+        reserved_multicast_entries: 8635434
+        state: present
+      register: create_igmp_interface_policy_2
+
+    - name: Assert IGMP Interface Policy 2 was created
+      assert:
+        that:
+          - create_igmp_interface_policy_2 is changed
+          - create_igmp_interface_policy_2.previous == {}
+          - create_igmp_interface_policy_2.current.name == 'ansible_igmp_interface_policy_2'
+          - create_igmp_interface_policy_2.current.uuid is defined
+          - create_igmp_interface_policy_2.current.description == 'IGMP Interface Policy 2 description'
+          - create_igmp_interface_policy_2.current.enableFastLeaveControl == true
+          - create_igmp_interface_policy_2.current.enableReportLinkLocalGroups == true
+          - create_igmp_interface_policy_2.current.enableV3Asm == true
+          - create_igmp_interface_policy_2.current.groupTimeout == 300
+          - create_igmp_interface_policy_2.current.igmpQuerierVersion == 'v3'
+          - create_igmp_interface_policy_2.current.lastMemberCount == 3
+          - create_igmp_interface_policy_2.current.lastMemberResponseInterval == 12
+          - create_igmp_interface_policy_2.current.maximumMulticastEntries == 3244545
+          - create_igmp_interface_policy_2.current.querierTimeout == 700
+          - create_igmp_interface_policy_2.current.queryInterval == 150
+          - create_igmp_interface_policy_2.current.queryResponseInterval == 20
+          - create_igmp_interface_policy_2.current.reservedMulticastEntries == 8635434
+          - create_igmp_interface_policy_2.current.robustnessFactor == 6
+          - create_igmp_interface_policy_2.current.startQueryCount == 4
+          - create_igmp_interface_policy_2.current.startQueryInterval == 1000
+          - create_igmp_interface_policy_2.current.reportPolicyRouteMapRef is defined
+          - create_igmp_interface_policy_2.current.stateLimitRouteMapRef is defined
+          - create_igmp_interface_policy_2.current.staticReportRouteMapRef is defined
+
+    # UPDATE
+    - name: Update an IGMP interface policy (check mode)
+      cisco.mso.ndo_tenant_igmp_interface_policy: &igmp_interface_policy_update
+        <<: *igmp_interface_policy_2
+        description: 'IGMP Interface Policy description updated'
+        version3_asm: 'disabled'
+        fast_leave: 'disabled'
+        report_link_local_groups: 'disabled'
+        igmp_version: 'v2'
+        group_timeout: 301
+        query_interval: 151
+        query_response_interval: 21
+        last_member_count: 5
+        last_member_response_time: 11
+        startup_query_count: 3
+        startup_query_interval: 1001
+        querier_timeout: 701
+        robustness_variable: 7
+        state_limit_route_map_uuid: "{{ create_route_map_policy_multicast_2.current.uuid }}"
+        static_report_route_map_uuid: "{{ create_route_map_policy_multicast_3.current.uuid }}"
+        static_report_route_map:
+          name: ansible_test_route_map_policy_1
+          template: ansible_tenant_template
+        maximum_multicast_entries: 3244546
+        reserved_multicast_entries: 86354345
+        state: present
+      check_mode: true
+      register: cm_update_igmp_interface_policy
+
+    - name: Update an IGMP interface policy
+      cisco.mso.ndo_tenant_igmp_interface_policy:
+        <<: *igmp_interface_policy_update
+      register: nm_update_igmp_interface_policy
+
+    - name: Update an IGMP interface policy again
+      cisco.mso.ndo_tenant_igmp_interface_policy:
+        <<: *igmp_interface_policy_update
+      register: nm_update_igmp_interface_policy_again
+
+    - name: Assert IGMP Interface Policy was updated
+      ansible.builtin.assert:
+        that:
+          - cm_update_igmp_interface_policy is changed
+          - nm_update_igmp_interface_policy is changed
+          - cm_update_igmp_interface_policy.previous.name == nm_update_igmp_interface_policy.previous.name == 'ansible_igmp_interface_policy_2'
+          - cm_update_igmp_interface_policy.current.name == nm_update_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy_2'
+          - cm_update_igmp_interface_policy.previous.description == nm_update_igmp_interface_policy.previous.description == 'IGMP Interface Policy 2 description'
+          - cm_update_igmp_interface_policy.current.description == nm_update_igmp_interface_policy.current.description == 'IGMP Interface Policy description updated'
+          - cm_update_igmp_interface_policy.previous.enableFastLeaveControl == nm_update_igmp_interface_policy.previous.enableFastLeaveControl == true
+          - cm_update_igmp_interface_policy.current.enableFastLeaveControl == nm_update_igmp_interface_policy.current.enableFastLeaveControl == false
+          - cm_update_igmp_interface_policy.previous.enableReportLinkLocalGroups == nm_update_igmp_interface_policy.previous.enableReportLinkLocalGroups == true
+          - cm_update_igmp_interface_policy.current.enableReportLinkLocalGroups == nm_update_igmp_interface_policy.current.enableReportLinkLocalGroups == false
+          - cm_update_igmp_interface_policy.previous.enableV3Asm == nm_update_igmp_interface_policy.previous.enableV3Asm == true
+          - cm_update_igmp_interface_policy.current.enableV3Asm == nm_update_igmp_interface_policy.current.enableV3Asm == false
+          - cm_update_igmp_interface_policy.previous.groupTimeout == nm_update_igmp_interface_policy.previous.groupTimeout == 300
+          - cm_update_igmp_interface_policy.current.groupTimeout == nm_update_igmp_interface_policy.current.groupTimeout == 301
+          - cm_update_igmp_interface_policy.previous.igmpQuerierVersion == nm_update_igmp_interface_policy.previous.igmpQuerierVersion == 'v3'
+          - cm_update_igmp_interface_policy.current.igmpQuerierVersion == nm_update_igmp_interface_policy.current.igmpQuerierVersion == 'v2'
+          - cm_update_igmp_interface_policy.previous.lastMemberCount == nm_update_igmp_interface_policy.previous.lastMemberCount == 3
+          - cm_update_igmp_interface_policy.current.lastMemberCount == nm_update_igmp_interface_policy.current.lastMemberCount == 5
+          - cm_update_igmp_interface_policy.previous.lastMemberResponseInterval == nm_update_igmp_interface_policy.previous.lastMemberResponseInterval == 12
+          - cm_update_igmp_interface_policy.current.lastMemberResponseInterval == nm_update_igmp_interface_policy.current.lastMemberResponseInterval == 11
+          - cm_update_igmp_interface_policy.previous.maximumMulticastEntries == nm_update_igmp_interface_policy.previous.maximumMulticastEntries == 3244545
+          - cm_update_igmp_interface_policy.current.maximumMulticastEntries == nm_update_igmp_interface_policy.current.maximumMulticastEntries == 3244546
+          - cm_update_igmp_interface_policy.previous.querierTimeout == nm_update_igmp_interface_policy.previous.querierTimeout == 700
+          - cm_update_igmp_interface_policy.current.querierTimeout == nm_update_igmp_interface_policy.current.querierTimeout == 701
+          - cm_update_igmp_interface_policy.previous.queryInterval == nm_update_igmp_interface_policy.previous.queryInterval == 150
+          - cm_update_igmp_interface_policy.current.queryInterval == nm_update_igmp_interface_policy.current.queryInterval == 151
+          - cm_update_igmp_interface_policy.previous.queryResponseInterval == nm_update_igmp_interface_policy.previous.queryResponseInterval == 20
+          - cm_update_igmp_interface_policy.current.queryResponseInterval == nm_update_igmp_interface_policy.current.queryResponseInterval == 21
+          - cm_update_igmp_interface_policy.previous.reservedMulticastEntries == nm_update_igmp_interface_policy.previous.reservedMulticastEntries == 8635434
+          - cm_update_igmp_interface_policy.current.reservedMulticastEntries == nm_update_igmp_interface_policy.current.reservedMulticastEntries == 86354345
+          - cm_update_igmp_interface_policy.previous.robustnessFactor == nm_update_igmp_interface_policy.previous.robustnessFactor == 6
+          - cm_update_igmp_interface_policy.current.robustnessFactor == nm_update_igmp_interface_policy.current.robustnessFactor == 7
+          - cm_update_igmp_interface_policy.previous.startQueryCount == nm_update_igmp_interface_policy.previous.startQueryCount == 4
+          - cm_update_igmp_interface_policy.current.startQueryCount == nm_update_igmp_interface_policy.current.startQueryCount == 3
+          - cm_update_igmp_interface_policy.previous.startQueryInterval == nm_update_igmp_interface_policy.previous.startQueryInterval == 1000
+          - cm_update_igmp_interface_policy.current.startQueryInterval == nm_update_igmp_interface_policy.current.startQueryInterval == 1001
+          - cm_update_igmp_interface_policy.previous.reportPolicyRouteMapRef == nm_update_igmp_interface_policy.previous.reportPolicyRouteMapRef
+          - cm_update_igmp_interface_policy.current.reportPolicyRouteMapRef == nm_update_igmp_interface_policy.current.reportPolicyRouteMapRef
+          - cm_update_igmp_interface_policy.previous.stateLimitRouteMapRef == nm_update_igmp_interface_policy.previous.stateLimitRouteMapRef
+          - cm_update_igmp_interface_policy.current.stateLimitRouteMapRef == nm_update_igmp_interface_policy.current.stateLimitRouteMapRef
+          - cm_update_igmp_interface_policy.previous.staticReportRouteMapRef == nm_update_igmp_interface_policy.previous.staticReportRouteMapRef
+          - cm_update_igmp_interface_policy.current.staticReportRouteMapRef == nm_update_igmp_interface_policy.current.staticReportRouteMapRef
+          - nm_update_igmp_interface_policy_again is not changed
+          - nm_update_igmp_interface_policy_again.previous.name == nm_update_igmp_interface_policy_again.current.name == 'ansible_igmp_interface_policy_2'
+          - nm_update_igmp_interface_policy_again.previous.description == nm_update_igmp_interface_policy_again.current.description == 'IGMP Interface Policy description updated'
+          - nm_update_igmp_interface_policy_again.previous.enableFastLeaveControl == nm_update_igmp_interface_policy_again.current.enableFastLeaveControl == false
+          - nm_update_igmp_interface_policy_again.previous.enableReportLinkLocalGroups == nm_update_igmp_interface_policy_again.current.enableReportLinkLocalGroups == false
+          - nm_update_igmp_interface_policy_again.previous.enableV3Asm == nm_update_igmp_interface_policy_again.current.enableV3Asm == false
+          - nm_update_igmp_interface_policy_again.previous.groupTimeout == nm_update_igmp_interface_policy_again.current.groupTimeout == 301
+          - nm_update_igmp_interface_policy_again.previous.igmpQuerierVersion == nm_update_igmp_interface_policy_again.current.igmpQuerierVersion == 'v2'
+          - nm_update_igmp_interface_policy_again.previous.lastMemberCount == nm_update_igmp_interface_policy_again.current.lastMemberCount == 5
+          - nm_update_igmp_interface_policy_again.previous.lastMemberResponseInterval == nm_update_igmp_interface_policy_again.current.lastMemberResponseInterval == 11
+          - nm_update_igmp_interface_policy_again.previous.maximumMulticastEntries == nm_update_igmp_interface_policy_again.current.maximumMulticastEntries == 3244546
+          - nm_update_igmp_interface_policy_again.previous.querierTimeout == nm_update_igmp_interface_policy_again.current.querierTimeout == 701
+          - nm_update_igmp_interface_policy_again.previous.queryInterval == nm_update_igmp_interface_policy_again.current.queryInterval == 151
+          - nm_update_igmp_interface_policy_again.previous.queryResponseInterval == nm_update_igmp_interface_policy_again.current.queryResponseInterval == 21
+          - nm_update_igmp_interface_policy_again.previous.reservedMulticastEntries == nm_update_igmp_interface_policy_again.current.reservedMulticastEntries == 86354345
+          - nm_update_igmp_interface_policy_again.previous.robustnessFactor == nm_update_igmp_interface_policy_again.current.robustnessFactor == 7
+          - nm_update_igmp_interface_policy_again.previous.startQueryCount == nm_update_igmp_interface_policy_again.current.startQueryCount == 3
+          - nm_update_igmp_interface_policy_again.previous.startQueryInterval == nm_update_igmp_interface_policy_again.current.startQueryInterval == 1001
+          - nm_update_igmp_interface_policy_again.previous.reportPolicyRouteMapRef == nm_update_igmp_interface_policy_again.current.reportPolicyRouteMapRef
+          - nm_update_igmp_interface_policy_again.previous.stateLimitRouteMapRef == nm_update_igmp_interface_policy_again.current.stateLimitRouteMapRef
+          - nm_update_igmp_interface_policy_again.previous.staticReportRouteMapRef == nm_update_igmp_interface_policy_again.current.staticReportRouteMapRef
+
+    - name: Update the name of the IGMP interface policy 2 using UUID
+      cisco.mso.ndo_tenant_igmp_interface_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        uuid: '{{ create_igmp_interface_policy_2.current.uuid }}'
+        name: ansible_igmp_interface_policy_2_updated
+        state: present
+      register: update_igmp_interface_policy_name
+
+    - name: Assert IGMP Interface Policy 2 name was updated
+      assert:
+        that:
+          - update_igmp_interface_policy_name is changed
+          - update_igmp_interface_policy_name.previous.name == 'ansible_igmp_interface_policy_2'
+          - update_igmp_interface_policy_name.current.name == 'ansible_igmp_interface_policy_2_updated'
+
+    # Query
+    - name: Query an IGMP Interface Policy
+      cisco.mso.ndo_tenant_igmp_interface_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_igmp_interface_policy_2_updated
+        state: query
+      register: query_igmp_interface_policy
+
+    - name: Query an IGMP Interface Policy using UUID
+      cisco.mso.ndo_tenant_igmp_interface_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        uuid: '{{ nm_create_new_igmp_interface_policy.current.uuid }}'
+        state: query
+      register: query_igmp_interface_policy_uuid
+
+    - name: Query all IGMP Interface Policies
+      cisco.mso.ndo_tenant_igmp_interface_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        state: query
+      register: query_all_igmp_interface_policies
+
+    - name: Assert IGMP Interface Policy was queried
+      ansible.builtin.assert:
+        that:
+          - query_igmp_interface_policy is not changed
+          - query_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy_2_updated'
+          - query_igmp_interface_policy_uuid is not changed
+          - query_igmp_interface_policy_uuid.current.name == 'ansible_igmp_interface_policy'
+          - query_all_igmp_interface_policies is not changed
+          - query_all_igmp_interface_policies.current | length == 2
+          - query_all_igmp_interface_policies.current[0].name == 'ansible_igmp_interface_policy'
+          - query_all_igmp_interface_policies.current[1].name == 'ansible_igmp_interface_policy_2_updated'
+
+    # DELETE
+    - name: Delete an IGMP Interface Policy (check mode)
+      cisco.mso.ndo_tenant_igmp_interface_policy: &igmp_interface_policy_delete
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_igmp_interface_policy_2_updated
+        state: absent
+      check_mode: true
+      register: cm_delete_igmp_interface_policy
+
+    - name: Delete an IGMP Interface Policy
+      cisco.mso.ndo_tenant_igmp_interface_policy:
+        <<: *igmp_interface_policy_delete
+      register: nm_delete_igmp_interface_policy
+
+    - name: Delete an IGMP Interface Policy again
+      cisco.mso.ndo_tenant_igmp_interface_policy:
+        <<: *igmp_interface_policy_delete
+      register: nm_delete_igmp_interface_policy_again
+
+    - name: Assert IGMP Interface Policy was deleted
+      ansible.builtin.assert:
+        that:
+          - cm_delete_igmp_interface_policy is changed
+          - nm_delete_igmp_interface_policy is changed
+          - cm_delete_igmp_interface_policy.current == nm_delete_igmp_interface_policy.current == {}
+          - cm_delete_igmp_interface_policy.previous.name == nm_delete_igmp_interface_policy.previous.name == 'ansible_igmp_interface_policy_2_updated'
+          - cm_delete_igmp_interface_policy.previous.uuid == nm_delete_igmp_interface_policy.previous.uuid
+          - cm_delete_igmp_interface_policy.previous.description == nm_delete_igmp_interface_policy.previous.description == 'IGMP Interface Policy description updated'
+          - cm_delete_igmp_interface_policy.previous.enableFastLeaveControl == nm_delete_igmp_interface_policy.previous.enableFastLeaveControl == false
+          - cm_delete_igmp_interface_policy.previous.enableReportLinkLocalGroups == nm_delete_igmp_interface_policy.previous.enableReportLinkLocalGroups == false
+          - cm_delete_igmp_interface_policy.previous.enableV3Asm == nm_delete_igmp_interface_policy.previous.enableV3Asm == false
+          - cm_delete_igmp_interface_policy.previous.groupTimeout == nm_delete_igmp_interface_policy.previous.groupTimeout == 301
+          - cm_delete_igmp_interface_policy.previous.igmpQuerierVersion == nm_delete_igmp_interface_policy.previous.igmpQuerierVersion == 'v2'
+          - cm_delete_igmp_interface_policy.previous.lastMemberCount == nm_delete_igmp_interface_policy.previous.lastMemberCount == 5
+          - cm_delete_igmp_interface_policy.previous.lastMemberResponseInterval == nm_delete_igmp_interface_policy.previous.lastMemberResponseInterval == 11
+          - cm_delete_igmp_interface_policy.previous.maximumMulticastEntries == nm_delete_igmp_interface_policy.previous.maximumMulticastEntries == 3244546
+          - cm_delete_igmp_interface_policy.previous.querierTimeout == nm_delete_igmp_interface_policy.previous.querierTimeout == 701
+          - cm_delete_igmp_interface_policy.previous.queryInterval == nm_delete_igmp_interface_policy.previous.queryInterval == 151
+          - cm_delete_igmp_interface_policy.previous.queryResponseInterval == nm_delete_igmp_interface_policy.previous.queryResponseInterval == 21
+          - cm_delete_igmp_interface_policy.previous.reservedMulticastEntries == nm_delete_igmp_interface_policy.previous.reservedMulticastEntries == 86354345
+          - cm_delete_igmp_interface_policy.previous.robustnessFactor == nm_delete_igmp_interface_policy.previous.robustnessFactor == 7
+          - cm_delete_igmp_interface_policy.previous.startQueryCount == nm_delete_igmp_interface_policy.previous.startQueryCount == 3
+          - cm_delete_igmp_interface_policy.previous.startQueryInterval == nm_delete_igmp_interface_policy.previous.startQueryInterval == 1001
+          - cm_delete_igmp_interface_policy.previous.reportPolicyRouteMapRef == nm_delete_igmp_interface_policy.previous.reportPolicyRouteMapRef
+          - cm_delete_igmp_interface_policy.previous.stateLimitRouteMapRef == nm_delete_igmp_interface_policy.previous.stateLimitRouteMapRef
+          - cm_delete_igmp_interface_policy.previous.staticReportRouteMapRef == nm_delete_igmp_interface_policy.previous.staticReportRouteMapRef
+          - nm_delete_igmp_interface_policy_again is not changed
+          - nm_delete_igmp_interface_policy_again.previous == nm_delete_igmp_interface_policy_again.current == {}
+
+    - name: Delete IGMP Interface Policy using UUID
+      cisco.mso.ndo_tenant_igmp_interface_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        uuid: '{{ nm_create_new_igmp_interface_policy.current.uuid }}'
+        state: absent
+      register: delete_igmp_interface_policy_uuid
+
+    - name: Assert IGMP Interface Policy was deleted using UUID
+      ansible.builtin.assert:
+        that:
+        - delete_igmp_interface_policy_uuid is changed
+        - delete_igmp_interface_policy_uuid.previous.name == 'ansible_igmp_interface_policy'
+        - delete_igmp_interface_policy_uuid.previous.description == ''
+        - delete_igmp_interface_policy_uuid.current == {}
+
+
+    # Errors and no policies found
+
+    - name: Query all IGMP Interface Policy in the template when all are deleted
+      cisco.mso.ndo_tenant_igmp_interface_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        state: query
+      register: query_all_none
+    
+    - name: Update with non-existing UUID
+      cisco.mso.ndo_tenant_igmp_interface_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        uuid: non-existing-uuid
+        state: present
+      ignore_errors: true
+      register: update_non_existing_uuid
+
+    - name: Assert no IGMP Snooping Policy found
+      assert:
+        that:
+          - query_all_none is not changed
+          - query_all_none.current == []
+          - update_non_existing_uuid is failed
+          - update_non_existing_uuid.msg == "IGMP Interface Policy with the UUID{{":"}} 'non-existing-uuid' not found"
+
+    # CLEANUP TEMPLATE
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

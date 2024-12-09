@@ -50,7 +50,8 @@ options:
     suboptions:
       state:
         description:
-        - Use C(enabled) to configure the SyncE Interface Policy. The O(synce.admin_state), O(synce.quality_level) is required when the state is C(enabled).
+        - Use C(enabled) to configure the SyncE Interface Policy.
+        - Both O(synce.admin_state) and O(synce.quality_level) are required when the state is C(enabled).
         - Use C(disabled) to remove the SyncE Interface Policy.
         type: str
         choices: [ enabled, disabled ]
@@ -71,7 +72,8 @@ options:
     suboptions:
       state:
         description:
-        - Use C(enabled) to configure the PTP Settings. The O(ptp.node_domain), O(ptp.priority_2) is required when the state is C(enabled).
+        - Use C(enabled) to configure the PTP Settings.
+        - Both O(ptp.node_domain) and O(ptp.priority_2) are required when the state is C(enabled).
         - Use C(disabled) to remove the PTP Settings.
         type: str
         choices: [ enabled, disabled ]
@@ -84,7 +86,7 @@ options:
         description:
         - The value that is used when advertising this clock.
         - The value must be between 0 and 255, lower values are prioritized.
-        - The PTP priority 1 is set to the fixed value of 128.
+        - The PTP priority 1 is set to a fixed value of 128.
         type: int
   state:
     description:

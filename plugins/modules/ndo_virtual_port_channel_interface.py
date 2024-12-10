@@ -89,10 +89,12 @@ options:
         description:
         - The name of the Interface Policy Group.
         type: str
+        required: true
       template:
         description:
         - The name of the template in which the Interface Policy Group has been created.
         type: str
+        required: true
     aliases: [ policy, interface_policy, interface_setting ]
   interface_descriptions:
     description:
@@ -104,10 +106,13 @@ options:
         description:
         - The node ID.
         type: str
+        required: true
       interface_id:
         description:
-        - The interface ID.
+        - The interface ID or a range of IDs.
+        - Using a range of interface IDs will apply the same O(description) for every ID in range.
         type: str
+        required: true
       description:
         description:
         - The description of the interface.
@@ -121,6 +126,14 @@ options:
     choices: [ absent, query, present ]
     default: query
 extends_documentation_fragment: cisco.mso.modules
+notes:
+- The O(template) must exist before using this module in your playbook.
+  Use M(cisco.mso.ndo_template) to create the Fabric Resource template.
+- The O(interface_policy_group) must exist before using this module in your playbook.
+  Use M(cisco.mso.ndo_interface_setting) to create the Interface Policy Group of type Port Channel.
+seealso:
+- module: cisco.mso.ndo_template
+- module: cisco.mso.ndo_interface_setting
 """
 
 EXAMPLES = r"""
@@ -145,16 +158,13 @@ EXAMPLES = r"""
     interface_descriptions:
       - node: 101
         interface_id: 1/1
-        description: My first Ansible Interface for first node
+        description: My single Ansible Interface for first node
       - node: 101
-        interface_id: 1/10
-        description: My second Ansible Interface for first node
-      - node: 101
-        interface_id: 1/11
-        description: My third Ansible Interface for first node
+        interface_id: 1/10-11
+        description: My group of Ansible Interface for first node
       - node: 102
         interface_id: 1/2
-        description: My first Ansible Interface for second node
+        description: My single Ansible Interface for second node
     state: present
   register: virtual_port_channel_interface_1
 
@@ -176,7 +186,7 @@ EXAMPLES = r"""
     template: ansible_fabric_resource_template
     name: ansible_virtual_port_channel_interface_changed
     state: query
-  register: query_one
+  register: query_name
 
 - name: Query a Virtual Port Channel Interface with UUID
   cisco.mso.ndo_virtual_port_channel_interface:
@@ -186,7 +196,7 @@ EXAMPLES = r"""
     template: ansible_fabric_resource_template
     uuid: "{{ virtual_port_channel_interface_1.current.uuid }}"
     state: query
-  register: query_one_uuid
+  register: query_uuid
 
 - name: Query all Virtual Port Channel Interfaces in a Fabric Resource Template
   cisco.mso.ndo_virtual_port_channel_interface:
@@ -246,8 +256,8 @@ def main():
         interface_policy_group=dict(
             type="dict",
             options=dict(
-                name=dict(type="str"),
-                template=dict(type="str"),
+                name=dict(type="str", required=True),
+                template=dict(type="str", required=True),
             ),
             aliases=["policy", "interface_policy", "interface_setting"],
         ),
@@ -256,8 +266,8 @@ def main():
             type="list",
             elements="dict",
             options=dict(
-                node=dict(type="str"),
-                interface_id=dict(type="str"),
+                node=dict(type="str", required=True),
+                interface_id=dict(type="str", required=True),
                 description=dict(type="str"),
             ),
         ),
@@ -282,10 +292,10 @@ def main():
     node_1 = module.params.get("node_1")
     node_2 = module.params.get("node_2")
     interfaces_node_1 = module.params.get("interfaces_node_1")
-    if interfaces_node_1:
+    if isinstance(interfaces_node_1, list):
         interfaces_node_1 = ",".join(interfaces_node_1)
     interfaces_node_2 = module.params.get("interfaces_node_2")
-    if interfaces_node_2:
+    if isinstance(interfaces_node_2, list):
         interfaces_node_2 = ",".join(interfaces_node_2)
     interface_policy_group = module.params.get("interface_policy_group")
     interface_policy_group_uuid = module.params.get("interface_policy_group_uuid")
@@ -358,7 +368,7 @@ def main():
                 proposed_payload["node2Details"]["memberInterfaces"] = interfaces_node_2
 
             if interface_descriptions:
-                interface_descriptions = format_interface_descriptions(interface_descriptions)
+                interface_descriptions = format_interface_descriptions(mso, interface_descriptions)
                 if interface_descriptions != mso.existing.get("interfaceDescriptions"):
                     ops.append(dict(op="replace", path="{0}/{1}/interfaceDescriptions".format(path, match.index), value=interface_descriptions))
                     proposed_payload["interfaceDescriptions"] = interface_descriptions
@@ -380,7 +390,7 @@ def main():
                 },
                 "policy": interface_policy_group_uuid,
                 "description": description,
-                "interfaceDescriptions": format_interface_descriptions(interface_descriptions),
+                "interfaceDescriptions": format_interface_descriptions(mso, interface_descriptions),
             }
             mso.sanitize(payload)
 

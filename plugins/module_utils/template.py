@@ -207,3 +207,14 @@ class MSOTemplate:
                 "L3Out Node Routing Policy", existing_l3out_node_routing_policy, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module
             )
         return existing_l3out_node_routing_policy  # Query all objects
+
+    def get_interface_policy_group_uuid(self, interface_policy_group):
+        """
+        Get the UUID of an Interface Policy Group by name.
+        :param interface_policy_group: Name of the Interface Policy Group to search for -> Str
+        :return: UUID of the Interface Policy Group. -> Str
+        """
+        existing_policy_groups = self.template.get("fabricPolicyTemplate", {}).get("template", {}).get("interfacePolicyGroups", [])
+        kv_list = [KVPair("name", interface_policy_group)]
+        match = self.get_object_by_key_value_pairs("Interface Policy Groups", existing_policy_groups, kv_list, fail_module=True)
+        return match.details.get("uuid")

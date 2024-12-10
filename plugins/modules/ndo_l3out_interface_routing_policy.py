@@ -430,75 +430,75 @@ def main():
     if state == "present":
         if mso.existing:
             proposed_payload = copy.deepcopy(mso.existing)
-            replace_data = dict()
-            remove_data = list()
+            mso_values = dict()
+            mso_values_remove = list()
 
-            replace_data["name"] = name
-            replace_data["description"] = description
+            mso_values["name"] = name
+            mso_values["description"] = description
 
             # BFD MultiHop Settings
             if bfd_multi_hop_settings is not None:
                 if bfd_multi_hop_settings.get("state") == "disabled" and proposed_payload.get("bfdMultiHopPol"):
-                    remove_data.append("bfdMultiHopPol")
+                    mso_values_remove.append("bfdMultiHopPol")
 
                 elif bfd_multi_hop_settings.get("state") != "disabled":
                     if not proposed_payload.get("bfdMultiHopPol"):
-                        replace_data["bfdMultiHopPol"] = dict()
+                        mso_values["bfdMultiHopPol"] = dict()
 
-                    replace_data[("bfdMultiHopPol", "adminState")] = bfd_multi_hop_settings.get("admin_state")
-                    replace_data[("bfdMultiHopPol", "detectionMultiplier")] = bfd_multi_hop_settings.get("detection_multiplier")
-                    replace_data[("bfdMultiHopPol", "minRxInterval")] = bfd_multi_hop_settings.get("min_receive_interval")
-                    replace_data[("bfdMultiHopPol", "minTxInterval")] = bfd_multi_hop_settings.get("min_transmit_interval")
+                    mso_values[("bfdMultiHopPol", "adminState")] = bfd_multi_hop_settings.get("admin_state")
+                    mso_values[("bfdMultiHopPol", "detectionMultiplier")] = bfd_multi_hop_settings.get("detection_multiplier")
+                    mso_values[("bfdMultiHopPol", "minRxInterval")] = bfd_multi_hop_settings.get("min_receive_interval")
+                    mso_values[("bfdMultiHopPol", "minTxInterval")] = bfd_multi_hop_settings.get("min_transmit_interval")
 
             # BFD Settings
             if bfd_settings is not None:
                 if bfd_settings.get("state") == "disabled" and proposed_payload.get("bfdPol"):
-                    remove_data.append("bfdPol")
+                    mso_values_remove.append("bfdPol")
 
                 elif bfd_settings.get("state") != "disabled":
                     if not proposed_payload.get("bfdPol"):
-                        replace_data["bfdPol"] = dict()
+                        mso_values["bfdPol"] = dict()
 
-                    replace_data[("bfdPol", "adminState")] = bfd_settings.get("admin_state")
-                    replace_data[("bfdPol", "detectionMultiplier")] = bfd_settings.get("detection_multiplier")
-                    replace_data[("bfdPol", "minRxInterval")] = bfd_settings.get("min_receive_interval")
-                    replace_data[("bfdPol", "minTxInterval")] = bfd_settings.get("min_transmit_interval")
-                    replace_data[("bfdPol", "echoRxInterval")] = bfd_settings.get("echo_receive_interval")
-                    replace_data[("bfdPol", "echoAdminState")] = bfd_settings.get("echo_admin_state")
-                    replace_data[("bfdPol", "ifControl")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(bfd_settings.get("interface_control"))
+                    mso_values[("bfdPol", "adminState")] = bfd_settings.get("admin_state")
+                    mso_values[("bfdPol", "detectionMultiplier")] = bfd_settings.get("detection_multiplier")
+                    mso_values[("bfdPol", "minRxInterval")] = bfd_settings.get("min_receive_interval")
+                    mso_values[("bfdPol", "minTxInterval")] = bfd_settings.get("min_transmit_interval")
+                    mso_values[("bfdPol", "echoRxInterval")] = bfd_settings.get("echo_receive_interval")
+                    mso_values[("bfdPol", "echoAdminState")] = bfd_settings.get("echo_admin_state")
+                    mso_values[("bfdPol", "ifControl")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(bfd_settings.get("interface_control"))
 
             # OSPF Interface Settings
             if ospf_interface_settings is not None:
                 if ospf_interface_settings.get("state") == "disabled" and proposed_payload.get("ospfIntfPol"):
-                    remove_data.append(("ospfIntfPol",))
+                    mso_values_remove.append(("ospfIntfPol",))
 
                 elif ospf_interface_settings.get("state") != "disabled":
                     if not proposed_payload.get("ospfIntfPol"):
-                        replace_data[("ospfIntfPol")] = dict()
-                        replace_data[("ospfIntfPol", "ifControl")] = dict()
+                        mso_values[("ospfIntfPol")] = dict()
+                        mso_values[("ospfIntfPol", "ifControl")] = dict()
 
-                    replace_data[("ospfIntfPol", "networkType")] = get_ospf_network_type(ospf_interface_settings.get("network_type"))
-                    replace_data[("ospfIntfPol", "prio")] = ospf_interface_settings.get("priority")
-                    replace_data[("ospfIntfPol", "cost")] = ospf_interface_settings.get("cost_of_interface")
-                    replace_data[("ospfIntfPol", "helloInterval")] = ospf_interface_settings.get("hello_interval")
-                    replace_data[("ospfIntfPol", "deadInterval")] = ospf_interface_settings.get("dead_interval")
-                    replace_data[("ospfIntfPol", "retransmitInterval")] = ospf_interface_settings.get("retransmit_interval")
-                    replace_data[("ospfIntfPol", "transmitDelay")] = ospf_interface_settings.get("transmit_delay")
-                    replace_data[("ospfIntfPol", "ifControl", "advertiseSubnet")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(
+                    mso_values[("ospfIntfPol", "networkType")] = get_ospf_network_type(ospf_interface_settings.get("network_type"))
+                    mso_values[("ospfIntfPol", "prio")] = ospf_interface_settings.get("priority")
+                    mso_values[("ospfIntfPol", "cost")] = ospf_interface_settings.get("cost_of_interface")
+                    mso_values[("ospfIntfPol", "helloInterval")] = ospf_interface_settings.get("hello_interval")
+                    mso_values[("ospfIntfPol", "deadInterval")] = ospf_interface_settings.get("dead_interval")
+                    mso_values[("ospfIntfPol", "retransmitInterval")] = ospf_interface_settings.get("retransmit_interval")
+                    mso_values[("ospfIntfPol", "transmitDelay")] = ospf_interface_settings.get("transmit_delay")
+                    mso_values[("ospfIntfPol", "ifControl", "advertiseSubnet")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(
                         ospf_interface_settings.get("advertise_subnet")
                     )
-                    replace_data[("ospfIntfPol", "ifControl", "bfd")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(ospf_interface_settings.get("bfd"))
-                    replace_data[("ospfIntfPol", "ifControl", "ignoreMtu")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(
+                    mso_values[("ospfIntfPol", "ifControl", "bfd")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(ospf_interface_settings.get("bfd"))
+                    mso_values[("ospfIntfPol", "ifControl", "ignoreMtu")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(
                         ospf_interface_settings.get("mtu_ignore")
                     )
-                    replace_data[("ospfIntfPol", "ifControl", "passiveParticipation")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(
+                    mso_values[("ospfIntfPol", "ifControl", "passiveParticipation")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(
                         ospf_interface_settings.get("passive_participation")
                     )
 
-            append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, replace_data, remove_data)
+            append_update_ops_data(ops, proposed_payload, interface_routing_policy_path, mso_values, mso_values_remove)
             mso.sanitize(proposed_payload)
         else:
-            payload = dict(name=name, description=description)
+            mso_values = dict(name=name, description=description)
 
             # OSPF Interface Settings
             if ospf_interface_settings is not None:
@@ -544,7 +544,7 @@ def main():
                     ospf_interface_pol["transmitDelay"] = ospf_interface_settings.get("transmit_delay")
 
                 if ospf_interface_pol or ospf_interface_settings.get("state") == "enabled":
-                    payload["ospfIntfPol"] = ospf_interface_pol
+                    mso_values["ospfIntfPol"] = ospf_interface_pol
 
             # BFD MultiHop Settings
             if bfd_multi_hop_settings is not None:
@@ -562,7 +562,7 @@ def main():
                     bfd_multi_hop_pol["minTxInterval"] = bfd_multi_hop_settings.get("min_transmit_interval")
 
                 if bfd_multi_hop_pol or bfd_multi_hop_settings.get("state") == "enabled":
-                    payload["bfdMultiHopPol"] = bfd_multi_hop_pol
+                    mso_values["bfdMultiHopPol"] = bfd_multi_hop_pol
 
             # BFD Settings
             if bfd_settings is not None:
@@ -590,11 +590,11 @@ def main():
                     bfd_settings_map["ifControl"] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(bfd_settings.get("interface_control"))
 
                 if bfd_settings_map or bfd_settings.get("state") == "enabled":
-                    payload["bfdPol"] = bfd_settings_map
+                    mso_values["bfdPol"] = bfd_settings_map
 
-            ops.append(dict(op="add", path=interface_routing_policy_path, value=copy.deepcopy(payload)))
+            ops.append(dict(op="add", path=interface_routing_policy_path, value=copy.deepcopy(mso_values)))
 
-            mso.sanitize(payload)
+            mso.sanitize(mso_values)
     elif state == "absent":
         if mso.existing:
             ops.append(dict(op="remove", path=interface_routing_policy_path))

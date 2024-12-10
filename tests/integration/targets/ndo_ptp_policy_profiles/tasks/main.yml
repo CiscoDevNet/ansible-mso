@@ -1,0 +1,254 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Shreyas Srish (@shrsr)
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username, and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    - name: Remove fabric template
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        type: fabric_policy
+        state: absent
+
+    - name: Create a fabric template
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        type: fabric_policy
+        state: present
+
+- name: Create a new PTP policy
+  cisco.mso.ndo_ptp_policy:
+    <<: *mso_info
+    template: ansible_fabric_policy_template
+    ptp_policy: ansible_test_ptp_policy
+    admin_state: enabled
+    fabric_sync_interval: -3
+    global_domain: 0
+    fabric_delay_interval: -2
+    global_priority1: 255
+    global_priority2: 255
+    fabric_announce_timeout: 3
+    fabric_announce_interval: 1
+    fabric_profile_template: aes67_2015
+    state: present
+
+# Create
+- name: Create a PTP profile (check mode)
+  cisco.mso.ndo_ptp_policy_profiles: &add_ptp_policy_profile
+    <<: *mso_info
+    template: ansible_fabric_policy_template
+    ptp_policy_profile_name: ansible_profile
+    delay_interval: 2
+    sync_interval: 1
+    announce_timeout: 3
+    announce_interval: 4
+    profile_template: aes67_2015
+    state: present
+  check_mode: true
+  register: cm_create_ptp_profile
+
+- name: Create a PTP profile (normal mode)
+  cisco.mso.ndo_ptp_policy_profiles:
+    <<: *add_ptp_policy_profile
+  register: nm_add_ptp_profile
+
+- name: Create a PTP profile again (normal mode)
+  cisco.mso.ndo_ptp_policy_profiles:
+    <<: *add_ptp_policy_profile
+  register: nm_add_ptp_profile_again
+
+- name: Assert PTP profile creation
+  assert:
+    that:
+      - cm_create_ptp_profile is changed
+      - cm_create_ptp_profile.previous == {}
+      - cm_create_ptp_profile.current == nm_add_ptp_profile.proposed
+      - cm_create_ptp_profile.current.name == cm_create_ptp_profile.proposed.name == "ansible_profile"
+      - nm_add_ptp_profile is changed
+      - nm_add_ptp_profile.previous == {}
+      - nm_add_ptp_profile.current.name == "ansible_profile"
+      - nm_add_ptp_profile.current.delayIntvl == 2
+      - nm_add_ptp_profile.current.syncIntvl == 1
+      - nm_add_ptp_profile.current.announceTimeout == 3
+      - nm_add_ptp_profile.current.announceIntvl == 4
+      - nm_add_ptp_profile.current.profileTemplate == "aes67"
+      - nm_add_ptp_profile_again is not changed
+      - nm_add_ptp_profile_again.previous.name == nm_add_ptp_profile_again.current.name == "ansible_profile"
+      - nm_add_ptp_profile_again.previous.delayIntvl == nm_add_ptp_profile_again.current.delayIntvl == 2
+      - nm_add_ptp_profile_again.previous.syncIntvl == nm_add_ptp_profile_again.current.syncIntvl == 1
+      - nm_add_ptp_profile_again.previous.announceTimeout == nm_add_ptp_profile_again.current.announceTimeout == 3
+      - nm_add_ptp_profile_again.previous.announceIntvl == nm_add_ptp_profile_again.current.announceIntvl == 4
+      - nm_add_ptp_profile_again.previous.profileTemplate == nm_add_ptp_profile_again.current.profileTemplate == "aes67"
+      - nm_add_ptp_profile_again.previous.uuid is defined
+      - nm_add_ptp_profile_again.current.uuid is defined
+
+# Update
+- name: Update a PTP profile (check mode)
+  cisco.mso.ndo_ptp_policy_profiles: &update_ptp_policy_profile
+    <<: *mso_info
+    template: ansible_fabric_policy_template
+    ptp_policy_profile_name: ansible_profile
+    delay_interval: 5
+    sync_interval: -1
+    announce_timeout: 6
+    announce_interval: 3
+    profile_template: default
+    state: present
+  check_mode: true
+  register: cm_update_ptp_profile
+
+- name: Update a PTP profile (normal mode)
+  cisco.mso.ndo_ptp_policy_profiles:
+    <<: *update_ptp_policy_profile
+  register: nm_update_ptp_profile
+
+- name: Update a PTP profile again (normal mode)
+  cisco.mso.ndo_ptp_policy_profiles:
+    <<: *update_ptp_policy_profile
+  register: nm_update_ptp_profile_again
+
+- name: Assert PTP profile update
+  assert:
+    that:
+      - cm_update_ptp_profile is changed
+      - cm_update_ptp_profile.current == nm_update_ptp_profile.proposed
+      - cm_update_ptp_profile.current.name == cm_update_ptp_profile.proposed.name == "ansible_profile"
+      - nm_update_ptp_profile is changed
+      - nm_update_ptp_profile.current.name == "ansible_profile"
+      - nm_update_ptp_profile.current.delayIntvl == 5
+      - nm_update_ptp_profile.current.syncIntvl == -1
+      - nm_update_ptp_profile.current.announceTimeout == 6
+      - nm_update_ptp_profile.current.announceIntvl == 3
+      - nm_update_ptp_profile.current.profileTemplate == "default"
+      - nm_update_ptp_profile_again is not changed
+      - nm_update_ptp_profile_again.previous.name == nm_update_ptp_profile_again.current.name == "ansible_profile"
+      - nm_update_ptp_profile_again.previous.delayIntvl == nm_update_ptp_profile_again.current.delayIntvl == 5
+      - nm_update_ptp_profile_again.previous.syncIntvl == nm_update_ptp_profile_again.current.syncIntvl == -1
+      - nm_update_ptp_profile_again.previous.announceTimeout == nm_update_ptp_profile_again.current.announceTimeout == 6
+      - nm_update_ptp_profile_again.previous.announceIntvl == nm_update_ptp_profile_again.current.announceIntvl == 3
+      - nm_update_ptp_profile_again.previous.profileTemplate == nm_update_ptp_profile_again.current.profileTemplate == "default"
+
+# Update name and Query
+- name: Update a PTP profile name with UUID (normal mode)
+  cisco.mso.ndo_ptp_policy_profiles:
+    <<: *update_ptp_policy_profile
+    ptp_policy_profile_name: profile_update
+    ptp_policy_profile_uuid: "{{ nm_update_ptp_profile.current.uuid }}"
+  register: nm_update_name_ptp_profile
+
+- name: Create another PTP profile
+  cisco.mso.ndo_ptp_policy_profiles: 
+    <<: *mso_info
+    template: ansible_fabric_policy_template
+    ptp_policy_profile_name: ansible_profile2
+    delay_interval: 2
+    sync_interval: 1
+    announce_timeout: 3
+    announce_interval: 4
+    profile_template: aes67_2015
+    state: present
+  register: nm_create_another_ptp_profile
+
+- name: Query a PTP profile
+  cisco.mso.ndo_ptp_policy_profiles:
+    <<: *mso_info
+    template: ansible_fabric_policy_template
+    ptp_policy_profile_name: profile_update
+    state: query
+  register: query_one
+
+- name: Query all PTP profiles in the template
+  cisco.mso.ndo_ptp_policy_profiles:
+    <<: *mso_info
+    template: ansible_fabric_policy_template
+    state: query
+  register: query_all
+
+- name: Verify query_one and query_all
+  assert:
+    that:
+      - query_all is not changed
+      - query_one is not changed
+      - nm_update_name_ptp_profile.current.name == "profile_update"
+      - query_one.current.name == "profile_update"
+      - query_one.current.delayIntvl == 5
+      - query_one.current.syncIntvl == -1
+      - query_one.current.announceTimeout == 6
+      - query_one.current.announceIntvl == 3
+      - query_one.current.profileTemplate == "default"
+      - query_all.current | length == 2
+      - query_all.current.0.name == "profile_update"
+      - query_all.current.1.name == "ansible_profile2"
+      
+# DELETE
+- name: Delete a PTP profile (check mode)
+  cisco.mso.ndo_ptp_policy_profiles: &rm_ptp_policy_profile
+    <<: *mso_info
+    template: ansible_fabric_policy_template
+    ptp_policy_profile_name: profile_update
+    state: absent
+  check_mode: true
+  register: cm_rm_ptp_profile
+
+- name: Delete a PTP profile
+  cisco.mso.ndo_ptp_policy_profiles:
+    <<: *rm_ptp_policy_profile
+  register: nm_rm_ptp_profile
+
+- name: Delete a PTP profile again
+  cisco.mso.ndo_ptp_policy_profiles:
+    <<: *rm_ptp_policy_profile
+  register: nm_rm_ptp_profile_again
+
+- name: Delete the other PTP profile using UUID
+  cisco.mso.ndo_ptp_policy_profiles:
+    <<: *mso_info
+    template: ansible_fabric_policy_template
+    ptp_policy_profile_uuid: "{{ nm_create_another_ptp_profile.current.uuid }}"
+    state: absent
+  register: nm_rm_other_ptp_profile
+
+- name: Assert PTP profiles were deleted
+  assert:
+    that:
+      - cm_rm_ptp_profile is changed
+      - cm_rm_ptp_profile.previous.name == "profile_update"
+      - cm_rm_ptp_profile.current == {}
+      - nm_rm_ptp_profile is changed
+      - nm_rm_ptp_profile.previous.name == "profile_update"
+      - nm_rm_ptp_profile.current == {}
+      - nm_rm_ptp_profile_again is not changed
+      - nm_rm_ptp_profile_again.previous == nm_rm_ptp_profile_again.current == {}
+      - nm_rm_other_ptp_profile.current == {}
+
+# CLEANUP TEMPLATE
+- name: Ensure templates do not exist
+  cisco.mso.ndo_template:
+    <<: *template_absent

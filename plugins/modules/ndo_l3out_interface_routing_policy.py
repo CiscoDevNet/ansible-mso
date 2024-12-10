@@ -337,7 +337,7 @@ import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
-from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED_DISABLED_BOOLEAN_MAP
+from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
 from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
@@ -465,7 +465,7 @@ def main():
                     replace_data[("bfdPol", "minTxInterval")] = bfd_settings.get("min_transmit_interval")
                     replace_data[("bfdPol", "echoRxInterval")] = bfd_settings.get("echo_receive_interval")
                     replace_data[("bfdPol", "echoAdminState")] = bfd_settings.get("echo_admin_state")
-                    replace_data[("bfdPol", "ifControl")] = ENABLED_DISABLED_BOOLEAN_MAP.get(bfd_settings.get("interface_control"))
+                    replace_data[("bfdPol", "ifControl")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(bfd_settings.get("interface_control"))
 
             # OSPF Interface Settings
             if ospf_interface_settings is not None:
@@ -484,12 +484,14 @@ def main():
                     replace_data[("ospfIntfPol", "deadInterval")] = ospf_interface_settings.get("dead_interval")
                     replace_data[("ospfIntfPol", "retransmitInterval")] = ospf_interface_settings.get("retransmit_interval")
                     replace_data[("ospfIntfPol", "transmitDelay")] = ospf_interface_settings.get("transmit_delay")
-                    replace_data[("ospfIntfPol", "ifControl", "advertiseSubnet")] = ENABLED_DISABLED_BOOLEAN_MAP.get(
+                    replace_data[("ospfIntfPol", "ifControl", "advertiseSubnet")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(
                         ospf_interface_settings.get("advertise_subnet")
                     )
-                    replace_data[("ospfIntfPol", "ifControl", "bfd")] = ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("bfd"))
-                    replace_data[("ospfIntfPol", "ifControl", "ignoreMtu")] = ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("mtu_ignore"))
-                    replace_data[("ospfIntfPol", "ifControl", "passiveParticipation")] = ENABLED_DISABLED_BOOLEAN_MAP.get(
+                    replace_data[("ospfIntfPol", "ifControl", "bfd")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(ospf_interface_settings.get("bfd"))
+                    replace_data[("ospfIntfPol", "ifControl", "ignoreMtu")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(
+                        ospf_interface_settings.get("mtu_ignore")
+                    )
+                    replace_data[("ospfIntfPol", "ifControl", "passiveParticipation")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(
                         ospf_interface_settings.get("passive_participation")
                     )
 
@@ -504,16 +506,18 @@ def main():
                 interface_controls = dict()
 
                 if ospf_interface_settings.get("advertise_subnet"):
-                    interface_controls["advertiseSubnet"] = ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("advertise_subnet"))
+                    interface_controls["advertiseSubnet"] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(ospf_interface_settings.get("advertise_subnet"))
 
                 if ospf_interface_settings.get("bfd"):
-                    interface_controls["bfd"] = ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("bfd"))
+                    interface_controls["bfd"] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(ospf_interface_settings.get("bfd"))
 
                 if ospf_interface_settings.get("mtu_ignore"):
-                    interface_controls["ignoreMtu"] = ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("mtu_ignore"))
+                    interface_controls["ignoreMtu"] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(ospf_interface_settings.get("mtu_ignore"))
 
                 if ospf_interface_settings.get("passive_participation"):
-                    interface_controls["passiveParticipation"] = ENABLED_DISABLED_BOOLEAN_MAP.get(ospf_interface_settings.get("passive_participation"))
+                    interface_controls["passiveParticipation"] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(
+                        ospf_interface_settings.get("passive_participation")
+                    )
 
                 if interface_controls:
                     ospf_interface_pol["ifControl"] = interface_controls
@@ -583,7 +587,7 @@ def main():
                     bfd_settings_map["echoAdminState"] = bfd_settings.get("echo_admin_state")
 
                 if bfd_settings.get("interface_control"):
-                    bfd_settings_map["ifControl"] = ENABLED_DISABLED_BOOLEAN_MAP.get(bfd_settings.get("interface_control"))
+                    bfd_settings_map["ifControl"] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(bfd_settings.get("interface_control"))
 
                 if bfd_settings_map or bfd_settings.get("state") == "enabled":
                     payload["bfdPol"] = bfd_settings_map

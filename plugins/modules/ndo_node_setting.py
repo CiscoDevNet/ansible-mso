@@ -260,38 +260,38 @@ def main():
     if state == "present":
         if mso.existing:
             proposed_payload = copy.deepcopy(mso.existing)
-            replace_data = dict()
-            remove_data = list()
+            mso_values = dict()
+            mso_values_remove = list()
 
-            replace_data["name"] = name
-            replace_data["description"] = description
+            mso_values["name"] = name
+            mso_values["description"] = description
 
             if synce is not None:
                 if synce.get("state") == "disabled" and proposed_payload.get("synce"):
-                    remove_data.append("synce")
+                    mso_values_remove.append("synce")
                 else:
-                    replace_data["synce"] = dict()
-                    replace_data[("synce", "adminState")] = synce.get("admin_state")
-                    replace_data[("synce", "qlOption")] = SYNC_E_QUALITY_LEVEL_OPTION.get(synce.get("quality_level"))
+                    mso_values["synce"] = dict()
+                    mso_values[("synce", "adminState")] = synce.get("admin_state")
+                    mso_values[("synce", "qlOption")] = SYNC_E_QUALITY_LEVEL_OPTION.get(synce.get("quality_level"))
 
             if ptp is not None:
                 if ptp.get("state") == "disabled" and proposed_payload.get("ptp"):
-                    remove_data.append("ptp")
+                    mso_values_remove.append("ptp")
                 else:
-                    replace_data["ptp"] = dict()
+                    mso_values["ptp"] = dict()
 
                     # Add the Priority 1 fixed value 128 to the PTP settings during initialization
-                    replace_data[("ptp", "prio1")] = 128
-                    replace_data[("ptp", "domain")] = ptp.get("node_domain")
-                    replace_data[("ptp", "prio2")] = ptp.get("priority_2")
+                    mso_values[("ptp", "prio1")] = 128
+                    mso_values[("ptp", "domain")] = ptp.get("node_domain")
+                    mso_values[("ptp", "prio2")] = ptp.get("priority_2")
 
-            append_update_ops_data(ops, proposed_payload, node_setting_path, replace_data, remove_data)
+            append_update_ops_data(ops, proposed_payload, node_setting_path, mso_values, mso_values_remove)
             mso.sanitize(proposed_payload)
         else:
-            payload = dict(name=name)
+            mso_values = dict(name=name)
 
             if description:
-                payload["description"] = description
+                mso_values["description"] = description
 
             if synce is not None:
                 synce_map = dict()
@@ -302,7 +302,7 @@ def main():
                     synce_map["qlOption"] = SYNC_E_QUALITY_LEVEL_OPTION.get(synce.get("quality_level"))
 
                 if synce_map:
-                    payload["synce"] = synce_map
+                    mso_values["synce"] = synce_map
 
             if ptp is not None:
                 ptp_map = dict()
@@ -315,11 +315,11 @@ def main():
                 if ptp_map:
                     # Add the Priority 1 fixed value 128 to the PTP settings during initialization
                     ptp_map["prio1"] = 128
-                    payload["ptp"] = ptp_map
+                    mso_values["ptp"] = ptp_map
 
-            ops.append(dict(op="add", path=node_setting_path, value=copy.deepcopy(payload)))
+            ops.append(dict(op="add", path=node_setting_path, value=copy.deepcopy(mso_values)))
 
-            mso.sanitize(payload)
+            mso.sanitize(mso_values)
     elif state == "absent":
         if mso.existing:
             ops.append(dict(op="remove", path=node_setting_path))

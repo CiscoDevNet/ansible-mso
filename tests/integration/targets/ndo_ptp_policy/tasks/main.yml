@@ -1,0 +1,254 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Shreyas Srish (@shrsr)
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username, and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    - name: Remove fabric template
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        type: fabric_policy
+        state: absent
+
+    - name: Create a fabric template
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        type: fabric_policy
+        state: present
+
+    # CREATE
+    - name: Create a new PTP policy (check mode)
+      cisco.mso.ndo_ptp_policy: &add_ptp_policy
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        ptp_policy: ansible_test_ptp_policy
+        admin_state: enabled
+        fabric_sync_interval: -3
+        global_domain: 0
+        fabric_delay_interval: -2
+        global_priority1: 255
+        global_priority2: 255
+        fabric_announce_timeout: 3
+        fabric_announce_interval: 1
+        fabric_profile_template: aes67_2015
+        state: present
+      check_mode: true
+      register: cm_add_ptp_policy
+
+    - name: Create a new PTP policy
+      cisco.mso.ndo_ptp_policy:
+        <<: *add_ptp_policy
+      register: nm_add_ptp_policy
+
+    - name: Create a PTP policy again
+      cisco.mso.ndo_ptp_policy:
+        <<: *add_ptp_policy
+      register: nm_add_ptp_policy_again
+
+    - name: Assert PTP policy was created
+      assert:
+        that:
+          - cm_add_ptp_policy is changed
+          - cm_add_ptp_policy.previous == {}
+          - cm_add_ptp_policy.current == nm_add_ptp_policy.proposed
+          - cm_add_ptp_policy.current.name == cm_add_ptp_policy.proposed.name == "ansible_test_ptp_policy"
+          - nm_add_ptp_policy is changed
+          - nm_add_ptp_policy.previous == {}
+          - nm_add_ptp_policy.current.name == "ansible_test_ptp_policy"
+          - nm_add_ptp_policy.current.name == "ansible_test_ptp_policy"
+          - nm_add_ptp_policy.current.global.adminState == "enabled"
+          - nm_add_ptp_policy.current.global.globalDomain == 0
+          - nm_add_ptp_policy.current.global.fabSyncIntvl == -3
+          - nm_add_ptp_policy.current.global.fabDelayIntvl == -2
+          - nm_add_ptp_policy.current.global.prio1 == 255
+          - nm_add_ptp_policy.current.global.prio2 == 255
+          - nm_add_ptp_policy.current.global.fabAnnounceTimeout == 3
+          - nm_add_ptp_policy.current.global.fabAnnounceIntvl == 1
+          - nm_add_ptp_policy.current.global.fabProfileTemplate == "aes67"
+          - nm_add_ptp_policy_again is not changed
+          - nm_add_ptp_policy_again.previous.name == nm_add_ptp_policy_again.current.name == "ansible_test_ptp_policy"
+          - nm_add_ptp_policy_again.previous.global.adminState == nm_add_ptp_policy_again.current.global.adminState == "enabled"
+          - nm_add_ptp_policy_again.previous.global.globalDomain == nm_add_ptp_policy_again.current.global.globalDomain == 0
+          - nm_add_ptp_policy_again.previous.global.fabSyncIntvl == nm_add_ptp_policy_again.current.global.fabSyncIntvl == -3
+          - nm_add_ptp_policy_again.previous.global.fabDelayIntvl == nm_add_ptp_policy_again.current.global.fabDelayIntvl == -2
+          - nm_add_ptp_policy_again.previous.global.prio1 == nm_add_ptp_policy_again.current.global.prio1 == 255
+          - nm_add_ptp_policy_again.previous.global.prio2 == nm_add_ptp_policy_again.current.global.prio2 == 255
+          - nm_add_ptp_policy_again.previous.global.fabAnnounceTimeout == nm_add_ptp_policy_again.current.global.fabAnnounceTimeout == 3
+          - nm_add_ptp_policy_again.previous.global.fabAnnounceIntvl == nm_add_ptp_policy_again.current.global.fabAnnounceIntvl == 1
+          - nm_add_ptp_policy_again.previous.global.fabProfileTemplate == nm_add_ptp_policy_again.current.global.fabProfileTemplate == "aes67"
+          - nm_add_ptp_policy_again.previous.uuid is defined
+          - nm_add_ptp_policy_again.current.uuid is defined
+
+    # UPDATE
+    - name: Update a PTP policy (check mode)
+      cisco.mso.ndo_ptp_policy: &update_ptp_policy
+        <<: *add_ptp_policy
+        description: changed_description
+        admin_state: disabled
+        fabric_sync_interval: -2
+        global_domain: 1
+        global_priority1: 100
+        global_priority2: 200
+        state: present
+      check_mode: true
+      register: cm_update_ptp_policy
+
+    - name: Update a PTP policy
+      cisco.mso.ndo_ptp_policy:
+        <<: *update_ptp_policy
+      register: nm_update_ptp_policy
+
+    - name: Update a PTP policy again
+      cisco.mso.ndo_ptp_policy:
+        <<: *update_ptp_policy
+      register: nm_update_ptp_policy_again
+
+    - name: Update PTP policy name with UUID
+      cisco.mso.ndo_ptp_policy:
+        <<: *update_ptp_policy
+        ptp_policy: ansible_test_ptp_policy_updated
+        ptp_policy_uuid: "{{ nm_add_ptp_policy.current.uuid }}"
+        state: present
+      register: nm_update_ptp_policy_name
+
+    - name: Assert PTP policy was updated
+      assert:
+        that:
+          - cm_update_ptp_policy is changed
+          - cm_update_ptp_policy.previous.description == ""
+          - cm_update_ptp_policy.previous.global.adminState == "enabled"
+          - cm_update_ptp_policy.previous.global.fabSyncIntvl == -3
+          - cm_update_ptp_policy.current == cm_update_ptp_policy.proposed
+          - cm_update_ptp_policy.current.description == cm_update_ptp_policy.proposed.description == "changed_description"
+          - cm_update_ptp_policy.current.global.adminState == cm_update_ptp_policy.proposed.global.adminState == "disabled"
+          - cm_update_ptp_policy.current.global.fabSyncIntvl == cm_update_ptp_policy.proposed.global.fabSyncIntvl == -2
+          - cm_update_ptp_policy.current.global.prio1 == cm_update_ptp_policy.proposed.global.prio1 == 100
+          - cm_update_ptp_policy.current.global.prio2 == cm_update_ptp_policy.proposed.global.prio2 == 200
+          - cm_update_ptp_policy.current.global.globalDomain == cm_update_ptp_policy.proposed.global.globalDomain == 1
+          - nm_update_ptp_policy is changed
+          - nm_update_ptp_policy.current.description == "changed_description"
+          - nm_update_ptp_policy.current.global.adminState == "disabled"
+          - nm_update_ptp_policy.current.global.fabSyncIntvl == -2
+          - nm_update_ptp_policy.current.global.globalDomain == 1
+          - nm_update_ptp_policy.current.global.prio1 == 100
+          - nm_update_ptp_policy.current.global.prio2 == 200
+          - nm_update_ptp_policy_again is not changed
+          - nm_update_ptp_policy_name is changed
+          - nm_update_ptp_policy_name.current.name == "ansible_test_ptp_policy_updated"
+
+    # QUERY
+    - name: Query a PTP policy with ptp_policy name
+      cisco.mso.ndo_ptp_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        ptp_policy: ansible_test_ptp_policy_updated
+        state: query
+      register: query_one
+
+    - name: Query a PTP policy with ptp_policy UUID
+      cisco.mso.ndo_ptp_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        ptp_policy_uuid: "{{ nm_add_ptp_policy.current.uuid }}"
+        state: query
+      register: query_one_uuid
+
+    - name: Query all PTP policies in the template
+      cisco.mso.ndo_ptp_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        state: query
+      register: query_all
+
+    - name: Verify query_one, query_one_uuid and query_all
+      assert:
+        that:
+          - query_all is not changed
+          - query_one is not changed
+          - query_all.current == query_one.current
+          - query_one.current.name == "ansible_test_ptp_policy_updated"
+          - query_one.current.description == "changed_description"
+          - query_one.current.global.adminState == "disabled"
+          - query_one.current.global.fabSyncIntvl == -2
+          - query_one.current.global.globalDomain == 1
+          - query_one.current.global.prio1 == 100
+          - query_one.current.global.prio2 == 200
+          - query_one.current.global.fabAnnounceTimeout == 3
+          - query_one.current.global.fabAnnounceIntvl == 1
+          - query_one.current.global.fabProfileTemplate == "aes67"
+          - query_one_uuid.current.name == "ansible_test_ptp_policy_updated"
+          - query_one_uuid.current.description == "changed_description"
+          - query_one_uuid.current.global.adminState == "disabled"
+          - query_one_uuid.current.global.fabSyncIntvl == -2
+          - query_one_uuid.current.global.globalDomain == 1
+          - query_one_uuid.current.global.prio1 == 100
+          - query_one_uuid.current.global.prio2 == 200
+          - query_one_uuid.current.global.fabAnnounceTimeout == 3
+          - query_one_uuid.current.global.fabAnnounceIntvl == 1
+          - query_one_uuid.current.global.fabProfileTemplate == "aes67"
+
+    # DELETE
+    - name: Delete a PTP policy (check mode)
+      cisco.mso.ndo_ptp_policy: &rm_ptp_policy
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        ptp_policy: ansible_test_ptp_policy_updated
+        state: absent
+      check_mode: true
+      register: cm_rm_ptp_policy
+
+    - name: Delete a PTP policy
+      cisco.mso.ndo_ptp_policy:
+        <<: *rm_ptp_policy
+      register: nm_rm_ptp_policy
+
+    - name: Delete a PTP policy again
+      cisco.mso.ndo_ptp_policy:
+        <<: *rm_ptp_policy
+      register: nm_rm_ptp_policy_again
+
+    - name: Assert PTP policy was deleted
+      assert:
+        that:
+          - cm_rm_ptp_policy is changed
+          - cm_rm_ptp_policy.previous.name == "ansible_test_ptp_policy_updated"
+          - cm_rm_ptp_policy.previous.description == "changed_description"
+          - cm_rm_ptp_policy.current == {}
+          - nm_rm_ptp_policy is changed
+          - nm_rm_ptp_policy.previous.name == "ansible_test_ptp_policy_updated"
+          - nm_rm_ptp_policy.previous.description == "changed_description"
+          - nm_rm_ptp_policy.current == {}
+          - nm_rm_ptp_policy_again is not changed
+          - nm_rm_ptp_policy_again.previous == nm_rm_ptp_policy_again.current == {}
+
+    # CLEANUP TEMPLATE
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

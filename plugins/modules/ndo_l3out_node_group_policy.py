@@ -183,7 +183,7 @@ import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
-from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ENABLED_DISABLED_BOOLEAN_MAP
+from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
 from ansible_collections.cisco.mso.plugins.module_utils.utils import generate_api_endpoint, check_if_all_elements_are_none, append_update_ops_data
 
 
@@ -258,51 +258,51 @@ def main():
 
         if mso.existing:
             proposed_payload = copy.deepcopy(mso.existing)
-            replace_data = dict()
-            remove_data = list()
+            mso_values = dict()
+            mso_values_remove = list()
 
             if proposed_payload.get("bfdMultiHop", {}).get("key", {}).get("ref"):
                 proposed_payload["bfdMultiHop"]["key"].pop("ref", None)
                 mso.existing["bfdMultiHop"]["key"].pop("ref", None)
 
-            replace_data["description"] = description
+            mso_values["description"] = description
 
             if node_routing_policy == "" and mso.existing.get(
                 "nodeRoutingPolicyRef"
             ):  # Clear the node routing policy when node_routing_policy is empty string
-                remove_data.append("nodeRoutingPolicyRef")
+                mso_values_remove.append("nodeRoutingPolicyRef")
             else:
-                replace_data["nodeRoutingPolicyRef"] = l3out_node_routing_policy_object.details.get("uuid") if l3out_node_routing_policy_object else None
+                mso_values["nodeRoutingPolicyRef"] = l3out_node_routing_policy_object.details.get("uuid") if l3out_node_routing_policy_object else None
 
             if bfd:
                 if check_if_all_elements_are_none(list(bfd.values())) and proposed_payload.get("bfdMultiHop"):
-                    remove_data.append("bfdMultiHop")
+                    mso_values_remove.append("bfdMultiHop")
                 elif not check_if_all_elements_are_none(list(bfd.values())):
                     if not proposed_payload.get("bfdMultiHop"):
-                        replace_data["bfdMultiHop"] = dict()
+                        mso_values["bfdMultiHop"] = dict()
 
-                    replace_data[("bfdMultiHop", "authEnabled")] = ENABLED_DISABLED_BOOLEAN_MAP.get(bfd.get("auth"))
-                    replace_data[("bfdMultiHop", "keyID")] = bfd.get("key_id")
+                    mso_values[("bfdMultiHop", "authEnabled")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(bfd.get("auth"))
+                    mso_values[("bfdMultiHop", "keyID")] = bfd.get("key_id")
 
                     if bfd.get("key") is not None:
-                        replace_data[("bfdMultiHop", "key")] = dict(value=bfd.get("key"))
+                        mso_values[("bfdMultiHop", "key")] = dict(value=bfd.get("key"))
 
-            replace_data["targetDscp"] = target_dscp
+            mso_values["targetDscp"] = target_dscp
 
-            append_update_ops_data(ops, proposed_payload, node_group_policy_path, replace_data, remove_data)
+            append_update_ops_data(ops, proposed_payload, node_group_policy_path, mso_values, mso_values_remove)
             mso.sanitize(proposed_payload, collate=True)
         else:
-            payload = dict(name=name)
-            payload["description"] = description
+            mso_values = dict(name=name)
+            mso_values["description"] = description
 
             if l3out_node_routing_policy_object:
-                payload["nodeRoutingPolicyRef"] = l3out_node_routing_policy_object.details.get("uuid")
+                mso_values["nodeRoutingPolicyRef"] = l3out_node_routing_policy_object.details.get("uuid")
 
             if bfd:
                 bfd_multi_hop = dict()
 
                 if bfd.get("auth"):
-                    bfd_multi_hop["authEnabled"] = ENABLED_DISABLED_BOOLEAN_MAP.get(bfd.get("auth"))
+                    bfd_multi_hop["authEnabled"] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(bfd.get("auth"))
 
                 if bfd.get("key_id"):
                     bfd_multi_hop["keyID"] = bfd.get("key_id")
@@ -311,12 +311,12 @@ def main():
                     bfd_multi_hop["key"] = dict(value=bfd.get("key"))
 
                 if bfd_multi_hop:
-                    payload["bfdMultiHop"] = bfd_multi_hop
+                    mso_values["bfdMultiHop"] = bfd_multi_hop
 
-            payload["targetDscp"] = target_dscp
+            mso_values["targetDscp"] = target_dscp
 
-            mso.sanitize(payload)
-            ops.append(dict(op="add", path=node_group_policy_path, value=payload))
+            mso.sanitize(mso_values)
+            ops.append(dict(op="add", path=node_group_policy_path, value=mso_values))
 
         mso.existing = mso.proposed
 

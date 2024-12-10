@@ -52,23 +52,23 @@
 
     - name: Create a fabric policy template
       cisco.mso.ndo_template:
-        <<: *template_absent
+        <<: *fabric_policy_template_absent
         state: present
     
-    # - name: Create interface policy group (physical policy)
-    #   cisco.mso.ndo_interface_setting: &add_interface_policy_group
-    #     <<: *mso_info
-    #     template: ansible_fabric_policy_template
-    #     name: ansible_interface_policy_group
-    #     interface_type: physical
-    #     state: present
-    #   register: add_interface_policy_group
+    - name: Create interface policy group (physical policy)
+      cisco.mso.ndo_interface_setting: &add_interface_policy_group
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: ansible_interface_policy_group
+        interface_type: physical
+        state: present
+      register: add_interface_policy_group
 
-    # - name: Create another interface policy group
-    #   cisco.mso.ndo_interface_setting:
-    #     <<: *add_interface_policy_group
-    #     name: ansible_interface_policy_group_2
-    #   register: add_interface_policy_group_2
+    - name: Create another interface policy group
+      cisco.mso.ndo_interface_setting:
+        <<: *add_interface_policy_group
+        name: ansible_interface_policy_group_2
+      register: add_interface_policy_group_2
 
     # CREATE
 
@@ -81,7 +81,7 @@
         nodes: 103
         interfaces: ['1/3']
         physical_interface_type: physical
-        physical_policy_uuid: "8a5b5701-5cfc-4b27-9c73-4c42504b1999"  # '{{ add_interface_policy_group.current.uuid }}'
+        physical_policy_uuid: '{{ add_interface_policy_group.current.uuid }}'
         state: present
       check_mode: true
       register: cm_physical_interface
@@ -119,32 +119,32 @@
           - nm_physical_interface_again.previous.uuid  == nm_physical_interface.current.uuid
           - nm_physical_interface_again.current.uuid is defined
 
-    # - name: Create Physical Interface of type 'physical' with physical policy
-    #   cisco.mso.ndo_physical_interface: &add_physical_interface3
-    #     <<: *mso_info
-    #     template: ansible_fabric_resource_policy_template
-    #     name: ansible_physical_interface_with_policy
-    #     nodes: 109
-    #     interfaces: ['1/9']
-    #     physical_interface_type: physical
-    #     physical_policy:
-    #       template: ansible_fabric_policy_template
-    #       name: ansible_interface_policy_group
-    #     state: present
-    #   register: add_physical_interface_with_policy
+    - name: Create Physical Interface of type 'physical' with physical policy
+      cisco.mso.ndo_physical_interface: &add_physical_interface3
+        <<: *mso_info
+        template: ansible_fabric_resource_policy_template
+        name: ansible_physical_interface_with_policy
+        nodes: 109
+        interfaces: ['1/9']
+        physical_interface_type: physical
+        physical_policy:
+          template: ansible_fabric_policy_template
+          name: ansible_interface_policy_group
+        state: present
+      register: add_physical_interface_with_policy
 
-    # - name: Assert Physical Interface of type 'physical' is created with policy
-    #   ansible.builtin.assert:
-    #     that:
-    #       - add_physical_interface_with_policy is changed
-    #       - add_physical_interface_with_policy.previous == {}
-    #       - add_physical_interface_with_policy.current.name == "ansible_physical_interface_with_policy"
-    #       - add_physical_interface_with_policy.current.policyGroupType == "physical"
-    #       - add_physical_interface_with_policy.current.nodes | length == 1
-    #       - add_physical_interface_with_policy.current.nodes[0] == "109"
-    #       - add_physical_interface_with_policy.current.interfaces == "1/9"
-    #       - add_physical_interface_with_policy.current.policy is defined
-    #       - add_physical_interface_with_policy.current.uuid is defined
+    - name: Assert Physical Interface of type 'physical' is created with policy
+      ansible.builtin.assert:
+        that:
+          - add_physical_interface_with_policy is changed
+          - add_physical_interface_with_policy.previous == {}
+          - add_physical_interface_with_policy.current.name == "ansible_physical_interface_with_policy"
+          - add_physical_interface_with_policy.current.policyGroupType == "physical"
+          - add_physical_interface_with_policy.current.nodes | length == 1
+          - add_physical_interface_with_policy.current.nodes[0] == "109"
+          - add_physical_interface_with_policy.current.interfaces == "1/9"
+          - add_physical_interface_with_policy.current.policy is defined
+          - add_physical_interface_with_policy.current.uuid is defined
 
     - name: Create Physical Interface of type 'breakout' (check mode)
       cisco.mso.ndo_physical_interface: &add_physical_interface_breakout
@@ -198,7 +198,7 @@
         interfaces: 
         - 1/5
         - 2/3-5
-        physical_policy_uuid: "7513267f-f239-40cd-8c6f-3954734972df"  # '{{ add_interface_policy_group_2.current.uuid }}'
+        physical_policy_uuid: '{{ add_interface_policy_group_2.current.uuid }}'
         interface_descriptions:
         - interface_id: "2/5"
           description: "Updated interface description"
@@ -459,11 +459,11 @@
           - delete_physical_interface_uuid.previous.uuid is defined
 
     # Errors and no policies found
-    # - name: Delete Physical Interface of type 'physical' when all are deleted
-    #   cisco.mso.ndo_physical_interface:
-    #     <<: *add_physical_interface3
-    #     state: absent
-    #   register: nm_delete_last_physical_interface
+    - name: Delete Physical Interface of type 'physical' when all are deleted
+      cisco.mso.ndo_physical_interface:
+        <<: *add_physical_interface3
+        state: absent
+      register: nm_delete_last_physical_interface
 
     - name: Query all Physical Interface in the template when all are deleted
       cisco.mso.ndo_physical_interface:
@@ -482,10 +482,10 @@
     - name: Assert no Physical Interface found
       assert:
         that:
-          # - nm_delete_last_physical_interface is changed
-          # - nm_delete_last_physical_interface.previous.name == "ansible_physical_interface_with_policy"
-          # - nm_delete_last_physical_interface.previous.policyGroupType == "physical"
-          # - nm_delete_last_physical_interface.current == {}
+          - nm_delete_last_physical_interface is changed
+          - nm_delete_last_physical_interface.previous.name == "ansible_physical_interface_with_policy"
+          - nm_delete_last_physical_interface.previous.policyGroupType == "physical"
+          - nm_delete_last_physical_interface.current == {}
           - query_all_none is not changed
           - query_all_none.current == {}
           - update_non_existing_uuid is failed

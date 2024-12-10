@@ -305,7 +305,7 @@ def main():
         if uuid and not mso.existing:
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
-        if physical_policy and not physical_policy_uuid:  # check this part and see if this is required or use mutually_exclusive
+        if physical_policy and not physical_policy_uuid:
             fabric_policy_template = MSOTemplate(mso, "fabric_policy", physical_policy.get("template"))
             fabric_policy_template.validate_template("fabricPolicy")
             physical_policy_uuid = fabric_policy_template.get_interface_policy_group_uuid(physical_policy.get("name"))

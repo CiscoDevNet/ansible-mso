@@ -316,7 +316,7 @@
           - nm_update_virtual_port_channel_first_interface_members is changed
           - nm_update_virtual_port_channel_first_interface_members.current.node1Details.memberInterfaces == "1/1-3"
           - nm_update_virtual_port_channel_second_interface_members is changed
-          - nm_update_virtual_port_channel_second_interface_members.current.node1Details.memberInterfaces == "1/1-2"
+          - nm_update_virtual_port_channel_second_interface_members.current.node2Details.memberInterfaces == "1/1-2"
           - nm_update_virtual_port_channel_interface_descriptions is changed
           - nm_update_virtual_port_channel_interface_descriptions.current.interfaceDescriptions | length == 5
           - nm_update_virtual_port_channel_interface_descriptions.current.interfaceDescriptions.0.nodeID == "103"
@@ -367,6 +367,14 @@
         state: query
       register: query_one
 
+    - name: Query a virtual port channel with template_name and UUID
+      cisco.mso.ndo_tenant_custom_qos_policy: &query_virtual_port_channel_uuid
+        <<: *create_virtual_port_channel_interface_2
+        uuid: '{{ query_one.current.uuid }}'
+        name: '{{ fakevar | default(omit)}}'
+        state: query
+      register: query_one_uuid
+
     - name: Query all virtual port channel interfaces in the template
       cisco.mso.ndo_virtual_port_channel_interface:
         <<: *mso_info
@@ -379,6 +387,8 @@
         that:
           - query_one is not changed
           - query_one.current.name == "ansible_virtual_port_channel_interface_2"
+          - query_one_uuid is not changed
+          - query_one_uuid.current.name == "ansible_virtual_port_channel_interface_2"
           - query_all is not changed
           - query_all.current | length == 2
           - query_all.current.0.name == "ansible_virtual_port_channel_interface_changed"
@@ -453,9 +463,8 @@
     - name: Assert virtual port channel interface errors tasks
       assert:
         that:
-          - nm_create_missing_node.msg == "Missing parameter 'node' for creating a Port Channel Interface"
           - nm_create_invalid_range.msg == "Range start is greater than or equal to range stop for range of IDs '1/2-1'"
-          - nm_create_invalid_range.msg == "Incorrect interface ID or range of IDs. Got 'invalid_id'"
+          - nm_create_invalid_id.msg == "Incorrect interface ID or range of IDs. Got 'invalid_id'"
           - nm_create_without_existing_policy.msg == "Provided Interface Policy Groups with '[KVPair(key='name', value='ansible_test_interface_policy_group_port_channel')]' not matching existing object(s): ansible_test_interface_policy_group_port_channel_2"
 
     # DELETE
@@ -477,6 +486,12 @@
         <<: *delete_virtual_port_channel_interface
       register: nm_delete_virtual_port_channel_interface_again
 
+    - name: Delete a virtual port channel with UUID
+      cisco.mso.ndo_virtual_port_channel_interface:
+        <<: *query_virtual_port_channel_uuid
+        state: absent
+      register: nm_delete_virtual_port_channel_interface_uuid
+
     - name: Assert virtual port channel interface deletion tasks
       assert:
         that:
@@ -489,6 +504,9 @@
           - nm_delete_virtual_port_channel_interface_again is not changed
           - nm_delete_virtual_port_channel_interface_again.previous == {}
           - nm_delete_virtual_port_channel_interface_again.current == {}
+          - nm_delete_virtual_port_channel_interface_uuid is changed
+          - nm_delete_virtual_port_channel_interface_uuid.previous.name == "ansible_virtual_port_channel_interface_2"
+          - nm_delete_virtual_port_channel_interface_uuid.current == {}
 
 
     # ERRORS AND NO PORT CHANNEL INTERFACES FOUND

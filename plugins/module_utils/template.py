@@ -243,10 +243,10 @@ class MSOTemplate:
         :param l3out_object: L3Out object to search Node Group Policy -> Dict
         :param fail_module: When match is not found fail the ansible module -> Bool
         :return: Dict | None | List[Dict] | List[]: The processed result which could be:
-                 When the UUID | Name is existing in the search list -> Dict
-                 When the UUID | Name is not existing in the search list -> None
-                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
-                 When both UUID and Name are None, and the search list is empty -> List[]
+                 When the Name is existing in the search list -> Dict
+                 When the Name is not existing in the search list -> None
+                 When the Name is None, and the search list is not empty -> List[Dict]
+                 When the Name is None, and the search list is empty -> List[]
         """
         existing_l3out_node_groups = l3out_object.get("nodeGroups", [])
         if name:  # Query a specific object

@@ -340,7 +340,7 @@ def main():
     existing_virtual_port_channel_interfaces = mso_template.template.get("fabricResourceTemplate", {}).get("template", {}).get("virtualPortChannels", [])
     object_description = "Virtual Port Channel Interface"
 
-    if state in ["query", "absent"] and existing_virtual_port_channel_interfaces == []:
+    if state in ["query", "absent"] and not existing_virtual_port_channel_interfaces:
         mso.exit_json()
     elif state == "query" and not (name or uuid):
         mso.existing = existing_virtual_port_channel_interfaces
@@ -394,7 +394,7 @@ def main():
 
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)
-        virtual_port_channel_interfaces = response.get("fabricResourceTemplate", {}).get("template", {}).get("virtualPortChannels", [])
+        virtual_port_channel_interfaces = response.get("fabricResourceTemplate", {}).get("template", {}).get("virtualPortChannels", []) or []
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
             virtual_port_channel_interfaces,

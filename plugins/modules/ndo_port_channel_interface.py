@@ -40,7 +40,7 @@ options:
     description:
     - The UUID of the Port Channel Interface.
     - This parameter can be used instead of O(port_channel_interface)
-      when an existing Virtual Port Channel Interface is updated.
+      when an existing Port Channel Interface is updated.
     - This parameter is required when parameter O(port_channel_interface) is updated.
     type: str
     aliases: [ port_channel_interface_uuid, port_channel_uuid ]
@@ -303,7 +303,7 @@ def main():
     existing_port_channel_interfaces = mso_template.template.get("fabricResourceTemplate", {}).get("template", {}).get("portChannels", [])
     object_description = "Port Channel Interface"
 
-    if state in ["query", "absent"] and existing_port_channel_interfaces == []:
+    if state in ["query", "absent"] and not existing_port_channel_interfaces:
         mso.exit_json()
     elif state == "query" and not (name or uuid):
         mso.existing = existing_port_channel_interfaces
@@ -361,7 +361,7 @@ def main():
 
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)
-        port_channel_interfaces = response.get("fabricResourceTemplate", {}).get("template", {}).get("portChannels", [])
+        port_channel_interfaces = response.get("fabricResourceTemplate", {}).get("template", {}).get("portChannels", []) or []
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
             port_channel_interfaces,

@@ -187,6 +187,16 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_
 from ansible_collections.cisco.mso.plugins.module_utils.utils import generate_api_endpoint, check_if_all_elements_are_none, append_update_ops_data
 
 
+def bfd_multi_hop_mso_values(bfd):
+    return dict(
+        authEnabled=ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(bfd.get("auth")),
+        keyID=bfd.get("key_id"),
+        key=dict(
+            value=bfd.get("key"),
+        ),
+    )
+
+
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
@@ -235,7 +245,8 @@ def main():
     l3out_node_group = mso_template.get_l3out_node_group(name, l3out_object.details)
 
     if name and l3out_node_group:
-        mso.existing = mso.previous = copy.deepcopy(l3out_node_group.details)  # Query a specific object
+        mso.existing = copy.deepcopy(l3out_node_group.details)
+        mso.previous = copy.deepcopy(l3out_node_group.details)  # Query a specific object
     elif l3out_node_group:
         mso.existing = l3out_node_group  # Query all objects
 
@@ -245,6 +256,10 @@ def main():
     ops = []
 
     if state == "present":
+        if bfd:
+            # True if all elements are None, False otherwise.
+            bfd_is_empty = check_if_all_elements_are_none(list(bfd.values()))
+
         l3out_node_routing_policy_object = None
         if node_routing_policy:
             l3out_node_routing_policy_objects = mso.query_objs(
@@ -257,13 +272,12 @@ def main():
             )
 
         if mso.existing:
-            proposed_payload = copy.deepcopy(mso.existing)
             mso_values = dict()
             mso_values_remove = list()
 
-            if proposed_payload.get("bfdMultiHop", {}).get("key", {}).get("ref"):
-                proposed_payload["bfdMultiHop"]["key"].pop("ref", None)
+            if mso.existing.get("bfdMultiHop", {}).get("key", {}).get("ref"):
                 mso.existing["bfdMultiHop"]["key"].pop("ref", None)
+                mso.previous["bfdMultiHop"]["key"].pop("ref", None)
 
             mso_values["description"] = description
 
@@ -275,22 +289,26 @@ def main():
                 mso_values["nodeRoutingPolicyRef"] = l3out_node_routing_policy_object.details.get("uuid") if l3out_node_routing_policy_object else None
 
             if bfd:
-                if check_if_all_elements_are_none(list(bfd.values())) and proposed_payload.get("bfdMultiHop"):
+                if bfd_is_empty and mso.existing.get("bfdMultiHop"):
                     mso_values_remove.append("bfdMultiHop")
-                elif not check_if_all_elements_are_none(list(bfd.values())):
-                    if not proposed_payload.get("bfdMultiHop"):
-                        mso_values["bfdMultiHop"] = dict()
 
+                elif not bfd_is_empty and not mso.existing.get("bfdMultiHop"):
+                    mso_values["bfdMultiHop"] = bfd_multi_hop_mso_values(bfd)
+
+                elif not bfd_is_empty and mso.existing.get("bfdMultiHop"):
                     mso_values[("bfdMultiHop", "authEnabled")] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(bfd.get("auth"))
                     mso_values[("bfdMultiHop", "keyID")] = bfd.get("key_id")
 
                     if bfd.get("key") is not None:
-                        mso_values[("bfdMultiHop", "key")] = dict(value=bfd.get("key"))
+                        if mso.existing.get("bfdMultiHop", {}).get("key") is not None:
+                            mso_values[("bfdMultiHop", "key", "value")] = bfd.get("key")
+                        else:
+                            mso_values[("bfdMultiHop", "key")] = dict(value=bfd.get("key"))
 
             mso_values["targetDscp"] = target_dscp
 
-            append_update_ops_data(ops, proposed_payload, node_group_policy_path, mso_values, mso_values_remove)
-            mso.sanitize(proposed_payload, collate=True)
+            append_update_ops_data(ops, mso.existing, node_group_policy_path, mso_values, mso_values_remove)
+            mso.sanitize(mso.existing, collate=True)
         else:
             mso_values = dict(name=name)
             mso_values["description"] = description
@@ -298,20 +316,8 @@ def main():
             if l3out_node_routing_policy_object:
                 mso_values["nodeRoutingPolicyRef"] = l3out_node_routing_policy_object.details.get("uuid")
 
-            if bfd:
-                bfd_multi_hop = dict()
-
-                if bfd.get("auth"):
-                    bfd_multi_hop["authEnabled"] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(bfd.get("auth"))
-
-                if bfd.get("key_id"):
-                    bfd_multi_hop["keyID"] = bfd.get("key_id")
-
-                if bfd.get("key"):
-                    bfd_multi_hop["key"] = dict(value=bfd.get("key"))
-
-                if bfd_multi_hop:
-                    mso_values["bfdMultiHop"] = bfd_multi_hop
+            if bfd and not bfd_is_empty:
+                mso_values["bfdMultiHop"] = bfd_multi_hop_mso_values(bfd)
 
             mso_values["targetDscp"] = target_dscp
 

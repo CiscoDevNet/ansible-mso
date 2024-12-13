@@ -841,7 +841,7 @@
           - node_group_policy_nt_with_l3out_1 is changed
           - node_group_policy_nt_with_l3out_1.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_nt'{{':'}} BFD Multihop is not supported with non-BGP routing protocols. Current protocol{{':'}} none"
 
-    - name: Create ngp1 with bfd is an empty dict
+    - name: Create ngp1 with an empty bfd configuration
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
         template: '{{ mso_l3out_template | default("ansible_test") }}'
@@ -851,7 +851,7 @@
         state: present
       register: create_ngp1_bfd_disabled
 
-    - name: Assertion check for create ngp1 with bfd is an empty dict
+    - name: Assertion check for create ngp1 with an empty bfd configuration
       ansible.builtin.assert:
         that:
           - create_ngp1_bfd_disabled is changed

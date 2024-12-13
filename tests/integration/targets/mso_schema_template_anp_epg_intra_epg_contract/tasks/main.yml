@@ -1,0 +1,491 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# Setup part
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: "{{ item }}"
+    state: absent
+  loop:
+    - '{{ mso_schema | default("ansible_test") }}'
+    - '{{ mso_schema | default("ansible_test") }}_2'
+
+- name: Ensure tenant ansible_test exist
+  cisco.mso.mso_tenant:
+    <<: *mso_info
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    users:
+      - "{{ mso_username }}"
+    state: present
+
+- name: Ensure schemas exist with Templates
+  cisco.mso.mso_schema_template:
+    <<: *mso_info
+    schema: "{{ item.schema }}"
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    template: "{{ item.template }}"
+    state: present
+  loop:
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}',
+        template: "Template 1",
+      }
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}',
+        template: "Template 2",
+      }
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}_2',
+        template: "Template 1",
+      }
+
+- name: Ensure ANP exist
+  cisco.mso.mso_schema_template_anp:
+    <<: *mso_info
+    schema: "{{ item.schema }}"
+    template: "{{ item.template }}"
+    anp: ANP
+    state: present
+  loop:
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}',
+        template: "Template 1",
+      }
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}',
+        template: "Template 2",
+      }
+
+- name: Ensure Filters exist
+  cisco.mso.mso_schema_template_filter_entry:
+    <<: *mso_info
+    schema: "{{ item.schema }}"
+    template: "{{ item.template }}"
+    filter: "{{ item.filter }}"
+    entry: "{{ item.entry }}"
+    state: present
+  loop:
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}',
+        template: "Template 1",
+        filter: "Filter1",
+        entry: "Filter1-Entry",
+      }
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}',
+        template: "Template 2",
+        filter: "Filter2",
+        entry: "Filter2-Entry",
+      }
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}_2',
+        template: "Template 1",
+        filter: "Filter3",
+        entry: "Filter3-Entry",
+      }
+
+- name: Ensure contracts exist
+  cisco.mso.mso_schema_template_contract_filter:
+    <<: *mso_info
+    schema: "{{ item.schema }}"
+    template: "{{ item.template }}"
+    contract: "{{ item.contract }}"
+    filter: "{{ item.filter }}"
+    filter_schema: "{{ item.filter_schema }}"
+    filter_template: "{{ item.filter_template }}"
+    state: present
+  loop:
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}',
+        template: "Template 1",
+        contract: "T1_Contract1",
+        filter: "Filter1",
+        filter_schema: '{{ mso_schema | default("ansible_test") }}',
+        filter_template: "Template 1",
+      }
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}',
+        template: "Template 1",
+        contract: "T1_Contract3",
+        filter: "Filter1",
+        filter_schema: '{{ mso_schema | default("ansible_test") }}',
+        filter_template: "Template 1",
+      }
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}',
+        template: "Template 1",
+        contract: "common_contract",
+        filter: "Filter1",
+        filter_schema: '{{ mso_schema | default("ansible_test") }}',
+        filter_template: "Template 1",
+      }
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}',
+        template: "Template 2",
+        contract: "common_contract",
+        filter: "Filter2",
+        filter_schema: '{{ mso_schema | default("ansible_test") }}',
+        filter_template: "Template 2",
+      }
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}_2',
+        template: "Template 1",
+        contract: "common_contract",
+        filter: "Filter3",
+        filter_schema: '{{ mso_schema | default("ansible_test") }}_2',
+        filter_template: "Template 1",
+      }
+
+- name: Ensure EPGs exist
+  cisco.mso.mso_schema_template_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "Template 1"
+    anp: ANP
+    epg: ansible_test_1
+    state: present
+
+# Test Part
+- name: Query all Intra-EPG Contracts when it is empty
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "Template 1"
+    anp: ANP
+    epg: ansible_test_1
+    state: query
+  register: query_empty_intra_epg_contracts
+
+- name: Assertion check for query all Intra-EPG Contracts when it is empty
+  ansible.builtin.assert:
+    that:
+      - query_empty_intra_epg_contracts is not changed
+      - query_empty_intra_epg_contracts.current == []
+
+- name: Bind a T1_Contract1 with ansible_test_1 Intra-EPG Contracts - check_mode
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    &cm_t1_contract1_present
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "Template 1"
+    anp: ANP
+    epg: ansible_test_1
+    contract:
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: "Template 1"
+      name: T1_Contract1
+    state: present
+    output_level: debug
+  register: cm_t1_contract1_present
+  check_mode: true
+
+- name: Assertion check for bind a T1_Contract1 with ansible_test_1 Intra-EPG Contracts - check_mode
+  ansible.builtin.assert:
+    that:
+      - cm_t1_contract1_present is changed
+      - cm_t1_contract1_present.current.contractRef is match ("/schemas/.+/templates/Template1/contracts/T1_Contract1")
+      - cm_t1_contract1_present.previous == {}
+      - cm_t1_contract1_present.proposed.contractRef is match ("/schemas/.+/templates/Template1/contracts/T1_Contract1")
+
+- name: Bind a T1_Contract1 with ansible_test_1 Intra-EPG Contracts - normal_mode
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *cm_t1_contract1_present
+  register: nm_t1_contract1_present
+
+- name: Assertion check for bind a T1_Contract1 with ansible_test_1 Intra-EPG Contracts - normal_mode
+  ansible.builtin.assert:
+    that:
+      - nm_t1_contract1_present is changed
+      - nm_t1_contract1_present.current.contractRef is match ("/schemas/.+/templates/Template1/contracts/T1_Contract1")
+      - nm_t1_contract1_present.previous == {}
+
+- name: Bind a T1_Contract1 with ansible_test_1 Intra-EPG Contracts - normal_mode again
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *cm_t1_contract1_present
+  register: nm_t1_contract1_present_again
+
+- name: Assertion check for bind a T1_Contract1 with ansible_test_1 Intra-EPG Contracts - normal_mode again
+  ansible.builtin.assert:
+    that:
+      - nm_t1_contract1_present_again is not changed
+      - nm_t1_contract1_present_again.current.contractRef is match ("/schemas/.+/templates/Template1/contracts/T1_Contract1")
+      - nm_t1_contract1_present_again.previous.contractRef is match ("/schemas/.+/templates/Template1/contracts/T1_Contract1")
+
+- name: Bind a common_contract with ansible_test_1 Intra-EPG Contracts
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "Template 1"
+    anp: ANP
+    epg: ansible_test_1
+    contract:
+      name: common_contract
+    state: present
+  register: t1_common_contract_present
+
+- name: Assertion check for bind a common_contract with ansible_test_1 Intra-EPG Contracts
+  ansible.builtin.assert:
+    that:
+      - t1_common_contract_present is changed
+      - t1_common_contract_present.current.contractRef is match ("/schemas/.+/templates/Template1/contracts/common_contract")
+      - t1_common_contract_present.previous == {}
+
+- name: Bind a common_contract with ansible_test_1 Intra-EPG Contracts
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "Template 1"
+    anp: ANP
+    epg: ansible_test_1
+    contract:
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: "Template 2"
+      name: common_contract
+    state: present
+  register: t2_common_contract_present
+
+- name: Assertion check for bind a common_contract with ansible_test_1 Intra-EPG Contracts
+  ansible.builtin.assert:
+    that:
+      - t2_common_contract_present is changed
+      - t2_common_contract_present.current.contractRef is match ("/schemas/.+/templates/Template2/contracts/common_contract")
+      - t2_common_contract_present.previous == {}
+
+- name: Bind a T1_Contract3 with ansible_test_1 Intra-EPG Contracts
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "Template 1"
+    anp: ANP
+    epg: ansible_test_1
+    contract:
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: "Template 1"
+      name: T1_Contract3
+    state: present
+  register: t1_contract3_present
+
+- name: Assertion check for bind a T1_Contract3 with ansible_test_1 Intra-EPG Contracts
+  ansible.builtin.assert:
+    that:
+      - t1_contract3_present is changed
+      - t1_contract3_present.current.contractRef is match ("/schemas/.+/templates/Template1/contracts/T1_Contract3")
+      - t1_contract3_present.previous == {}
+
+- name: Bind a ansible_test_2 common_contract with ansible_test_1 Intra-EPG Contracts
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "Template 1"
+    anp: ANP
+    epg: ansible_test_1
+    contract:
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: "Template 1"
+      name: common_contract
+    state: present
+  register: t1_common_contract
+
+- name: Assertion check for bind a ansible_test_2 common_contract with ansible_test_1 Intra-EPG Contracts
+  ansible.builtin.assert:
+    that:
+      - t1_common_contract is changed
+      - t1_common_contract.current.contractRef is match ("/schemas/.+/templates/Template1/contracts/common_contract")
+      - t1_common_contract.previous == {}
+
+- name: Query a specific Intra-EPG Contracts with only name
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "Template 1"
+    anp: ANP
+    epg: ansible_test_1
+    contract:
+      name: common_contract
+    state: query
+  register: query_t1_common_contract
+
+- name: Assertion check for query a specific Intra-EPG Contracts with only name
+  ansible.builtin.assert:
+    that:
+      - query_t1_common_contract is not changed
+      - query_t1_common_contract.current.0.contractRef is match ('/schemas/.+/templates/Template1/contracts/common_contract')
+
+- name: Query a specific Intra-EPG Contracts with name, template
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "Template 1"
+    anp: ANP
+    epg: ansible_test_1
+    contract:
+      name: common_contract
+      template: "Template 2"
+    state: query
+  register: query_t2_common_contract
+
+- name: Assertion check for query a specific Intra-EPG Contracts with name, template
+  ansible.builtin.assert:
+    that:
+      - query_t2_common_contract is not changed
+      - query_t2_common_contract.current.0.contractRef is match ('/schemas/.+/templates/Template2/contracts/common_contract')
+
+- name: Query a specific Intra-EPG Contracts with name, template and schema
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "Template 1"
+    anp: ANP
+    epg: ansible_test_1
+    contract:
+      name: common_contract
+      template: "Template 2"
+      schema: '{{ mso_schema | default("ansible_test") }}'
+    state: query
+  register: query_t2_common_contract_again
+
+- name: Assertion check for query a specific Intra-EPG Contracts with name, template and schema
+  ansible.builtin.assert:
+    that:
+      - query_t2_common_contract_again is not changed
+      - query_t2_common_contract_again.current.0.contractRef is match ('/schemas/.+/templates/Template2/contracts/common_contract')
+
+- name: Query a specific Intra-EPG Contracts with name, template and schema
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "Template 1"
+    anp: ANP
+    epg: ansible_test_1
+    contract:
+      name: common_contract
+      template: "Template 1"
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+    state: query
+  register: query_common_contract_from_diff_schema
+
+- name: Assertion check for query a specific Intra-EPG Contracts with name, template and schema
+  ansible.builtin.assert:
+    that:
+      - query_common_contract_from_diff_schema is not changed
+      - query_common_contract_from_diff_schema.current.0.contractRef is match ('/schemas/.+/templates/Template1/contracts/common_contract')
+
+- name: Query all Intra-EPG Contracts
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "Template 1"
+    anp: ANP
+    epg: ansible_test_1
+    state: query
+  register: query_all
+
+- name: Assertion check for query all Intra-EPG Contracts
+  ansible.builtin.assert:
+    that:
+      - query_all is not changed
+      - query_all.current | length == 5
+      - query_all.current.0.contractRef is match ('/schemas/.+/templates/Template1/contracts/T1_Contract1')
+      - query_all.current.1.contractRef is match ('/schemas/.+/templates/Template1/contracts/common_contract')
+      - query_all.current.2.contractRef is match ('/schemas/.+/templates/Template2/contracts/common_contract')
+      - query_all.current.3.contractRef is match ('/schemas/.+/templates/Template1/contracts/T1_Contract3')
+      - query_all.current.4.contractRef is match ('/schemas/.+/templates/Template1/contracts/common_contract')
+- name: Remove T1_Contract1 with ansible_test_1 Intra-EPG Contracts - check_mode
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *cm_t1_contract1_present
+    state: absent
+    output_level: debug
+  check_mode: true
+  register: cm_remove_t1_contract1
+
+- name: Assertion check for remove T1_Contract1 with ansible_test_1 Intra-EPG Contracts - check_mode
+  ansible.builtin.assert:
+    that:
+      - cm_remove_t1_contract1 is changed
+      - cm_remove_t1_contract1.current == {}
+      - cm_remove_t1_contract1.previous.contractRef is match ("/schemas/.+/templates/Template1/contracts/T1_Contract1")
+      - cm_remove_t1_contract1.proposed == {}
+
+- name: Remove T1_Contract1 with ansible_test_1 Intra-EPG Contracts - normal_mode
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *cm_t1_contract1_present
+    state: absent
+  register: nm_remove_t1_contract1
+
+- name: Assertion check for remove T1_Contract1 with ansible_test_1 Intra-EPG Contracts - normal_mode
+  ansible.builtin.assert:
+    that:
+      - nm_remove_t1_contract1 is changed
+      - nm_remove_t1_contract1.current == {}
+      - nm_remove_t1_contract1.previous.contractRef is match ("/schemas/.+/templates/Template1/contracts/T1_Contract1")
+      - nm_remove_t1_contract1.proposed == {}
+
+- name: Remove T1_Contract1 with ansible_test_1 Intra-EPG Contracts - normal_mode again
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *cm_t1_contract1_present
+    state: absent
+  register: nm_remove_t1_contract1_again
+
+- name: Assertion check for remove T1_Contract1 with ansible_test_1 Intra-EPG Contracts - normal_mode again
+  ansible.builtin.assert:
+    that:
+      - nm_remove_t1_contract1_again is not changed
+      - nm_remove_t1_contract1_again.current == {}
+      - nm_remove_t1_contract1_again.previous == {}
+      - nm_remove_t1_contract1_again.proposed == {}
+
+# Negative tests
+- name: Bind an InvalidContract with ansible_test_1 Intra-EPG Contracts
+  cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: "Template 1"
+    anp: ANP
+    epg: ansible_test_1
+    contract:
+      name: InvalidContract
+    state: present
+  register: invalid_contract
+  ignore_errors: true
+
+- name: Assertion check for query all Intra-EPG Contracts when it is empty
+  ansible.builtin.assert:
+    that:
+      - invalid_contract is not changed
+      - invalid_contract.msg is match ("MSO Error 400{{':'}} Err Missing Ref{{':'}} /schemas/.+/templates/Template1/contracts/InvalidContract")
+
+# Cleanup part
+- name: Remove schemas - cleanup part
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: "{{ item }}"
+    state: absent
+  loop:
+    - '{{ mso_schema | default("ansible_test") }}'
+    - '{{ mso_schema | default("ansible_test") }}_2'
+
+- name: Remove tenant ansible_test exist - cleanup part
+  cisco.mso.mso_tenant:
+    <<: *mso_info
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    state: absent

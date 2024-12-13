@@ -1257,6 +1257,8 @@ class MSOModule(object):
             for key in self.existing:
                 # Remove References
                 if key.endswith("Ref"):
+                    if key in required:
+                        continue
                     del self.proposed[key]
                     del self.sent[key]
                     continue

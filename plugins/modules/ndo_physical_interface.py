@@ -214,6 +214,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import (
     format_interface_descriptions,
 )
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 import copy
 
 
@@ -284,22 +285,21 @@ def main():
 
     mso_template = MSOTemplate(mso, "fabric_resource", template)
     mso_template.validate_template("fabricResource")
-
     object_description = "Physical Interface Profile"
+    path = "/fabricResourceTemplate/template/interfaceProfiles"
 
     existing_physical_interfaces = mso_template.template.get("fabricResourceTemplate", {}).get("template", {}).get("interfaceProfiles", [])
 
-    if state in ["query", "absent"] and not existing_physical_interfaces:
-        mso.exit_json()
-    elif state == "query" and not (name or uuid):
-        mso.existing = existing_physical_interfaces
-    elif existing_physical_interfaces and (name or uuid):
+    if name or uuid:
         match = mso_template.get_object_by_key_value_pairs(
-            object_description, existing_physical_interfaces, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
+            object_description,
+            existing_physical_interfaces,
+            [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
-            physical_policy_path = "/fabricResourceTemplate/template/interfaceProfiles/{0}".format(match.index)
             mso.existing = mso.previous = copy.deepcopy(match.details)
+    else:
+        mso.existing = mso.previous = existing_physical_interfaces
 
     if state == "present":
         if uuid and not mso.existing:
@@ -311,44 +311,38 @@ def main():
             physical_policy_uuid = fabric_policy_template.get_interface_policy_group_uuid(physical_policy.get("name"))
 
         if mso.existing:
-            proposed_payload = copy.deepcopy(match.details)
+            proposed_payload = copy.deepcopy(mso.existing)
+            mso_values_remove = list()
+
+        mso_values = dict(
+            name=name,
+            description=description,
+            nodes=nodes,
+            interfaces=interfaces,
+            policyGroupType=physical_interface_type,
+        )
+
+        if physical_interface_type == "physical" and physical_policy_uuid:
+            mso_values["policy"] = physical_policy_uuid
+
+        if physical_interface_type == "breakout" and breakout_mode:
+            mso_values["breakoutMode"] = breakout_mode
+
+        if interface_descriptions:
+            mso_values["interfaceDescriptions"] = format_interface_descriptions(interface_descriptions, "")
+
+        if match:
 
             if physical_interface_type and match.details.get("policyGroupType") != physical_interface_type:
                 mso.fail_json(msg="ERROR: Physical Interface type cannot be changed.")
 
-            if name and match.details.get("name") != name:
-                ops.append(dict(op="replace", path=physical_policy_path + "/name", value=name))
-                proposed_payload["name"] = name
+            update_path = "{0}/{1}".format(path, match.index)
 
-            if description is not None and match.details.get("description") != description:
-                ops.append(dict(op="replace", path=physical_policy_path + "/description", value=description))
-                proposed_payload["description"] = description
+            if interface_descriptions == [] and proposed_payload.get("interfaceDescriptions"):
+                mso_values_remove.append("interfaceDescriptions")
 
-            if nodes and match.details.get("nodes") != nodes:
-                ops.append(dict(op="replace", path=physical_policy_path + "/nodes", value=nodes))
-                proposed_payload["nodes"] = nodes
-
-            if physical_policy_uuid and match.details.get("policy") != physical_policy_uuid:
-                ops.append(dict(op="replace", path=physical_policy_path + "/policy", value=physical_policy_uuid))
-                proposed_payload["policy"] = physical_policy_uuid
-
-            if breakout_mode and match.details.get("breakoutMode") != breakout_mode:
-                ops.append(dict(op="replace", path=physical_policy_path + "/breakoutMode", value=breakout_mode))
-                proposed_payload["breakoutMode"] = breakout_mode
-
-            if interfaces and interfaces != match.details.get("interfaces"):
-                ops.append(dict(op="replace", path=physical_policy_path + "/interfaces", value=interfaces))
-                proposed_payload["interfaces"] = interfaces
-
-            # Node changes are not reflected on UI
-            if interface_descriptions and match.details.get("interfaceDescriptions") != interface_descriptions:
-                updated_interface_descriptions = format_interface_descriptions(interface_descriptions, "")
-                ops.append(dict(op="replace", path=physical_policy_path + "/interfaceDescriptions", value=updated_interface_descriptions))
-                proposed_payload["interfaceDescriptions"] = updated_interface_descriptions
-            elif interface_descriptions == [] and match.details.get("interfaceDescriptions"):
-                ops.append(dict(op="remove", path=physical_policy_path + "/interfaceDescriptions"))
-
-            mso.sanitize(proposed_payload, collate=True)
+            append_update_ops_data(ops, match.details, update_path, mso_values, mso_values_remove)
+            mso.sanitize(match.details, collate=True)
 
         else:
             if not nodes:
@@ -357,31 +351,12 @@ def main():
             if not physical_interface_type:
                 mso.fail_json(msg=("ERROR: Missing Physical Interface type for creating a Physical Interface."))
 
-            payload = {
-                "name": name,
-                "nodes": nodes,
-                "interfaces": interfaces,
-                "policyGroupType": physical_interface_type,
-            }
-
-            if description:
-                payload["description"] = description
-
-            if physical_interface_type == "physical" and physical_policy_uuid:
-                payload["policy"] = physical_policy_uuid
-
-            if physical_interface_type == "breakout" and breakout_mode:
-                payload["breakoutMode"] = breakout_mode
-
-            if interface_descriptions:
-                payload["interfaceDescriptions"] = format_interface_descriptions(interface_descriptions, "")
-
-            mso.sanitize(payload)
-            ops.append(dict(op="add", path="/fabricResourceTemplate/template/interfaceProfiles/-", value=mso.sent))
+            mso.sanitize(mso_values)
+            ops.append(dict(op="add", path="{0}/-".format(path), value=mso.sent))
 
     elif state == "absent":
         if match:
-            ops.append(dict(op="remove", path=physical_policy_path))
+            ops.append(dict(op="remove", path="{0}/{1}".format(path, match.index)))
 
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)

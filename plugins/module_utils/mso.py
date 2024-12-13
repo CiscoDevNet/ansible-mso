@@ -319,7 +319,7 @@ def write_file(module, url, dest, content, resp, tmpsrc=None):
 
 
 def format_interface_descriptions(interface_descriptions, node=None):
-    formated_interface_descriptions = [
+    formatted_interface_descriptions = [
         {
             "nodeID": node if node is not None else interface_description.get("node"),
             "interfaceID": interface_description.get("interface_id", interface_description.get("interfaceID")),
@@ -328,7 +328,7 @@ def format_interface_descriptions(interface_descriptions, node=None):
         for interface_description in interface_descriptions
     ]
 
-    return formated_interface_descriptions
+    return formatted_interface_descriptions
 
 
 class MSOModule(object):

@@ -335,7 +335,7 @@ RETURN = r"""
 
 import copy
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, ndo_bfd_multi_hop_settings_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
 from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
 from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
@@ -361,16 +361,7 @@ def main():
                 interface_control=dict(type="str", choices=["enabled", "disabled"]),
             ),
         ),
-        bfd_multi_hop_settings=dict(
-            type="dict",
-            options=dict(
-                state=dict(type="str", choices=["enabled", "disabled"]),
-                admin_state=dict(type="str", choices=["enabled", "disabled"]),
-                detection_multiplier=dict(type="int"),
-                min_receive_interval=dict(type="int"),
-                min_transmit_interval=dict(type="int"),
-            ),
-        ),
+        bfd_multi_hop_settings=ndo_bfd_multi_hop_settings_spec(),
         ospf_interface_settings=dict(
             type="dict",
             options=dict(

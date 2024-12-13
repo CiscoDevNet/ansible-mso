@@ -267,6 +267,19 @@ def ndo_remote_user_spec():
     )
 
 
+def ndo_bfd_multi_hop_settings_spec():
+    return dict(
+        type="dict",
+        options=dict(
+            state=dict(type="str", choices=["enabled", "disabled"]),
+            admin_state=dict(type="str", choices=["enabled", "disabled"]),
+            detection_multiplier=dict(type="int"),
+            min_receive_interval=dict(type="int"),  # msec
+            min_transmit_interval=dict(type="int"),  # msec
+        ),
+    )
+
+
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp, tmpsrc=None):
     # create a tempfile with some test content

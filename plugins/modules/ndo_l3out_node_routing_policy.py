@@ -238,7 +238,7 @@ RETURN = r"""
 
 import copy
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, ndo_bfd_multi_hop_settings_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
 
 
@@ -249,16 +249,7 @@ def main():
         name=dict(type="str", aliases=["l3out_node_routing_policy_name"]),
         uuid=dict(type="str", aliases=["l3out_node_routing_policy_uuid"]),
         description=dict(type="str"),
-        bfd_multi_hop_settings=dict(
-            type="dict",
-            options=dict(
-                state=dict(type="str", choices=["enabled", "disabled"]),
-                admin_state=dict(type="str", choices=["enabled", "disabled"]),
-                detection_multiplier=dict(type="int"),
-                min_receive_interval=dict(type="int"),  # msec
-                min_transmit_interval=dict(type="int"),  # msec
-            ),
-        ),
+        bfd_multi_hop_settings=ndo_bfd_multi_hop_settings_spec(),
         bgp_node_settings=dict(
             type="dict",
             options=dict(

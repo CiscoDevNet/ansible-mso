@@ -181,7 +181,6 @@ def main():
     mso.existing = mso.previous = copy.deepcopy(mso_template.template)
 
     if state == "present":
-
         if tenant_id and not TEMPLATE_TYPES[template_type]["tenant"]:
             mso.fail_json(msg="Tenant cannot be attached to template of type {0}.".format(template_type))
 
@@ -195,7 +194,6 @@ def main():
             mso.fail_json(msg="Only one site can be attached to template of type {0}.".format(template_type))
 
         if mso_template.template:
-
             if mso_template.template.get("templateType") != TEMPLATE_TYPES[template_type]["template_type"]:
                 mso.fail_json(msg="Template type cannot be changed.")
 
@@ -221,10 +219,9 @@ def main():
             mso.sanitize(mso_template.template)
 
             if not module.check_mode and ops:
-                mso.request(mso_template.template_path, method="PATCH", data=ops)
+                mso.existing = mso.request(mso_template.template_path, method="PATCH", data=ops)
 
         else:
-
             payload = {
                 "displayName": template,
                 "templateType": TEMPLATE_TYPES[template_type]["template_type"],
@@ -248,12 +245,13 @@ def main():
                 set_service_device_template_payload(payload, template_type, tenant_id, site_ids)
 
             if not module.check_mode:
-                response = mso.request(mso_template.templates_path, method="POST", data=payload)
-                payload["templateId"] = response.get("templateId")
+                mso.existing = mso.request(mso_template.templates_path, method="POST", data=payload)
+                payload["templateId"] = mso.existing.get("templateId")
 
             mso.sanitize(payload)
 
-        mso.existing = mso.proposed
+        if module.check_mode:
+            mso.existing = mso.proposed
 
     elif state == "absent":
         if mso.previous and not module.check_mode:
@@ -305,7 +303,6 @@ def changed(config, template_type, value, key):
 
 
 def append_site_config_to_ops(ops, template_type_container, config, site_ids):
-
     template_container = config.get(template_type_container, {})
 
     existing_site_ids = [site.get("siteId") for site in template_container.get("sites", [])]

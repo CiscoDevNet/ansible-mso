@@ -166,27 +166,18 @@ def main():
     mso_template.validate_template("fabricPolicy")
 
     path = "/fabricPolicyTemplate/template/domains"
-    existing_physical_domains = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("domains", [])
-    if physical_domain or physical_domain_uuid:
-        object_description = "Physical Domain"
-        if physical_domain_uuid:
-            match = mso_template.get_object_by_uuid(object_description, existing_physical_domains, physical_domain_uuid)
-        else:
-            kv_list = [KVPair("name", physical_domain)]
-            match = mso_template.get_object_by_key_value_pairs(object_description, existing_physical_domains, kv_list)
+    match = get_physical_domain(mso_template, physical_domain_uuid, physical_domain)
+
+    if physical_domain_uuid or physical_domain:
         if match:
-            if match.details.get("pool"):
-                match.details["pool"] = mso_template.get_vlan_pool_name(match.details.get("pool"))
-            mso.existing = mso.previous = copy.deepcopy(match.details)
-    else:
-        mso.existing = mso.previous = existing_physical_domains
+            mso.existing = mso.previous = copy.deepcopy(match.details)  # Query a specific object
+    elif match:
+        mso.existing = match  # Query all objects
 
     if state == "present":
-
         mso.existing = {}
 
         if match:
-
             if physical_domain and match.details.get("name") != physical_domain:
                 ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=physical_domain))
                 match.details["name"] = physical_domain
@@ -205,7 +196,6 @@ def main():
             mso.sanitize(match.details)
 
         else:
-
             payload = {"name": physical_domain, "templateId": mso_template.template.get("templateId"), "schemaId": mso_template.template.get("schemaId")}
             if description:
                 payload["description"] = description
@@ -227,9 +217,34 @@ def main():
         mso.existing = {}
 
     if not module.check_mode and ops:
-        mso.request(mso_template.template_path, method="PATCH", data=ops)
+        mso_template.template = mso.request(mso_template.template_path, method="PATCH", data=ops)
+        match = get_physical_domain(mso_template, physical_domain_uuid, physical_domain)
+        if match:
+            mso.existing = match.details  # When the state is present
+        else:
+            mso.existing = {}  # When the state is absent
+    elif module.check_mode and state != "query":  # When the state is present/absent with check mode
+        mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
+
+
+def get_physical_domain(mso_template, uuid=None, name=None, fail_module=False):
+    """
+    Get the Physical Domain by UUID or Name.
+    :param uuid: UUID of the Physical Domain to search for -> Str
+    :param name: Name of the Physical Domain to search for -> Str
+    :param fail_module: When match is not found fail the ansible module -> Bool
+    :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+              When the UUID | Name is existing in the search list -> Dict
+              When the UUID | Name is not existing in the search list -> None
+              When both UUID and Name are None, and the search list is not empty -> List[Dict]
+              When both UUID and Name are None, and the search list is empty -> List[]
+    """
+    match = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("domains", [])
+    if uuid or name:  # Query a specific object
+        return mso_template.get_object_by_key_value_pairs("Physical Domain", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+    return match  # Query all objects
 
 
 if __name__ == "__main__":

@@ -1,0 +1,111 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Anvitha Jain (@anvjain) <anvjain@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+
+    - name: Ensure sites exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ item.site }}'
+        apic_username: '{{ apic_username }}'
+        apic_password: '{{ apic_password }}'
+        apic_site_id: '{{ item.apic_site_id }}'
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+      loop:
+        - {site: "ansible_test", apic_site_id: 101}
+        - {site: "ansible_test_2", apic_site_id: 102}
+
+    - name: Ensure tenants exist
+      cisco.mso.mso_tenant: 
+        <<: *mso_info
+        tenant: '{{ item }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+          - ansible_test_2
+        state: present
+      loop:
+        - ansible_test
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_tenant_template
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+
+    - name: Ensure IGMP Interface Policy does not exist
+      cisco.mso.ndo_tenant_igmp_interface_policy: &igmp_interface_policy_absent
+        <<: *mso_info
+        tenant: ansible_test
+        name: ansible_igmp_interface_policy
+        state: absent
+
+    # CREATE
+    - name: Create a new IGMP Interface Policy (check_mode)
+      cisco.mso.ndo_tenant_igmp_interface_policy: &igmp_interface_policy_present
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_test_igmp_interface_policy
+        state: present
+      check_mode: true
+      register: cm_create_new_igmp_interface_policy
+
+    # - name: Create a new IGMP Interface Policy
+    #   cisco.mso.ndo_tenant_igmp_interface_policy:
+    #     <<: *igmp_interface_policy_present
+    #   register: nm_create_new_igmp_interface_policy
+
+    # - name: Create a new IGMP Interface Policy again
+    #   cisco.mso.ndo_tenant_igmp_interface_policy:
+    #     <<: *igmp_interface_policy_present
+    #   register: nm_create_new_igmp_interface_policy_again
+
+    - name: Assert IGMP Interface Policy was created
+      assert:
+        that:
+          - cm_create_new_igmp_interface_policy is changed
+          - cm_create_new_igmp_interface_policy.previous == {}
+          - nm_create_new_igmp_interface_policy is changed
+          - nm_create_new_igmp_interface_policy.previous == {}
+          - nm_create_new_igmp_interface_policy_again is not changed
+
+

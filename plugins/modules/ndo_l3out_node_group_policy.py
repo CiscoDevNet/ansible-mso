@@ -112,6 +112,10 @@ notes:
   Use M(cisco.mso.ndo_l3out_template) to create the L3Out object under the L3Out template.
 - The O(node_routing_policy) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_l3out_node_routing_policy) to create the L3Out Node Routing Policy.
+seealso:
+- module: cisco.mso.ndo_template
+- module: cisco.mso.ndo_l3out_template
+- module: cisco.mso.ndo_l3out_node_routing_policy
 extends_documentation_fragment: cisco.mso.modules
 """
 

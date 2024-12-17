@@ -211,3 +211,5 @@ TARGET_DSCP_MAP = {
 
 ORIGINATE_DEFAULT_ROUTE = {"only": "only", "in_addition": "inAddition", "": ""}
 L3OUT_ROUTING_PROTOCOLS = {"bgp": ["bgp"], "ospf": ["ospf"], "bgpOspf": ["bgp", "ospf"], None: [None], "": None, "bgpospf": "bgpOspf", "ospfbgp": "bgpOspf"}
+
+PROFILE_TEMPLATE = {"aes67-2015": "aes67", "default": "default", "smpte-2059-2": "smpte", "telecom-8275-1": "telecomFullPath"}

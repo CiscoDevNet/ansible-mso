@@ -276,6 +276,13 @@
             description:  New group of Ansible interfaces test for first node
       register: nm_delete_virtual_port_channel_interface_member
 
+    - name: Update virtual port channel interface members for first node and mirror them on the second node
+      cisco.mso.ndo_virtual_port_channel_interface: &mirror_virtual_port_channel_interface_members
+        <<: *delete_virtual_port_channel_interface_member
+        interfaces_1: 1/1-5
+        interfaces_2: mirror
+      register: nm_mirror_virtual_port_channel_interface_members
+
     - name: Assert virtual port channel interface update tasks
       assert:
         that:
@@ -344,6 +351,16 @@
           - nm_delete_virtual_port_channel_interface_member.current.interfaceDescriptions.1.nodeID == "103"
           - nm_delete_virtual_port_channel_interface_member.current.interfaceDescriptions.1.interfaceID == "1/2"
           - nm_delete_virtual_port_channel_interface_member.current.interfaceDescriptions.1.description == "New group of Ansible interfaces test for first node"
+          - nm_mirror_virtual_port_channel_interface_members is changed
+          - nm_mirror_virtual_port_channel_interface_members.current.node1Details.memberInterfaces == "1/1-5"
+          - nm_mirror_virtual_port_channel_interface_members.current.node2Details.memberInterfaces == "1/1-5"
+          - nm_mirror_virtual_port_channel_interface_members.current.interfaceDescriptions | length == 2
+          - nm_mirror_virtual_port_channel_interface_members.current.interfaceDescriptions.0.nodeID == "103"
+          - nm_mirror_virtual_port_channel_interface_members.current.interfaceDescriptions.0.interfaceID == "1/1"
+          - nm_mirror_virtual_port_channel_interface_members.current.interfaceDescriptions.0.description == "New group of Ansible interfaces test for first node"
+          - nm_mirror_virtual_port_channel_interface_members.current.interfaceDescriptions.1.nodeID == "103"
+          - nm_mirror_virtual_port_channel_interface_members.current.interfaceDescriptions.1.interfaceID == "1/2"
+          - nm_mirror_virtual_port_channel_interface_members.current.interfaceDescriptions.1.description == "New group of Ansible interfaces test for first node"
 
     # QUERY
 
@@ -471,7 +488,7 @@
 
     - name: Delete a virtual port channel interface (check_mode)
       cisco.mso.ndo_virtual_port_channel_interface: &delete_virtual_port_channel_interface
-        <<: *delete_virtual_port_channel_interface_member
+        <<: *mirror_virtual_port_channel_interface_members
         state: absent
       check_mode: true
       register: cm_delete_virtual_port_channel_interface

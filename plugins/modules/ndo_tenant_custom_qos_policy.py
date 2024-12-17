@@ -144,10 +144,30 @@ options:
         aliases: [ target ]
       target_cos:
         description:
-        - The target CoS traffic type for the egressing traffic.
+        - The target CoS value/traffic type for the egressing traffic.
         - Defaults to C(unspecified) when unset during creation.
+        - Both CoS value and traffic type are allowed.
+          For example, O(dscp_mappings.target_cos=cos0) or O(dscp_mappings.target_cos=background) are the same valid inputs.
         type: str
-        choices: [ background, best_effort, excellent_effort, critical_applications, video, voice, internetwork_control, network_control, unspecified ]
+        choices:
+          - background
+          - cos0
+          - best_effort
+          - cos1
+          - excellent_effort
+          - cos2
+          - critical_applications
+          - cos3
+          - video
+          - cos4
+          - voice
+          - cos5
+          - internetwork_control
+          - cos6
+          - network_control
+          - cos7
+          - unspecified
+          - cos8
       qos_priority:
         description:
         - The QoS priority level to which the DSCP values will be mapped.
@@ -166,17 +186,57 @@ options:
     suboptions:
       dot1p_from:
         description:
-        - The starting traffic type of the CoS range.
+        - The starting value/traffic type of the CoS range.
         - Defaults to C(unspecified) when unset during creation.
+        - Both CoS values and their respective traffic types are allowed.
+          For example, O(cos_mappings.dot1p_from=cos0) or O(cos_mappings.dot1p_from=background) are the same valid inputs.
         type: str
-        choices: [ background, best_effort, excellent_effort, critical_applications, video, voice, internetwork_control, network_control, unspecified ]
+        choices:
+          - background
+          - cos0
+          - best_effort
+          - cos1
+          - excellent_effort
+          - cos2
+          - critical_applications
+          - cos3
+          - video
+          - cos4
+          - voice
+          - cos5
+          - internetwork_control
+          - cos6
+          - network_control
+          - cos7
+          - unspecified
+          - cos8
         aliases: [ from ]
       dot1p_to:
         description:
-        - The encoding traffic type of the CoS range.
+        - The ending value/traffic type of the CoS range.
         - Defaults to C(unspecified) when unset during creation.
+        - Both CoS value and traffic type are allowed.
+          For example, O(cos_mappings.dot1p_to=cos0) or O(cos_mappings.dot1p_to=background) are the same valid inputs.
         type: str
-        choices: [ background, best_effort, excellent_effort, critical_applications, video, voice, internetwork_control, network_control, unspecified ]
+        choices:
+          - background
+          - cos0
+          - best_effort
+          - cos1
+          - excellent_effort
+          - cos2
+          - critical_applications
+          - cos3
+          - video
+          - cos4
+          - voice
+          - cos5
+          - internetwork_control
+          - cos6
+          - network_control
+          - cos7
+          - unspecified
+          - cos8
         aliases: [ to ]
       dscp_target:
         description:
@@ -210,10 +270,30 @@ options:
         aliases: [ target ]
       target_cos:
         description:
-        - The target CoS traffic type for the egressing traffic.
+        - The target CoS value/traffic type for the egressing traffic.
         - Defaults to C(unspecified) when unset during creation.
+        - Both CoS values and their respective traffic types are allowed.
+          For example, O(cos_mappings.target_cos=cos0) or O(cos_mappings.target_cos=background) are the same valid inputs.
         type: str
-        choices: [ background, best_effort, excellent_effort, critical_applications, video, voice, internetwork_control, network_control, unspecified ]
+        choices:
+          - background
+          - cos0
+          - best_effort
+          - cos1
+          - excellent_effort
+          - cos2
+          - critical_applications
+          - cos3
+          - video
+          - cos4
+          - voice
+          - cos5
+          - internetwork_control
+          - cos6
+          - network_control
+          - cos7
+          - unspecified
+          - cos8
       qos_priority:
         description:
         - The QoS priority level to which the DSCP values will be mapped.
@@ -335,6 +415,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import (
 
 
 def main():
+    COS_MAP_CHOICES = list(TARGET_COS_MAP) + list(TARGET_COS_MAP.values())
     argument_spec = mso_argument_spec()
     argument_spec.update(
         template=dict(type="str", required=True, aliases=["tenant_template"]),
@@ -348,7 +429,7 @@ def main():
                 dscp_from=dict(type="str", choices=list(TARGET_DSCP_MAP), aliases=["from"]),
                 dscp_to=dict(type="str", choices=list(TARGET_DSCP_MAP), aliases=["to"]),
                 dscp_target=dict(type="str", choices=list(TARGET_DSCP_MAP), aliases=["target"]),
-                target_cos=dict(type="str", choices=list(TARGET_COS_MAP)),
+                target_cos=dict(type="str", choices=COS_MAP_CHOICES),
                 qos_priority=dict(
                     type="str",
                     choices=["level1", "level2", "level3", "level4", "level5", "level6", "unspecified"],
@@ -360,10 +441,10 @@ def main():
             type="list",
             elements="dict",
             options=dict(
-                dot1p_from=dict(type="str", choices=list(TARGET_COS_MAP), aliases=["from"]),
-                dot1p_to=dict(type="str", choices=list(TARGET_COS_MAP), aliases=["to"]),
+                dot1p_from=dict(type="str", choices=COS_MAP_CHOICES, aliases=["from"]),
+                dot1p_to=dict(type="str", choices=COS_MAP_CHOICES, aliases=["to"]),
                 dscp_target=dict(type="str", choices=list(TARGET_DSCP_MAP), aliases=["target"]),
-                target_cos=dict(type="str", choices=list(TARGET_COS_MAP)),
+                target_cos=dict(type="str", choices=COS_MAP_CHOICES),
                 qos_priority=dict(
                     type="str",
                     choices=["level1", "level2", "level3", "level4", "level5", "level6", "unspecified"],

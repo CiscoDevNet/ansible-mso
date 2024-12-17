@@ -73,7 +73,6 @@ options:
     type: str
     choices: [ absent, query, present ]
     default: query
-extends_documentation_fragment: cisco.mso.modules
 notes:
 - The O(schema) must exist before using this module in your playbook.
   Use M(cisco.mso.mso_schema) to create the Schema.
@@ -85,6 +84,13 @@ notes:
   Use M(cisco.mso.mso_schema_template_anp_epg) to create the Endpoint Group.
 - The O(contract) must exist before using this module in your playbook.
   Use M(cisco.mso.mso_schema_template_contract_filter) to create the Contract with Filter.
+seealso:
+- module: cisco.mso.mso_schema
+- module: cisco.mso.mso_schema_template
+- module: cisco.mso.mso_schema_template_anp
+- module: cisco.mso.mso_schema_template_anp_epg
+- module: cisco.mso.mso_schema_template_contract_filter
+extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""

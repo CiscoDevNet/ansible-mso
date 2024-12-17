@@ -24,7 +24,7 @@ options:
   template:
     description:
     - The name of the template.
-    - The template must be a tenant template.
+    - The template must be a Tenant Policy Template.
     type: str
     required: true
   name:
@@ -215,6 +215,11 @@ options:
     type: str
     choices: [ absent, query, present ]
     default: query
+notes:
+- The O(template) must exist before using this module in your playbook.
+  Use M(cisco.mso.ndo_template) to create the Tenant Policy Template.
+seealso:
+- module: cisco.mso.ndo_template
 extends_documentation_fragment: cisco.mso.modules
 """
 

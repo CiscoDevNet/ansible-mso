@@ -99,6 +99,8 @@ options:
 notes:
 - The O(template) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_template) to create the Fabric Policy template.
+seealso:
+- module: cisco.mso.ndo_template
 extends_documentation_fragment: cisco.mso.modules
 """
 

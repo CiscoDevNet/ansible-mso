@@ -69,6 +69,8 @@ options:
     - The list of used Interface IDs for the second node.
     - Ranges of Interface IDs can be used.
     - This parameter is required when creating a new Virtual Port Channel Interface.
+    - If O(interfaces_node_2=[mirror]) is defined as an empty list and O(interfaces_node_1) is clearly defined,
+      the interfaces of O(interfaces_node_1) will be mirrored in O(interfaces_node_2).
     type: list
     elements: str
     aliases: [ interfaces_2, members_2 ]
@@ -197,6 +199,21 @@ EXAMPLES = r"""
       - node: 102
         interface_id: 1/1-2
         description: My new group of Ansible Interfaces for second node
+    state: present
+
+- name: Update a Virtual Port Channel Interface by mirroring node 1 and node 2 interfaces
+  cisco.mso.ndo_port_channel_interface:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    description: My Ansible Port Channel
+    name: ansible_virtual_port_channel_interface
+    node_1: 101
+    node_2: 102
+    interfaces_node_1:
+      - 1/1-9
+      - 1/11-15
+    interfaces_node_2: mirror
     state: present
 
 - name: Update a Virtual Port Channel Interface's name with UUID
@@ -328,7 +345,10 @@ def main():
         interfaces_node_1 = ",".join(interfaces_node_1)
     interfaces_node_2 = module.params.get("interfaces_node_2")
     if isinstance(interfaces_node_2, list):
-        interfaces_node_2 = ",".join(interfaces_node_2)
+        if interfaces_node_2[0] == "mirror" and interfaces_node_1:
+            interfaces_node_2 = interfaces_node_1
+        else:
+            interfaces_node_2 = ",".join(interfaces_node_2)
     interface_policy_group = module.params.get("interface_policy_group")
     interface_policy_group_uuid = module.params.get("interface_policy_group_uuid")
     interface_descriptions = module.params.get("interface_descriptions")

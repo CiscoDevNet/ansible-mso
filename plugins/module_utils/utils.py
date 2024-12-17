@@ -53,7 +53,7 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
     replace_data = {
         ("name"): "new_name",
         "description": "new_description",
-        ("ospfIntfPol"): dict(ifControl=dict(adminState="disbaled"), cost=0)),
+        ("ospfIntfPol"): dict(ifControl=dict(adminState="disabled"), cost=0)),
     }
     remove_data = [("bfdMultiHopPol", "ifControl", "adminState"), "bfdPol"]
 
@@ -150,7 +150,7 @@ def check_if_all_elements_are_none(values):
 
 def format_list_dict(list_dict, keys_map):
     """
-    Convert an Python list of dictionaries into its equivalent NDO API format.
+    Convert a Python list of dictionaries into its equivalent NDO API format.
     All keys must be defined in the keys map even if no conversion is needed for some keys.
 
     :param list_dict: The Python list of dictionaries to format. Can be an empty List or None -> List
@@ -211,7 +211,7 @@ def format_list_dict(list_dict, keys_map):
                 for key, value in keys_map.items():
                     # keys_map can have values of type list including the API key string and the map conversion for values
                     if isinstance(value, list):
-                        formatted_dict[value[0]] = value[1].get(d.get(key))
+                        formatted_dict[value[0]] = d[key] if d.get(key) in value[1].values() else value[1].get(d.get(key))
                     else:
                         formatted_dict[value] = d.get(key)
             else:

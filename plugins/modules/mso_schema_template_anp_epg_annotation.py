@@ -17,7 +17,7 @@ module: mso_schema_template_anp_epg_annotation
 short_description: Manage EPG Annotations on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage Endpoint Group (EPG) Annotations on Cisco Nexus Dashboard Orchestrator (NDO).
-- This module is only supported on ND v3.1 (NDO v4.3) and later.
+- This module is only supported on ND v3.0 (NDO v4.2) and later.
 author:
 - Samita Bhattacharjee (@samiib)
 options:

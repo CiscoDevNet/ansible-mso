@@ -28,8 +28,8 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version > 4.2
-  when: version.current.version is version('4.2', '>')
+- name: Execute tasks only for NDO version >= 4.2
+  when: version.current.version is version('4.2', '>=')
   block:
     
     # SETUP
@@ -42,7 +42,7 @@
     - name: Ensure ansible_test tenant absent
       cisco.mso.mso_tenant: &ansible_tenant_absent
         <<: *mso_info
-        tenant: ansible_test_samita
+        tenant: ansible_test
         users:
           - "{{ mso_username }}"
         state: absent
@@ -56,7 +56,7 @@
       cisco.mso.mso_schema_template:
         <<: *mso_info
         schema: ansible_test
-        tenant: ansible_test_samita
+        tenant: ansible_test
         template: ans_test_template
         state: present
 
@@ -152,13 +152,13 @@
         annotation_value: "annotation_value_2"
 
     - name: Query all EPG annotations
-      cisco.mso.mso_schema_template_anp_epg_annotation:
+      cisco.mso.mso_schema_template_anp_epg_annotation: &query_all
         <<: *ans_test_epg_present
         state: query
       register: query_all
 
     - name: Query one EPG annotation
-      cisco.mso.mso_schema_template_anp_epg_annotation:
+      cisco.mso.mso_schema_template_anp_epg_annotation: &query_one
         <<: *ans_test_epg_present
         annotation_key: "annotation_key_2"
         state: query
@@ -204,6 +204,40 @@
           - cm_delete_epg_annotation.previous.tagValue == nm_delete_epg_annotation.previous.tagValue == "annotation_value_1_updated"
           - nm_delete_epg_annotation_again is not changed
           - nm_delete_epg_annotation_again.previous == nm_delete_epg_annotation_again.current == {}
+
+    # ERRORS
+    - name: Delete the remaining EPG annotation
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *delete_annotation_1
+        annotation_key: "annotation_key_2"
+
+    - name: Query all EPG annotations when none exist
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *query_all
+      register: query_all_none
+
+    - name: Query an EPG annotation that does not exist
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *query_one
+        annotation_key: "annotation_key_3"
+      register: query_one_none
+
+    - name: Create an EPG annotation when EPG does not exist
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *add_annotation_1
+        epg: ans_test_epg_none
+      ignore_errors: true
+      register: non_existing_epg
+
+    - name: Assert error conditions
+      ansible.builtin.assert:
+        that:
+          - query_all_none is not changed
+          - query_all_none.current == []
+          - query_one_none is not changed
+          - query_one_none.current == {}
+          - non_existing_epg is failed
+          - non_existing_epg.msg == "Provided EPG 'ans_test_epg_none' not matching existing epg(s){{":"}} ans_test_epg"
 
     # CLEANUP
     - name: Remove ansible_test schema

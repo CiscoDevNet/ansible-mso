@@ -53,12 +53,11 @@ options:
     aliases: [ value ]
   state:
     description:
-    - Use C(absent) for removing.
+    - Use C(present) or C(absent) for adding or removing.
     - Use C(query) for listing an object or multiple objects.
-    - Use C(present) for creating or updating.
     type: str
-    choices: [ absent, query, present ]
-    default: query
+    choices: [ absent, present, query ]
+    default: present
 extends_documentation_fragment: cisco.mso.modules
 notes:
 - The O(schema) and O(template) must exist before using this module in your playbook.

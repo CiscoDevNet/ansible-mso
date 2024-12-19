@@ -409,8 +409,8 @@ from ansible_collections.cisco.mso.plugins.module_utils.utils import append_upda
 from ansible_collections.cisco.mso.plugins.module_utils.constants import (
     TARGET_DSCP_MAP,
     TARGET_COS_MAP,
-    DSCP_KEYS_FORMAT_MAP,
-    DOT1P_KEYS_FORMAT_MAP,
+    DSCP_CONVERSION_MAP,
+    COS_CONVERSION_MAP,
 )
 
 
@@ -470,8 +470,8 @@ def main():
     name = module.params.get("name")
     uuid = module.params.get("uuid")
     description = module.params.get("description")
-    dscp_mappings = format_list_dict(module.params.get("dscp_mappings"), DSCP_KEYS_FORMAT_MAP)
-    cos_mappings = format_list_dict(module.params.get("cos_mappings"), DOT1P_KEYS_FORMAT_MAP)
+    dscp_mappings = format_list_dict(module.params.get("dscp_mappings"), DSCP_CONVERSION_MAP)
+    cos_mappings = format_list_dict(module.params.get("cos_mappings"), COS_CONVERSION_MAP)
     state = module.params.get("state")
 
     template_object = MSOTemplate(mso, "tenant", template)

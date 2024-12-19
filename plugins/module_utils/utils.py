@@ -148,13 +148,13 @@ def check_if_all_elements_are_none(values):
     return all(value is None for value in values)
 
 
-def format_list_dict(list_dict, keys_map):
+def format_list_dict(list_dict, conversion_map):
     """
     Convert a Python list of dictionaries into its equivalent NDO API format.
     All keys must be defined in the keys map even if no conversion is needed for some keys.
 
     :param list_dict: The Python list of dictionaries to format. Can be an empty List or None -> List
-    :param keys_map: The mapping from the Ansible argument's keys to NDO API keys. Can also include the map between values -> Dict
+    :param conversion_map: The mapping from the Ansible argument's keys to NDO API keys. Can also include the map between values -> Dict
     :return: The formatted list of dictionaries -> Dict
 
     Sample Input Data:
@@ -171,12 +171,20 @@ def format_list_dict(list_dict, keys_map):
         "voice_admit": "voiceAdmit",
     }
 
-    COS_KEYS_FORMAT_MAP = {
-        "dot1p_from": ["dot1pFrom", REDUCED_TARGET_COS_MAP],
-        "dot1p_to": ["dot1pTo", REDUCED_TARGET_COS_MAP],
-        "dscp_target": ["dscpTarget", REDUCED_TARGET_DSCP_MAP],
-        "target_cos": ["targetCos", REDUCED_TARGET_COS_MAP],
-        "qos_priority": "priority",
+    COS_CONVERSION_MAP = {
+        "keys_map": {
+            "dot1p_from": "dot1pFrom",
+            "dot1p_to": "dot1pTo",
+            "dscp_target": "dscpTarget",
+            "target_cos": "targetCos",
+            "qos_priority": "priority",
+        },
+        "values_map": {
+            "dot1p_from": REDUCED_TARGET_COS_MAP,
+            "dot1p_to": REDUCED_TARGET_COS_MAP,
+            "dscp_target": REDUCED_TARGET_DSCP_MAP,
+            "target_cos": REDUCED_TARGET_COS_MAP,
+        },
     }
 
     ansible_cos_mappings = [
@@ -203,25 +211,33 @@ def format_list_dict(list_dict, keys_map):
         }
     ]
     """
-    if isinstance(list_dict, list) and isinstance(keys_map, dict):
+    if isinstance(list_dict, list) and isinstance(conversion_map, dict):
+        keys_map, values_map = conversion_map.get("keys_map"), conversion_map.get("values_map")
+        if isinstance(keys_map, dict) and isinstance(values_map, dict):
 
-        def format_dict(d):  # format individual dictionary to its equivalent NDO API format
-            formatted_dict = {}
-            if isinstance(d, dict):
-                for key, value in keys_map.items():
-                    # keys_map can have values of type list including the API key string and the map conversion for values
-                    if isinstance(value, list):
-                        formatted_dict[value[0]] = d[key] if d.get(key) in value[1].values() else value[1].get(d.get(key))
-                    else:
-                        formatted_dict[value] = d.get(key)
-            else:
-                raise TypeError("items in list_dict must be dictionaries.")
-            return formatted_dict
+            def format_dict(d):  # format individual dictionary to its equivalent NDO API format
+                formatted_dict = {}
+                if isinstance(d, dict):
+                    for key, value in d.items():
+                        json_key = keys_map.get(key, "unknownKey")  # retreive the equilavent NDO API formatted key
+                        if not isinstance(json_key, str):
+                            raise TypeError("the associatied json key must be of type string, got:{0}".format(type(json_key)))
+                        values_mapping = values_map.get(key)  # Check if there is a mapping between values associated with the current key
+                        if values_mapping and isinstance(values_mapping, dict):
+                            formatted_dict[json_key] = values_map[key].get(value, value)
+                        else:
+                            formatted_dict[json_key] = value  # in case there is no mapping between values
+                else:
+                    raise TypeError("items in list_dict must be dictionaries.")
+                return formatted_dict
 
-        return [format_dict(d) for d in list_dict]
+            return [format_dict(d) for d in list_dict]
+
+        else:
+            raise TypeError("keys_map and values_map must be of type dict.")
 
     elif list_dict is not None and not isinstance(list_dict, list):
         raise TypeError("list_dict can either be a list of dictionaries, an empty List or None.")
 
-    elif not isinstance(keys_map, dict):
-        raise TypeError("keys_map must be a dictionary.")
+    elif not isinstance(conversion_map, dict):
+        raise TypeError("conversion_map must be a dictionary.")

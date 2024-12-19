@@ -18,15 +18,6 @@ def generate_api_endpoint(path, **kwargs):
     :param kwargs: Keyword arguments representing query parameters. -> Dict
     :return: A string representing the full API endpoint with query parameters. -> Str
     """
-    # if not kwargs:
-    #     return path
-
-    # query_strings = ["{0}={1}".format(key, value) for key, value in kwargs.items()]
-    # query_string = "&".join(query_strings)
-    # full_url = "{0}?{1}".format(path, query_string)
-
-    # return full_url
-
     return path if not kwargs else "{0}?{1}".format(path, "&".join(["{0}={1}".format(key, value) for key, value in kwargs.items()]))
 
 
@@ -145,3 +136,13 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
 
         for key in remove_data:
             recursive_delete(existing_data, update_path, key if isinstance(key, tuple) else (key,))
+
+
+def check_if_all_elements_are_none(values):
+    """
+    Checks if all the elements in the provided list are None.
+
+    :param values: List of values to check. -> List
+    :return: True if all elements are None, False otherwise. -> boo
+    """
+    return all(value is None for value in values)

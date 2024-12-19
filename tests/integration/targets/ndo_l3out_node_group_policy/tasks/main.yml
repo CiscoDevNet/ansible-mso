@@ -1,0 +1,880 @@
+# Test code for the MSO modules
+# Copyright: (c) 2024, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version > 4.2
+  when: version.current.version is version('4.2', '>')
+  block:
+    # Setup Part
+    - name: Ensure ansible_test site exist
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: query
+      register: ansible_test_site
+
+    - name: Ensure ansible_test tenant exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+      register: ansible_test_tenant
+      when: ansible_test_site.current.common.name == 'ansible_test'
+
+    - name: Ensure common tenant exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: common
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+      register: ansible_test_tenant
+      when: ansible_test_site.current.common.name == 'ansible_test'
+
+    - name: Ensure l3out template not exist
+      cisco.mso.ndo_template: &ndo_l3out_template_absent
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template_type: l3out
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_test_policy tenant policy template not exists
+      cisco.mso.ndo_template: &tenant_pol_template_absent
+        <<: *mso_info
+        name: ansible_test_policy
+        template_type: tenant
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure common tenant policy template not exists
+      cisco.mso.ndo_template: &common_ansible_test_policy
+        <<: *tenant_pol_template_absent
+        name: common_ansible_test_policy
+        tenant: common
+        state: absent
+
+    - name: Ensure ansible_test schema template not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        template: "Template1"
+        state: absent
+
+    # Schema Template Setup for the VRF
+    - name: Add an ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+        state: present
+
+    - name: Add a new VRF1
+      cisco.mso.mso_schema_template_vrf:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: "Template1"
+        vrf: VRF1
+        layer3_multicast: true
+        state: present
+
+    # Tenant Policy Template Setup for the L3Out Node Routing Policy
+    - name: Ensure ansible_test_policy tenant policy template exists
+      cisco.mso.ndo_template:
+        <<: *tenant_pol_template_absent
+        state: present
+      register: ansible_test_policy
+
+    - name: Ensure common tenant policy template exists
+      cisco.mso.ndo_template:
+        <<: *common_ansible_test_policy
+        state: present
+      register: common_ansible_test_policy
+
+    - name: Add a new L3Out Node Routing Policy
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: ansible_test_policy
+        name: "{{ item }}"
+        bfd_multi_hop_settings:
+          state: enabled
+        bgp_node_settings:
+          state: enabled
+        as_path_multipath_relax: enabled
+        state: present
+      loop:
+        - ans_node_policy_group_1
+        - ans_node_policy_group_2
+
+    - name: Add a new L3Out Node Routing Policy to the common template
+      cisco.mso.ndo_l3out_node_routing_policy:
+        <<: *mso_info
+        template: common_ansible_test_policy
+        name: ans_node_policy_group_common
+        bfd_multi_hop_settings:
+          state: enabled
+        bgp_node_settings:
+          state: enabled
+        as_path_multipath_relax: enabled
+        state: present
+
+    # L3Out Template Setup
+    - name: Create a new l3out template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+        state: present
+      register: create_new_l3out_policy_template
+
+    - name: Create l3out_1 object without routing protocols
+      cisco.mso.ndo_l3out_template: &l3out_1_present
+        <<: *mso_info
+        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+        name: "l3out_1"
+        vrf:
+          name: "VRF1"
+          schema: '{{ mso_schema | default("ansible_test") }}'
+          template: "Template1"
+        state: "present"
+
+    - name: Create l3out_2 object with bgp enabled
+      cisco.mso.ndo_l3out_template:
+        <<: *l3out_1_present
+        name: "l3out_2"
+        bgp:
+          state: enabled
+
+    # Test Part
+    - name: Query all L3Out node group policy objects when the L3Out is empty
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        state: query
+      register: query_all_node_groups_1
+
+    - name: Assertion check for query all L3Out node group policy objects when the L3Out is empty
+      ansible.builtin.assert:
+        that:
+          - query_all_node_groups_1 is not changed
+          - query_all_node_groups_1.current == {}
+
+    - name: Query node_group_policy_1 L3Out node group policy object when the L3Out is empty
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_1"
+        state: query
+      register: query_node_group_policy_1
+
+    - name: Assertion check for query node_group_policy_1 L3Out node group policy object when the L3Out is empty
+      ansible.builtin.assert:
+        that:
+          - query_node_group_policy_1 is not changed
+          - query_node_group_policy_1.current == {}
+
+    - name: Create L3Out node group policy object with default values - check mode
+      cisco.mso.ndo_l3out_node_group_policy: &cm_node_group_policy_1_present
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_1"
+        state: present
+      check_mode: true
+      register: cm_node_group_policy_1_present
+
+    - name: Assertion check for create L3Out node group policy object with default values - check mode
+      ansible.builtin.assert:
+        that:
+          - cm_node_group_policy_1_present is changed
+          - cm_node_group_policy_1_present.current.name == "node_group_policy_1"
+          - cm_node_group_policy_1_present.previous == {}
+
+    - name: Create L3Out node group policy object with default values - normal mode
+      cisco.mso.ndo_l3out_node_group_policy: &nm_node_group_policy_1_present
+        <<: *cm_node_group_policy_1_present
+      register: nm_node_group_policy_1_present
+
+    - name: Assertion check for create L3Out node group policy object with default values - normal mode
+      ansible.builtin.assert:
+        that:
+          - nm_node_group_policy_1_present is changed
+          - nm_node_group_policy_1_present.current.name == "node_group_policy_1"
+          - nm_node_group_policy_1_present.current.nodeRoutingPolicyRef == ""
+          - nm_node_group_policy_1_present.current.targetDscp == "unspecified"
+          - nm_node_group_policy_1_present.previous == {}
+
+    - name: Create L3Out node group policy object with default values - normal mode again
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *nm_node_group_policy_1_present
+      register: nm_node_group_policy_1_present_again
+
+    - name: Assertion check for create L3Out node group policy object with default values - normal mode again
+      ansible.builtin.assert:
+        that:
+          - nm_node_group_policy_1_present_again is not changed
+          - nm_node_group_policy_1_present_again.current.name == "node_group_policy_1"
+          - nm_node_group_policy_1_present_again.current.nodeRoutingPolicyRef == ""
+          - nm_node_group_policy_1_present_again.current.targetDscp == "unspecified"
+          - nm_node_group_policy_1_present_again.previous.name == "node_group_policy_1"
+          - nm_node_group_policy_1_present_again.previous.nodeRoutingPolicyRef == ""
+          - nm_node_group_policy_1_present_again.previous.targetDscp == "unspecified"
+
+    - name: Update L3Out node group policy object with check mode
+      cisco.mso.ndo_l3out_node_group_policy: &cm_update_node_group_policy_1
+        <<: *nm_node_group_policy_1_present
+        description: "Test description"
+        node_routing_policy: ans_node_policy_group_1
+        bfd:
+          auth: enabled
+          key_id: 1
+          key: TestKey
+        target_dscp: af11
+        state: present
+      check_mode: true
+      register: cm_update_node_group_policy_1
+
+    - name: Assertion check for update L3Out node group policy object with check mode
+      ansible.builtin.assert:
+        that:
+          - cm_update_node_group_policy_1 is changed
+          - cm_update_node_group_policy_1.current.bfdMultiHop.keyID == 1
+          - cm_update_node_group_policy_1.current.bfdMultiHop.key.value is defined
+          - cm_update_node_group_policy_1.current.description == "Test description"
+          - cm_update_node_group_policy_1.current.name == "node_group_policy_1"
+          - cm_update_node_group_policy_1.current.nodeRoutingPolicyRef != ""
+          - cm_update_node_group_policy_1.current.targetDscp == "af11"
+          - cm_update_node_group_policy_1.previous.name == "node_group_policy_1"
+          - cm_update_node_group_policy_1.previous.nodeRoutingPolicyRef == ""
+          - cm_update_node_group_policy_1.previous.targetDscp == "unspecified"
+
+    - name: Update L3Out node group policy object with normal mode
+      cisco.mso.ndo_l3out_node_group_policy: &nm_update_node_group_policy_1
+        <<: *cm_update_node_group_policy_1
+      register: nm_update_node_group_policy_1
+
+    - name: Assertion check for update L3Out node group policy object with normal mode
+      ansible.builtin.assert:
+        that:
+          - nm_update_node_group_policy_1 is changed
+          - nm_update_node_group_policy_1.current.bfdMultiHop.authEnabled == true
+          - nm_update_node_group_policy_1.current.bfdMultiHop.keyID == 1
+          - nm_update_node_group_policy_1.current.description == "Test description"
+          - nm_update_node_group_policy_1.current.name == "node_group_policy_1"
+          - nm_update_node_group_policy_1.current.nodeRoutingPolicyRef != ""
+          - nm_update_node_group_policy_1.current.targetDscp == "af11"
+          - nm_update_node_group_policy_1.previous.name == "node_group_policy_1"
+          - nm_update_node_group_policy_1.previous.nodeRoutingPolicyRef == ""
+          - nm_update_node_group_policy_1.previous.targetDscp == "unspecified"
+
+    - name: Update L3Out node group policy object with normal mode again
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *nm_update_node_group_policy_1
+      register: nm_update_node_group_policy_1_again
+
+    - name: Assertion check for update L3Out node group policy object with normal mode again
+      ansible.builtin.assert:
+        that:
+          - nm_update_node_group_policy_1_again is not changed
+          - nm_update_node_group_policy_1_again.current.bfdMultiHop.authEnabled == true
+          - nm_update_node_group_policy_1_again.current.bfdMultiHop.keyID == 1
+          - nm_update_node_group_policy_1_again.current.description == "Test description"
+          - nm_update_node_group_policy_1_again.current.name == "node_group_policy_1"
+          - nm_update_node_group_policy_1_again.current.nodeRoutingPolicyRef != ""
+          - nm_update_node_group_policy_1_again.current.targetDscp == "af11"
+          - nm_update_node_group_policy_1_again.previous.bfdMultiHop.authEnabled == true
+          - nm_update_node_group_policy_1_again.previous.bfdMultiHop.keyID == 1
+          - nm_update_node_group_policy_1_again.previous.description == "Test description"
+          - nm_update_node_group_policy_1_again.previous.name == "node_group_policy_1"
+          - nm_update_node_group_policy_1_again.previous.nodeRoutingPolicyRef != ""
+          - nm_update_node_group_policy_1_again.previous.targetDscp == "af11"
+
+    - name: Update node_group_policy_1 - bfd_multi_hop_key id, value, target_dscp and node_routing_policy values
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_1"
+        description: "Test description updated"
+        node_routing_policy: ans_node_policy_group_2
+        bfd:
+          auth: enabled
+          key_id: 2
+          key: TestKeyUpdated
+        target_dscp: af12
+        state: present
+      register: update_node_group_policy_attrs
+
+    - name: Assertion check for update node_group_policy_1 - bfd_multi_hop_key id, value, target_dscp and node_routing_policy values
+      ansible.builtin.assert:
+        that:
+          - update_node_group_policy_attrs is changed
+          - update_node_group_policy_attrs.current.bfdMultiHop.authEnabled == true
+          - update_node_group_policy_attrs.current.bfdMultiHop.keyID == 2
+          - update_node_group_policy_attrs.current.description == "Test description updated"
+          - update_node_group_policy_attrs.current.name == "node_group_policy_1"
+          - update_node_group_policy_attrs.current.nodeRoutingPolicyRef != ""
+          - update_node_group_policy_attrs.current.targetDscp == "af12"
+          - update_node_group_policy_attrs.previous.bfdMultiHop.authEnabled == true
+          - update_node_group_policy_attrs.previous.bfdMultiHop.keyID == 1
+          - update_node_group_policy_attrs.previous.description == "Test description"
+          - update_node_group_policy_attrs.previous.name == "node_group_policy_1"
+          - update_node_group_policy_attrs.previous.nodeRoutingPolicyRef != ""
+          - update_node_group_policy_attrs.previous.targetDscp == "af11"
+
+    - name: Clear node_group_policy_1 - bfd_multi_hop_key id, value, target_dscp and node_routing_policy values
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_1"
+        description: ""
+        node_routing_policy: ""
+        bfd:
+          auth: disabled
+        target_dscp: "unspecified"
+        state: present
+        output_level: debug
+      register: clear_node_group_policy_attrs
+
+    - name: Assertion check for clear node_group_policy_1 - bfd_multi_hop_key id, value, target_dscp and node_routing_policy values
+      ansible.builtin.assert:
+        that:
+          - clear_node_group_policy_attrs is changed
+          - clear_node_group_policy_attrs.current.name == "node_group_policy_1"
+          - clear_node_group_policy_attrs.current.nodeRoutingPolicyRef == ""
+          - clear_node_group_policy_attrs.current.bfdMultiHop.authEnabled == false
+          - clear_node_group_policy_attrs.current.targetDscp == "unspecified"
+          - clear_node_group_policy_attrs.previous.bfdMultiHop.authEnabled == true
+          - clear_node_group_policy_attrs.previous.bfdMultiHop.keyID == 2
+          - clear_node_group_policy_attrs.previous.description == "Test description updated"
+          - clear_node_group_policy_attrs.previous.name == "node_group_policy_1"
+          - clear_node_group_policy_attrs.previous.nodeRoutingPolicyRef != ""
+          - clear_node_group_policy_attrs.previous.targetDscp == "af12"
+
+    - name: Query node_group_policy_1
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_1"
+        state: query
+      register: query_node_group_policy_1
+
+    - name: Assertion check for query node_group_policy_1
+      ansible.builtin.assert:
+        that:
+          - query_node_group_policy_1 is not changed
+          - query_node_group_policy_1.current.name == "node_group_policy_1"
+          - query_node_group_policy_1.current.nodeRoutingPolicyRef == ""
+          - query_node_group_policy_1.current.targetDscp == "unspecified"
+          - query_node_group_policy_1.current.bfdMultiHop.authEnabled == false
+
+    - name: Add node_group_policy_2 with common tenant node_routing_policy object
+      cisco.mso.ndo_l3out_node_group_policy: &add_node_group_policy_2
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_2"
+        description: "Create test description"
+        target_dscp: cs7
+        node_routing_policy: "ans_node_policy_group_common"
+        state: present
+      register: add_node_group_policy_2
+
+    - name: Assertion check for add node_group_policy_2 with common tenant node_routing_policy object
+      ansible.builtin.assert:
+        that:
+          - add_node_group_policy_2 is changed
+          - add_node_group_policy_2.current.description == "Create test description"
+          - add_node_group_policy_2.current.name == "node_group_policy_2"
+          - add_node_group_policy_2.current.nodeRoutingPolicyRef != ""
+          - add_node_group_policy_2.current.targetDscp == "cs7"
+          - add_node_group_policy_2.previous == {}
+
+    - name: Query node_group_policy_2
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_2"
+        state: query
+      register: query_node_group_policy_2
+
+    - name: Assertion check for query node_group_policy_2
+      ansible.builtin.assert:
+        that:
+          - query_node_group_policy_2 is not changed
+          - query_node_group_policy_2.current.description == "Create test description"
+          - query_node_group_policy_2.current.name == "node_group_policy_2"
+          - query_node_group_policy_2.current.nodeRoutingPolicyRef != ""
+          - query_node_group_policy_2.current.targetDscp == "cs7"
+
+    - name: Query all node_group_policies
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        state: query
+      register: query_all_node_group_policies
+
+    - name: Assertion check for query all node_group_policies
+      ansible.builtin.assert:
+        that:
+          - query_all_node_group_policies is not changed
+          - query_all_node_group_policies.current | length == 2
+          - "'node_group_policy_2' in query_all_node_group_policies.current | map(attribute='name') | list"
+          - "'node_group_policy_1' in query_all_node_group_policies.current | map(attribute='name') | list"
+
+    - name: Create node_group_policy_30 with bfd_multi_hop_authentication enabled, key id and value
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_30"
+        node_routing_policy: ans_node_policy_group_2
+        bfd:
+          auth: enabled
+          key_id: 2
+          key: TestKeyUpdated
+        target_dscp: af12
+        state: present
+      register: add_ngp_3_auth_disabled
+
+    - name: Assertion check for create node_group_policy_30 with bfd_multi_hop_authentication enabled, key id and value
+      ansible.builtin.assert:
+        that:
+          - add_ngp_3_auth_disabled is changed
+          - add_ngp_3_auth_disabled.current.bfdMultiHop.authEnabled == true
+          - add_ngp_3_auth_disabled.current.bfdMultiHop.keyID == 2
+          - add_ngp_3_auth_disabled.current.name == "node_group_policy_30"
+          - add_ngp_3_auth_disabled.current.nodeRoutingPolicyRef != ""
+          - add_ngp_3_auth_disabled.current.targetDscp == "af12"
+          - add_ngp_3_auth_disabled.previous == {}
+
+    - name: Create node_group_policy_3 with bfd_multi_hop_authentication disabled, key id and value
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_3"
+        node_routing_policy: ans_node_policy_group_2
+        bfd:
+          auth: disabled
+          key_id: 2
+          key: TestKeyUpdated
+        target_dscp: af12
+        state: present
+      register: add_ngp_3_auth_disabled
+
+    - name: Assertion check for create node_group_policy_3 with bfd_multi_hop_authentication disabled, key id and value
+      ansible.builtin.assert:
+        that:
+          - add_ngp_3_auth_disabled is changed
+          - add_ngp_3_auth_disabled.current.bfdMultiHop.authEnabled == false
+          - add_ngp_3_auth_disabled.current.bfdMultiHop.keyID == 2
+          - add_ngp_3_auth_disabled.current.name == "node_group_policy_3"
+          - add_ngp_3_auth_disabled.current.nodeRoutingPolicyRef != ""
+          - add_ngp_3_auth_disabled.current.targetDscp == "af12"
+          - add_ngp_3_auth_disabled.previous == {}
+
+    - name: Update node_group_policy_3 with only bfd_multi_hop_key_id
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_3"
+        bfd:
+          key_id: 3
+        state: present
+      register: update_ngp_3_with_key_id
+
+    - name: Assertion check for update node_group_policy_3 with only bfd_multi_hop_key_id
+      ansible.builtin.assert:
+        that:
+          - update_ngp_3_with_key_id is changed
+          - update_ngp_3_with_key_id.current.bfdMultiHop.authEnabled == false
+          - update_ngp_3_with_key_id.current.bfdMultiHop.keyID == 3
+          - update_ngp_3_with_key_id.current.name == "node_group_policy_3"
+          - update_ngp_3_with_key_id.current.nodeRoutingPolicyRef != ""
+          - update_ngp_3_with_key_id.current.targetDscp == "af12"
+          - update_ngp_3_with_key_id.previous.bfdMultiHop.authEnabled == false
+          - update_ngp_3_with_key_id.previous.bfdMultiHop.keyID == 2
+          - update_ngp_3_with_key_id.previous.name == "node_group_policy_3"
+          - update_ngp_3_with_key_id.previous.nodeRoutingPolicyRef != ""
+          - update_ngp_3_with_key_id.previous.targetDscp == "af12"
+
+    - name: Update node_group_policy_3 with only bfd_multi_hop_key - task flag changed should be false wth authentication is disabled
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_3"
+        bfd:
+          key: TestKeyUpdated1
+        state: present
+      register: update_ngp_3_with_key
+
+    - name: Assertion check for update node_group_policy_3 with only bfd_multi_hop_key - task flag changed should be false wth authentication is disabled
+      ansible.builtin.assert:
+        that:
+          - update_ngp_3_with_key is not changed
+          - update_ngp_3_with_key.current.bfdMultiHop.authEnabled == false
+          - update_ngp_3_with_key.current.bfdMultiHop.keyID == 3
+          - update_ngp_3_with_key.current.name == "node_group_policy_3"
+          - update_ngp_3_with_key.current.nodeRoutingPolicyRef != ""
+          - update_ngp_3_with_key.current.targetDscp == "af12"
+          - update_ngp_3_with_key.previous.bfdMultiHop.authEnabled == false
+          - update_ngp_3_with_key.previous.bfdMultiHop.keyID == 3
+          - update_ngp_3_with_key.previous.name == "node_group_policy_3"
+          - update_ngp_3_with_key.previous.nodeRoutingPolicyRef != ""
+          - update_ngp_3_with_key.previous.targetDscp == "af12"
+
+    - name: Create node_group_policy_4 with bfd_multi_hop_authentication disabled without bfd_multi_hop_key_id and bfd_multi_hop_key
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_4"
+        node_routing_policy: ans_node_policy_group_2
+        bfd:
+          auth: disabled
+        target_dscp: af12
+        state: present
+      register: add_ngp_4_auth_disabled
+
+    - name: Assertion check for create node_group_policy_4 with bfd_multi_hop_authentication disabled without bfd_multi_hop_key_id and bfd_multi_hop_key
+      ansible.builtin.assert:
+        that:
+          - add_ngp_4_auth_disabled is changed
+          - add_ngp_4_auth_disabled.current.bfdMultiHop.authEnabled == false
+          - add_ngp_4_auth_disabled.current.name == "node_group_policy_4"
+          - add_ngp_4_auth_disabled.current.nodeRoutingPolicyRef != ""
+          - add_ngp_4_auth_disabled.current.targetDscp == "af12"
+          - add_ngp_4_auth_disabled.previous == {}
+
+    - name: Add bfd_multi_hop_key_id to node_group_policy_4 when bfd_multi_hop_authentication is disabled
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_4"
+        bfd:
+          key_id: 10
+        state: present
+      register: add_key_id_ngp_4_auth_disabled
+
+    - name: Assertion check for add bfd_multi_hop_key_id to node_group_policy_4 when bfd_multi_hop_authentication is disabled
+      ansible.builtin.assert:
+        that:
+          - add_key_id_ngp_4_auth_disabled is changed
+          - add_key_id_ngp_4_auth_disabled.current.bfdMultiHop.authEnabled == false
+          - add_key_id_ngp_4_auth_disabled.current.bfdMultiHop.keyID == 10
+          - add_key_id_ngp_4_auth_disabled.current.name == "node_group_policy_4"
+          - add_key_id_ngp_4_auth_disabled.current.nodeRoutingPolicyRef != ""
+          - add_key_id_ngp_4_auth_disabled.current.targetDscp == "af12"
+          - add_key_id_ngp_4_auth_disabled.previous.bfdMultiHop.authEnabled == false
+          - add_key_id_ngp_4_auth_disabled.previous.name == "node_group_policy_4"
+          - add_key_id_ngp_4_auth_disabled.previous.nodeRoutingPolicyRef != ""
+          - add_key_id_ngp_4_auth_disabled.previous.bfdMultiHop.keyID is not defined
+          - add_key_id_ngp_4_auth_disabled.previous.targetDscp == "af12"
+
+    - name: Remove bfd_multi_hop_key_id from node_group_policy_4 when bfd_multi_hop_authentication is disabled
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_4"
+        bfd:
+          auth: disabled
+          key_id: 0
+        state: present
+        output_level: debug
+      register: clear_key_id_ngp_4_auth_disabled
+
+    - name: Assertion check for remove bfd_multi_hop_key_id from node_group_policy_4 when bfd_multi_hop_authentication is disabled
+      ansible.builtin.assert:
+        that:
+          - clear_key_id_ngp_4_auth_disabled is changed
+          - clear_key_id_ngp_4_auth_disabled.current.bfdMultiHop.keyID is not defined
+          - clear_key_id_ngp_4_auth_disabled.current.bfdMultiHop.authEnabled == false
+          - clear_key_id_ngp_4_auth_disabled.current.name == "node_group_policy_4"
+          - clear_key_id_ngp_4_auth_disabled.current.nodeRoutingPolicyRef != ""
+          - clear_key_id_ngp_4_auth_disabled.current.targetDscp == "af12"
+          - clear_key_id_ngp_4_auth_disabled.previous.bfdMultiHop.authEnabled == false
+          - clear_key_id_ngp_4_auth_disabled.previous.bfdMultiHop.keyID == 10
+          - clear_key_id_ngp_4_auth_disabled.previous.name == "node_group_policy_4"
+          - clear_key_id_ngp_4_auth_disabled.previous.nodeRoutingPolicyRef != ""
+          - clear_key_id_ngp_4_auth_disabled.previous.targetDscp == "af12"
+          - clear_key_id_ngp_4_auth_disabled.proposed.bfdMultiHop.authEnabled == false
+          - clear_key_id_ngp_4_auth_disabled.proposed.bfdMultiHop.keyID == 0
+          - clear_key_id_ngp_4_auth_disabled.proposed.name == "node_group_policy_4"
+
+    - name: Create node_group_policy_5 without bfd config
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_5"
+        node_routing_policy: ans_node_policy_group_2
+        state: present
+      register: add_ngp_5
+
+    - name: Assertion check for create node_group_policy_5 without bfd config
+      ansible.builtin.assert:
+        that:
+          - add_ngp_5 is changed
+          - add_ngp_5.current.name == "node_group_policy_5"
+          - add_ngp_5.current.nodeRoutingPolicyRef != ""
+          - add_ngp_5.current.targetDscp == "unspecified"
+          - add_ngp_5.previous == {}
+
+    - name: Update node_group_policy_5 with only bfd_multi_hop_key_id and bfd_multi_hop_key
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_5"
+        node_routing_policy: ans_node_policy_group_2
+        bfd:
+          key_id: 3
+          key: TestKeyUpdated1
+        state: present
+      register: update_ngp_5_only_id_value
+
+    - name: Assertion check for update node_group_policy_5 with only bfd_multi_hop_key_id and bfd_multi_hop_key
+      ansible.builtin.assert:
+        that:
+          - update_ngp_5_only_id_value is changed
+          - update_ngp_5_only_id_value.current.bfdMultiHop.authEnabled == false
+          - update_ngp_5_only_id_value.current.bfdMultiHop.keyID == 3
+          - update_ngp_5_only_id_value.current.name == "node_group_policy_5"
+          - update_ngp_5_only_id_value.current.nodeRoutingPolicyRef != ""
+          - update_ngp_5_only_id_value.current.targetDscp == "unspecified"
+          - update_ngp_5_only_id_value.previous.name == "node_group_policy_5"
+          - update_ngp_5_only_id_value.previous.nodeRoutingPolicyRef != ""
+          - update_ngp_5_only_id_value.previous.targetDscp == "unspecified"
+
+    - name: Enable bfd_multi_hop_authentication without bfd_multi_hop_key on node_group_policy_5
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_5"
+        node_routing_policy: ans_node_policy_group_2
+        bfd:
+          auth: enabled
+        state: present
+      register: enable_ngp_5_auth_without_key
+      ignore_errors: true
+
+    - name: Assertion check for enable bfd_multi_hop_authentication without bfd_multi_hop_key on node_group_policy_5
+      ansible.builtin.assert:
+        that:
+          - enable_ngp_5_auth_without_key is changed
+          - enable_ngp_5_auth_without_key.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_2'{{':'}} node group 'node_group_policy_5'{{':'}} bfdMultiHop Key must be specified when auth is enabled"
+
+    - name: Update node_group_policy_5 with bfd config
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_5"
+        node_routing_policy: ans_node_policy_group_2
+        bfd:
+          auth: enabled
+          key: TestKeyUpdated4
+        state: present
+      register: update_ngp_5_bfd_config
+
+    - name: Assertion check for update node_group_policy_5 with bfd config
+      ansible.builtin.assert:
+        that:
+          - update_ngp_5_bfd_config is changed
+          - update_ngp_5_bfd_config.current.bfdMultiHop.authEnabled == true
+          - update_ngp_5_bfd_config.current.bfdMultiHop.keyID == 3
+          - update_ngp_5_bfd_config.current.name == "node_group_policy_5"
+          - update_ngp_5_bfd_config.current.nodeRoutingPolicyRef != ""
+          - update_ngp_5_bfd_config.current.targetDscp == "unspecified"
+          - update_ngp_5_bfd_config.previous.bfdMultiHop.authEnabled == false
+          - update_ngp_5_bfd_config.previous.bfdMultiHop.keyID == 3
+          - update_ngp_5_bfd_config.previous.name == "node_group_policy_5"
+          - update_ngp_5_bfd_config.previous.nodeRoutingPolicyRef != ""
+          - update_ngp_5_bfd_config.previous.targetDscp == "unspecified"
+
+    - name: Clear complete bfd and node_routing_policy config from node_group_policy_5
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_2"
+        name: "node_group_policy_5"
+        node_routing_policy: ""
+        bfd: {}
+        state: present
+      register: clear_ngp_5_bfd_config
+
+    - name: Assertion check for clear complete bfd and node_routing_policy config from node_group_policy_5
+      ansible.builtin.assert:
+        that:
+          - clear_ngp_5_bfd_config is changed
+          - clear_ngp_5_bfd_config.current.name == "node_group_policy_5"
+          - clear_ngp_5_bfd_config.current.nodeRoutingPolicyRef == ""
+          - clear_ngp_5_bfd_config.current.targetDscp == "unspecified"
+          - clear_ngp_5_bfd_config.previous.name == "node_group_policy_5"
+          - clear_ngp_5_bfd_config.previous.nodeRoutingPolicyRef != ""
+          - clear_ngp_5_bfd_config.previous.targetDscp == "unspecified"
+          - clear_ngp_5_bfd_config.previous.bfdMultiHop is defined
+
+    - name: Remove node_group_policy_2 with check mode
+      cisco.mso.ndo_l3out_node_group_policy: &cm_rm_node_group_policy_2
+        <<: *add_node_group_policy_2
+        state: absent
+      check_mode: true
+      register: cm_rm_node_group_policy_2
+
+    - name: Assertion check for remove node_group_policy_2 with check mode
+      ansible.builtin.assert:
+        that:
+          - cm_rm_node_group_policy_2 is changed
+          - cm_rm_node_group_policy_2.current == {}
+          - cm_rm_node_group_policy_2.previous.description == "Create test description"
+          - cm_rm_node_group_policy_2.previous.name == "node_group_policy_2"
+          - cm_rm_node_group_policy_2.previous.nodeRoutingPolicyRef != ""
+          - cm_rm_node_group_policy_2.previous.targetDscp == "cs7"
+
+    - name: Remove node_group_policy_2 with normal mode
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *cm_rm_node_group_policy_2
+      register: nm_rm_node_group_policy_2
+
+    - name: Assertion check for remove node_group_policy_2 with normal mode
+      ansible.builtin.assert:
+        that:
+          - nm_rm_node_group_policy_2 is changed
+          - nm_rm_node_group_policy_2.current == {}
+          - nm_rm_node_group_policy_2.previous.description == "Create test description"
+          - nm_rm_node_group_policy_2.previous.name == "node_group_policy_2"
+          - nm_rm_node_group_policy_2.previous.nodeRoutingPolicyRef != ""
+          - nm_rm_node_group_policy_2.previous.targetDscp == "cs7"
+
+    - name: Remove node_group_policy_2 with normal mode
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *cm_rm_node_group_policy_2
+      register: nm_rm_node_group_policy_2_again
+
+    - name: Assertion check for remove node_group_policy_2 with normal mode
+      ansible.builtin.assert:
+        that:
+          - nm_rm_node_group_policy_2_again is not changed
+          - nm_rm_node_group_policy_2_again.current == {}
+          - nm_rm_node_group_policy_2_again.previous == {}
+
+    # Negative test part begins
+    - name: Create L3Out node group policy object with invalid l3out name
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_nt"
+        name: "node_group_policy_nt"
+        state: present
+      register: node_group_policy_nt
+      ignore_errors: true
+
+    - name: Assertion check for create L3Out node group policy object with invalid l3out name
+      ansible.builtin.assert:
+        that:
+          - node_group_policy_nt is not changed
+          - node_group_policy_nt.current == {}
+          - node_group_policy_nt.msg == "Provided L3Out with '[KVPair(key='name', value='l3out_nt')]' not matching existing object(s){{':'}} l3out_1, l3out_2"
+          - node_group_policy_nt.previous == {}
+
+    - name: Create L3Out node group policy object with l3out_1 template
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        name: "node_group_policy_nt"
+        node_routing_policy: ans_node_policy_group_1
+        bfd:
+          auth: enabled
+          key_id: 12
+          key: "test"
+        state: present
+      register: node_group_policy_nt_with_l3out_1
+      ignore_errors: true
+
+    - name: Assertion check for create L3Out node group policy object with l3out_1 template
+      ansible.builtin.assert:
+        that:
+          - node_group_policy_nt_with_l3out_1 is changed
+          - node_group_policy_nt_with_l3out_1.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_nt'{{':'}} BFD Multihop is not supported with non-BGP routing protocols. Current protocol{{':'}} none"
+
+    - name: Create ngp1 with an empty bfd configuration
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        name: "ngp1"
+        bfd: {}
+        state: present
+      register: create_ngp1_bfd_disabled
+
+    - name: Assertion check for create ngp1 with an empty bfd configuration
+      ansible.builtin.assert:
+        that:
+          - create_ngp1_bfd_disabled is changed
+          - create_ngp1_bfd_disabled.current.name == "ngp1"
+          - create_ngp1_bfd_disabled.current.bfdMultiHop is not defined
+
+    # Cleanup Part
+    - name: Remove l3out tenant template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+
+    - name: Remove tenant policy template
+      cisco.mso.ndo_template:
+        <<: *tenant_pol_template_absent
+
+    - name: Remove ansible_test schema template not exist
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+
+    - name: Ensure ansible_test_policy tenant policy template not exists - cleanup
+      cisco.mso.ndo_template:
+        <<: *tenant_pol_template_absent
+
+    - name: Ensure common tenant policy template not exists - cleanup
+      cisco.mso.ndo_template:
+        <<: *common_ansible_test_policy

@@ -385,26 +385,35 @@ def main():
             fabric_policy_template.validate_template("fabricPolicy")
             interface_policy_group_uuid = fabric_policy_template.get_interface_policy_group_uuid(interface_policy_group.get("name"))
 
-        mso_values = dict(
-            name=name,
-            description=description,
-            node1Details=dict(
-                node=node_1,
-                memberInterfaces=interfaces_node_1,
-            ),
-            node2Details=dict(
-                node=node_2,
-                memberInterfaces=interfaces_node_2,
-            ),
-            policy=interface_policy_group_uuid,
-            interfaceDescriptions=format_interface_descriptions(mso, interface_descriptions),
-        )
-
         if mso.existing:
+            mso_values = {
+                "name": name,
+                "description": description,
+                ("node1Details", "node"): node_1,
+                ("node1Details", "memberInterfaces"): interfaces_node_1,
+                ("node2Details", "node"): node_2,
+                ("node2Details", "memberInterfaces"): interfaces_node_2,
+                "policy": interface_policy_group_uuid,
+                "interfaceDescriptions": format_interface_descriptions(mso, interface_descriptions),
+            }
             append_update_ops_data(ops, match.details, virtual_port_channel_attrs_path, mso_values)
             mso.sanitize(match.details, collate=True)
 
         else:
+            mso_values = dict(
+                name=name,
+                description=description,
+                node1Details=dict(
+                    node=node_1,
+                    memberInterfaces=interfaces_node_1,
+                ),
+                node2Details=dict(
+                    node=node_2,
+                    memberInterfaces=interfaces_node_2,
+                ),
+                policy=interface_policy_group_uuid,
+                interfaceDescriptions=format_interface_descriptions(mso, interface_descriptions),
+            )
             mso.sanitize(mso_values)
             ops.append(dict(op="add", path="/fabricResourceTemplate/template/virtualPortChannels/-", value=mso.sent))
 

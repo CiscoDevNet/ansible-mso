@@ -60,12 +60,14 @@ options:
     default: present
 extends_documentation_fragment: cisco.mso.modules
 notes:
-- The O(schema) and O(template) must exist before using this module in your playbook.
-  Use M(cisco.mso.mso_schema_template) to create the schema template.
-- The O(anp) must exist before using this module in your playbook.
+- The O(schema), O(template), O(anp) and O(epg) must exist before using this module in your playbook.
+  Use M(cisco.mso.mso_schema_template) to create the schema and template.
   Use M(cisco.mso.mso_schema_template_anp) to create the ANP.
-- The O(epg) must exist before using this module in your playbook.
   Use M(cisco.mso.mso_schema_template_anp_epg) to create the EPG.
+seealso:
+- module: cisco.mso.mso_schema_template
+- module: cisco.mso.mso_schema_template_anp
+- module: cisco.mso.mso_schema_template_anp_epg
 """
 
 EXAMPLES = r"""
@@ -78,8 +80,8 @@ EXAMPLES = r"""
     template: Template 1
     anp: ANP 1
     epg: EPG 1
-    annotation_key: "annotation_key_1"
-    annotation_value: "annotation_value_1"
+    annotation_key: annotation_key_1
+    annotation_value: annotation_value_1
     state: present
 
 - name: Update an annotation with value
@@ -91,8 +93,8 @@ EXAMPLES = r"""
     template: Template 1
     anp: ANP 1
     epg: EPG 1
-    annotation_key: "annotation_key_1_updated"
-    annotation_value: "annotation_value_1"
+    annotation_key: annotation_key_1_updated
+    annotation_value: annotation_value_1
     state: present
 
 - name: Query a specific annotation with key
@@ -104,7 +106,7 @@ EXAMPLES = r"""
     template: Template 1
     anp: ANP 1
     epg: EPG 1
-    annotation_key: "annotation_key_1_updated"
+    annotation_key: annotation_key_1_updated
     state: query
   register: query_one
 
@@ -129,7 +131,7 @@ EXAMPLES = r"""
     template: Template 1
     anp: ANP 1
     epg: EPG 1
-    annotation_key: "annotation_key_1_updated"
+    annotation_key: annotation_key_1_updated
     state: absent
 """
 

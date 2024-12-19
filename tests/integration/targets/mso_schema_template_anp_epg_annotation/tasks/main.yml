@@ -81,8 +81,8 @@
     - name: Create an EPG annotation (check mode)
       cisco.mso.mso_schema_template_anp_epg_annotation: &add_annotation_1
         <<: *ans_test_epg_present
-        annotation_key: "annotation_key_1"
-        annotation_value: "annotation_value_1"
+        annotation_key: annotation_key_1
+        annotation_value: annotation_value_1
       check_mode: true
       register: cm_add_epg_annotation
 
@@ -148,8 +148,8 @@
     - name: Create another EPG annotation
       cisco.mso.mso_schema_template_anp_epg_annotation:
         <<: *add_annotation_1
-        annotation_key: "annotation_key_2"
-        annotation_value: "annotation_value_2"
+        annotation_key: annotation_key_2
+        annotation_value: annotation_value_2
 
     - name: Query all EPG annotations
       cisco.mso.mso_schema_template_anp_epg_annotation: &query_all
@@ -160,7 +160,7 @@
     - name: Query one EPG annotation
       cisco.mso.mso_schema_template_anp_epg_annotation: &query_one
         <<: *ans_test_epg_present
-        annotation_key: "annotation_key_2"
+        annotation_key: annotation_key_2
         state: query
       ignore_errors: true
       register: query_one
@@ -209,7 +209,7 @@
     - name: Delete the remaining EPG annotation
       cisco.mso.mso_schema_template_anp_epg_annotation:
         <<: *delete_annotation_1
-        annotation_key: "annotation_key_2"
+        annotation_key: annotation_key_2
 
     - name: Query all EPG annotations when none exist
       cisco.mso.mso_schema_template_anp_epg_annotation:
@@ -219,7 +219,7 @@
     - name: Query an EPG annotation that does not exist
       cisco.mso.mso_schema_template_anp_epg_annotation:
         <<: *query_one
-        annotation_key: "annotation_key_3"
+        annotation_key: annotation_key_3
       register: query_one_none
 
     - name: Create an EPG annotation when EPG does not exist

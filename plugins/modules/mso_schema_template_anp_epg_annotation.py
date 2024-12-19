@@ -84,7 +84,7 @@ EXAMPLES = r"""
     annotation_value: annotation_value_1
     state: present
 
-- name: Update an annotation with value
+- name: Update an annotation value with key
   cisco.mso.mso_schema_template_anp_epg_annotation:
     host: mso_host
     username: admin
@@ -93,8 +93,8 @@ EXAMPLES = r"""
     template: Template 1
     anp: ANP 1
     epg: EPG 1
-    annotation_key: annotation_key_1_updated
-    annotation_value: annotation_value_1
+    annotation_key: annotation_key_1
+    annotation_value: annotation_value_1_updated
     state: present
 
 - name: Query a specific annotation with key
@@ -106,7 +106,7 @@ EXAMPLES = r"""
     template: Template 1
     anp: ANP 1
     epg: EPG 1
-    annotation_key: annotation_key_1_updated
+    annotation_key: annotation_key_1
     state: query
   register: query_one
 
@@ -131,7 +131,7 @@ EXAMPLES = r"""
     template: Template 1
     anp: ANP 1
     epg: EPG 1
-    annotation_key: annotation_key_1_updated
+    annotation_key: annotation_key_1
     state: absent
 """
 

@@ -1,0 +1,249 @@
+# Test code for the MSO modules
+
+# Copyright: (c) 2024, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 4.2
+  when: version.current.version is version('4.2', '>=')
+  block:
+    
+    # SETUP
+    - name: Remove schemas
+      cisco.mso.mso_schema: &ansible_schema_absent
+        <<: *mso_info
+        schema: ansible_test
+        state: absent
+
+    - name: Ensure ansible_test tenant absent
+      cisco.mso.mso_tenant: &ansible_tenant_absent
+        <<: *mso_info
+        tenant: ansible_test
+        users:
+          - "{{ mso_username }}"
+        state: absent
+
+    - name: Ensure ansible_test tenant present
+      cisco.mso.mso_tenant: &ansible_tenant_present
+        <<: *ansible_tenant_absent
+        state: present
+
+    - name: Ensure ansible_test schema with ans_test_template exist
+      cisco.mso.mso_schema_template:
+        <<: *mso_info
+        schema: ansible_test
+        tenant: ansible_test
+        template: ans_test_template
+        state: present
+
+    - name: Ensure ans_test_anp exist
+      cisco.mso.mso_schema_template_anp:
+        <<: *mso_info
+        schema: ansible_test
+        template: ans_test_template
+        anp: ans_test_anp
+        state: present
+
+    - name: Ensure ans_test_epg exist
+      cisco.mso.mso_schema_template_anp_epg: &ans_test_epg_present
+        <<: *mso_info
+        schema: ansible_test
+        template: ans_test_template
+        anp: ans_test_anp
+        epg: ans_test_epg
+        state: present
+
+    # CREATE
+    - name: Create an EPG annotation (check mode)
+      cisco.mso.mso_schema_template_anp_epg_annotation: &add_annotation_1
+        <<: *ans_test_epg_present
+        annotation_key: annotation_key_1
+        annotation_value: annotation_value_1
+      check_mode: true
+      register: cm_add_epg_annotation
+
+    - name: Create an EPG annotation
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *add_annotation_1
+      register: nm_add_epg_annotation
+
+    - name: Create an EPG annotation again
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *add_annotation_1
+      register: nm_add_epg_annotation_again
+
+    - name: Assert that the EPG annotation was created
+      ansible.builtin.assert:
+        that:
+          - cm_add_epg_annotation is changed
+          - cm_add_epg_annotation.previous == nm_add_epg_annotation.previous == {}
+          - cm_add_epg_annotation.current.tagKey == cm_add_epg_annotation.proposed.tagKey == 'annotation_key_1'
+          - cm_add_epg_annotation.current.tagValue == cm_add_epg_annotation.proposed.tagValue == 'annotation_value_1'
+          - nm_add_epg_annotation is changed
+          - nm_add_epg_annotation.current.tagKey == 'annotation_key_1'
+          - nm_add_epg_annotation.current.tagValue == 'annotation_value_1'
+          - nm_add_epg_annotation_again is not changed
+          - nm_add_epg_annotation_again.sent == {}
+          - nm_add_epg_annotation_again.previous.tagKey == nm_add_epg_annotation_again.current.tagKey == 'annotation_key_1'
+          - nm_add_epg_annotation_again.previous.tagValue == nm_add_epg_annotation_again.current.tagValue == 'annotation_value_1'
+
+    # UPDATE
+    - name: Update an EPG annotation (check mode)
+      cisco.mso.mso_schema_template_anp_epg_annotation: &update_annotation_1
+        <<: *add_annotation_1
+        annotation_value: "annotation_value_1_updated"
+      check_mode: true
+      register: cm_update_epg_annotation
+
+    - name: Update an EPG annotation
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *update_annotation_1
+      register: nm_update_epg_annotation
+
+    - name: Update an EPG annotation again
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *update_annotation_1
+      register: nm_update_epg_annotation_again
+
+    - name: Assert that the EPG annotation was updated
+      ansible.builtin.assert:
+        that:
+          - cm_update_epg_annotation is changed
+          - cm_update_epg_annotation.previous == nm_update_epg_annotation.previous == nm_add_epg_annotation.current
+          - cm_update_epg_annotation.current.tagKey == cm_update_epg_annotation.proposed.tagKey == 'annotation_key_1'
+          - cm_update_epg_annotation.current.tagValue == cm_update_epg_annotation.proposed.tagValue == 'annotation_value_1_updated'
+          - nm_update_epg_annotation is changed
+          - nm_update_epg_annotation.current.tagKey == 'annotation_key_1'
+          - nm_update_epg_annotation.current.tagValue == 'annotation_value_1_updated'
+          - nm_update_epg_annotation_again is not changed
+          - nm_update_epg_annotation_again.sent == {}
+          - nm_update_epg_annotation_again.previous.tagKey == nm_update_epg_annotation_again.current.tagKey == 'annotation_key_1'
+          - nm_update_epg_annotation_again.previous.tagValue == nm_update_epg_annotation_again.current.tagValue == 'annotation_value_1_updated'
+
+    # QUERY
+    - name: Create another EPG annotation
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *add_annotation_1
+        annotation_key: annotation_key_2
+        annotation_value: annotation_value_2
+
+    - name: Query all EPG annotations
+      cisco.mso.mso_schema_template_anp_epg_annotation: &query_all
+        <<: *ans_test_epg_present
+        state: query
+      register: query_all
+
+    - name: Query one EPG annotation
+      cisco.mso.mso_schema_template_anp_epg_annotation: &query_one
+        <<: *ans_test_epg_present
+        annotation_key: annotation_key_2
+        state: query
+      ignore_errors: true
+      register: query_one
+
+    - name: Verify query_one and query_all
+      ansible.builtin.assert:
+        that:
+          - query_all is not changed
+          - query_one is not changed
+          - query_all.current | length == 2
+          - query_all.current.0.tagKey == "annotation_key_1"
+          - query_all.current.1.tagKey == "annotation_key_2"
+          - query_one.current.tagKey == "annotation_key_2"
+          - query_one.current.tagValue == "annotation_value_2"
+
+    # DELETE
+    - name: Delete an EPG annotation (check mode)
+      cisco.mso.mso_schema_template_anp_epg_annotation: &delete_annotation_1
+        <<: *add_annotation_1
+        state: absent
+      check_mode: true
+      register: cm_delete_epg_annotation
+
+    - name: Delete an EPG annotation
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *delete_annotation_1
+      register: nm_delete_epg_annotation
+
+    - name: Delete an EPG annotation again
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *delete_annotation_1
+      register: nm_delete_epg_annotation_again
+
+    - name: Assert that the Interface Policy group with name was deleted
+      ansible.builtin.assert:
+        that:
+          - cm_delete_epg_annotation is changed
+          - nm_delete_epg_annotation is changed
+          - cm_delete_epg_annotation.current == nm_delete_epg_annotation.current == {}
+          - cm_delete_epg_annotation.previous.tagKey == nm_delete_epg_annotation.previous.tagKey == "annotation_key_1"
+          - cm_delete_epg_annotation.previous.tagValue == nm_delete_epg_annotation.previous.tagValue == "annotation_value_1_updated"
+          - nm_delete_epg_annotation_again is not changed
+          - nm_delete_epg_annotation_again.previous == nm_delete_epg_annotation_again.current == {}
+
+    # ERRORS
+    - name: Delete the remaining EPG annotation
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *delete_annotation_1
+        annotation_key: annotation_key_2
+
+    - name: Query all EPG annotations when none exist
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *query_all
+      register: query_all_none
+
+    - name: Query an EPG annotation that does not exist
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *query_one
+        annotation_key: annotation_key_3
+      register: query_one_none
+
+    - name: Create an EPG annotation when EPG does not exist
+      cisco.mso.mso_schema_template_anp_epg_annotation:
+        <<: *add_annotation_1
+        epg: ans_test_epg_none
+      ignore_errors: true
+      register: non_existing_epg
+
+    - name: Assert error conditions
+      ansible.builtin.assert:
+        that:
+          - query_all_none is not changed
+          - query_all_none.current == []
+          - query_one_none is not changed
+          - query_one_none.current == {}
+          - non_existing_epg is failed
+          - non_existing_epg.msg == "Provided EPG 'ans_test_epg_none' not matching existing epg(s){{":"}} ans_test_epg"
+
+    # CLEANUP
+    - name: Remove ansible_test schema
+      cisco.mso.mso_schema:
+        <<: *ansible_schema_absent
+
+    - name: Remove ansible_test tenant
+      cisco.mso.mso_tenant:
+        <<: *ansible_tenant_absent

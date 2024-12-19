@@ -211,3 +211,47 @@ TARGET_DSCP_MAP = {
 
 ORIGINATE_DEFAULT_ROUTE = {"only": "only", "in_addition": "inAddition", "": ""}
 L3OUT_ROUTING_PROTOCOLS = {"bgp": ["bgp"], "ospf": ["ospf"], "bgpOspf": ["bgp", "ospf"], None: [None], "": None, "bgpospf": "bgpOspf", "ospfbgp": "bgpOspf"}
+
+TARGET_COS_MAP = {
+    "background": "cos0",
+    "best_effort": "cos1",
+    "excellent_effort": "cos2",
+    "critical_applications": "cos3",
+    "video": "cos4",
+    "voice": "cos5",
+    "internetwork_control": "cos6",
+    "network_control": "cos7",
+    "unspecified": "cos8",
+}
+
+COS_CONVERSION_MAP = {
+    "keys_map": {
+        "dot1p_from": "dot1pFrom",
+        "dot1p_to": "dot1pTo",
+        "dscp_target": "dscpTarget",
+        "target_cos": "targetCos",
+        "qos_priority": "priority",
+    },
+    "values_map": {
+        "dot1p_from": TARGET_COS_MAP,
+        "dot1p_to": TARGET_COS_MAP,
+        "dscp_target": TARGET_DSCP_MAP,
+        "target_cos": TARGET_COS_MAP,
+    },
+}
+
+DSCP_CONVERSION_MAP = {
+    "keys_map": {
+        "dscp_from": "dscpFrom",
+        "dscp_to": "dscpTo",
+        "dscp_target": "dscpTarget",
+        "target_cos": "targetCos",
+        "qos_priority": "priority",
+    },
+    "values_map": {
+        "dscp_from": TARGET_DSCP_MAP,
+        "dscp_to": TARGET_DSCP_MAP,
+        "dscp_target": TARGET_DSCP_MAP,
+        "target_cos": TARGET_COS_MAP,
+    },
+}

@@ -196,17 +196,14 @@ def main():
         mso_values = {"tagKey": annotation_key, "tagValue": annotation_value}
         mso.sanitize(mso_values)
         if mso.existing:
-            # An error from MSO prevents the "replace" operation from updating existing annotation values.
-            # Remove and add operations are used in sequence to achieve the same result instead.
-            # append_update_ops_data(ops, mso.existing, "{0}/{1}".format(path, annotation.index), mso_values)
             if annotation_value is not None and mso.existing.get("tagValue") != annotation_value:
-                append_remove_op(ops, path, annotation.index)
-                append_add_op(ops, path, mso_values)
+                ops.append({"op": "replace", "path": "{0}/{1}".format(path, annotation.index), "value": mso_values})
+
         else:
-            append_add_op(ops, path, mso_values)
+            ops.append({"op": "add", "path": "{0}/-".format(path), "value": mso_values})
     elif state == "absent":
         if mso.existing:
-            append_remove_op(ops, path, annotation.index)
+            ops.append({"op": "remove", "path": "{0}/{1}".format(path, annotation.index)})
 
     if not module.check_mode and ops:
         mso.request(mso_schema.path, method="PATCH", data=ops)
@@ -215,14 +212,6 @@ def main():
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
-
-
-def append_add_op(ops, path, mso_values):
-    ops.append({"op": "add", "path": "{0}/-".format(path), "value": mso_values})
-
-
-def append_remove_op(ops, path, index):
-    ops.append({"op": "remove", "path": "{0}/{1}".format(path, index)})
 
 
 if __name__ == "__main__":

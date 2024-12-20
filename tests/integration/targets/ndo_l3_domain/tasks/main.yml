@@ -83,20 +83,24 @@
           - cm_create_new_l3_domain is changed
           - cm_create_new_l3_domain.previous == {}
           - cm_create_new_l3_domain.current.name == "ansible_test_l3_domain"
-          - cm_create_new_l3_domain.current.pool != ""
+          - cm_create_new_l3_domain.current.pool_uuid
+          - cm_create_new_l3_domain.current.pool == "ansible_test_vlan_pool_1"
           - nm_create_new_l3_domain is changed
           - nm_create_new_l3_domain.previous == {}
           - nm_create_new_l3_domain.current.name == "ansible_test_l3_domain"
-          - nm_create_new_l3_domain.current.pool != ""
+          - nm_create_new_l3_domain.current.pool_uuid != ""
+          - nm_create_new_l3_domain.current.pool == "ansible_test_vlan_pool_1"
           - nm_create_new_l3_domain_again is not changed
           - nm_create_new_l3_domain_again.previous.name == "ansible_test_l3_domain"
           - nm_create_new_l3_domain_again.previous.description == ""
           - nm_create_new_l3_domain_again.previous.uuid is defined
-          - nm_create_new_l3_domain_again.previous.pool != ""
+          - nm_create_new_l3_domain_again.previous.pool_uuid != ""
+          - nm_create_new_l3_domain_again.previous.pool == "ansible_test_vlan_pool_1"
           - nm_create_new_l3_domain_again.current.name == "ansible_test_l3_domain"
           - nm_create_new_l3_domain_again.current.description == ""
           - nm_create_new_l3_domain_again.current.uuid is defined
-          - nm_create_new_l3_domain_again.current.pool != ""
+          - nm_create_new_l3_domain_again.current.pool == "ansible_test_vlan_pool_1"
+          - nm_create_new_l3_domain_again.current.pool_uuid != ""
 
     # UPDATE
 
@@ -147,6 +151,7 @@
       cisco.mso.ndo_l3_domain:
         <<: *update_l3_domain_name
         pool: ""
+        output_level: debug
       register: nm_update_l3_domain_pool_remove
 
     - name: Assert l3 domain was updated
@@ -156,11 +161,15 @@
           - nm_update_l3_domain_name.previous.name == "ansible_test_l3_domain"
           - nm_update_l3_domain_name.current.name == "ansible_test_l3_domain_changed"
           - nm_update_l3_domain_pool is changed
-          - nm_update_l3_domain_pool.previous.pool != ""
-          - nm_update_l3_domain_pool.current.pool != ""
+          - nm_update_l3_domain_pool.previous.pool_uuid != ""
+          - nm_update_l3_domain_pool.previous.pool == "ansible_test_vlan_pool_1"
+          - nm_update_l3_domain_pool.current.pool_uuid != ""
+          - nm_update_l3_domain_pool.current.pool == "ansible_test_vlan_pool_2"
           - nm_update_l3_domain_pool_remove is changed
-          - nm_update_l3_domain_pool_remove.previous.pool != ""
+          - nm_update_l3_domain_pool_remove.previous.pool == "ansible_test_vlan_pool_2"
+          - nm_update_l3_domain_pool_remove.previous.pool_uuid != ""
           - nm_update_l3_domain_pool_remove.current.pool is not defined
+          - nm_update_l3_domain_pool_remove.current.pool_uuid is not defined
 
     # QUERY
 
@@ -227,10 +236,12 @@
           - cm_delete_l3_domain is changed
           - cm_delete_l3_domain.previous.name == 'ansible_test_l3_domain_changed'
           - cm_delete_l3_domain.previous.pool is not defined
+          - cm_delete_l3_domain.previous.pool_uuid is not defined
           - cm_delete_l3_domain.current == {}
           - nm_delete_l3_domain is changed
           - nm_delete_l3_domain.previous.name == 'ansible_test_l3_domain_changed'
           - nm_delete_l3_domain.previous.pool is not defined
+          - nm_delete_l3_domain.previous.pool_uuid is not defined
           - nm_delete_l3_domain.current == {}
           - nm_delete_l3_domain_again is not changed
           - nm_delete_l3_domain_again.previous == {}

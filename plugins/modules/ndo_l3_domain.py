@@ -169,6 +169,9 @@ def main():
     match = get_l3_domain(mso_template, l3_domain_uuid, l3_domain)
     if l3_domain_uuid or l3_domain:
         if match:
+            if match.details.get("pool"):
+                match.details["pool_uuid"] = match.details.get("pool")
+                match.details["pool"] = mso_template.get_vlan_pool_name(match.details.get("pool"))
             mso.existing = mso.previous = copy.deepcopy(match.details)  # Query a specific object
     elif match:
         mso.existing = match  # Query all objects
@@ -208,6 +211,10 @@ def main():
 
             mso.sanitize(payload)
 
+            if module.check_mode:
+                mso.proposed["pool_uuid"] = payload["pool"]
+                mso.proposed["pool"] = pool
+
         mso.existing = mso.proposed
 
     elif state == "absent":
@@ -219,6 +226,9 @@ def main():
         mso_template.template = mso.request(mso_template.template_path, method="PATCH", data=ops)
         match = get_l3_domain(mso_template, l3_domain_uuid, l3_domain)
         if match:
+            if match.details.get("pool"):
+                match.details["pool_uuid"] = match.details.get("pool")
+                match.details["pool"] = mso_template.get_vlan_pool_name(match.details.get("pool"))
             mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent

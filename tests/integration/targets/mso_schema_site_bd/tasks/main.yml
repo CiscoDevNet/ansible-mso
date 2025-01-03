@@ -54,12 +54,8 @@
   cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ item }}'
+    site: '{{ mso_site | default("ansible_test") }}'
     state: absent
-  loop:
-    - '{{ mso_site | default("ansible_test") }}'
-    - 'aws_{{ mso_site | default("ansible_test") }}'
-    - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exists
   cisco.mso.mso_tenant: 

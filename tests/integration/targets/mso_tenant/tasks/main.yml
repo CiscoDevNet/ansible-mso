@@ -33,7 +33,6 @@
     state: present
   loop:
   - { site: '{{ mso_site | default("ansible_test") }}', username: '{{ apic_username }}', password: '{{ apic_password }}', id: '{{ apic_site_id | default(101) }}', urls: '{{ apic_hostname }}' }
-  # - { site: 'aws_{{ mso_site | default("ansible_test") }}', username: '{{ aws_apic_username }}', password: '{{ aws_apic_password }}', id: '{{ aws_site_id | default(102) }}', urls: '{{ aws_apic_hostname }}' }
 
 - name: Undeploy a schema 1 template 1
   cisco.mso.mso_schema_template_deploy: &schema_undeploy
@@ -45,7 +44,6 @@
   ignore_errors: true
   loop:
   - '{{ mso_site | default("ansible_test") }}'
-  # - 'aws_{{ mso_site | default("ansible_test") }}'
 
 - name: Undeploy a schema 1 template 2
   cisco.mso.mso_schema_template_deploy:
@@ -56,7 +54,6 @@
   ignore_errors: true
   loop:
   - '{{ mso_site | default("ansible_test") }}'
-  # - 'aws_{{ mso_site | default("ansible_test") }}'
 
 - name: Undeploy a schema 2 template 3
   cisco.mso.mso_schema_template_deploy:
@@ -68,7 +65,6 @@
   ignore_errors: true
   loop:
   - '{{ mso_site | default("ansible_test") }}'
-  # - 'aws_{{ mso_site | default("ansible_test") }}'
 
 - name: Remove schemas
   cisco.mso.mso_schema:
@@ -89,6 +85,7 @@
   - ansible_test2
   - ansible_test3
   - tenant_with_site
+  ignore_errors: true
 
 # ADD TENANT
 - name: Add tenant (check_mode)
@@ -213,10 +210,14 @@
 
 # ADD TENANT WITH REMOTE USERS
 - name: Add tenant 3 (check_mode)
-  cisco.mso.mso_tenant:
-    <<: *tenant_present
+  cisco.mso.mso_tenant: &remote_user_login
+    <<: *mso_info
+    username: '{{ mso_remote_username | default(mso_username) }}'
+    password: '{{ mso_remote_password | default(mso_password) }}'
+    login_domain: '{{ mso_remote_login_domain | default("") }}'
     tenant: ansible_test3
     display_name: null
+    description: Ansible test tenant
     remote_users:
     - name: r_ansible_github_ci
       login_domain: test
@@ -231,7 +232,7 @@
 
 - name: Add tenant 3 (normal_mode)
   cisco.mso.mso_tenant:
-    <<: *tenant_present
+    <<: *remote_user_login
     tenant: ansible_test3
     display_name: null
     remote_users:
@@ -283,7 +284,7 @@
 
 - name: Add tenant 3 (normal mode)
   cisco.mso.mso_tenant:
-    <<: *tenant_present
+    <<: *remote_user_login
     tenant: ansible_test3
     users:
     - '{{ mso_username }}'

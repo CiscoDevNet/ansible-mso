@@ -51,12 +51,8 @@
   cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ item }}'
+    site: '{{ mso_site | default("ansible_test") }}'
     state: absent
-  loop:
-    - '{{ mso_site | default("ansible_test") }}'
-    - 'aws_{{ mso_site | default("ansible_test") }}'
-    - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
   cisco.mso.mso_tenant:
@@ -69,12 +65,12 @@
     state: present
   ignore_errors: true
 
-- name: Associate non-cloud site with ansible_test
+- name: Associate site with ansible_test
   cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ mso_site | default("ansible_test") }}'
-    state: present  
+    state: present
   register: add_ncs
 
 - name: Verify add_ncs
@@ -107,7 +103,7 @@
 
 # Ensure pre requisites exist
 - name: Ensure schema 1 with Template1 and 2 exists
-  cisco.mso.mso_schema_template: 
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -233,7 +229,7 @@
   when: version.current.version is version('3.3', '>=')
   block:
   # Associate site to schema/template after creating External EPG
-  - name: Add non-cloud site to a schema
+  - name: Add site to a schema
     cisco.mso.mso_schema_site:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -287,7 +283,7 @@
       that:
       - cm_add_epg is changed
       - cm_add_epg.previous == {}
-    when: version.current.version is version('4.0', '<') 
+    when: version.current.version is version('4.0', '<')
 
   - name: Add external EPG to site (normal mode)
     cisco.mso.mso_schema_site_external_epg:
@@ -312,7 +308,7 @@
       that:
       - nm_add_epg is changed
       - nm_add_epg.previous == {}
-    when: version.current.version is version('4.0', '<') 
+    when: version.current.version is version('4.0', '<')
 
   - name: ADD External EPG1 to site again
     cisco.mso.mso_schema_site_external_epg:
@@ -343,7 +339,7 @@
       l3out_on_apic: true
       state: present
     register: nm_add_ext_epg_l3out_apic
-  
+
   - name: Update external EPG to site with l3out_on_apic true again
     cisco.mso.mso_schema_site_external_epg:
       <<: *add_ext_epg_l3out_apic
@@ -493,7 +489,7 @@
       - nm_remove_epg.current == {}
 
   # Associate site to schema/template before creating External EPG
-  - name: Add non-cloud site to a schema
+  - name: Add site to a schema
     cisco.mso.mso_schema_site:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -509,7 +505,7 @@
       - add_site.current.siteId is match ("[0-9a-zA-Z]*")
       - add_site.current.templateName == "Template2"
 
-  - name: Add non-cloud site to a schema
+  - name: Add site to a schema
     cisco.mso.mso_schema_site:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -573,13 +569,13 @@
       that:
       - nm_add_epg is changed
       - nm_add_epg.previous == {}
-    when: version.current.version is version('4.0', '<') 
+    when: version.current.version is version('4.0', '<')
 
   # Verify L3Out association at site level External EPG
 
   # 1. Verifying External EPG association with VRFs of different templates in same schema
   - name: Execute tasks only for MSO version < 4.0
-    when: version.current.version is version('4.0', '<') 
+    when: version.current.version is version('4.0', '<')
     block:
     # 1.1. Verifying External EPG association with VRF in the same template of the same schema
     - name: Add external EPG 1 at Template1 and associate it with the VRF1 in the Template1
@@ -960,99 +956,3 @@
       - cm_no_site_associated is not changed
       - nm_no_site_associated is not changed
       - cm_no_site_associated.msg == nm_no_site_associated.msg == "Provided site 'ansible_test' not associated with template 'Template4'. Site is currently associated with template(s){{':'}} Template1, Template2, Template3"
-
-# Verify route_reachability argument when template_external_epg is associated with Azure site and
-# template_external_epg type argument is set to cloud
-- name: Ensure ANP exists
-  cisco.mso.mso_schema_template_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template4
-    anp: ANP4
-    state: present
-
-- name: Ensure VRF4 exists
-  cisco.mso.mso_schema_template_vrf:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template4
-    vrf: VRF4
-    state: present
-
-- name: Ensure L3Out4 Exists
-  cisco.mso.mso_schema_template_l3out:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template4
-    vrf:
-      name: VRF4
-    l3out: L3out4
-    state: present
-
-- name: Add external EPG4 at template4 level type cloud (normal mode)
-  cisco.mso.mso_schema_template_external_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template4
-    external_epg: ext_epg_4
-    type: cloud
-    vrf:
-      name: VRF4
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template4
-    anp:
-      name: ANP4
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template4
-    state: present
-  register: nm_add_ext_epg_4
-
-- name: Execute azure tasks
-  when:
-  - version.current.version is version('3.3', '>=')
-  - version.current.version is version('4.3', '<')
-  block:
-  - name: Add azure site to a schema Template4
-    cisco.mso.mso_schema_site:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      site: 'azure_{{ mso_site | default("ansible_test") }}'
-      template: Template4
-      state: present
-    when: version.current.version is version('3.3', '>=')
-    register: add_cloud_site
-
-  - name: Add external EPG to site (normal mode)
-    cisco.mso.mso_schema_site_external_epg: 
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      site: 'azure_{{ mso_site | default("ansible_test") }}'
-      template: Template4
-      external_epg: ext_epg_4
-      route_reachability: site-ext
-      state: present
-    register: nm_add_ext_epg_site
-
-  - name: Verify nm_add_ext_epg_site
-    ansible.builtin.assert:
-      that:
-      - nm_add_ext_epg_site.current.externalEpgRef.externalEpgName == "ext_epg_4"
-      - nm_add_ext_epg_site.current.routeReachabilityInternetType == "site-ext"
-
-  - name: Add external EPG to site again(normal mode)
-    cisco.mso.mso_schema_site_external_epg: 
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      site: 'azure_{{ mso_site | default("ansible_test") }}'
-      template: Template4
-      external_epg: ext_epg_4
-      route_reachability: site-ext
-      state: present
-    register: nm_add_ext_epg_site_again
-
-  - name: Verify nm_add_ext_epg_site_again
-    ansible.builtin.assert:
-      that:
-      - nm_add_ext_epg_site_again is not changed
-      - nm_add_ext_epg_site_again.current.externalEpgRef.externalEpgName == "ext_epg_4"
-      - nm_add_ext_epg_site_again.current.routeReachabilityInternetType == "site-ext"

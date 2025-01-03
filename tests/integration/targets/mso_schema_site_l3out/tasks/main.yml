@@ -52,15 +52,11 @@
   cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ item }}'
+    site: '{{ mso_site | default("ansible_test") }}'
     state: absent
-  loop:
-    - '{{ mso_site | default("ansible_test") }}'
-    - 'aws_{{ mso_site | default("ansible_test") }}'
-    - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exists
-  cisco.mso.mso_tenant: 
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -243,12 +239,12 @@
       - nm_query_all_l3out is not changed
       - cm_query_all_l3out.current | length == 2
       - nm_query_all_l3out.current | length == 2
-      - "'{{cm_query_all_l3out.current[0].l3outRef.l3outName}}' in l3outs"
-      - "'{{cm_query_all_l3out.current[1].l3outRef.l3outName}}' in l3outs"
-      - "'{{nm_query_all_l3out.current[0].l3outRef.l3outName}}' in l3outs"
-      - "'{{nm_query_all_l3out.current[1].l3outRef.l3outName}}' in l3outs"
-      - cm_query_all_l3out.current[0].l3outRef.schemaId == nm_query_all_l3out.current[0].l3outRef.schemaId
-      - cm_query_all_l3out.current[0].l3outRef.templateName == nm_query_all_l3out.current[0].l3outRef.templateName == "Template1"
+      - cm_query_all_l3out.current.0.l3outRef.l3outName == "L3out1"
+      - cm_query_all_l3out.current.1.l3outRef.l3outName == "L3out2"
+      - nm_query_all_l3out.current.0.l3outRef.l3outName == "L3out1"
+      - nm_query_all_l3out.current.1.l3outRef.l3outName == "L3out2"
+      - cm_query_all_l3out.current.0.l3outRef.schemaId == nm_query_all_l3out.current.0.l3outRef.schemaId
+      - cm_query_all_l3out.current.0.l3outRef.templateName == nm_query_all_l3out.current.0.l3outRef.templateName == "Template1"
 
   - name: Query a specific L3Out (check_mode)
     cisco.mso.mso_schema_site_l3out:

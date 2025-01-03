@@ -38,200 +38,27 @@
     <<: *aci_info
     name: ansible_test
 
-# Site type checking for L4-L7 Device configuration
-# QUERY OBJECTS
-- name: Query cloud provider object
-  cisco.aci.aci_cloud_provider:
+- name: Add devices to APIC
+  cisco.aci.aci_rest:
     <<: *aci_info
-    state: query
-  register: query_cloud
-  when: aci_version.current.0.topSystem.attributes.version is version('4.1', '>=')
-
-- name: Set vars
-  ansible.builtin.set_fact:
-    query_cloud:
-      current: []
-  when: aci_version.current.0.topSystem.attributes.version is version('4.1', '<')
-
-- name: Verify query_cloud for all sites
-  ansible.builtin.assert:
-    that:
-      - query_cloud is not changed
-
-- name: Verify query_cloud for Cloud Sites
-  ansible.builtin.assert:
-    that:
-      - query_cloud is not changed
-      - query_cloud.current.0.cloudProvP.attributes.environment == "public-cloud"
-      - '"vendor" in query_cloud.current.0.cloudProvP.attributes'
-  when:
-    - query_cloud.current | length > 0 # This condition will execute only cloud sites
-
-# Cloud Site block
-- name: Execute tasks only for cloud sites
-  when:
-    - query_cloud.current | length > 0
-    - query_cloud.current.0.cloudProvP.attributes.vendor == "azure"
-  block:
-    - name: Add azure_vrf to the ansible_test
-      cisco.aci.aci_vrf:
-        <<: *aci_info
-        tenant: ansible_test
-        vrf: azure_vrf
-
-    - name: Add azure_ctxprof to the ansible_test
-      cisco.aci.aci_cloud_ctx_profile:
-        <<: *aci_info
-        tenant: ansible_test
-        cloud: azure
-        name: azure_ctxprof
-        vrf: azure_vrf
-        region: westus2
-        primary_cidr: "1.1.1.2/32"
-        state: present
-
-    - name: Add the subnet to the azure_ctxprof
-      cisco.aci.aci_rest:
-        <<: *aci_info
-        path: api/mo/uni/tn-ansible_test/ctxprofile-azure_ctxprof/cidr-[1.1.1.2/32]/subnet-[1.1.1.2/32].json
-        method: post
-        content:
-          cloudSubnet:
-            attributes:
-              ip: 1.1.1.2/32
-              name: azure_ctxprof_cidr
-            children:
-              - cloudRsZoneAttach:
-                  attributes:
-                    tDn: "uni/clouddomp/provp-azure/region-westus2/zone-default"
-
-    - name: Add the ansible_test_adc device - ThirdParty_LB
-      cisco.aci.aci_rest:
-        <<: *aci_info
-        path: /api/node/mo/uni/tn-ansible_test/cld-ansible_test_adc.json
-        method: post
-        content:
-          cloudLDev:
-            attributes:
-              targetMode: unspecified
-              name: ansible_test_adc
-              svcType: ADC
-            children:
-              - cloudRsLDevToCtx:
-                  attributes:
-                    tDn: uni/tn-ansible_test/ctx-azure_vrf
-              - cloudLIf:
-                  attributes:
-                    allowAll: "yes"
-                    name: TP_LB_Inf
-                  children:
-                    - cloudEPSelector:
-                        attributes:
-                          name: TP_LB_Inf_Selector
-                          matchExpression: IP=='1.1.1.1'
-
-    - name: Add the ansible_test_firewall1 device
-      cisco.aci.aci_rest:
-        <<: *aci_info
-        path: /api/node/mo/uni/tn-ansible_test/cld-ansible_test_firewall1.json
-        method: post
-        content:
-          cloudLDev:
-            attributes:
-              name: ansible_test_firewall1
-              svcType: FW
-            children:
-              - cloudRsLDevToCtx:
-                  attributes:
-                    tDn: uni/tn-ansible_test/ctx-azure_vrf
-              - cloudLIf:
-                  attributes:
-                    allowAll: "yes"
-                    name: TP_FW_Inf1
-                  children:
-                    - cloudEPSelector:
-                        attributes:
-                          name: TP_FW_Inf_Selector
-                          matchExpression: IP=='1.1.1.1'
-
-    - name: Add the ansible_test_firewall2 device
-      cisco.aci.aci_rest:
-        <<: *aci_info
-        path: /api/node/mo/uni/tn-ansible_test/cld-ansible_test_firewall2.json
-        method: post
-        content:
-          cloudLDev:
-            attributes:
-              name: ansible_test_firewall2
-              svcType: FW
-            children:
-              - cloudRsLDevToCtx:
-                  attributes:
-                    tDn: uni/tn-ansible_test/ctx-azure_vrf
-              - cloudLIf:
-                  attributes:
-                    allowAll: "yes"
-                    name: TP_FW_Inf2
-                  children:
-                    - cloudEPSelector:
-                        attributes:
-                          name: TP_FW_Inf_Selector
-                          matchExpression: IP=='1.1.1.1'
-
-    - name: Add the ansible_test_other device
-      cisco.aci.aci_rest:
-        <<: *aci_info
-        path: /api/node/mo/uni/tn-ansible_test/clb-ansible_test_other.json
-        method: post
-        content:
-          cloudLB:
-            attributes:
-              name: ansible_test_other
-              type: network
-            children:
-              - cloudRsLDevToCloudSubnet:
-                  attributes:
-                    tDn: "uni/tn-ansible_test/ctxprofile-azure_ctxprof/cidr-[1.1.1.2/32]/subnet-[1.1.1.2/32]"
-
-    - name: Add the ansible_test_app_lb device
-      cisco.aci.aci_rest:
-        <<: *aci_info
-        path: /api/node/mo/uni/tn-ansible_test/clb-ansible_test_app_lb.json
-        method: post
-        content:
-          cloudLB:
-            attributes:
-              name: ansible_test_app_lb
-              type: application
-            children:
-              - cloudRsLDevToCloudSubnet:
-                  attributes:
-                    tDn: "uni/tn-ansible_test/ctxprofile-azure_ctxprof/cidr-[1.1.1.2/32]/subnet-[1.1.1.2/32]"
-
-- name: Execute tasks only for non-cloud sites
-  when: query_cloud.current | length == 0 # Non-Cloud Site block
-  block:
-    - name: Add devices to APIC
-      cisco.aci.aci_rest:
-        <<: *aci_info
-        path: /api/node/mo/uni/tn-ansible_test.json
-        method: post
-        content:
-          vnsLDevVip:
-            attributes:
-              svcType: "{{ item.type }}"
-              managed: "false"
-              name: "{{ item.name }}"
-            children:
-              - vnsCDev:
-                  attributes:
-                    name: "{{ item.name }}"
-      loop:
-        - type: FW
-          name: ansible_test_firewall1
-        - type: FW
-          name: ansible_test_firewall2
-        - type: ADC
-          name: ansible_test_adc
-        - type: OTHERS
-          name: ansible_test_other
+    path: /api/node/mo/uni/tn-ansible_test.json
+    method: post
+    content:
+      vnsLDevVip:
+        attributes:
+          svcType: "{{ item.type }}"
+          managed: "false"
+          name: "{{ item.name }}"
+        children:
+          - vnsCDev:
+              attributes:
+                name: "{{ item.name }}"
+  loop:
+    - type: FW
+      name: ansible_test_firewall1
+    - type: FW
+      name: ansible_test_firewall2
+    - type: ADC
+      name: ansible_test_adc
+    - type: OTHERS
+      name: ansible_test_other

@@ -771,6 +771,15 @@
     - nm_change_epg_1_l3out.current.l3outRef.templateName == 'Template1'
     - nm_change_epg_1_l3out.current.qosPriority == 'level5'
 
+- name: Enable VRF preferred_group
+  cisco.mso.mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    preferred_group: true
+    state: present
+
 - name: Change epg 4 preferredGroup(normal mode)
   cisco.mso.mso_schema_template_external_epg:
     <<: *mso_info

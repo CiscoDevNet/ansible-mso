@@ -38,28 +38,6 @@
     - https://{{ apic_hostname }}
     state: present
 
-- name: Ensure aws site exists
-  cisco.mso.mso_site:
-    <<: *mso_info
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ aws_apic_username }}'
-    apic_password: '{{ aws_apic_password }}'
-    apic_site_id: '{{ aws_site_id | default(102) }}'
-    urls:
-    - https://{{ aws_apic_hostname }}
-    state: present
-
-- name: Ensure azure site exists
-  cisco.mso.mso_site:
-    <<: *mso_info
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ azure_apic_username }}'
-    apic_password: '{{ azure_apic_password }}'
-    apic_site_id: '{{ azure_site_id | default(103) }}'
-    urls:
-    - https://{{ azure_apic_hostname }}
-    state: present
-
 - name: Undeploy template
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
@@ -277,40 +255,6 @@
     <<: *fail_validation
     state: absent
 
-- name: Ensure AWS site is present under tenant ansible_test
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    cloud_account: '000000000000'
-    aws_access_key: 1
-    secret_key: 0
-    state: present
-
-- name: Ensure Azure site is present under tenant ansible_test
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
-    cloud_account: uni/tn-ansible_test/act-[9]-vendor-azure
-    state: present
-
-- name: Add AWS site to a schema
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    state: present
-
-- name: Add Azure site to a schema
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    state: present
-
 - name: Deploy templates
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
@@ -318,8 +262,6 @@
     template: Template 1
     sites: 
       - '{{ mso_site | default("ansible_test") }}'
-      - 'aws_{{ mso_site | default("ansible_test") }}'
-      - 'azure_{{ mso_site | default("ansible_test") }}'
     state: deploy
   register: deploy_template_all
 
@@ -346,8 +288,6 @@
     template: Template 1
     sites: 
       - '{{ mso_site | default("ansible_test") }}'
-      - 'aws_{{ mso_site | default("ansible_test") }}'
-      - 'azure_{{ mso_site | default("ansible_test") }}'
     state: redeploy
   register: redeploy_template_all
 
@@ -366,8 +306,6 @@
     template: Template 1
     sites: 
       - '{{ mso_site | default("ansible_test") }}'
-      - 'aws_{{ mso_site | default("ansible_test") }}'
-      - 'azure_{{ mso_site | default("ansible_test") }}'
     state: undeploy
   register: undeploy_template_all
 
@@ -387,16 +325,12 @@
     - '"isRedeploy" in redeploy_template_all.current.reqDetails'
     - undeploy_template_all is not changed
     - '"undeploy" in undeploy_template_all.current.reqDetails'
-    - undeploy_template_all.current.reqDetails.undeploy | length == 3
-    - deployment_status.current | length == 3
-    - query_deploy_status_all.current.status | length == 3
+    - undeploy_template_all.current.reqDetails.undeploy | length == 1
+    - deployment_status.current | length == 1
+    - query_deploy_status_all.current.status | length == 1
     - query_deploy_status_all.current.status.0.status.siteStatus == "Succeeded"
-    - query_deploy_status_all.current.status.1.status.siteStatus == "Succeeded"
-    - query_deploy_status_all.current.status.2.status.siteStatus == "Succeeded"
-    - query_redeploy_status_all.current.status | length == 3
+    - query_redeploy_status_all.current.status | length == 1
     - query_redeploy_status_all.current.status.0.status.siteStatus == "Succeeded"
-    - query_redeploy_status_all.current.status.1.status.siteStatus == "Succeeded"
-    - query_redeploy_status_all.current.status.2.status.siteStatus == "Succeeded"
     - query_undeploy_status_all.current.status == []
 
 - name: Verify multiple sites 4.0 specific

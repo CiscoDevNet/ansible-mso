@@ -176,7 +176,7 @@ EXAMPLES = r"""
   register: virtual_port_channel_interface_1
 
 - name: Update a  Virtual Port Channel Interface's interfaces and their descriptions
-  cisco.mso.ndo_port_channel_interface:
+  cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -202,7 +202,7 @@ EXAMPLES = r"""
     state: present
 
 - name: Update a Virtual Port Channel Interface by mirroring node 1 and node 2 interfaces
-  cisco.mso.ndo_port_channel_interface:
+  cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword

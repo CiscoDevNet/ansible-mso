@@ -114,6 +114,12 @@ options:
     description:
     - Preferred Group is enabled for this External EPG or not.
     type: bool
+  qos_level:
+    description:
+    - The QoS Level parameter is supported on versions of MSO/NDO that are 4.3 or greater.
+    - Defaults to C(unspecified) when unset during creation.
+    type: str
+    choices: [ unspecified, level1, level2, level3, level4, level5, level6 ]
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -210,6 +216,7 @@ def main():
         anp=dict(type="dict", options=mso_reference_spec()),
         preferred_group=dict(type="bool"),
         type=dict(type="str", default="on-premise", choices=["on-premise", "cloud"]),
+        qos_level=dict(type="str", choices=["unspecified", "level1", "level2", "level3", "level4", "level5", "level6"]),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -239,6 +246,7 @@ def main():
         anp["template"] = anp.get("template").replace(" ", "")
     preferred_group = module.params.get("preferred_group")
     type_ext_epg = module.params.get("type")
+    qos_level = module.params.get("qos_level")
     state = module.params.get("state")
 
     mso = MSOModule(module)
@@ -306,6 +314,9 @@ def main():
             payload["anpRef"] = anp_ref
         else:
             payload["l3outRef"] = l3out_ref
+
+        if qos_level:
+            payload["qosPriority"] = qos_level
 
         mso.sanitize(payload, collate=True)
 

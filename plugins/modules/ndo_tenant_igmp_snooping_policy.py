@@ -250,23 +250,23 @@ def main():
     start_query_count = module.params.get("start_query_count")
     state = module.params.get("state")
 
-    template_object = MSOTemplate(mso, "tenant", template)
-    template_object.validate_template("tenantPolicy")
+    mso_template = MSOTemplate(mso, "tenant", template)
+    mso_template.validate_template("tenantPolicy")
 
-    mld_snooping_policies = template_object.template.get("tenantPolicyTemplate", {}).get("template", {}).get("igmpSnoopPolicies", [])
+    existing_mld_snooping_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("igmpSnoopPolicies", [])
     object_description = "IGMP Snooping Policy"
 
-    if state in ["query", "absent"] and mld_snooping_policies == []:
-        mso.exit_json()
-    elif state == "query" and not (name or uuid):
-        mso.existing = mld_snooping_policies
-    elif mld_snooping_policies and (name or uuid):
-        match = template_object.get_object_by_key_value_pairs(
-            object_description, mld_snooping_policies, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
+    if name or uuid:
+        match = mso_template.get_object_by_key_value_pairs(
+            object_description,
+            existing_mld_snooping_policies,
+            [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
             igmp_snooping_policy_attrs_path = "/tenantPolicyTemplate/template/igmpSnoopPolicies/{0}".format(match.index)
             mso.existing = mso.previous = copy.deepcopy(match.details)
+    else:
+        mso.existing = mso.previous = existing_mld_snooping_policies
 
     ops = []
 
@@ -300,10 +300,10 @@ def main():
             ops.append(dict(op="remove", path=igmp_snooping_policy_attrs_path))
 
     if not module.check_mode and ops:
-        response_object = mso.request(template_object.template_path, method="PATCH", data=ops)
-        mld_snooping_policies = response_object.get("tenantPolicyTemplate", {}).get("template", {}).get("igmpSnoopPolicies", [])
-        match = template_object.get_object_by_key_value_pairs(
-            object_description, mld_snooping_policies, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
+        response_object = mso.request(mso_template.template_path, method="PATCH", data=ops)
+        existing_mld_snooping_policies = response_object.get("tenantPolicyTemplate", {}).get("template", {}).get("igmpSnoopPolicies", [])
+        match = mso_template.get_object_by_key_value_pairs(
+            object_description, existing_mld_snooping_policies, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
         )
         if match:
             mso.existing = match.details  # When the state is present

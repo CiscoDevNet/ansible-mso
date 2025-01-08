@@ -148,6 +148,7 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     vrf: VRF
+    preferred_group: true
     #layer3_multicast: true
     state: present
 
@@ -366,6 +367,7 @@
     - cm_add_epg_again.current.vrfRef.templateName == "Template1"
     - cm_add_epg_again.previous.vrfRef.vrfName == "VRF"
     - cm_add_epg_again.current.vrfRef.vrfName == "VRF"
+    - cm_add_epg_again.current.qosPriority == "unspecified"
     - cm_add_epg_again.previous.vrfRef.schemaId ==  cm_add_epg_again.current.vrfRef.schemaId
 
 
@@ -734,6 +736,7 @@
       name: L3out2
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
+    qos_level: level5
     state: present
   register: nm_change_epg_1_l3out
 
@@ -761,10 +764,12 @@
     - nm_change_epg_1_l3out is changed
     - nm_change_epg_1_l3out.previous.vrfRef.vrfName == 'VRF'
     - nm_change_epg_1_l3out.previous.vrfRef.templateName == 'Template1'
+    - nm_change_epg_1_l3out.previous.qosPriority == 'unspecified'
     - nm_change_epg_1_l3out.current.vrfRef.vrfName == 'VRF2'
     - nm_change_epg_1_l3out.current.vrfRef.templateName == 'Template1'
     - nm_change_epg_1_l3out.current.l3outRef.l3outName == 'L3out2'
     - nm_change_epg_1_l3out.current.l3outRef.templateName == 'Template1'
+    - nm_change_epg_1_l3out.current.qosPriority == 'level5'
 
 - name: Change epg 4 preferredGroup(normal mode)
   cisco.mso.mso_schema_template_external_epg:

@@ -219,9 +219,9 @@ def format_list_dict(list_dict, conversion_map):
                 formatted_dict = {}
                 if isinstance(d, dict):
                     for key, value in d.items():
-                        json_key = keys_map.get(key, "unknownKey")  # retreive the equilavent NDO API formatted key
+                        json_key = keys_map.get(key, "unknownKey")  # retrieve the equilavent NDO API formatted key
                         if not isinstance(json_key, str):
-                            raise TypeError("the associatied json key must be of type string, got:{0}".format(type(json_key)))
+                            raise TypeError("the associated json key must be of type string, got:{0}".format(type(json_key)))
                         values_mapping = values_map.get(key)  # Check if there is a mapping between values associated with the current key
                         if values_mapping and isinstance(values_mapping, dict):
                             formatted_dict[json_key] = values_map[key].get(value, value)

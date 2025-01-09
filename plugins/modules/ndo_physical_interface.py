@@ -92,6 +92,8 @@ options:
   interface_descriptions:
     description:
     - The interface settings defined in the interface settings policy will be applied to the interfaces on the node IDs configured in C(nodes).
+    - This parameter when set to an empty list during an update will clear all the existing interface descriptions.
+    - The API will trigger an error when there are duplicate interface IDs in the list.
     type: list
     elements: dict
     suboptions:
@@ -297,6 +299,7 @@ def main():
             [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
+            physical_interface_attrs_path = "{0}/{1}".format(path, match.index)
             mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
         mso.existing = mso.previous = existing_physical_interfaces
@@ -309,10 +312,6 @@ def main():
             fabric_policy_template = MSOTemplate(mso, "fabric_policy", physical_policy.get("template"))
             fabric_policy_template.validate_template("fabricPolicy")
             physical_policy_uuid = fabric_policy_template.get_interface_policy_group_uuid(physical_policy.get("name"))
-
-        if mso.existing:
-            proposed_payload = copy.deepcopy(mso.existing)
-            mso_values_remove = list()
 
         mso_values = dict(
             name=name,
@@ -329,19 +328,19 @@ def main():
             mso_values["breakoutMode"] = breakout_mode
 
         if interface_descriptions:
-            mso_values["interfaceDescriptions"] = format_interface_descriptions(interface_descriptions, "")
+            mso_values["interfaceDescriptions"] = format_interface_descriptions(mso, interface_descriptions, "")
 
-        if match:
+        if mso.existing:
+            proposed_payload = copy.deepcopy(mso.existing)
+            mso_values_remove = list()
 
             if physical_interface_type and match.details.get("policyGroupType") != physical_interface_type:
                 mso.fail_json(msg="ERROR: Physical Interface type cannot be changed.")
 
-            update_path = "{0}/{1}".format(path, match.index)
-
             if interface_descriptions == [] and proposed_payload.get("interfaceDescriptions"):
                 mso_values_remove.append("interfaceDescriptions")
 
-            append_update_ops_data(ops, match.details, update_path, mso_values, mso_values_remove)
+            append_update_ops_data(ops, match.details, physical_interface_attrs_path, mso_values, mso_values_remove)
             mso.sanitize(match.details, collate=True)
 
         else:
@@ -356,7 +355,7 @@ def main():
 
     elif state == "absent":
         if match:
-            ops.append(dict(op="remove", path="{0}/{1}".format(path, match.index)))
+            ops.append(dict(op="remove", path=physical_interface_attrs_path))
 
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)

@@ -27,8 +27,8 @@
     state: query
   register: version
 
-- name: Execute tasks only for MSO version > 4.3
-  when: version.current.version is version('4.3', '>=')
+- name: Execute tasks only for MSO version > 4.4
+  when: version.current.version is version('4.4', '>=')
   block:
     - name: Remove fabric resource policy template
       cisco.mso.ndo_template: &template_absent
@@ -331,7 +331,35 @@
           - query_physical_interface_with_uuid.current.interfaceDescriptions[0].interfaceID == "1/1"
           - query_physical_interface_with_uuid.current.interfaceDescriptions[0].description == "First interface"
           - query_physical_interface_with_uuid.current.uuid is defined
-          # - query_all_physical_interfaces.current | length == 3
+          - query_all_physical_interfaces.current | length == 3
+          - query_all_physical_interfaces.current[0].name == "ansible_physical_interface"
+          - query_all_physical_interfaces.current[1].name == "ansible_physical_interface_with_policy"
+          - query_all_physical_interfaces.current[2].name == "ansible_physical_interface_changed"
+
+    - name: Update interface descriptions of Physical Interface of type 'breakout'
+      cisco.mso.ndo_physical_interface:
+        <<: *update_physical_interface_uuid
+        interface_descriptions:
+        - interface_id: "1/1"
+          description: "Updated interface description"
+        - interface_id: "1/2"
+          description: "Updated interface description 2"
+      register: update_interface_description
+
+    - name: Assert updating with interface descriptions of Physical Interface of type 'breakout'
+      ansible.builtin.assert:
+        that:
+          - update_interface_description is changed
+          - update_interface_description.previous.name == "ansible_physical_interface_changed"
+          - update_interface_description.current.name == "ansible_physical_interface_changed"
+          - update_interface_description.previous.breakoutMode == "4x25G"
+          - update_interface_description.current.breakoutMode == "4x25G"
+          - update_interface_description.previous.interfaceDescriptions | length == 1
+          - update_interface_description.current.interfaceDescriptions | length == 2
+          - update_interface_description.current.interfaceDescriptions[0].interfaceID == "1/1"
+          - update_interface_description.current.interfaceDescriptions[0].description == "Updated interface description"
+          - update_interface_description.current.interfaceDescriptions[1].interfaceID == "1/2"
+          - update_interface_description.current.interfaceDescriptions[1].description == "Updated interface description 2"
 
     # Remove interface descriptions
     - name: Update Physical Interface of type 'breakout' by removing interface interface_descriptions
@@ -348,7 +376,7 @@
           - rm_physical_interface_name_interface_descriptions.current.name == "ansible_physical_interface_changed"
           - rm_physical_interface_name_interface_descriptions.previous.breakoutMode == "4x25G"
           - rm_physical_interface_name_interface_descriptions.current.breakoutMode == "4x25G"
-          - rm_physical_interface_name_interface_descriptions.previous.interfaceDescriptions | length == 1 
+          - rm_physical_interface_name_interface_descriptions.previous.interfaceDescriptions | length == 2
           - rm_physical_interface_name_interface_descriptions.previous.uuid is defined
           - rm_physical_interface_name_interface_descriptions.current.uuid is defined
           - rm_physical_interface_name_interface_descriptions.current.interfaceDescriptions == None
@@ -436,10 +464,6 @@
           - nm_delete_physical_interface_again is not changed
           - nm_delete_physical_interface_again.previous == nm_delete_physical_interface_again.current == {}
           - nm_delete_physical_interface_again.current.uuid is not defined
-
-    - name: Query all tests
-      cisco.mso.ndo_physical_interface:
-        <<: *query_all_physical_interface
 
     - name: Delete Physical Interface of type 'breakout' with UUID
       cisco.mso.ndo_physical_interface:

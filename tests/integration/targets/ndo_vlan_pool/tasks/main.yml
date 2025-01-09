@@ -225,6 +225,14 @@
         state: query
       register: query_one
 
+    - name: Query a vlan pool with uuid
+      cisco.mso.ndo_vlan_pool:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        vlan_pool_uuid: '{{ query_one.current.uuid }}'
+        state: query
+      register: query_with_uuid
+
     - name: Query all vlan pool in the template
       cisco.mso.ndo_vlan_pool:
         <<: *mso_info
@@ -236,7 +244,9 @@
       assert:
         that:
           - query_one is not changed
-          - query_one.current.name == "ansible_test_vlan_pool_2"
+          - query_with_uuid is not changed
+          - query_one.current.name == query_with_uuid.current.name == "ansible_test_vlan_pool_2"
+          - query_one.current.uuid == query_with_uuid.current.uuid
           - query_all is not changed
           - query_all.current | length == 2
 

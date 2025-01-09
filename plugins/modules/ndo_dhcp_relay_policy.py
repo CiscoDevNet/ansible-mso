@@ -114,7 +114,7 @@ EXAMPLES = r"""
         ip: 1.1.1.1
     state: present
 
-- name: Query a dhcp relay policy with template_name
+- name: Query a dhcp relay policy with name
   cisco.mso.ndo_dhcp_relay_policy:
     host: mso_host
     username: admin
@@ -123,6 +123,16 @@ EXAMPLES = r"""
     relay_policy: ansible_test_relay_policy
     state: query
   register: query_one
+
+- name: Query a dhcp relay policy with UUID
+  cisco.mso.ndo_dhcp_relay_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_tenant_template
+    relay_policy_uuid: '{{ query_one.current.uuid }}'
+    state: query
+  register: query_with_uuid
 
 - name: Query all dhcp relay policy in the template
   cisco.mso.ndo_dhcp_relay_policy:
@@ -204,7 +214,7 @@ def main():
 
     path = "/tenantPolicyTemplate/template/dhcpRelayPolicies"
     existing_dhcp_relay_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("dhcpRelayPolicies", [])
-    if relay_policy:
+    if relay_policy or relay_policy_uuid:
         object_description = "DHCP Relay Policy"
         if relay_policy_uuid:
             match = mso_template.get_object_by_uuid(object_description, existing_dhcp_relay_policies, relay_policy_uuid)

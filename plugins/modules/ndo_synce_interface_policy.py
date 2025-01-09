@@ -123,7 +123,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_fabric_policy_template
-    interface_policy_uuid: uuid
+    interface_policy_uuid: '{{ query_one.current.uuid }}'
     state: query
   register: query_one_by_uuid
 
@@ -197,7 +197,7 @@ def main():
 
     existing_interface_policies = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("syncEthIntfPolicies", [])
 
-    if interface_policy:
+    if interface_policy or interface_policy_uuid:
         object_description = "SyncE Interface Policy"
         if interface_policy_uuid:
             match = mso_template.get_object_by_uuid(object_description, existing_interface_policies, interface_policy_uuid)

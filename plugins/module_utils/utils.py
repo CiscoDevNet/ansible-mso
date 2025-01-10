@@ -197,7 +197,7 @@ def format_list_dict(list_dict, conversion_map):
         }
     ]
 
-    formatted_cos_mappings = format_list_dict(ansible_cos_mappings, COS_KEYS_FORMAT_MAP)
+    formatted_cos_mappings = format_list_dict(ansible_cos_mappings, COS_CONVERSION_MAP)
 
     Output Data:
     ---------------------

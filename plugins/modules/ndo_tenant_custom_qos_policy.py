@@ -411,6 +411,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import (
     TARGET_COS_MAP,
     DSCP_CONVERSION_MAP,
     COS_CONVERSION_MAP,
+    QOS_PRIORITY_VALUES,
 )
 
 
@@ -432,7 +433,7 @@ def main():
                 target_cos=dict(type="str", choices=COS_MAP_CHOICES),
                 qos_priority=dict(
                     type="str",
-                    choices=["level1", "level2", "level3", "level4", "level5", "level6", "unspecified"],
+                    choices=QOS_PRIORITY_VALUES,
                     aliases=["priority", "prio"],
                 ),
             ),
@@ -447,7 +448,7 @@ def main():
                 target_cos=dict(type="str", choices=COS_MAP_CHOICES),
                 qos_priority=dict(
                     type="str",
-                    choices=["level1", "level2", "level3", "level4", "level5", "level6", "unspecified"],
+                    choices=QOS_PRIORITY_VALUES,
                     aliases=["priority", "prio"],
                 ),
             ),

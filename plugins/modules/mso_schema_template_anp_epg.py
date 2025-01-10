@@ -158,6 +158,7 @@ options:
     - Quality of Service (QoS) allows you to classify the network traffic in the fabric.
     - It helps prioritize and police the traffic flow to help avoid congestion in the network.
     - The Contract QoS Level parameter is supported on versions of MSO that are 3.1 or greater.
+    choices: [ unspecified, level1, level2, level3, level4, level5, level6 ]
     type: str
   epg_type:
     description:
@@ -278,6 +279,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec, mso_epg_subnet_spec
+from ansible_collections.cisco.mso.plugins.module_utils.constants import QOS_LEVEL
 
 
 def main():
@@ -296,7 +298,7 @@ def main():
         intersite_multicast_source=dict(type="bool"),
         proxy_arp=dict(type="bool"),
         subnets=dict(type="list", elements="dict", options=mso_epg_subnet_spec()),
-        qos_level=dict(type="str"),
+        qos_level=dict(type="str", choices=QOS_LEVEL),
         epg_type=dict(type="str", choices=["application", "service"]),
         deployment_type=dict(type="str", choices=["cloud_native", "cloud_native_managed", "third_party"]),
         service_type=dict(type="str"),

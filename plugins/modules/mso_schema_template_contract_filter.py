@@ -169,7 +169,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
-from ansible_collections.cisco.mso.plugins.module_utils.constants import FILTER_KEY_MAP, PRIORITY_MAP
+from ansible_collections.cisco.mso.plugins.module_utils.constants import FILTER_KEY_MAP, PRIORITY_MAP, QOS_LEVEL
 
 
 def main():
@@ -188,7 +188,7 @@ def main():
         filter_template=dict(type="str"),
         filter_schema=dict(type="str"),
         filter_type=dict(type="str", default="both-way", choices=list(FILTER_KEY_MAP), aliases=["type"]),
-        qos_level=dict(type="str", choices=["unspecified", "level1", "level2", "level3", "level4", "level5", "level6"]),
+        qos_level=dict(type="str", choices=QOS_LEVEL),
         action=dict(type="str", choices=["permit", "deny"]),
         priority=dict(type="str", choices=["default", "lowest_priority", "medium_priority", "highest_priority"]),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),

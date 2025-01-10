@@ -201,6 +201,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec
+from ansible_collections.cisco.mso.plugins.module_utils.constants import QOS_LEVEL
 
 
 def main():
@@ -216,7 +217,7 @@ def main():
         anp=dict(type="dict", options=mso_reference_spec()),
         preferred_group=dict(type="bool"),
         type=dict(type="str", default="on-premise", choices=["on-premise", "cloud"]),
-        qos_level=dict(type="str", choices=["unspecified", "level1", "level2", "level3", "level4", "level5", "level6"]),
+        qos_level=dict(type="str", choices=QOS_LEVEL),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 

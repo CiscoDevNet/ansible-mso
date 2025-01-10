@@ -87,6 +87,7 @@ EXAMPLES = r"""
         id: 1
         data: data_1
     state: present
+  register: create
 
 - name: Query a dhcp option policy with name
   cisco.mso.ndo_dhcp_option_policy:
@@ -104,7 +105,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    option_policy_uuid: '{{ query_one.current.uuid }}'
+    option_policy_uuid: '{{ create.current.uuid }}'
     state: query
   register: query_uuid
 

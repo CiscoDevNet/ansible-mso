@@ -87,6 +87,7 @@ EXAMPLES = r"""
       - from_vlan: 300
         to_vlan: 400
     state: present
+  register: create
 
 - name: Query a vlan pool with name
   cisco.mso.ndo_vlan_pool:
@@ -104,7 +105,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    vlan_pool_uuid: '{{ query_one.current.uuid }}'
+    vlan_pool_uuid: '{{ create.current.uuid }}'
     state: query
   register: query_with_uuid
 

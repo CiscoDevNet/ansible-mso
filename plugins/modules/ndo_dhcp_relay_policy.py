@@ -113,6 +113,7 @@ EXAMPLES = r"""
         epg: ansible_test_epg_1
         ip: 1.1.1.1
     state: present
+  register: create
 
 - name: Query a dhcp relay policy with name
   cisco.mso.ndo_dhcp_relay_policy:
@@ -130,7 +131,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    relay_policy_uuid: '{{ query_one.current.uuid }}'
+    relay_policy_uuid: '{{ create.current.uuid }}'
     state: query
   register: query_with_uuid
 

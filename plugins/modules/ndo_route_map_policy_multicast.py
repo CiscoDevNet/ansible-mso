@@ -101,6 +101,7 @@ EXAMPLES = r"""
         rp: 1.1.1.2
         action: permit
     state: present
+  register: create
 
 - name: Query a multicast route map policy with name
   cisco.mso.ndo_route_map_policy_multicast:

@@ -69,6 +69,7 @@ EXAMPLES = r"""
     l3_domain: ansible_test_l3_domain
     pool: ansible_test_vlan_pool
     state: present
+  register: create
 
 - name: Query a L3 domain with name
   cisco.mso.ndo_l3_domain:
@@ -86,7 +87,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    l3_domain_uuid: '{{ query_one.current.uuid }}'
+    l3_domain_uuid: '{{ create.current.uuid }}'
     state: query
   register: query_with_uuid
 

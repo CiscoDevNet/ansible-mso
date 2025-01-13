@@ -102,8 +102,6 @@ class MSOTemplate:
         :param fail_module: When match is not found fail the ansible module. -> Bool
         :return: The object. -> Dict | None
         """
-        if search_list is None or kv_list is None:
-            return None
         match, existing = self.get_object_from_list(search_list, kv_list)
         if not match and fail_module:
             msg = "Provided {0} with '{1}' not matching existing object(s): {2}".format(object_description, kv_list, ", ".join(existing))

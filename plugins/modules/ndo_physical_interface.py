@@ -139,6 +139,7 @@ EXAMPLES = r"""
     physical_interface_type: physical
     physical_policy: ansible_test_interface_setting_policy_uuid
     state: present
+  register: create_physical_interface_type_physical
 
 - name: Create a Physical Interface with physical_interface_type set to breakout
   cisco.mso.ndo_physical_interface:
@@ -156,6 +157,7 @@ EXAMPLES = r"""
       - interface_id: "1/1"
         description: "Interface description for 1/1"
     state: present
+  register: create_physical_interface_type_breakout
 
 - name: Query all physical interfaces
   cisco.mso.ndo_physical_interface:
@@ -182,7 +184,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_test_template
-    uuid: "{{ query_one_name.current.uuid }}"
+    uuid: "{{ create_physical_interface_type_breakout.current.uuid }}"
     state: query
   register: query_one_uuid
 
@@ -290,7 +292,7 @@ def main():
     object_description = "Physical Interface Profile"
     path = "/fabricResourceTemplate/template/interfaceProfiles"
 
-    existing_physical_interfaces = mso_template.template.get("fabricResourceTemplate", {}).get("template", {}).get("interfaceProfiles", [])
+    existing_physical_interfaces = mso_template.template.get("fabricResourceTemplate", {}).get("template", {}).get("interfaceProfiles") or []
 
     if name or uuid:
         match = mso_template.get_object_by_key_value_pairs(
@@ -359,7 +361,7 @@ def main():
 
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)
-        physical_interfaces = response.get("fabricResourceTemplate", {}).get("template", {}).get("interfaceProfiles", [])
+        physical_interfaces = response.get("fabricResourceTemplate", {}).get("template", {}).get("interfaceProfiles") or []
         match = mso_template.get_object_by_key_value_pairs(object_description, physical_interfaces, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
         if match:
             mso.existing = match.details  # When the state is present

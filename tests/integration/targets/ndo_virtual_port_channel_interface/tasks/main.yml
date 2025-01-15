@@ -117,6 +117,19 @@
         <<: *create_virtual_port_channel_interface
       register: nm_create_new_virtual_port_channel_interface_again
 
+    - name: Create another virtual port channel interface with minimum requirements
+      cisco.mso.ndo_virtual_port_channel_interface: &create_virtual_port_channel_interface_2
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        virtual_port_channel_interface: ansible_virtual_port_channel_interface_2
+        interfaces_1: 1/1
+        interfaces_2: 1/1
+        interface_policy_group: 
+          name: ansible_test_interface_policy_group_port_channel_2
+          template: ansible_fabric_policy_template
+        state: present
+      register: nm_create_virtual_port_channel_interface_min
+
     - name: Assert virtual port channel interface creation tasks
       assert:
         that:
@@ -165,6 +178,14 @@
           - nm_create_new_virtual_port_channel_interface_again.current.interfaceDescriptions.1.nodeID == "102"
           - nm_create_new_virtual_port_channel_interface_again.current.interfaceDescriptions.1.interfaceID == "1/1"
           - nm_create_new_virtual_port_channel_interface_again.current.interfaceDescriptions.1.description == "first Ansible interface test for second node"
+          - nm_create_virtual_port_channel_interface_min is changed
+          - nm_create_virtual_port_channel_interface_min.previous == {}
+          - nm_create_virtual_port_channel_interface_min.current.name == "ansible_virtual_port_channel_interface_2"
+          - (nm_create_virtual_port_channel_interface_min.current.node1Details.node | from_json) is none
+          - nm_create_virtual_port_channel_interface_min.current.node1Details.memberInterfaces == "1/1"
+          - (nm_create_virtual_port_channel_interface_min.current.node2Details.node | from_json) is none
+          - nm_create_virtual_port_channel_interface_min.current.node2Details.memberInterfaces == "1/1"
+          - (nm_create_virtual_port_channel_interface_min.current.interfaceDescriptions | from_json) is none
 
     # UPDATE
 
@@ -363,20 +384,6 @@
           - nm_mirror_virtual_port_channel_interface_members.current.interfaceDescriptions.1.description == "New group of Ansible interfaces test for first node"
 
     # QUERY
-
-    - name: Create another virtual port channel interface
-      cisco.mso.ndo_virtual_port_channel_interface: &create_virtual_port_channel_interface_2
-        <<: *mso_info
-        template: ansible_fabric_resource_template
-        virtual_port_channel_interface: ansible_virtual_port_channel_interface_2
-        node_1: 101
-        node_2: 102
-        interfaces_1: 1/1
-        interfaces_2: 1/1
-        interface_policy_group: 
-          name: ansible_test_interface_policy_group_port_channel_2
-          template: ansible_fabric_policy_template
-        state: present
 
     - name: Query a virtual port channel interface with template_name
       cisco.mso.ndo_virtual_port_channel_interface:

@@ -49,7 +49,6 @@ options:
   type:
     description:
     - The IPSLA Track List type used for determining up or down status.
-    - Use C(percentage) to track a percentage of O(members) 
     - This parameter is required when creating the IPSLA Track List.
     type: str
     choices: [ percentage, weight ]
@@ -110,7 +109,7 @@ options:
       schema:
         description:
         - The name of the Schema associated with the BD scope.
-        - This parameter is only required when the O(scope_type) is C(bd).
+        - This parameter is only required when the O(members.scope_type) is V(bd).
         type: str
       template:
         description:
@@ -128,9 +127,9 @@ options:
 notes:
 - The O(template) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_template) to create the Tenant template.
-- The O(ipsla_monitoring_policy) must exist before adding O(members).
+- The O(members.ipsla_monitoring_policy) must exist before adding O(members).
   Use M(cisco.mso.ndo_ipsla_monitoring_policy) to create an IPSLA Monitoring Policy.
-- The O(scope) as either a BD or L3Out must exist before adding O(members).
+- The O(members.scope) as either a BD or L3Out must exist before adding O(members).
   Use M(cisco.mso.ndo_l3out_template) to create an L3Out.
   Use M(cisco.mso.mso_schema_template_bd) to create a BD.
 seealso:
@@ -256,9 +255,9 @@ def get_ipsla_monitoring_policy_uuid(mso_template, name, uuid=None):
         return match.details.get("uuid")
 
 
-def get_bd_uuid(mso: MSOModule, schema, template, bd):
+def get_bd_uuid(mso, schema, template, bd):
     # Get schema objects
-    _, _, schema_obj = mso.query_schema(schema)
+    id, path, schema_obj = mso.query_schema(schema)
     # Get template
     templates = [t.get("name") for t in schema_obj.get("templates")]
     if template not in templates:
@@ -271,7 +270,7 @@ def get_bd_uuid(mso: MSOModule, schema, template, bd):
     return schema_obj.get("templates")[template_idx]["bds"][bds.index(bd)].get("uuid")
 
 
-def get_l3out_uuid(mso: MSOModule, l3out_template, name, uuid=None):
+def get_l3out_uuid(mso, l3out_template, name, uuid=None):
     l3out_template_object = MSOTemplate(mso, "l3out", l3out_template)
     l3out_template_object.validate_template("l3out")
     l3outs = l3out_template_object.template.get("l3outTemplate", {}).get("l3outs", [])
@@ -285,7 +284,7 @@ def get_l3out_uuid(mso: MSOModule, l3out_template, name, uuid=None):
         return match.details.get("uuid")
 
 
-def format_track_list_members(mso: MSOModule, mso_template, members):
+def format_track_list_members(mso, mso_template, members):
     track_list_members = []
     for member in members:
         scope_name = member.get("scope")
@@ -315,8 +314,8 @@ def main():
             ipsla_track_list_uuid=dict(type="str", aliases=["uuid"]),
             description=dict(type="str"),
             type=dict(type="str", choices=["percentage", "weight"]),
-            threshold_up=dict(type="int"),
-            threshold_down=dict(type="int"),
+            threshold_up=dict(type="int", aliases=["up"]),
+            threshold_down=dict(type="int", aliases=["down"]),
             members=dict(
                 type="list",
                 elements="dict",

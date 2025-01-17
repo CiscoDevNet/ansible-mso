@@ -228,34 +228,12 @@ TARGET_COS_MAP = {
     "unspecified": "cos8",
 }
 
-COS_CONVERSION_MAP = {
-    "keys_map": {
-        "dot1p_from": "dot1pFrom",
-        "dot1p_to": "dot1pTo",
-        "dscp_target": "dscpTarget",
-        "target_cos": "targetCos",
-        "qos_priority": "priority",
-    },
-    "values_map": {
-        "dot1p_from": TARGET_COS_MAP,
-        "dot1p_to": TARGET_COS_MAP,
-        "dscp_target": TARGET_DSCP_MAP,
-        "target_cos": TARGET_COS_MAP,
-    },
-}
-
-DSCP_CONVERSION_MAP = {
-    "keys_map": {
-        "dscp_from": "dscpFrom",
-        "dscp_to": "dscpTo",
-        "dscp_target": "dscpTarget",
-        "target_cos": "targetCos",
-        "qos_priority": "priority",
-    },
-    "values_map": {
-        "dscp_from": TARGET_DSCP_MAP,
-        "dscp_to": TARGET_DSCP_MAP,
-        "dscp_target": TARGET_DSCP_MAP,
-        "target_cos": TARGET_COS_MAP,
-    },
+DSCP_COS_KEY_MAP = {
+    "dscp_from": "dscpFrom",
+    "dscp_to": "dscpTo",
+    "dot1p_from": "dot1pFrom",
+    "dot1p_to": "dot1pTo",
+    "dscp_target": "dscpTarget",
+    "target_cos": "targetCos",
+    "qos_priority": "priority",
 }

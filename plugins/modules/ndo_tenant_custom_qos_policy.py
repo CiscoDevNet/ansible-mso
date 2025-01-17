@@ -405,13 +405,12 @@ import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
-from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, format_list_dict
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 from ansible_collections.cisco.mso.plugins.module_utils.constants import (
     TARGET_DSCP_MAP,
     TARGET_COS_MAP,
-    DSCP_CONVERSION_MAP,
-    COS_CONVERSION_MAP,
-    QOS_PRIORITY_VALUES,
+    DSCP_COS_KEY_MAP,
+    QOS_LEVEL,
 )
 
 
@@ -433,7 +432,7 @@ def main():
                 target_cos=dict(type="str", choices=COS_MAP_CHOICES),
                 qos_priority=dict(
                     type="str",
-                    choices=QOS_PRIORITY_VALUES,
+                    choices=QOS_LEVEL,
                     aliases=["priority", "prio"],
                 ),
             ),
@@ -448,7 +447,7 @@ def main():
                 target_cos=dict(type="str", choices=COS_MAP_CHOICES),
                 qos_priority=dict(
                     type="str",
-                    choices=QOS_PRIORITY_VALUES,
+                    choices=QOS_LEVEL,
                     aliases=["priority", "prio"],
                 ),
             ),
@@ -471,8 +470,20 @@ def main():
     name = module.params.get("name")
     uuid = module.params.get("uuid")
     description = module.params.get("description")
-    dscp_mappings = format_list_dict(module.params.get("dscp_mappings"), DSCP_CONVERSION_MAP)
-    cos_mappings = format_list_dict(module.params.get("cos_mappings"), COS_CONVERSION_MAP)
+    dscp_mappings = module.params.get("dscp_mappings")
+    if dscp_mappings:
+        dscp_mappings = [
+            {
+                DSCP_COS_KEY_MAP.get(k): TARGET_DSCP_MAP.get(v) if k in ("dscp_from", "dscp_to", "dscp_target") else TARGET_COS_MAP.get(v, v)
+                for k, v in d.items()
+            }
+            for d in dscp_mappings
+        ]
+    cos_mappings = module.params.get("cos_mappings")
+    if cos_mappings:
+        cos_mappings = [
+            {DSCP_COS_KEY_MAP.get(k): TARGET_DSCP_MAP.get(v) if k == "dscp_target" else TARGET_COS_MAP.get(v, v) for k, v in d.items()} for d in cos_mappings
+        ]
     state = module.params.get("state")
 
     template_object = MSOTemplate(mso, "tenant", template)

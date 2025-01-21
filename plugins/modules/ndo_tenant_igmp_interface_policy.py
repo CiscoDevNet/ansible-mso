@@ -123,7 +123,7 @@ options:
     type: int
   state_limit_route_map_uuid:
     description:
-    - The state limit route map name.
+    - The UUID of the state limit route map.
     type: str
     aliases: [ state_limit_route_map_for_multicast ]
   state_limit_route_map:
@@ -146,7 +146,7 @@ options:
     aliases: [ state_limit_route_map_policy, state_limit_route_map_policy_multicast ]
   report_policy_route_map_uuid:
     description:
-    - The report policy route map name.
+    - The UUID of the report policy route map.
     type: str
     aliases: [ report_policy_route_map_for_multicast ]
   report_policy_route_map:
@@ -169,7 +169,7 @@ options:
     aliases: [ report_policy_route_map_policy, report_policy_route_map_policy_multicast ]
   static_report_route_map_uuid:
     description:
-    - The static report route map name.
+    - The UUID of the static report route map.
     type: str
     aliases: [ static_report_route_map_for_multicast ]
   static_report_route_map:
@@ -218,6 +218,7 @@ notes:
   Use M(cisco.mso.ndo_tenant_route_map_policy_for_multicast) to create the Route Map Policy for Multicast.
 seealso:
 - module: cisco.mso.ndo_template
+- module: cisco.mso.ndo_tenant_route_map_policy_for_multicast
 extends_documentation_fragment: cisco.mso.modules
 """
 
@@ -240,8 +241,8 @@ EXAMPLES = r"""
     startup_query_interval: 31
     querier_timeout: 255
     robustness_variable: 2
-    state_limit_route_map_uuid: TestStateLimitRouteMap
-    report_policy_route_map_uuid: TestReportPolicyRouteMap
+    state_limit_route_map_uuid: route_map_policy_for_multicast_uuid
+    report_policy_route_map_uuid: route_map_policy_for_multicast_uuid
     static_report_route_map:
       name: TestStaticReportRouteMap
       template: TestTenantTemplate
@@ -257,7 +258,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template: tenant_template
     name: test_igmp_interface_policy_updated
-    uuid: "{{ igmp_interface_policy_1.current.uuid }}"
+    uuid: "{{ igmp_interface_policy.current.uuid }}"
     state: present
   register: igmp_interface_policy_update
 
@@ -277,7 +278,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: TestTenantTemplate
-    uuid: "{{ igmp_snooping_policy_1.current.uuid }}"
+    uuid: "{{ igmp_interface_policy.current.uuid }}"
     state: query
   register: query_uuid
 
@@ -305,7 +306,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: TestTenantTemplate
-    uuid: "{{ igmp_interface_policy_1.current.uuid }}"
+    uuid: "{{ igmp_interface_policy.current.uuid }}"
     state: absent
 """
 
@@ -379,6 +380,11 @@ def main():
             ["state", "absent", ["name", "uuid"], True],
             ["state", "present", ["name", "uuid"], True],
         ],
+        mutually_exclusive=[
+            ["state_limit_route_map_uuid", "state_limit_route_map"],
+            ["report_policy_route_map_uuid", "report_policy_route_map"],
+            ["static_report_route_map_uuid", "static_report_route_map"],
+        ],
     )
 
     mso = MSOModule(module)
@@ -434,19 +440,13 @@ def main():
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
         if state_limit_route_map and not state_limit_route_map_uuid:
-            state_limit_route_map_uuid = get_route_map_policy_uuid_from_name(
-                mso_template, mso, state_limit_route_map.get("template"), state_limit_route_map.get("name")
-            )
+            state_limit_route_map_uuid = mso_template.get_route_map_policy_for_multicast_uuid(state_limit_route_map.get("name"))
 
         if report_policy_route_map and not report_policy_route_map_uuid:
-            report_policy_route_map_uuid = get_route_map_policy_uuid_from_name(
-                mso_template, mso, report_policy_route_map.get("template"), report_policy_route_map.get("name")
-            )
+            report_policy_route_map_uuid = mso_template.get_route_map_policy_for_multicast_uuid(report_policy_route_map.get("name"))
 
         if static_report_route_map and not static_report_route_map_uuid:
-            static_report_route_map_uuid = get_route_map_policy_uuid_from_name(
-                mso_template, mso, static_report_route_map.get("template"), static_report_route_map.get("name")
-            )
+            static_report_route_map_uuid = mso_template.get_route_map_policy_for_multicast_uuid(static_report_route_map.get("name"))
 
         mso_values = dict(
             name=name,
@@ -496,12 +496,6 @@ def main():
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
-
-
-def get_route_map_policy_uuid_from_name(mso_template, mso, template, name):
-    route_map_policy_for_multicast = MSOTemplate(mso, "tenant", template)
-    mso_template.validate_template("tenantPolicy")
-    return route_map_policy_for_multicast.get_route_map_policy_for_multicast_uuid(name)
 
 
 if __name__ == "__main__":

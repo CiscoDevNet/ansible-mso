@@ -6,6 +6,41 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.10.0
+=======
+
+Release Summary
+---------------
+
+Release v2.10.0 of the ``ansible-mso`` collection on 2025-01-21.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.9.0.
+
+Minor Changes
+-------------
+
+- Add module ndo_tenant_bgp_peer_prefix_policy for tenant bgp peer prefix policy configuration
+- Add module ndo_tenant_mld_snooping_policy for tenant mld snooping configuration
+- Add ndo_ipsla_monitoring_policy module for IPSLA Monitoring Policy (#531)
+- Add ndo_port_channel_interface as a new module.
+- Add support for name attribute in mso_schema_template_external_epg_subnet module
+- Added mso_schema_template_anp_epg_intra_epg_contract module to manage Intra-EPG Contract
+- Added ndo_l3out_annotation module to manage L3Out annotations
+- Added ndo_l3out_node_group_policy module to manage L3Out Node/Interface Group Policy (DCNE-181) (#555)
+- Added ndo_l3out_node_routing_policy module to manage L3Out Node Routing Policy under the tenant templates
+- Added ndo_l3out_template module and test file
+- Added ndo_mcp_global_policy for fabric policy global MCP configuration.
+- Added new module ndo_mac_sec_policy (for macsecPolicies object).
+- Added new module ndo_synce_interface_policy (#521)
+- Adding new module for interface policy group object.
+- Addition of ep detection mode for mso_schema_template_bd
+- Allow site configuration for tenant policy template types in ndo_template module
+- Fixed ndo_l3out_template module doc string
+
+Bugfixes
+--------
+
+- Updated README to match RedHat s ansible collection template.
+
 v2.9.0
 ======
 

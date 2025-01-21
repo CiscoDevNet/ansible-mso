@@ -242,8 +242,10 @@
     # UPDATE
     - name: Update an IGMP interface policy (check mode)
       cisco.mso.ndo_tenant_igmp_interface_policy: &igmp_interface_policy_update
-        <<: *igmp_interface_policy_2
-        description: 'IGMP Interface Policy description updated'
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_igmp_interface_policy_2
+        description: 'IGMP Interface Policy 2 description updated'
         version3_asm: 'disabled'
         fast_leave: 'disabled'
         report_link_local_groups: 'disabled'
@@ -258,7 +260,7 @@
         querier_timeout: 701
         robustness_variable: 7
         state_limit_route_map_uuid: "{{ create_route_map_policy_multicast_2.current.uuid }}"
-        static_report_route_map_uuid: "{{ create_route_map_policy_multicast_3.current.uuid }}"
+        report_policy_route_map_uuid: "{{ create_route_map_policy_multicast_3.current.uuid }}"
         static_report_route_map:
           name: ansible_test_route_map_policy_1
           template: ansible_tenant_template
@@ -286,7 +288,7 @@
           - cm_update_igmp_interface_policy.previous.name == nm_update_igmp_interface_policy.previous.name == 'ansible_igmp_interface_policy_2'
           - cm_update_igmp_interface_policy.current.name == nm_update_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy_2'
           - cm_update_igmp_interface_policy.previous.description == nm_update_igmp_interface_policy.previous.description == 'IGMP Interface Policy 2 description'
-          - cm_update_igmp_interface_policy.current.description == nm_update_igmp_interface_policy.current.description == 'IGMP Interface Policy description updated'
+          - cm_update_igmp_interface_policy.current.description == nm_update_igmp_interface_policy.current.description == 'IGMP Interface Policy 2 description updated'
           - cm_update_igmp_interface_policy.previous.enableFastLeaveControl == nm_update_igmp_interface_policy.previous.enableFastLeaveControl == true
           - cm_update_igmp_interface_policy.current.enableFastLeaveControl == nm_update_igmp_interface_policy.current.enableFastLeaveControl == false
           - cm_update_igmp_interface_policy.previous.enableReportLinkLocalGroups == nm_update_igmp_interface_policy.previous.enableReportLinkLocalGroups == true
@@ -325,7 +327,7 @@
           - cm_update_igmp_interface_policy.current.staticReportRouteMapRef == nm_update_igmp_interface_policy.current.staticReportRouteMapRef
           - nm_update_igmp_interface_policy_again is not changed
           - nm_update_igmp_interface_policy_again.previous.name == nm_update_igmp_interface_policy_again.current.name == 'ansible_igmp_interface_policy_2'
-          - nm_update_igmp_interface_policy_again.previous.description == nm_update_igmp_interface_policy_again.current.description == 'IGMP Interface Policy description updated'
+          - nm_update_igmp_interface_policy_again.previous.description == nm_update_igmp_interface_policy_again.current.description == 'IGMP Interface Policy 2 description updated'
           - nm_update_igmp_interface_policy_again.previous.enableFastLeaveControl == nm_update_igmp_interface_policy_again.current.enableFastLeaveControl == false
           - nm_update_igmp_interface_policy_again.previous.enableReportLinkLocalGroups == nm_update_igmp_interface_policy_again.current.enableReportLinkLocalGroups == false
           - nm_update_igmp_interface_policy_again.previous.enableV3Asm == nm_update_igmp_interface_policy_again.current.enableV3Asm == false
@@ -425,7 +427,7 @@
           - cm_delete_igmp_interface_policy.current == nm_delete_igmp_interface_policy.current == {}
           - cm_delete_igmp_interface_policy.previous.name == nm_delete_igmp_interface_policy.previous.name == 'ansible_igmp_interface_policy_2_updated'
           - cm_delete_igmp_interface_policy.previous.uuid == nm_delete_igmp_interface_policy.previous.uuid
-          - cm_delete_igmp_interface_policy.previous.description == nm_delete_igmp_interface_policy.previous.description == 'IGMP Interface Policy description updated'
+          - cm_delete_igmp_interface_policy.previous.description == nm_delete_igmp_interface_policy.previous.description == 'IGMP Interface Policy 2 description updated'
           - cm_delete_igmp_interface_policy.previous.enableFastLeaveControl == nm_delete_igmp_interface_policy.previous.enableFastLeaveControl == false
           - cm_delete_igmp_interface_policy.previous.enableReportLinkLocalGroups == nm_delete_igmp_interface_policy.previous.enableReportLinkLocalGroups == false
           - cm_delete_igmp_interface_policy.previous.enableV3Asm == nm_delete_igmp_interface_policy.previous.enableV3Asm == false

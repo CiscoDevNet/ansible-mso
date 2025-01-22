@@ -188,24 +188,17 @@ def main():
     mso_template.validate_template("tenantPolicy")
 
     path = "/tenantPolicyTemplate/template/mcastRouteMapPolicies"
-    existing_route_map_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("mcastRouteMapPolicies", [])
-    if route_map_policy:
-        object_description = "Multicast Route Map Policy"
-        if route_map_policy_uuid:
-            match = mso_template.get_object_by_uuid(object_description, existing_route_map_policies, route_map_policy_uuid)
-        else:
-            kv_list = [KVPair("name", route_map_policy)]
-            match = mso_template.get_object_by_key_value_pairs(object_description, existing_route_map_policies, kv_list)
-        if match:
-            match.details["entries"] = match.details.pop("mcastRtMapEntryList")
-            mso.existing = mso.previous = copy.deepcopy(match.details)
-    else:
-        mso.existing = mso.previous = existing_route_map_policies
+    match = get_multicast_route_map_policy(mso_template, route_map_policy_uuid, route_map_policy)
+
+    if route_map_policy_uuid or route_map_policy:
+        if match:  # Query a specific object
+            mso.existing = copy.deepcopy(match.details)
+            mso.previous = copy.deepcopy(match.details)
+    elif match:
+        mso.existing = match  # Query all objects
 
     if state == "present":
-
         if match:
-
             if module.params.get("entries") is not None and len(entries) == 0:
                 mso.fail_json(msg=err_message_min_entries)
 
@@ -217,14 +210,13 @@ def main():
                 ops.append(dict(op="replace", path="{0}/{1}/description".format(path, match.index), value=description))
                 match.details["description"] = description
 
-            if module.params.get("entries") is not None and match.details.get("entries") != entries:
+            if module.params.get("entries") is not None and match.details.get("mcastRtMapEntryList") != entries:
                 ops.append(dict(op="replace", path="{0}/{1}/mcastRtMapEntryList".format(path, match.index), value=entries))
-                match.details["entries"] = entries
+                match.details["mcastRtMapEntryList"] = entries
 
             mso.sanitize(match.details)
 
         else:
-
             if not entries:
                 mso.fail_json(msg=err_message_min_entries)
 
@@ -234,7 +226,6 @@ def main():
 
             ops.append(dict(op="add", path="{0}/-".format(path), value=copy.deepcopy(payload)))
 
-            payload["entries"] = payload.pop("mcastRtMapEntryList")
             mso.sanitize(payload)
 
         mso.existing = mso.proposed
@@ -245,7 +236,14 @@ def main():
         mso.existing = {}
 
     if not module.check_mode and ops:
-        mso.request(mso_template.template_path, method="PATCH", data=ops)
+        mso_template.template = mso.request(mso_template.template_path, method="PATCH", data=ops)
+        match = get_multicast_route_map_policy(mso_template, route_map_policy_uuid, route_map_policy)
+        if match:
+            mso.existing = match.details  # When the state is present
+        else:
+            mso.existing = {}  # When the state is absent
+    elif module.check_mode and state != "query":  # When the state is present/absent with check mode
+        mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
 
@@ -263,6 +261,26 @@ def get_entries_payload(entries):
             entries_payload["rp"] = entry.get("rp")
         payload.append(entries_payload)
     return payload
+
+
+def get_multicast_route_map_policy(mso_template, uuid=None, name=None, fail_module=False):
+    """
+    Get the Multicast Route Map Policy by UUID or Name.
+    :param uuid: UUID of the Multicast Route Map Policy to search for -> Str
+    :param name: Name of the Multicast Route Map Policy to search for -> Str
+    :param fail_module: When match is not found fail the ansible module -> Bool
+    :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+              When the UUID | Name is existing in the search list -> Dict
+              When the UUID | Name is not existing in the search list -> None
+              When both UUID and Name are None, and the search list is not empty -> List[Dict]
+              When both UUID and Name are None, and the search list is empty -> List[]
+    """
+    match = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("mcastRouteMapPolicies", [])
+    if uuid or name:  # Query a specific object
+        return mso_template.get_object_by_key_value_pairs(
+            "Multicast Route Map Policy", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module
+        )
+    return match  # Query all objects
 
 
 if __name__ == "__main__":

@@ -155,16 +155,26 @@
         threshold_down: 2
         members:
           - destination_ip: 1.1.1.1
-            scope: ansible_test_bd
             scope_type: bd
-            schema: ansible_test
-            template: ansible_test
-            ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
+            scope:
+              name: ansible_test_bd
+              template: ansible_test
+              schema: ansible_test
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+              template: ansible_tenant_template
           - destination_ip: 2001:0000:130F:0000:0000:09C0:876A:130B
-            scope: ansible_test_l3out
             scope_type: l3out
-            template: ansible_test
-            ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
+            scope:
+              name: ansible_test_l3out
+              template: ansible_test
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+              template: ansible_tenant_template
+          - destination_ip: 1.1.1.3
+            scope_type: l3out
+            scope_uuid: "{{ nm_ansible_test_l3out.current.uuid }}"
+            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
         state: present
       check_mode: true
       register: cm_create_new_ipsla_track_list
@@ -198,6 +208,10 @@
           - cm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
           - cm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scope == nm_ansible_test_l3out.current.uuid
           - cm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scopeType == "l3out"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.destIP == "1.1.1.3"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - cm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - cm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scopeType == "l3out"
           - nm_create_new_ipsla_track_list is changed
           - nm_create_new_ipsla_track_list.previous == {}
           - nm_create_new_ipsla_track_list.current.name == "ansible_test_ipsla_track_list"
@@ -217,6 +231,11 @@
           - nm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scope == nm_ansible_test_l3out.current.uuid
           - nm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scopeType == "l3out"
           - nm_create_new_ipsla_track_list.current.trackListMembers[1].weight == 10
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.destIP == "1.1.1.3"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scopeType == "l3out"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].weight == 10
           - nm_create_new_ipsla_track_list_again is not changed
           - nm_create_new_ipsla_track_list_again.previous.name == "ansible_test_ipsla_track_list"
           - nm_create_new_ipsla_track_list_again.previous.type == "percentage"
@@ -235,6 +254,11 @@
           - nm_create_new_ipsla_track_list_again.previous.trackListMembers[1].trackMember.scope == nm_ansible_test_l3out.current.uuid
           - nm_create_new_ipsla_track_list_again.previous.trackListMembers[1].trackMember.scopeType == "l3out"
           - nm_create_new_ipsla_track_list_again.previous.trackListMembers[1].weight == 10
+          - nm_create_new_ipsla_track_list_again.previous.trackListMembers[2].trackMember.destIP == "1.1.1.3"
+          - nm_create_new_ipsla_track_list_again.previous.trackListMembers[2].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - nm_create_new_ipsla_track_list_again.previous.trackListMembers[2].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - nm_create_new_ipsla_track_list_again.previous.trackListMembers[2].trackMember.scopeType == "l3out"
+          - nm_create_new_ipsla_track_list_again.previous.trackListMembers[2].weight == 10
           - nm_create_new_ipsla_track_list_again.current.name == "ansible_test_ipsla_track_list"
           - nm_create_new_ipsla_track_list_again.current.type == "percentage"
           - nm_create_new_ipsla_track_list_again.current.description == "test track list"
@@ -252,6 +276,11 @@
           - nm_create_new_ipsla_track_list_again.current.trackListMembers[1].trackMember.scope == nm_ansible_test_l3out.current.uuid
           - nm_create_new_ipsla_track_list_again.current.trackListMembers[1].trackMember.scopeType == "l3out"
           - nm_create_new_ipsla_track_list_again.current.trackListMembers[1].weight == 10
+          - nm_create_new_ipsla_track_list_again.current.trackListMembers[2].trackMember.destIP == "1.1.1.3"
+          - nm_create_new_ipsla_track_list_again.current.trackListMembers[2].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - nm_create_new_ipsla_track_list_again.current.trackListMembers[2].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - nm_create_new_ipsla_track_list_again.current.trackListMembers[2].trackMember.scopeType == "l3out"
+          - nm_create_new_ipsla_track_list_again.current.trackListMembers[2].weight == 10
 
     # UPDATE
     - name: Update an IPSLA track list (check_mode)
@@ -263,18 +292,29 @@
         threshold_down: 40
         members:
           - destination_ip: 1.1.1.2
-            scope: ansible_test_bd
             scope_type: bd
-            schema: ansible_test
-            template: ansible_test
-            ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
             weight: 30
+            scope:
+              name: ansible_test_bd
+              template: ansible_test
+              schema: ansible_test
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+              template: ansible_tenant_template
           - destination_ip: 2001:0000:130F:0000:0000:09C0:876A:130C
-            scope: ansible_test_l3out
             scope_type: l3out
-            template: ansible_test
-            ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
             weight: 20
+            scope:
+              name: ansible_test_l3out
+              template: ansible_test
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+              template: ansible_tenant_template
+          - destination_ip: 1.1.1.3
+            scope_type: l3out
+            scope_uuid: "{{ nm_ansible_test_l3out.current.uuid }}"
+            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
+            weight: 5
         state: present
       check_mode: true
       register: cm_update_ipsla_track_list
@@ -309,6 +349,11 @@
           - cm_update_ipsla_track_list.current.trackListMembers[1].trackMember.scope == nm_ansible_test_l3out.current.uuid
           - cm_update_ipsla_track_list.current.trackListMembers[1].trackMember.scopeType == "l3out"
           - cm_update_ipsla_track_list.current.trackListMembers[1].weight == 20
+          - cm_update_ipsla_track_list.current.trackListMembers[2].trackMember.destIP == "1.1.1.3"
+          - cm_update_ipsla_track_list.current.trackListMembers[2].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - cm_update_ipsla_track_list.current.trackListMembers[2].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - cm_update_ipsla_track_list.current.trackListMembers[2].trackMember.scopeType == "l3out"
+          - cm_update_ipsla_track_list.current.trackListMembers[2].weight == 5
           - nm_update_ipsla_track_list is changed
           - nm_update_ipsla_track_list.previous == nm_create_new_ipsla_track_list.current
           - nm_update_ipsla_track_list.current.name == "ansible_test_ipsla_track_list"
@@ -328,6 +373,11 @@
           - nm_update_ipsla_track_list.current.trackListMembers[1].trackMember.scope == nm_ansible_test_l3out.current.uuid
           - nm_update_ipsla_track_list.current.trackListMembers[1].trackMember.scopeType == "l3out"
           - nm_update_ipsla_track_list.current.trackListMembers[1].weight == 20
+          - nm_update_ipsla_track_list.current.trackListMembers[2].trackMember.destIP == "1.1.1.3"
+          - nm_update_ipsla_track_list.current.trackListMembers[2].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - nm_update_ipsla_track_list.current.trackListMembers[2].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - nm_update_ipsla_track_list.current.trackListMembers[2].trackMember.scopeType == "l3out"
+          - nm_update_ipsla_track_list.current.trackListMembers[2].weight == 5
           - nm_update_ipsla_track_list_again is not changed
           - nm_update_ipsla_track_list_again.previous.name == "ansible_test_ipsla_track_list"
           - nm_update_ipsla_track_list_again.previous.type == "weight"
@@ -346,6 +396,11 @@
           - nm_update_ipsla_track_list_again.previous.trackListMembers[1].trackMember.scope == nm_ansible_test_l3out.current.uuid
           - nm_update_ipsla_track_list_again.previous.trackListMembers[1].trackMember.scopeType == "l3out"
           - nm_update_ipsla_track_list_again.previous.trackListMembers[1].weight == 20
+          - nm_update_ipsla_track_list_again.previous.trackListMembers[2].trackMember.destIP == "1.1.1.3"
+          - nm_update_ipsla_track_list_again.previous.trackListMembers[2].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - nm_update_ipsla_track_list_again.previous.trackListMembers[2].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - nm_update_ipsla_track_list_again.previous.trackListMembers[2].trackMember.scopeType == "l3out"
+          - nm_update_ipsla_track_list_again.previous.trackListMembers[2].weight == 5
           - nm_update_ipsla_track_list_again.current.name == "ansible_test_ipsla_track_list"
           - nm_update_ipsla_track_list_again.current.type == "weight"
           - nm_update_ipsla_track_list_again.current.description == "test track list updated"
@@ -363,6 +418,11 @@
           - nm_update_ipsla_track_list_again.current.trackListMembers[1].trackMember.scope == nm_ansible_test_l3out.current.uuid
           - nm_update_ipsla_track_list_again.current.trackListMembers[1].trackMember.scopeType == "l3out"
           - nm_update_ipsla_track_list_again.current.trackListMembers[1].weight == 20
+          - nm_update_ipsla_track_list_again.current.trackListMembers[2].trackMember.destIP == "1.1.1.3"
+          - nm_update_ipsla_track_list_again.current.trackListMembers[2].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - nm_update_ipsla_track_list_again.current.trackListMembers[2].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - nm_update_ipsla_track_list_again.current.trackListMembers[2].trackMember.scopeType == "l3out"
+          - nm_update_ipsla_track_list_again.current.trackListMembers[2].weight == 5
 
     - name: Update an IPSLA Track List name
       cisco.mso.ndo_ipsla_track_list: &update_ipsla_track_list_name
@@ -430,11 +490,8 @@
           - query_all.current[0].name == "ansible_test_ipsla_track_list_changed"
           - query_all.current[1].name == "ansible_test_ipsla_track_list_2"
 
-    # # ERRORS
+    # ERRORS
 
-    # TODO The usual suspects
-
-    # Validation errors
     - name: Create IPSLA track list with out of range threshold down with type of percentage
       cisco.mso.ndo_ipsla_track_list:
         <<: *create_ipsla_track_list
@@ -497,12 +554,40 @@
         <<: *update_ipsla_track_list
         members:
           - destination_ip: 1.1.1.2
-            scope: ansible_test_bd_non_existing
+            scope:
+              name: ansible_test_bd_non_existing
+              schema: ansible_test
+              template: ansible_test
             scope_type: bd
-            schema: ansible_test
-            template: ansible_test
-            ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
+            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
       register: err_invalid_bd
+      ignore_errors: true
+
+    - name: Create an IPSLA track list with a member referencing a bd with no schema
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *update_ipsla_track_list
+        members:
+          - destination_ip: 1.1.1.2
+            scope:
+              name: ansible_test_bd_no_schema
+              template: ansible_test
+            scope_type: bd
+            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
+      register: err_bd_no_schema
+      ignore_errors: true
+
+    - name: Create an IPSLA track list with a member referencing a bd with name and uuid
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *update_ipsla_track_list
+        members:
+          - destination_ip: 1.1.1.2
+            scope_uuid: ansible_test_bd_uuid
+            scope:
+              name: ansible_test_bd
+              template: ansible_test
+            scope_type: bd
+            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
+      register: err_bd_name_and_uuid
       ignore_errors: true
 
     - name: Create an IPSLA track list with a member referencing an invalid l3out
@@ -510,10 +595,11 @@
         <<: *update_ipsla_track_list
         members:
           - destination_ip: 2001:0000:130F:0000:0000:09C0:876A:130C
-            scope: ansible_test_l3out_non_existing
+            scope: 
+              name: ansible_test_l3out_non_existing
+              template: ansible_test
             scope_type: l3out
-            template: ansible_test
-            ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
+            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
       register: err_invalid_l3out
       ignore_errors: true
 
@@ -522,10 +608,11 @@
         <<: *update_ipsla_track_list
         members:
           - destination_ip: 2001:0000:130F:0000:0000:09C0:876A:130C
-            scope: ansible_test_l3out
+            scope_uuid: "{{ nm_ansible_test_l3out.current.uuid }}"
             scope_type: l3out
-            template: ansible_test
-            ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy_invalid
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy_invalid
+              template: ansible_tenant_template
       register: err_invalid_ipsla_monitoring_policy
       ignore_errors: true
 
@@ -534,6 +621,10 @@
         that:
           - err_invalid_bd is failed
           - err_invalid_bd.msg == "Provided BD 'ansible_test_bd_non_existing' does not exist. Existing BDs{{":"}} ansible_test_bd"
+          - err_bd_no_schema is failed
+          - err_bd_no_schema.msg == "A member scope_type is bd and scope is used but the schema option is missing."
+          - err_bd_name_and_uuid is failed
+          - err_bd_name_and_uuid.msg == "parameters are mutually exclusive{{":"}} scope_uuid|scope found in members"
           - err_invalid_l3out is failed
           - err_invalid_l3out.msg == "Provided L3Out with '[KVPair(key='name', value='ansible_test_l3out_non_existing')]' not matching existing object(s){{":"}} ansible_test_l3out"
           - err_invalid_ipsla_monitoring_policy is failed
@@ -604,7 +695,7 @@
       ignore_errors: true
       register: update_non_existing_uuid
 
-    - name: Assert no IGMP Snooping Policy found
+    - name: Assert no IPSLA Track List found
       assert:
         that:
           - query_all_none is not changed

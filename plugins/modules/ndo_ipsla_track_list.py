@@ -55,8 +55,8 @@ options:
   threshold_up:
     description:
     - The IPSLA Track List percentage or weight up threshold.
-    - The value must be in the range 0 - 100 when O(type) is C(percentage).
-    - The value must be in the range 0 - 255 when O(type) is C(weight).
+    - The value must be in the range 0 - 100 when O(type=percentage).
+    - The value must be in the range 0 - 255 when O(type=weight).
     - The value must be greater than or equal to O(threshold_down).
     - The default value is 1.
     type: int
@@ -64,8 +64,8 @@ options:
   threshold_down:
     description:
     - The IPSLA Track List percentage or weight down threshold.
-    - The value must be in the range 0 - 100 when O(type) is C(percentage).
-    - The value must be in the range 0 - 255 when O(type) is C(weight).
+    - The value must be in the range 0 - 100 when O(type=percentage).
+    - The value must be in the range 0 - 255 when O(type=weight).
     - The value must be less than or equal to O(threshold_up).
     - The default value is 0.
     type: int
@@ -93,23 +93,14 @@ options:
       ipsla_monitoring_policy_uuid:
         description:
         - The UUID of the IPSLA Monitoring Policy to use for the member.
+        - This parameter can be used instead of O(members.ipsla_monitoring_policy).
         type: str
       ipsla_monitoring_policy:
         description:
-        - The IPSLA Monitoring Policy to use for the member.
+        - The name IPSLA Monitoring Policy to use for the member.
         - This parameter can be used instead of O(members.ipsla_monitoring_policy_uuid).
-        type: dict
-        suboptions:
-          name:
-            description:
-            - The name of the IPSLA Monitoring Policy.
-            type: str
-            required: true
-          template:
-            description:
-            - The name of the Template associated with the IPSLA Monitoring Policy.
-            type: str
-            required: true
+        type: str
+        aliases: [ ipsla_monitoring_policy_name ]
       scope_type:
         description:
         - The scope type of the member.
@@ -119,6 +110,7 @@ options:
       scope_uuid:
         description:
         - The UUID of the BD or L3Out used as the scope for the member.
+        - This parameter can be used instead of O(members.scope).
         type: str
       scope:
         description:
@@ -184,22 +176,30 @@ EXAMPLES = r"""
           name: ansible_test_bd
           template: ansible_test_template
           schema: ansible_test_schema
-        ipsla_monitoring_policy:
-          name: ansible_test_ipsla_monitoring_policy
-          template: ansible_tenant_template
+        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
       - destination_ip: 2001:0000:130F:0000:0000:09C0:876A:130B
         scope_type: l3out
         scope:
           name: ansible_test_l3out
           template: ansible_test_template
-        ipsla_monitoring_policy:
-          name: ansible_test_ipsla_monitoring_policy
-          template: ansible_tenant_template
+        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
       - destination_ip: 1.1.1.2
         scope_type: l3out
         scope_uuid: "{{ l3out.current.uuid }}"
         ipsla_monitoring_policy_uuid: "{{ ipsla_monitoring_policy.current.uuid }}"
     state: present
+    register: ipsla_track_list
+
+- name: Update an IPSLA Track List name with UUID
+  cisco.mso.ndo_ipsla_track_list:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_tenant_template
+    ipsla_track_list: ansible_test_ipsla_track_list_updated
+    ipsla_track_list_uuid: "{{ ipsla_track_list.current.uuid }}"
+    state: present
+  register: ipsla_track_list_update
 
 - name: Query an IPSLA Track List with name
   cisco.mso.ndo_ipsla_track_list:
@@ -295,13 +295,7 @@ def main():
                 options=dict(
                     destination_ip=dict(type="str", aliases=["ip"], required=True),
                     ipsla_monitoring_policy_uuid=dict(type="str"),
-                    ipsla_monitoring_policy=dict(
-                        type="dict",
-                        options=dict(
-                            name=dict(type="str", required=True),
-                            template=dict(type="str", required=True),
-                        ),
-                    ),
+                    ipsla_monitoring_policy=dict(type="str", aliases=["ipsla_monitoring_policy_name"]),
                     scope_uuid=dict(type="str"),
                     scope=dict(
                         type="dict",
@@ -343,7 +337,7 @@ def main():
     ipsla_track_list = module.params.get("ipsla_track_list")
     description = module.params.get("description")
     ipsla_track_list_uuid = module.params.get("ipsla_track_list_uuid")
-    type = module.params.get("type")
+    list_type = module.params.get("type")
     thresholds = {
         "down": module.params.get("threshold_down"),
         "up": module.params.get("threshold_up"),
@@ -354,7 +348,7 @@ def main():
     # Validate
     valid_upper = 100
     valid_lower = 0
-    if type == "weight":
+    if list_type == "weight":
         valid_upper = 255
     for threshold_key, threshold_value in thresholds.items():
         if threshold_value is not None and threshold_value not in range(valid_lower, valid_upper):
@@ -374,6 +368,9 @@ def main():
 
     ops = []
     match = None
+
+    # The object dictionary is used as a cache store for schema & template data.
+    # This is done to limit the amount of API calls when UUID is not specified for member scope references.
     obj_cache = {}
 
     mso_template = MSOTemplate(mso, "tenant", template)
@@ -402,15 +399,14 @@ def main():
         mso_values = {
             "name": ipsla_track_list,
             "description": description,
-            "type": type,
-            type + "Up": thresholds["up"],
-            type + "Down": thresholds["down"],
+            "type": list_type,
+            "{0}Up".format(list_type): thresholds["up"],
+            "{0}Down".format(list_type): thresholds["down"],
         }
         if members is not None:
-            mso_values["trackListMembers"] = format_track_list_members(mso, members, obj_cache)
+            mso_values["trackListMembers"] = format_track_list_members(mso, mso_template, members, obj_cache)
         if match:
-            update_path = "{0}/{1}".format(path, match.index)
-            append_update_ops_data(ops, match.details, update_path, mso_values)
+            append_update_ops_data(ops, match.details, "{0}/{1}".format(path, match.index), mso_values)
             mso.sanitize(match.details, collate=True)
         else:
             mso.sanitize(mso_values)
@@ -463,71 +459,63 @@ def get_l3out_uuid(l3out_template_object, name):
         return match.details.get("uuid")
 
 
-def get_ipsla_monitoring_policy_uuid(tenant_template_obj, name):
+def get_ipsla_monitoring_policy_uuid(tenant_template_obj, uuid, name):
     existing_ipsla_policies = tenant_template_obj.template.get("tenantPolicyTemplate", {}).get("template", {}).get("ipslaMonitoringPolicies", [])
     match = tenant_template_obj.get_object_by_key_value_pairs(
         "IPSLA Monitoring Policy",
         existing_ipsla_policies,
-        [KVPair("name", name)],
+        [(KVPair("uuid", uuid) if uuid else KVPair("name", name))],
         fail_module=True,
     )
     if match:
         return match.details.get("uuid")
 
 
-def format_track_list_members(mso, members, obj_cache):
+def format_track_list_members(mso, mso_template, members, obj_cache):
     track_list_members = []
 
-    def get_obj_uuid(type, uuid, obj):
+    def get_scope_obj_uuid(scope_type, uuid, obj):
         if uuid:
             return uuid
 
         name = obj.get("name")
         template = obj.get("template")
 
-        if type == "bd":
+        if scope_type == "bd":
             schema_name = obj.get("schema")
             if not schema_name:
                 mso.fail_json(msg="A member scope_type is bd and scope is used but the schema option is missing.")
-            schema_obj = obj_cache.get("schema-{0}-{1}".format(type, schema_name))
+            key = "schema-{0}-{1}".format(scope_type, schema_name)
+            schema_obj = obj_cache.get(key)
             if not schema_obj:
                 id, path, schema_obj = mso.query_schema(schema_name)
-                obj_cache[schema_name] = schema_obj
+                obj_cache[key] = schema_obj
             return get_bd_uuid(mso, schema_obj, template, name)
 
-        key = "template-{0}-{1}".format(type, template)
-        mso_template = obj_cache.get(key)
-
-        if type == "l3out":
+        if scope_type == "l3out":
+            key = "template-{0}-{1}".format(scope_type, template)
+            mso_template = obj_cache.get(key)
             if not mso_template:
-                mso_template = MSOTemplate(mso, type, template)
-                mso_template.validate_template(type)
+                mso_template = MSOTemplate(mso, scope_type, template)
+                mso_template.validate_template(scope_type)
                 obj_cache[key] = mso_template
             return get_l3out_uuid(mso_template, name)
-
-        elif type == "tenant":
-            if not mso_template:
-                mso_template = MSOTemplate(mso, type, template)
-                mso_template.validate_template("tenantPolicy")
-                obj_cache[key] = mso_template
-            return get_ipsla_monitoring_policy_uuid(mso_template, name)
 
     for member in members:
         scope_type = member.get("scope_type")
         track_member = {
-            "destIP": member.get("destination_ip"),
-            "scope": get_obj_uuid(scope_type, member.get("scope_uuid"), member.get("scope")),
-            "scopeType": scope_type,
-            "ipslaMonitoringRef": get_obj_uuid(
-                "tenant",
-                member.get("ipsla_monitoring_policy_uuid"),
-                member.get("ipsla_monitoring_policy"),
-            ),
+            "trackMember": {
+                "destIP": member.get("destination_ip"),
+                "scope": get_scope_obj_uuid(scope_type, member.get("scope_uuid"), member.get("scope")),
+                "scopeType": scope_type,
+                "ipslaMonitoringRef": get_ipsla_monitoring_policy_uuid(
+                    mso_template,
+                    member.get("ipsla_monitoring_policy_uuid"),
+                    member.get("ipsla_monitoring_policy"),
+                ),
+            },
+            "weight": member.get("weight"),
         }
-        track_member = {"trackMember": track_member}
-        weight = member.get("weight")
-        if weight is not None:
-            track_member["weight"] = weight
         track_list_members.append(track_member)
     return track_list_members
 

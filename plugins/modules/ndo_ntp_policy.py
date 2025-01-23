@@ -54,20 +54,23 @@ options:
       id:
         description:
         - The key's ID.
+        - The value must be between 1 and 65535.
         type: int
         aliases: [ key_id ]
       key:
         description:
         - The key.
+        - Up to 40 alphanumerical characters.
         type: str
-      authentification_type:
+      authentication_type:
         description:
-        - the type of authentification.
+        - the type of authentication.
+        - The default value is O(ntp_keys.authentication_type=md5).
         type: str
         choices: [ md5, sha1 ]
       trusted:
         description:
-        - Set the NTP client authentification key to trusted.
+        - Set the NTP client authentication key to trusted.
         type: bool
   ntp_providers:
     description:
@@ -84,11 +87,15 @@ options:
       minimum_poll_interval:
         description:
         - The Minimum Polling interval value.
+        - The default value is O(ntp_providers.minimum_poll_interval=4).
+        - The value must be between 4 and 16.
         type: int
         aliases: [ min_poll ]
       maximum_poll_interval:
         description:
         - The Maximum Polling interval value.
+        - The default value is O(ntp_providers.maximum_poll_interval=6).
+        - The value must be between 4 and 16.
         type: int
         aliases: [ max_poll ]
       management_epg_type:
@@ -106,33 +113,40 @@ options:
         description:
         - Set the NTP provider to preferred.
         type: bool
-      authentification_key_id:
+      authentication_key_id:
         description:
-        - The NTP authentification key ID.
+        - The NTP authentication key ID.
+        - The value must be between 1 and 65535.
         type: int
         aliases: [ key_id ]
   admin_state:
     description:
     - Enable admin state.
+    - The default value is O(admin_state=enabled).
     type: str
     choices: [ enabled, disabled ]
   server_state:
     description:
     - Enable server state.
+    - The default value is O(server_state=disabled).
     type: str
     choices: [ enabled, disabled ]
   master_mode:
     description:
     - Enable master mode.
+    - The default value is O(master_mode=disabled).
     type: str
     choices: [ enabled, disabled ]
   stratum:
     description:
     - The numerical value of the stratum.
+    - The default value is O(stratum=4).
+    - The value must be between 1 and 14.
     type: int
-  authentification_state:
+  authentication_state:
     description:
-    - Enable authentification state.
+    - Enable authentication state.
+    - The default value is O(authentication_state=disabled).
     type: str
     choices: [ enabled, disabled ]
   state:
@@ -162,7 +176,7 @@ EXAMPLES = r"""
     ntp_keys:
       - id: 1
         key: my_key
-        authentification_type: md5
+        authentication_type: md5
         trusted: true
     ntp_providers:
       - host: background
@@ -171,12 +185,12 @@ EXAMPLES = r"""
         management_epg_type: oob
         management_epg: default
         preferred: true
-        authentification_key_id: 1
+        authentication_key_id: 1
     admin_state: enabled
     server_state: enabled
     master_mode: enabled
     stratum: 4
-    authentification_state: enabled
+    authentication_state: enabled
     state: present
   register: ntp_policy_1
 
@@ -261,7 +275,7 @@ def main():
             options=dict(
                 id=dict(type="int", aliases=["key_id"]),
                 key=dict(type="str", no_log=True),
-                authentification_type=dict(type="str", choices=["md5", "sha1"]),
+                authentication_type=dict(type="str", choices=["md5", "sha1"]),
                 trusted=dict(type="bool"),
             ),
             no_log=False,
@@ -276,14 +290,14 @@ def main():
                 management_epg_type=dict(type="str", choices=["inb", "oob"], aliases=["epg_type"]),
                 management_epg=dict(type="str", aliases=["epg"]),
                 preferred=dict(type="bool"),
-                authentification_key_id=dict(type="int", aliases=["key_id"]),
+                authentication_key_id=dict(type="int", aliases=["key_id"]),
             ),
         ),
         admin_state=dict(type="str", choices=["enabled", "disabled"]),
         server_state=dict(type="str", choices=["enabled", "disabled"]),
         master_mode=dict(type="str", choices=["enabled", "disabled"]),
         stratum=dict(type="int"),
-        authentification_state=dict(type="str", choices=["enabled", "disabled"]),
+        authentication_state=dict(type="str", choices=["enabled", "disabled"]),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
 
@@ -308,7 +322,7 @@ def main():
             {
                 "id": item.get("id"),
                 "key": item.get("key"),
-                "authType": item.get("authentification_type"),
+                "authType": item.get("authentication_type"),
                 "trusted": item.get("trusted"),
             }
             for item in ntp_keys
@@ -323,7 +337,7 @@ def main():
                 "mgmtEpgType": item.get("management_epg_type"),
                 "mgmtEpgName": item.get("management_epg"),
                 "preferred": item.get("preferred"),
-                "authKeyID": item.get("authentification_key_id"),
+                "authKeyID": item.get("authentication_key_id"),
             }
             for item in ntp_providers
         ]
@@ -331,11 +345,11 @@ def main():
     server_state = module.params.get("server_state")
     master_mode = module.params.get("master_mode")
     stratum = module.params.get("stratum")
-    authentification_state = module.params.get("authentification_state")
+    authentication_state = module.params.get("authentication_state")
     state = module.params.get("state")
 
-    template_object = MSOTemplate(mso, "tenant", template)
-    template_object.validate_template("tenantPolicy")
+    template_object = MSOTemplate(mso, "fabric_policy", template)
+    template_object.validate_template("fabricPolicy")
 
     ntp_policies = template_object.template.get("fabricPolicyTemplate", {}).get("template", {}).get("ntpPolicies", [])
     object_description = "NTP Policy"
@@ -365,7 +379,7 @@ def main():
             serverState=server_state,
             masterMode=master_mode,
             stratum=stratum,
-            authState=authentification_state,
+            authState=authentication_state,
         )
 
         if mso.existing:

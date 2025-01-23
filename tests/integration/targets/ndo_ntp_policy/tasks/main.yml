@@ -51,7 +51,6 @@
         <<: *mso_info
         name: ansible_fabric_policy_template
         template_type: fabric_policy
-        tenant: ansible_test
         state: absent
 
     - name: Ensure templates exist
@@ -69,22 +68,22 @@
         description: Ansible NTP policy
         ntp_keys:
           - id: 1
-            key: my_key
-            authentification_type: md5
+            key: first_key
+            authentication_type: md5
             trusted: true
         ntp_providers:
-          - host: background
+          - host: 1.1.1.1
             minimum_poll_interval: 4
             maximum_poll_interval: 16
             management_epg_type: oob
             management_epg: default
             preferred: true
-            authentification_key_id: 1
+            authentication_key_id: 1
         admin_state: enabled
         server_state: enabled
         master_mode: enabled
         stratum: 4
-        authentification_state: enabled
+        authentication_state: enabled
         state: present
       check_mode: true
       register: cm_create_new_ntp_policy
@@ -114,21 +113,89 @@
           - cm_create_new_ntp_policy.previous == {}
           - cm_create_new_ntp_policy.current.name == "ansible_test_ntp_policy"
           - cm_create_new_ntp_policy.current.description == "Ansible NTP policy"
+          - cm_create_new_ntp_policy.current.ntpKeys | length == 1
+          - cm_create_new_ntp_policy.current.ntpKeys.0.id == 1
+          - cm_create_new_ntp_policy.current.ntpKeys.0.authType == "md5"
+          - cm_create_new_ntp_policy.current.ntpKeys.0.trusted == true
+          - cm_create_new_ntp_policy.current.ntpProviders | length == 1
+          - cm_create_new_ntp_policy.current.ntpProviders.0.host == "1.1.1.1"
+          - cm_create_new_ntp_policy.current.ntpProviders.0.minPollInterval == 4
+          - cm_create_new_ntp_policy.current.ntpProviders.0.maxPollInterval == 16
+          - cm_create_new_ntp_policy.current.ntpProviders.0.mgmtEpgType == "oob"
+          - cm_create_new_ntp_policy.current.ntpProviders.0.mgmtEpgName == "default"
+          - cm_create_new_ntp_policy.current.ntpProviders.0.preferred == true
+          - cm_create_new_ntp_policy.current.ntpProviders.0.authKeyID == 1
+          - cm_create_new_ntp_policy.current.adminState == "enabled"
+          - cm_create_new_ntp_policy.current.serverState == "enabled"
+          - cm_create_new_ntp_policy.current.masterMode == "enabled"
+          - cm_create_new_ntp_policy.current.stratum == 4
+          - cm_create_new_ntp_policy.current.authState == "enabled"
           - nm_create_new_ntp_policy is changed
           - nm_create_new_ntp_policy.previous == {}
           - nm_create_new_ntp_policy.current.name == "ansible_test_ntp_policy"
           - nm_create_new_ntp_policy.current.description == "Ansible NTP policy"
+          - nm_create_new_ntp_policy.current.ntpKeys | length == 1
+          - nm_create_new_ntp_policy.current.ntpKeys.0.id == 1
+          - nm_create_new_ntp_policy.current.ntpKeys.0.authType == "md5"
+          - nm_create_new_ntp_policy.current.ntpKeys.0.trusted == true
+          - nm_create_new_ntp_policy.current.ntpProviders | length == 1
+          - nm_create_new_ntp_policy.current.ntpProviders.0.host == "1.1.1.1"
+          - nm_create_new_ntp_policy.current.ntpProviders.0.minPollInterval == 4
+          - nm_create_new_ntp_policy.current.ntpProviders.0.maxPollInterval == 16
+          - nm_create_new_ntp_policy.current.ntpProviders.0.mgmtEpgType == "oob"
+          - nm_create_new_ntp_policy.current.ntpProviders.0.mgmtEpgName == "default"
+          - nm_create_new_ntp_policy.current.ntpProviders.0.preferred == true
+          - nm_create_new_ntp_policy.current.ntpProviders.0.authKeyID == 1
+          - nm_create_new_ntp_policy.current.adminState == "enabled"
+          - nm_create_new_ntp_policy.current.serverState == "enabled"
+          - nm_create_new_ntp_policy.current.masterMode == "enabled"
+          - nm_create_new_ntp_policy.current.stratum == 4
+          - nm_create_new_ntp_policy.current.authState == "enabled"
           - nm_create_new_ntp_policy.current.uuid is defined
           - nm_create_new_ntp_policy_again is not changed
           - nm_create_new_ntp_policy_again.previous.name == "ansible_test_ntp_policy"
           - nm_create_new_ntp_policy_again.previous.description == "Ansible NTP policy"
+          - nm_create_new_ntp_policy_again.previous.ntpKeys | length == 1
+          - nm_create_new_ntp_policy_again.previous.ntpKeys.0.id == 1
+          - nm_create_new_ntp_policy_again.previous.ntpKeys.0.authType == "md5"
+          - nm_create_new_ntp_policy_again.previous.ntpKeys.0.trusted == true
+          - nm_create_new_ntp_policy_again.previous.ntpProviders | length == 1
+          - nm_create_new_ntp_policy_again.previous.ntpProviders.0.host == "1.1.1.1"
+          - nm_create_new_ntp_policy_again.previous.ntpProviders.0.minPollInterval == 4
+          - nm_create_new_ntp_policy_again.previous.ntpProviders.0.maxPollInterval == 16
+          - nm_create_new_ntp_policy_again.previous.ntpProviders.0.mgmtEpgType == "oob"
+          - nm_create_new_ntp_policy_again.previous.ntpProviders.0.mgmtEpgName == "default"
+          - nm_create_new_ntp_policy_again.previous.ntpProviders.0.preferred == true
+          - nm_create_new_ntp_policy_again.previous.ntpProviders.0.authKeyID == 1
+          - nm_create_new_ntp_policy_again.previous.adminState == "enabled"
+          - nm_create_new_ntp_policy_again.previous.serverState == "enabled"
+          - nm_create_new_ntp_policy_again.previous.masterMode == "enabled"
+          - nm_create_new_ntp_policy_again.previous.stratum == 4
+          - nm_create_new_ntp_policy_again.previous.authState == "enabled"
           - nm_create_new_ntp_policy_again.previous.uuid is defined
           - nm_create_new_ntp_policy_again.current.name == "ansible_test_ntp_policy"
           - nm_create_new_ntp_policy_again.current.description == "Ansible NTP policy"
+          - nm_create_new_ntp_policy_again.current.ntpKeys | length == 1
+          - nm_create_new_ntp_policy_again.current.ntpKeys.0.id == 1
+          - nm_create_new_ntp_policy_again.current.ntpKeys.0.authType == "md5"
+          - nm_create_new_ntp_policy_again.current.ntpKeys.0.trusted == true
+          - nm_create_new_ntp_policy_again.current.ntpProviders | length == 1
+          - nm_create_new_ntp_policy_again.current.ntpProviders.0.host == "1.1.1.1"
+          - nm_create_new_ntp_policy_again.current.ntpProviders.0.minPollInterval == 4
+          - nm_create_new_ntp_policy_again.current.ntpProviders.0.maxPollInterval == 16
+          - nm_create_new_ntp_policy_again.current.ntpProviders.0.mgmtEpgType == "oob"
+          - nm_create_new_ntp_policy_again.current.ntpProviders.0.mgmtEpgName == "default"
+          - nm_create_new_ntp_policy_again.current.ntpProviders.0.preferred == true
+          - nm_create_new_ntp_policy_again.current.ntpProviders.0.authKeyID == 1
+          - nm_create_new_ntp_policy_again.current.adminState == "enabled"
+          - nm_create_new_ntp_policy_again.current.serverState == "enabled"
+          - nm_create_new_ntp_policy_again.current.masterMode == "enabled"
+          - nm_create_new_ntp_policy_again.current.stratum == 4
+          - nm_create_new_ntp_policy_again.current.authState == "enabled"
           - nm_create_new_ntp_policy_again.current.uuid is defined
           - nm_create_another_ntp_policy is changed
-          - nm_create_another_ntp_policy.previous = {}
-          - nm_create_another_ntp_policy.current.name = "ansible_test_ntp_policy_2"
+          - nm_create_another_ntp_policy.previous == {}
+          - nm_create_another_ntp_policy.current.name == "ansible_test_ntp_policy_2"
 
     # UPDATE
 
@@ -149,16 +216,45 @@
         <<: *update_ntp_policy
       register: nm_update_ntp_policy_again
 
-    - name: Remove NTP providers from NTP Policy
-      cisco.mso.ndo_ntp_policy: &remove_ntp_policy_dscp
+    - name: Add a NTP Provider and a NTP client key to NTP Policy
+      cisco.mso.ndo_ntp_policy: &add_ntp_policy_providers_keys
         <<: *update_ntp_policy
+        ntp_keys:
+          - id: 1
+            key: first_key
+            authentication_type: md5
+            trusted: true
+          - id: 2
+            key: second_key
+            authentication_type: md5
+            trusted: false
+        ntp_providers:
+          - host: 1.1.1.1
+            minimum_poll_interval: 4
+            maximum_poll_interval: 16
+            management_epg_type: oob
+            management_epg: default
+            preferred: true
+            authentication_key_id: 1
+          - host: 1.1.1.2
+            minimum_poll_interval: 5
+            maximum_poll_interval: 15
+            management_epg_type: oob
+            management_epg: default
+            preferred: false
+            authentication_key_id: 2
+      register: nm_add_ntp_policy_providers_keys
+
+    - name: Remove NTP providers from NTP Policy
+      cisco.mso.ndo_ntp_policy: &remove_ntp_policy_providers
+        <<: *add_ntp_policy_providers_keys
         ntp_providers: []
-      register: nm_remove_ntp_policy_dscp
+      register: nm_remove_ntp_policy_providers
 
     - name: Remove NTP providers from NTP Policy again
       cisco.mso.ndo_ntp_policy:
-        <<: *remove_ntp_policy_dscp
-      register: nm_remove_ntp_policy_dscp_again
+        <<: *remove_ntp_policy_providers
+      register: nm_remove_ntp_policy_providers_again
 
     - name: Assert NTP Policy was updated
       assert:
@@ -184,24 +280,83 @@
           - nm_update_ntp_policy_again.current.name == "ansible_test_ntp_policy"
           - nm_update_ntp_policy_again.current.description == "New Ansible NTP policy"        
           - nm_update_ntp_policy_again.current.uuid is defined
-          - cm_update_ntp_policy is changed
-          - nm_remove_ntp_policy_dscp.previous.name == "ansible_test_ntp_policy"
-          - nm_remove_ntp_policy_dscp.previous.description == "New Ansible NTP policy"
-          - nm_remove_ntp_policy_dscp.previous.uuid is defined
-          - nm_remove_ntp_policy_dscp.current.name == "ansible_test_ntp_policy"
-          - nm_remove_ntp_policy_dscp.current.description == "New Ansible NTP policy"
-          - nm_remove_ntp_policy_dscp.current.uuid is defined
-          - nm_remove_ntp_policy_dscp_again is not changed
-          - nm_remove_ntp_policy_dscp_again.previous.name == "ansible_test_ntp_policy"
-          - nm_remove_ntp_policy_dscp_again.previous.description == "New Ansible NTP policy"
-          - nm_remove_ntp_policy_dscp_again.previous.uuid is defined
-          - nm_remove_ntp_policy_dscp_again.current.name == "ansible_test_ntp_policy"
-          - nm_remove_ntp_policy_dscp_again.current.description == "New Ansible NTP policy"
-          - nm_remove_ntp_policy_dscp_again.current.uuid is defined
+          - nm_add_ntp_policy_providers_keys is changed
+          - nm_add_ntp_policy_providers_keys.previous.name == "ansible_test_ntp_policy"
+          - nm_add_ntp_policy_providers_keys.previous.description == "New Ansible NTP policy"
+          - nm_add_ntp_policy_providers_keys.previous.ntpKeys | length == 1
+          - nm_add_ntp_policy_providers_keys.previous.ntpKeys.0.id == 1
+          - nm_add_ntp_policy_providers_keys.previous.ntpKeys.0.authType == "md5"
+          - nm_add_ntp_policy_providers_keys.previous.ntpKeys.0.trusted == true
+          - nm_add_ntp_policy_providers_keys.previous.ntpProviders | length == 1
+          - nm_add_ntp_policy_providers_keys.previous.ntpProviders.0.host == "1.1.1.1"
+          - nm_add_ntp_policy_providers_keys.previous.ntpProviders.0.minPollInterval == 4
+          - nm_add_ntp_policy_providers_keys.previous.ntpProviders.0.maxPollInterval == 16
+          - nm_add_ntp_policy_providers_keys.previous.ntpProviders.0.mgmtEpgType == "oob"
+          - nm_add_ntp_policy_providers_keys.previous.ntpProviders.0.mgmtEpgName == "default"
+          - nm_add_ntp_policy_providers_keys.previous.ntpProviders.0.preferred == true
+          - nm_add_ntp_policy_providers_keys.previous.ntpProviders.0.authKeyID == 1
+          - nm_add_ntp_policy_providers_keys.previous.uuid is defined
+          - nm_add_ntp_policy_providers_keys.current.name == "ansible_test_ntp_policy"
+          - nm_add_ntp_policy_providers_keys.current.description == "New Ansible NTP policy"
+          - nm_add_ntp_policy_providers_keys.current.ntpKeys | length == 2
+          - nm_add_ntp_policy_providers_keys.current.ntpKeys.0.id == 1
+          - nm_add_ntp_policy_providers_keys.current.ntpKeys.0.authType == "md5"
+          - nm_add_ntp_policy_providers_keys.current.ntpKeys.0.trusted == true
+          - nm_add_ntp_policy_providers_keys.current.ntpKeys.1.id == 2
+          - nm_add_ntp_policy_providers_keys.current.ntpKeys.1.authType == "md5"
+          - nm_add_ntp_policy_providers_keys.current.ntpKeys.1.trusted == false
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders | length == 2
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.0.host == "1.1.1.1"
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.0.minPollInterval == 4
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.0.maxPollInterval == 16
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.0.mgmtEpgType == "oob"
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.0.mgmtEpgName == "default"
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.0.preferred == true
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.0.authKeyID == 1
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.1.host == "1.1.1.2"
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.1.minPollInterval == 5
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.1.maxPollInterval == 15
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.1.mgmtEpgType == "oob"
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.1.mgmtEpgName == "default"
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.1.preferred == false
+          - nm_add_ntp_policy_providers_keys.current.ntpProviders.1.authKeyID == 2
+          - nm_add_ntp_policy_providers_keys.current.uuid is defined
+          - nm_remove_ntp_policy_providers is changed
+          - nm_remove_ntp_policy_providers.previous.name == "ansible_test_ntp_policy"
+          - nm_remove_ntp_policy_providers.previous.description == "New Ansible NTP policy"
+          - nm_remove_ntp_policy_providers.previous.ntpProviders | length == 2
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.0.host == "1.1.1.1"
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.0.minPollInterval == 4
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.0.maxPollInterval == 16
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.0.mgmtEpgType == "oob"
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.0.mgmtEpgName == "default"
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.0.preferred == true
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.0.authKeyID == 1
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.1.host == "1.1.1.2"
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.1.minPollInterval == 5
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.1.maxPollInterval == 15
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.1.mgmtEpgType == "oob"
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.1.mgmtEpgName == "default"
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.1.preferred == false
+          - nm_remove_ntp_policy_providers.previous.ntpProviders.1.authKeyID == 2
+          - nm_remove_ntp_policy_providers.previous.uuid is defined
+          - nm_remove_ntp_policy_providers.current.name == "ansible_test_ntp_policy"
+          - nm_remove_ntp_policy_providers.current.description == "New Ansible NTP policy"
+          - nm_remove_ntp_policy_providers.current.ntpProviders is not defined
+          - nm_remove_ntp_policy_providers.current.uuid is defined
+          - nm_remove_ntp_policy_providers_again is not changed
+          - nm_remove_ntp_policy_providers_again.previous.name == "ansible_test_ntp_policy"
+          - nm_remove_ntp_policy_providers_again.previous.description == "New Ansible NTP policy"
+          - nm_remove_ntp_policy_providers_again.previous.ntpProviders is not defined
+          - nm_remove_ntp_policy_providers_again.previous.uuid is defined
+          - nm_remove_ntp_policy_providers_again.current.name == "ansible_test_ntp_policy"
+          - nm_remove_ntp_policy_providers_again.current.description == "New Ansible NTP policy"
+          - nm_remove_ntp_policy_providers_again.current.ntpProviders is not defined
+          - nm_remove_ntp_policy_providers_again.current.uuid is defined
 
     - name: Update a NTP Policy name
       cisco.mso.ndo_ntp_policy: &update_ntp_policy_name
-        <<: *remove_ntp_policy_dscp
+        <<: *remove_ntp_policy_providers
         uuid: '{{ nm_update_ntp_policy.current.uuid }}'
         name: ansible_test_ntp_policy_changed
       register: nm_update_ntp_policy_name

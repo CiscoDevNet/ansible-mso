@@ -222,18 +222,7 @@
       ansible.builtin.assert:
         that:
           - nt_ns1_synce is not changed
-          - nt_ns1_synce.current.description == "Updated description"
-          - nt_ns1_synce.current.name == "ns1"
-          - nt_ns1_synce.current.ptp.domain == 25
-          - nt_ns1_synce.current.ptp.prio1 == 128
-          - nt_ns1_synce.current.ptp.prio2 == 128
-          - nt_ns1_synce.current.uuid is defined
-          - nt_ns1_synce.msg is match ('MSO Error 400{{':'}} {"errors"{{':'}}\\["validation failed for mno.ndo.cisco.com/v1.SyncEthNodePol\\.(adminState|qlOption){{':'}} invalid value ","validation failed for mno.ndo.cisco.com/v1.SyncEthNodePol\\.(adminState|qlOption){{':'}} invalid value "\\]}')
-          - nt_ns1_synce.previous.description == "Updated description"
-          - nt_ns1_synce.previous.name == "ns1"
-          - nt_ns1_synce.previous.ptp.domain == 25
-          - nt_ns1_synce.previous.ptp.prio1 == 128
-          - nt_ns1_synce.previous.ptp.prio2 == 128
+          - nt_ns1_synce.msg == "state is enabled but all of the following are missing{{':'}} admin_state, quality_level found in synce"
 
     - name: Clear ns1 ptp values
       cisco.mso.ndo_node_setting:
@@ -274,13 +263,7 @@
       ansible.builtin.assert:
         that:
           - nt_ns1_ptp is not changed
-          - nt_ns1_ptp.current.description == "Updated description"
-          - nt_ns1_ptp.current.name == "ns1"
-          - nt_ns1_ptp.current.uuid is defined
-          - nt_ns1_ptp.msg == 'MSO Error 400{{":"}} {"errors"{{":"}}["Invalid value 0 for Domain, allowed{{":"}} 24 - 43"]}'
-          - nt_ns1_ptp.previous.description == "Updated description"
-          - nt_ns1_ptp.previous.name == "ns1"
-          - nt_ns1_ptp.previous.uuid is defined
+          - nt_ns1_ptp.msg == "state is enabled but all of the following are missing{{':'}} node_domain, priority_2 found in ptp"
 
     - name: Query ns1 Node Settings with UUID
       cisco.mso.ndo_node_setting:
@@ -390,46 +373,6 @@
           - add_ns2.current.uuid is defined
           - add_ns2.previous == {}
 
-    - name: Create ns3 with empty synce
-      cisco.mso.ndo_node_setting:
-        <<: *mso_info
-        template: '{{ ansible_fabric_template | default("ansible_test") }}'
-        name: "ns3"
-        synce:
-          state: "enabled"
-        state: "present"
-      ignore_errors: true
-      register: add_ns3_synce
-
-    - name: Assertion check for create ns3 with empty synce
-      ansible.builtin.assert:
-        that:
-          - add_ns3_synce is changed
-          - add_ns3_synce.current.description == ""
-          - add_ns3_synce.current.name == "ns3"
-          - add_ns3_synce.current.uuid is defined
-          - add_ns3_synce.current.synce is not defined
-
-    - name: Create ns4 with empty ptp
-      cisco.mso.ndo_node_setting:
-        <<: *mso_info
-        template: '{{ ansible_fabric_template | default("ansible_test") }}'
-        name: "ns4"
-        ptp:
-          state: "enabled"
-        state: "present"
-      ignore_errors: true
-      register: add_ns4_ptp
-
-    - name: Assertion check for create ns4 with empty ptp
-      ansible.builtin.assert:
-        that:
-          - add_ns4_ptp is changed
-          - add_ns4_ptp.current.description == ""
-          - add_ns4_ptp.current.name == "ns4"
-          - add_ns4_ptp.current.uuid is defined
-          - add_ns4_ptp.current.ptp is not defined
-
     - name: Query all Node Settings
       cisco.mso.ndo_node_setting:
         <<: *mso_info
@@ -441,28 +384,26 @@
       ansible.builtin.assert:
         that:
           - query_all_ns_again is not changed
-          - query_all_ns_again.current | length == 4
+          - query_all_ns_again.current | length == 2
           - "'ns1_new' in query_all_ns_again.current | map(attribute='name') | list"
           - "'ns2' in query_all_ns_again.current | map(attribute='name') | list"
-          - "'ns3' in query_all_ns_again.current | map(attribute='name') | list"
-          - "'ns4' in query_all_ns_again.current | map(attribute='name') | list"
 
-    - name: Remove ns4 Node Settings with UUID
+    - name: Remove ns2 Node Settings with UUID
       cisco.mso.ndo_node_setting:
         <<: *mso_info
         template: '{{ ansible_fabric_template | default("ansible_test") }}'
-        uuid: "{{ add_ns4_ptp.current.uuid }}"
+        uuid: "{{ add_ns2.current.uuid }}"
         state: "absent"
-      register: rm_ns4_uuid
+      register: rm_ns2_uuid
 
     - name: Assertion check for remove ns4 Node Settings with UUID
       ansible.builtin.assert:
         that:
-          - rm_ns4_uuid is changed
-          - rm_ns4_uuid.current == {}
-          - rm_ns4_uuid.previous.description == ""
-          - rm_ns4_uuid.previous.name == "ns4"
-          - rm_ns4_uuid.previous.uuid is defined
+          - rm_ns2_uuid is changed
+          - rm_ns2_uuid.current == {}
+          - rm_ns2_uuid.previous.description == "Updated description"
+          - rm_ns2_uuid.previous.name == "ns2"
+          - rm_ns2_uuid.previous.uuid is defined
 
     - name: Remove ns1_new Node Settings with check_mode
       cisco.mso.ndo_node_setting:

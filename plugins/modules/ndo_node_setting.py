@@ -214,6 +214,7 @@ def main():
                 admin_state=dict(type="str", choices=["enabled", "disabled"]),
                 quality_level=dict(type="str", choices=list(SYNC_E_QUALITY_LEVEL_OPTION)),
             ),
+            required_if=[["state", "enabled", ["admin_state", "quality_level"]]],
         ),
         ptp=dict(
             type="dict",
@@ -222,6 +223,7 @@ def main():
                 node_domain=dict(type="int"),
                 priority_2=dict(type="int"),
             ),
+            required_if=[["state", "enabled", ["node_domain", "priority_2"]]],
         ),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
@@ -296,28 +298,14 @@ def main():
                 mso_values["description"] = description
 
             if synce is not None:
-                synce_map = dict()
-                if synce.get("admin_state"):
-                    synce_map["adminState"] = synce.get("admin_state")
-
-                if synce.get("quality_level"):
-                    synce_map["qlOption"] = SYNC_E_QUALITY_LEVEL_OPTION.get(synce.get("quality_level"))
-
-                if synce_map:
-                    mso_values["synce"] = synce_map
+                mso_values["synce"] = dict(adminState=synce.get("admin_state"), qlOption=SYNC_E_QUALITY_LEVEL_OPTION.get(synce.get("quality_level")))
 
             if ptp is not None:
-                ptp_map = dict()
-                if ptp.get("node_domain"):
-                    ptp_map["domain"] = ptp.get("node_domain")
-
-                if ptp.get("priority_2") is not None:
-                    ptp_map["prio2"] = ptp.get("priority_2")
-
-                if ptp_map:
-                    # Add the Priority 1 fixed value 128 to the PTP settings during initialization
-                    ptp_map["prio1"] = 128
-                    mso_values["ptp"] = ptp_map
+                mso_values["ptp"] = dict(
+                    domain=ptp.get("node_domain"),
+                    prio2=ptp.get("priority_2"),
+                    prio1=128,
+                )
 
             ops.append(dict(op="add", path=node_setting_path, value=copy.deepcopy(mso_values)))
 

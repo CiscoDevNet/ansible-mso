@@ -138,11 +138,6 @@ options:
         - The name of the Route Map Policy for Multicast.
         type: str
         required: true
-      template:
-        description:
-        - The name of the template in which the Route Map Policy for Multicast has been created.
-        type: str
-        required: true
     aliases: [ state_limit_route_map_policy, state_limit_route_map_policy_multicast ]
   report_policy_route_map_uuid:
     description:
@@ -161,11 +156,6 @@ options:
         - The name of the Route Map Policy for Multicast.
         type: str
         required: true
-      template:
-        description:
-        - The name of the template in which the Route Map Policy for Multicast has been created.
-        type: str
-        required: true
     aliases: [ report_policy_route_map_policy, report_policy_route_map_policy_multicast ]
   static_report_route_map_uuid:
     description:
@@ -182,11 +172,6 @@ options:
       name:
         description:
         - The name of the Route Map Policy for Multicast.
-        type: str
-        required: true
-      template:
-        description:
-        - The name of the template in which the Route Map Policy for Multicast has been created.
         type: str
         required: true
     aliases: [ static_report_route_map_policy, static_report_route_map_policy_multicast ]
@@ -225,7 +210,7 @@ extends_documentation_fragment: cisco.mso.modules
 EXAMPLES = r"""
 - name: Create an IGMP Interface Policy
   cisco.mso.ndo_tenant_igmp_interface_policy:
-    template: TestTenantTemplate
+    template: ansible_tenant_template
     name: test_igmp_interface_policy
     description: Test Description
     version3_asm: enabled
@@ -245,7 +230,6 @@ EXAMPLES = r"""
     report_policy_route_map_uuid: route_map_policy_for_multicast_uuid
     static_report_route_map:
       name: TestStaticReportRouteMap
-      template: TestTenantTemplate
     maximum_multicast_entries: 4294967295
     reserved_multicast_entries: 4294967
     state: present
@@ -256,7 +240,7 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    template: tenant_template
+    template: ansible_tenant_template
     name: test_igmp_interface_policy_updated
     uuid: "{{ igmp_interface_policy.current.uuid }}"
     state: present
@@ -267,7 +251,7 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    template: TestTenantTemplate
+    template: ansible_tenant_template
     name: test_igmp_interface_policy
     state: query
   register: query
@@ -277,7 +261,7 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    template: TestTenantTemplate
+    template: ansible_tenant_template
     uuid: "{{ igmp_interface_policy.current.uuid }}"
     state: query
   register: query_uuid
@@ -287,7 +271,7 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    template: TestTenantTemplate
+    template: ansible_tenant_template
     state: query
   register: query_all
 
@@ -296,7 +280,7 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    template: TestTenantTemplate
+    template: ansible_tenant_template
     name: test_igmp_interface_policy
     state: absent
 
@@ -305,7 +289,7 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    template: TestTenantTemplate
+    template: ansible_tenant_template
     uuid: "{{ igmp_interface_policy.current.uuid }}"
     state: absent
 """
@@ -346,7 +330,6 @@ def main():
             type="dict",
             options=dict(
                 name=dict(type="str", required=True),
-                template=dict(type="str", required=True),
             ),
             aliases=["state_limit_route_map_policy", "state_limit_route_map_policy_multicast"],
         ),
@@ -355,7 +338,6 @@ def main():
             type="dict",
             options=dict(
                 name=dict(type="str", required=True),
-                template=dict(type="str", required=True),
             ),
             aliases=["report_policy_route_map_policy", "report_policy_route_map_policy_multicast"],
         ),
@@ -364,7 +346,6 @@ def main():
             type="dict",
             options=dict(
                 name=dict(type="str", required=True),
-                template=dict(type="str", required=True),
             ),
             aliases=["static_report_route_map_policy", "static_report_route_map_policy_multicast"],
         ),
@@ -420,20 +401,20 @@ def main():
     mso_template.validate_template("tenantPolicy")
     ops = []
 
-    existing_mld_interface_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("igmpInterfacePolicies", [])
+    existing_igmp_interface_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("igmpInterfacePolicies", [])
     object_description = "IGMP Interface Policy"
 
     if name or uuid:
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
-            existing_mld_interface_policies,
+            existing_igmp_interface_policies,
             [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
             igmp_interface_policy_attrs_path = "/tenantPolicyTemplate/template/igmpInterfacePolicies/{0}".format(match.index)
             mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
-        mso.existing = mso.previous = existing_mld_interface_policies
+        mso.existing = mso.previous = existing_igmp_interface_policies
 
     if state == "present":
         if uuid and not mso.existing:
@@ -484,9 +465,9 @@ def main():
 
     if not module.check_mode and ops:
         response_object = mso.request(mso_template.template_path, method="PATCH", data=ops)
-        existing_mld_interface_policies = response_object.get("tenantPolicyTemplate", {}).get("template", {}).get("igmpInterfacePolicies", [])
+        existing_igmp_interface_policies = response_object.get("tenantPolicyTemplate", {}).get("template", {}).get("igmpInterfacePolicies", [])
         match = mso_template.get_object_by_key_value_pairs(
-            object_description, existing_mld_interface_policies, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
+            object_description, existing_igmp_interface_policies, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
         )
         if match:
             mso.existing = match.details  # When the state is present

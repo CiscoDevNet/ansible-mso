@@ -87,7 +87,7 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-- name: Create a new multicast route map policy policy
+- name: Create a new multicast route map policy
   cisco.mso.ndo_route_map_policy_multicast:
     host: mso_host
     username: admin
@@ -101,8 +101,9 @@ EXAMPLES = r"""
         rp: 1.1.1.2
         action: permit
     state: present
+  register: create
 
-- name: Query a multicast route map policy policy with template_name
+- name: Query a multicast route map policy with name
   cisco.mso.ndo_route_map_policy_multicast:
     host: mso_host
     username: admin
@@ -112,7 +113,17 @@ EXAMPLES = r"""
     state: query
   register: query_one
 
-- name: Query all multicast route map policy policy in the template
+- name: Query a multicast route map policy with UUID
+  cisco.mso.ndo_route_map_policy_multicast:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_tenant_template
+    route_map_policy_uuid: '{{ create.current.uuid }}'
+    state: query
+  register: query_with_uuid
+
+- name: Query all multicast route map policy in the template
   cisco.mso.ndo_route_map_policy_multicast:
     host: mso_host
     username: admin
@@ -121,7 +132,7 @@ EXAMPLES = r"""
     state: query
   register: query_all
 
-- name: Delete a multicast route map policy policy
+- name: Delete a multicast route map policy
   cisco.mso.ndo_route_map_policy_multicast:
     host: mso_host
     username: admin

@@ -87,8 +87,9 @@ EXAMPLES = r"""
       - from_vlan: 300
         to_vlan: 400
     state: present
+  register: create
 
-- name: Query a vlan pool with template_name
+- name: Query a vlan pool with name
   cisco.mso.ndo_vlan_pool:
     host: mso_host
     username: admin
@@ -97,6 +98,16 @@ EXAMPLES = r"""
     vlan_pool: ansible_test_vlan_pool
     state: query
   register: query_one
+
+- name: Query a vlan pool with UUID
+  cisco.mso.ndo_vlan_pool:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_tenant_template
+    vlan_pool_uuid: '{{ create.current.uuid }}'
+    state: query
+  register: query_with_uuid
 
 - name: Query all vlan pools in the template
   cisco.mso.ndo_vlan_pool:
@@ -171,7 +182,7 @@ def main():
 
     path = "/fabricPolicyTemplate/template/vlanPools"
     existing_vlan_pools = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("vlanPools", [])
-    if vlan_pool:
+    if vlan_pool or vlan_pool_uuid:
         object_description = "VLAN Pool"
         if vlan_pool_uuid:
             match = mso_template.get_object_by_uuid(object_description, existing_vlan_pools, vlan_pool_uuid)

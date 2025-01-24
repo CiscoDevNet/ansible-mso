@@ -69,8 +69,9 @@ EXAMPLES = r"""
     physical_domain: ansible_test_physical_domain
     pool: ansible_test_vlan_pool
     state: present
+  register: create
 
-- name: Query a physical domain with template_name
+- name: Query a physical domain with name
   cisco.mso.ndo_physical_domain:
     host: mso_host
     username: admin
@@ -79,6 +80,16 @@ EXAMPLES = r"""
     physical_domain: ansible_test_physical_domain
     state: query
   register: query_one
+
+- name: Query a physical domain with UUID
+  cisco.mso.ndo_physical_domain:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_tenant_template
+    physical_domain_uuid: '{{ create.current.uuid }}'
+    state: query
+  register: query_with_uuid
 
 - name: Query all physical domains in the template
   cisco.mso.ndo_physical_domain:
@@ -156,7 +167,7 @@ def main():
 
     path = "/fabricPolicyTemplate/template/domains"
     existing_physical_domains = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("domains", [])
-    if physical_domain:
+    if physical_domain or physical_domain_uuid:
         object_description = "Physical Domain"
         if physical_domain_uuid:
             match = mso_template.get_object_by_uuid(object_description, existing_physical_domains, physical_domain_uuid)

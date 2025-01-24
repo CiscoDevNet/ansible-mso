@@ -45,9 +45,9 @@ options:
     type: str
   ntp_keys:
     description:
-    - The List of NTP client authentication keys.
+    - The list of NTP client authentication keys.
     - Providing a new list of O(ntp_keys) will completely replace an existing one from the NTP Policy.
-    - Providing an empty list will remove the  O(ntp_keys=[]) from the NTP Policy.
+    - Providing an empty list will remove the O(ntp_keys=[]) from the NTP Policy.
     type: list
     elements: dict
     suboptions:
@@ -56,6 +56,7 @@ options:
         - The key's ID.
         - The value must be between 1 and 65535.
         type: int
+        required: true
         aliases: [ key_id ]
       key:
         description:
@@ -64,7 +65,7 @@ options:
         type: str
       authentication_type:
         description:
-        - the type of authentication.
+        - The type of authentication.
         - The default value is O(ntp_keys.authentication_type=md5).
         type: str
         choices: [ md5, sha1 ]
@@ -82,18 +83,19 @@ options:
     suboptions:
       host:
         description:
-        - The Hostname or IP address of the NTP provider.
+        - The hostname or IP address of the NTP provider.
         type: str
+        required: true
       minimum_poll_interval:
         description:
-        - The Minimum Polling interval value.
+        - The minimum polling interval value.
         - The default value is O(ntp_providers.minimum_poll_interval=4).
         - The value must be between 4 and 16.
         type: int
         aliases: [ min_poll ]
       maximum_poll_interval:
         description:
-        - The Maximum Polling interval value.
+        - The maximum polling interval value.
         - The default value is O(ntp_providers.maximum_poll_interval=6).
         - The value must be between 4 and 16.
         type: int
@@ -102,12 +104,14 @@ options:
         description:
         - The type of the management EPG.
         type: str
+        required: true
         choices: [ inb, oob ]
         aliases: [ epg_type ]
       management_epg:
         description:
         - The management EPG.
         type: str
+        required: true
         aliases: [ epg ]
       preferred:
         description:
@@ -273,7 +277,7 @@ def main():
             type="list",
             elements="dict",
             options=dict(
-                id=dict(type="int", aliases=["key_id"]),
+                id=dict(type="int", required=True, aliases=["key_id"]),
                 key=dict(type="str", no_log=True),
                 authentication_type=dict(type="str", choices=["md5", "sha1"]),
                 trusted=dict(type="bool"),
@@ -284,11 +288,11 @@ def main():
             type="list",
             elements="dict",
             options=dict(
-                host=dict(type="str"),
+                host=dict(type="str", required=True),
                 minimum_poll_interval=dict(type="int", aliases=["min_poll"]),
                 maximum_poll_interval=dict(type="int", aliases=["max_poll"]),
-                management_epg_type=dict(type="str", choices=["inb", "oob"], aliases=["epg_type"]),
-                management_epg=dict(type="str", aliases=["epg"]),
+                management_epg_type=dict(type="str", choices=["inb", "oob"], required=True, aliases=["epg_type"]),
+                management_epg=dict(type="str", required=True, aliases=["epg"]),
                 preferred=dict(type="bool"),
                 authentication_key_id=dict(type="int", aliases=["key_id"]),
             ),

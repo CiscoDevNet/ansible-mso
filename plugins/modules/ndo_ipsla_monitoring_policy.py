@@ -296,17 +296,11 @@ def main():
     object_description = "IPSLA Monitoring Policy"
 
     path = "/tenantPolicyTemplate/template/ipslaMonitoringPolicies"
-    existing_ipsla_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("ipslaMonitoringPolicies", [])
-    if ipsla_monitoring_policy or ipsla_monitoring_policy_uuid:
-        match = mso_template.get_object_by_key_value_pairs(
-            object_description,
-            existing_ipsla_policies,
-            [KVPair("uuid", ipsla_monitoring_policy_uuid) if ipsla_monitoring_policy_uuid else KVPair("name", ipsla_monitoring_policy)],
-        )
-        if match:
-            mso.existing = mso.previous = copy.deepcopy(match.details)
-    else:
-        mso.existing = mso.previous = existing_ipsla_policies
+    match = mso_template.get_ipsla_monitoring_policy(ipsla_monitoring_policy_uuid, ipsla_monitoring_policy)
+    if isinstance(match, list):  # Query all policies
+        mso.existing = mso.previous = match
+    elif match is not None:  # Query a specific policy
+        mso.existing = mso.previous = copy.deepcopy(match.details)
 
     if state == "present":
         mso_values = dict(

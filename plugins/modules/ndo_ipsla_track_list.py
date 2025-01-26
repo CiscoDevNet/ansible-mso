@@ -126,7 +126,7 @@ options:
           schema:
             description:
             - The name of the Schema associated with the BD scope.
-            - This parameter is only required when the O(members.scope_type) is V(bd).
+            - This parameter is only required when the O(members.scope_type=bd).
             type: str
           template:
             description:
@@ -268,6 +268,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import (
     MSOModule,
     mso_argument_spec,
 )
+from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 from ansible_collections.cisco.mso.plugins.module_utils.template import (
     MSOTemplate,
     KVPair,
@@ -434,43 +435,6 @@ def main():
     mso.exit_json()
 
 
-def get_bd_uuid(mso, schema_obj, template, bd):
-    # Get template
-    templates = [t.get("name") for t in schema_obj.get("templates")]
-    if template not in templates:
-        mso.fail_json(msg="Provided template '{0}' does not exist. Existing templates: {1}".format(template, ", ".join(templates)))
-    template_idx = templates.index(template)
-    # Get BD
-    bds = [b.get("name") for b in schema_obj.get("templates")[template_idx]["bds"]]
-    if bd not in bds:
-        mso.fail_json(msg="Provided BD '{0}' does not exist. Existing BDs: {1}".format(bd, ", ".join(bds)))
-    return schema_obj.get("templates")[template_idx]["bds"][bds.index(bd)].get("uuid")
-
-
-def get_l3out_uuid(l3out_template_object, name):
-    l3outs = l3out_template_object.template.get("l3outTemplate", {}).get("l3outs", [])
-    match = l3out_template_object.get_object_by_key_value_pairs(
-        "L3Out",
-        l3outs,
-        [KVPair("name", name)],
-        fail_module=True,
-    )
-    if match:
-        return match.details.get("uuid")
-
-
-def get_ipsla_monitoring_policy_uuid(tenant_template_obj, uuid, name):
-    existing_ipsla_policies = tenant_template_obj.template.get("tenantPolicyTemplate", {}).get("template", {}).get("ipslaMonitoringPolicies", [])
-    match = tenant_template_obj.get_object_by_key_value_pairs(
-        "IPSLA Monitoring Policy",
-        existing_ipsla_policies,
-        [(KVPair("uuid", uuid) if uuid else KVPair("name", name))],
-        fail_module=True,
-    )
-    if match:
-        return match.details.get("uuid")
-
-
 def format_track_list_members(mso, mso_template, members, obj_cache):
     track_list_members = []
 
@@ -485,12 +449,14 @@ def format_track_list_members(mso, mso_template, members, obj_cache):
             schema_name = obj.get("schema")
             if not schema_name:
                 mso.fail_json(msg="A member scope_type is bd and scope is used but the schema option is missing.")
-            key = "schema-{0}-{1}".format(scope_type, schema_name)
-            schema_obj = obj_cache.get(key)
-            if not schema_obj:
-                id, path, schema_obj = mso.query_schema(schema_name)
-                obj_cache[key] = schema_obj
-            return get_bd_uuid(mso, schema_obj, template, name)
+            key = "schema-{0}-{1}-{2}".format(scope_type, schema_name, template)
+            mso_schema = obj_cache.get(key)
+            if not mso_schema:
+                mso_schema = MSOSchema(mso, schema_name, template)
+                obj_cache[key] = mso_schema
+            mso_schema.set_template(template, fail_module=True)
+            mso_schema.set_template_bd(name, fail_module=True)
+            return mso_schema.schema_objects.get("template_bd").details.get("uuid")
 
         if scope_type == "l3out":
             key = "template-{0}-{1}".format(scope_type, template)
@@ -499,7 +465,7 @@ def format_track_list_members(mso, mso_template, members, obj_cache):
                 mso_template = MSOTemplate(mso, scope_type, template)
                 mso_template.validate_template(scope_type)
                 obj_cache[key] = mso_template
-            return get_l3out_uuid(mso_template, name)
+            return mso_template.get_l3out_object(name=name, fail_module=True).details.get("uuid")
 
     for member in members:
         scope_type = member.get("scope_type")
@@ -508,11 +474,11 @@ def format_track_list_members(mso, mso_template, members, obj_cache):
                 "destIP": member.get("destination_ip"),
                 "scope": get_scope_obj_uuid(scope_type, member.get("scope_uuid"), member.get("scope")),
                 "scopeType": scope_type,
-                "ipslaMonitoringRef": get_ipsla_monitoring_policy_uuid(
-                    mso_template,
+                "ipslaMonitoringRef": mso_template.get_ipsla_monitoring_policy(
                     member.get("ipsla_monitoring_policy_uuid"),
                     member.get("ipsla_monitoring_policy"),
-                ),
+                    fail_module=True,
+                ).details.get("uuid"),
             },
             "weight": member.get("weight"),
         }

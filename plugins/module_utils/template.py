@@ -219,6 +219,28 @@ class MSOTemplate:
         match = self.get_object_by_key_value_pairs("Interface Policy Groups", existing_policy_groups, kv_list, fail_module=True)
         return match.details.get("uuid")
 
+    def get_ipsla_monitoring_policy(self, uuid=None, name=None, fail_module=False):
+        """
+        Get the IPSLA Monitoring Policy by UUID or Name.
+        :param uuid: UUID of the IPSLA Monitoring Policy to search for -> Str
+        :param name: Name of the IPSLA Monitoring Policy to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        existing_ipsla_policies = self.template.get("tenantPolicyTemplate", {}).get("template", {}).get("ipslaMonitoringPolicies", [])
+        if name or uuid:
+            return self.get_object_by_key_value_pairs(
+                "IPSLA Monitoring Policy",
+                existing_ipsla_policies,
+                [(KVPair("uuid", uuid) if uuid else KVPair("name", name))],
+                fail_module=fail_module,
+            )
+        return existing_ipsla_policies
+
     def get_l3out_object(self, uuid=None, name=None, fail_module=False):
         """
         Get the L3Out by uuid or name.

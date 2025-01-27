@@ -69,7 +69,7 @@ options:
     - The list of used Interface IDs for the second node.
     - Ranges of Interface IDs can be used.
     - This parameter is required when creating a new Virtual Port Channel Interface.
-    - If O(interfaces_node_2=[mirror]) is defined as an empty list and O(interfaces_node_1) is clearly defined,
+    - If O(interfaces_node_2=[mirror]) and O(interfaces_node_1) is clearly defined,
       the interfaces of O(interfaces_node_1) will be mirrored in O(interfaces_node_2).
     type: list
     elements: str
@@ -175,7 +175,7 @@ EXAMPLES = r"""
     state: present
   register: virtual_port_channel_interface_1
 
-- name: Update a  Virtual Port Channel Interface's interfaces and their descriptions
+- name: Update a Virtual Port Channel Interface's interfaces and their descriptions
   cisco.mso.ndo_virtual_port_channel_interface:
     host: mso_host
     username: admin

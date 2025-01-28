@@ -295,6 +295,7 @@ def main():
         elif interface_type == 'vpc':
             new_interface.update(
                 {
+                    "templateId": template_id,
                     "node1Details":
                         {
                             "node": node1,

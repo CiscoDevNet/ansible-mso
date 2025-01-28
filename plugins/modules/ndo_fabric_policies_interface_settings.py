@@ -328,7 +328,8 @@ def main():
                     "portChannelPolicy":
                         {
                             "minLinks": 0,
-                            "maxLinks": 0
+                            "maxLinks": 0,
+                            "hashFields": null
                         }
                 }
             )
@@ -341,6 +342,7 @@ def main():
                             "control": port_channel_control,
                             "minLinks": min_links,
                             "maxLinks": max_links,
+                            "hashFields": "none"
                         }
                 }
             )

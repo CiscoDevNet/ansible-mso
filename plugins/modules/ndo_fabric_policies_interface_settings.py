@@ -329,7 +329,7 @@ def main():
                         {
                             "minLinks": 0,
                             "maxLinks": 0,
-                            "hashFields": null
+                            "hashFields": None
                         }
                 }
             )

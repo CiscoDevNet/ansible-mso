@@ -269,7 +269,7 @@ def main():
                     "interfaces": interfaces_node1,
                     "policyGroupType": "physical",
                     "policy": interface_policy_uuid,
-                    "interfaceDescriptions": null
+                    "interfaceDescriptions": None
                 }
             )
         elif interface_type == 'breakout':
@@ -289,7 +289,7 @@ def main():
                     "node": node1,
                     "memberInterfaces": interfaces_node1,
                     "policy": interface_policy_uuid,
-                    "interfaceDescriptions": null
+                    "interfaceDescriptions": None
                 }
             )
         elif interface_type == 'vpc':
@@ -308,7 +308,7 @@ def main():
                             "role": "standby"
                         },
                     "policy": interface_policy_uuid,
-                    "interfaceDescriptions": null
+                    "interfaceDescriptions": None
                 }
             )
         else:

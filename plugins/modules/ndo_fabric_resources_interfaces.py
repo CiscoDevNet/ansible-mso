@@ -286,6 +286,7 @@ def main():
         elif interface_type == 'port-channel':
             new_interface.update(
                 {
+                    "templateId": template_id,
                     "node": node1,
                     "memberInterfaces": interfaces_node1,
                     "policy": interface_policy_uuid,

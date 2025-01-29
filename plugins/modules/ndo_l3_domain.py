@@ -170,10 +170,14 @@ def main():
     if l3_domain_uuid or l3_domain:
         if match:
             if match.details.get("pool"):
-                match.details["pool_uuid"] = match.details.get("pool")
+                match.details["poolRef"] = match.details.get("pool")
                 match.details["pool"] = mso_template.get_vlan_pool_name(match.details.get("pool"))
             mso.existing = mso.previous = copy.deepcopy(match.details)  # Query a specific object
     elif match:
+        for l3_domain in match:
+            if l3_domain.get("pool"):
+                l3_domain["poolRef"] = l3_domain.get("pool")
+                l3_domain["pool"] = mso_template.get_vlan_pool_name(l3_domain.get("pool"))
         mso.existing = match  # Query all objects
 
     if state == "present":
@@ -190,7 +194,7 @@ def main():
 
             if pool and match.details.get("pool") != pool:
                 ops.append(dict(op="replace", path="{0}/{1}/pool".format(path, match.index), value=mso_template.get_vlan_pool_uuid(pool)))
-                match.details["pool"] = mso_template.get_vlan_pool_uuid(pool)
+                match.details["pool"] = pool
             elif pool == "" and match.details.get("pool"):
                 ops.append(dict(op="remove", path="{0}/{1}/pool".format(path, match.index)))
                 match.details.pop("pool")
@@ -201,19 +205,18 @@ def main():
             payload = {"name": l3_domain, "templateId": mso_template.template.get("templateId"), "schemaId": mso_template.template.get("schemaId")}
             if description:
                 payload["description"] = description
+
             if pool:
-                payload["pool"] = mso_template.get_vlan_pool_uuid(pool)
+                pool_uuid = mso_template.get_vlan_pool_uuid(pool)
+                payload["pool"] = pool_uuid
 
             ops.append(dict(op="add", path="{0}/-".format(path), value=copy.deepcopy(payload)))
 
             if pool:
                 payload["pool"] = pool
+                payload["poolRef"] = pool_uuid
 
             mso.sanitize(payload)
-
-            if module.check_mode:
-                mso.proposed["pool_uuid"] = payload["pool"]
-                mso.proposed["pool"] = pool
 
         mso.existing = mso.proposed
 
@@ -227,29 +230,19 @@ def main():
         match = get_l3_domain(mso_template, l3_domain_uuid, l3_domain)
         if match:
             if match.details.get("pool"):
-                match.details["pool_uuid"] = match.details.get("pool")
+                match.details["poolRef"] = match.details.get("pool")
                 match.details["pool"] = mso_template.get_vlan_pool_name(match.details.get("pool"))
             mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
+        mso.proposed["poolRef"] = mso_template.get_vlan_pool_uuid(pool)
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
 
 
 def get_l3_domain(mso_template, uuid=None, name=None, fail_module=False):
-    """
-    Get the L3 Domain by UUID or Name.
-    :param uuid: UUID of the L3 Domain to search for -> Str
-    :param name: Name of the L3 Domain to search for -> Str
-    :param fail_module: When match is not found fail the ansible module -> Bool
-    :return: Dict | None | List[Dict] | List[]: The processed result which could be:
-              When the UUID | Name is existing in the search list -> Dict
-              When the UUID | Name is not existing in the search list -> None
-              When both UUID and Name are None, and the search list is not empty -> List[Dict]
-              When both UUID and Name are None, and the search list is empty -> List[]
-    """
     match = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("l3Domains", [])
     if uuid or name:  # Query a specific object
         return mso_template.get_object_by_key_value_pairs("L3 Domain", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)

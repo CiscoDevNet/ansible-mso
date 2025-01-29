@@ -83,20 +83,21 @@
           - cm_create_new_physical_domain is changed
           - cm_create_new_physical_domain.previous == {}
           - cm_create_new_physical_domain.current.name == "ansible_test_physical_domain"
-          - cm_create_new_physical_domain.current.pool != ""
+          - cm_create_new_physical_domain.current.pool == "ansible_test_vlan_pool_1"
           - nm_create_new_physical_domain is changed
           - nm_create_new_physical_domain.previous == {}
           - nm_create_new_physical_domain.current.name == "ansible_test_physical_domain"
-          - nm_create_new_physical_domain.current.pool != ""
+          - nm_create_new_physical_domain.current.pool == "ansible_test_vlan_pool_1"
           - nm_create_new_physical_domain_again is not changed
           - nm_create_new_physical_domain_again.previous.name == "ansible_test_physical_domain"
           - nm_create_new_physical_domain_again.previous.description == ""
           - nm_create_new_physical_domain_again.previous.uuid is defined
-          - nm_create_new_physical_domain_again.previous.pool != ""
+          - nm_create_new_physical_domain_again.previous.pool == "ansible_test_vlan_pool_1"
           - nm_create_new_physical_domain_again.current.name == "ansible_test_physical_domain"
           - nm_create_new_physical_domain_again.current.description == ""
           - nm_create_new_physical_domain_again.current.uuid is defined
-          - nm_create_new_physical_domain_again.current.pool != ""
+          - nm_create_new_physical_domain_again.current.pool == "ansible_test_vlan_pool_1"
+          - cm_create_new_physical_domain.current.poolRef == nm_create_new_physical_domain.current.poolRef == nm_create_new_physical_domain_again.previous.poolRef == nm_create_new_physical_domain_again.current.poolRef
 
     # UPDATE
 
@@ -143,6 +144,19 @@
         pool: ansible_test_vlan_pool_2
       register: nm_update_physical_domain_pool
 
+    - name: Query a physical domain to check the poolRef value
+      cisco.mso.ndo_physical_domain:
+        <<: *update_physical_domain_name
+        state: query
+      register: query_physical_domain_pool_2
+
+    - name: Query all physical domain in the template to check the poolRef value
+      cisco.mso.ndo_physical_domain:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        state: query
+      register: query_all_1
+
     - name: Remove a physical domain pool
       cisco.mso.ndo_physical_domain:
         <<: *update_physical_domain_name
@@ -156,11 +170,17 @@
           - nm_update_physical_domain_name.previous.name == "ansible_test_physical_domain"
           - nm_update_physical_domain_name.current.name == "ansible_test_physical_domain_changed"
           - nm_update_physical_domain_pool is changed
-          - nm_update_physical_domain_pool.previous.pool != ""
-          - nm_update_physical_domain_pool.current.pool != ""
+          - nm_update_physical_domain_pool.previous.pool == "ansible_test_vlan_pool_1"
+          - nm_update_physical_domain_pool.current.pool == "ansible_test_vlan_pool_2"
           - nm_update_physical_domain_pool_remove is changed
-          - nm_update_physical_domain_pool_remove.previous.pool != ""
+          - nm_update_physical_domain_pool_remove.previous.pool == "ansible_test_vlan_pool_2"
           - nm_update_physical_domain_pool_remove.current.pool is not defined
+          - query_physical_domain_pool_2 is not changed
+          - query_all_1 is not changed
+          - query_all_1.current | length == 1
+          - query_all_1.current.0.name == "ansible_test_physical_domain_changed"
+          - query_all_1.current.0.pool == "ansible_test_vlan_pool_2"
+          - nm_update_physical_domain_pool.current.poolRef == nm_update_physical_domain_pool_remove.previous.poolRef == query_physical_domain_pool_2.current.poolRef == query_all_1.current.0.poolRef
 
     # QUERY
 

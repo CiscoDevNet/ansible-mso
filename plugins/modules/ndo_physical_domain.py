@@ -170,8 +170,15 @@ def main():
 
     if physical_domain_uuid or physical_domain:
         if match:
+            if match.details.get("pool"):
+                match.details["poolRef"] = match.details.get("pool")
+                match.details["pool"] = mso_template.get_vlan_pool_name(match.details.get("pool"))
             mso.existing = mso.previous = copy.deepcopy(match.details)  # Query a specific object
     elif match:
+        for physical_domain in match:
+            if physical_domain.get("pool"):
+                physical_domain["poolRef"] = physical_domain.get("pool")
+                physical_domain["pool"] = mso_template.get_vlan_pool_name(physical_domain.get("pool"))
         mso.existing = match  # Query all objects
 
     if state == "present":
@@ -199,13 +206,16 @@ def main():
             payload = {"name": physical_domain, "templateId": mso_template.template.get("templateId"), "schemaId": mso_template.template.get("schemaId")}
             if description:
                 payload["description"] = description
+
             if pool:
-                payload["pool"] = mso_template.get_vlan_pool_uuid(pool)
+                pool_uuid = mso_template.get_vlan_pool_uuid(pool)
+                payload["pool"] = pool_uuid
 
             ops.append(dict(op="add", path="{0}/-".format(path), value=copy.deepcopy(payload)))
 
             if pool:
                 payload["pool"] = pool
+                payload["poolRef"] = pool_uuid
 
             mso.sanitize(payload)
 
@@ -220,27 +230,20 @@ def main():
         mso_template.template = mso.request(mso_template.template_path, method="PATCH", data=ops)
         match = get_physical_domain(mso_template, physical_domain_uuid, physical_domain)
         if match:
+            if match.details.get("pool"):
+                match.details["poolRef"] = match.details.get("pool")
+                match.details["pool"] = mso_template.get_vlan_pool_name(match.details.get("pool"))
             mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
+        mso.proposed["poolRef"] = mso_template.get_vlan_pool_uuid(pool)
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
 
 
 def get_physical_domain(mso_template, uuid=None, name=None, fail_module=False):
-    """
-    Get the Physical Domain by UUID or Name.
-    :param uuid: UUID of the Physical Domain to search for -> Str
-    :param name: Name of the Physical Domain to search for -> Str
-    :param fail_module: When match is not found fail the ansible module -> Bool
-    :return: Dict | None | List[Dict] | List[]: The processed result which could be:
-              When the UUID | Name is existing in the search list -> Dict
-              When the UUID | Name is not existing in the search list -> None
-              When both UUID and Name are None, and the search list is not empty -> List[Dict]
-              When both UUID and Name are None, and the search list is empty -> List[]
-    """
     match = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("domains", [])
     if uuid or name:  # Query a specific object
         return mso_template.get_object_by_key_value_pairs("Physical Domain", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)

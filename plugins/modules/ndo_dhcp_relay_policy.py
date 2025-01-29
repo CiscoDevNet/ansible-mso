@@ -163,6 +163,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
+from ansible_collections.cisco.mso.plugins.module_utils.utils import get_template_object_name_by_uuid
 
 
 def main():
@@ -218,9 +219,9 @@ def main():
 
     if relay_policy_uuid or relay_policy:
         if match:
-            mso.existing = mso.previous = copy.deepcopy(match.details)  # Query a specific object
+            mso.existing = mso.previous = copy.deepcopy(insert_dhcp_relay_policy_relation_name(match.details, mso_template))  # Query a specific object
     elif match:
-        mso.existing = match  # Query all objects
+        mso.existing = [insert_dhcp_relay_policy_relation_name(dhcp_relay_policy, mso_template) for dhcp_relay_policy in match]  # Query all objects
 
     if state == "present":
         if match:
@@ -264,7 +265,7 @@ def main():
         mso_template.template = mso.request(mso_template.template_path, method="PATCH", data=ops)
         match = get_dhcp_relay_policy(mso_template, relay_policy_uuid, relay_policy)
         if match:
-            mso.existing = match.details  # When the state is present
+            mso.existing = insert_dhcp_relay_policy_relation_name(match.details, mso_template)  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
@@ -273,18 +274,16 @@ def main():
     mso.exit_json()
 
 
+def insert_dhcp_relay_policy_relation_name(dhcp_relay_policy, mso_template):
+    for provider in dhcp_relay_policy.get("providers"):
+        if provider.get("epgRef"):
+            provider["epgName"] = get_template_object_name_by_uuid(mso_template.mso, "epg", provider.get("epgRef"))
+        if provider.get("externalEpgRef"):
+            provider["externalEpgName"] = get_template_object_name_by_uuid(mso_template.mso, "externalEpg", provider.get("externalEpgRef"))
+    return dhcp_relay_policy
+
+
 def get_dhcp_relay_policy(mso_template, uuid=None, name=None, fail_module=False):
-    """
-    Get the DHCP Relay Policy by UUID or Name.
-    :param uuid: UUID of the DHCP Relay Policy to search for -> Str
-    :param name: Name of the DHCP Relay Policy to search for -> Str
-    :param fail_module: When match is not found fail the ansible module -> Bool
-    :return: Dict | None | List[Dict] | List[]: The processed result which could be:
-              When the UUID | Name is existing in the search list -> Dict
-              When the UUID | Name is not existing in the search list -> None
-              When both UUID and Name are None, and the search list is not empty -> List[Dict]
-              When both UUID and Name are None, and the search list is empty -> List[]
-    """
     match = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("dhcpRelayPolicies", [])
     if uuid or name:  # Query a specific object
         return mso_template.get_object_by_key_value_pairs("DHCP Relay Policy", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
@@ -324,9 +323,11 @@ def get_providers_payload(mso, providers):
             schema_cache[schema].set_template_anp(anp)
             schema_cache[schema].set_template_anp_epg(epg)
             provider_payload["epgRef"] = schema_cache[schema].schema_objects["template_anp_epg"].details.get("uuid")
+            provider_payload["epgName"] = epg
         else:
             schema_cache[schema].set_template_external_epg(external_epg)
             provider_payload["externalEpgRef"] = schema_cache[schema].schema_objects.get("template_external_epg").details.get("uuid")
+            provider_payload["externalEpgName"] = external_epg
 
         payload.append(provider_payload)
     return payload

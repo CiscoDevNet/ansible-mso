@@ -404,7 +404,7 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ORIGINATE_DEFAULT_ROUTE, L3OUT_ROUTING_PROTOCOLS
-from ansible_collections.cisco.mso.plugins.module_utils.utils import generate_api_endpoint
+from ansible_collections.cisco.mso.plugins.module_utils.utils import generate_api_endpoint, get_name_by_key_value, get_template_object_name_by_uuid
 
 
 def get_routing_protocol(existing_protocol, ospf_state, bgp_state):
@@ -499,23 +499,24 @@ def main():
 
     state = module.params.get("state")
 
-    l3out_template_object = MSOTemplate(mso, "l3out", l3out_template)
-    l3out_template_object.validate_template("l3out")
+    mso_template = MSOTemplate(mso, "l3out", l3out_template)
+    mso_template.validate_template("l3out")
 
-    tenant_id = l3out_template_object.template_summary.get("tenantId")
-    tenant_name = l3out_template_object.template_summary.get("tenantName")
+    tenant_id = mso_template.template_summary.get("tenantId")
+    tenant_name = mso_template.template_summary.get("tenantName")
 
-    l3outs = l3out_template_object.template.get("l3outTemplate", {}).get("l3outs", [])
+    l3outs = mso_template.template.get("l3outTemplate", {}).get("l3outs", [])
     object_description = "L3Out"
 
     if state in ["query", "absent"] and l3outs == []:
         mso.exit_json()
     elif state == "query" and not (name or uuid):
-        mso.existing = l3outs
+        if l3outs:
+            mso.existing = [insert_l3out_relation_name(l3out, mso_template) for l3out in l3outs]
     elif l3outs and (name or uuid):
-        match = l3out_template_object.get_object_by_key_value_pairs(object_description, l3outs, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
+        match = mso_template.get_object_by_key_value_pairs(object_description, l3outs, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
         if match:
-            mso.existing = mso.previous = copy.deepcopy(match.details)
+            mso.existing = mso.previous = copy.deepcopy(insert_l3out_relation_name(match.details, mso_template))
 
     ops = []
 
@@ -530,7 +531,7 @@ def main():
 
         vrf_ref = None
         if vrf_dict:
-            vrf_object = l3out_template_object.get_vrf_object(vrf_dict, tenant_id, templates_objects_path)
+            vrf_object = mso_template.get_vrf_object(vrf_dict, tenant_id, templates_objects_path)
             if pim and vrf_object.details.get("l3MCast") is False:
                 mso.fail_json(
                     msg="Invalid configuration in L3Out {0}, 'PIM' cannot be enabled while using the VRF '{1}' with L3 Multicast disabled".format(
@@ -557,6 +558,7 @@ def main():
                 mso.fail_json(msg="The O(vrf) is required during the creation.")
 
             payload["vrfRef"] = vrf_ref
+            payload["vrfName"] = vrf_dict.get("name")
 
             if description:
                 payload["description"] = description
@@ -572,7 +574,8 @@ def main():
 
             outer_route_maps = dict()
             if interleak:
-                outer_route_maps["interleakRef"] = l3out_template_object.get_route_map(
+                outer_route_maps["interleakName"] = interleak
+                outer_route_maps["interleakRef"] = mso_template.get_route_map(
                     "interleak",
                     tenant_id,
                     tenant_name,
@@ -581,7 +584,8 @@ def main():
                 ).get("uuid", "")
 
             if static_route_redistribution:
-                outer_route_maps["staticRouteRedistRef"] = l3out_template_object.get_route_map(
+                outer_route_maps["staticRouteRedistName"] = static_route_redistribution
+                outer_route_maps["staticRouteRedistRef"] = mso_template.get_route_map(
                     "static_route_redistribution",
                     tenant_id,
                     tenant_name,
@@ -590,7 +594,8 @@ def main():
                 ).get("uuid", "")
 
             if connected_route_redistribution:
-                outer_route_maps["connectedRouteRedistRef"] = l3out_template_object.get_route_map(
+                outer_route_maps["connectedRouteRedistName"] = connected_route_redistribution
+                outer_route_maps["connectedRouteRedistRef"] = mso_template.get_route_map(
                     "connected_route_redistribution",
                     tenant_id,
                     tenant_name,
@@ -599,7 +604,8 @@ def main():
                 ).get("uuid", "")
 
             if attached_host_route_redistribution:
-                outer_route_maps["attachedHostRouteRedistRef"] = l3out_template_object.get_route_map(
+                outer_route_maps["attachedHostRouteRedistName"] = attached_host_route_redistribution
+                outer_route_maps["attachedHostRouteRedistRef"] = mso_template.get_route_map(
                     "attached_host_route_redistribution",
                     tenant_id,
                     tenant_name,
@@ -612,7 +618,8 @@ def main():
 
             if bgp:
                 if bgp.get("inbound_route_map"):
-                    payload["importRouteMapRef"] = l3out_template_object.get_route_map(
+                    payload["importRouteMapName"] = bgp.get("inbound_route_map")
+                    payload["importRouteMapRef"] = mso_template.get_route_map(
                         "inbound_route_map",
                         tenant_id,
                         tenant_name,
@@ -623,7 +630,8 @@ def main():
                 payload["importRouteControl"] = True if payload.get("importRouteMapRef") else False
 
                 if bgp.get("outbound_route_map"):
-                    payload["exportRouteMapRef"] = l3out_template_object.get_route_map(
+                    payload["exportRouteMapName"] = bgp.get("outbound_route_map")
+                    payload["exportRouteMapRef"] = mso_template.get_route_map(
                         "outbound_route_map",
                         tenant_id,
                         tenant_name,
@@ -632,7 +640,8 @@ def main():
                     ).get("uuid", "")
 
                 if bgp.get("route_dampening_ipv4"):
-                    payload["advancedRouteMapRefs"]["routeDampeningV4Ref"] = l3out_template_object.get_route_map(
+                    payload["advancedRouteMapRefs"]["routeDampeningV4Name"] = bgp.get("route_dampening_ipv4")
+                    payload["advancedRouteMapRefs"]["routeDampeningV4Ref"] = mso_template.get_route_map(
                         "route_dampening_ipv4",
                         tenant_id,
                         tenant_name,
@@ -641,7 +650,8 @@ def main():
                     ).get("uuid", "")
 
                 if bgp.get("route_dampening_ipv6"):
-                    payload["advancedRouteMapRefs"]["routeDampeningV6Ref"] = l3out_template_object.get_route_map(
+                    payload["advancedRouteMapRefs"]["routeDampeningV6Name"] = bgp.get("route_dampening_ipv6")
+                    payload["advancedRouteMapRefs"]["routeDampeningV6Ref"] = mso_template.get_route_map(
                         "route_dampening_ipv6",
                         tenant_id,
                         tenant_name,
@@ -700,6 +710,7 @@ def main():
             if vrf_ref is not None and mso.existing.get("vrfRef") != vrf_ref:
                 ops.append(dict(op="replace", path=l3out_attrs_path + "/vrfRef", value=vrf_ref))
                 proposed_payload["vrfRef"] = vrf_ref
+                proposed_payload["vrfName"] = vrf_dict.get("name")
 
             if description is not None and mso.existing.get("description") != description:
                 ops.append(dict(op="replace", path=l3out_attrs_path + "/description", value=description))
@@ -730,7 +741,7 @@ def main():
             outer_route_maps = dict()
 
             if interleak is not None:
-                interleak_ref = l3out_template_object.get_route_map(
+                interleak_ref = mso_template.get_route_map(
                     "interleak",
                     tenant_id,
                     tenant_name,
@@ -741,9 +752,10 @@ def main():
                 if mso.existing.get("advancedRouteMapRefs", {}).get("interleakRef") != interleak_ref:
                     ops.append(dict(op="replace", path=l3out_attrs_path + "/advancedRouteMapRefs/interleakRef", value=interleak_ref))
                     outer_route_maps["interleakRef"] = interleak_ref
+                    outer_route_maps["interleakName"] = interleak
 
             if static_route_redistribution is not None:
-                static_route_redistribution_ref = l3out_template_object.get_route_map(
+                static_route_redistribution_ref = mso_template.get_route_map(
                     "static_route_redistribution",
                     tenant_id,
                     tenant_name,
@@ -754,9 +766,10 @@ def main():
                 if mso.existing.get("advancedRouteMapRefs", {}).get("staticRouteRedistRef") != static_route_redistribution_ref:
                     ops.append(dict(op="replace", path=l3out_attrs_path + "/advancedRouteMapRefs/staticRouteRedistRef", value=static_route_redistribution_ref))
                     outer_route_maps["staticRouteRedistRef"] = static_route_redistribution_ref
+                    outer_route_maps["staticRouteRedistName"] = static_route_redistribution
 
             if connected_route_redistribution is not None:
-                connected_route_redistribution_ref = l3out_template_object.get_route_map(
+                connected_route_redistribution_ref = mso_template.get_route_map(
                     "connected_route_redistribution",
                     tenant_id,
                     tenant_name,
@@ -769,9 +782,10 @@ def main():
                         dict(op="replace", path=l3out_attrs_path + "/advancedRouteMapRefs/connectedRouteRedistRef", value=connected_route_redistribution_ref)
                     )
                     outer_route_maps["connectedRouteRedistRef"] = connected_route_redistribution_ref
+                    outer_route_maps["connectedRouteRedistName"] = connected_route_redistribution
 
             if attached_host_route_redistribution is not None:
-                attached_host_route_redistribution_ref = l3out_template_object.get_route_map(
+                attached_host_route_redistribution_ref = mso_template.get_route_map(
                     "attached_host_route_redistribution",
                     tenant_id,
                     tenant_name,
@@ -788,10 +802,11 @@ def main():
                         )
                     )
                     outer_route_maps["attachedHostRouteRedistRef"] = attached_host_route_redistribution_ref
+                    outer_route_maps["attachedHostRouteRedistName"] = attached_host_route_redistribution
 
             if bgp and bgp_state != "disabled":
                 if bgp.get("inbound_route_map") is not None:
-                    inbound_route_map_ref = l3out_template_object.get_route_map(
+                    inbound_route_map_ref = mso_template.get_route_map(
                         "inbound_route_map",
                         tenant_id,
                         tenant_name,
@@ -804,10 +819,11 @@ def main():
                         ops.append(dict(op="replace", path=l3out_attrs_path + "/importRouteControl", value=True if inbound_route_map_ref else False))
 
                         proposed_payload["importRouteMapRef"] = inbound_route_map_ref
+                        proposed_payload["importRouteMapName"] = bgp.get("inbound_route_map")
                         proposed_payload["importRouteControl"] = True if inbound_route_map_ref else False
 
                 if bgp.get("outbound_route_map") is not None:
-                    outbound_route_map_ref = l3out_template_object.get_route_map(
+                    outbound_route_map_ref = mso_template.get_route_map(
                         "outbound_route_map",
                         tenant_id,
                         tenant_name,
@@ -818,9 +834,10 @@ def main():
                     if mso.existing.get("exportRouteMapRef") != outbound_route_map_ref:
                         ops.append(dict(op="replace", path=l3out_attrs_path + "/exportRouteMapRef", value=outbound_route_map_ref))
                         proposed_payload["exportRouteMapRef"] = outbound_route_map_ref
+                        proposed_payload["exportRouteMapName"] = bgp.get("outbound_route_map")
 
                 if bgp.get("route_dampening_ipv4") is not None:
-                    route_dampening_ipv4_ref = l3out_template_object.get_route_map(
+                    route_dampening_ipv4_ref = mso_template.get_route_map(
                         "route_dampening_ipv4",
                         tenant_id,
                         tenant_name,
@@ -831,9 +848,10 @@ def main():
                     if mso.existing.get("advancedRouteMapRefs", {}).get("routeDampeningV4Ref") != route_dampening_ipv4_ref:
                         ops.append(dict(op="replace", path=l3out_attrs_path + "/advancedRouteMapRefs/routeDampeningV4Ref", value=route_dampening_ipv4_ref))
                         outer_route_maps["routeDampeningV4Ref"] = route_dampening_ipv4_ref
+                        outer_route_maps["routeDampeningV4Name"] = bgp.get("route_dampening_ipv4")
 
                 if bgp.get("route_dampening_ipv6") is not None:
-                    route_dampening_ipv6_ref = l3out_template_object.get_route_map(
+                    route_dampening_ipv6_ref = mso_template.get_route_map(
                         "route_dampening_ipv6",
                         tenant_id,
                         tenant_name,
@@ -844,6 +862,7 @@ def main():
                     if mso.existing.get("advancedRouteMapRefs", {}).get("routeDampeningV6Ref") != route_dampening_ipv6_ref:
                         ops.append(dict(op="replace", path=l3out_attrs_path + "/advancedRouteMapRefs/routeDampeningV6Ref", value=route_dampening_ipv6_ref))
                         outer_route_maps["routeDampeningV6Ref"] = route_dampening_ipv6_ref
+                        outer_route_maps["routeDampeningV6Name"] = bgp.get("route_dampening_ipv6")
 
             elif bgp_state == "disabled":
                 ops.append(dict(op="replace", path=l3out_attrs_path + "/importRouteMapRef", value=""))
@@ -943,17 +962,139 @@ def main():
             ops.append(dict(op="remove", path="/l3outTemplate/l3outs/{0}".format(match.index)))
 
     if not module.check_mode and ops:
-        response_object = mso.request(l3out_template_object.template_path, method="PATCH", data=ops)
+        response_object = mso.request(mso_template.template_path, method="PATCH", data=ops)
         l3outs = response_object.get("l3outTemplate", {}).get("l3outs", [])
-        match = l3out_template_object.get_object_by_key_value_pairs(object_description, l3outs, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
+        match = mso_template.get_object_by_key_value_pairs(object_description, l3outs, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
         if match:
-            mso.existing = match.details  # When the state is present
+            mso.existing = insert_l3out_relation_name(match.details, mso_template)  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
-        mso.existing = mso.proposed if state == "present" else {}
+        mso.existing = insert_l3out_relation_name(mso.proposed, mso_template, module.check_mode) if state == "present" else {}
 
     mso.exit_json()
+
+
+def insert_l3out_relation_name(l3out_object, mso_template, check_mode=False):
+    l3out_object["vrfName"] = get_template_object_name_by_uuid(mso_template.mso, "vrf", l3out_object.get("vrfRef"))
+
+    if not check_mode:
+        l3out_relations = get_l3out_relations(mso_template)
+
+    if "exportRouteMapRef" in l3out_object:
+        if check_mode:
+            l3out_object["exportRouteMapName"] = get_template_object_name_by_uuid(mso_template.mso, "routeMap", l3out_object["exportRouteMapRef"])
+        else:
+            l3out_object["exportRouteMapName"] = get_name_by_key_value(
+                mso_template,
+                "Route Map",
+                l3out_object["exportRouteMapRef"],
+                "ref",
+                l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
+            )
+
+    if "importRouteMapRef" in l3out_object:
+        if check_mode:
+            l3out_object["importRouteMapName"] = get_template_object_name_by_uuid(mso_template.mso, "routeMap", l3out_object["importRouteMapRef"])
+        else:
+            l3out_object["importRouteMapName"] = get_name_by_key_value(
+                mso_template,
+                "Route Map",
+                l3out_object["importRouteMapRef"],
+                "ref",
+                l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
+            )
+
+    advanced_route_maps = l3out_object.get("advancedRouteMapRefs")
+    if advanced_route_maps is not None:
+        if "attachedHostRouteRedistRef" in advanced_route_maps:
+            if check_mode:
+                l3out_object["advancedRouteMapRefs"]["attachedHostRouteRedistName"] = get_template_object_name_by_uuid(
+                    mso_template.mso, "routeMap", advanced_route_maps["attachedHostRouteRedistRef"]
+                )
+            else:
+                l3out_object["advancedRouteMapRefs"]["attachedHostRouteRedistName"] = get_name_by_key_value(
+                    mso_template,
+                    "Route Map",
+                    advanced_route_maps["attachedHostRouteRedistRef"],
+                    "ref",
+                    l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
+                )
+
+        if "connectedRouteRedistRef" in advanced_route_maps:
+            if check_mode:
+                l3out_object["advancedRouteMapRefs"]["connectedRouteRedistName"] = get_template_object_name_by_uuid(
+                    mso_template.mso, "routeMap", advanced_route_maps["connectedRouteRedistRef"]
+                )
+            else:
+                l3out_object["advancedRouteMapRefs"]["connectedRouteRedistName"] = get_name_by_key_value(
+                    mso_template,
+                    "Route Map",
+                    advanced_route_maps["connectedRouteRedistRef"],
+                    "ref",
+                    l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
+                )
+
+        if "interleakRef" in advanced_route_maps:
+            if check_mode:
+                l3out_object["advancedRouteMapRefs"]["interleakName"] = get_template_object_name_by_uuid(
+                    mso_template.mso, "routeMap", advanced_route_maps["interleakRef"]
+                )
+            else:
+                l3out_object["advancedRouteMapRefs"]["interleakName"] = get_name_by_key_value(
+                    mso_template,
+                    "Route Map",
+                    advanced_route_maps["interleakRef"],
+                    "ref",
+                    l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
+                )
+
+        if "routeDampeningV4Ref" in advanced_route_maps:
+            if check_mode:
+                l3out_object["advancedRouteMapRefs"]["routeDampeningV4Name"] = get_template_object_name_by_uuid(
+                    mso_template.mso, "routeMap", advanced_route_maps["routeDampeningV4Ref"]
+                )
+            else:
+                l3out_object["advancedRouteMapRefs"]["routeDampeningV4Name"] = get_name_by_key_value(
+                    mso_template,
+                    "Route Map",
+                    advanced_route_maps["routeDampeningV4Ref"],
+                    "ref",
+                    l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
+                )
+
+        if "routeDampeningV6Ref" in advanced_route_maps:
+            if check_mode:
+                l3out_object["advancedRouteMapRefs"]["routeDampeningV6Name"] = get_template_object_name_by_uuid(
+                    mso_template.mso, "routeMap", advanced_route_maps["routeDampeningV6Ref"]
+                )
+            else:
+                l3out_object["advancedRouteMapRefs"]["routeDampeningV6Name"] = get_name_by_key_value(
+                    mso_template,
+                    "Route Map",
+                    advanced_route_maps["routeDampeningV6Ref"],
+                    "ref",
+                    l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
+                )
+
+        if "staticRouteRedistRef" in advanced_route_maps:
+            if check_mode:
+                l3out_object["advancedRouteMapRefs"]["staticRouteRedistName"] = get_template_object_name_by_uuid(
+                    mso_template.mso, "routeMap", advanced_route_maps["staticRouteRedistRef"]
+                )
+            else:
+                l3out_object["advancedRouteMapRefs"]["staticRouteRedistName"] = get_name_by_key_value(
+                    mso_template,
+                    "Route Map",
+                    advanced_route_maps["staticRouteRedistRef"],
+                    "ref",
+                    l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
+                )
+    return l3out_object
+
+
+def get_l3out_relations(mso_template):
+    return mso_template.mso.request("{0}/relations".format(mso_template.template_path), "GET")
 
 
 if __name__ == "__main__":

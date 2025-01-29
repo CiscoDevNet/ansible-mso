@@ -442,11 +442,11 @@ def main():
 
     if not static_ports and state in ["present", "absent"]:
         if state == "absent":
-          # The state absent requires at least the pod, leaf and path to be provided
-          key_list = ["pod", "leaf", "path"]
+            # The state absent requires at least the pod, leaf and path to be provided
+            key_list = ["pod", "leaf", "path"]
         else:
-          # The state present requires all the key_list to be provided
-          key_list = ["pod", "leaf", "path", "vlan"]
+            # The state present requires all the key_list to be provided
+            key_list = ["pod", "leaf", "path", "vlan"]
         required_missing = [key for key in key_list if module.params.get(key)]
         if len(required_missing) != len(key_list) and not (len(required_missing) == 0 and state == "absent" and force_replace):
             module.fail_json(

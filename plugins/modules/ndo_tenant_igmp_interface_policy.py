@@ -180,7 +180,7 @@ options:
     - The maximum multicast entries value.
     - Defaults to C(4294967295) when unset during creation.
     - The valid range is from C(1) to C(4294967295).
-    - This parameter is only applicable when the O(state_limit_route_map_uuid) is not empty.
+    - This parameter is only applicable when the O(state_limit_route_map_uuid) or O(state_limit_route_map) is not empty.
     type: int
   reserved_multicast_entries:
     description:
@@ -199,11 +199,13 @@ options:
 notes:
 - The O(template) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_template) to create the Tenant template.
-- The O(state_limit_route_map_uuid), O(report_policy_route_map_uuid), O(static_report_route_map_uuid) must exist before using this module in your playbook.
-  Use M(cisco.mso.ndo_tenant_route_map_policy_for_multicast) to create the Route Map Policy for Multicast.
+- The O(state_limit_route_map_uuid) or O(state_limit_route_map) requires Route Map Policy for Multicast.
+  The O(report_policy_route_map_uuid) or O(report_policy_route_map) requires Route Map Policy for Multicast.
+  The O(static_report_route_map_uuid) or O(static_report_route_map) requires Route Map Policy for Multicast.
+  Use M(cisco.mso.ndo_route_map_policy_multicast) to create the Route Map Policy for Multicast.
 seealso:
 - module: cisco.mso.ndo_template
-- module: cisco.mso.ndo_tenant_route_map_policy_for_multicast
+- module: cisco.mso.ndo_route_map_policy_multicast
 extends_documentation_fragment: cisco.mso.modules
 """
 

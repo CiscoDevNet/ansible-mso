@@ -3,6 +3,7 @@
 
 # Copyright: (c) 2019, Dag Wieers (@dagwieers) <dag@wieers.com>
 # Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
+# Copyright: (c) 2024, Noppanut Ploywong (@noppanut15) <noppanut.connect@gmail.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -20,6 +21,7 @@ description:
 author:
 - Dag Wieers (@dagwieers)
 - Akini Ross (@akinross)
+- Noppanut Ploywong (@noppanut15)
 options:
   schema:
     description:

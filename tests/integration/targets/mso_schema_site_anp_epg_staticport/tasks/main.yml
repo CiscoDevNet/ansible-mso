@@ -3,6 +3,7 @@
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
 # Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+# Copyright: (c) 2024, Noppanut Ploywong (@noppanut15) <noppanut.connect@gmail.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -511,7 +512,7 @@
   ansible.builtin.assert:
     that:
     - nm_remove_again_stat2e2 is not changed
-
+    
 # ADD EXISTING STATIC PORT
 - name: Add static port 1 to site EPG1 again (normal mode)
   cisco.mso.mso_schema_site_anp_epg_staticport:
@@ -1364,6 +1365,74 @@
       - force_remove_all_new_static is changed
       - force_remove_all_new_static.previous == []
       - force_remove_all_new_static.current | length == 1
+
+# WITHOUT VLAN REMOVAL TEST
+- name: Create static ports for without VLAN removal tests
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: template_bulk
+    anp: anp_bulk
+    epg: epg_bulk
+    static_ports:
+      - pod: pod-2
+        leaf: 102
+        path: eth1/1
+        vlan: 101
+      - pod: pod-2
+        leaf: 102
+        path: eth1/2
+        vlan: 102
+      - pod: pod-2
+        leaf: 102
+        path: eth1/3
+        vlan: 103
+    state: present
+
+- name: Remove a static port without VLAN
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: template_bulk
+    anp: anp_bulk
+    epg: epg_bulk
+    pod: pod-2
+    leaf: 102
+    path: eth1/1
+    state: absent
+  register: rm_stat_without_vlan
+
+- name: Verify rm_stat_without_vlan
+  ansible.builtin.assert:
+    that:
+    - rm_stat_without_vlan is changed
+    - rm_stat_without_vlan.current == {}
+
+- name: Remove multiple static ports in bulk without VLAN
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: template_bulk
+    anp: anp_bulk
+    epg: epg_bulk
+    static_ports:
+      - pod: pod-2
+        leaf: 102
+        path: eth1/2
+      - pod: pod-2
+        leaf: 102
+        path: eth1/3
+    state: absent
+  register: rm_bulk_stat_without_vlan
+
+- name: Verify rm_bulk_stat_without_vlan
+  ansible.builtin.assert:
+    that:
+    - rm_bulk_stat_without_vlan is changed
+    - rm_bulk_stat_without_vlan.current == []
 
 # OVERWRITE ARGUMENTS
 

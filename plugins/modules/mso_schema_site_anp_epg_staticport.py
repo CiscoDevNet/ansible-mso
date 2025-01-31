@@ -3,6 +3,7 @@
 
 # Copyright: (c) 2019, Dag Wieers (@dagwieers) <dag@wieers.com>
 # Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
+# Copyright: (c) 2024, Noppanut Ploywong (@noppanut15) <noppanut.connect@gmail.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -20,6 +21,7 @@ description:
 author:
 - Dag Wieers (@dagwieers)
 - Akini Ross (@akinross)
+- Noppanut Ploywong (@noppanut15)
 options:
   schema:
     description:
@@ -441,9 +443,14 @@ def main():
     state = module.params.get("state")
 
     if not static_ports and state in ["present", "absent"]:
-        key_list = ["pod", "leaf", "path", "vlan"]
+        if state == "absent":
+            # The state absent requires at least the pod, leaf and path to be provided
+            key_list = ["pod", "leaf", "path"]
+        else:
+            # The state present requires all the key_list to be provided
+            key_list = ["pod", "leaf", "path", "vlan"]
         required_missing = [key for key in key_list if module.params.get(key)]
-        if len(required_missing) != 4 and not (len(required_missing) == 0 and state == "absent" and force_replace):
+        if len(required_missing) != len(key_list) and not (len(required_missing) == 0 and state == "absent" and force_replace):
             module.fail_json(
                 msg="state is present or absent but all of the following are missing: {0}.".format(
                     ", ".join([key for key in key_list if not module.params.get(key)]),
@@ -497,7 +504,7 @@ def main():
         set_existing_static_ports(mso, mso_schema, full_paths)
         for static_port in static_ports:
             overwrite_static_path_unprovided_attributes(
-                mso, static_port, path_type, pod, leaf, fex, path, vlan, primary_micro_segment_vlan, deployment_immediacy, mode
+                state, mso, static_port, path_type, pod, leaf, fex, path, vlan, primary_micro_segment_vlan, deployment_immediacy, mode
             )
             full_path = get_full_static_path(
                 static_port.get("type"), static_port.get("pod"), static_port.get("leaf"), static_port.get("fex"), static_port.get("path")
@@ -507,7 +514,7 @@ def main():
                 found_static_ports.append(mso_schema.schema_objects["site_anp_epg_static_port"].details)
                 found_full_paths.append(full_path)
 
-    elif path_type and pod and leaf and path and vlan:
+    elif (path_type and pod and leaf and path) and (vlan or (state == "absent")):
         full_path = get_full_static_path(path_type, pod, leaf, fex, path)
         mso_schema.set_site_anp_epg_static_port(full_path, False)
         if mso_schema.schema_objects.get("site_anp_epg_static_port") is not None:
@@ -646,7 +653,7 @@ def get_full_static_path(path_type, pod, leaf, fex, path):
         return "topology/{0}/paths-{1}/pathep-[{2}]".format(pod, leaf, path)
 
 
-def overwrite_static_path_unprovided_attributes(mso, static_path, path_type, pod, leaf, fex, path, vlan, micro_vlan, deployment_immediacy, mode):
+def overwrite_static_path_unprovided_attributes(state, mso, static_path, path_type, pod, leaf, fex, path, vlan, micro_vlan, deployment_immediacy, mode):
     required_overwrites = []
     if not static_path.get("type"):
         static_path["type"] = path_type
@@ -666,7 +673,8 @@ def overwrite_static_path_unprovided_attributes(mso, static_path, path_type, pod
             required_overwrites.append("path")
     if not static_path.get("vlan"):
         static_path["vlan"] = vlan
-        if not vlan:
+        if not vlan and state != "absent":
+            # The vlan is not required when the state is absent
             required_overwrites.append("vlan")
     if not static_path.get("primary_micro_segment_vlan"):
         static_path["primary_micro_segment_vlan"] = micro_vlan

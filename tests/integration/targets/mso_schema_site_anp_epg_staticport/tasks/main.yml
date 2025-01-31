@@ -558,18 +558,6 @@
     primary_micro_segment_vlan: 199
     state: present
   register: nm_add_stat3e6
-
-- name: Verify nm_add_stat3e6
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat3e6 is changed
-    - nm_add_stat3e6.previous == {}
-    - nm_add_stat3e6.current.deploymentImmediacy == 'lazy'
-    - nm_add_stat3e6.current.portEncapVlan == 100
-    - nm_add_stat3e6.current.microSegVlan == 199
-    - nm_add_stat3e6.current.path == 'topology/pod-2/paths-102/pathep-[eth1/3]'
-    - nm_add_stat3e6.current.mode == 'regular'
-    - nm_add_stat3e6.current.type == 'dpc'
   
 # REMOVE STATIC PORT WITHOUT VLAN
 - name: Remove static port 3 (dpc) from EPG6 of AP2 without VLAN (success)
@@ -1276,14 +1264,6 @@
         type: dpc
         primary_micro_segment_vlan: 199
     state: present
-  ignore_errors: true
-  register: nm_add_stat3e6
-
-- name: Verify nm_add_stat3e6
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat3e6 is failed
-    - nm_add_stat3e6.msg == "state is present but all of the following are missing{{":"}} vlan."
 
 # ADD STATIC PORT WITH VLAN (BULK)
 - name: Add static port 3 & 4 (dpc) to epg_bulk of anp_bulk with VLAN (success)

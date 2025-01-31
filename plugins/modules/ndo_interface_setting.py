@@ -853,12 +853,16 @@ def validate_domains(mso, domains, template, template_info, input_type="name"):
     domain_uuid_list = []
     domain_uuid_name_list = dict()
     # Combine physical and L3 domains into a single dictionary
-    existing_domains = {
-        **{domain["name"]: domain["uuid"] for domain in template_info.get("domains", [])},
-        **{domain["uuid"]: domain["name"] for domain in template_info.get("domains", [])},
-        **{domain["name"]: domain["uuid"] for domain in template_info.get("l3Domains", [])},
-        **{domain["uuid"]: domain["name"] for domain in template_info.get("l3Domains", [])},
-    }
+    existing_domains = dict()
+
+    for domain in template_info.get("domains", []):
+        existing_domains[domain["name"]] = domain["uuid"]
+        existing_domains[domain["uuid"]] = domain["name"]
+
+    for domain in template_info.get("l3Domains", []):
+        existing_domains[domain["name"]] = domain["uuid"]
+        existing_domains[domain["uuid"]] = domain["name"]
+
     for domain in domains:
         if domain in existing_domains:
             if input_type == "name":

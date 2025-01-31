@@ -27,6 +27,11 @@ options:
     type: str
     aliases: [ tenant_template ]
     required: true
+  template_id:
+    description:
+    - The ID of the L3Out template.
+    type: str
+    aliases: [ l3out_template_id ]
   name:
     description:
     - The name of the IGMP Interface Policy.
@@ -70,56 +75,56 @@ options:
   group_timeout:
     description:
     - The group timeout value in seconds.
-    - Defaults to C(260) when unset during creation.
-    - The valid range is from C(3) to C(65535).
+    - Defaults to 260 when unset during creation.
+    - The valid range is from 3 to 65535.
     type: int
   query_interval:
     description:
     - The query interval value in seconds.
-    - Defaults to C(125) when unset during creation.
-    - The valid range is from C(1) to C(18000).
+    - Defaults to 125 when unset during creation.
+    - The valid range is from 1 to 18000.
     type: int
   query_response_interval:
     description:
     - The query response interval value in seconds.
-    - Defaults to C(10) when unset during creation.
-    - The valid range is from C(1) to C(25).
+    - Defaults to 10 when unset during creation.
+    - The valid range is from 1 to 25.
     type: int
   last_member_count:
     description:
     - The last member query count value.
-    - Defaults to C(2) when unset during creation.
-    - The valid range is from C(1) to C(5).
+    - Defaults to 2 when unset during creation.
+    - The valid range is from 1 to 5.
     type: int
   last_member_response_time:
     description:
     - The last member query response time value in seconds.
-    - Defaults to C(1) when unset during creation.
-    - The valid range is from C(1) to C(25).
+    - Defaults to 1 when unset during creation.
+    - The valid range is from 1 to 25.
     type: int
   startup_query_count:
     description:
     - The startup query count value.
-    - Defaults to C(2) when unset during creation.
-    - The valid range is from C(1) to C(10).
+    - Defaults to 2 when unset during creation.
+    - The valid range is from 1 to 10.
     type: int
   startup_query_interval:
     description:
     - The startup query interval value in seconds.
-    - Defaults to C(31) when unset during creation.
-    - The valid range is from C(1) to C(18000).
+    - Defaults to 31 when unset during creation.
+    - The valid range is from 1 to 18000.
     type: int
   querier_timeout:
     description:
     - The querier timeout value in seconds.
-    - Defaults to C(255) when unset during creation.
-    - The valid range is from C(1) to C(65535).
+    - Defaults to 255 when unset during creation.
+    - The valid range is from 1 to 65535.
     type: int
   robustness_variable:
     description:
     - The robustness variable value.
-    - Defaults to C(2) when unset during creation.
-    - The valid range is from C(1) to C(7).
+    - Defaults to 2 when unset during creation.
+    - The valid range is from 1 to 7.
     type: int
   state_limit_route_map_uuid:
     description:
@@ -178,15 +183,15 @@ options:
   maximum_multicast_entries:
     description:
     - The maximum multicast entries value.
-    - Defaults to C(4294967295) when unset during creation.
-    - The valid range is from C(1) to C(4294967295).
+    - Defaults to 4294967295 when unset during creation.
+    - The valid range is from 1 to 4294967295.
     - This parameter is only applicable when the O(state_limit_route_map_uuid) or O(state_limit_route_map) is not empty.
     type: int
   reserved_multicast_entries:
     description:
     - The reserved multicast entries value.
-    - Defaults to C(0) when unset during creation.
-    - The valid range is from C(0) to C(4294967295).
+    - Defaults to 0 when unset during creation.
+    - The valid range is from 0 to 4294967295.
     type: int
   state:
     description:
@@ -304,13 +309,17 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
-from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
+from ansible_collections.cisco.mso.plugins.module_utils.utils import (
+    append_update_ops_data,
+    get_object_identifier,
+)
 
 
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
         template=dict(type="str", required=True, aliases=["tenant_template"]),
+        template_id=dict(type="str", aliases=["l3out_template_id"]),
         name=dict(type="str", aliases=["igmp_interface_policy"]),
         uuid=dict(type="str"),
         description=dict(type="str"),
@@ -360,10 +369,14 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
+            ["state", "present", ["template", "template_id"], True],
+            ["state", "query", ["template", "template_id"], True],
+            ["state", "absent", ["template", "template_id"], True],
             ["state", "absent", ["name", "uuid"], True],
             ["state", "present", ["name", "uuid"], True],
         ],
         mutually_exclusive=[
+            ["template", "template_id"],
             ["state_limit_route_map_uuid", "state_limit_route_map"],
             ["report_policy_route_map_uuid", "report_policy_route_map"],
             ["static_report_route_map_uuid", "static_report_route_map"],
@@ -372,7 +385,7 @@ def main():
 
     mso = MSOModule(module)
 
-    template = module.params.get("template")
+    template_identifier = get_object_identifier(module.params.get("template_id"), module.params.get("template"))
     name = module.params.get("name")
     uuid = module.params.get("uuid")
     description = module.params.get("description")
@@ -399,7 +412,7 @@ def main():
     reserved_multicast_entries = module.params.get("reserved_multicast_entries")
     state = module.params.get("state")
 
-    mso_template = MSOTemplate(mso, "tenant", template)
+    mso_template = MSOTemplate(mso, "tenant", template_identifier.get("name"), template_identifier.get("uuid"))
     mso_template.validate_template("tenantPolicy")
     ops = []
 

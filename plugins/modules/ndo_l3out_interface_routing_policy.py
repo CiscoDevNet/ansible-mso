@@ -303,7 +303,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    uuid: "{{ query_with_name.current.uuid }}"
+    uuid: "{{ irp_1_present.current.uuid }}"
     state: query
   register: query_with_uuid
 
@@ -331,7 +331,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    uuid: "{{ query_with_name.current.uuid }}"
+    uuid: "{{ irp_1_present.current.uuid }}"
     state: absent
 """
 
@@ -473,7 +473,9 @@ def main():
                         mso_values[("ospfIntfPol")] = dict()
                         mso_values[("ospfIntfPol", "ifControl")] = dict()
 
-                    mso_values[("ospfIntfPol", "networkType")] = get_ospf_network_type(ospf_interface_settings.get("network_type"))
+                    mso_values[("ospfIntfPol", "networkType")] = (
+                        "pointToPoint" if ospf_interface_settings.get("network_type") == "point_to_point" else ospf_interface_settings.get("network_type")
+                    )
                     mso_values[("ospfIntfPol", "prio")] = ospf_interface_settings.get("priority")
                     mso_values[("ospfIntfPol", "cost")] = ospf_interface_settings.get("cost_of_interface")
                     mso_values[("ospfIntfPol", "helloInterval")] = ospf_interface_settings.get("hello_interval")
@@ -519,7 +521,9 @@ def main():
                     ospf_interface_pol["ifControl"] = interface_controls
 
                 if ospf_interface_settings.get("network_type"):
-                    ospf_interface_pol["networkType"] = get_ospf_network_type(ospf_interface_settings.get("network_type"))
+                    ospf_interface_pol["networkType"] = (
+                        "pointToPoint" if ospf_interface_settings.get("network_type") == "point_to_point" else ospf_interface_settings.get("network_type")
+                    )
 
                 if ospf_interface_settings.get("priority"):
                     ospf_interface_pol["prio"] = ospf_interface_settings.get("priority")
@@ -606,10 +610,6 @@ def main():
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
-
-
-def get_ospf_network_type(network_type):
-    return "pointToPoint" if network_type == "point_to_point" else network_type
 
 
 if __name__ == "__main__":

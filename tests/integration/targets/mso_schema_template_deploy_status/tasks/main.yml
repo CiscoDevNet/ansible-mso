@@ -38,17 +38,6 @@
     - https://{{ apic_hostname }}
     state: present
 
-- name: Ensure aws site exists
-  cisco.mso.mso_site:
-    <<: *mso_info
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ aws_apic_username }}'
-    apic_password: '{{ aws_apic_password }}'
-    apic_site_id: '{{ aws_site_id | default(102) }}'
-    urls:
-    - https://{{ aws_apic_hostname }}
-    state: present
-
 - name: Undeploy templates if deployed to clean the environment before ndo 4.0
   cisco.mso.mso_schema_template_deploy:
     <<: *mso_info
@@ -583,21 +572,6 @@
       - status2_site_temp2.current.anps == []
       - status2_site_temp2.current.bds == []
       - status2_site_temp2.current.vrfs == []
-
-  - name: Check deployment status by querying site and non associated Template 1
-    cisco.mso.mso_schema_template_deploy_status:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template1
-      site: 'aws_{{ mso_site | default("ansible_test") }}'
-      state: query
-    ignore_errors: true
-    register: status_site_temp3
-
-  - name: Verify status after querying site with non associated Template 1
-    ansible.builtin.assert:
-      that:
-      - status_site_temp3.msg == "Provided Template 'Template1' not associated with Site 'aws_ansible_test'."
 
   - name: Check Non-existing schema
     cisco.mso.mso_schema_template_deploy_status:

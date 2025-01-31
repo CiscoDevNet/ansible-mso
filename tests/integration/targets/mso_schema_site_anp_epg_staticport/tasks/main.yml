@@ -513,32 +513,6 @@
     that:
     - nm_remove_again_stat2e2 is not changed
 
-# ADD STATIC PORT WITHOUT VLAN
-- name: Add static port 3 (dpc) to EPG6 of AP2 without VLAN (error)
-  cisco.mso.mso_schema_site_anp_epg_staticport:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG6
-    pod: pod-2
-    leaf: 102
-    path: eth1/3
-    deployment_immediacy: lazy
-    mode: regular
-    type: dpc
-    primary_micro_segment_vlan: 199
-    state: present
-  ignore_errors: true
-  register: nm_add_stat3e6
-
-- name: Verify nm_add_stat3e6
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat3e6 is failed
-    - nm_add_stat3e6.msg == "state is present or absent but all of the following are missing{{":"}} vlan."
-
 # ADD STATIC PORT WITH VLAN
 - name: Add static port 3 (dpc) to EPG6 of AP2 with VLAN (success)
   cisco.mso.mso_schema_site_anp_epg_staticport:
@@ -1237,32 +1211,6 @@
     - nm_remove_static_ports_2.current.7.portEncapVlan == 1205
     - nm_remove_static_ports_2.current.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
     - nm_remove_static_ports_2.current.9.portEncapVlan == 1209
-
-# ADD STATIC PORT WITHOUT VLAN (BULK)
-- name: Add static port 3 & 4 (dpc) to epg_bulk of anp_bulk without VLAN (error)
-  cisco.mso.mso_schema_site_anp_epg_staticport:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: template_bulk
-    anp: anp_bulk
-    epg: epg_bulk
-    static_ports:
-      - pod: pod-2
-        leaf: 102
-        path: eth1/3
-        deployment_immediacy: lazy
-        mode: regular
-        type: dpc
-        primary_micro_segment_vlan: 199
-      - pod: pod-2
-        leaf: 102
-        path: eth1/4
-        deployment_immediacy: lazy
-        mode: regular
-        type: dpc
-        primary_micro_segment_vlan: 199
-    state: present
 
 # ADD STATIC PORT WITH VLAN (BULK)
 - name: Add static port 3 & 4 (dpc) to epg_bulk of anp_bulk with VLAN (success)

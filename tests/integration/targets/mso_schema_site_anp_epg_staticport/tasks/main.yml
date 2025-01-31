@@ -512,46 +512,6 @@
   ansible.builtin.assert:
     that:
     - nm_remove_again_stat2e2 is not changed
-
-# ADD STATIC PORT WITH VLAN
-- name: Add static port 3 (dpc) to EPG6 of AP2 with VLAN (success)
-  cisco.mso.mso_schema_site_anp_epg_staticport:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG6
-    pod: pod-2
-    leaf: 102
-    path: eth1/3
-    vlan: 100
-    deployment_immediacy: lazy
-    mode: regular
-    type: dpc
-    primary_micro_segment_vlan: 199
-    state: present
-  
-# REMOVE STATIC PORT WITHOUT VLAN
-- name: Remove static port 3 (dpc) from EPG6 of AP2 without VLAN (success)
-  cisco.mso.mso_schema_site_anp_epg_staticport:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG6
-    pod: pod-2
-    leaf: 102
-    path: eth1/3
-    state: absent
-  register: nm_add_stat3e6
-
-- name: Verify nm_add_stat3e6
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat3e6 is changed
-    - nm_add_stat3e6.current == {}
     
 # ADD EXISTING STATIC PORT
 - name: Add static port 1 to site EPG1 again (normal mode)
@@ -1212,103 +1172,6 @@
     - nm_remove_static_ports_2.current.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
     - nm_remove_static_ports_2.current.9.portEncapVlan == 1209
 
-# ADD STATIC PORT WITH VLAN (BULK)
-- name: Add static port 3 & 4 (dpc) to epg_bulk of anp_bulk with VLAN (success)
-  cisco.mso.mso_schema_site_anp_epg_staticport:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: template_bulk
-    anp: anp_bulk
-    epg: epg_bulk
-    static_ports:
-      - pod: pod-2
-        leaf: 102
-        path: eth1/3
-        vlan: 100
-        deployment_immediacy: lazy
-        mode: regular
-        type: dpc
-        primary_micro_segment_vlan: 199
-      - pod: pod-2
-        leaf: 102
-        path: eth1/4
-        vlan: 100
-        deployment_immediacy: lazy
-        mode: regular
-        type: dpc
-        primary_micro_segment_vlan: 199
-    state: present
-  register: nm_add_bulk_stat3e6
-
-- name: Verify nm_add_bulk_stat3e6
-  ansible.builtin.assert:
-    that:
-    - nm_add_bulk_stat3e6 is changed
-    - nm_add_bulk_stat3e6.previous | length == 10
-    - nm_add_bulk_stat3e6.previous.0.path == "topology/pod-1/paths-101/pathep-[eth1/1]"
-    - nm_add_bulk_stat3e6.previous.0.portEncapVlan == 1101
-    - nm_add_bulk_stat3e6.previous.2.path == "topology/pod-1/paths-101/pathep-[eth1/5]"
-    - nm_add_bulk_stat3e6.previous.2.portEncapVlan == 1105
-    - nm_add_bulk_stat3e6.previous.4.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
-    - nm_add_bulk_stat3e6.previous.4.portEncapVlan == 1109
-    - nm_add_bulk_stat3e6.previous.5.path == "topology/pod-1/paths-101/pathep-[eth2/1]"
-    - nm_add_bulk_stat3e6.previous.5.portEncapVlan == 1201
-    - nm_add_bulk_stat3e6.previous.7.path == "topology/pod-1/paths-101/pathep-[eth2/5]"
-    - nm_add_bulk_stat3e6.previous.7.portEncapVlan == 1205
-    - nm_add_bulk_stat3e6.previous.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
-    - nm_add_bulk_stat3e6.previous.9.portEncapVlan == 1209
-    - nm_add_bulk_stat3e6.current | length == 12
-    - nm_add_bulk_stat3e6.current.10.deploymentImmediacy == 'lazy'
-    - nm_add_bulk_stat3e6.current.10.portEncapVlan == 100
-    - nm_add_bulk_stat3e6.current.10.microSegVlan == 199
-    - nm_add_bulk_stat3e6.current.10.path == 'topology/pod-2/paths-102/pathep-[eth1/3]'
-    - nm_add_bulk_stat3e6.current.10.mode == 'regular'
-    - nm_add_bulk_stat3e6.current.10.type == 'dpc'
-    - nm_add_bulk_stat3e6.current.11.deploymentImmediacy == 'lazy'
-    - nm_add_bulk_stat3e6.current.11.portEncapVlan == 100
-    - nm_add_bulk_stat3e6.current.11.microSegVlan == 199
-    - nm_add_bulk_stat3e6.current.11.path == 'topology/pod-2/paths-102/pathep-[eth1/4]'
-    - nm_add_bulk_stat3e6.current.11.mode == 'regular'
-    - nm_add_bulk_stat3e6.current.11.type == 'dpc'
-  
-# REMOVE STATIC PORT WITHOUT VLAN (BULK)
-- name: Remove static port 3 & 4 (dpc) from epg_bulk of anp_bulk without VLAN (success)
-  cisco.mso.mso_schema_site_anp_epg_staticport:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: template_bulk
-    anp: anp_bulk
-    epg: epg_bulk
-    static_ports:
-      - pod: pod-2
-        leaf: 102
-        path: eth1/3
-      - pod: pod-2
-        leaf: 102
-        path: eth1/4
-    state: absent
-  register: nm_rm_bulk_stat3e6
-
-- name: Verify nm_rm_bulk_stat3e6
-  ansible.builtin.assert:
-    that:
-    - nm_rm_bulk_stat3e6 is changed
-    - nm_rm_bulk_stat3e6.current | length == 10
-    - nm_add_bulk_stat3e6.current.0.path == "topology/pod-1/paths-101/pathep-[eth1/1]"
-    - nm_add_bulk_stat3e6.current.0.portEncapVlan == 1101
-    - nm_add_bulk_stat3e6.current.2.path == "topology/pod-1/paths-101/pathep-[eth1/5]"
-    - nm_add_bulk_stat3e6.current.2.portEncapVlan == 1105
-    - nm_add_bulk_stat3e6.current.4.path == "topology/pod-1/paths-101/pathep-[eth1/9]"
-    - nm_add_bulk_stat3e6.current.4.portEncapVlan == 1109
-    - nm_add_bulk_stat3e6.current.5.path == "topology/pod-1/paths-101/pathep-[eth2/1]"
-    - nm_add_bulk_stat3e6.current.5.portEncapVlan == 1201
-    - nm_add_bulk_stat3e6.current.7.path == "topology/pod-1/paths-101/pathep-[eth2/5]"
-    - nm_add_bulk_stat3e6.current.7.portEncapVlan == 1205
-    - nm_add_bulk_stat3e6.current.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
-    - nm_add_bulk_stat3e6.current.9.portEncapVlan == 1209
-
 # FORCE REPLACE TESTS
 
 - name: Force replace static ports with static ports (check_mode)
@@ -1502,6 +1365,74 @@
       - force_remove_all_new_static is changed
       - force_remove_all_new_static.previous == []
       - force_remove_all_new_static.current | length == 1
+
+# WITHOUT VLAN REMOVAL TEST
+- name: Create static ports for without VLAN removal tests
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: template_bulk
+    anp: anp_bulk
+    epg: epg_bulk
+    static_ports:
+      - pod: pod-2
+        leaf: 102
+        path: eth1/1
+        vlan: 101
+      - pod: pod-2
+        leaf: 102
+        path: eth1/2
+        vlan: 102
+      - pod: pod-2
+        leaf: 102
+        path: eth1/3
+        vlan: 103
+    state: present
+
+- name: Remove a static port without VLAN
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: template_bulk
+    anp: anp_bulk
+    epg: epg_bulk
+    pod: pod-2
+    leaf: 102
+    path: eth1/1
+    state: absent
+  register: rm_stat_without_vlan
+
+- name: Verify rm_stat_without_vlan
+  ansible.builtin.assert:
+    that:
+    - rm_stat_without_vlan is changed
+    - rm_stat_without_vlan.current == {}
+
+- name: Remove multiple static ports in bulk without VLAN
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: template_bulk
+    anp: anp_bulk
+    epg: epg_bulk
+    static_ports:
+      - pod: pod-2
+        leaf: 102
+        path: eth1/2
+      - pod: pod-2
+        leaf: 102
+        path: eth1/3
+    state: absent
+  register: rm_bulk_stat_without_vlan
+
+- name: Verify rm_bulk_stat_without_vlan
+  ansible.builtin.assert:
+    that:
+    - rm_bulk_stat_without_vlan is changed
+    - rm_bulk_stat_without_vlan.current == []
 
 # OVERWRITE ARGUMENTS
 

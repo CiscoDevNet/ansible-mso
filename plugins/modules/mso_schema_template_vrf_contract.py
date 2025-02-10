@@ -186,6 +186,7 @@ def main():
         mso.fail_json(msg="vzAny attribute on vrf '{0}' is disabled.".format(vrf))
 
     # Get Contract
+    contract_path = None
     if contract:
         provider_contracts = [c.get("contractRef") for c in schema_obj.get("templates")[template_idx]["vrfs"][vrf_idx]["vzAnyProviderContracts"]]
         consumer_contracts = [c.get("contractRef") for c in schema_obj.get("templates")[template_idx]["vrfs"][vrf_idx]["vzAnyConsumerContracts"]]
@@ -226,7 +227,7 @@ def main():
 
     mso.previous = mso.existing
     if state == "absent":
-        if mso.existing:
+        if mso.existing and contract_path:
             mso.sent = mso.existing = {}
             ops.append(dict(op="remove", path=contract_path))
 
@@ -241,7 +242,7 @@ def main():
 
         mso.sanitize(payload, collate=True)
 
-        if mso.existing:
+        if mso.existing and contract_path:
             ops.append(dict(op="replace", path=contract_path, value=mso.sent))
         else:
             ops.append(dict(op="add", path=contracts_path, value=mso.sent))

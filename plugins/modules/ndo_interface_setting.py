@@ -533,6 +533,7 @@ def main():
 
     ops = []
     match = None
+    interface_path = None
 
     mso_template = MSOTemplate(mso, "fabric_policy", template)
     mso_template.validate_template("fabricPolicy")
@@ -559,7 +560,7 @@ def main():
         if uuid and not mso.existing:
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
-        if mso.existing:
+        if mso.existing and match:
             proposed_payload = copy.deepcopy(match.details)
 
             if name and mso.existing.get("name") != name:

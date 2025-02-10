@@ -196,6 +196,8 @@ def main():
     mso_schema.set_template_anp(anp)
     mso_schema.set_template_anp_epg(epg)
 
+    useg_attr_path = None
+
     if mso_schema.schema_objects["template_anp_epg"].details.get("uSegEpg"):
         mso_schema.set_template_anp_epg_useg_attr(name, fail_module=False)
         if mso_schema.schema_objects["template_anp_epg_useg_attribute"] is not None:
@@ -218,7 +220,7 @@ def main():
 
     mso.previous = mso.existing
     if state == "absent":
-        if mso.existing:
+        if mso.existing and useg_attr_path:
             mso.existing = {}
             ops.append(dict(op="remove", path=useg_attr_path))
 
@@ -239,7 +241,7 @@ def main():
 
         mso.sanitize(payload, collate=True)
 
-        if mso.existing:
+        if mso.existing and useg_attr_path:
             ops.append(dict(op="replace", path=useg_attr_path, value=mso.sent))
         else:
             ops.append(dict(op="add", path=useg_attrs_path + "/-", value=mso.sent))

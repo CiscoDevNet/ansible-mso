@@ -181,6 +181,7 @@ def main():
     epg_idx = epgs.index(external_epg)
 
     # Get Contract
+    contract_path = None
     if contract:
         contracts = [
             (c.get("contractRef"), c.get("relationshipType"))
@@ -207,7 +208,7 @@ def main():
 
     mso.previous = mso.existing
     if state == "absent":
-        if mso.existing:
+        if mso.existing and contract_path:
             mso.sent = mso.existing = {}
             ops.append(dict(op="remove", path=contract_path))
 
@@ -223,7 +224,7 @@ def main():
 
         mso.sanitize(payload, collate=True)
 
-        if mso.existing:
+        if mso.existing and contract_path:
             ops.append(dict(op="replace", path=contract_path, value=mso.sent))
         else:
             ops.append(dict(op="add", path=contracts_path + "/-", value=mso.sent))

@@ -211,6 +211,8 @@ def main():
     mso_schema.set_site_anp(anp, False)
     mso_schema.set_site_anp_epg(epg, False)
 
+    site_useg_attr_path = None
+
     # Only for NDO less than or equal to 3.7
     if mso_schema.schema_objects["site_anp_epg"] is None:
         mso_schema.schema_objects["site_anp_epg_useg_attribute"] = None
@@ -238,7 +240,7 @@ def main():
     mso.previous = mso.existing
 
     if state == "absent":
-        if mso.existing:
+        if mso.existing and site_useg_attr_path:
             mso.existing = {}
             ops.append(dict(op="remove", path=site_useg_attr_path))
 
@@ -259,7 +261,7 @@ def main():
 
         mso.sanitize(payload, collate=True)
 
-        if mso.existing:
+        if mso.existing and site_useg_attr_path:
             ops.append(dict(op="replace", path=site_useg_attr_path, value=mso.sent))
         else:
             ops.append(dict(op="add", path=site_useg_attrs_path + "/-", value=mso.sent))

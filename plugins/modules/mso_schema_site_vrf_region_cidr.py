@@ -180,6 +180,7 @@ def main():
 
     payload = dict()
     op_path = ""
+    cidr_path = None
     new_cidr = dict(
         ip=cidr,
         primary=primary,
@@ -276,14 +277,14 @@ def main():
 
     mso.previous = mso.existing
     if state == "absent":
-        if mso.existing:
+        if mso.existing and cidr_path:
             mso.sent = mso.existing = {}
             ops.append(dict(op="remove", path=cidr_path))
 
     elif state == "present":
         mso.sanitize(payload, collate=True)
 
-        if mso.existing:
+        if mso.existing and cidr_path:
             ops.append(dict(op="replace", path=cidr_path, value=mso.sent))
         else:
             ops.append(dict(op="add", path=op_path, value=mso.sent))

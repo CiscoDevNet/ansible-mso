@@ -302,6 +302,8 @@ def main():
 
     existing_port_channel_interfaces = mso_template.template.get("fabricResourceTemplate", {}).get("template", {}).get("portChannels", [])
     object_description = "Port Channel Interface"
+    port_channel_attrs_path = None
+    match = None
 
     if state in ["query", "absent"] and not existing_port_channel_interfaces:
         mso.exit_json()
@@ -336,7 +338,7 @@ def main():
             description=description,
         )
 
-        if mso.existing:
+        if mso.existing and match:
             if node and interface_descriptions:
                 interface_descriptions = format_interface_descriptions(mso, interface_descriptions, node)
             elif node and interface_descriptions is None and mso.existing.get("interfaceDescriptions"):
@@ -356,7 +358,7 @@ def main():
             ops.append(dict(op="add", path="/fabricResourceTemplate/template/portChannels/-", value=mso.sent))
 
     elif state == "absent":
-        if mso.existing:
+        if mso.existing and match:
             ops.append(dict(op="remove", path=port_channel_attrs_path))
 
     if not module.check_mode and ops:

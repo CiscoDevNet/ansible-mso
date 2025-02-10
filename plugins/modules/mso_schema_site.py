@@ -30,11 +30,11 @@ options:
     description:
     - The name of the site to manage.
     type: str
+    aliases: [ name ]
   template:
     description:
     - The name of the template.
     type: str
-    aliases: [ name ]
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -131,6 +131,7 @@ def main():
     site_id = mso.lookup_site(site)
 
     mso.existing = {}
+    site_path = None
     if "sites" in schema_obj:
         sites = [(s.get("siteId"), s.get("templateName")) for s in schema_obj.get("sites")]
         if template:
@@ -154,7 +155,7 @@ def main():
 
     mso.previous = mso.existing
     if state == "absent":
-        if mso.existing:
+        if mso.existing and site_path:
             # Remove existing site
             mso.sent = mso.existing = {}
             ops.append(dict(op="remove", path=site_path))

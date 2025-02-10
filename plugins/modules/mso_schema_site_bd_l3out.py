@@ -43,10 +43,10 @@ options:
     - The name of the BD.
     type: str
     required: true
-    aliases: [ name ]
   l3out:
     description:
     - The l3out associated to this BD.
+    aliases: [ name ]
     type: dict
     suboptions:
       name:

@@ -286,6 +286,7 @@ def main():
 
     ops = []
     match = None
+    physical_interface_attrs_path = None
 
     mso_template = MSOTemplate(mso, "fabric_resource", template)
     mso_template.validate_template("fabricResource")
@@ -332,7 +333,7 @@ def main():
         if interface_descriptions:
             mso_values["interfaceDescriptions"] = format_interface_descriptions(mso, interface_descriptions, "")
 
-        if mso.existing:
+        if mso.existing and match:
             proposed_payload = copy.deepcopy(mso.existing)
             mso_values_remove = list()
 

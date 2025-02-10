@@ -255,6 +255,8 @@ def main():
 
     existing_mld_snooping_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("igmpSnoopPolicies", [])
     object_description = "IGMP Snooping Policy"
+    igmp_snooping_policy_attrs_path = None
+    match = None
 
     if name or uuid:
         match = mso_template.get_object_by_key_value_pairs(
@@ -288,7 +290,7 @@ def main():
             startQueryCount=start_query_count,
         )
 
-        if mso.existing:
+        if mso.existing and match:
             append_update_ops_data(ops, match.details, igmp_snooping_policy_attrs_path, mso_values)
             mso.sanitize(match.details, collate=True)
         else:
@@ -296,7 +298,7 @@ def main():
             ops.append(dict(op="add", path="/tenantPolicyTemplate/template/igmpSnoopPolicies/-", value=mso.sent))
 
     elif state == "absent":
-        if mso.existing:
+        if mso.existing and match:
             ops.append(dict(op="remove", path=igmp_snooping_policy_attrs_path))
 
     if not module.check_mode and ops:

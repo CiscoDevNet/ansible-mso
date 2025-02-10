@@ -208,6 +208,8 @@ def main():
 
     bgp_peer_prefix_policies = template_object.template.get("tenantPolicyTemplate", {}).get("template", {}).get("bgpPeerPrefixPolicies", [])
     object_description = "BGP Peer Prefix Policy"
+    bgp_peer_prefix_policy_attrs_path = None
+    match = None
 
     if state in ["query", "absent"] and bgp_peer_prefix_policies == []:
         mso.exit_json()
@@ -227,7 +229,7 @@ def main():
         if uuid and not mso.existing:
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
-        if mso.existing:
+        if mso.existing and match:
             proposed_payload = copy.deepcopy(match.details)
 
             if name and mso.existing.get("name") != name:
@@ -272,7 +274,7 @@ def main():
             ops.append(dict(op="add", path="/tenantPolicyTemplate/template/bgpPeerPrefixPolicies/-", value=payload))
 
     elif state == "absent":
-        if mso.existing:
+        if mso.existing and match:
             ops.append(dict(op="remove", path=bgp_peer_prefix_policy_attrs_path))
 
     if not module.check_mode and ops:

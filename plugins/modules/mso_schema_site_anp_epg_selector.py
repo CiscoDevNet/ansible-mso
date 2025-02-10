@@ -230,6 +230,7 @@ def main():
     payload = dict()
     ops = []
     op_path = ""
+    selector_path = None
 
     # Get ANP
     anp_ref = mso.anp_ref(schema_id=schema_id, template=template, anp=anp)
@@ -318,7 +319,7 @@ def main():
 
     mso.previous = mso.existing
     if state == "absent":
-        if mso.existing:
+        if mso.existing and selector_path:
             mso.sent = mso.existing = {}
             ops.append(dict(op="remove", path=selector_path))
     elif state == "present":
@@ -371,7 +372,7 @@ def main():
 
         mso.sanitize(payload, collate=True)
 
-        if mso.existing:
+        if mso.existing and selector_path:
             ops.append(dict(op="replace", path=selector_path, value=mso.sent))
         else:
             ops.append(dict(op="add", path=op_path, value=mso.sent))

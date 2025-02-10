@@ -183,6 +183,7 @@ def main():
     payload = {}
     ops = []
     op_path = ""
+    epg_path = None
 
     # Get ANP
     anp_ref = mso.anp_ref(schema_id=schema_id, template=template, anp=anp)
@@ -270,7 +271,7 @@ def main():
     mso.previous = mso.existing
 
     if state == "absent":
-        if mso.existing:
+        if mso.existing and epg_path:
             mso.sent = mso.existing = {}
             ops.append(dict(op="remove", path=epg_path))
 
@@ -280,7 +281,7 @@ def main():
 
         mso.sanitize(payload, collate=True)
 
-        if mso.existing:
+        if mso.existing and epg_path:
             ops.append(dict(op="replace", path=epg_path, value=mso.sent))
         else:
             ops.append(dict(op="add", path=op_path + "/-", value=mso.sent))

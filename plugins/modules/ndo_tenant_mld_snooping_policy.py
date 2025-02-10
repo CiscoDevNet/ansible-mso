@@ -251,6 +251,8 @@ def main():
 
     mld_snooping_policies = template_object.template.get("tenantPolicyTemplate", {}).get("template", {}).get("mldSnoopPolicies", [])
     object_description = "MLD Snooping Policy"
+    mld_snooping_policy_attrs_path = None
+    match = None
 
     if state in ["query", "absent"] and mld_snooping_policies == []:
         mso.exit_json()
@@ -284,7 +286,7 @@ def main():
             startQueryCount=start_query_count,
         )
 
-        if mso.existing:
+        if mso.existing and match:
             append_update_ops_data(ops, match.details, mld_snooping_policy_attrs_path, mso_values)
             mso.sanitize(match.details, collate=True)
         else:
@@ -292,7 +294,7 @@ def main():
             ops.append(dict(op="add", path="/tenantPolicyTemplate/template/mldSnoopPolicies/-", value=mso.sent))
 
     elif state == "absent":
-        if mso.existing:
+        if mso.existing and match:
             ops.append(dict(op="remove", path=mld_snooping_policy_attrs_path))
 
     if not module.check_mode and ops:

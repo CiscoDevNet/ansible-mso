@@ -209,7 +209,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        tenant=dict(type="str", aliases=["name"], required=True),
+        tenant=dict(type="str", required=True),
         site=dict(type="str", aliases=["name"]),
         cloud_account=dict(type="str"),
         security_domains=dict(type="list", elements="str", default=[]),

@@ -30,11 +30,11 @@ options:
     description:
     - The name of the site to manage.
     type: str
+    aliases: [ name ]
   template:
     description:
     - The name of the template.
     type: str
-    aliases: [ name ]
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.

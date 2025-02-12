@@ -359,14 +359,6 @@ def main():
                 )
             )
 
-    if thresholds["down"] is not None and thresholds["up"] is not None:
-        if thresholds["down"] > thresholds["up"]:
-            mso.fail_json(
-                msg="Invalid value provided for threshold_down: {0}; it must be less than or equal to threshold_up: {1}".format(
-                    thresholds["down"], thresholds["up"]
-                )
-            )
-
     ops = []
     match = None
 

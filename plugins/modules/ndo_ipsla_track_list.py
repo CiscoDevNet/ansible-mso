@@ -90,15 +90,9 @@ options:
         - The weight of the member.
         - The default value is 10.
         type: int
-      ipsla_monitoring_policy_uuid:
-        description:
-        - The UUID of the IPSLA Monitoring Policy to use for the member.
-        - This parameter can be used instead of O(members.ipsla_monitoring_policy).
-        type: str
       ipsla_monitoring_policy:
         description:
         - The name IPSLA Monitoring Policy to use for the member.
-        - This parameter can be used instead of O(members.ipsla_monitoring_policy_uuid).
         type: str
         aliases: [ ipsla_monitoring_policy_name ]
       scope_type:
@@ -111,11 +105,13 @@ options:
         description:
         - The UUID of the BD or L3Out used as the scope for the member.
         - This parameter can be used instead of O(members.scope).
+        - This parameter will take precedence over O(members.scope).
         type: str
       scope:
         description:
         - The BD or L3Out used as the scope for the member.
         - This parameter can be used instead of O(members.scope_uuid).
+        - O(members.scope_uuid) will take precedence over this parameter.
         type: dict
         suboptions:
           name:
@@ -186,7 +182,7 @@ EXAMPLES = r"""
       - destination_ip: 1.1.1.2
         scope_type: l3out
         scope_uuid: "{{ l3out.current.uuid }}"
-        ipsla_monitoring_policy_uuid: "{{ ipsla_monitoring_policy.current.uuid }}"
+        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
     state: present
     register: ipsla_track_list
 
@@ -295,7 +291,6 @@ def main():
                 elements="dict",
                 options=dict(
                     destination_ip=dict(type="str", aliases=["ip"], required=True),
-                    ipsla_monitoring_policy_uuid=dict(type="str"),
                     ipsla_monitoring_policy=dict(type="str", aliases=["ipsla_monitoring_policy_name"]),
                     scope_uuid=dict(type="str"),
                     scope=dict(
@@ -309,14 +304,6 @@ def main():
                     scope_type=dict(type="str", choices=["bd", "l3out"], required=True),
                     weight=dict(type="int"),
                 ),
-                mutually_exclusive=[
-                    ("ipsla_monitoring_policy_uuid", "ipsla_monitoring_policy"),
-                    ("scope_uuid", "scope"),
-                ],
-                required_one_of=[
-                    ("ipsla_monitoring_policy_uuid", "ipsla_monitoring_policy"),
-                    ("scope_uuid", "scope"),
-                ],
             ),
             state=dict(type="str", choices=["absent", "query", "present"], default="present"),
         )
@@ -467,8 +454,8 @@ def format_track_list_members(mso, mso_template, members, obj_cache):
                 "scope": get_scope_obj_uuid(scope_type, member.get("scope_uuid"), member.get("scope")),
                 "scopeType": scope_type,
                 "ipslaMonitoringRef": mso_template.get_ipsla_monitoring_policy(
-                    member.get("ipsla_monitoring_policy_uuid"),
-                    member.get("ipsla_monitoring_policy"),
+                    uuid=None,
+                    name=member.get("ipsla_monitoring_policy"),
                     fail_module=True,
                 ).details.get("uuid"),
             },

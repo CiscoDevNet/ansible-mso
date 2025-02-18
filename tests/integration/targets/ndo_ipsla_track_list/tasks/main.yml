@@ -170,7 +170,7 @@
           - destination_ip: 1.1.1.3
             scope_type: l3out
             scope_uuid: "{{ nm_ansible_test_l3out.current.uuid }}"
-            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
+            ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
         state: present
       check_mode: true
       register: cm_create_new_ipsla_track_list
@@ -305,7 +305,7 @@
           - destination_ip: 1.1.1.3
             scope_type: l3out
             scope_uuid: "{{ nm_ansible_test_l3out.current.uuid }}"
-            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
+            ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
             weight: 5
         state: present
       check_mode: true
@@ -551,7 +551,7 @@
               schema: ansible_test
               template: ansible_test
             scope_type: bd
-            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
+            ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
       register: err_invalid_bd
       ignore_errors: true
 
@@ -564,7 +564,7 @@
               name: ansible_test_bd_no_schema
               template: ansible_test
             scope_type: bd
-            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
+            ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
       register: err_bd_no_schema
       ignore_errors: true
 
@@ -578,7 +578,7 @@
               name: ansible_test_bd
               template: ansible_test
             scope_type: bd
-            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
+            ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
       register: err_bd_name_and_uuid
       ignore_errors: true
 
@@ -591,7 +591,7 @@
               name: ansible_test_l3out_non_existing
               template: ansible_test
             scope_type: l3out
-            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
+            ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
       register: err_invalid_l3out
       ignore_errors: true
 
@@ -614,7 +614,7 @@
           - err_bd_no_schema is failed
           - err_bd_no_schema.msg == "A member scope_type is bd and scope is used but the schema option is missing."
           - err_bd_name_and_uuid is failed
-          - err_bd_name_and_uuid.msg == "parameters are mutually exclusive{{":"}} scope_uuid|scope found in members"
+          - err_bd_name_and_uuid.msg == "MSO Error 400{{":"}} Invalid Scope Ref ansible_test_bd_uuid for Track Member with Destination IP 1.1.1.2 in Track List ansible_test_ipsla_track_list"
           - err_invalid_l3out is failed
           - err_invalid_l3out.msg == "Provided L3Out with '[KVPair(key='name', value='ansible_test_l3out_non_existing')]' not matching existing object(s){{":"}} ansible_test_l3out"
           - err_invalid_ipsla_monitoring_policy is failed

@@ -215,3 +215,25 @@ L3OUT_ROUTING_PROTOCOLS = {"bgp": ["bgp"], "ospf": ["ospf"], "bgpOspf": ["bgp", 
 QOS_LEVEL = ["unspecified", "level1", "level2", "level3", "level4", "level5", "level6"]
 SYNC_E_QUALITY_LEVEL_OPTION = {"option_1": "op1", "option_2_generation_1": "op2g1", "option_2_generation_2": "op2g2"}
 PROFILE_TEMPLATE = {"aes67_2015": "aes67", "default": "default", "smpte_2059_2": "smpte", "telecom_8275_1": "telecomFullPath"}
+
+TARGET_COS_MAP = {
+    "background": "cos0",
+    "best_effort": "cos1",
+    "excellent_effort": "cos2",
+    "critical_applications": "cos3",
+    "video": "cos4",
+    "voice": "cos5",
+    "internetwork_control": "cos6",
+    "network_control": "cos7",
+    "unspecified": "cos8",
+}
+
+DSCP_COS_KEY_MAP = {
+    "dscp_from": "dscpFrom",
+    "dscp_to": "dscpTo",
+    "dot1p_from": "dot1pFrom",
+    "dot1p_to": "dot1pTo",
+    "dscp_target": "dscpTarget",
+    "target_cos": "targetCos",
+    "qos_priority": "priority",
+}

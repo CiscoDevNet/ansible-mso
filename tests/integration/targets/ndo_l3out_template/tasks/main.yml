@@ -31,6 +31,25 @@
   when: version.current.version is version('4.2', '>')
   block:
     # Setup Part
+    - name: Ensure ansible_test site exist
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: query
+      register: ansible_test_site
+
+    - name: Ensure ansible_test tenant exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+      register: ansible_test_tenant
+      when: ansible_test_site.current.common.name == 'ansible_test'
+
     - name: Ensure l3out template not exist
       cisco.mso.ndo_template: &ndo_l3out_template_absent
         <<: *mso_info
@@ -63,25 +82,6 @@
         tenant: '{{ ansible_tenant | default("ansible_test") }}'
         template: "Template1"
         state: absent
-
-    - name: Ensure ansible_test site exist
-      cisco.mso.mso_site:
-        <<: *mso_info
-        site: '{{ mso_site | default("ansible_test") }}'
-        state: query
-      register: ansible_test_site
-
-    - name: Ensure ansible_test tenant exist
-      cisco.mso.mso_tenant:
-        <<: *mso_info
-        tenant: '{{ ansible_tenant | default("ansible_test") }}'
-        users:
-          - "{{ mso_username }}"
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
-      register: ansible_test_tenant
-      when: ansible_test_site.current.common.name == 'ansible_test'
 
     # Schema Template Setup for the VRF
     - name: Add an ansible_test schema template

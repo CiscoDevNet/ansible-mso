@@ -244,17 +244,6 @@ def main():
 
 
 def get_dhcp_option_policy(mso_template, uuid=None, name=None, fail_module=False):
-    """
-    Get the DHCP Option Policy by UUID or Name.
-    :param uuid: UUID of the DHCP Option Policy to search for -> Str
-    :param name: Name of the DHCP Option Policy to search for -> Str
-    :param fail_module: When match is not found fail the ansible module -> Bool
-    :return: Dict | None | List[Dict] | List[]: The processed result which could be:
-              When the UUID | Name is existing in the search list -> Dict
-              When the UUID | Name is not existing in the search list -> None
-              When both UUID and Name are None, and the search list is not empty -> List[Dict]
-              When both UUID and Name are None, and the search list is empty -> List[]
-    """
     existing_dhcp_option_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("dhcpOptionPolicies", [])
     if uuid or name:  # Query a specific object
         return mso_template.get_object_by_key_value_pairs(

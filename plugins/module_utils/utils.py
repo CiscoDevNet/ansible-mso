@@ -143,6 +143,6 @@ def check_if_all_elements_are_none(values):
     Checks if all the elements in the provided list are None.
 
     :param values: List of values to check. -> List
-    :return: True if all elements are None, False otherwise. -> boo
+    :return: True if all elements are None, False otherwise. -> bool
     """
     return all(value is None for value in values)

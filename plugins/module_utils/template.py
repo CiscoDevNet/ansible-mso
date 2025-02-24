@@ -291,3 +291,31 @@ class MSOTemplate:
                 fail_module,
             )
         return existing_l3out_interface_routing_policy  # Query all objects
+
+    def get_l3out_interface_routing_policy_uuid(self, mso_module, interface_routing_policy_name, template):
+        """
+        Get the UUID of an L3Out Interface Routing Policy by name.
+        :param interface_routing_policy_name: Name of the L3Out Interface Routing Policy to search for -> Str
+        :return: UUID of the Interface Routing Policy -> Str
+        """
+        tenant_template = MSOTemplate(mso_module, "tenant", template)
+        tenant_template.validate_template("tenantPolicy")
+        existing_l3out_interface_routing_policies = tenant_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("l3OutIntfPolGroups", [])
+        match = self.get_object_by_key_value_pairs(
+            "L3Out Interface Routing Policyt", existing_l3out_interface_routing_policies, [KVPair("name", interface_routing_policy_name)], fail_module=True
+        )
+        return match.details.get("uuid")
+
+    def get_custom_qos_policy_uuid(self, mso_module, custom_qos_policy_name, template):
+        """
+        Get the UUID of a Custom QoS Policy by name.
+        :param custom_qos_policy_name: Name of the Custom QoS Policy to search for -> Str
+        :return: UUID of the Custom QoS Policy -> Str
+        """
+        tenant_template = MSOTemplate(mso_module, "tenant", template)
+        tenant_template.validate_template("tenantPolicy")
+        existing_custom_qos_policies = tenant_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("qosPolicies", [])
+        match = self.get_object_by_key_value_pairs(
+            "Custom QoS Policy", existing_custom_qos_policies, [KVPair("name", custom_qos_policy_name)], fail_module=True
+        )
+        return match.details.get("uuid")

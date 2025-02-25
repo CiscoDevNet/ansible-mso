@@ -114,6 +114,12 @@
         state: present
       register: create_new_l3out_policy_template
 
+    - name: Query l3out template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+        state: present
+      register: query_l3out_policy_template
+
     - name: Create l3out_1 object with bgp routing protocol
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
@@ -155,61 +161,45 @@
         - ans_route_map
         - ans_route_map_2
 
-    - name: Query all L3Out BGP Peer when the node group is empty
-      cisco.mso.ndo_l3out_bgp_peer:
+    - name: Query Tenant Policy template
+      cisco.mso.ndo_template:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
+        template_type: tenant
+        template: ansible_test_policy
         state: query
-      register: all_l3out_bgp_peers
+      register: tenant_pol_template
 
-    - name: Assertion check for query all L3Out BGP Peer when the node group is empty
-      ansible.builtin.assert:
-        that:
-          - all_l3out_bgp_peers is not changed
-          - all_l3out_bgp_peers.current == {}
-
-    - name: Remove all L3Out BGP Peers
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
-        ipv4_addr: "{{ item.peerAddressV4 | default('')}}"
-        ipv6_addr: "{{ item.peerAddressV6 | default('') }}"
-        state: absent
-      loop: "{{ all_l3out_bgp_peers.current | list }}"
-
-    - name: Create L3Out BGP Peer minimum config with check mode
+    # CREATE
+    - name: Create L3Out BGP Peer minimum config (check_mode)
       cisco.mso.ndo_l3out_bgp_peer: &cm_bgp_peer_ipv4_present
         <<: *mso_info
         template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
-        ipv4_addr: "1.1.1.1"
+        ipv4_address: "1.1.1.1"
         auth_password: 123
         state: present
         output_level: debug
       check_mode: true
       register: cm_bgp_peer_ipv4_present
 
-    - name: Assertion check for create L3Out BGP Peer minimum config with check mode
+    - name: Create L3Out BGP Peer minimum config
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *cm_bgp_peer_ipv4_present
+      register: nm_bgp_peer_ipv4_present
+
+    - name: Create L3Out BGP Peer minimum config again
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *cm_bgp_peer_ipv4_present
+      register: nm_bgp_peer_ipv4_present_again
+
+    - name: Assertion check for create L3Out BGP Peer minimum config
       ansible.builtin.assert:
         that:
           - cm_bgp_peer_ipv4_present is changed
           - cm_bgp_peer_ipv4_present.current.peerAddressV4 == "1.1.1.1"
           - cm_bgp_peer_ipv4_present.previous == {}
           - cm_bgp_peer_ipv4_present.proposed.peerAddressV4 == "1.1.1.1"
-
-    - name: Create L3Out BGP Peer minimum config with normal mode
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *cm_bgp_peer_ipv4_present
-      register: nm_bgp_peer_ipv4_present
-
-    - name: Assertion check for create L3Out BGP Peer minimum config with normal mode
-      ansible.builtin.assert:
-        that:
           - nm_bgp_peer_ipv4_present is changed
           - nm_bgp_peer_ipv4_present.current.adminState == "enabled"
           - nm_bgp_peer_ipv4_present.current.allowedSelfASCount == 3
@@ -218,15 +208,6 @@
           - nm_bgp_peer_ipv4_present.current.peerAddressV4 == "1.1.1.1"
           - nm_bgp_peer_ipv4_present.previous == {}
           - nm_bgp_peer_ipv4_present.proposed.peerAddressV4 == "1.1.1.1"
-
-    - name: Create L3Out BGP Peer minimum config with normal mode - again
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *cm_bgp_peer_ipv4_present
-      register: nm_bgp_peer_ipv4_present_again
-
-    - name: Assertion check for create L3Out BGP Peer minimum config with normal mode - again
-      ansible.builtin.assert:
-        that:
           - nm_bgp_peer_ipv4_present_again is not changed
           - nm_bgp_peer_ipv4_present_again.current.adminState == "enabled"
           - nm_bgp_peer_ipv4_present_again.current.allowedSelfASCount == 3
@@ -244,13 +225,14 @@
           - nm_bgp_peer_ipv4_present_again.proposed.ebpgMultiHopTTL == 1
           - nm_bgp_peer_ipv4_present_again.proposed.peerAddressV4 == "1.1.1.1"
 
+    # CREATE WITH DIFFERENT COMBINATIONS
     - name: Create L3Out BGP Peer full config using only ipv6
       cisco.mso.ndo_l3out_bgp_peer: &add_ipv6_bgp_peer
         <<: *mso_info
         template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
-        ipv6_addr: "1::8/16"
+        ipv6_address: "1::8/16"
         remote_asn: 2
         admin_state: enabled
         import_route_map: ans_route_map
@@ -283,7 +265,81 @@
         state: present
       register: add_ipv6_bgp_peer
 
-    - name: Assertion check for create L3Out BGP Peer full config using only ipv6
+    - name: Create L3Out BGP Peer minimum config with IPv4 and IPv6 address
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv4_address: "5.5.5.5"
+        ipv6_address: "1::19/16"
+        state: present
+      register: add_ipv4_ipv6_addr
+
+    - name: Query a specific L3Out BGP Peer object with IPv4 and IPv6 address
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv4_address: "5.5.5.5"
+        ipv6_address: "1::19/16"
+        state: query
+      register: query_ipv4_ipv6_addr
+
+    - name: Query a specific L3Out BGP Peer object with IPv6 address
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv6_address: "1::19/16"
+        state: query
+      register: query_ipv6_addr
+
+    - name: Query a specific L3Out BGP Peer object with IPv4 address
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv4_address: "5.5.5.5"
+        state: query
+      register: query_ipv4_addr
+
+    - name: Create L3Out BGP Peer using route map and peer prefix object UUIDs
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv6_address: "1::20/16"
+        import_route_map_uuid: "{{ tenant_pol_template.current.tenantPolicyTemplate.template.routeMapPolicies.0.uuid }}"
+        export_route_map_uuid: "{{ tenant_pol_template.current.tenantPolicyTemplate.template.routeMapPolicies.1.uuid }}"
+        peer_prefix_uuid: "{{ tenant_pol_template.current.tenantPolicyTemplate.template.bgpPeerPrefixPolicies.0.uuid }}"
+        state: present
+      register: add_ipv6_bgp_peer_with_obj_uuid
+
+    - name: Create L3Out BGP Peer config with IPv4, IPv6 address and default control values
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv4_address: "3.3.3.3"
+        ipv6_address: "1::9/16"
+        bgp_controls:
+          state: enabled
+        peer_controls:
+          state: enabled
+        address_families:
+          state: enabled
+        private_as_controls:
+          state: enabled
+        state: present
+      register: add_bgp_peer_with_default_ctrl
+
+    - name: Assertion check for other create L3Out BGP Peer objects
       ansible.builtin.assert:
         that:
           - add_ipv6_bgp_peer is changed
@@ -318,6 +374,128 @@
           - add_ipv6_bgp_peer.current.siteOfOrigin == "extended:as2-nn2:1000:65534"
           - add_ipv6_bgp_peer.current.weight == 2
           - add_ipv6_bgp_peer.previous == {}
+          - add_ipv4_ipv6_addr is changed
+          - add_ipv4_ipv6_addr.current.adminState == "enabled"
+          - add_ipv4_ipv6_addr.current.allowedSelfASCount == 3
+          - add_ipv4_ipv6_addr.current.authEnabled == false
+          - add_ipv4_ipv6_addr.current.ebpgMultiHopTTL == 1
+          - add_ipv4_ipv6_addr.current.peerAddressV4 == "5.5.5.5"
+          - add_ipv4_ipv6_addr.current.peerAddressV6 == "1::19/16"
+          - add_ipv4_ipv6_addr.previous == {}
+          - add_ipv6_bgp_peer_with_obj_uuid is changed
+          - add_ipv6_bgp_peer_with_obj_uuid.current.adminState == "enabled"
+          - add_ipv6_bgp_peer_with_obj_uuid.current.allowedSelfASCount == 3
+          - add_ipv6_bgp_peer_with_obj_uuid.current.authEnabled == false
+          - add_ipv6_bgp_peer_with_obj_uuid.current.ebpgMultiHopTTL == 1
+          - add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapName == "ans_route_map_2"
+          - add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapRef != ""
+          - add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapName == "ans_route_map"
+          - add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapRef != ""
+          - add_ipv6_bgp_peer_with_obj_uuid.current.peerAddressV6 == "1::20/16"
+          - add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
+          - add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixRef != ""
+          - add_ipv6_bgp_peer_with_obj_uuid.previous == {}
+          - add_bgp_peer_with_default_ctrl is changed
+          - add_bgp_peer_with_default_ctrl.current.adminState == "enabled"
+          - add_bgp_peer_with_default_ctrl.current.allowedSelfASCount == 3
+          - add_bgp_peer_with_default_ctrl.current.authEnabled == false
+          - add_bgp_peer_with_default_ctrl.current.ebpgMultiHopTTL == 1
+          - add_bgp_peer_with_default_ctrl.current.peerAddressV4 == "3.3.3.3"
+          - add_bgp_peer_with_default_ctrl.current.peerAddressV6 == "1::9/16"
+          - add_bgp_peer_with_default_ctrl.previous == {}
+
+    # UPDATE
+    - name: Clear route map and peer prefix config from the L3Out BGP Peer using UUID with empty string (check_mode)
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template_id: "{{ query_l3out_policy_template.current.templateId }}"
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv6_address: "1::20/16"
+        import_route_map_uuid: ""
+        export_route_map_uuid: ""
+        peer_prefix_uuid: ""
+        state: present
+      check_mode: true
+      register: cm_update_ipv6_bgp_peer_with_obj_uuid
+
+    - name: Clear route map and peer prefix config from the L3Out BGP Peer using UUID with empty string
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template_id: "{{ query_l3out_policy_template.current.templateId }}"
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv6_address: "1::20/16"
+        import_route_map_uuid: ""
+        export_route_map_uuid: ""
+        peer_prefix_uuid: ""
+        state: present
+      register: nm_update_ipv6_bgp_peer_with_obj_uuid
+
+    - name: Clear route map and peer prefix config from the L3Out BGP Peer using UUID with empty string again
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template_id: "{{ query_l3out_policy_template.current.templateId }}"
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv6_address: "1::20/16"
+        import_route_map_uuid: ""
+        export_route_map_uuid: ""
+        peer_prefix_uuid: ""
+        state: present
+      register: nm_update_ipv6_bgp_peer_with_obj_uuid_again
+
+    - name: Assertion check for update L3Out BGP Peer object
+      ansible.builtin.assert:
+        that:
+          - cm_update_ipv6_bgp_peer_with_obj_uuid is changed
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.adminState == "enabled"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.allowedSelfASCount == 3
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.authEnabled == false
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.ebpgMultiHopTTL == 1
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapName == "ans_route_map_2"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapName == "ans_route_map"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerAddressV6 == "1::20/16"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.adminState == "enabled"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.allowedSelfASCount == 3
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.authEnabled == false
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.ebpgMultiHopTTL == 1
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapName == "ans_route_map_2"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapRef != ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapName == "ans_route_map"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapRef != ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerAddressV6 == "1::20/16"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixRef != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid is changed
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.current.adminState == "enabled"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.current.allowedSelfASCount == 3
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.current.authEnabled == false
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.current.ebpgMultiHopTTL == 1
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.current.peerAddressV6 == "1::20/16"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.adminState == "enabled"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.allowedSelfASCount == 3
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.authEnabled == false
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.ebpgMultiHopTTL == 1
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapName == "ans_route_map_2"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapRef != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapName == "ans_route_map"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapRef != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerAddressV6 == "1::20/16"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixRef != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again is not changed
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.adminState == "enabled"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.allowedSelfASCount == 3
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.authEnabled == false
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.ebpgMultiHopTTL == 1
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.peerAddressV6 == "1::20/16"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.adminState == "enabled"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.allowedSelfASCount == 3
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.authEnabled == false
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.ebpgMultiHopTTL == 1
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.peerAddressV6 == "1::20/16"
 
     - name: Change additional attribute values of an existing L3Out BGP Peer object
       cisco.mso.ndo_l3out_bgp_peer:
@@ -351,6 +529,64 @@
           replace_with_local_as: true
         state: present
       register: update_ipv6_bgp_peer
+
+    - name: Clear control attribute values of an existing L3Out BGP Peer object
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv6_address: "1::8/16"
+        import_route_map: ""
+        export_route_map: ""
+        peer_prefix: ""
+        auth_password: ""
+        bgp_controls:
+          state: disabled
+        peer_controls:
+          state: disabled
+        address_families:
+          state: disabled
+        private_as_controls:
+          state: disabled
+        state: present
+      register: clear_ctrl_attr
+
+    - name: Add control attribute with default values of an existing L3Out BGP Peer object again
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv6_address: "1::8/16"
+        import_route_map: ""
+        export_route_map: ""
+        peer_prefix: ""
+        auth_password: ""
+        bgp_controls:
+          state: enabled
+        peer_controls:
+          state: enabled
+        address_families:
+          state: enabled
+        private_as_controls:
+          state: enabled
+        state: present
+      register: add_ctrl_attr_again
+
+    - name: Enable remove_all when the private_as_controls replace_with_local_as is false
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv4_address: "3.3.3.3"
+        ipv6_address: "1::9/16"
+        private_as_controls:
+          remove_all: true
+          replace_with_local_as: false
+        state: present
+      register: enable_pvt_as_ctrl_remove_all
 
     - name: Assertion check for change additional attribute values of an existing L3Out BGP Peer object
       ansible.builtin.assert:
@@ -412,32 +648,6 @@
           - update_ipv6_bgp_peer.previous.privateASControls.replaceWithLocalAS == true
           - update_ipv6_bgp_peer.previous.siteOfOrigin == "extended:as2-nn2:1000:65534"
           - update_ipv6_bgp_peer.previous.weight == 2
-
-    - name: Clear control attribute values of an existing L3Out BGP Peer object
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
-        ipv6_addr: "1::8/16"
-        import_route_map: ""
-        export_route_map: ""
-        peer_prefix: ""
-        auth_password: ""
-        bgp_controls:
-          state: disabled
-        peer_controls:
-          state: disabled
-        address_families:
-          state: disabled
-        private_as_controls:
-          state: disabled
-        state: present
-      register: clear_ctrl_attr
-
-    - name: Assertion check for clear control attribute values of an existing L3Out BGP Peer object
-      ansible.builtin.assert:
-        that:
           - clear_ctrl_attr is changed
           - clear_ctrl_attr.current.adminState == "enabled"
           - clear_ctrl_attr.current.allowedSelfASCount == 3
@@ -471,33 +681,7 @@
           - clear_ctrl_attr.previous.privateASControls.removeAll == true
           - clear_ctrl_attr.previous.privateASControls.removeExclusive == true
           - clear_ctrl_attr.previous.privateASControls.replaceWithLocalAS == true
-
-    - name: Add control attribute with default values of an existing L3Out BGP Peer object again
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
-        ipv6_addr: "1::8/16"
-        import_route_map: ""
-        export_route_map: ""
-        peer_prefix: ""
-        auth_password: ""
-        bgp_controls:
-          state: enabled
-        peer_controls:
-          state: enabled
-        address_families:
-          state: enabled
-        private_as_controls:
-          state: enabled
-        state: present
-      register: add_ctrl_attr_again
-
-    - name: Assertion check for add control attribute with default values of an existing L3Out BGP Peer object again
-      ansible.builtin.assert:
-        that:
-          - add_ctrl_attr_again is not changed
+          - add_ctrl_attr_again is changed
           - add_ctrl_attr_again.current.adminState == "enabled"
           - add_ctrl_attr_again.current.allowedSelfASCount == 3
           - add_ctrl_attr_again.current.authEnabled == false
@@ -510,7 +694,19 @@
           - add_ctrl_attr_again.previous.ebpgMultiHopTTL == 3
           - add_ctrl_attr_again.previous.localAsnConfig == "none"
           - add_ctrl_attr_again.previous.peerAddressV6 == "1::8/16"
+          - enable_pvt_as_ctrl_remove_all is changed
+          - enable_pvt_as_ctrl_remove_all.current.peerAddressV4 == "3.3.3.3"
+          - enable_pvt_as_ctrl_remove_all.current.peerAddressV6 == "1::9/16"
+          - enable_pvt_as_ctrl_remove_all.current.privateASControls.removeAll == true
+          - enable_pvt_as_ctrl_remove_all.current.privateASControls.removeExclusive == true
+          - enable_pvt_as_ctrl_remove_all.current.privateASControls.replaceWithLocalAS == false
+          - enable_pvt_as_ctrl_remove_all.previous.peerAddressV4 == "3.3.3.3"
+          - enable_pvt_as_ctrl_remove_all.previous.peerAddressV6 == "1::9/16"
+          - enable_pvt_as_ctrl_remove_all.previous.privateASControls.removeAll == false
+          - enable_pvt_as_ctrl_remove_all.previous.privateASControls.removeExclusive == false
+          - enable_pvt_as_ctrl_remove_all.previous.privateASControls.replaceWithLocalAS == false
 
+    # Errors and no policies found
     - name: Invalid test - create L3Out BGP Peer config without IPv4, IPv6 address
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
@@ -521,59 +717,24 @@
       register: nt_add_bgp_peer_without_ip
       ignore_errors: true
 
-    - name: Assertion check for invalid test - create L3Out BGP Peer config without IPv4, IPv6 address
-      ansible.builtin.assert:
-        that:
-          - nt_add_bgp_peer_without_ip is not changed
-          - nt_add_bgp_peer_without_ip.msg == "state is present but any of the following are missing{{':'}} ipv4_addr, ipv6_addr"
-
-    - name: Create L3Out BGP Peer config with IPv4, IPv6 address and default control values
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
-        ipv4_addr: "3.3.3.3"
-        ipv6_addr: "1::9/16"
-        bgp_controls:
-          state: enabled
-        peer_controls:
-          state: enabled
-        address_families:
-          state: enabled
-        private_as_controls:
-          state: enabled
-        state: present
-      register: add_bgp_peer_with_default_ctrl
-
-    - name: Assertion check for create L3Out BGP Peer config with IPv4, IPv6 address and default control values
-      ansible.builtin.assert:
-        that:
-          - add_bgp_peer_with_default_ctrl is changed
-          - add_bgp_peer_with_default_ctrl.current.adminState == "enabled"
-          - add_bgp_peer_with_default_ctrl.current.allowedSelfASCount == 3
-          - add_bgp_peer_with_default_ctrl.current.authEnabled == false
-          - add_bgp_peer_with_default_ctrl.current.ebpgMultiHopTTL == 1
-          - add_bgp_peer_with_default_ctrl.current.peerAddressV4 == "3.3.3.3"
-          - add_bgp_peer_with_default_ctrl.current.peerAddressV6 == "1::9/16"
-          - add_bgp_peer_with_default_ctrl.previous == {}
-
     - name: Invalid test - change allowed_self_as_count when the bgp_controls allow_self_as is false
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
         template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
-        ipv4_addr: "3.3.3.3"
-        ipv6_addr: "1::9/16"
+        ipv4_address: "3.3.3.3"
+        ipv6_address: "1::9/16"
         allowed_self_as_count: 4
         state: present
       register: nt_change_allowed_self_as_count
       ignore_errors: true
 
-    - name: Assertion check for invalid test - change allowed_self_as_count when the bgp_controls allow_self_as is false
+    - name: Assertion check for invalid test - L3Out BGP Peer with different options
       ansible.builtin.assert:
         that:
+          - nt_add_bgp_peer_without_ip is not changed
+          - nt_add_bgp_peer_without_ip.msg == "state is present but any of the following are missing{{':'}} ipv4_address, ipv6_address"
           - nt_change_allowed_self_as_count is not changed
           - nt_change_allowed_self_as_count.current.adminState == "enabled"
           - nt_change_allowed_self_as_count.current.allowedSelfASCount == 3
@@ -589,50 +750,44 @@
           - nt_change_allowed_self_as_count.previous.peerAddressV4 == "3.3.3.3"
           - nt_change_allowed_self_as_count.previous.peerAddressV6 == "1::9/16"
 
-    - name: Invalid test - enable remove_all when the private_as_controls replace_with_local_as is false
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
-        ipv4_addr: "3.3.3.3"
-        ipv6_addr: "1::9/16"
-        private_as_controls:
-          remove_all: true
-          replace_with_local_as: false
-        state: present
-      register: change_remove_all
-      ignore_errors: true
-
-    - name: Assertion check for invalid test - enable remove_all when the private_as_controls replace_with_local_as is false
-      ansible.builtin.assert:
-        that:
-          - change_remove_all is not changed
-          - change_remove_all.current.adminState == "enabled"
-          - change_remove_all.current.allowedSelfASCount == 3
-          - change_remove_all.current.authEnabled == false
-          - change_remove_all.current.ebpgMultiHopTTL == 1
-          - change_remove_all.current.peerAddressV4 == "3.3.3.3"
-          - change_remove_all.current.peerAddressV6 == "1::9/16"
-          - change_remove_all.previous.adminState == "enabled"
-          - change_remove_all.previous.allowedSelfASCount == 3
-          - change_remove_all.previous.authEnabled == false
-          - change_remove_all.previous.ebpgMultiHopTTL == 1
-          - change_remove_all.previous.peerAddressV4 == "3.3.3.3"
-          - change_remove_all.previous.peerAddressV6 == "1::9/16"
-
     - name: Clear IPv4 address for the L3Out BGP Peer object
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
         template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
-        ipv4_addr: ""
-        ipv6_addr: "1::9/16"
+        ipv4_address: ""
+        ipv6_address: "1::9/16"
+        private_as_controls:
+          remove_all: true
+          replace_with_local_as: false
         state: present
       register: clear_ipv4_addr
 
-    - name: Assertion check for clear IPv4 address for the L3Out BGP Peer object
+    - name: Invalid test - change configured IPv4 address when IPv6 is already configured
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv4_address: "5.5.5.6"
+        ipv6_address: "1::19/16"
+        state: present
+      register: nt_update_ipv4_addr
+      ignore_errors: true
+
+    - name: Clear IPv6 address for the L3Out BGP Peer object
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv4_address: "5.5.5.5"
+        ipv6_address: ""
+        state: present
+      register: clear_ipv6_addr
+
+    - name: Assertion check for clear IPv4 and  IPv6 address for the L3Out BGP Peer object
       ansible.builtin.assert:
         that:
           - clear_ipv4_addr is changed
@@ -647,138 +802,6 @@
           - clear_ipv4_addr.previous.ebpgMultiHopTTL == 1
           - clear_ipv4_addr.previous.peerAddressV4 == "3.3.3.3"
           - clear_ipv4_addr.previous.peerAddressV6 == "1::9/16"
-
-    - name: Invalid test - Add IPv4 address back to the L3Out BGP Peer object
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
-        ipv4_addr: "3.3.3.3"
-        ipv6_addr: "1::9/16"
-        state: present
-      register: add_same_ipv4_addr
-      ignore_errors: true
-
-    - name: Assertion check for invalid test - Add IPv4 address back to the L3Out BGP Peer object
-      ansible.builtin.assert:
-        that:
-          - add_same_ipv4_addr is not changed
-          - add_same_ipv4_addr.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 3.3.3.3-1::9/16 is duplicated. Please delete one"
-
-    - name: Query a specific L3Out BGP Peer object with IPv6 address
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
-        ipv6_addr: "1::19/16"
-        state: query
-      register: query_ipv6_addr
-
-    - name: Assertion check for query a specific L3Out BGP Peer object with IPv6 address
-      ansible.builtin.assert:
-        that:
-          - query_ipv6_addr is not changed
-          - query_ipv6_addr.current == {}
-
-    - name: Create L3Out BGP Peer minimum config with IPv4 and IPv6 address
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
-        ipv4_addr: "5.5.5.5"
-        ipv6_addr: "1::19/16"
-        state: present
-      register: add_ipv4_ipv6_addr
-
-    - name: Assertion check for create L3Out BGP Peer minimum config with IPv4 and IPv6 address
-      ansible.builtin.assert:
-        that:
-          - add_ipv4_ipv6_addr is changed
-          - add_ipv4_ipv6_addr.current.adminState == "enabled"
-          - add_ipv4_ipv6_addr.current.allowedSelfASCount == 3
-          - add_ipv4_ipv6_addr.current.authEnabled == false
-          - add_ipv4_ipv6_addr.current.ebpgMultiHopTTL == 1
-          - add_ipv4_ipv6_addr.current.peerAddressV4 == "5.5.5.5"
-          - add_ipv4_ipv6_addr.current.peerAddressV6 == "1::19/16"
-          - add_ipv4_ipv6_addr.previous == {}
-
-    - name: Query a specific L3Out BGP Peer object with IPv4 and IPv6 address
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
-        ipv4_addr: "5.5.5.5"
-        ipv6_addr: "1::19/16"
-        state: query
-      register: query_ipv4_ipv6_addr
-
-    - name: Assertion check for query a specific L3Out BGP Peer object with IPv4 and IPv6 address
-      ansible.builtin.assert:
-        that:
-          - query_ipv4_ipv6_addr is not changed
-          - query_ipv4_ipv6_addr.current.adminState == "enabled"
-          - query_ipv4_ipv6_addr.current.allowedSelfASCount == 3
-          - query_ipv4_ipv6_addr.current.authEnabled == false
-          - query_ipv4_ipv6_addr.current.ebpgMultiHopTTL == 1
-          - query_ipv4_ipv6_addr.current.peerAddressV4 == "5.5.5.5"
-          - query_ipv4_ipv6_addr.current.peerAddressV6 == "1::19/16"
-
-    - name: Invalid test - change configured IPv4 address when IPv6 is already configured
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
-        ipv4_addr: "5.5.5.6"
-        ipv6_addr: "1::19/16"
-        state: present
-      register: nt_update_ipv4_addr
-      ignore_errors: true
-
-    - name: Assertion check for invalid test - change configured IPv4 address when IPv6 is already configured
-      ansible.builtin.assert:
-        that:
-          - nt_update_ipv4_addr is not changed
-          - nt_update_ipv4_addr.current == {}
-          - nt_update_ipv4_addr.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 5.5.5.6-1::19/16 is duplicated. Please delete one"
-          - nt_update_ipv4_addr.previous == {}
-
-    - name: Invalid test - change configured IPv6 address when IPv4 is already configured
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
-        ipv4_addr: "5.5.5.5"
-        ipv6_addr: "1::20/16"
-        state: present
-      register: nt_update_ipv6_addr
-      ignore_errors: true
-
-    - name: Assertion check for invalid test - change configured IPv6 address when IPv4 is already configured
-      ansible.builtin.assert:
-        that:
-          - nt_update_ipv6_addr is not changed
-          - nt_update_ipv6_addr.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 5.5.5.5-1::20/16 is duplicated. Please delete one"
-
-    - name: Clear IPv6 address for the L3Out BGP Peer object
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
-        ipv4_addr: "5.5.5.5"
-        ipv6_addr: ""
-        state: present
-      register: clear_ipv6_addr
-
-    - name: Assertion check for clear IPv6 address for the L3Out BGP Peer object
-      ansible.builtin.assert:
-        that:
           - clear_ipv6_addr is changed
           - clear_ipv6_addr.current.adminState == "enabled"
           - clear_ipv6_addr.current.allowedSelfASCount == 3
@@ -792,26 +815,104 @@
           - clear_ipv6_addr.previous.peerAddressV4 == "5.5.5.5"
           - clear_ipv6_addr.previous.peerAddressV6 == "1::19/16"
 
-    - name: Query a specific L3Out BGP Peer object with IPv4 address
+    - name: Invalid test - Add IPv4 address back to the L3Out BGP Peer object
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
         template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
-        ipv4_addr: "5.5.5.5"
-        state: query
-      register: query_ipv4_addr
+        ipv4_address: "3.3.3.3"
+        ipv6_address: "1::9/16"
+        state: present
+      register: add_same_ipv4_addr
+      ignore_errors: true
 
-    - name: Assertion check for query a specific L3Out BGP Peer object with IPv4 address
+    - name: Invalid test - change configured IPv6 address when IPv4 is already configured
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv4_address: "5.5.5.5"
+        ipv6_address: "1::20/16"
+        state: present
+      register: nt_update_ipv6_addr
+      ignore_errors: true
+
+    - name: Invalid test - create L3Out BGP Peer without template and template_id
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv4_address: "1.1.1.1"
+        auth_password: 123
+        state: present
+      register: nt_create_without_template
+      ignore_errors: true
+
+    - name: Invalid test - create L3Out BGP Peer with import_route_map and import_route_map_uuid
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv4_address: "1.1.1.1"
+        auth_password: 123
+        import_route_map: "import_route_map"
+        import_route_map_uuid: "import_route_map_uuid"
+        state: present
+      register: nt_create_with_import_route_map
+      ignore_errors: true
+
+    - name: Invalid test - create L3Out BGP Peer with export_route_map and export_route_map_uuid
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv4_address: "1.1.1.1"
+        auth_password: 123
+        export_route_map: "export_route_map"
+        export_route_map_uuid: "export_route_map_uuid"
+        state: present
+      register: nt_create_with_export_route_map
+      ignore_errors: true
+
+    - name: Invalid test - create L3Out BGP Peer with peer_prefix and peer_prefix_uuid
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv4_address: "1.1.1.1"
+        auth_password: 123
+        peer_prefix: "peer_prefix"
+        peer_prefix_uuid: "peer_prefix_uuid"
+        state: present
+      register: nt_create_with_peer_prefix
+      ignore_errors: true
+
+    - name: Assertion check for invalid test - L3Out BGP Peer with different options 1
       ansible.builtin.assert:
         that:
-          - query_ipv4_addr is not changed
-          - query_ipv4_addr.current.adminState == "enabled"
-          - query_ipv4_addr.current.allowedSelfASCount == 3
-          - query_ipv4_addr.current.authEnabled == false
-          - query_ipv4_addr.current.ebpgMultiHopTTL == 1
-          - query_ipv4_addr.current.peerAddressV4 == "5.5.5.5"
+          - add_same_ipv4_addr is not changed
+          - add_same_ipv4_addr.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 3.3.3.3-1::9/16 is duplicated. Please delete one"
+          - nt_update_ipv4_addr is not changed
+          - nt_update_ipv4_addr.current == {}
+          - nt_update_ipv4_addr.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 5.5.5.6-1::19/16 is duplicated. Please delete one"
+          - nt_update_ipv4_addr.previous == {}
+          - nt_update_ipv6_addr is not changed
+          - nt_update_ipv6_addr.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 5.5.5.5-1::20/16 is duplicated. Please delete one"
+          - nt_create_without_template is not changed
+          - nt_create_without_template.msg == "state is present but any of the following are missing{{':'}} template, template_id"
+          - nt_create_with_import_route_map is not changed
+          - nt_create_with_import_route_map.msg == "parameters are mutually exclusive{{':'}} import_route_map|import_route_map_uuid"
+          - nt_create_with_export_route_map is not changed
+          - nt_create_with_export_route_map.msg == "parameters are mutually exclusive{{':'}} export_route_map|export_route_map_uuid"
+          - nt_create_with_peer_prefix is not changed
+          - nt_create_with_peer_prefix.msg == "parameters are mutually exclusive{{':'}} peer_prefix|peer_prefix_uuid"
 
+    # QUERY
     - name: Query all L3Out BGP Peer
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
@@ -819,77 +920,54 @@
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         state: query
-      register: all_l3out_bgp_peers_again
+      register: query_all_l3out_bgp_peers_again
 
-    - name: Assertion check for query all L3Out BGP Peer
+    - name: Assertion check for query L3Out BGP Peer with different options
       ansible.builtin.assert:
         that:
-          - all_l3out_bgp_peers_again is not changed
-          - all_l3out_bgp_peers_again | length == 4
-          - all_l3out_bgp_peers_again.current.0.peerAddressV4 == "1.1.1.1"
-          - all_l3out_bgp_peers_again.current.1.peerAddressV6 == "1::8/16"
-          - all_l3out_bgp_peers_again.current.2.peerAddressV6 == "1::9/16"
-          - all_l3out_bgp_peers_again.current.3.peerAddressV4 == "5.5.5.5"
+          - query_ipv6_addr is not changed
+          - query_ipv6_addr.current == query_ipv4_addr.current == query_ipv4_ipv6_addr.current
+          - query_ipv4_addr is not changed
+          - query_ipv4_addr.current.adminState == "enabled"
+          - query_ipv4_addr.current.allowedSelfASCount == 3
+          - query_ipv4_addr.current.authEnabled == false
+          - query_ipv4_addr.current.ebpgMultiHopTTL == 1
+          - query_ipv4_addr.current.peerAddressV4 == "5.5.5.5"
+          - query_ipv4_ipv6_addr is not changed
+          - query_ipv4_ipv6_addr.current.adminState == "enabled"
+          - query_ipv4_ipv6_addr.current.allowedSelfASCount == 3
+          - query_ipv4_ipv6_addr.current.authEnabled == false
+          - query_ipv4_ipv6_addr.current.ebpgMultiHopTTL == 1
+          - query_ipv4_ipv6_addr.current.peerAddressV4 == "5.5.5.5"
+          - query_ipv4_ipv6_addr.current.peerAddressV6 == "1::19/16"
+          - query_all_l3out_bgp_peers_again is not changed
+          - query_all_l3out_bgp_peers_again.current | length >= 5
+          - query_all_l3out_bgp_peers_again.current.0.peerAddressV4 == "1.1.1.1"
+          - query_all_l3out_bgp_peers_again.current.1.peerAddressV6 == "1::8/16"
+          - query_all_l3out_bgp_peers_again.current.2.peerAddressV4 == "5.5.5.5"
+          - query_all_l3out_bgp_peers_again.current.3.peerAddressV6 == "1::20/16"
+          - query_all_l3out_bgp_peers_again.current.4.peerAddressV6 == "1::9/16"
 
-    - name: Add L3Out BGP Peer with IPv4 and IPv6 address
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *cm_bgp_peer_ipv4_present
-        ipv4_addr: "1.1.1.2"
-        ipv6_addr: "1::10/16"
-        state: absent
-      register: add_bgp_peer
-
-    - name: Assertion check for add L3Out BGP Peer with IPv4 and IPv6 address
-      ansible.builtin.assert:
-        that:
-          - add_bgp_peer is not changed
-          - add_bgp_peer.current == {}
-          - add_bgp_peer.previous == {}
-          - add_bgp_peer.proposed == {}
-
-    - name: Remove an existing L3Out BGP Peer with IPv4 and IPv6 address - check mode
+    # DELETE
+    - name: Remove an existing L3Out BGP Peer with IPv4 and IPv6 address (check_mode)
       cisco.mso.ndo_l3out_bgp_peer: &cm_rm_bgp_peer
         <<: *cm_bgp_peer_ipv4_present
-        ipv4_addr: "1.1.1.2"
-        ipv6_addr: "1::10/16"
+        ipv4_address: "1.1.1.2"
+        ipv6_address: "1::10/16"
         state: absent
         output_level: debug
       check_mode: true
       register: cm_rm_bgp_peer
 
-    - name: Assertion check for remove an existing L3Out BGP Peer with IPv4 and IPv6 address - check mode
-      ansible.builtin.assert:
-        that:
-          - cm_rm_bgp_peer is not changed
-          - cm_rm_bgp_peer.current == {}
-          - cm_rm_bgp_peer.previous == {}
-          - cm_rm_bgp_peer.proposed == {}
-
-    - name: Remove an existing L3Out BGP Peer with IPv4 and IPv6 address - normal mode
+    - name: Remove an existing L3Out BGP Peer with IPv4 and IPv6 address
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *cm_rm_bgp_peer
       register: nm_rm_bgp_peer
 
-    - name: Assertion check for remove an existing L3Out BGP Peer with IPv4 and IPv6 address - normal mode
-      ansible.builtin.assert:
-        that:
-          - nm_rm_bgp_peer is not changed
-          - nm_rm_bgp_peer.current == {}
-          - nm_rm_bgp_peer.previous == {}
-          - nm_rm_bgp_peer.proposed == {}
-
-    - name: Remove an existing L3Out BGP Peer with IPv4 and IPv6 address - normal mode again
+    - name: Remove an existing L3Out BGP Peer with IPv4 and IPv6 address again
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *cm_rm_bgp_peer
       register: nm_rm_bgp_peer_again
-
-    - name: Assertion check for remove an existing L3Out BGP Peer with IPv4 and IPv6 address - normal mode again
-      ansible.builtin.assert:
-        that:
-          - nm_rm_bgp_peer_again is not changed
-          - nm_rm_bgp_peer_again.current == {}
-          - nm_rm_bgp_peer_again.previous == {}
-          - nm_rm_bgp_peer_again.proposed == {}
 
     - name: Remove an existing L3Out BGP Peer with IPv6 address
       cisco.mso.ndo_l3out_bgp_peer:
@@ -897,13 +975,35 @@
         template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
-        ipv6_addr: "1::8/16"
+        ipv6_address: "1::8/16"
         state: absent
       register: nm_rm_ipv6_bgp_peer
 
-    - name: Assertion check for remove an existing L3Out BGP Peer with IPv6 address
+    - name: Remove an existing L3Out BGP Peer with IPv4 address
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv4_address: "5.5.5.5"
+        state: absent
+      register: nm_rm_ipv4_bgp_peer
+
+    - name: Assertion check for remove an existing L3Out BGP Peer with different options
       ansible.builtin.assert:
         that:
+          - cm_rm_bgp_peer is not changed
+          - cm_rm_bgp_peer.current == {}
+          - cm_rm_bgp_peer.previous == {}
+          - cm_rm_bgp_peer.proposed == {}
+          - nm_rm_bgp_peer is not changed
+          - nm_rm_bgp_peer.current == {}
+          - nm_rm_bgp_peer.previous == {}
+          - nm_rm_bgp_peer.proposed == {}
+          - nm_rm_bgp_peer_again is not changed
+          - nm_rm_bgp_peer_again.current == {}
+          - nm_rm_bgp_peer_again.previous == {}
+          - nm_rm_bgp_peer_again.proposed == {}
           - nm_rm_ipv6_bgp_peer is changed
           - nm_rm_ipv6_bgp_peer.current == {}
           - nm_rm_ipv6_bgp_peer.previous.adminState == "enabled"
@@ -912,20 +1012,6 @@
           - nm_rm_ipv6_bgp_peer.previous.ebpgMultiHopTTL == 3
           - nm_rm_ipv6_bgp_peer.previous.localAsnConfig == "none"
           - nm_rm_ipv6_bgp_peer.previous.peerAddressV6 == "1::8/16"
-
-    - name: Remove an existing L3Out BGP Peer with IPv4 address
-      cisco.mso.ndo_l3out_bgp_peer:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: "l3out_1"
-        node_group: "node_group_policy_1"
-        ipv4_addr: "5.5.5.5"
-        state: absent
-      register: nm_rm_ipv4_bgp_peer
-
-    - name: Assertion check for remove an existing L3Out BGP Peer with IPv4 address
-      ansible.builtin.assert:
-        that:
           - nm_rm_ipv4_bgp_peer is changed
           - nm_rm_ipv4_bgp_peer.current == {}
           - nm_rm_ipv4_bgp_peer.previous.adminState == "enabled"
@@ -934,7 +1020,7 @@
           - nm_rm_ipv4_bgp_peer.previous.ebpgMultiHopTTL == 1
           - nm_rm_ipv4_bgp_peer.previous.peerAddressV4 == "5.5.5.5"
 
-    # Cleanup part
+    # CLEANUP TEMPLATE
     - name: Ensure l3out template not exist
       cisco.mso.ndo_template:
         <<: *ndo_l3out_template_absent

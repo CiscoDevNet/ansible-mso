@@ -72,7 +72,7 @@
         template: ansible_fabric_resource_policy_template
         name: ansible_node_profile
         description: Test Ansible Node Profile
-        nodes: [101, 102]
+        nodes: [101, 102, '103-105']
         node_setting_uuid: '{{ node_setting.results[0].current.uuid }}'
         state: present
       check_mode: true
@@ -96,17 +96,19 @@
           - cm_node_profile.previous == nm_node_profile.previous == {}
           - cm_node_profile.current.name == nm_node_profile.current.name == "ansible_node_profile"
           - cm_node_profile.current.description == nm_node_profile.current.description == "Test Ansible Node Profile"
-          - cm_node_profile.current.nodes | length == nm_node_profile.current.nodes | length == 2
+          - cm_node_profile.current.nodes | length == nm_node_profile.current.nodes | length == 3
           - cm_node_profile.current.nodes[0] == nm_node_profile.current.nodes[0] == "101"
           - cm_node_profile.current.nodes[1] == nm_node_profile.current.nodes[1] == "102"
+          - cm_node_profile.current.nodes[2] == nm_node_profile.current.nodes[2] == "103-105"
           - cm_node_profile.current.policy == nm_node_profile.current.policy == node_setting.results[0].current.uuid
           - nm_node_profile.current.uuid is defined
           - nm_node_profile_again is not changed
           - nm_node_profile_again.previous.name == nm_node_profile_again.current.name == "ansible_node_profile"
           - nm_node_profile_again.previous.description == nm_node_profile_again.current.description == "Test Ansible Node Profile"
-          - nm_node_profile_again.previous.nodes | length == nm_node_profile_again.current.nodes | length == 2
+          - nm_node_profile_again.previous.nodes | length == nm_node_profile_again.current.nodes | length == 3
           - nm_node_profile_again.previous.nodes[0] == nm_node_profile_again.current.nodes[0] == "101"
           - nm_node_profile_again.previous.nodes[1] == nm_node_profile_again.current.nodes[1] == "102"
+          - nm_node_profile_again.previous.nodes[2] == nm_node_profile_again.current.nodes[2] == "103-105"
           - nm_node_profile_again.previous.policy == nm_node_profile_again.current.policy
           - nm_node_profile_again.previous.uuid  == nm_node_profile.current.uuid
 
@@ -150,9 +152,10 @@
           - cm_update_node_profile.current.name == nm_update_node_profile.current.name == "ansible_node_profile"
           - cm_update_node_profile.previous.description == nm_update_node_profile.previous.description == "Test Ansible Node Profile"
           - cm_update_node_profile.current.description == nm_update_node_profile.current.description == "Test Ansible Node Profile 2"
-          - cm_update_node_profile.previous.nodes | length == nm_update_node_profile.previous.nodes | length == 2
+          - cm_update_node_profile.previous.nodes | length == nm_update_node_profile.previous.nodes | length == 3
           - cm_update_node_profile.previous.nodes[0] == nm_update_node_profile.previous.nodes[0] == "101"
           - cm_update_node_profile.previous.nodes[1] == nm_update_node_profile.previous.nodes[1] == "102"
+          - cm_update_node_profile.previous.nodes[2] == nm_update_node_profile.previous.nodes[2] == "103-105"
           - cm_update_node_profile.current.nodes | length == nm_update_node_profile.current.nodes | length == 1
           - cm_update_node_profile.current.nodes[0] == nm_update_node_profile.current.nodes[0] == "103"
           - cm_update_node_profile.previous.policy == nm_update_node_profile.previous.policy == node_setting.results[0].current.uuid

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2024, Anvitha Jain (@anvjain) <anvjain@cisco.com>
+# Copyright: (c) 2025, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -45,8 +46,9 @@ options:
   nodes:
     description:
     - The node IDs where the Physical Interface policy will be deployed.
+    - Each element can either be a single node ID or a range of IDs.
     type: list
-    elements: int
+    elements: str
   interfaces:
     description:
     - The interface names where the policy will be deployed.
@@ -134,7 +136,7 @@ EXAMPLES = r"""
     template: ansible_test_template
     name: ansible_test_physical_interface_physical
     description: "Physical Interface for Ansible Test"
-    nodes: [101]
+    nodes: [101, 102, '103-105']
     interfaces: "1/1"
     physical_interface_type: physical
     physical_policy: ansible_test_interface_setting_policy_uuid
@@ -149,7 +151,7 @@ EXAMPLES = r"""
     template: ansible_test_template
     name: ansible_test_physical_interface_breakout
     description: "breakout interface for Ansible Test"
-    nodes: [101]
+    nodes: [101, 102, '103-105']
     interfaces: "1/1"
     physical_interface_type: breakout
     breakout_mode: 4x25G
@@ -230,7 +232,7 @@ def main():
             name=dict(type="str", aliases=["physical_interface"]),
             uuid=dict(type="str", aliases=["physical_interface_uuid"]),
             description=dict(type="str"),
-            nodes=dict(type="list", elements="int"),
+            nodes=dict(type="list", elements="str"),
             interfaces=dict(type="list", elements="str"),
             physical_interface_type=dict(type="str", choices=["physical", "breakout"]),
             physical_policy_uuid=dict(type="str", aliases=["policy_uuid", "interface_policy_uuid", "interface_policy_group_uuid", "interface_setting_uuid"]),

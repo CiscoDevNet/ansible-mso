@@ -148,121 +148,6 @@ def check_if_all_elements_are_none(values):
     return all(value is None for value in values)
 
 
-def map_keys_to_new_dict(input_dict, key_mapping):
-    """
-    Transform keys of the input dictionary based on a key mapping and return a new dictionary.
-
-    This function creates a new dictionary by mapping keys from the input dictionary to new keys
-    as specified in the key mapping. It only includes keys present in the key mapping.
-
-    :param input_dict: The original dictionary with keys to be transformed -> Dict
-    :param key_mapping: A dictionary where each key-value pair maps an original key to a new key -> Dict
-    :return: A new dictionary with keys transformed according to the key mapping. If input_dict is empty, returns an empty dictionary -> Dict
-
-    Sample Data:
-    ------------
-        key_mapping = {
-            "multicast": "afMast",
-            "unicast": "afUcast",
-        }
-
-        input_dict = {
-            "multicast": True,
-            "unicast": False,
-        }
-
-    Sample Output:
-    --------------
-        return_value = {
-            "afMast": True,
-            "afUcast": False,
-        }
-    """
-    output_dict = {}
-
-    if input_dict:
-        for old_key, new_key in key_mapping.items():
-            output_dict[new_key] = input_dict.get(old_key)
-
-    return output_dict
-
-
-def remove_none_values(data):
-    """
-    Recursively removes all key-value pairs where the value is None from a dictionary,
-    including nested dictionaries and lists of dictionaries. If a dictionary becomes empty
-    after removals, it is set to None if it is a value in another dictionary or removed if in a list.
-
-    :param data: The original data structure (dictionary or list) from which None values should be removed -> List, Dict
-    :return: A new data structure with all None values removed, or None if the structure is empty -> List, Dict or None
-
-    Sample Data:
-    ------------
-        data = {
-            "multicast": None,
-            "unicast": False,
-        }
-
-    Sample Output:
-    --------------
-        return_value = {
-            "unicast": False,
-        }
-    """
-    if isinstance(data, dict):
-        cleaned_dict = {key: remove_none_values(value) for key, value in data.items() if value is not None}
-        return {key: value for key, value in cleaned_dict.items() if value is not None} or None
-    elif isinstance(data, list):
-        cleaned_list = [remove_none_values(item) for item in data if item is not None]
-        return [item for item in cleaned_list if item is not None] or None
-    else:
-        return data
-
-
-def merge_sub_dict_into_main(main_dict, sub_dict, *prefix_keys):
-    """
-    Merge a sub-dictionary into the main dictionary by transforming its keys.
-
-    Each key in the sub-dictionary is prefixed with a sequence of keys provided as arguments,
-    and the resulting keys are stored as tuples in the main dictionary with their corresponding values.
-
-    :param main_dict: The dictionary to be updated with transformed keys from the sub-dictionary -> Dict
-    :param sub_dict: The dictionary whose keys and values are to be transformed and merged -> Dict
-    :param prefix_keys: A sequence of keys to be used as a prefix for each key in the sub-dictionary -> List, Tuple
-    :return: The updated main dictionary with keys from the sub-dictionary transformed and merged -> Dict
-
-    Sample Data:
-    ------------
-        main_dict = {
-            "peerAddressV4": "1.1.1.1",
-            "peerAddressV6": "1::9/16",
-            "peerAsn": 1,
-        }
-        sub_dict = {
-            "afMast": True,
-            "afUcast": False,
-        }
-        prefix_keys = ("addressTypeControls")
-
-    Sample Output:
-    --------------
-        return_value = {
-            "peerAddressV4": "1.1.1.1",
-            "peerAddressV6": "1::9/16",
-            "peerAsn": 1,
-            ("addressTypeControls", "afMast"): True,
-            ("addressTypeControls", "afUcast"): False,
-        }
-    """
-    if sub_dict:
-        prefix_list = list(prefix_keys)
-
-        for key, value in sub_dict.items():
-            main_dict[tuple(prefix_list + [key])] = value
-
-    return main_dict
-
-
 def get_template_object_name_by_uuid(mso, object_type, uuid):
     """
     Retrieve the name of a specific object type in the MSO template using its UUID.
@@ -277,3 +162,17 @@ def get_template_object_name_by_uuid(mso, object_type, uuid):
     response_object = mso.request("templates/objects?type={0}&uuid={1}".format(object_type, uuid), "GET")
     if response_object:
         return response_object.get("name")
+
+
+def get_object_identifier(uuid, name):
+    """
+    Retrieve the object identifier based on the input values
+
+    :param uuid: UUID of the object -> Str
+    :param name: Name of the object -> Str
+    :return: Dict: The processed result which could be:
+          When the UUID is not None, returns dict object with UUID -> Dict
+          When the name is not None, returns dict object with name -> Dict
+          When the UUID and name is None, returns empty dict -> Dict
+    """
+    return {"uuid": uuid} if uuid is not None else ({"name": name} if name is not None else {})

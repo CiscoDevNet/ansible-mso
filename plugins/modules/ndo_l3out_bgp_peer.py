@@ -25,23 +25,34 @@ options:
     - The name of the L3Out template.
     type: str
     aliases: [ l3out_template ]
-    required: true
+  template_id:
+    description:
+    - The ID of the L3Out template.
+    type: str
+    aliases: [ l3out_template_id ]
   l3out:
     description:
     - The name of the L3Out.
+    type: str
+  l3out_uuid:
+    description:
+    - The UUID of the L3Out.
     type: str
   node_group:
     description:
     - The name of the Node Group Policy.
     type: str
-  ipv4_addr:
+    required: true
+  ipv4_address:
     description:
     - The IPv4 address of the L3Out BGP Peer.
+    - Providing an empty string will remove the O(ipv4_address="") from the L3Out BGP Peer.
     type: str
     aliases: [ peer_address_ipv4 ]
-  ipv6_addr:
+  ipv6_address:
     description:
     - The IPv6 address of the L3Out BGP Peer.
+    - Providing an empty string will remove the O(ipv6_address="") from the L3Out BGP Peer.
     type: str
     aliases: [ peer_address_ipv6 ]
   remote_asn:
@@ -94,14 +105,32 @@ options:
   import_route_map:
     description:
     - The name of the import route map.
+    - Providing an empty string will remove the O(import_route_map="") from the L3Out BGP Peer.
+    type: str
+  import_route_map_uuid:
+    description:
+    - The UUID of the import route map.
+    - Providing an empty string will remove the O(import_route_map_uuid="") from the L3Out BGP Peer.
     type: str
   export_route_map:
     description:
     - The name of the export route map.
+    - Providing an empty string will remove the O(export_route_map="") from the L3Out BGP Peer.
+    type: str
+  export_route_map_uuid:
+    description:
+    - The UUID of the export route map.
+    - Providing an empty string will remove the O(export_route_map_uuid="") from the L3Out BGP Peer.
     type: str
   peer_prefix:
     description:
     - The name of the peer prefix.
+    - Providing an empty string will remove the O(peer_prefix="") from the L3Out BGP Peer.
+    type: str
+  peer_prefix_uuid:
+    description:
+    - The UUID of the peer prefix.
+    - Providing an empty string will remove the O(peer_prefix_uuid="") from the L3Out BGP Peer.
     type: str
   bgp_controls:
     description:
@@ -233,8 +262,8 @@ EXAMPLES = r"""
     template: l3out_template
     l3out: l3out_1
     node_group: node_group_policy_1
-    ipv4_addr: "1.1.1.1"
-    ipv6_addr: "1::8/16"
+    ipv4_address: "1.1.1.1"
+    ipv6_address: "1::8/16"
     auth_password: 123
     state: present
 
@@ -246,8 +275,8 @@ EXAMPLES = r"""
     template: l3out_template
     l3out: l3out_1
     node_group: node_group_policy_1
-    ipv4_addr: "1.1.1.1"
-    ipv6_addr: "1::8/16"
+    ipv4_address: "1.1.1.1"
+    ipv6_address: "1::8/16"
     remote_asn: 2
     admin_state: enabled
     import_route_map: ans_route_map
@@ -287,8 +316,8 @@ EXAMPLES = r"""
     template: l3out_template
     l3out: l3out_1
     node_group: node_group_policy_1
-    ipv4_addr: "1.1.1.1"
-    ipv6_addr: "1::8/16"
+    ipv4_address: "1.1.1.1"
+    ipv6_address: "1::8/16"
     state: query
   register: query_with_ipv4_and_ipv6
 
@@ -300,7 +329,7 @@ EXAMPLES = r"""
     template: l3out_template
     l3out: l3out_1
     node_group: node_group_policy_1
-    ipv4_addr: "1.1.1.1"
+    ipv4_address: "1.1.1.1"
     state: query
   register: query_with_ipv4
 
@@ -312,7 +341,7 @@ EXAMPLES = r"""
     template: l3out_template
     l3out: l3out_1
     node_group: node_group_policy_1
-    ipv6_addr: "1::8/16"
+    ipv6_address: "1::8/16"
     state: query
   register: query_with_ipv6
 
@@ -324,8 +353,8 @@ EXAMPLES = r"""
     template: l3out_template
     l3out: l3out_1
     node_group: node_group_policy_1
-    ipv4_addr: "1.1.1.1"
-    ipv6_addr: "1::8/16"
+    ipv4_address: "1.1.1.1"
+    ipv6_address: "1::8/16"
     state: absent
 
 - name: Remove an L3Out BGP Peer with IPv4
@@ -336,7 +365,7 @@ EXAMPLES = r"""
     template: l3out_template
     l3out: l3out_1
     node_group: node_group_policy_1
-    ipv4_addr: "1.1.1.1"
+    ipv4_address: "1.1.1.1"
     state: absent
 
 - name: Remove an L3Out BGP Peer with IPv6
@@ -347,7 +376,7 @@ EXAMPLES = r"""
     template: l3out_template
     l3out: l3out_1
     node_group: node_group_policy_1
-    ipv6_addr: "1::8/16"
+    ipv6_address: "1::8/16"
     state: absent
 """
 
@@ -363,26 +392,29 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import LOCAL_A
 from ansible_collections.cisco.mso.plugins.module_utils.utils import (
     generate_api_endpoint,
     append_update_ops_data,
-    merge_sub_dict_into_main,
-    remove_none_values,
-    map_keys_to_new_dict,
     get_template_object_name_by_uuid,
+    get_object_identifier,
 )
 
 
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        template=dict(type="str", required=True, aliases=["l3out_template"]),
+        template=dict(type="str", aliases=["l3out_template"]),
+        template_id=dict(type="str", aliases=["l3out_template_id"]),
         l3out=dict(type="str"),
-        node_group=dict(type="str"),
-        ipv4_addr=dict(type="str", aliases=["peer_address_ipv4"]),
-        ipv6_addr=dict(type="str", aliases=["peer_address_ipv6"]),
+        l3out_uuid=dict(type="str"),
+        node_group=dict(type="str", required=True),
+        ipv4_address=dict(type="str", aliases=["peer_address_ipv4"]),
+        ipv6_address=dict(type="str", aliases=["peer_address_ipv6"]),
         remote_asn=dict(type="int"),
         admin_state=dict(type="str", choices=["enabled", "disabled"]),
         import_route_map=dict(type="str"),
         export_route_map=dict(type="str"),
         peer_prefix=dict(type="str"),
+        import_route_map_uuid=dict(type="str"),
+        export_route_map_uuid=dict(type="str"),
+        peer_prefix_uuid=dict(type="str"),
         ebgp_multi_hop_ttl=dict(type="int"),
         auth_password=dict(type="str", no_log=True),
         weight=dict(type="int"),
@@ -434,18 +466,32 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "absent", ["ipv4_addr", "ipv6_addr"], True],
-            ["state", "present", ["ipv4_addr", "ipv6_addr"], True],
+            ["state", "present", ["template", "template_id"], True],
+            ["state", "query", ["template", "template_id"], True],
+            ["state", "absent", ["template", "template_id"], True],
+            ["state", "present", ["l3out", "l3out_uuid"], True],
+            ["state", "query", ["l3out", "l3out_uuid"], True],
+            ["state", "absent", ["l3out", "l3out_uuid"], True],
+            ["state", "present", ["ipv4_address", "ipv6_address"], True],
+            ["state", "absent", ["ipv4_address", "ipv6_address"], True],
+        ],
+        mutually_exclusive=[
+            ("template", "template_id"),
+            ("l3out", "l3out_uuid"),
+            ("import_route_map", "import_route_map_uuid"),
+            ("export_route_map", "export_route_map_uuid"),
+            ("peer_prefix", "peer_prefix_uuid"),
         ],
     )
 
     mso = MSOModule(module)
 
-    template = module.params.get("template")
-    l3out = module.params.get("l3out")
+    template_identifier = get_object_identifier(module.params.get("template_id"), module.params.get("template"))
+    template_identifier["id"] = template_identifier.get("uuid")
+    l3out_identifier = get_object_identifier(module.params.get("l3out_uuid"), module.params.get("l3out"))
     node_group = module.params.get("node_group")
-    ipv4_addr = module.params.get("ipv4_addr")
-    ipv6_addr = module.params.get("ipv6_addr")
+    ipv4_addr = module.params.get("ipv4_address")
+    ipv6_addr = module.params.get("ipv6_address")
     remote_asn = module.params.get("remote_asn")
     admin_state = module.params.get("admin_state")
     auth_password = module.params.get("auth_password")
@@ -455,26 +501,27 @@ def main():
     allowed_self_as_count = module.params.get("allowed_self_as_count")
     local_asn_config = LOCAL_ASN_CONFIG.get(module.params.get("local_asn_config"))
     local_asn = module.params.get("local_asn")
-    import_route_map = module.params.get("import_route_map")
-    export_route_map = module.params.get("export_route_map")
-    peer_prefix = module.params.get("peer_prefix")
+
+    import_route_map_identifier = get_object_identifier(module.params.get("import_route_map_uuid"), module.params.get("import_route_map"))
+    export_route_map_identifier = get_object_identifier(module.params.get("export_route_map_uuid"), module.params.get("export_route_map"))
+    peer_prefix_identifier = get_object_identifier(module.params.get("peer_prefix_uuid"), module.params.get("peer_prefix"))
+
     bgp_controls = module.params.get("bgp_controls")
     peer_controls = module.params.get("peer_controls")
     address_families = module.params.get("address_families")
     private_as_controls = module.params.get("private_as_controls")
     state = module.params.get("state")
 
-    mso_template = MSOTemplate(mso, "l3out", template)
+    mso_template = MSOTemplate(mso, "l3out", template_identifier.get("name"), template_identifier.get("id"))
     mso_template.validate_template("l3out")
 
     tenant_id = mso_template.template_summary.get("tenantId")
     tenant_name = mso_template.template_summary.get("tenantName")
 
-    l3out_object = mso_template.get_l3out_object(name=l3out, fail_module=True)
+    l3out_object = mso_template.get_l3out_object(uuid=l3out_identifier.get("uuid"), name=l3out_identifier.get("name"), fail_module=True)
     node_group_object = mso_template.get_l3out_node_group(node_group, l3out_object.details, fail_module=True)
-    bgp_peers = node_group_object.details.get("bgpPeers", [])
 
-    bgp_peer_objects = get_bgp_peer_by_address(mso_template, bgp_peers, ipv4_addr=ipv4_addr, ipv6_addr=ipv6_addr)
+    bgp_peer_objects = get_bgp_peer_by_address(mso_template, node_group_object.details.get("bgpPeers", []), ipv4_addr=ipv4_addr, ipv6_addr=ipv6_addr)
 
     if bgp_peer_objects and (ipv4_addr or ipv6_addr):
         set_bgp_peer_relations_name(mso, bgp_peer_objects.details)
@@ -490,21 +537,55 @@ def main():
     ops = []
 
     if state == "present":
-        route_map_objects = []
-        if import_route_map or export_route_map:
-            route_map_objects = mso.query_objs(generate_api_endpoint("templates/objects", **{"type": "routeMap", "tenant-id": tenant_id}))
-
         peer_prefix_uuid = None
-        if peer_prefix:
-            peer_prefix_objects = mso.query_objs(generate_api_endpoint("templates/objects", **{"type": "bgpPeerPrefixPol", "tenant-id": tenant_id}))
-            peer_prefix_uuid = get_peer_prefix_object(mso_template, peer_prefix_uuid, peer_prefix, peer_prefix_objects).details.get("uuid")
+
+        if peer_prefix_identifier.get("uuid") is not None:
+            peer_prefix_uuid = peer_prefix_identifier.get("uuid")
+        elif peer_prefix_identifier.get("name") is not None and peer_prefix_identifier.get("name") != "":
+            peer_prefix_uuid = mso_template.get_object_by_key_value_pairs(
+                "BGP Peer Prefix Policy",
+                mso.query_objs(generate_api_endpoint("templates/objects", **{"type": "bgpPeerPrefixPol", "tenant-id": tenant_id})),
+                [KVPair("name", peer_prefix_identifier.get("name"))],
+                True,
+            ).details.get("uuid")
+
+        route_map_objects = (
+            mso.query_objs(generate_api_endpoint("templates/objects", **{"type": "routeMap", "tenant-id": tenant_id}))
+            if import_route_map_identifier.get("name") or export_route_map_identifier.get("name")
+            else []
+        )
+
+        import_route_map_uuid = None
+        export_route_map_uuid = None
+
+        if import_route_map_identifier.get("uuid") is not None:
+            import_route_map_uuid = import_route_map_identifier.get("uuid")
+        elif import_route_map_identifier.get("name") is not None:
+            import_route_map_uuid = mso_template.get_route_map(
+                "import_route_map",
+                tenant_id,
+                tenant_name,
+                import_route_map_identifier.get("name"),
+                route_map_objects,
+            ).get("uuid", None)
+
+        if export_route_map_identifier.get("uuid") is not None:
+            export_route_map_uuid = export_route_map_identifier.get("uuid")
+        elif export_route_map_identifier.get("name") is not None:
+            export_route_map_uuid = mso_template.get_route_map(
+                "export_route_map",
+                tenant_id,
+                tenant_name,
+                export_route_map_identifier.get("name"),
+                route_map_objects,
+            ).get("uuid", None)
 
         mso_values = dict(
             peerAddressV4=ipv4_addr,
             peerAddressV6=ipv6_addr,
             peerAsn=remote_asn,
             adminState=admin_state,
-            authEnabled=True if auth_password else None,
+            authEnabled=True if auth_password else False,
             allowedSelfASCount=allowed_self_as_count,
             ebpgMultiHopTTL=ebgp_multi_hop_ttl,
             weight=weight,
@@ -512,72 +593,43 @@ def main():
             localAsnConfig=local_asn_config,
             localAsn=local_asn,
             peerPrefixRef=peer_prefix_uuid,
+            importRouteMapRef=import_route_map_uuid,
+            exportRouteMapRef=export_route_map_uuid,
+            password=dict(value=auth_password) if auth_password is not None else None,
         )
 
-        if auth_password is not None:
-            mso_values["password"] = dict(value=auth_password)
-
-        if import_route_map is not None:
-            mso_values["importRouteMapRef"] = mso_template.get_route_map(
-                "import_route_map",
-                tenant_id,
-                tenant_name,
-                import_route_map,
-                route_map_objects,
-            ).get("uuid", None)
-
-        if export_route_map is not None:
-            mso_values["exportRouteMapRef"] = mso_template.get_route_map(
-                "export_route_map",
-                tenant_id,
-                tenant_name,
-                export_route_map,
-                route_map_objects,
-            ).get("uuid", None)
-
-        # BGP Controls
-        bgp_controls_key_mapping = {
-            "allow_self_as": "allowSelfAS",
-            "override_as": "asOverride",
-            "disabled_peer_as_check": "disablePeerASCheck",
-            "next_hop_self": "nextHopSelf",
-            "send_community": "sendCommunity",
-            "send_extended_community": "sendExtendedCommunity",
-            "send_domain_path": "sendDomainPath",
-        }
-        bgp_controls_map = map_keys_to_new_dict(bgp_controls, bgp_controls_key_mapping)
-
-        # Peer Controls
-        peer_controls_key_mapping = {
-            "bfd": "bfd",
-            "disable_peer_connected_check": "disableConnectedCheck",
-        }
-        peer_controls_map = map_keys_to_new_dict(peer_controls, peer_controls_key_mapping)
-
-        # Address Type Controls
-        address_families_key_mapping = {
-            "multicast": "afMast",
-            "unicast": "afUcast",
-        }
-        address_families_map = map_keys_to_new_dict(address_families, address_families_key_mapping)
-
-        # Private AS Controls
-        private_as_controls_key_mapping = {
-            "remove_all": "removeAll",
-            "replace_with_local_as": "replaceWithLocalAS",
-        }
-        private_as_controls_map = map_keys_to_new_dict(private_as_controls, private_as_controls_key_mapping)
-        if private_as_controls_map and (private_as_controls_map.get("removeAll") or private_as_controls_map.get("replaceWithLocalAS")):
-            private_as_controls_map["removeExclusive"] = True
-
         if not mso.existing:
-            mso_values["bgpControls"] = bgp_controls_map if bgp_controls_map is not None else None
-            mso_values["peerControls"] = peer_controls_map if peer_controls_map is not None else None
-            mso_values["addressTypeControls"] = address_families_map if address_families_map is not None else None
-            mso_values["privateASControls"] = private_as_controls_map if private_as_controls_map is not None else None
-            cleaned_mso_values = remove_none_values(mso_values)
-            mso.sanitize(cleaned_mso_values)
-            ops.append(dict(op="add", path=bgp_peer_path, value=cleaned_mso_values))
+            # BGP Controls
+            if bgp_controls:
+                mso_values["bgpControls"] = dict(
+                    allowSelfAS=bgp_controls["allow_self_as"],
+                    asOverride=bgp_controls["override_as"],
+                    disablePeerASCheck=bgp_controls["disabled_peer_as_check"],
+                    nextHopSelf=bgp_controls["next_hop_self"],
+                    sendCommunity=bgp_controls["send_community"],
+                    sendDomainPath=bgp_controls["send_extended_community"],
+                    sendExtendedCommunity=bgp_controls["send_domain_path"],
+                )
+
+            # Peer Controls
+            if peer_controls:
+                mso_values["peerControls"] = dict(bfd=peer_controls["bfd"], disableConnectedCheck=peer_controls["disable_peer_connected_check"])
+
+            # Address Type Controls
+            if address_families:
+                mso_values["addressTypeControls"] = dict(afMast=address_families["multicast"], afUcast=address_families["unicast"])
+
+            # Private AS Controls
+            if private_as_controls:
+                mso_values["privateASControls"] = dict(
+                    removeAll=private_as_controls["remove_all"], replaceWithLocalAS=private_as_controls["replace_with_local_as"]
+                )
+
+            if private_as_controls and (private_as_controls.get("remove_all") or private_as_controls.get("replace_with_local_as")):
+                mso_values["privateASControls"]["removeExclusive"] = True
+
+            mso.sanitize(mso_values)
+            ops.append(dict(op="add", path=bgp_peer_path, value=mso.sent))
 
         elif mso.existing:
             proposed_payload = copy.deepcopy(mso.existing)
@@ -618,17 +670,17 @@ def main():
             elif auth_password == "" and "password" in mso_values and "password" not in proposed_payload:
                 mso_values.pop("password", None)
 
-            if import_route_map == "" and "importRouteMapRef" in proposed_payload:
+            if (peer_prefix_identifier.get("uuid") == "" or peer_prefix_identifier.get("name") == "") and "peerPrefixRef" in proposed_payload:
+                mso_values_remove.append("peerPrefixRef")
+                mso_values.pop("peerPrefixRef", None)
+
+            if (import_route_map_identifier.get("uuid") == "" or import_route_map_identifier.get("name") == "") and "importRouteMapRef" in proposed_payload:
                 mso_values_remove.append("importRouteMapRef")
                 mso_values.pop("importRouteMapRef", None)
 
-            if export_route_map == "" and "exportRouteMapRef" in proposed_payload:
+            if (export_route_map_identifier.get("uuid") == "" or export_route_map_identifier.get("name") == "") and "exportRouteMapRef" in proposed_payload:
                 mso_values_remove.append("exportRouteMapRef")
                 mso_values.pop("exportRouteMapRef", None)
-
-            if peer_prefix == "" and "peerPrefixRef" in proposed_payload:
-                mso_values_remove.append("peerPrefixRef")
-                mso_values.pop("peerPrefixRef", None)
 
             # BGP Controls
             if bgp_controls is not None:
@@ -638,7 +690,13 @@ def main():
                 elif bgp_controls.get("state") != "disabled":
                     if not proposed_payload.get("bgpControls"):
                         mso_values["bgpControls"] = dict()
-                    merge_sub_dict_into_main(mso_values, bgp_controls_map if bgp_controls_map else None, ("bgpControls"))
+                    mso_values[("bgpControls", "allowSelfAS")] = bgp_controls.get("allow_self_as")
+                    mso_values[("bgpControls", "asOverride")] = bgp_controls.get("override_as")
+                    mso_values[("bgpControls", "disablePeerASCheck")] = bgp_controls.get("disabled_peer_as_check")
+                    mso_values[("bgpControls", "nextHopSelf")] = bgp_controls.get("next_hop_self")
+                    mso_values[("bgpControls", "sendCommunity")] = bgp_controls.get("send_community")
+                    mso_values[("bgpControls", "sendExtendedCommunity")] = bgp_controls.get("send_extended_community")
+                    mso_values[("bgpControls", "sendDomainPath")] = bgp_controls.get("send_domain_path")
 
             # Peer Controls
             if peer_controls is not None:
@@ -648,7 +706,9 @@ def main():
                 elif peer_controls.get("state") != "disabled":
                     if not proposed_payload.get("peerControls"):
                         mso_values["peerControls"] = dict()
-                    merge_sub_dict_into_main(mso_values, peer_controls_map if peer_controls_map else None, ("peerControls"))
+
+                    mso_values[("peerControls", "bfd")] = peer_controls.get("bfd")
+                    mso_values[("peerControls", "disableConnectedCheck")] = peer_controls.get("disable_peer_connected_check")
 
             # Address Type Controls
             if address_families is not None:
@@ -658,7 +718,9 @@ def main():
                 elif address_families.get("state") != "disabled":
                     if not proposed_payload.get("addressTypeControls"):
                         mso_values["addressTypeControls"] = dict()
-                    merge_sub_dict_into_main(mso_values, address_families_map if address_families_map else None, ("addressTypeControls"))
+
+                    mso_values[("addressTypeControls", "afMast")] = address_families.get("multicast")
+                    mso_values[("addressTypeControls", "afUcast")] = address_families.get("unicast")
 
             # Private AS Controls
             if private_as_controls is not None:
@@ -668,11 +730,15 @@ def main():
                 elif private_as_controls.get("state") != "disabled":
                     if not proposed_payload.get("privateASControls"):
                         mso_values["privateASControls"] = dict()
-                    merge_sub_dict_into_main(mso_values, private_as_controls_map if private_as_controls_map else None, ("privateASControls"))
 
-            cleaned_mso_values = remove_none_values(mso_values)
-            append_update_ops_data(ops, proposed_payload, bgp_peer_path, cleaned_mso_values, mso_values_remove)
-            mso.sanitize(proposed_payload, True)
+                    mso_values[("privateASControls", "removeAll")] = private_as_controls.get("remove_all")
+                    mso_values[("privateASControls", "replaceWithLocalAS")] = private_as_controls.get("replace_with_local_as")
+
+                    if private_as_controls.get("remove_all") or private_as_controls.get("replace_with_local_as"):
+                        mso_values[("privateASControls", "removeExclusive")] = True
+
+            append_update_ops_data(ops, proposed_payload, bgp_peer_path, mso_values, mso_values_remove)
+            mso.sanitize(proposed_payload)
 
     elif state == "absent":
         if mso.existing:
@@ -680,10 +746,16 @@ def main():
 
     if not module.check_mode and ops:
         mso_template.template = mso.request(mso_template.template_path, method="PATCH", data=ops)
-        l3out_object = mso_template.get_l3out_object(name=l3out, fail_module=True)
-        node_group_object = mso_template.get_l3out_node_group(node_group, l3out_object.details, fail_module=True)
-        bgp_peers = node_group_object.details.get("bgpPeers", [])
-        match = get_bgp_peer_by_address(mso_template, bgp_peers, ipv4_addr=ipv4_addr, ipv6_addr=ipv6_addr)
+        match = get_bgp_peer_by_address(
+            mso_template,
+            mso_template.get_l3out_node_group(
+                node_group,
+                mso_template.get_l3out_object(uuid=l3out_identifier.get("uuid"), name=l3out_identifier.get("name"), fail_module=True).details,
+                fail_module=True,
+            ).details.get("bgpPeers", []),
+            ipv4_addr=ipv4_addr,
+            ipv6_addr=ipv6_addr,
+        )
         if match:
             if match.details.get("password", {}).get("ref"):
                 match.details["password"].pop("ref", None)
@@ -697,13 +769,6 @@ def main():
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
-
-
-def get_peer_prefix_object(mso_template, uuid, name, peer_prefix_list):
-    if uuid or name:
-        return mso_template.get_object_by_key_value_pairs(
-            "BGP Peer Prefix Policy", peer_prefix_list, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], True
-        )
 
 
 def get_bgp_peer_by_address(mso_template, bgp_peers, ipv4_addr=None, ipv6_addr=None, fail_module=False):

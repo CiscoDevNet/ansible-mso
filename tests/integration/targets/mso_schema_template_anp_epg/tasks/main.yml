@@ -77,6 +77,7 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     vrf: VRF
+    preferred_group: true
     layer3_multicast: true
     state: present
 
@@ -92,6 +93,7 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
     vrf: VRF3
+    preferred_group: true
     state: present
 
 - name: Ensure VRF4 exist
@@ -168,7 +170,7 @@
 
 - name: Ensure ansible_test_1 BD exist
   cisco.mso.mso_schema_template_bd:
-    <<: *vrf_present
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     bd: ansible_test_1
@@ -179,7 +181,7 @@
 
 - name: Ensure ansible_test_2 BD exist
   cisco.mso.mso_schema_template_bd:
-    <<: *vrf_present
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     bd: ansible_test_2
@@ -191,7 +193,7 @@
 
 - name: Ensure ansible_test_3 BD exist
   cisco.mso.mso_schema_template_bd:
-    <<: *vrf_present
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
     bd: ansible_test_3
@@ -204,7 +206,7 @@
 
 - name: Ensure ansible_test_4 BD exist
   cisco.mso.mso_schema_template_bd:
-    <<: *vrf_present
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 3
     bd: ansible_test_4
@@ -861,10 +863,17 @@
     ignore_errors: true
     register: service_type_epg_error
 
-  - name: Verify service type error
+  - name: Verify service type error for MSO version > 3.7
+    ansible.builtin.assert:
+      that:
+      - service_type_epg_error.msg is match ("MSO Error 400{{':'}} EPG{{':'}} ansible_test_1 in Schema{{':'}} .+, Template{{':'}} Template1 DeploymentType{{':'}} saas, AccessType {{':'}}publicAndPrivateType, Combination is not supported")
+    when: version.current.version is version('3.7', '>')
+
+  - name: Verify service type error for MSO version <= 3.7
     ansible.builtin.assert:
       that:
       - service_type_epg_error.msg == "MSO Error 400{{':'}} EPG{{':'}} ansible_test_1 in Schema{{':'}} ansible_test , Template{{':'}} Template1 DeploymentType{{':'}} saas, AccessType {{':'}}publicAndPrivateType, Combination is not supported"
+    when: version.current.version is version('3.7', '<=')
 
 # Add EPG when MSO version >= 3.3 and < 4.0
 - name: Execute tasks only for MSO version >= 3.3 and < 4.0

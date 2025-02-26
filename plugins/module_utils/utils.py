@@ -146,3 +146,16 @@ def check_if_all_elements_are_none(values):
     :return: True if all elements are None, False otherwise. -> bool
     """
     return all(value is None for value in values)
+
+
+def get_object_identifier(uuid, name):
+    """
+    Retrieve the object identifier based on the input values
+    :param uuid: UUID of the object -> Str
+    :param name: Name of the object -> Str
+    :return: Dict: The processed result which could be:
+          When the UUID is not None, returns dict object with UUID -> Dict
+          When the name is not None, returns dict object with name -> Dict
+          When the UUID and name is None, returns empty dict -> Dict
+    """
+    return {"uuid": uuid} if uuid is not None else ({"name": name} if name is not None else {})

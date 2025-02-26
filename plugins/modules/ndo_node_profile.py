@@ -49,29 +49,29 @@ options:
   nodes:
     description:
     - The list of node IDs to associate with the Node Profile.
-    - Each element can either be a single node ID or a range of IDs.
+    - Each element can either be a single node ID or a range of IDs in quotation marks ('').
     - This parameter is required when O(state=present).
     type: list
     elements: str
   node_setting_uuid:
     description:
-    - The UUID of the Node Setting to associate with the Node Profile.
+    - The UUID of the node setting to associate with the Node Profile.
     - This parameter or O(node_setting) is required when O(state=present).
     type: str
   node_setting:
     description:
-    - The Node Setting to associate with the Node Profile.
+    - The node setting to associate with the Node Profile.
     - This parameter or O(node_setting_uuid) is required when O(state=present).
     type: dict
     suboptions:
       name:
         description:
-        - The name of the Node Setting.
+        - The name of the node setting.
         type: str
         required: true
       template:
         description:
-        - The name of the Fabric Policy template that contains the Node Setting.
+        - The name of the fabric policy template that contains the node setting.
         type: str
         required: true
   state:

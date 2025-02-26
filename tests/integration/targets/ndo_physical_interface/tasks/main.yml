@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2024, Anvitha Jain (@anvjain) <anvjain@cisco.com>
+# Copyright: (c) 2025, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 
 # GNU General Public License v3[0]+ (see LICENSE or https://www.gnu.org/licenses/gpl-3[0].txt)
 
@@ -78,7 +79,7 @@
         <<: *mso_info
         template: ansible_fabric_resource_policy_template
         name: ansible_physical_interface
-        nodes: 103
+        nodes: [103, '101-102']
         interfaces: ['1/3']
         physical_interface_type: physical
         physical_policy_uuid: '{{ add_interface_policy_group.current.uuid }}'
@@ -105,15 +106,17 @@
           - cm_physical_interface.current.name == nm_physical_interface.current.name == "ansible_physical_interface"
           - nm_physical_interface.current.description == ""
           - cm_physical_interface.current.policyGroupType == nm_physical_interface.current.policyGroupType == "physical"
-          - cm_physical_interface.current.nodes | length == nm_physical_interface.current.nodes | length == 1
+          - cm_physical_interface.current.nodes | length == nm_physical_interface.current.nodes | length == 2
           - cm_physical_interface.current.nodes[0] == nm_physical_interface.current.nodes[0] == "103"
+          - cm_physical_interface.current.nodes[1] == nm_physical_interface.current.nodes[1] == "101-102"
           - cm_physical_interface.current.interfaces == nm_physical_interface.current.interfaces == "1/3"
           - cm_physical_interface.current.policy == nm_physical_interface.current.policy
           - nm_physical_interface_again is not changed
           - nm_physical_interface_again.previous.name == nm_physical_interface_again.current.name == "ansible_physical_interface"
           - nm_physical_interface_again.previous.policyGroupType == nm_physical_interface_again.current.policyGroupType == "physical"
-          - nm_physical_interface_again.previous.nodes | length == nm_physical_interface_again.current.nodes | length == 1
+          - nm_physical_interface_again.previous.nodes | length == nm_physical_interface_again.current.nodes | length == 2
           - nm_physical_interface_again.previous.nodes[0] == nm_physical_interface_again.current.nodes[0] == "103"
+          - nm_physical_interface_again.previous.nodes[1] == nm_physical_interface_again.current.nodes[1] == "101-102"
           - nm_physical_interface_again.previous.interfaces == nm_physical_interface_again.current.interfaces == "1/3"
           - nm_physical_interface_again.previous.policy == nm_physical_interface_again.current.policy
           - nm_physical_interface_again.previous.uuid  == nm_physical_interface.current.uuid
@@ -230,7 +233,7 @@
           - cm_physical_interface_update.current.description == nm_physical_interface_update.current.description == "Updated Physical Interface"
           - cm_physical_interface_update.previous.policyGroupType == nm_physical_interface_update.previous.policyGroupType == "physical"
           - cm_physical_interface_update.current.policyGroupType == nm_physical_interface_update.current.policyGroupType == "physical"
-          - cm_physical_interface_update.previous.nodes | length == nm_physical_interface_update.previous.nodes | length == 1
+          - cm_physical_interface_update.previous.nodes | length == nm_physical_interface_update.previous.nodes | length == 2
           - cm_physical_interface_update.current.nodes | length == nm_physical_interface_update.current.nodes | length == 1
           - cm_physical_interface_update.current.nodes[0] == nm_physical_interface_update.current.nodes[0] == "105"
           - cm_physical_interface_update.previous.interfaces == nm_physical_interface_update.previous.interfaces == "1/3"

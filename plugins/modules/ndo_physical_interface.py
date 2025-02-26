@@ -46,7 +46,7 @@ options:
   nodes:
     description:
     - The node IDs where the Physical Interface policy will be deployed.
-    - Each element can either be a single node ID or a range of IDs.
+    - Each element can either be a single node ID or a range of IDs in quotation marks ('').
     type: list
     elements: str
   interfaces:

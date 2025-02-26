@@ -179,6 +179,14 @@
         state: query
       register: query_one
 
+    - name: Query a l3 domain with UUID
+      cisco.mso.ndo_l3_domain:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        l3_domain_uuid: '{{ query_one.current.uuid }}'
+        state: query
+      register: query_with_uuid
+
     - name: Query all l3 domain in the template
       cisco.mso.ndo_l3_domain:
         <<: *mso_info
@@ -190,7 +198,9 @@
       assert:
         that:
           - query_one is not changed
-          - query_one.current.name == "ansible_test_l3_domain_2"
+          - query_with_uuid is not changed
+          - query_one.current.name == query_with_uuid.current.name == "ansible_test_l3_domain_2"
+          - query_one.current.uuid == query_with_uuid.current.uuid
           - query_all is not changed
           - query_all.current | length == 2
 

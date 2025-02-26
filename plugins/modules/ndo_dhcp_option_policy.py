@@ -87,8 +87,9 @@ EXAMPLES = r"""
         id: 1
         data: data_1
     state: present
+  register: create
 
-- name: Query a dhcp option policy with template_name
+- name: Query a dhcp option policy with name
   cisco.mso.ndo_dhcp_option_policy:
     host: mso_host
     username: admin
@@ -97,6 +98,16 @@ EXAMPLES = r"""
     option_policy: ansible_test_option_policy
     state: query
   register: query_one
+
+- name: Query a dhcp option policy with UUID
+  cisco.mso.ndo_dhcp_option_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_tenant_template
+    option_policy_uuid: '{{ create.current.uuid }}'
+    state: query
+  register: query_uuid
 
 - name: Query all dhcp option policy in the template
   cisco.mso.ndo_dhcp_option_policy:
@@ -173,7 +184,7 @@ def main():
 
     path = "/tenantPolicyTemplate/template/dhcpOptionPolicies"
     existing_dhcp_option_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("dhcpOptionPolicies", [])
-    if option_policy:
+    if option_policy or option_policy_uuid:
         object_description = "DHCP Option Policy"
         if option_policy_uuid:
             match = mso_template.get_object_by_uuid(object_description, existing_dhcp_option_policies, option_policy_uuid)

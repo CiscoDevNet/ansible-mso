@@ -69,8 +69,9 @@ EXAMPLES = r"""
     l3_domain: ansible_test_l3_domain
     pool: ansible_test_vlan_pool
     state: present
+  register: create
 
-- name: Query a L3 domain with template_name
+- name: Query a L3 domain with name
   cisco.mso.ndo_l3_domain:
     host: mso_host
     username: admin
@@ -79,6 +80,16 @@ EXAMPLES = r"""
     l3_domain: ansible_test_l3_domain
     state: query
   register: query_one
+
+- name: Query a L3 domain with UUID
+  cisco.mso.ndo_l3_domain:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_tenant_template
+    l3_domain_uuid: '{{ create.current.uuid }}'
+    state: query
+  register: query_with_uuid
 
 - name: Query all L3 domains in the template
   cisco.mso.ndo_l3_domain:
@@ -156,7 +167,7 @@ def main():
 
     path = "/fabricPolicyTemplate/template/l3Domains"
     existing_l3_domains = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("l3Domains", [])
-    if l3_domain:
+    if l3_domain or l3_domain_uuid:
         object_description = "L3 Domain"
         if l3_domain_uuid:
             match = mso_template.get_object_by_uuid(object_description, existing_l3_domains, l3_domain_uuid)

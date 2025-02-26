@@ -491,6 +491,8 @@ def main():
 
     custom_qos_policies = template_object.template.get("tenantPolicyTemplate", {}).get("template", {}).get("qosPolicies", [])
     object_description = "Custom QoS Policy"
+    custom_qos_policy_attrs_path = None
+    match = None
 
     if state in ["query", "absent"] and custom_qos_policies == []:
         mso.exit_json()
@@ -517,7 +519,7 @@ def main():
             dscpMappings=dscp_mappings,
         )
 
-        if mso.existing:
+        if mso.existing and match:
             append_update_ops_data(ops, match.details, custom_qos_policy_attrs_path, mso_values)
             mso.sanitize(match.details, collate=True)
         else:
@@ -525,7 +527,7 @@ def main():
             ops.append(dict(op="add", path="/tenantPolicyTemplate/template/qosPolicies/-", value=mso.sent))
 
     elif state == "absent":
-        if mso.existing:
+        if mso.existing and match:
             ops.append(dict(op="remove", path=custom_qos_policy_attrs_path))
 
     if not module.check_mode and ops:

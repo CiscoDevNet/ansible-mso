@@ -26,7 +26,11 @@ options:
     - The name of the Fabric Policy template.
     type: str
     aliases: [ fabric_policy_template ]
-    required: true
+  template_id:
+    description:
+    - The ID of the Fabric Policy template.
+    type: str
+    aliases: [ fabric_policy_template_id ]
   name:
     description:
     - The name of the NTP Policy.
@@ -164,6 +168,7 @@ options:
 notes:
 - The O(template) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_template) to create the Fabric Policy template.
+- One of O(template) and O(template_id) is required but both are mutually exclusive.
 seealso:
 - module: cisco.mso.ndo_template
 extends_documentation_fragment: cisco.mso.modules
@@ -269,7 +274,8 @@ from ansible_collections.cisco.mso.plugins.module_utils.utils import append_upda
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        template=dict(type="str", required=True, aliases=["fabric_policy_template"]),
+        template=dict(type="str", aliases=["fabric_policy_template"]),
+        template_id=dict(type="str", aliases=["fabric_policy_template_id"]),
         name=dict(type="str", aliases=["ntp_policy"]),
         uuid=dict(type="str", aliases=["ntp_policy_uuid"]),
         description=dict(type="str"),
@@ -309,14 +315,21 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
+            ["state", "present", ["template", "template_id"], True],
+            ["state", "query", ["template", "template_id"], True],
+            ["state", "absent", ["template", "template_id"], True],
             ["state", "absent", ["name", "uuid"], True],
             ["state", "present", ["name", "uuid"], True],
+        ],
+        mutually_exclusive=[
+            ("template", "template_id"),
         ],
     )
 
     mso = MSOModule(module)
 
     template = module.params.get("template")
+    template_id = module.params.get("template_id")
     name = module.params.get("name")
     uuid = module.params.get("uuid")
     description = module.params.get("description")
@@ -352,7 +365,10 @@ def main():
     authentication_state = module.params.get("authentication_state")
     state = module.params.get("state")
 
-    template_object = MSOTemplate(mso, "fabric_policy", template)
+    match = None
+    ops = []
+
+    template_object = MSOTemplate(mso, "fabric_policy", template, template_id)
     template_object.validate_template("fabricPolicy")
 
     ntp_policies = template_object.template.get("fabricPolicyTemplate", {}).get("template", {}).get("ntpPolicies", [])
@@ -365,10 +381,10 @@ def main():
     elif ntp_policies and (name or uuid):
         match = template_object.get_object_by_key_value_pairs(object_description, ntp_policies, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
         if match:
-            ntp_policy_attrs_path = "/fabricPolicyTemplate/template/ntpPolicies/{0}".format(match.index)
             mso.existing = mso.previous = copy.deepcopy(match.details)
 
-    ops = []
+    if state != "query":
+        ntp_policy_attrs_path = "/fabricPolicyTemplate/template/ntpPolicies/{0}".format(match.index if match else "-")
 
     if state == "present":
         if uuid and not mso.existing:
@@ -386,15 +402,15 @@ def main():
             authState=authentication_state,
         )
 
-        if mso.existing:
+        if mso.existing and match:
             append_update_ops_data(ops, match.details, ntp_policy_attrs_path, mso_values)
             mso.sanitize(match.details, collate=True)
         else:
             mso.sanitize(mso_values)
-            ops.append(dict(op="add", path="/fabricPolicyTemplate/template/ntpPolicies/-", value=mso.sent))
+            ops.append(dict(op="add", path=ntp_policy_attrs_path, value=mso.sent))
 
     elif state == "absent":
-        if mso.existing:
+        if mso.existing and match:
             ops.append(dict(op="remove", path=ntp_policy_attrs_path))
 
     if not module.check_mode and ops:

@@ -105,13 +105,11 @@ options:
         description:
         - The UUID of the BD or L3Out used as the scope for the member.
         - This parameter can be used instead of O(members.scope).
-        - This parameter will take precedence over O(members.scope).
         type: str
       scope:
         description:
         - The BD or L3Out used as the scope for the member.
         - This parameter can be used instead of O(members.scope_uuid).
-        - O(members.scope_uuid) will take precedence over this parameter.
         type: dict
         suboptions:
           name:
@@ -289,6 +287,7 @@ def main():
             members=dict(
                 type="list",
                 elements="dict",
+                mutually_exclusive=[("scope", "scope_uuid")],
                 options=dict(
                     destination_ip=dict(type="str", aliases=["ip"], required=True),
                     ipsla_monitoring_policy=dict(type="str", aliases=["ipsla_monitoring_policy_name"]),

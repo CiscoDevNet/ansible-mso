@@ -207,6 +207,9 @@ def main():
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
+        mutually_exclusive=[
+            ("node_setting_uuid", "node_setting"),
+        ],
         required_if=[
             ["state", "absent", ["name", "uuid"], True],
             ["state", "present", ["name", "uuid"], True],

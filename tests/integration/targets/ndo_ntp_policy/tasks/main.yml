@@ -57,6 +57,7 @@
       cisco.mso.ndo_template:
         <<: *template_absent
         state: present
+      register: nm_create_fabric_policy_template
 
     # CREATE
 
@@ -98,10 +99,10 @@
         <<: *create_ntp_policy
       register: nm_create_new_ntp_policy_again
     
-    - name: Create another NTP Policy with minimum requirements
+    - name: Create another NTP Policy with minimum requirements using identifiers
       cisco.mso.ndo_ntp_policy: &create_ntp_policy_2
         <<: *mso_info
-        template: ansible_fabric_policy_template
+        template_id: '{{ nm_create_fabric_policy_template.current.templateId }}'
         name: ansible_test_ntp_policy_2
         state: present
       register: nm_create_another_ntp_policy
@@ -384,12 +385,19 @@
         state: query
       register: query_one_uuid
 
-    - name: Query all NTP Policy in the template
+    - name: Query all NTP Policy in the template with template name
       cisco.mso.ndo_ntp_policy:
         <<: *mso_info
         template: ansible_fabric_policy_template
         state: query
-      register: query_all
+      register: query_all_with_name
+
+    - name: Query all NTP Policy in the template with template id
+      cisco.mso.ndo_ntp_policy:
+        <<: *mso_info
+        template_id: '{{ nm_create_fabric_policy_template.current.templateId }}'
+        state: query
+      register: query_all_with_id
 
     - name: Assert NTP Policy was queried
       assert:
@@ -398,10 +406,14 @@
           - query_one.current.name == "ansible_test_ntp_policy_2"
           - query_one_uuid is not changed
           - query_one_uuid.current.name == "ansible_test_ntp_policy_2"
-          - query_all is not changed
-          - query_all.current.0.name == "ansible_test_ntp_policy_changed"
-          - query_all.current.1.name == "ansible_test_ntp_policy_2"
-          - query_all.current | length == 2
+          - query_all_with_name is not changed
+          - query_all_with_name.current.0.name == "ansible_test_ntp_policy_changed"
+          - query_all_with_name.current.1.name == "ansible_test_ntp_policy_2"
+          - query_all_with_name.current | length == 2
+          - query_all_with_id is not changed
+          - query_all_with_id.current.0.name == "ansible_test_ntp_policy_changed"
+          - query_all_with_id.current.1.name == "ansible_test_ntp_policy_2"
+          - query_all_with_id.current | length == 2
 
     # DELETE
 
@@ -459,7 +471,7 @@
         <<: *mso_info
         template: ansible_fabric_policy_template
         state: query
-      register: query_all_none
+      register: query_all_with_name_none
     
     - name: Update with non-existing UUID
       cisco.mso.ndo_ntp_policy:
@@ -473,8 +485,8 @@
     - name: Assert no NTP Policy found
       assert:
         that:
-          - query_all_none is not changed
-          - query_all_none.current == {}
+          - query_all_with_name_none is not changed
+          - query_all_with_name_none.current == {}
           - update_non_existing_uuid is failed
           - update_non_existing_uuid.msg == "NTP Policy with the UUID{{":"}} 'non-existing-uuid' not found"
   

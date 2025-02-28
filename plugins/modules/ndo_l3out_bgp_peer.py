@@ -23,20 +23,24 @@ options:
   template:
     description:
     - The name of the L3Out template.
+    - This parameter can be used instead of O(template_id).
     type: str
     aliases: [ l3out_template ]
   template_id:
     description:
     - The ID of the L3Out template.
+    - This parameter can be used instead of O(template).
     type: str
     aliases: [ l3out_template_id ]
   l3out:
     description:
     - The name of the L3Out.
+    - This parameter can be used instead of O(l3out_uuid).
     type: str
   l3out_uuid:
     description:
     - The UUID of the L3Out.
+    - This parameter can be used instead of O(l3out).
     type: str
   node_group:
     description:
@@ -59,6 +63,7 @@ options:
     description:
     - The remote autonomous system number (ASN) of the L3Out BGP Peer.
     - The value must be between 1 and 4294967295.
+    - Providing zero will remove the O(remote_asn=0) from the L3Out BGP Peer.
     type: int
   admin_state:
     description:
@@ -85,6 +90,7 @@ options:
     description:
     - The weight of the L3Out BGP Peer.
     - The value must be between 1 and 65535.
+    - Providing zero will remove the O(weight=0) from the L3Out BGP Peer.
     type: int
   allowed_self_as_count:
     description:
@@ -101,36 +107,43 @@ options:
     description:
     - The local autonomous system number (ASN) of the L3Out BGP Peer.
     - The value must be between 1 and 4294967295.
+    - Providing zero will remove the O(local_asn=0) from the L3Out BGP Peer.
     type: int
   import_route_map:
     description:
     - The name of the import route map.
     - Providing an empty string will remove the O(import_route_map="") from the L3Out BGP Peer.
+    - This parameter can be used instead of O(import_route_map_uuid).
     type: str
   import_route_map_uuid:
     description:
     - The UUID of the import route map.
     - Providing an empty string will remove the O(import_route_map_uuid="") from the L3Out BGP Peer.
+    - This parameter can be used instead of O(import_route_map).
     type: str
   export_route_map:
     description:
     - The name of the export route map.
     - Providing an empty string will remove the O(export_route_map="") from the L3Out BGP Peer.
+    - This parameter can be used instead of O(export_route_map_uuid).
     type: str
   export_route_map_uuid:
     description:
     - The UUID of the export route map.
     - Providing an empty string will remove the O(export_route_map_uuid="") from the L3Out BGP Peer.
+    - This parameter can be used instead of O(export_route_map).
     type: str
   peer_prefix:
     description:
     - The name of the peer prefix.
     - Providing an empty string will remove the O(peer_prefix="") from the L3Out BGP Peer.
+    - This parameter can be used instead of O(peer_prefix_uuid).
     type: str
   peer_prefix_uuid:
     description:
     - The UUID of the peer prefix.
     - Providing an empty string will remove the O(peer_prefix_uuid="") from the L3Out BGP Peer.
+    - This parameter can be used instead of O(peer_prefix).
     type: str
   bgp_controls:
     description:
@@ -466,12 +479,6 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "present", ["template", "template_id"], True],
-            ["state", "query", ["template", "template_id"], True],
-            ["state", "absent", ["template", "template_id"], True],
-            ["state", "present", ["l3out", "l3out_uuid"], True],
-            ["state", "query", ["l3out", "l3out_uuid"], True],
-            ["state", "absent", ["l3out", "l3out_uuid"], True],
             ["state", "present", ["ipv4_address", "ipv6_address"], True],
             ["state", "absent", ["ipv4_address", "ipv6_address"], True],
         ],
@@ -482,12 +489,15 @@ def main():
             ("export_route_map", "export_route_map_uuid"),
             ("peer_prefix", "peer_prefix_uuid"),
         ],
+        required_one_of=[
+            ["template", "template_id"],
+            ["l3out", "l3out_uuid"],
+        ],
     )
 
     mso = MSOModule(module)
 
     template_identifier = get_object_identifier(module.params.get("template_id"), module.params.get("template"))
-    template_identifier["id"] = template_identifier.get("uuid")
     l3out_identifier = get_object_identifier(module.params.get("l3out_uuid"), module.params.get("l3out"))
     node_group = module.params.get("node_group")
     ipv4_addr = module.params.get("ipv4_address")
@@ -512,7 +522,7 @@ def main():
     private_as_controls = module.params.get("private_as_controls")
     state = module.params.get("state")
 
-    mso_template = MSOTemplate(mso, "l3out", template_identifier.get("name"), template_identifier.get("id"))
+    mso_template = MSOTemplate(mso, "l3out", template_identifier.get("name"), template_identifier.get("uuid"))
     mso_template.validate_template("l3out")
 
     tenant_id = mso_template.template_summary.get("tenantId")
@@ -537,12 +547,8 @@ def main():
     ops = []
 
     if state == "present":
-        peer_prefix_uuid = None
-
-        if peer_prefix_identifier.get("uuid") is not None:
-            peer_prefix_uuid = peer_prefix_identifier.get("uuid")
-        elif peer_prefix_identifier.get("name") is not None and peer_prefix_identifier.get("name") != "":
-            peer_prefix_uuid = mso_template.get_object_by_key_value_pairs(
+        if peer_prefix_identifier.get("name") is not None and peer_prefix_identifier.get("name") != "":
+            peer_prefix_identifier["uuid"] = mso_template.get_object_by_key_value_pairs(
                 "BGP Peer Prefix Policy",
                 mso.query_objs(generate_api_endpoint("templates/objects", **{"type": "bgpPeerPrefixPol", "tenant-id": tenant_id})),
                 [KVPair("name", peer_prefix_identifier.get("name"))],
@@ -555,13 +561,8 @@ def main():
             else []
         )
 
-        import_route_map_uuid = None
-        export_route_map_uuid = None
-
-        if import_route_map_identifier.get("uuid") is not None:
-            import_route_map_uuid = import_route_map_identifier.get("uuid")
-        elif import_route_map_identifier.get("name") is not None:
-            import_route_map_uuid = mso_template.get_route_map(
+        if import_route_map_identifier.get("name") is not None:
+            import_route_map_identifier["uuid"] = mso_template.get_route_map(
                 "import_route_map",
                 tenant_id,
                 tenant_name,
@@ -569,10 +570,8 @@ def main():
                 route_map_objects,
             ).get("uuid", None)
 
-        if export_route_map_identifier.get("uuid") is not None:
-            export_route_map_uuid = export_route_map_identifier.get("uuid")
-        elif export_route_map_identifier.get("name") is not None:
-            export_route_map_uuid = mso_template.get_route_map(
+        if export_route_map_identifier.get("name") is not None:
+            export_route_map_identifier["uuid"] = mso_template.get_route_map(
                 "export_route_map",
                 tenant_id,
                 tenant_name,
@@ -592,9 +591,9 @@ def main():
             siteOfOrigin=site_of_origin,
             localAsnConfig=local_asn_config,
             localAsn=local_asn,
-            peerPrefixRef=peer_prefix_uuid,
-            importRouteMapRef=import_route_map_uuid,
-            exportRouteMapRef=export_route_map_uuid,
+            peerPrefixRef=peer_prefix_identifier.get("uuid"),
+            importRouteMapRef=import_route_map_identifier.get("uuid"),
+            exportRouteMapRef=export_route_map_identifier.get("uuid"),
             password=dict(value=auth_password) if auth_password is not None else None,
         )
 
@@ -651,13 +650,13 @@ def main():
                 mso_values_remove.append("weight")
                 mso_values.pop("weight", None)
 
-            if site_of_origin == "" and "siteOfOrigin" in proposed_payload:
-                mso_values_remove.append("siteOfOrigin")
-                mso_values.pop("siteOfOrigin", None)
-
             if local_asn == 0 and "localAsn" in proposed_payload:
                 mso_values_remove.append("localAsn")
                 mso_values.pop("localAsn", None)
+
+            if site_of_origin == "" and "siteOfOrigin" in proposed_payload:
+                mso_values_remove.append("siteOfOrigin")
+                mso_values.pop("siteOfOrigin", None)
 
             if mso.existing.get("password", {}).get("ref"):
                 mso.existing["password"].pop("ref", None)

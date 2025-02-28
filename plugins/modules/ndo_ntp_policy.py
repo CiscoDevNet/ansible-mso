@@ -24,11 +24,13 @@ options:
   template:
     description:
     - The name of the Fabric Policy template.
+    - This parameter or O(template_id) is required.
     type: str
     aliases: [ fabric_policy_template ]
   template_id:
     description:
     - The ID of the Fabric Policy template.
+    - This parameter or O(template) is required.
     type: str
     aliases: [ fabric_policy_template_id ]
   name:
@@ -168,7 +170,6 @@ options:
 notes:
 - The O(template) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_template) to create the Fabric Policy template.
-- One of O(template) and O(template_id) is required but both are mutually exclusive.
 seealso:
 - module: cisco.mso.ndo_template
 extends_documentation_fragment: cisco.mso.modules
@@ -315,11 +316,11 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "present", ["template", "template_id"], True],
-            ["state", "query", ["template", "template_id"], True],
-            ["state", "absent", ["template", "template_id"], True],
             ["state", "absent", ["name", "uuid"], True],
             ["state", "present", ["name", "uuid"], True],
+        ],
+        required_one_of=[
+            ("template", "template_id"),
         ],
         mutually_exclusive=[
             ("template", "template_id"),
@@ -402,7 +403,7 @@ def main():
             authState=authentication_state,
         )
 
-        if mso.existing and match:
+        if match:
             append_update_ops_data(ops, match.details, ntp_policy_attrs_path, mso_values)
             mso.sanitize(match.details, collate=True)
         else:
@@ -410,7 +411,7 @@ def main():
             ops.append(dict(op="add", path=ntp_policy_attrs_path, value=mso.sent))
 
     elif state == "absent":
-        if mso.existing and match:
+        if match:
             ops.append(dict(op="remove", path=ntp_policy_attrs_path))
 
     if not module.check_mode and ops:

@@ -57,6 +57,7 @@
       cisco.mso.ndo_template:
         <<: *template_absent
         state: present
+      register: nm_create_fabric_resource_template
 
     - name: Ensure fabric policy template does not exist
       cisco.mso.ndo_template: &template_policy_absent
@@ -80,6 +81,7 @@
       loop:
         - ansible_test_interface_policy_group_port_channel
         - ansible_test_interface_policy_group_port_channel_2
+      register: nm_create_list_interface_policy_groups
 
     # CREATE
 
@@ -117,16 +119,14 @@
         <<: *create_virtual_port_channel_interface
       register: nm_create_new_virtual_port_channel_interface_again
 
-    - name: Create another virtual port channel interface with minimum requirements
+    - name: Create another virtual port channel interface with minimum requirements using identifiers
       cisco.mso.ndo_virtual_port_channel_interface: &create_virtual_port_channel_interface_2
         <<: *mso_info
-        template: ansible_fabric_resource_template
+        template_id: '{{ nm_create_fabric_resource_template.current.templateId }}'
         virtual_port_channel_interface: ansible_virtual_port_channel_interface_2
         interfaces_1: 1/1
         interfaces_2: 1/1
-        interface_policy_group: 
-          name: ansible_test_interface_policy_group_port_channel_2
-          template: ansible_fabric_policy_template
+        interface_policy_group_uuid: '{{ nm_create_list_interface_policy_groups.results.1.current.uuid }}'
         state: present
       register: nm_create_virtual_port_channel_interface_min
 
@@ -399,12 +399,19 @@
         state: query
       register: query_one_uuid
 
-    - name: Query all virtual port channel interfaces in the template
+    - name: Query all virtual port channel interfaces in the template using template name
       cisco.mso.ndo_virtual_port_channel_interface:
         <<: *mso_info
         template: ansible_fabric_resource_template
         state: query
-      register: query_all
+      register: query_all_with_name
+
+    - name: Query all virtual port channel interfaces in the template using template id
+      cisco.mso.ndo_virtual_port_channel_interface:
+        <<: *mso_info
+        template_id: '{{ nm_create_fabric_resource_template.current.templateId }}'
+        state: query
+      register: query_all_with_id
     
     - name: Assert virtual port channel interface query tasks
       assert:
@@ -413,10 +420,14 @@
           - query_one.current.name == "ansible_virtual_port_channel_interface_2"
           - query_one_uuid is not changed
           - query_one_uuid.current.name == "ansible_virtual_port_channel_interface_2"
-          - query_all is not changed
-          - query_all.current | length == 2
-          - query_all.current.0.name == "ansible_virtual_port_channel_interface_changed"
-          - query_all.current.1.name == "ansible_virtual_port_channel_interface_2"
+          - query_all_with_name is not changed
+          - query_all_with_name.current | length == 2
+          - query_all_with_name.current.0.name == "ansible_virtual_port_channel_interface_changed"
+          - query_all_with_name.current.1.name == "ansible_virtual_port_channel_interface_2"
+          - query_all_with_id is not changed
+          - query_all_with_id.current | length == 2
+          - query_all_with_id.current.0.name == "ansible_virtual_port_channel_interface_changed"
+          - query_all_with_id.current.1.name == "ansible_virtual_port_channel_interface_2"
 
     # ERRORS
 

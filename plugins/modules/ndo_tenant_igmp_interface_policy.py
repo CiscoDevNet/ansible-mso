@@ -129,6 +129,7 @@ options:
   state_limit_route_map_uuid:
     description:
     - The UUID of the state limit route map.
+    - Providing an empty string will remove the O(state_limit_route_map_uuid="") from IGMP Interface Policy.
     type: str
     aliases: [ state_limit_route_map_for_multicast ]
   state_limit_route_map:
@@ -136,17 +137,18 @@ options:
     - The Route Map Policy for Multicast.
     - This parameter can be used instead of O(state_limit_route_map_uuid).
     - If both parameter are used, O(state_limit_route_map) will be ignored.
+    - Providing an empty map will remove the O(state_limit_route_map={}) from IGMP Interface Policy.
     type: dict
     suboptions:
       name:
         description:
         - The name of the Route Map Policy for Multicast.
         type: str
-        required: true
     aliases: [ state_limit_route_map_policy, state_limit_route_map_policy_multicast ]
   report_policy_route_map_uuid:
     description:
     - The UUID of the report policy route map.
+    - Providing an empty string will remove the O(report_policy_route_map_uuid="") from IGMP Interface Policy.
     type: str
     aliases: [ report_policy_route_map_for_multicast ]
   report_policy_route_map:
@@ -154,17 +156,18 @@ options:
     - The Route Map Policy for Multicast.
     - This parameter can be used instead of O(report_policy_route_map_uuid).
     - If both parameter are used, O(report_policy_route_map) will be ignored.
+    - Providing an empty map will remove the O(report_policy_route_map={}) from IGMP Interface Policy.
     type: dict
     suboptions:
       name:
         description:
         - The name of the Route Map Policy for Multicast.
         type: str
-        required: true
     aliases: [ report_policy_route_map_policy, report_policy_route_map_policy_multicast ]
   static_report_route_map_uuid:
     description:
     - The UUID of the static report route map.
+    - Providing an empty string will remove the O(static_report_route_map_uuid="") from IGMP Interface Policy.
     type: str
     aliases: [ static_report_route_map_for_multicast ]
   static_report_route_map:
@@ -172,13 +175,13 @@ options:
     - The Route Map Policy for Multicast.
     - This parameter can be used instead of O(static_report_route_map_uuid).
     - If both parameter are used, O(static_report_route_map) will be ignored.
+    - Providing an empty map will remove the O(static_report_route_map={}) from IGMP Interface Policy.
     type: dict
     suboptions:
       name:
         description:
         - The name of the Route Map Policy for Multicast.
         type: str
-        required: true
     aliases: [ static_report_route_map_policy, static_report_route_map_policy_multicast ]
   maximum_multicast_entries:
     description:
@@ -311,7 +314,8 @@ from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTempl
 from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
 from ansible_collections.cisco.mso.plugins.module_utils.utils import (
     append_update_ops_data,
-    get_object_identifier,
+    check_if_all_elements_are_none,
+    get_template_object_name_by_uuid,
 )
 
 
@@ -340,7 +344,7 @@ def main():
         state_limit_route_map=dict(
             type="dict",
             options=dict(
-                name=dict(type="str", required=True),
+                name=dict(type="str"),
             ),
             aliases=["state_limit_route_map_policy", "state_limit_route_map_policy_multicast"],
         ),
@@ -348,7 +352,7 @@ def main():
         report_policy_route_map=dict(
             type="dict",
             options=dict(
-                name=dict(type="str", required=True),
+                name=dict(type="str"),
             ),
             aliases=["report_policy_route_map_policy", "report_policy_route_map_policy_multicast"],
         ),
@@ -356,7 +360,7 @@ def main():
         static_report_route_map=dict(
             type="dict",
             options=dict(
-                name=dict(type="str", required=True),
+                name=dict(type="str"),
             ),
             aliases=["static_report_route_map_policy", "static_report_route_map_policy_multicast"],
         ),
@@ -385,7 +389,8 @@ def main():
 
     mso = MSOModule(module)
 
-    template_identifier = get_object_identifier(module.params.get("template_id"), module.params.get("template"))
+    template = module.params.get("template")
+    template_id = module.params.get("template_id")
     name = module.params.get("name")
     uuid = module.params.get("uuid")
     description = module.params.get("description")
@@ -412,37 +417,34 @@ def main():
     reserved_multicast_entries = module.params.get("reserved_multicast_entries")
     state = module.params.get("state")
 
-    mso_template = MSOTemplate(mso, "tenant", template_identifier.get("name"), template_identifier.get("uuid"))
+    mso_template = MSOTemplate(mso, "tenant", template, template_id)
     mso_template.validate_template("tenantPolicy")
     ops = []
+    empty_state_limit_route_map = False
+    empty_report_policy_route_map = False
+    empty_static_report_route_map = False
 
     existing_igmp_interface_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("igmpInterfacePolicies", [])
     object_description = "IGMP Interface Policy"
+    path = "/tenantPolicyTemplate/template/igmpInterfacePolicies"
 
-    if name or uuid:
+    if uuid or name:
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
             existing_igmp_interface_policies,
             [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
-            igmp_interface_policy_attrs_path = "/tenantPolicyTemplate/template/igmpInterfacePolicies/{0}".format(match.index)
+            igmp_interface_policy_attrs_path = "{0}/{1}".format(path, match.index)
+            set_names_for_references(mso, match.details)
             mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
-        mso.existing = mso.previous = existing_igmp_interface_policies
+        mso.existing = mso.previous = [set_names_for_references(mso, igmp_interface_policy) for igmp_interface_policy in existing_igmp_interface_policies]
+        # existing_igmp_interface_policies
 
     if state == "present":
         if uuid and not mso.existing:
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
-
-        if state_limit_route_map and not state_limit_route_map_uuid:
-            state_limit_route_map_uuid = mso_template.get_route_map_policy_for_multicast_uuid(state_limit_route_map.get("name"))
-
-        if report_policy_route_map and not report_policy_route_map_uuid:
-            report_policy_route_map_uuid = mso_template.get_route_map_policy_for_multicast_uuid(report_policy_route_map.get("name"))
-
-        if static_report_route_map and not static_report_route_map_uuid:
-            static_report_route_map_uuid = mso_template.get_route_map_policy_for_multicast_uuid(static_report_route_map.get("name"))
 
         mso_values = dict(
             name=name,
@@ -460,23 +462,48 @@ def main():
             startQueryInterval=startup_query_interval,
             querierTimeout=querier_timeout,
             robustnessFactor=robustness_variable,
+            maximumMulticastEntries=maximum_multicast_entries,
+            reservedMulticastEntries=reserved_multicast_entries,
             stateLimitRouteMapRef=state_limit_route_map_uuid,
             reportPolicyRouteMapRef=report_policy_route_map_uuid,
             staticReportRouteMapRef=static_report_route_map_uuid,
-            maximumMulticastEntries=maximum_multicast_entries,
-            reservedMulticastEntries=reserved_multicast_entries,
         )
 
+        if state_limit_route_map:
+            empty_state_limit_route_map = check_if_all_elements_are_none(list(state_limit_route_map.values()))
+            if not empty_state_limit_route_map:
+                mso_values["stateLimitRouteMapRef"] = mso_template.get_route_map_policy_for_multicast_uuid(state_limit_route_map.get("name"))
+
+        if report_policy_route_map:
+            empty_report_policy_route_map = check_if_all_elements_are_none(list(report_policy_route_map.values()))
+            if not empty_report_policy_route_map:
+                mso_values["reportPolicyRouteMapRef"] = mso_template.get_route_map_policy_for_multicast_uuid(report_policy_route_map.get("name"))
+
+        if static_report_route_map:
+            empty_static_report_route_map = check_if_all_elements_are_none(list(static_report_route_map.values()))
+            if not empty_static_report_route_map:
+                mso_values["staticReportRouteMapRef"] = mso_template.get_route_map_policy_for_multicast_uuid(static_report_route_map.get("name"))
+
+        if match:
+            mso_values_remove = list()
+
+            if (state_limit_route_map_uuid == "" or empty_state_limit_route_map) and match.details.get("stateLimitRouteMapRef"):
+                mso_values_remove.append("stateLimitRouteMapRef")
+            if (report_policy_route_map_uuid == "" or empty_report_policy_route_map) and match.details.get("reportPolicyRouteMapRef"):
+                mso_values_remove.append("reportPolicyRouteMapRef")
+            if (static_report_route_map_uuid == "" or empty_static_report_route_map) and match.details.get("staticReportRouteMapRef"):
+                mso_values_remove.append("staticReportRouteMapRef")
+
         if mso.existing:
-            append_update_ops_data(ops, match.details, igmp_interface_policy_attrs_path, mso_values)
+            append_update_ops_data(ops, match.details, "{0}/{1}".format(path, match.index), mso_values, mso_values_remove)
             mso.sanitize(match.details, collate=True)
         else:
             mso.sanitize(mso_values)
-            ops.append(dict(op="add", path="/tenantPolicyTemplate/template/igmpInterfacePolicies/-", value=mso.sent))
+            ops.append(dict(op="add", path="{0}/-".format(path), value=mso.sent))
 
     elif state == "absent":
         if mso.existing:
-            ops.append(dict(op="remove", path=igmp_interface_policy_attrs_path))
+            ops.append(dict(op="remove", path="{0}/{1}".format(path, match.index)))
 
     if not module.check_mode and ops:
         response_object = mso.request(mso_template.template_path, method="PATCH", data=ops)
@@ -485,13 +512,26 @@ def main():
             object_description, existing_igmp_interface_policies, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
         )
         if match:
+            set_names_for_references(mso, match.details)
             mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
+        set_names_for_references(mso, mso.proposed)
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
+
+
+def set_names_for_references(mso, route_map_dict):
+    if route_map_dict.get("stateLimitRouteMapRef"):
+        route_map_dict["stateLimitRouteMapName"] = get_template_object_name_by_uuid(mso, "mcastRouteMap", route_map_dict.get("stateLimitRouteMapRef"))
+    if route_map_dict.get("reportPolicyRouteMapRef"):
+        route_map_dict["reportPolicyRouteMapName"] = get_template_object_name_by_uuid(mso, "mcastRouteMap", route_map_dict.get("reportPolicyRouteMapRef"))
+    if route_map_dict.get("staticReportRouteMapRef"):
+        route_map_dict["staticReportRouteMapName"] = get_template_object_name_by_uuid(mso, "mcastRouteMap", route_map_dict.get("staticReportRouteMapRef"))
+
+    return route_map_dict
 
 
 if __name__ == "__main__":

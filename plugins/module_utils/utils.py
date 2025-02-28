@@ -148,14 +148,16 @@ def check_if_all_elements_are_none(values):
     return all(value is None for value in values)
 
 
-def get_object_identifier(uuid, name):
+def get_template_object_name_by_uuid(mso, object_type, uuid):
     """
-    Retrieve the object identifier based on the input values
-    :param uuid: UUID of the object -> Str
-    :param name: Name of the object -> Str
-    :return: Dict: The processed result which could be:
-          When the UUID is not None, returns dict object with UUID -> Dict
-          When the name is not None, returns dict object with name -> Dict
-          When the UUID and name is None, returns empty dict -> Dict
+    Retrieve the name of a specific object type in the MSO template using its UUID.
+    :param mso: An instance of the MSO class, which provides methods for making API requests -> MSO Class instance
+    :param object_type: The type of the object to retrieve the name for -> Str
+    :param uuid: The UUID of the object to retrieve the name for -> Str
+    :return: Str | None: The processed result which could be:
+          When the UUID is existing, returns object name -> Str
+          When the UUID is not existing -> None
     """
-    return {"uuid": uuid} if uuid is not None else ({"name": name} if name is not None else {})
+    response_object = mso.request("templates/objects?type={0}&uuid={1}".format(object_type, uuid), "GET")
+    if response_object:
+        return response_object.get("name")

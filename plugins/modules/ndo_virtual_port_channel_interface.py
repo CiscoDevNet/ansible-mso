@@ -30,7 +30,12 @@ options:
     - The name of the template.
     - The template must be a Fabric Resource template.
     type: str
-    required: true
+    aliases: [ fabric_resource_template ]
+  template_id:
+    description:
+    - The ID of the Fabric Policy template.
+    type: str
+    aliases: [ fabric_resource_template_id ]
   name:
     description:
     - The name of the Virtual Port Channel Interface.
@@ -84,7 +89,6 @@ options:
     description:
     - The Port Channel Interface Policy Group.
     - This parameter can be used instead of O(interface_policy_group_uuid).
-    - If both parameter are used, O(interface_policy_group) will be ignored.
     type: dict
     suboptions:
       name:
@@ -136,8 +140,10 @@ extends_documentation_fragment: cisco.mso.modules
 notes:
 - The O(template) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_template) to create the Fabric Resource template.
+- One of O(template) and O(template_id) is required but both are mutually exclusive.
 - The O(interface_policy_group) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_interface_setting) to create the Interface Policy Group of type Port Channel.
+- One of O(interface_policy_group) and O(interface_policy_group_uuid) is required but both are mutually exclusive.
 seealso:
 - module: cisco.mso.ndo_template
 - module: cisco.mso.ndo_interface_setting
@@ -294,7 +300,8 @@ from ansible_collections.cisco.mso.plugins.module_utils.utils import append_upda
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        template=dict(type="str", required=True),
+        template=dict(type="str", aliases=["fabric_resource_template"]),
+        template_id=dict(type="str", aliases=["fabric_resource_template_id"]),
         name=dict(type="str", aliases=["virtual_port_channel_interface", "virtual_port_channel", "vpc"]),
         uuid=dict(type="str", aliases=["virtual_port_channel_interface_uuid", "virtual_port_channel_uuid", "vpc_uuid"]),
         description=dict(type="str"),
@@ -330,11 +337,19 @@ def main():
             ["state", "absent", ["name", "uuid"], True],
             ["state", "present", ["name", "uuid"], True],
         ],
+        required_one_of=[
+            ("template", "template_id"),
+        ],
+        mutually_exclusive=[
+            ("template", "template_id"),
+            ("interface_policy_group", "interface_policy_group_uuid"),
+        ],
     )
 
     mso = MSOModule(module)
 
     template = module.params.get("template")
+    template_id = module.params.get("template_id")
     name = module.params.get("name")
     uuid = module.params.get("uuid")
     description = module.params.get("description")
@@ -354,7 +369,10 @@ def main():
     interface_descriptions = module.params.get("interface_descriptions")
     state = module.params.get("state")
 
-    mso_template = MSOTemplate(mso, "fabric_resource", template)
+    match = None
+    ops = []
+
+    mso_template = MSOTemplate(mso, "fabric_resource", template, template_id)
     mso_template.validate_template("fabricResource")
 
     existing_virtual_port_channel_interfaces = mso_template.template.get("fabricResourceTemplate", {}).get("template", {}).get("virtualPortChannels", [])
@@ -371,21 +389,21 @@ def main():
             [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
-            virtual_port_channel_attrs_path = "/fabricResourceTemplate/template/virtualPortChannels/{0}".format(match.index)
             mso.existing = mso.previous = copy.deepcopy(match.details)
 
-    ops = []
+    if state != "query":
+        virtual_port_channel_attrs_path = "/fabricResourceTemplate/template/virtualPortChannels/{0}".format(match.index if match else "-")
 
     if state == "present":
         if uuid and not mso.existing:
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
-        if interface_policy_group and not interface_policy_group_uuid:
+        if interface_policy_group:
             fabric_policy_template = MSOTemplate(mso, "fabric_policy", interface_policy_group.get("template"))
             fabric_policy_template.validate_template("fabricPolicy")
             interface_policy_group_uuid = fabric_policy_template.get_interface_policy_group_uuid(interface_policy_group.get("name"))
 
-        if mso.existing:
+        if match:
             mso_values = {
                 "name": name,
                 "description": description,
@@ -400,25 +418,25 @@ def main():
             mso.sanitize(match.details, collate=True)
 
         else:
-            mso_values = dict(
-                name=name,
-                description=description,
-                node1Details=dict(
-                    node=node_1,
-                    memberInterfaces=interfaces_node_1,
-                ),
-                node2Details=dict(
-                    node=node_2,
-                    memberInterfaces=interfaces_node_2,
-                ),
-                policy=interface_policy_group_uuid,
-                interfaceDescriptions=format_interface_descriptions(mso, interface_descriptions),
-            )
+            mso_values = {
+                "name": name,
+                "description": description,
+                "node1Details": {
+                    "node": node_1,
+                    "memberInterfaces": interfaces_node_1,
+                },
+                "node2Details": {
+                    "node": node_2,
+                    "memberInterfaces": interfaces_node_2,
+                },
+                "policy": interface_policy_group_uuid,
+                "interfaceDescriptions": format_interface_descriptions(mso, interface_descriptions),
+            }
             mso.sanitize(mso_values)
-            ops.append(dict(op="add", path="/fabricResourceTemplate/template/virtualPortChannels/-", value=mso.sent))
+            ops.append(dict(op="add", path=virtual_port_channel_attrs_path, value=mso.sent))
 
     elif state == "absent":
-        if mso.existing:
+        if match:
             ops.append(dict(op="remove", path=virtual_port_channel_attrs_path))
 
     if not module.check_mode and ops:

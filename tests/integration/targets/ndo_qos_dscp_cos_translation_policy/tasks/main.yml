@@ -1,0 +1,282 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username, and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    - name: Remove fabric template
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        type: fabric_policy
+        state: absent
+
+    - name: Create a fabric template
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        type: fabric_policy
+        state: present
+      register: create_new_fabric_policy_template
+
+    # CREATE
+    - name: Create a new QoS DSCP translation policy (check mode)
+      cisco.mso.ndo_qos_dscp_cos_translation_policy: &add_qos_policy
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        qos_dscp_translation_policy: ansible_test_qos_policy
+        admin_state: enabled
+        control_plane_traffic: cs7
+        policy_plane_traffic: af11
+        span_traffic: voice_admit
+        traceroute_traffic: expedited_forwarding
+        level1: af23
+        level2: af21
+        level3: af31
+        level4: af41
+        level5: cs5
+        level6: cs6
+        state: present
+      check_mode: true
+      register: cm_add_qos_policy
+
+    - name: Create a new QoS DSCP translation policy
+      cisco.mso.ndo_qos_dscp_cos_translation_policy:
+        <<: *add_qos_policy
+      register: nm_add_qos_policy
+
+    - name: Create a QoS DSCP translation policy again
+      cisco.mso.ndo_qos_dscp_cos_translation_policy:
+        <<: *add_qos_policy
+      register: nm_add_qos_policy_again
+
+    - name: Assert QoS DSCP translation policy was created
+      assert:
+        that:
+          - cm_add_qos_policy is changed
+          - cm_add_qos_policy.previous == {}
+          - cm_add_qos_policy.current == nm_add_qos_policy.proposed
+          - cm_add_qos_policy.current.name == cm_add_qos_policy.proposed.name == "ansible_test_qos_policy"
+          - nm_add_qos_policy is changed
+          - nm_add_qos_policy.previous == {}
+          - nm_add_qos_policy.current.name == "ansible_test_qos_policy"
+          - nm_add_qos_policy.current.adminState == "enabled"
+          - nm_add_qos_policy.current.controlPlaneTraffic == "cs7"
+          - nm_add_qos_policy.current.policyPlaneTraffic == "af11"
+          - nm_add_qos_policy.current.spanTraffic == "voiceAdmit"
+          - nm_add_qos_policy.current.tracerouteTraffic == "expeditedForwarding"
+          - nm_add_qos_policy.current.level1 == "af23"
+          - nm_add_qos_policy.current.level2 == "af21"
+          - nm_add_qos_policy.current.level3 == "af31"
+          - nm_add_qos_policy.current.level4 == "af41"
+          - nm_add_qos_policy.current.level5 == "cs5"
+          - nm_add_qos_policy.current.level6 == "cs6"
+          - nm_add_qos_policy_again is not changed
+          - nm_add_qos_policy_again.previous.name == nm_add_qos_policy_again.current.name == "ansible_test_qos_policy"
+          - nm_add_qos_policy_again.previous.adminState == nm_add_qos_policy_again.current.adminState == "enabled"
+          - nm_add_qos_policy_again.previous.controlPlaneTraffic == nm_add_qos_policy_again.current.controlPlaneTraffic == "cs7"
+          - nm_add_qos_policy_again.previous.policyPlaneTraffic == nm_add_qos_policy_again.current.policyPlaneTraffic == "af11"
+          - nm_add_qos_policy_again.previous.spanTraffic == nm_add_qos_policy_again.current.spanTraffic == "voiceAdmit"
+          - nm_add_qos_policy_again.previous.tracerouteTraffic == nm_add_qos_policy_again.current.tracerouteTraffic == "expeditedForwarding"
+          - nm_add_qos_policy_again.previous.level1 == nm_add_qos_policy_again.current.level1 == "af23"
+          - nm_add_qos_policy_again.previous.level2 == nm_add_qos_policy_again.current.level2 == "af21"
+          - nm_add_qos_policy_again.previous.level3 == nm_add_qos_policy_again.current.level3 == "af31"
+          - nm_add_qos_policy_again.previous.level4 == nm_add_qos_policy_again.current.level4 == "af41"
+          - nm_add_qos_policy_again.previous.level5 == nm_add_qos_policy_again.current.level5 == "cs5"
+          - nm_add_qos_policy_again.previous.level6 == nm_add_qos_policy_again.current.level6 == "cs6"
+          - nm_add_qos_policy_again.previous.uuid is defined
+          - nm_add_qos_policy_again.current.uuid is defined
+
+    # UPDATE
+    - name: Update the QoS DSCP translation policy (check mode)
+      cisco.mso.ndo_qos_dscp_cos_translation_policy: &update_qos_policy
+        <<: *add_qos_policy
+        description: changed_description
+        admin_state: disabled
+        control_plane_traffic: af12
+        level6: cs0
+        state: present
+      check_mode: true
+      register: cm_update_qos_policy
+
+    - name: Update the QoS DSCP translation policy
+      cisco.mso.ndo_qos_dscp_cos_translation_policy:
+        <<: *update_qos_policy
+      register: nm_update_qos_policy
+
+    - name: Assert QoS DSCP translation policy was updated
+      assert:
+        that:
+          - cm_update_qos_policy is changed
+          - cm_update_qos_policy.previous.description == ""
+          - cm_update_qos_policy.previous.adminState == "enabled"
+          - cm_update_qos_policy.previous.controlPlaneTraffic == "cs7"
+          - cm_update_qos_policy.previous.policyPlaneTraffic == "af11"
+          - cm_update_qos_policy.previous.spanTraffic == "voiceAdmit"
+          - cm_update_qos_policy.previous.tracerouteTraffic == "expeditedForwarding"
+          - cm_update_qos_policy.previous.level1 == "af23"
+          - cm_update_qos_policy.previous.level2 == "af21"
+          - cm_update_qos_policy.previous.level3 == "af31"
+          - cm_update_qos_policy.previous.level4 == "af41"
+          - cm_update_qos_policy.previous.level5 == "cs5"
+          - cm_update_qos_policy.previous.level6 == "cs6"
+          - cm_update_qos_policy.current == cm_update_qos_policy.proposed
+          - cm_update_qos_policy.current.description == cm_update_qos_policy.proposed.description == "changed_description"
+          - cm_update_qos_policy.current.adminState == cm_update_qos_policy.proposed.adminState == "disabled"
+          - cm_update_qos_policy.current.controlPlaneTraffic == cm_update_qos_policy.proposed.controlPlaneTraffic == "af12"
+          - cm_update_qos_policy.current.policyPlaneTraffic == "af11"
+          - cm_update_qos_policy.current.spanTraffic == "voiceAdmit"
+          - cm_update_qos_policy.current.tracerouteTraffic == "expeditedForwarding"
+          - cm_update_qos_policy.current.level1 == "af23"
+          - cm_update_qos_policy.current.level2 == "af21"
+          - cm_update_qos_policy.current.level3 == "af31"
+          - cm_update_qos_policy.current.level4 == "af41"
+          - cm_update_qos_policy.current.level5 == "cs5"
+          - cm_update_qos_policy.current.level6 == cm_update_qos_policy.proposed.level6 == "cs0"
+          - nm_update_qos_policy is changed
+          - nm_update_qos_policy.previous.description == ""
+          - nm_update_qos_policy.previous.adminState == "enabled"
+          - nm_update_qos_policy.previous.controlPlaneTraffic == "cs7"
+          - nm_update_qos_policy.previous.policyPlaneTraffic == "af11"
+          - nm_update_qos_policy.previous.spanTraffic == "voiceAdmit"
+          - nm_update_qos_policy.previous.tracerouteTraffic == "expeditedForwarding"
+          - nm_update_qos_policy.previous.level1 == "af23"
+          - nm_update_qos_policy.previous.level2 == "af21"
+          - nm_update_qos_policy.previous.level3 == "af31"
+          - nm_update_qos_policy.previous.level4 == "af41"
+          - nm_update_qos_policy.previous.level5 == "cs5"
+          - nm_update_qos_policy.previous.level6 == "cs6"
+          - nm_update_qos_policy.current.description == "changed_description"
+          - nm_update_qos_policy.current.adminState == "disabled"
+          - nm_update_qos_policy.current.controlPlaneTraffic == "af12"
+          - nm_update_qos_policy.current.policyPlaneTraffic == "af11"
+          - nm_update_qos_policy.current.spanTraffic == "voiceAdmit"
+          - nm_update_qos_policy.current.tracerouteTraffic == "expeditedForwarding"
+          - nm_update_qos_policy.current.level1 == "af23"
+          - nm_update_qos_policy.current.level2 == "af21"
+          - nm_update_qos_policy.current.level3 == "af31"
+          - nm_update_qos_policy.current.level4 == "af41"
+          - nm_update_qos_policy.current.level5 == "cs5"
+          - nm_update_qos_policy.current.level6 == "cs0"
+
+    # QUERY
+    - name: Query the QoS DSCP translation policy with name
+      cisco.mso.ndo_qos_dscp_cos_translation_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        qos_dscp_translation_policy: ansible_test_qos_policy
+        state: query
+      register: query_one
+
+    - name: Query the QoS DSCP translation policy with uuid
+      cisco.mso.ndo_qos_dscp_cos_translation_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        qos_dscp_translation_policy_uuid: "{{ nm_add_qos_policy.current.uuid }}"
+        state: query
+      register: query_one_uuid
+
+    - name: Query all QoS DSCP translation policies
+      cisco.mso.ndo_qos_dscp_cos_translation_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        state: query
+      register: query_all
+
+    - name: Assert QoS DSCP translation policy query results
+      assert:
+        that:
+          - query_one is not changed
+          - query_all is not changed
+          - query_one.current == query_one_uuid.current == query_all.current
+          - query_one.current.name == "ansible_test_qos_policy"
+          - query_one.current.description == "changed_description"
+          - query_one.current.adminState == "disabled"
+          - query_one.current.controlPlaneTraffic == "af12"
+          - query_one.current.policyPlaneTraffic == "af11"
+          - query_one.current.spanTraffic == "voiceAdmit"
+          - query_one.current.tracerouteTraffic == "expeditedForwarding"
+          - query_one.current.level1 == "af23"
+          - query_one.current.level2 == "af21"
+          - query_one.current.level3 == "af31"
+          - query_one.current.level4 == "af41"
+          - query_one.current.level5 == "cs5"
+          - query_one.current.level6 == "cs0"
+          
+    # DELETE
+    - name: Delete the QoS DSCP translation policy (check mode)
+      cisco.mso.ndo_qos_dscp_cos_translation_policy: &rm_qos_policy
+        <<: *mso_info
+        template_id: '{{ create_new_fabric_policy_template.current.templateId }}'
+        qos_dscp_translation_policy: ansible_test_qos_policy
+        state: absent
+      check_mode: true
+      register: cm_rm_qos_policy
+
+    - name: Delete the QoS DSCP translation policy
+      cisco.mso.ndo_qos_dscp_cos_translation_policy:
+        <<: *rm_qos_policy
+      register: nm_rm_qos_policy
+
+    - name: Assert QoS DSCP translation policy was deleted
+      assert:
+        that:
+          - cm_rm_qos_policy is changed
+          - nm_rm_qos_policy is changed
+          - cm_rm_qos_policy.current == nm_rm_qos_policy.current == {}
+          - cm_rm_qos_policy.previous.name == "ansible_test_qos_policy"
+          - cm_rm_qos_policy.previous.description == "changed_description"
+          - cm_rm_qos_policy.previous.adminState == "disabled"
+          - cm_rm_qos_policy.previous.controlPlaneTraffic == "af12"
+          - cm_rm_qos_policy.previous.policyPlaneTraffic == "af11"
+          - cm_rm_qos_policy.previous.spanTraffic == "voiceAdmit"
+          - cm_rm_qos_policy.previous.tracerouteTraffic == "expeditedForwarding"
+          - cm_rm_qos_policy.previous.level1 == "af23"
+          - cm_rm_qos_policy.previous.level2 == "af21"
+          - cm_rm_qos_policy.previous.level3 == "af31"
+          - cm_rm_qos_policy.previous.level4 == "af41"
+          - cm_rm_qos_policy.previous.level5 == "cs5"
+          - cm_rm_qos_policy.previous.level6 == "cs0"
+          - nm_rm_qos_policy.previous.name == "ansible_test_qos_policy"
+          - nm_rm_qos_policy.previous.description == "changed_description"
+          - nm_rm_qos_policy.previous.adminState == "disabled"
+          - nm_rm_qos_policy.previous.controlPlaneTraffic == "af12"
+          - nm_rm_qos_policy.previous.policyPlaneTraffic == "af11"
+          - nm_rm_qos_policy.previous.spanTraffic == "voiceAdmit"
+          - nm_rm_qos_policy.previous.tracerouteTraffic == "expeditedForwarding"
+          - nm_rm_qos_policy.previous.level1 == "af23"
+          - nm_rm_qos_policy.previous.level2 == "af21"
+          - nm_rm_qos_policy.previous.level3 == "af31"
+          - nm_rm_qos_policy.previous.level4 == "af41"
+          - nm_rm_qos_policy.previous.level5 == "cs5"
+          - nm_rm_qos_policy.previous.level6 == "cs0"
+
+    # CLEANUP TEMPLATE
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

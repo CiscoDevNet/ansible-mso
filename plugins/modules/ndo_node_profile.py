@@ -29,8 +29,14 @@ options:
     description:
     - The name of the template.
     - The template must be a Fabric Resource Policy template.
+    - This parameter or O(template_id) is required.
     type: str
-    required: true
+  template_id:
+    description:
+    - The ID of the template.
+    - The template must be a Fabric Resource Policy template.
+    - This parameter or O(template) is required.
+    type: str
   name:
     description:
     - The name of the Node Profile.
@@ -72,8 +78,13 @@ options:
       template:
         description:
         - The name of the fabric policy template that contains the node setting.
+        - This parameter or O(node_setting.template_id) is required.
         type: str
-        required: true
+      template_id:
+        description:
+        - The ID of the fabric policy template that contains the node setting.
+        - This parameter or O(node_setting.template) is required.
+        type: str
   state:
     description:
     - Use C(absent) for removing.
@@ -112,7 +123,7 @@ EXAMPLES = r"""
     host: mso_host
     username: admin
     password: SomeSecretPassword
-    template: fabric_resource_template
+    template_id: "{{ create_fabric_resource.current.templateId }}"
     name: node_profile_1_updated
     nodes: [101, 102, '103-105']
     node_setting_uuid: "{{ create_node_setting_2.current.uuid }}"
@@ -188,7 +199,8 @@ import copy
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        template=dict(type="str", required=True),
+        template=dict(type="str"),
+        template_id=dict(type="str"),
         name=dict(type="str", aliases=["node_profile"]),
         uuid=dict(type="str", aliases=["node_profile_uuid"]),
         description=dict(type="str"),
@@ -198,8 +210,15 @@ def main():
             type="dict",
             options=dict(
                 name=dict(type="str", required=True),
-                template=dict(type="str", required=True),
+                template=dict(type="str"),
+                template_id=dict(type="str"),
             ),
+            required_one_of=[
+                ["template", "template_id"],
+            ],
+            mutually_exclusive=[
+                ("template", "template_id"),
+            ],
         ),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
@@ -208,6 +227,7 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         mutually_exclusive=[
+            ("template", "template_id"),
             ("node_setting_uuid", "node_setting"),
         ],
         required_if=[
@@ -216,11 +236,13 @@ def main():
             ["state", "present", ["node_setting_uuid", "node_setting"], True],
             ["state", "present", ["nodes"]],
         ],
+        required_one_of=[["template", "template_id"]],
     )
 
     mso = MSOModule(module)
 
-    template = module.params.get("template")
+    template_name = module.params.get("template")
+    template_id = module.params.get("template_id")
     name = module.params.get("name")
     uuid = module.params.get("uuid")
     description = module.params.get("description")
@@ -234,7 +256,7 @@ def main():
     ops = []
     match = None
 
-    mso_template = MSOTemplate(mso, "fabric_resource", template)
+    mso_template = MSOTemplate(mso, "fabric_resource", template_name, template_id)
     mso_template.validate_template("fabricResource")
     object_description = "Node Profile"
     path = "/fabricResourceTemplate/template/nodeProfiles"
@@ -250,16 +272,16 @@ def main():
         )
         if match:
             node_profile_path = "{0}/{1}".format(path, match.index)
-            mso.existing = mso.previous = copy.deepcopy(match.details)
+            mso.existing = mso.previous = mso_template.add_template_values(set_node_setting_relation(mso, copy.deepcopy(match.details)))
     else:
-        mso.existing = mso.previous = existing_node_profiles
+        mso.existing = [mso_template.add_template_values(set_node_setting_relation(mso, profile)) for profile in existing_node_profiles]
 
     if state == "present":
         if uuid and not mso.existing:
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
-        if node_setting and not node_setting_uuid:
-            fabric_policy_template = MSOTemplate(mso, "fabric_policy", node_setting.get("template"))
+        if node_setting:
+            fabric_policy_template = MSOTemplate(mso, "fabric_policy", node_setting.get("template"), node_setting.get("template_id"))
             fabric_policy_template.validate_template("fabricPolicy")
             node_setting_uuid = fabric_policy_template.get_node_settings_object(uuid=None, name=node_setting.get("name"), fail_module=True).details.get("uuid")
 
@@ -270,7 +292,7 @@ def main():
             policy=node_setting_uuid,
         )
 
-        if mso.existing and match:
+        if match:
             proposed_payload = copy.deepcopy(match.details)
             append_update_ops_data(ops, proposed_payload, node_profile_path, mso_values)
             mso.sanitize(proposed_payload, collate=True)
@@ -291,13 +313,23 @@ def main():
             [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
-            mso.existing = match.details  # When the state is present
+            mso.existing = mso_template.add_template_values(set_node_setting_relation(mso, match.details))  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
-        mso.existing = mso.proposed if state == "present" else {}
+        mso.existing = mso_template.add_template_values(set_node_setting_relation(mso, mso.proposed)) if state == "present" else {}
 
     mso.exit_json()
+
+
+def set_node_setting_relation(mso, mso_dict):
+    node_setting_uuid = mso_dict.get("policy")
+    if node_setting_uuid:
+        node_setting_obj = mso.get_template_object_by_uuid("nodePolicyGroup", node_setting_uuid)
+        mso_dict["policyName"] = node_setting_obj.get("name")
+        mso_dict["policyTemplateName"] = node_setting_obj.get("templateName")
+        mso_dict["policyTemplateId"] = node_setting_obj.get("templateId")
+    return mso_dict
 
 
 if __name__ == "__main__":

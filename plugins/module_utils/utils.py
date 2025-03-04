@@ -71,7 +71,7 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
         "description": "new_description",
         "ospfIntfPol": {
             "ifControl": {
-                "adminState": "disbaled",
+                "adminState": "disabled",
             },
             "cost": 0,
         },
@@ -161,3 +161,17 @@ def get_template_object_name_by_uuid(mso, object_type, uuid):
     response_object = mso.request("templates/objects?type={0}&uuid={1}".format(object_type, uuid), "GET")
     if response_object:
         return response_object.get("name")
+
+
+def set_names_for_references(mso, payload, reference_dict):
+    """
+    Return the updated payload with names for references.
+    :param mso: An instance of the MSO class, which provides methods for making API requests -> MSO Class instance
+    :param payload: The original payload that requires to be updated  -> Dict
+    :param reference_dict: A dict containing the object type, references and the corresponding names -> Dict
+    :return: Updated payload with names for references -> Dict
+    """
+    for object_values in reference_dict.values():
+        if payload.get(object_values.get("reference")):
+            payload[object_values.get("name")] = get_template_object_name_by_uuid(mso, object_values.get("type"), payload.get(object_values.get("reference")))
+    return payload

@@ -24,12 +24,14 @@ options:
   template:
     description:
     - The name of the tenant template.
+    - This parameter or O(template_id) is required.
     type: str
     aliases: [ tenant_template ]
     required: true
   template_id:
     description:
     - The ID of the L3Out template.
+    - This parameter or O(template) is required.
     type: str
     aliases: [ l3out_template_id ]
   name:
@@ -42,6 +44,7 @@ options:
     - The UUID of the IGMP Interface Policy.
     - This parameter is required when the IGMP Interface Policy O(name) needs to be updated.
     type: str
+    aliases: [ igmp_interface_policy_uuid ]
   description:
     description:
     - The description of the IGMP Interface Policy.
@@ -315,7 +318,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import ENABLED
 from ansible_collections.cisco.mso.plugins.module_utils.utils import (
     append_update_ops_data,
     check_if_all_elements_are_none,
-    get_template_object_name_by_uuid,
+    set_names_for_references,
 )
 
 
@@ -325,7 +328,7 @@ def main():
         template=dict(type="str", required=True, aliases=["tenant_template"]),
         template_id=dict(type="str", aliases=["l3out_template_id"]),
         name=dict(type="str", aliases=["igmp_interface_policy"]),
-        uuid=dict(type="str"),
+        uuid=dict(type="str", aliases=["igmp_interface_policy_uuid"]),
         description=dict(type="str"),
         version3_asm=dict(type="str", aliases=["allow_version3_asm"], choices=["enabled", "disabled"]),
         fast_leave=dict(type="str", choices=["enabled", "disabled"]),
@@ -373,9 +376,6 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "present", ["template", "template_id"], True],
-            ["state", "query", ["template", "template_id"], True],
-            ["state", "absent", ["template", "template_id"], True],
             ["state", "absent", ["name", "uuid"], True],
             ["state", "present", ["name", "uuid"], True],
         ],
@@ -384,6 +384,9 @@ def main():
             ["state_limit_route_map_uuid", "state_limit_route_map"],
             ["report_policy_route_map_uuid", "report_policy_route_map"],
             ["static_report_route_map_uuid", "static_report_route_map"],
+        ],
+        required_one_of=[
+            ["template", "template_id"],
         ],
     )
 
@@ -428,6 +431,12 @@ def main():
     object_description = "IGMP Interface Policy"
     path = "/tenantPolicyTemplate/template/igmpInterfacePolicies"
 
+    reference_dict = {
+        "stateLimitRouteMap": {"name": "stateLimitRouteMapName", "reference": "stateLimitRouteMapRef", "type": "mcastRouteMap"},
+        "reportPolicyRouteMap": {"name": "reportPolicyRouteMapName", "reference": "reportPolicyRouteMapRef", "type": "mcastRouteMap"},
+        "staticReportRouteMap": {"name": "staticReportRouteMapName", "reference": "staticReportRouteMapRef", "type": "mcastRouteMap"},
+    }
+
     if uuid or name:
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
@@ -435,12 +444,12 @@ def main():
             [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
-            igmp_interface_policy_attrs_path = "{0}/{1}".format(path, match.index)
-            set_names_for_references(mso, match.details)
+            set_names_for_references(mso, match.details, reference_dict)
             mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
-        mso.existing = mso.previous = [set_names_for_references(mso, igmp_interface_policy) for igmp_interface_policy in existing_igmp_interface_policies]
-        # existing_igmp_interface_policies
+        mso.existing = mso.previous = [
+            set_names_for_references(mso, igmp_interface_policy, reference_dict) for igmp_interface_policy in existing_igmp_interface_policies
+        ]
 
     if state == "present":
         if uuid and not mso.existing:
@@ -494,7 +503,6 @@ def main():
             if (static_report_route_map_uuid == "" or empty_static_report_route_map) and match.details.get("staticReportRouteMapRef"):
                 mso_values_remove.append("staticReportRouteMapRef")
 
-        if mso.existing:
             append_update_ops_data(ops, match.details, "{0}/{1}".format(path, match.index), mso_values, mso_values_remove)
             mso.sanitize(match.details, collate=True)
         else:
@@ -512,26 +520,15 @@ def main():
             object_description, existing_igmp_interface_policies, [KVPair("uuid", uuid) if uuid else KVPair("name", name)]
         )
         if match:
-            set_names_for_references(mso, match.details)
+            set_names_for_references(mso, match.details, reference_dict)
             mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
-        set_names_for_references(mso, mso.proposed)
+        set_names_for_references(mso, mso.proposed, reference_dict)
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
-
-
-def set_names_for_references(mso, route_map_dict):
-    if route_map_dict.get("stateLimitRouteMapRef"):
-        route_map_dict["stateLimitRouteMapName"] = get_template_object_name_by_uuid(mso, "mcastRouteMap", route_map_dict.get("stateLimitRouteMapRef"))
-    if route_map_dict.get("reportPolicyRouteMapRef"):
-        route_map_dict["reportPolicyRouteMapName"] = get_template_object_name_by_uuid(mso, "mcastRouteMap", route_map_dict.get("reportPolicyRouteMapRef"))
-    if route_map_dict.get("staticReportRouteMapRef"):
-        route_map_dict["staticReportRouteMapName"] = get_template_object_name_by_uuid(mso, "mcastRouteMap", route_map_dict.get("staticReportRouteMapRef"))
-
-    return route_map_dict
 
 
 if __name__ == "__main__":

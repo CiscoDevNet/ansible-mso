@@ -1553,6 +1553,21 @@ class MSOModule(object):
         elif empty_attributes:
             self.module.fail_json(msg="When the '{0}' is '{1}', the {2} attributes must be set".format(attr_name, attr_value, empty_attributes))
 
+    def get_template_object_by_uuid(self, object_type, uuid, fail_module=True):
+        """
+        Retrieve a specific object type in the MSO template using its UUID.
+        :param object_type: The type of the object to retrieve the name for -> Str
+        :param uuid: The UUID of the object to retrieve the name for -> Str
+        :return: Dict | None: The processed result which could be:
+            When the UUID is existing, returns object -> Dict
+            When the UUID is not existing -> None
+        """
+        response_object = self.request("templates/objects?type={0}&uuid={1}".format(object_type, uuid), "GET")
+        if not response_object and fail_module:
+            msg = "Provided {0} with UUID of '{1}' not found.".format(object_type, uuid)
+            self.fail_json(msg=msg)
+        return response_object
+
     # Temporarily introduced method to handle nd specific query without introducing a dependency on the nd collection in code
     # Copied method from the nd collection: https://github.com/CiscoDevNet/ansible-nd/blob/master/plugins/module_utils/nd.py#L221
     # TODO: Refactor the code for bundled nd collection

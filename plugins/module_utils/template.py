@@ -95,6 +95,13 @@ class MSOTemplate:
         if self.template.get("templateType") != template_type:
             self.mso.fail_json(msg="Template type must be '{0}'.".format(template_type))
 
+    def add_template_values(self, mso_dict):
+        if self.template_id:
+            mso_dict["templateId"] = self.template_id
+        if self.template_name:
+            mso_dict["templateName"] = self.template_name
+        return mso_dict
+
     def get_object_by_key_value_pairs(self, object_description, search_list, kv_list, fail_module=False):
         """
         Get the object from a list of mso object dictionaries by name.

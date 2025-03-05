@@ -27,13 +27,14 @@ author:
 options:
   template:
     description:
-    - The name of the template.
-    - The template must be a Fabric Resource template.
+    - The name of the Fabric Resource template.
+    - This parameter or O(template_id) is required.
     type: str
     aliases: [ fabric_resource_template ]
   template_id:
     description:
     - The ID of the Fabric Policy template.
+    - This parameter or O(template) is required.
     type: str
     aliases: [ fabric_resource_template_id ]
   name:
@@ -140,10 +141,8 @@ extends_documentation_fragment: cisco.mso.modules
 notes:
 - The O(template) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_template) to create the Fabric Resource template.
-- One of O(template) and O(template_id) is required but both are mutually exclusive.
 - The O(interface_policy_group) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_interface_setting) to create the Interface Policy Group of type Port Channel.
-- One of O(interface_policy_group) and O(interface_policy_group_uuid) is required but both are mutually exclusive.
 seealso:
 - module: cisco.mso.ndo_template
 - module: cisco.mso.ndo_interface_setting

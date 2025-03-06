@@ -50,11 +50,13 @@
       cisco.mso.ndo_template:
         <<: *ndo_fabric_policy_template_absent
         state: present
+      register: create_fabric_policy
 
     - name: Create a new Fabric Resource template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_resource_template_absent
         state: present
+      register: create_fabric_resource
 
     - name: Create Node Setting objects
       cisco.mso.ndo_node_setting:
@@ -101,6 +103,11 @@
           - cm_node_profile.current.nodes[1] == nm_node_profile.current.nodes[1] == "102"
           - cm_node_profile.current.nodes[2] == nm_node_profile.current.nodes[2] == "103-105"
           - cm_node_profile.current.policy == nm_node_profile.current.policy == node_setting.results[0].current.uuid
+          - cm_node_profile.current.policyName == nm_node_profile.current.policyName == node_setting.results[0].current.name
+          - cm_node_profile.current.policyTemplateName == nm_node_profile.current.policyTemplateName == create_fabric_policy.current.displayName
+          - cm_node_profile.current.policyTemplateId == nm_node_profile.current.policyTemplateId == create_fabric_policy.current.templateId
+          - cm_node_profile.current.templateName == nm_node_profile.current.templateName == create_fabric_resource.current.displayName
+          - cm_node_profile.current.templateId == nm_node_profile.current.templateId == create_fabric_resource.current.templateId
           - nm_node_profile.current.uuid is defined
           - nm_node_profile_again is not changed
           - nm_node_profile_again.previous.name == nm_node_profile_again.current.name == "ansible_node_profile"
@@ -109,19 +116,26 @@
           - nm_node_profile_again.previous.nodes[0] == nm_node_profile_again.current.nodes[0] == "101"
           - nm_node_profile_again.previous.nodes[1] == nm_node_profile_again.current.nodes[1] == "102"
           - nm_node_profile_again.previous.nodes[2] == nm_node_profile_again.current.nodes[2] == "103-105"
-          - nm_node_profile_again.previous.policy == nm_node_profile_again.current.policy
+          - nm_node_profile_again.previous.policy == nm_node_profile_again.current.policy == nm_node_profile.current.policy
+          - nm_node_profile_again.previous.policyName == nm_node_profile_again.current.policyName == nm_node_profile.current.policyName
+          - nm_node_profile_again.previous.policyTemplateId == nm_node_profile_again.current.policyTemplateId == nm_node_profile.current.policyTemplateId
+          - nm_node_profile_again.previous.policyTemplateName == nm_node_profile_again.current.policyTemplateName == nm_node_profile.current.policyTemplateName
+          - nm_node_profile_again.previous.templateName == nm_node_profile_again.current.templateName == nm_node_profile.current.templateName
+          - nm_node_profile_again.previous.templateId == nm_node_profile_again.current.templateId == nm_node_profile.current.templateId
           - nm_node_profile_again.previous.uuid  == nm_node_profile.current.uuid
 
     # UPDATE
     - name: Update Node Profile (check mode)
       cisco.mso.ndo_node_profile: &update_node_profile
         <<: *add_node_profile
+        template: '{{ omit }}'
+        template_id: '{{ create_fabric_resource.current.templateId }}'
         nodes: [103]
         description: Test Ansible Node Profile 2
         node_setting_uuid: '{{ omit }}'
         node_setting:
           name: node_setting_2
-          template: '{{ ansible_fabric_template | default("ansible_test") }}'
+          template_id: '{{ create_fabric_policy.current.templateId }}'
       check_mode: true
       register: cm_update_node_profile
 
@@ -159,7 +173,17 @@
           - cm_update_node_profile.current.nodes | length == nm_update_node_profile.current.nodes | length == 1
           - cm_update_node_profile.current.nodes[0] == nm_update_node_profile.current.nodes[0] == "103"
           - cm_update_node_profile.previous.policy == nm_update_node_profile.previous.policy == node_setting.results[0].current.uuid
+          - cm_update_node_profile.previous.policyName == nm_update_node_profile.previous.policyName == node_setting.results[0].current.name
+          - cm_update_node_profile.previous.policyTemplateName == nm_update_node_profile.previous.policyTemplateName == create_fabric_policy.current.displayName
+          - cm_update_node_profile.previous.policyTemplateId == nm_update_node_profile.previous.policyTemplateId == create_fabric_policy.current.templateId
+          - cm_update_node_profile.previous.templateName == nm_update_node_profile.previous.templateName == create_fabric_resource.current.displayName
+          - cm_update_node_profile.previous.templateId == nm_update_node_profile.previous.templateId == create_fabric_resource.current.templateId
           - cm_update_node_profile.current.policy == nm_update_node_profile.current.policy == node_setting.results[1].current.uuid
+          - cm_update_node_profile.current.policyName == nm_update_node_profile.current.policyName == node_setting.results[1].current.name
+          - cm_update_node_profile.current.policyTemplateName == nm_update_node_profile.current.policyTemplateName == create_fabric_policy.current.displayName
+          - cm_update_node_profile.current.policyTemplateId == nm_update_node_profile.current.policyTemplateId == create_fabric_policy.current.templateId
+          - cm_update_node_profile.current.templateName == nm_update_node_profile.current.templateName == create_fabric_resource.current.displayName
+          - cm_update_node_profile.current.templateId == nm_update_node_profile.current.templateId == create_fabric_resource.current.templateId
           - cm_update_node_profile.current.policy != cm_update_node_profile.previous.policy
           - nm_update_node_profile.current.policy != nm_update_node_profile.previous.policy
           - cm_update_node_profile.current.uuid == nm_update_node_profile.current.uuid
@@ -180,6 +204,10 @@
       cisco.mso.ndo_node_profile:
         <<: *add_node_profile
         name: ansible_node_profile_2
+        node_setting_uuid: '{{ omit }}'
+        node_setting:
+          name: node_setting_1
+          template: '{{ ansible_fabric_template | default("ansible_test") }}'
       register: nm_node_profile_2
 
     - name: Query one Node Profile by name

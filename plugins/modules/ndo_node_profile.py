@@ -261,6 +261,15 @@ def main():
     object_description = "Node Profile"
     path = "/fabricResourceTemplate/template/nodeProfiles"
     node_profile_path = None
+    reference_dict = {
+        "policy": {
+            "name": "policyName",
+            "reference": "policy",
+            "type": "nodePolicyGroup",
+            "template": "policyTemplateName",
+            "templateId": "policyTemplateId",
+        },
+    }
 
     existing_node_profiles = mso_template.template.get("fabricResourceTemplate", {}).get("template", {}).get("nodeProfiles") or []
 
@@ -272,9 +281,10 @@ def main():
         )
         if match:
             node_profile_path = "{0}/{1}".format(path, match.index)
-            mso.existing = mso.previous = mso_template.add_template_values(set_node_setting_relation(mso, copy.deepcopy(match.details)))
+            mso_template.update_config_with_template_and_references(match.details, reference_dict)
+            mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
-        mso.existing = [mso_template.add_template_values(set_node_setting_relation(mso, profile)) for profile in existing_node_profiles]
+        mso.existing = mso.previous = [mso_template.update_config_with_template_and_references(profile, reference_dict) for profile in existing_node_profiles]
 
     if state == "present":
         if uuid and not mso.existing:
@@ -313,23 +323,15 @@ def main():
             [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
-            mso.existing = mso_template.add_template_values(set_node_setting_relation(mso, match.details))  # When the state is present
+            mso_template.update_config_with_template_and_references(match.details, reference_dict)
+            mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
-        mso.existing = mso_template.add_template_values(set_node_setting_relation(mso, mso.proposed)) if state == "present" else {}
+        mso_template.update_config_with_template_and_references(mso.proposed, reference_dict)
+        mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
-
-
-def set_node_setting_relation(mso, mso_dict):
-    node_setting_uuid = mso_dict.get("policy")
-    if node_setting_uuid:
-        node_setting_obj = mso.get_template_object_by_uuid("nodePolicyGroup", node_setting_uuid)
-        mso_dict["policyName"] = node_setting_obj.get("name")
-        mso_dict["policyTemplateName"] = node_setting_obj.get("templateName")
-        mso_dict["policyTemplateId"] = node_setting_obj.get("templateId")
-    return mso_dict
 
 
 if __name__ == "__main__":

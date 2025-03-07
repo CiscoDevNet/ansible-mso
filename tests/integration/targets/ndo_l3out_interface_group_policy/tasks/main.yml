@@ -1,0 +1,625 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version > 4.2
+  when: version.current.version is version('4.2', '>')
+  block:
+    # Setup Part
+    - name: Ensure ansible_test site exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: query
+      register: ansible_test_site
+
+    - name: Ensure ansible_test tenant exists
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+      register: ansible_test_tenant
+      when: ansible_test_site.current.common.name == 'ansible_test'
+
+    - name: Ensure l3out template not exist
+      cisco.mso.ndo_template: &ndo_l3out_template_absent
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template_type: l3out
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_tenant_template tenant policy template does not exist
+      cisco.mso.ndo_template: &tenant_pol_template_absent
+        <<: *mso_info
+        name: ansible_tenant_template
+        template_type: tenant
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_test schema template does not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        template: ansible_template
+        state: absent
+
+    # Schema Template Setup for the VRF
+    - name: Add an ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+        state: present
+
+    - name: Add a new VRF1
+      cisco.mso.mso_schema_template_vrf:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_template
+        vrf: VRF1
+        layer3_multicast: true
+        state: present
+
+    # Tenant Policy Template Setup for the L3Out Interface Routing Policy and Custom QoS Policy
+    - name: Ensure ansible_test_policy tenant policy template exists
+      cisco.mso.ndo_template:
+        <<: *tenant_pol_template_absent
+        state: present
+      register: ansible_test_policy
+
+    - name: Add a new L3Out Interface Routing Policy
+      cisco.mso.ndo_l3out_interface_routing_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_l3out_interface_routing_policy
+        bfd_settings:
+          state: enabled
+        bfd_multi_hop_settings:
+          state: enabled
+        state: present
+      register: interface_routing_policy
+
+    - name: Create a new Custom QoS Policy object
+      cisco.mso.ndo_tenant_custom_qos_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_custom_qos_policy
+        dscp_mappings:
+          - dscp_from: af11
+            dscp_to: af12
+            dscp_target: af11
+            target_cos: background
+            qos_priority: level1
+        cos_mappings:
+          - dot1p_from: background
+            dot1p_to: best_effort
+            target: af11
+            target_cos: background
+            qos_priority: level1
+        state: present
+      register: custom_qos_policy
+
+    # L3Out Template Setup
+    - name: Create a new l3out template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+        state: present
+      register: create_new_l3out_policy_template
+
+    - name: Create l3out_1 object with routing protocols
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+        name: l3out_1
+        vrf:
+          name: VRF1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+          template: ansible_template
+        bgp:
+          state: enabled
+        ospf:
+          state: enabled
+          area_id: 1
+          area_type: regular
+        state: present
+      register: create_l3out_1_object
+
+    - name: Create L3Out interface group policy object - check mode
+      cisco.mso.ndo_l3out_interface_group_policy: &cm_interface_group_policy_1_present
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        name: interface_group_policy_1
+        state: present
+      check_mode: true
+      register: cm_interface_group_policy_1_present
+
+    - name: Assertion check for create L3Out interface group policy object with default values - check mode
+      ansible.builtin.assert:
+        that:
+          - cm_interface_group_policy_1_present is changed
+          - cm_interface_group_policy_1_present.current.name == "interface_group_policy_1"
+          - cm_interface_group_policy_1_present.current.templateName == "ansible_test"
+          - cm_interface_group_policy_1_present.current.templateId == create_new_l3out_policy_template.current.templateId
+          - cm_interface_group_policy_1_present.previous == {}
+
+    - name: Create L3Out interface group policy object with default values - normal mode
+      cisco.mso.ndo_l3out_interface_group_policy: &nm_interface_group_policy_1_present
+        <<: *cm_interface_group_policy_1_present
+      register: nm_interface_group_policy_1_present
+
+    - name: Assertion check for create L3Out interface group policy object with default values - normal mode
+      ansible.builtin.assert:
+        that:
+          - nm_interface_group_policy_1_present is changed
+          - nm_interface_group_policy_1_present.current.name == "interface_group_policy_1"
+          - nm_interface_group_policy_1_present.current.templateName == "ansible_test"
+          - nm_interface_group_policy_1_present.current.templateId == create_new_l3out_policy_template.current.templateId
+          - nm_interface_group_policy_1_present.current.interfaceRoutingPolicyRef == ""
+          - nm_interface_group_policy_1_present.current.qosPriority == "unspecified"
+          - nm_interface_group_policy_1_present.previous == {}
+
+    - name: Create L3Out interface group policy object with default values - normal mode again
+      cisco.mso.ndo_l3out_interface_group_policy:
+        <<: *nm_interface_group_policy_1_present
+      register: nm_interface_group_policy_1_present_again
+
+    - name: Assertion check for create L3Out interface group policy object with default values - normal mode again
+      ansible.builtin.assert:
+        that:
+          - nm_interface_group_policy_1_present_again is not changed
+          - nm_interface_group_policy_1_present_again.current.name == "interface_group_policy_1"
+          - nm_interface_group_policy_1_present_again.current.templateName == "ansible_test"
+          - nm_interface_group_policy_1_present_again.current.templateId == create_new_l3out_policy_template.current.templateId
+          - nm_interface_group_policy_1_present_again.current.interfaceRoutingPolicyRef == ""
+          - nm_interface_group_policy_1_present_again.current.qosPriority == "unspecified"
+          - nm_interface_group_policy_1_present_again.previous.name == "interface_group_policy_1"
+          - nm_interface_group_policy_1_present_again.previous.interfaceRoutingPolicyRef == ""
+          - nm_interface_group_policy_1_present_again.previous.qosPriority == "unspecified"
+
+    - name: Update L3Out interface group policy object with check mode
+      cisco.mso.ndo_l3out_interface_group_policy: &cm_update_interface_group_policy_1
+        <<: *nm_interface_group_policy_1_present
+        description: Test description
+        interface_routing_policy: 
+          name: ansible_l3out_interface_routing_policy
+          template: ansible_tenant_template
+        bfd:
+          enable: true
+          authentication: true
+          key_id: 1
+          key: TestKey
+        bfd_multi_hop:
+          enable: true
+          authentication: true
+          key_id: 1
+          key: TestKey
+        ospf:
+          enable: true
+          authentication_type: simple
+          key_id: 1
+          key: TestKey
+        custom_qos_policy:
+          template: ansible_tenant_template
+          name: ansible_custom_qos_policy
+        qos_priority: level1
+        state: present
+      check_mode: true
+      register: cm_update_interface_group_policy_1
+
+    - name: Assertion check for update L3Out interface group policy object with check mode
+      ansible.builtin.assert:
+        that:
+          - cm_update_interface_group_policy_1 is changed
+          - cm_update_interface_group_policy_1.current.bfdMultiHop.keyID == 1
+          - cm_update_interface_group_policy_1.current.templateName == "ansible_test"
+          - cm_update_interface_group_policy_1.current.templateId == create_new_l3out_policy_template.current.templateId
+          - cm_update_interface_group_policy_1.current.bfdMultiHop.authEnabled == true
+          - cm_update_interface_group_policy_1.current.bfdMultiHop.enabled == true
+          - cm_update_interface_group_policy_1.current.bfdMultiHop.key.value is defined
+          - cm_update_interface_group_policy_1.current.bfd.keyID == 1
+          - cm_update_interface_group_policy_1.current.bfd.authEnabled == true
+          - cm_update_interface_group_policy_1.current.bfd.enabled == true
+          - cm_update_interface_group_policy_1.current.bfd.key.value is defined
+          - cm_update_interface_group_policy_1.current.ospf.keyID == 1
+          - cm_update_interface_group_policy_1.current.ospf.authType == "simple"
+          - cm_update_interface_group_policy_1.current.ospf.enabled == true
+          - cm_update_interface_group_policy_1.current.ospf.key.value is defined
+          - cm_update_interface_group_policy_1.current.description == "Test description"
+          - cm_update_interface_group_policy_1.current.name == "interface_group_policy_1"
+          - cm_update_interface_group_policy_1.current.interfaceRoutingPolicyRef != ""
+          - cm_update_interface_group_policy_1.current.qosRef != ""
+          - cm_update_interface_group_policy_1.current.qosPriority == "level1"
+          - cm_update_interface_group_policy_1.previous.name == "interface_group_policy_1"
+          - cm_update_interface_group_policy_1.previous.interfaceRoutingPolicyRef == ""
+          - cm_update_interface_group_policy_1.previous.qosPriority == "unspecified"
+
+    - name: Update L3Out interface group policy object with normal mode
+      cisco.mso.ndo_l3out_interface_group_policy: &nm_update_interface_group_policy_1
+        <<: *cm_update_interface_group_policy_1
+      register: nm_update_interface_group_policy_1
+
+    - name: Assertion check for update L3Out interface group policy object with normal mode
+      ansible.builtin.assert:
+        that:
+          - nm_update_interface_group_policy_1 is changed
+          - nm_update_interface_group_policy_1.current.bfdMultiHop.keyID == 1
+          - nm_update_interface_group_policy_1.current.bfdMultiHop.authEnabled == true
+          - nm_update_interface_group_policy_1.current.templateName == "ansible_test"
+          - nm_update_interface_group_policy_1.current.templateId == create_new_l3out_policy_template.current.templateId
+          - nm_update_interface_group_policy_1.current.bfd.keyID == 1
+          - nm_update_interface_group_policy_1.current.bfd.authEnabled == true
+          - nm_update_interface_group_policy_1.current.ospf.keyID == 1
+          - nm_update_interface_group_policy_1.current.ospf.authType == "simple"
+          - nm_update_interface_group_policy_1.current.description == "Test description"
+          - nm_update_interface_group_policy_1.current.name == "interface_group_policy_1"
+          - nm_update_interface_group_policy_1.current.interfaceRoutingPolicyRef != ""
+          - nm_update_interface_group_policy_1.current.qosRef != ""
+          - nm_update_interface_group_policy_1.current.qosPriority == "level1"
+          - nm_update_interface_group_policy_1.previous.name == "interface_group_policy_1"
+          - nm_update_interface_group_policy_1.previous.interfaceRoutingPolicyRef == ""
+          - nm_update_interface_group_policy_1.previous.qosPriority == "unspecified"
+
+    - name: Update L3Out interface group policy object with normal mode again
+      cisco.mso.ndo_l3out_interface_group_policy:
+        <<: *nm_update_interface_group_policy_1
+      register: nm_update_interface_group_policy_1_again
+
+    - name: Assertion check for update L3Out interface group policy object with normal mode again
+      ansible.builtin.assert:
+        that:
+          - nm_update_interface_group_policy_1_again is not changed
+          - nm_update_interface_group_policy_1_again.current.bfdMultiHop.keyID == 1
+          - nm_update_interface_group_policy_1_again.current.templateName == "ansible_test"
+          - nm_update_interface_group_policy_1_again.current.templateId == create_new_l3out_policy_template.current.templateId
+          - nm_update_interface_group_policy_1_again.current.bfdMultiHop.authEnabled == true
+          - nm_update_interface_group_policy_1_again.current.bfd.keyID == 1
+          - nm_update_interface_group_policy_1_again.current.bfd.authEnabled == true
+          - nm_update_interface_group_policy_1_again.current.ospf.keyID == 1
+          - nm_update_interface_group_policy_1_again.current.ospf.authType == "simple"
+          - nm_update_interface_group_policy_1_again.current.description == "Test description"
+          - nm_update_interface_group_policy_1_again.current.name == "interface_group_policy_1"
+          - nm_update_interface_group_policy_1_again.current.interfaceRoutingPolicyRef != ""
+          - nm_update_interface_group_policy_1_again.current.qosRef != ""
+          - nm_update_interface_group_policy_1_again.current.qosPriority == "level1"
+          - nm_update_interface_group_policy_1_again.previous.bfdMultiHop.keyID == 1
+          - nm_update_interface_group_policy_1_again.previous.bfdMultiHop.authEnabled == true
+          - nm_update_interface_group_policy_1_again.previous.bfd.keyID == 1
+          - nm_update_interface_group_policy_1_again.previous.bfd.authEnabled == true
+          - nm_update_interface_group_policy_1_again.previous.ospf.keyID == 1
+          - nm_update_interface_group_policy_1_again.previous.ospf.authType == "simple"
+          - nm_update_interface_group_policy_1_again.previous.description == "Test description"
+          - nm_update_interface_group_policy_1_again.previous.name == "interface_group_policy_1"
+          - nm_update_interface_group_policy_1_again.previous.interfaceRoutingPolicyRef != ""
+          - nm_update_interface_group_policy_1_again.previous.qosRef != ""
+          - nm_update_interface_group_policy_1_again.previous.qosPriority == "level1"
+
+    - name: Query interface_group_policy_1 with template_id and l3out_uuid
+      cisco.mso.ndo_l3out_interface_group_policy:
+        <<: *mso_info
+        template_id: '{{ create_new_l3out_policy_template.current.templateId }}'
+        l3out_uuid: '{{ create_l3out_1_object.current.uuid }}'
+        name: interface_group_policy_1
+        state: query
+      register: query_interface_group_policy_1
+
+    - name: Assertion check for query interface_group_policy_1
+      ansible.builtin.assert:
+        that:
+          - query_interface_group_policy_1 is not changed
+          - query_interface_group_policy_1.current.bfdMultiHop.keyID == 1
+          - query_interface_group_policy_1.current.templateName == "ansible_test"
+          - query_interface_group_policy_1.current.templateId == create_new_l3out_policy_template.current.templateId
+          - query_interface_group_policy_1.current.bfdMultiHop.authEnabled == true
+          - query_interface_group_policy_1.current.bfd.keyID == 1
+          - query_interface_group_policy_1.current.bfd.authEnabled == true
+          - query_interface_group_policy_1.current.ospf.keyID == 1
+          - query_interface_group_policy_1.current.ospf.authType == "simple"
+          - query_interface_group_policy_1.current.description == "Test description"
+          - query_interface_group_policy_1.current.name == "interface_group_policy_1"
+          - query_interface_group_policy_1.current.interfaceRoutingPolicyRef != ""
+          - query_interface_group_policy_1.current.qosRef != ""
+          - query_interface_group_policy_1.current.qosPriority == "level1"
+
+    - name: Update interface_group_policy_1 - Remove bfd_multi_hop and ospf
+      cisco.mso.ndo_l3out_interface_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        name: interface_group_policy_1
+        description: Test description
+        interface_routing_policy: 
+          name: ansible_l3out_interface_routing_policy
+          template: ansible_tenant_template
+        bfd:
+          enable: true
+          authentication: true
+          key_id: 2
+          key: TestKeyUpdated
+        bfd_multi_hop: {}
+        ospf: {}
+        custom_qos_policy:
+          template_id: '{{ ansible_test_policy.current.templateId }}'
+          name: ansible_custom_qos_policy
+        qos_priority: level1
+        state: present
+      register: update_interface_group_policy_1_remove_sub_attributes
+
+    - name: Assertion check for update interface_group_policy_1 - Remove bfd_multi_hop and ospf
+      ansible.builtin.assert:
+        that:
+          - update_interface_group_policy_1_remove_sub_attributes is changed
+          - update_interface_group_policy_1_remove_sub_attributes.previous.bfdMultiHop.keyID == 1
+          - update_interface_group_policy_1_remove_sub_attributes.previous.bfdMultiHop.authEnabled == true
+          - update_interface_group_policy_1_remove_sub_attributes.previous.bfd.keyID == 1
+          - update_interface_group_policy_1_remove_sub_attributes.previous.bfd.authEnabled == true
+          - update_interface_group_policy_1_remove_sub_attributes.previous.ospf.keyID == 1
+          - update_interface_group_policy_1_remove_sub_attributes.previous.ospf.authType == "simple"
+          - update_interface_group_policy_1_remove_sub_attributes.previous.description == "Test description"
+          - update_interface_group_policy_1_remove_sub_attributes.previous.name == "interface_group_policy_1"
+          - update_interface_group_policy_1_remove_sub_attributes.previous.interfaceRoutingPolicyRef != ""
+          - update_interface_group_policy_1_remove_sub_attributes.previous.qosRef != ""
+          - update_interface_group_policy_1_remove_sub_attributes.previous.qosPriority == "level1"
+          - update_interface_group_policy_1_remove_sub_attributes.current.bfd.keyID == 2
+          - update_interface_group_policy_1_remove_sub_attributes.current.templateName == "ansible_test"
+          - update_interface_group_policy_1_remove_sub_attributes.current.templateId == create_new_l3out_policy_template.current.templateId
+          - update_interface_group_policy_1_remove_sub_attributes.current.bfd.authEnabled == true
+          - update_interface_group_policy_1_remove_sub_attributes.current.ospf is not defined
+          - update_interface_group_policy_1_remove_sub_attributes.current.bfdMultiHop is not defined
+          - update_interface_group_policy_1_remove_sub_attributes.current.description == "Test description"
+          - update_interface_group_policy_1_remove_sub_attributes.current.name == "interface_group_policy_1"
+          - update_interface_group_policy_1_remove_sub_attributes.current.interfaceRoutingPolicyRef != ""
+          - update_interface_group_policy_1_remove_sub_attributes.current.interfaceRoutingPolicyName == "ansible_l3out_interface_routing_policy"
+          - update_interface_group_policy_1_remove_sub_attributes.current.qosRef != ""
+          - update_interface_group_policy_1_remove_sub_attributes.current.qosName == "ansible_custom_qos_policy"
+          - update_interface_group_policy_1_remove_sub_attributes.current.qosTemplateName == "ansible_tenant_template"
+          - update_interface_group_policy_1_remove_sub_attributes.current.qosPriority == "level1"
+
+    - name: Add interface_group_policy_2
+      cisco.mso.ndo_l3out_interface_group_policy: &nm_add_interface_group_policy_2
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        name: interface_group_policy_2
+        description: Test description 2
+        interface_routing_policy_uuid: '{{ interface_routing_policy.current.uuid }}'
+        bfd:
+          enable: true
+        bfd_multi_hop:
+          enable: true
+        custom_qos_policy:
+          template: ansible_tenant_template
+          name: ansible_custom_qos_policy
+        qos_priority: level1
+        state: present
+      register: nm_add_interface_group_policy_2
+
+    - name: Assertion check for nm_add_interface_group_policy_2
+      ansible.builtin.assert:
+        that:
+          - nm_add_interface_group_policy_2 is changed
+          - nm_add_interface_group_policy_2.current.bfd is defined
+          - nm_add_interface_group_policy_2.current.bfdMultiHop is defined
+          - nm_add_interface_group_policy_2.current.description == "Test description 2"
+          - nm_add_interface_group_policy_2.current.templateName == "ansible_test"
+          - nm_add_interface_group_policy_2.current.templateId == create_new_l3out_policy_template.current.templateId
+          - nm_add_interface_group_policy_2.current.name == "interface_group_policy_2"
+          - nm_add_interface_group_policy_2.current.interfaceRoutingPolicyRef != ""
+          - nm_add_interface_group_policy_2.current.interfaceRoutingPolicyName == "ansible_l3out_interface_routing_policy"
+          - nm_add_interface_group_policy_2.current.qosRef != ""
+          - nm_add_interface_group_policy_2.current.qosName == "ansible_custom_qos_policy"
+          - nm_add_interface_group_policy_2.current.qosPriority == "level1"
+
+    - name: Update interface_group_policy_2
+      cisco.mso.ndo_l3out_interface_group_policy:
+        <<: *nm_add_interface_group_policy_2
+        bfd_multi_hop:
+          enable: true
+          authentication: true
+          key_id: 1
+          key: TestKey
+        ospf:
+          enable: true
+          authentication_type: simple
+          key_id: 5
+          key: TestKey
+      register: update_interface_group_policy_2
+
+    - name: Assertion check for update_interface_group_policy_2
+      ansible.builtin.assert:
+        that:
+          - update_interface_group_policy_2 is changed
+          - update_interface_group_policy_2.current.bfdMultiHop.keyID == 1
+          - update_interface_group_policy_2.current.bfdMultiHop.authEnabled == true
+          - update_interface_group_policy_2.current.templateName == "ansible_test"
+          - update_interface_group_policy_2.current.templateId == create_new_l3out_policy_template.current.templateId
+          - nm_add_interface_group_policy_2.current.bfd is defined
+          - update_interface_group_policy_2.current.ospf.keyID == 5
+          - update_interface_group_policy_2.current.ospf.authType == "simple"
+          - update_interface_group_policy_2.current.description == "Test description 2"
+          - update_interface_group_policy_2.current.name == "interface_group_policy_2"
+          - update_interface_group_policy_2.current.interfaceRoutingPolicyRef != ""
+          - update_interface_group_policy_2.current.qosRef != ""
+          - update_interface_group_policy_2.current.qosPriority == "level1"
+
+    - name: Update interface_group_policy_2 again
+      cisco.mso.ndo_l3out_interface_group_policy:
+        <<: *nm_add_interface_group_policy_2
+        bfd:
+          enable: false
+        bfd_multi_hop:
+          enable: false
+        ospf:
+          enable: false
+        interface_routing_policy_uuid: ""
+        custom_qos_policy: {}
+      register: update_interface_group_policy_2_again
+
+    - name: Assertion check for update_interface_group_policy_2_again
+      ansible.builtin.assert:
+        that:
+          - update_interface_group_policy_2_again is changed
+          - update_interface_group_policy_2_again.current.bfdMultiHop.authEnabled == false
+          - update_interface_group_policy_2_again.current.templateName == "ansible_test"
+          - update_interface_group_policy_2_again.current.templateId == create_new_l3out_policy_template.current.templateId
+          - update_interface_group_policy_2_again.current.bfd.authEnabled == false
+          - update_interface_group_policy_2_again.current.ospf.authType == "none"
+          - update_interface_group_policy_2_again.current.description == "Test description 2"
+          - update_interface_group_policy_2_again.current.name == "interface_group_policy_2"
+          - update_interface_group_policy_2_again.current.interfaceRoutingPolicyRef == ""
+          - update_interface_group_policy_2_again.current.qosRef is not defined
+          - update_interface_group_policy_2_again.current.qosPriority == "level1"
+          - update_interface_group_policy_2_again.previous.interfaceRoutingPolicyRef != ""
+          - update_interface_group_policy_2_again.previous.qosRef != ""
+
+    - name: Query all interface_group_policies
+      cisco.mso.ndo_l3out_interface_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        state: query
+      register: query_all_interface_group_policies
+
+    - name: Assertion check for query all interface_group_policies
+      ansible.builtin.assert:
+        that:
+          - query_all_interface_group_policies is not changed
+          - query_all_interface_group_policies.current | length == 2
+          - "'interface_group_policy_2' in query_all_interface_group_policies.current | map(attribute='name') | list"
+          - "'interface_group_policy_1' in query_all_interface_group_policies.current | map(attribute='name') | list"
+
+    # Check Errors
+    - name: Add interface_group_policy_3
+      cisco.mso.ndo_l3out_interface_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        name: interface_group_policy_3
+        description: Test description 3
+        interface_routing_policy: 
+          name: ansible_l3out_interface_routing_policy
+          template: ansible_tenant_template
+        bfd:
+          authentication: true
+        ospf:
+          enable: true
+          authentication_type: md5
+        custom_qos_policy:
+          template: ansible_tenant_template
+          name: ansible_custom_qos_policy
+        qos_priority: level1
+        state: present
+      register: nm_add_interface_group_policy_3_error1
+      ignore_errors: true
+
+    - name: Add interface_group_policy_3 for next error
+      cisco.mso.ndo_l3out_interface_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        name: interface_group_policy_3
+        description: Test description 3
+        interface_routing_policy: 
+          name: ansible_l3out_interface_routing_policy
+        bfd:
+          authentication: true
+        ospf:
+          enable: true
+          authentication_type: md5
+        custom_qos_policy:
+          template: ansible_tenant_template
+          name: ansible_custom_qos_policy
+        qos_priority: level1
+        state: present
+      register: nm_add_interface_group_policy_3_error2
+      ignore_errors: true
+
+    - name: Assertion check for error
+      ansible.builtin.assert:
+        that:
+          - nm_add_interface_group_policy_3_error1.msg == "bfd must be enabled in order to use authentication, key and key_id | key and key_id are required under ospf"
+          - nm_add_interface_group_policy_3_error2.msg == "Either 'template' or 'template_id' associated with 'ansible_l3out_interface_routing_policy' must be provided"
+
+    - name: Remove interface_group_policy_1 in check mode
+      cisco.mso.ndo_l3out_interface_group_policy: &cm_rm_interface_group_policy_1
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        name: interface_group_policy_1
+        state: absent
+      check_mode: true
+      register: cm_rm_interface_group_policy_1
+
+    - name: Remove interface_group_policy_1 with normal mode
+      cisco.mso.ndo_l3out_interface_group_policy:
+        <<: *cm_rm_interface_group_policy_1
+      register: nm_rm_interface_group_policy_1
+
+    - name: Remove interface_group_policy_1 with normal mode again
+      cisco.mso.ndo_l3out_interface_group_policy:
+        <<: *cm_rm_interface_group_policy_1
+      register: nm_rm_interface_group_policy_1_again
+
+    - name: Assertion check for remove interface_group_policy_1
+      ansible.builtin.assert:
+        that:
+          - cm_rm_interface_group_policy_1 is changed
+          - nm_rm_interface_group_policy_1 is changed
+          - nm_rm_interface_group_policy_1_again is not changed
+          - cm_rm_interface_group_policy_1.current == {}
+          - cm_rm_interface_group_policy_1.previous.bfd.keyID == 2
+          - cm_rm_interface_group_policy_1.previous.bfd.authEnabled == true
+          - cm_rm_interface_group_policy_1.previous.ospf is not defined
+          - cm_rm_interface_group_policy_1.previous.bfdMultiHop is not defined
+          - cm_rm_interface_group_policy_1.previous.description == "Test description"
+          - cm_rm_interface_group_policy_1.previous.name == "interface_group_policy_1"
+          - cm_rm_interface_group_policy_1.previous.interfaceRoutingPolicyRef != ""
+          - cm_rm_interface_group_policy_1.previous.qosRef != ""
+          - cm_rm_interface_group_policy_1.previous.qosPriority == "level1"
+          - nm_rm_interface_group_policy_1.current == {}
+          - nm_rm_interface_group_policy_1_again.current == {}
+          - nm_rm_interface_group_policy_1_again.previous == {}
+
+    # Cleanup Part
+    - name: Remove l3out tenant template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+
+    - name: Remove tenant policy template
+      cisco.mso.ndo_template:
+        <<: *tenant_pol_template_absent
+
+    - name: Remove ansible_test schema template not exist
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent

@@ -34,6 +34,8 @@ class MSOTemplate:
             if self.template_summary:
                 self.template_path = "{0}/{1}".format(self.templates_path, self.template_id)
                 self.template = self.mso.query_obj(self.template_path)
+                self.template_name = self.template.get("displayName")
+                self.template_type = self.template.get("templateType")
             else:
                 self.mso.fail_json(
                     msg="Provided template id '{0}' does not exist. Existing templates: {1}".format(
@@ -291,3 +293,109 @@ class MSOTemplate:
                 fail_module,
             )
         return existing_l3out_interface_routing_policy  # Query all objects
+
+    def get_template_object_by_uuid(self, object_type, uuid, fail_module=True):
+        """
+        Retrieve a specific object type in the MSO template using its UUID.
+        :param object_type: The type of the object to retrieve the name for -> Str
+        :param uuid: The UUID of the object to retrieve the name for -> Str
+        :return: Dict | None: The processed result which could be:
+            When the UUID is existing, returns object -> Dict
+            When the UUID is not existing -> None
+        """
+        response_object = self.mso.request("templates/objects?type={0}&uuid={1}".format(object_type, uuid), "GET")
+        if not response_object and fail_module:
+            msg = "Provided {0} with UUID of '{1}' not found.".format(object_type, uuid)
+            self.mso.fail_json(msg=msg)
+        return response_object
+
+    def update_config_with_template_and_references(self, config_data, reference_dict=None):
+        """
+        Return the updated config_data with the template values and reference_dict if provided
+        :param config_data: The original config_data that requires to be updated -> Dict
+        :param reference_dict: A dict containing the object type, references and the corresponding names -> Dict
+        :return: Updated config_data with names for references -> Dict
+        Example 1:
+        reference_dict = {
+            "qos": {
+                "name": "qosName",
+                "reference": "qosRef",
+                "type": "qos",
+                "template": "qosTemplateName",
+                "templateId": "qosTemplateId",
+            },
+            "interfaceRoutingPolicy": {
+                "name": "interfaceRoutingPolicyName",
+                "reference": "interfaceRoutingPolicyRef",
+                "type": "l3OutIntfPolGroup",
+                "template": "interfaceRoutingPolicyTemplateName",
+                "templateId": "interfaceRoutingPolicyTemplateId",
+            },
+        }
+        config_data = {
+            "qosRef": "unique-qos-id",
+            "interfaceRoutingPolicyRef": "unique-interface-id"
+        }
+        updated_config_data = MSOHandler.set_names_for_references(mso_instance, config_data, reference_dict)
+        # Expected Output:
+        # {   "templateName": "template_name",
+        #     "templateId": "unique-template-id",
+        #     "qosRef": "unique-qos-id",
+        #     "interfaceRoutingPolicyRef": "unique-interface-id",
+        #     "qosName": "Resolved QoS Name",
+        #     "qosTemplateName": "Resolved QoS Template Name",
+        #     "qosTemplateId": "Resolved QoS Template ID",
+        #     "interfaceRoutingPolicyName": "Resolved Interface Routing Policy Name",
+        #     "interfaceRoutingPolicyTemplateName": "Resolved Interface Routing Policy Template Name",
+        #     "interfaceRoutingPolicyTemplateId": "Resolved Interface Routing Policy Template ID"
+        # }
+        Example 2:
+        reference_dict = {
+            "stateLimitRouteMap": {
+                "name": "stateLimitRouteMapName",
+                "reference": "stateLimitRouteMapRef",
+                "type": "mcastRouteMap"
+            },
+            "reportPolicyRouteMap": {
+                "name": "reportPolicyRouteMapName",
+                "reference": "reportPolicyRouteMapRef",
+                "type": "mcastRouteMap"
+            },
+            "staticReportRouteMap": {
+                "name": "staticReportRouteMapName",
+                "reference": "staticReportRouteMapRef",
+                "type": "mcastRouteMap"
+            },
+        }
+        config_data = {
+            "stateLimitRouteMapRef": "unique-state-limit-id",
+            "reportPolicyRouteMapRef": "unique-report-policy-id"
+        }
+        updated_config_data = MSOHandler.set_names_for_references(mso_instance, config_data, reference_dict)
+        # Expected Output:
+        # {   "templateName": "template_name",
+        #     "templateId": "unique-template-id",
+        #     "stateLimitRouteMapRef": "unique-state-limit-id",
+        #     "reportPolicyRouteMapRef": "unique-report-policy-id",
+        #     "stateLimitRouteMapName": "Resolved State Limit Route Map Name",
+        #     "reportPolicyRouteMapName": "Resolved Report Policy Route Map Name"
+        # }
+        """
+
+        # Set template ID and template name if available
+        if self.template_id:
+            config_data["templateId"] = self.template_id
+        if self.template_name:
+            config_data["templateName"] = self.template_name
+
+        # Update config data with reference names if reference_dict is provided
+        if reference_dict:
+            for object_values in reference_dict.values():
+                if config_data.get(object_values.get("reference")):
+                    template_object = self.get_template_object_by_uuid(object_values.get("type"), config_data.get(object_values.get("reference")))
+                    config_data[object_values.get("name")] = template_object.get("name")
+                    if object_values.get("template"):
+                        config_data[object_values.get("template")] = template_object.get("templateName")
+                    if object_values.get("templateId"):
+                        config_data[object_values.get("templateId")] = template_object.get("templateId")
+            return config_data

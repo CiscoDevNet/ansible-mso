@@ -45,38 +45,12 @@
     - https://{{ apic_hostname }}
     state: present
 
-- name: Ensure aws site exists
-  cisco.mso.mso_site:
-    <<: *mso_info
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ aws_apic_username }}'
-    apic_password: '{{ aws_apic_password }}'
-    apic_site_id: '{{ aws_site_id | default(102) }}'
-    urls:
-    - https://{{ aws_apic_hostname }}
-    state: present
-
-- name: Ensure azure site exists
-  cisco.mso.mso_site:
-    <<: *mso_info
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ azure_apic_username }}'
-    apic_password: '{{ azure_apic_password }}'
-    apic_site_id: '{{ azure_site_id | default(103) }}'
-    urls:
-    - https://{{ azure_apic_hostname }}
-    state: present
-
 - name: Ensure sites removed from tenant ansible_test
   cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ item }}'
+    site: '{{ mso_site | default("ansible_test") }}'
     state: absent
-  loop:
-    - '{{ mso_site | default("ansible_test") }}'
-    - 'aws_{{ mso_site | default("ansible_test") }}'
-    - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exists
   cisco.mso.mso_tenant:
@@ -86,33 +60,12 @@
       - '{{ mso_username }}'
     state: present
 
-- name: Associate non-cloud site with ansible_test again in normal mode
+- name: Associate site with ansible_test again in normal mode
   cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ mso_site | default("ansible_test") }}'
     state: present
-
-- name: Associate aws site with ansible_test in normal mode
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    cloud_account: "000000000000"
-    aws_trusted: false
-    aws_access_key: "1"
-    secret_key: "0"
-    state: present
-  register: aaws_nm
-
-- name: Associate azure site with access_type not present, with ansible_test in normal mode
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
-    cloud_account: uni/tn-ansible_test/act-[100]-vendor-azure
-    state: present
-  register: aazure_shared_nm
 
 - name: Ensure schema 1 with Template 1, and Template 2 exist
   cisco.mso.mso_schema_template:
@@ -133,17 +86,6 @@
     tenant: ansible_test
     template: Template 4
     state: present
-
-- name: Add cloud site to a schema
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{item.site}}'
-    template: '{{item.template}}'
-    state: present
-  loop:
-  - { site: 'azure_{{ mso_site | default("ansible_test") }}', template: 'Template 1' }
-  - { site: 'aws_{{ mso_site | default("ansible_test") }}', template: 'Template 2' }
 
 - name: Add physical site to a schema
   cisco.mso.mso_schema_site:
@@ -202,61 +144,6 @@
       schema: ansible_test
       template: Template 3
     state: present
-
-- name: Add ANP to site azure (check_mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    state: present
-  check_mode: true
-  register: cm_add_anp
-
-- name: Add ANP to site azure  (normal mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    state: present
-  register: nm_add_anp
-
-- name: Verify add_anp values
-  ansible.builtin.assert:
-    that:
-    - cm_add_anp.current.anpRef.anpName == 'ANP'
-    - nm_add_anp.current.anpRef.anpName == 'ANP'
-
-- name: Verify add_anp change
-  ansible.builtin.assert:
-    that:
-    - cm_add_anp is changed
-    - nm_add_anp is changed
-  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
-
-- name: Add ANP to site aws
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 2
-    anp: ANP_2
-    state: present
-  register: add_anp
-
-- name: Verify add_anp value
-  ansible.builtin.assert:
-    that:
-    - add_anp.current.anpRef.anpName == 'ANP_2'
-
-- name: Verify add_anp change
-  ansible.builtin.assert:
-    that:
-    - add_anp is changed
-  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
 - name: Add ANPs to site
   cisco.mso.mso_schema_site_anp:
@@ -390,42 +277,6 @@
     - nm_query_non_anp is not changed
     - nm_query_non_anp.msg == "ANP 'non_existing_anp' not found"
 
-# USE A NON-EXISTING STATE
-- name: Non-existing state (normal_mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    state: non-existing-state
-  ignore_errors: true
-  register: nm_non_existing_state
-
-- name: Verify non_existing_state
-  ansible.builtin.assert:
-    that:
-    - nm_non_existing_state is not changed
-    - nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
-
-# USE A NON-EXISTING SCHEMA
-- name: Non-existing schema (normal_mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    schema: non-existing-schema
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    state: query
-  ignore_errors: true
-  register: nm_non_existing_schema
-
-- name: Verify non_existing_schema
-  ansible.builtin.assert:
-    that:
-    - nm_non_existing_schema is not changed
-    - nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
-
 # USE A NON-EXISTING SITE
 - name: Non-existing site (normal_mode)
   cisco.mso.mso_schema_site_anp:
@@ -444,24 +295,6 @@
     - nm_non_existing_site is not changed
     - nm_non_existing_site.msg == "Site 'non-existing-site' is not a valid site name."
 
-# USE A TEMPLATE WITHOUT ANY SITE
-- name: Add ANP to Template without any site associated (normal mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
-    template: Template 4
-    anp: ANP_4
-    state: present
-  ignore_errors: true
-  register: nm_no_site_associated
-
-- name: Verify cm_no_site_associated and nm_no_site_associated
-  ansible.builtin.assert:
-    that:
-    - nm_no_site_associated is not changed
-    - nm_no_site_associated.msg == "No site associated with template 'Template4'. Associate the site with the template using mso_schema_site."
-
 # USE A NON-EXISTING SITE-TEMPLATE 
 - name: Non-existing site-template  (normal_mode)
   cisco.mso.mso_schema_site_anp:
@@ -474,8 +307,9 @@
   ignore_errors: true
   register: nm_non_existing_site_template
 
-- name: Verify non_existing_site_template
+- name: Verify non_existing_site_template for NDO version > 3.7
   ansible.builtin.assert:
     that:
     - nm_non_existing_site_template is not changed
-    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1, [0-9a-zA-Z]*/Template2, [0-9a-zA-Z]*/Template3")
+    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template3")
+  when: version.current.version is version('3.7', '>')

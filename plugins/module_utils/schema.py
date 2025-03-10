@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2022, Akini Ross (@akinross) <akinross@cisco.com>
+# Copyright: (c) 2025, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -23,6 +24,15 @@ class MSOSchema:
             self.set_template(template_name)
         if site_name and template_name:
             self.set_site(template_name, site_name)
+
+    @classmethod
+    def with_template_id(cls, mso_module, schema_name, template_name=None, template_id=None):
+        schema = cls(mso_module, schema_name)
+        if template_id:
+            schema.set_template_from_id(template_id)
+        elif template_name:
+            schema.set_template(template_name)
+        return schema
 
     @staticmethod
     def get_object_from_list(search_list, kv_list):
@@ -64,6 +74,20 @@ class MSOSchema:
         match, existing = self.get_object_from_list(self.schema.get("templates"), kv_list)
         if not match and fail_module:
             msg = "Provided template '{0}' not matching existing template(s): {1}".format(template_name, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["template"] = match
+
+    def set_template_from_id(self, template_id, fail_module=True):
+        """
+        Get template item that matches the id of a template.
+        :param template_id: ID of the template to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template item. -> Item(Int, Dict) | None
+        """
+        kv_list = [KVPair("templateID", template_id)]
+        match, existing = self.get_object_from_list(self.schema.get("templates"), kv_list)
+        if not match and fail_module:
+            msg = "Provided template ID '{0}' not matching existing template(s): {1}".format(template_id, ", ".join(existing))
             self.mso.fail_json(msg=msg)
         self.schema_objects["template"] = match
 

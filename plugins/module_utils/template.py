@@ -238,7 +238,7 @@ class MSOTemplate:
             return self.get_object_by_key_value_pairs(
                 "IPSLA Monitoring Policy",
                 existing_ipsla_policies,
-                [(KVPair("uuid", uuid) if uuid else KVPair("name", name))],
+                [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
                 fail_module=fail_module,
             )
         return existing_ipsla_policies

@@ -29,8 +29,14 @@ options:
     description:
     - The name of the template.
     - The template must be a tenant template.
+    - This parameter or O(template_id) is required.
     type: str
-    required: true
+  template_id:
+    description:
+    - The ID of the template.
+    - The template must be a tenant template.
+    - This parameter or O(template) is required.
+    type: str
   ipsla_track_list:
     description:
     - The name of the IPSLA Track List.
@@ -92,9 +98,20 @@ options:
         type: int
       ipsla_monitoring_policy:
         description:
-        - The name IPSLA Monitoring Policy to use for the member.
+        - The IPSLA Monitoring Policy to use for the member.
+        - This parameter or O(members.ipsla_monitoring_policy_uuid) is required.
+        type: dict
+        suboptions:
+          name:
+            description:
+            - The name of the IPSLA Monitoring Policy to use for the member.
+            type: str
+            required: true
+      ipsla_monitoring_policy_uuid:
+        description:
+        - The IPSLA Monitoring Policy UUID to use for the member.
+        - This parameter or O(members.ipsla_monitoring_policy) is required.
         type: str
-        aliases: [ ipsla_monitoring_policy_name ]
       scope_type:
         description:
         - The scope type of the member.
@@ -104,12 +121,12 @@ options:
       scope_uuid:
         description:
         - The UUID of the BD or L3Out used as the scope for the member.
-        - This parameter can be used instead of O(members.scope).
+        - This parameter or O(members.scope) is required.
         type: str
       scope:
         description:
         - The BD or L3Out used as the scope for the member.
-        - This parameter can be used instead of O(members.scope_uuid).
+        - This parameter or O(members.scope_uuid) is required.
         type: dict
         suboptions:
           name:
@@ -125,8 +142,13 @@ options:
           template:
             description:
             - The name of the Template associated with the BD or L3Out scope.
+            - This parameter or O(members.scope.template_id) is required.
             type: str
-            required: true
+          template_id:
+            description:
+            - The ID of the Template associated with the BD or L3Out scope.
+            - This parameter or O(members.scope.template) is required.
+            type: str
   state:
     description:
     - Use C(absent) for removing.
@@ -170,17 +192,19 @@ EXAMPLES = r"""
           name: ansible_test_bd
           template: ansible_test_template
           schema: ansible_test_schema
-        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
+        ipsla_monitoring_policy:
+          name: ansible_test_ipsla_monitoring_policy
       - destination_ip: 2001:0000:130F:0000:0000:09C0:876A:130B
         scope_type: l3out
         scope:
           name: ansible_test_l3out
           template: ansible_test_template
-        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
+        ipsla_monitoring_policy_uuid: "{{ ipsla_mon_pol.current.uuid }}"
       - destination_ip: 1.1.1.2
         scope_type: l3out
         scope_uuid: "{{ l3out.current.uuid }}"
-        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
+        ipsla_monitoring_policy:
+          name: ansible_test_ipsla_monitoring_policy
     state: present
     register: ipsla_track_list
 
@@ -277,7 +301,8 @@ def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
         dict(
-            template=dict(type="str", required=True),
+            template=dict(type="str"),
+            template_id=dict(type="str"),
             ipsla_track_list=dict(type="str", aliases=["name"]),
             ipsla_track_list_uuid=dict(type="str", aliases=["uuid"]),
             description=dict(type="str"),
@@ -287,18 +312,38 @@ def main():
             members=dict(
                 type="list",
                 elements="dict",
-                mutually_exclusive=[("scope", "scope_uuid")],
+                mutually_exclusive=[
+                    ("scope", "scope_uuid"),
+                    ("ipsla_monitoring_policy", "ipsla_monitoring_policy_uuid"),
+                ],
+                required_one_of=[
+                    ["scope", "scope_uuid"],
+                    ["ipsla_monitoring_policy", "ipsla_monitoring_policy_uuid"],
+                ],
                 options=dict(
                     destination_ip=dict(type="str", aliases=["ip"], required=True),
-                    ipsla_monitoring_policy=dict(type="str", aliases=["ipsla_monitoring_policy_name"]),
+                    ipsla_monitoring_policy=dict(
+                        type="dict",
+                        options=dict(
+                            name=dict(type="str", required=True),
+                        ),
+                    ),
+                    ipsla_monitoring_policy_uuid=dict(type="str"),
                     scope_uuid=dict(type="str"),
                     scope=dict(
                         type="dict",
                         options=dict(
                             name=dict(type="str", required=True),
-                            template=dict(type="str", required=True),
+                            template=dict(type="str"),
+                            template_id=dict(type="str"),
                             schema=dict(type="str"),
                         ),
+                        required_one_of=[
+                            ["template", "template_id"],
+                        ],
+                        mutually_exclusive=[
+                            ("template", "template_id"),
+                        ],
                     ),
                     scope_type=dict(type="str", choices=["bd", "l3out"], required=True),
                     weight=dict(type="int"),
@@ -311,16 +356,23 @@ def main():
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
+        mutually_exclusive=[
+            ("template", "template_id"),
+        ],
         required_if=[
             ["state", "absent", ["ipsla_track_list", "ipsla_track_list_uuid"], True],
             ["state", "present", ["ipsla_track_list", "ipsla_track_list_uuid"], True],
             ["state", "present", ["type"]],
+        ],
+        required_one_of=[
+            ["template", "template_id"],
         ],
     )
 
     mso = MSOModule(module)
 
     template = module.params.get("template")
+    template_id = module.params.get("template_id")
     ipsla_track_list = module.params.get("ipsla_track_list")
     description = module.params.get("description")
     ipsla_track_list_uuid = module.params.get("ipsla_track_list_uuid")
@@ -352,9 +404,9 @@ def main():
     # This is done to limit the amount of API calls when UUID is not specified for member scope references.
     obj_cache = {}
 
-    mso_template = MSOTemplate(mso, "tenant", template)
+    mso_template = MSOTemplate(mso, "tenant", template, template_id)
     mso_template.validate_template("tenantPolicy")
-    obj_cache["template-tenant-{0}".format(template)] = mso_template
+    obj_cache["template-tenant-{0}".format(template if template else template_id)] = mso_template
 
     object_description = "IPSLA Track List"
     path = "/tenantPolicyTemplate/template/ipslaTrackLists"
@@ -364,7 +416,7 @@ def main():
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
             existing_ipsla_track_lists,
-            [(KVPair("uuid", ipsla_track_list_uuid) if ipsla_track_list_uuid else KVPair("name", ipsla_track_list))],
+            [KVPair("uuid", ipsla_track_list_uuid) if ipsla_track_list_uuid else KVPair("name", ipsla_track_list)],
         )
         if match:
             mso.existing = mso.previous = copy.deepcopy(match.details)
@@ -401,7 +453,7 @@ def main():
         match = mso_template.get_object_by_key_value_pairs(
             object_description,
             ipsla_track_lists,
-            [(KVPair("uuid", ipsla_track_list_uuid) if ipsla_track_list_uuid else KVPair("name", ipsla_track_list))],
+            [KVPair("uuid", ipsla_track_list_uuid) if ipsla_track_list_uuid else KVPair("name", ipsla_track_list)],
         )
         if match:
             mso.existing = match.details
@@ -422,25 +474,25 @@ def format_track_list_members(mso, mso_template, members, obj_cache):
 
         name = obj.get("name")
         template = obj.get("template")
+        template_id = obj.get("template_id")
 
         if scope_type == "bd":
             schema_name = obj.get("schema")
             if not schema_name:
                 mso.fail_json(msg="A member scope_type is bd and scope is used but the schema option is missing.")
-            key = "schema-{0}-{1}-{2}".format(scope_type, schema_name, template)
+            key = "schema-{0}-{1}-{2}".format(scope_type, schema_name, template if template else template_id)
             mso_schema = obj_cache.get(key)
             if not mso_schema:
-                mso_schema = MSOSchema(mso, schema_name, template)
+                mso_schema = MSOSchema.with_template_id(mso, schema_name, template, template_id)
                 obj_cache[key] = mso_schema
-            mso_schema.set_template(template, fail_module=True)
             mso_schema.set_template_bd(name, fail_module=True)
             return mso_schema.schema_objects.get("template_bd").details.get("uuid")
 
         if scope_type == "l3out":
-            key = "template-{0}-{1}".format(scope_type, template)
+            key = "template-{0}-{1}".format(scope_type, template if template else template_id)
             mso_template = obj_cache.get(key)
             if not mso_template:
-                mso_template = MSOTemplate(mso, scope_type, template)
+                mso_template = MSOTemplate(mso, scope_type, template, template_id)
                 mso_template.validate_template(scope_type)
                 obj_cache[key] = mso_template
             return mso_template.get_l3out_object(name=name, fail_module=True).details.get("uuid")
@@ -453,8 +505,8 @@ def format_track_list_members(mso, mso_template, members, obj_cache):
                 "scope": get_scope_obj_uuid(scope_type, member.get("scope_uuid"), member.get("scope")),
                 "scopeType": scope_type,
                 "ipslaMonitoringRef": mso_template.get_ipsla_monitoring_policy(
-                    uuid=None,
-                    name=member.get("ipsla_monitoring_policy"),
+                    uuid=member.get("ipsla_monitoring_policy_uuid"),
+                    name=member.get("ipsla_monitoring_policy").get("name") if member.get("ipsla_monitoring_policy") else None,
                     fail_module=True,
                 ).details.get("uuid"),
             },

@@ -431,7 +431,7 @@ class MSOTemplate:
                         config_data[object_values.get("template")] = template_object.get("templateName")
                     if object_values.get("templateId"):
                         config_data[object_values.get("templateId")] = template_object.get("templateId")
-            return config_data
+        return config_data
 
     def check_template_when_name_is_provided(self, parameter):
         if parameter and parameter.get("name") and not (parameter.get("template") or parameter.get("template_id")):

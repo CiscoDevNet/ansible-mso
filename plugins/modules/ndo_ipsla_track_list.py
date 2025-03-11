@@ -419,9 +419,10 @@ def main():
             [KVPair("uuid", ipsla_track_list_uuid) if ipsla_track_list_uuid else KVPair("name", ipsla_track_list)],
         )
         if match:
+            set_template_and_references(mso_template, match.details)
             mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
-        mso.existing = mso.previous = existing_ipsla_track_lists
+        mso.existing = mso.previous = [set_template_and_references(mso_template, track_list) for track_list in existing_ipsla_track_lists]
 
     if state == "present":
         if ipsla_track_list_uuid and not mso.existing:
@@ -456,10 +457,12 @@ def main():
             [KVPair("uuid", ipsla_track_list_uuid) if ipsla_track_list_uuid else KVPair("name", ipsla_track_list)],
         )
         if match:
+            set_template_and_references(mso_template, match.details)
             mso.existing = match.details
         else:
             mso.existing = {}
     elif module.check_mode and state != "query":
+        set_template_and_references(mso_template, mso.proposed)
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
@@ -514,6 +517,31 @@ def format_track_list_members(mso, mso_template, members, obj_cache):
         }
         track_list_members.append(track_member)
     return track_list_members
+
+
+def set_template_and_references(mso_template, ipsla_track_list_config):
+    reference_dict = {
+        "scope": {
+            "name": "scopeName",
+            "reference": "scope",
+            "template": "scopeTemplateName",
+            "templateId": "scopeTemplateId",
+            "type": "",
+        },
+        "ipslaMonitoringPolicy": {
+            "name": "ipslaMonitoringPolicyName",
+            "reference": "ipslaMonitoringRef",
+            "type": "ipslaMonitoringPolicy",
+            "template": "ipslaMonitoringPolicyTemplateName",
+            "templateId": "ipslaMonitoringPolicyTemplateId",
+        },
+    }
+    mso_template.clear_template_objects_cache()
+    mso_template.update_config_with_template_and_references(ipsla_track_list_config)
+    for track_member in ipsla_track_list_config.get("trackListMembers", []):
+        reference_dict["scope"]["type"] = track_member.get("trackMember", {}).get("scopeType")
+        mso_template.update_config_with_template_and_references(track_member["trackMember"], reference_dict, False, True)
+    return ipsla_track_list_config
 
 
 if __name__ == "__main__":

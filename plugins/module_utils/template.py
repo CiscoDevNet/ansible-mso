@@ -27,6 +27,7 @@ class MSOTemplate:
         self.template_id = template_id
         self.template_type = template_type
         self.template_summary = {}
+        self.template_objects_cache = {}
 
         if template_id:
             # Checking if the template with id exists to avoid error: MSO Error 400: Template ID 665da24b95400f375928f195 invalid
@@ -328,6 +329,9 @@ class MSOTemplate:
         match = self.get_object_by_key_value_pairs(policy_type, existing_policies, [KVPair("name", policy_name)], fail_module=True)
         return match.details.get("uuid")
 
+    def clear_template_objects_cache(self):
+        self.template_objects_cache = {}
+
     def get_template_object_name_by_uuid(self, object_type, uuid, fail_module=True):
         """
         Retrieve the name of a specific object type in the MSO template using its UUID.
@@ -342,26 +346,34 @@ class MSOTemplate:
         if response_object:
             return response_object.get("name")
 
-    def get_template_object_by_uuid(self, object_type, uuid, fail_module=True):
+    def get_template_object_by_uuid(self, object_type, uuid, fail_module=True, use_cache=False):
         """
         Retrieve a specific object type in the MSO template using its UUID.
-        :param object_type: The type of the object to retrieve the name for -> Str
-        :param uuid: The UUID of the object to retrieve the name for -> Str
+        :param object_type: The type of the object to retrieve -> Str
+        :param uuid: The UUID of the object to retrieve -> Str
+        :param use_cache: Use the cached result of the templates/objects API for the UUID -> Bool
         :return: Dict | None: The processed result which could be:
             When the UUID is existing, returns object -> Dict
             When the UUID is not existing -> None
         """
-        response_object = self.mso.request("templates/objects?type={0}&uuid={1}".format(object_type, uuid), "GET")
+        response_object = None
+        if use_cache and uuid in self.template_objects_cache.keys():
+            response_object = self.template_objects_cache[uuid]
+        else:
+            response_object = self.mso.request("templates/objects?type={0}&uuid={1}".format(object_type, uuid), "GET")
+            self.template_objects_cache[uuid] = response_object
         if not response_object and fail_module:
             msg = "Provided {0} with UUID of '{1}' not found.".format(object_type, uuid)
             self.mso.fail_json(msg=msg)
         return response_object
 
-    def update_config_with_template_and_references(self, config_data, reference_collections=None):
+    def update_config_with_template_and_references(self, config_data, reference_collections=None, set_template=True, use_cache=False):
         """
         Return the updated config_data with the template values and reference_collections if provided
         :param config_data: The original config_data that requires to be updated -> Dict
         :param reference_collections: A dict containing the object type, references and the corresponding names -> Dict
+        :param set_template: Adds the templateId and templateName to the config_data -> Bool
+        :param use_cache: Use the cached result of the templates/objects API for the ref UUID -> Bool
         :return: Updated config_data with names for references -> Dict
         Example 1:
         reference_collections = {
@@ -431,16 +443,19 @@ class MSOTemplate:
         """
 
         # Set template ID and template name if available
-        if self.template_id:
-            config_data["templateId"] = self.template_id
-        if self.template_name:
-            config_data["templateName"] = self.template_name
+        if set_template:
+            if self.template_id:
+                config_data["templateId"] = self.template_id
+            if self.template_name:
+                config_data["templateName"] = self.template_name
 
         # Update config data with reference names if reference_collections is provided
         if reference_collections:
             for reference_details in reference_collections.values():
                 if config_data.get(reference_details.get("reference")):
-                    template_object = self.get_template_object_by_uuid(reference_details.get("type"), config_data.get(reference_details.get("reference")))
+                    template_object = self.get_template_object_by_uuid(
+                        reference_details.get("type"), config_data.get(reference_details.get("reference")), True, use_cache
+                    )
                     config_data[reference_details.get("name")] = template_object.get("name")
                     if reference_details.get("template"):
                         config_data[reference_details.get("template")] = template_object.get("templateName")

@@ -163,7 +163,6 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
-from ansible_collections.cisco.mso.plugins.module_utils.utils import get_template_object_name_by_uuid
 
 
 def main():
@@ -277,9 +276,9 @@ def main():
 def insert_dhcp_relay_policy_relation_name(dhcp_relay_policy, mso_template):
     for provider in dhcp_relay_policy.get("providers"):
         if provider.get("epgRef"):
-            provider["epgName"] = get_template_object_name_by_uuid(mso_template.mso, "epg", provider.get("epgRef"))
+            provider["epgName"] = mso_template.get_template_object_name_by_uuid("epg", provider.get("epgRef"))
         if provider.get("externalEpgRef"):
-            provider["externalEpgName"] = get_template_object_name_by_uuid(mso_template.mso, "externalEpg", provider.get("externalEpgRef"))
+            provider["externalEpgName"] = mso_template.get_template_object_name_by_uuid("externalEpg", provider.get("externalEpgRef"))
     return dhcp_relay_policy
 
 

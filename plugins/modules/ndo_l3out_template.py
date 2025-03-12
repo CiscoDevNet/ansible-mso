@@ -402,9 +402,9 @@ RETURN = r"""
 import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
-from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
+from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ORIGINATE_DEFAULT_ROUTE, L3OUT_ROUTING_PROTOCOLS
-from ansible_collections.cisco.mso.plugins.module_utils.utils import generate_api_endpoint, get_name_by_key_value, get_template_object_name_by_uuid
+from ansible_collections.cisco.mso.plugins.module_utils.utils import generate_api_endpoint
 
 
 def get_routing_protocol(existing_protocol, ospf_state, bgp_state):
@@ -972,120 +972,137 @@ def main():
 
 
 def insert_l3out_relation_name(l3out_object, mso_template, check_mode=False):
-    l3out_object["vrfName"] = get_template_object_name_by_uuid(mso_template.mso, "vrf", l3out_object.get("vrfRef"))
+    l3out_object["vrfName"] = mso_template.get_template_object_name_by_uuid("vrf", l3out_object.get("vrfRef"))
 
     if not check_mode:
         l3out_relations = mso_template.mso.request("{0}/relations".format(mso_template.template_path), "GET")
+        route_map_policies = l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", [])
 
     if "exportRouteMapRef" in l3out_object:
         if check_mode:
-            l3out_object["exportRouteMapName"] = get_template_object_name_by_uuid(mso_template.mso, "routeMap", l3out_object["exportRouteMapRef"])
+            l3out_object["exportRouteMapName"] = mso_template.get_template_object_name_by_uuid("routeMap", l3out_object["exportRouteMapRef"])
         else:
-            l3out_object["exportRouteMapName"] = get_name_by_key_value(
-                mso_template,
-                "Route Map",
-                l3out_object["exportRouteMapRef"],
-                "ref",
-                l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
-            )
+            l3out_object["exportRouteMapName"] = (
+                mso_template.get_object_by_key_value_pairs(
+                    "Route Map",
+                    route_map_policies,
+                    [KVPair("ref", l3out_object["exportRouteMapRef"])],
+                    True,
+                ).details
+                or {}
+            ).get("displayName")
 
     if "importRouteMapRef" in l3out_object:
         if check_mode:
-            l3out_object["importRouteMapName"] = get_template_object_name_by_uuid(mso_template.mso, "routeMap", l3out_object["importRouteMapRef"])
+            l3out_object["importRouteMapName"] = mso_template.get_template_object_name_by_uuid("routeMap", l3out_object["importRouteMapRef"])
         else:
-            l3out_object["importRouteMapName"] = get_name_by_key_value(
-                mso_template,
-                "Route Map",
-                l3out_object["importRouteMapRef"],
-                "ref",
-                l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
-            )
+            l3out_object["importRouteMapName"] = (
+                mso_template.get_object_by_key_value_pairs(
+                    "Route Map",
+                    route_map_policies,
+                    [KVPair("ref", l3out_object["importRouteMapRef"])],
+                    True,
+                ).details
+                or {}
+            ).get("displayName")
 
     advanced_route_maps = l3out_object.get("advancedRouteMapRefs")
     if advanced_route_maps is not None:
         if "attachedHostRouteRedistRef" in advanced_route_maps:
             if check_mode:
-                l3out_object["advancedRouteMapRefs"]["attachedHostRouteRedistName"] = get_template_object_name_by_uuid(
-                    mso_template.mso, "routeMap", advanced_route_maps["attachedHostRouteRedistRef"]
+                l3out_object["advancedRouteMapRefs"]["attachedHostRouteRedistName"] = mso_template.get_template_object_name_by_uuid(
+                    "routeMap", advanced_route_maps["attachedHostRouteRedistRef"]
                 )
             else:
-                l3out_object["advancedRouteMapRefs"]["attachedHostRouteRedistName"] = get_name_by_key_value(
-                    mso_template,
-                    "Route Map",
-                    advanced_route_maps["attachedHostRouteRedistRef"],
-                    "ref",
-                    l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
-                )
+                l3out_object["advancedRouteMapRefs"]["attachedHostRouteRedistName"] = (
+                    mso_template.get_object_by_key_value_pairs(
+                        "Route Map",
+                        route_map_policies,
+                        [KVPair("ref", advanced_route_maps["attachedHostRouteRedistRef"])],
+                        True,
+                    ).details
+                    or {}
+                ).get("displayName")
 
         if "connectedRouteRedistRef" in advanced_route_maps:
             if check_mode:
-                l3out_object["advancedRouteMapRefs"]["connectedRouteRedistName"] = get_template_object_name_by_uuid(
-                    mso_template.mso, "routeMap", advanced_route_maps["connectedRouteRedistRef"]
+                l3out_object["advancedRouteMapRefs"]["connectedRouteRedistName"] = mso_template.get_template_object_name_by_uuid(
+                    "routeMap", advanced_route_maps["connectedRouteRedistRef"]
                 )
             else:
-                l3out_object["advancedRouteMapRefs"]["connectedRouteRedistName"] = get_name_by_key_value(
-                    mso_template,
-                    "Route Map",
-                    advanced_route_maps["connectedRouteRedistRef"],
-                    "ref",
-                    l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
-                )
+                l3out_object["advancedRouteMapRefs"]["connectedRouteRedistName"] = (
+                    mso_template.get_object_by_key_value_pairs(
+                        "Route Map",
+                        route_map_policies,
+                        [KVPair("ref", advanced_route_maps["connectedRouteRedistRef"])],
+                        True,
+                    ).details
+                    or {}
+                ).get("displayName")
 
         if "interleakRef" in advanced_route_maps:
             if check_mode:
-                l3out_object["advancedRouteMapRefs"]["interleakName"] = get_template_object_name_by_uuid(
-                    mso_template.mso, "routeMap", advanced_route_maps["interleakRef"]
+                l3out_object["advancedRouteMapRefs"]["interleakName"] = mso_template.get_template_object_name_by_uuid(
+                    "routeMap", advanced_route_maps["interleakRef"]
                 )
             else:
-                l3out_object["advancedRouteMapRefs"]["interleakName"] = get_name_by_key_value(
-                    mso_template,
-                    "Route Map",
-                    advanced_route_maps["interleakRef"],
-                    "ref",
-                    l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
-                )
+                l3out_object["advancedRouteMapRefs"]["interleakName"] = (
+                    mso_template.get_object_by_key_value_pairs(
+                        "Route Map",
+                        route_map_policies,
+                        [KVPair("ref", advanced_route_maps["interleakRef"])],
+                        True,
+                    ).details
+                    or {}
+                ).get("displayName")
 
         if "routeDampeningV4Ref" in advanced_route_maps:
             if check_mode:
-                l3out_object["advancedRouteMapRefs"]["routeDampeningV4Name"] = get_template_object_name_by_uuid(
-                    mso_template.mso, "routeMap", advanced_route_maps["routeDampeningV4Ref"]
+                l3out_object["advancedRouteMapRefs"]["routeDampeningV4Name"] = mso_template.get_template_object_name_by_uuid(
+                    "routeMap", advanced_route_maps["routeDampeningV4Ref"]
                 )
             else:
-                l3out_object["advancedRouteMapRefs"]["routeDampeningV4Name"] = get_name_by_key_value(
-                    mso_template,
-                    "Route Map",
-                    advanced_route_maps["routeDampeningV4Ref"],
-                    "ref",
-                    l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
-                )
+                l3out_object["advancedRouteMapRefs"]["routeDampeningV4Name"] = (
+                    mso_template.get_object_by_key_value_pairs(
+                        "Route Map",
+                        route_map_policies,
+                        [KVPair("ref", advanced_route_maps["routeDampeningV4Ref"])],
+                        True,
+                    ).details
+                    or {}
+                ).get("displayName")
 
         if "routeDampeningV6Ref" in advanced_route_maps:
             if check_mode:
-                l3out_object["advancedRouteMapRefs"]["routeDampeningV6Name"] = get_template_object_name_by_uuid(
-                    mso_template.mso, "routeMap", advanced_route_maps["routeDampeningV6Ref"]
+                l3out_object["advancedRouteMapRefs"]["routeDampeningV6Name"] = mso_template.get_template_object_name_by_uuid(
+                    "routeMap", advanced_route_maps["routeDampeningV6Ref"]
                 )
             else:
-                l3out_object["advancedRouteMapRefs"]["routeDampeningV6Name"] = get_name_by_key_value(
-                    mso_template,
-                    "Route Map",
-                    advanced_route_maps["routeDampeningV6Ref"],
-                    "ref",
-                    l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
-                )
+                l3out_object["advancedRouteMapRefs"]["routeDampeningV6Name"] = (
+                    mso_template.get_object_by_key_value_pairs(
+                        "Route Map",
+                        route_map_policies,
+                        [KVPair("ref", advanced_route_maps["routeDampeningV6Ref"])],
+                        True,
+                    ).details
+                    or {}
+                ).get("displayName")
 
         if "staticRouteRedistRef" in advanced_route_maps:
             if check_mode:
-                l3out_object["advancedRouteMapRefs"]["staticRouteRedistName"] = get_template_object_name_by_uuid(
-                    mso_template.mso, "routeMap", advanced_route_maps["staticRouteRedistRef"]
+                l3out_object["advancedRouteMapRefs"]["staticRouteRedistName"] = mso_template.get_template_object_name_by_uuid(
+                    "routeMap", advanced_route_maps["staticRouteRedistRef"]
                 )
             else:
-                l3out_object["advancedRouteMapRefs"]["staticRouteRedistName"] = get_name_by_key_value(
-                    mso_template,
-                    "Route Map",
-                    advanced_route_maps["staticRouteRedistRef"],
-                    "ref",
-                    l3out_relations.get("relations", {}).get("identities", {}).get("routeMapPolicies", []),
-                )
+                l3out_object["advancedRouteMapRefs"]["staticRouteRedistName"] = (
+                    mso_template.get_object_by_key_value_pairs(
+                        "Route Map",
+                        route_map_policies,
+                        [KVPair("ref", advanced_route_maps["staticRouteRedistRef"])],
+                        True,
+                    ).details
+                    or {}
+                ).get("displayName")
     return l3out_object
 
 

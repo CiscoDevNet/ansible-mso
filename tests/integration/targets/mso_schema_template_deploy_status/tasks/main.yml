@@ -573,6 +573,21 @@
       - status2_site_temp2.current.bds == []
       - status2_site_temp2.current.vrfs == []
 
+  - name: Check deployment status by querying site and non associated Template 1
+    cisco.mso.mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template1
+      site: '{{ mso_site | default("ansible_test") }}'
+      state: query
+    ignore_errors: true
+    register: status_site_temp3
+
+  - name: Verify status after querying site with non associated Template 1
+    ansible.builtin.assert:
+      that:
+      - status_site_temp3.msg is match ("Provided Template 'Template1' not associated with Site .+")
+
   - name: Check Non-existing schema
     cisco.mso.mso_schema_template_deploy_status:
       <<: *mso_info

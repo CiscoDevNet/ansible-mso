@@ -457,6 +457,46 @@
     - nm_query_non_anp.msg == "Provided anp 'ANP_3' does not exist at site level."
   when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
+# USE A NON-EXISTING TEMPLATE
+- name: Non-existing template (normal_mode)
+  cisco.mso.mso_schema_site_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: non-existing-template
+    anp: ANP
+    epg: ansible_test_1
+    state: query
+  ignore_errors: true
+  register: nm_non_existing_template
+
+- name: Verify non_existing_template
+  ansible.builtin.assert:
+    that:
+    - nm_non_existing_template is not changed
+    - nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2, Template3"
+  ignore_errors: true
+
+# USE A NON-EXISTING SCHEMA
+- name: Non-existing schema (normal_mode)
+  cisco.mso.mso_schema_site_anp_epg:
+    <<: *mso_info
+    schema: non-existing-schema
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    epg: ansible_test_1
+    state: query
+  ignore_errors: true
+  register: nm_non_existing_schema
+
+- name: Verify non_existing_schema
+  ansible.builtin.assert:
+    that:
+    - nm_non_existing_schema is not changed
+    - nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
+  ignore_errors: true
+
 # USE A NON-EXISTING SITE
 - name: Non-existing site (normal_mode)
   cisco.mso.mso_schema_site_anp_epg:
@@ -502,6 +542,26 @@
     - nm_non_existing_site_template is not changed
     - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template3, [0-9a-zA-Z]*/Template1")
   when: version.current.version is version('3', '>=') and version.current.version is version('3.2', '<')
+
+# USE A TEMPLATE WITHOUT ANY SITE
+- name: Add EPG to Template without any site associated (normal mode)
+  cisco.mso.mso_schema_site_anp_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 4
+    anp: ANP_4
+    epg: ansible_test_1
+    state: present
+  ignore_errors: true
+  register: nm_no_site_associated
+
+- name: Verify cm_no_site_associated and nm_no_site_associated
+  ansible.builtin.assert:
+    that:
+    - nm_no_site_associated is not changed
+    - nm_no_site_associated.msg == "No site associated with template 'Template4'. Associate the site with the template using mso_schema_site."
+  ignore_errors: true
 
 # ADDING PRIVATE LINK LABEL
 # Add private link label when MSO version >= 3.3

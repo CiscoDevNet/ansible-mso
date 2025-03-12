@@ -277,6 +277,7 @@
       that:
       - cm_add_epg.current.externalEpgRef.externalEpgName == "ansible_test_1"
       - cm_add_epg.current.externalEpgRef.templateName == "Template1"
+      - cm_add_epg.current.routeReachabilityInternetType == "internet"
 
   - name: Verify cm_add_epg
     ansible.builtin.assert:
@@ -301,6 +302,8 @@
       that:
       - nm_add_epg.current.externalEpgRef.externalEpgName == "ansible_test_1"
       - nm_add_epg.current.externalEpgRef.templateName == "Template1"
+      - nm_add_epg.current.routeReachabilityInternetType == "internet"
+      - nm_add_epg.previous.routeReachabilityInternetType == "internet"
       - cm_add_epg.current.externalEpgRef.schemaId ==  nm_add_epg.current.externalEpgRef.schemaId
 
   - name: Verify nm_add_epg
@@ -327,6 +330,7 @@
       - add_epg_again is not changed
       - add_epg_again.current.externalEpgRef.externalEpgName == "ansible_test_1"
       - add_epg_again.current.externalEpgRef.templateName == "Template1"
+      - add_epg_again.current.routeReachabilityInternetType == "internet"
 
   - name: Update external EPG to site with l3out_on_apic true
     cisco.mso.mso_schema_site_external_epg: &add_ext_epg_l3out_apic

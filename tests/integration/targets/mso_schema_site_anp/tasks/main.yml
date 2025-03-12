@@ -277,6 +277,24 @@
     - nm_query_non_anp is not changed
     - nm_query_non_anp.msg == "ANP 'non_existing_anp' not found"
 
+# USE A NON-EXISTING SCHEMA
+- name: Non-existing schema (normal_mode)
+  cisco.mso.mso_schema_site_anp:
+    <<: *mso_info
+    schema: non-existing-schema
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    state: query
+  ignore_errors: true
+  register: nm_non_existing_schema
+
+- name: Verify non_existing_schema
+  ansible.builtin.assert:
+    that:
+    - nm_non_existing_schema is not changed
+    - nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
+
 # USE A NON-EXISTING SITE
 - name: Non-existing site (normal_mode)
   cisco.mso.mso_schema_site_anp:
@@ -294,6 +312,24 @@
     that:
     - nm_non_existing_site is not changed
     - nm_non_existing_site.msg == "Site 'non-existing-site' is not a valid site name."
+
+# USE A TEMPLATE WITHOUT ANY SITE
+- name: Add ANP to Template without any site associated (normal mode)
+  cisco.mso.mso_schema_site_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 4
+    anp: ANP_4
+    state: present
+  ignore_errors: true
+  register: nm_no_site_associated
+
+- name: Verify cm_no_site_associated and nm_no_site_associated
+  ansible.builtin.assert:
+    that:
+    - nm_no_site_associated is not changed
+    - nm_no_site_associated.msg == "No site associated with template 'Template4'. Associate the site with the template using mso_schema_site."
 
 # USE A NON-EXISTING SITE-TEMPLATE 
 - name: Non-existing site-template  (normal_mode)

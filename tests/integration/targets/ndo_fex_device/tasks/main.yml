@@ -64,11 +64,17 @@
         <<: *add_fex_device
       register: nm_fex_device
 
+    - name: Create FEX Device again
+      cisco.mso.ndo_fex_device:
+        <<: *add_fex_device
+      register: nm_fex_device_again
+
     - name: Assert FEX Device is created
       ansible.builtin.assert:
         that:
           - cm_fex_device is changed
           - nm_fex_device is changed
+          - nm_fex_device_again is not changed
           - cm_fex_device.previous == nm_fex_device.previous == {}
           - cm_fex_device.current.templateName == nm_fex_device.current.templateName == create_fabric_resource.current.displayName
           - cm_fex_device.current.templateId == nm_fex_device.current.templateId == create_fabric_resource.current.templateId
@@ -77,13 +83,14 @@
           - cm_fex_device.current.nodes[0] == nm_fex_device.current.nodes[0] == "203"
           - cm_fex_device.current.interfaces == nm_fex_device.current.interfaces == "1/3"
           - cm_fex_device.current.description == nm_fex_device.current.description == "Ansible FEX Device"
+          - nm_fex_device_again.previous == nm_fex_device_again.current == nm_fex_device.current
 
     # UPDATE
     - name: Update FEX Device (check mode)
       cisco.mso.ndo_fex_device: &update_fex_device
         <<: *add_fex_device
         description: Test Ansible FEX Device Updated
-        nodes: [101, 102, '103-105']
+        nodes: [101, 102, 103-105]
         interfaces: ['1/1,1/2-4']
       check_mode: true
       register: cm_update_fex_device
@@ -93,11 +100,17 @@
         <<: *update_fex_device
       register: nm_update_fex_device
 
+    - name: Update FEX Device again
+      cisco.mso.ndo_fex_device:
+        <<: *update_fex_device
+      register: nm_update_fex_device_again
+
     - name: Assert FEX Device is updated
       ansible.builtin.assert:
         that:
           - cm_update_fex_device is changed
           - nm_update_fex_device is changed
+          - nm_update_fex_device_again is not changed
           - cm_update_fex_device.current.templateName == nm_update_fex_device.current.templateName == create_fabric_resource.current.displayName
           - cm_update_fex_device.current.templateId == nm_update_fex_device.current.templateId == create_fabric_resource.current.templateId
           - cm_update_fex_device.previous.nodes[0] == nm_update_fex_device.previous.nodes[0] == "203"
@@ -108,6 +121,7 @@
           - cm_update_fex_device.current.interfaces == nm_update_fex_device.current.interfaces == "1/1,1/2-4"
           - cm_update_fex_device.previous.description == nm_update_fex_device.previous.description == "Ansible FEX Device"
           - cm_update_fex_device.current.description == nm_update_fex_device.current.description == "Test Ansible FEX Device Updated"
+          - nm_update_fex_device_again.previous == nm_update_fex_device_again.current == nm_update_fex_device.current
 
     - name: Create another FEX Device for query all
       cisco.mso.ndo_fex_device: &add_fex_device_another
@@ -171,6 +185,11 @@
         <<: *delete_fex_device
       register: nm_delete_fex_device
 
+    - name: Delete FEX Device using name again
+      cisco.mso.ndo_fex_device:
+        <<: *delete_fex_device
+      register: nm_delete_fex_device_again
+
     - name: Delete FEX Device using uuid
       cisco.mso.ndo_fex_device:
         <<: *mso_info
@@ -184,11 +203,13 @@
         that:
           - cm_delete_fex_device is changed
           - nm_delete_fex_device is changed
+          - nm_delete_fex_device_again is not changed
           - nm_delete_another_fex_device is changed
           - cm_delete_fex_device.current == nm_delete_fex_device.current == {}
           - cm_delete_fex_device.previous.name == nm_delete_fex_device.previous.name == "ansible_fex_device"
           - nm_delete_another_fex_device.previous.name == "ansible_fex_device_another"
           - nm_delete_another_fex_device.current == {}
+          - nm_delete_fex_device_again.previous == nm_delete_fex_device_again.current == nm_delete_another_fex_device.current
 
     # CLEANUP
     - name: Ensure fabric resource template does not exist

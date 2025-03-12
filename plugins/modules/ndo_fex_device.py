@@ -37,7 +37,7 @@ options:
     description:
     - The name of the FEX Device.
     type: str
-    aliases: [ fex_device ]
+    aliases: [ fex_device_name ]
   uuid:
     description:
     - The UUID of the FEX Device.
@@ -52,10 +52,11 @@ options:
     - The FEX ID.
     - This parameter is required when O(state=present).
     type: int
+    aliases: [ id ]
   nodes:
     description:
     - The list of node IDs where the FEX Device will be deployed.
-    - Each element can either be a single node ID or a range of IDs in quotation marks ('').
+    - Each element can either be a single node ID or a range of IDs.
     - This parameter is required when O(state=present).
     type: list
     elements: str
@@ -91,7 +92,7 @@ EXAMPLES = r"""
     name: ansible_test_fex_device
     description: "FEX Device for Ansible"
     fex_id: 102
-    nodes: [101, 102]
+    nodes: [101, 102, 103-105]
     interfaces: ["1/1"]
     state: present
   register: create_fex_device
@@ -167,10 +168,10 @@ def main():
     argument_spec.update(
         template=dict(type="str"),
         template_id=dict(type="str"),
-        name=dict(type="str", aliases=["fex_device"]),
+        name=dict(type="str", aliases=["fex_device_name"]),
         uuid=dict(type="str", aliases=["fex_device_uuid"]),
         description=dict(type="str"),
-        fex_id=dict(type="int"),
+        fex_id=dict(type="int", aliases=["id"]),
         nodes=dict(type="list", elements="str"),
         interfaces=dict(type="list", elements="str"),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
@@ -185,6 +186,9 @@ def main():
             ["state", "present", ["fex_id", "nodes", "interfaces"]],
         ],
         required_one_of=[["template", "template_id"]],
+        mutually_exclusive=[
+            ["template", "template_id"],
+        ],
     )
 
     mso = MSOModule(module)
@@ -196,8 +200,6 @@ def main():
     description = module.params.get("description")
     fex_id = module.params.get("fex_id")
     nodes = module.params.get("nodes")
-    if nodes:
-        nodes = [str(node) for node in nodes]
     interfaces = module.params.get("interfaces")
     if interfaces:
         interfaces = ",".join(interfaces)

@@ -137,7 +137,12 @@ options:
           schema:
             description:
             - The name of the Schema associated with the BD scope.
-            - This parameter is only required when the O(members.scope_type=bd).
+            - This parameter or O(members.scope.schema_id) is only required when the O(members.scope_type=bd).
+            type: str
+          schema_id:
+            description:
+            - The ID of the Schema associated with the BD scope.
+            - This parameter or O(members.scope.schema) is only required when the O(members.scope_type=bd).
             type: str
           template:
             description:
@@ -337,11 +342,13 @@ def main():
                             template=dict(type="str"),
                             template_id=dict(type="str"),
                             schema=dict(type="str"),
+                            schema_id=dict(type="str"),
                         ),
                         required_one_of=[
                             ["template", "template_id"],
                         ],
                         mutually_exclusive=[
+                            ("schema", "schema_id"),
                             ("template", "template_id"),
                         ],
                     ),
@@ -481,12 +488,13 @@ def format_track_list_members(mso, mso_template, members, obj_cache):
 
         if scope_type == "bd":
             schema_name = obj.get("schema")
-            if not schema_name:
-                mso.fail_json(msg="A member scope_type is bd and scope is used but the schema option is missing.")
+            schema_id = obj.get("schema_id")
+            if not schema_name and not schema_id:
+                mso.fail_json(msg="A member scope_type is bd and scope is used but the schema or schema_id option is missing.")
             key = "schema-{0}-{1}-{2}".format(scope_type, schema_name, template if template else template_id)
             mso_schema = obj_cache.get(key)
             if not mso_schema:
-                mso_schema = MSOSchema.with_template_id(mso, schema_name, template, template_id)
+                mso_schema = MSOSchema(mso, schema_name, template, None, schema_id, template_id)
                 obj_cache[key] = mso_schema
             mso_schema.set_template_bd(name, fail_module=True)
             return mso_schema.schema_objects.get("template_bd").details.get("uuid")
@@ -520,27 +528,37 @@ def format_track_list_members(mso, mso_template, members, obj_cache):
 
 
 def set_template_and_references(mso_template, ipsla_track_list_config):
-    reference_dict = {
-        "scope": {
-            "name": "scopeName",
-            "reference": "scope",
-            "template": "scopeTemplateName",
-            "templateId": "scopeTemplateId",
-            "type": "",
-        },
-        "ipslaMonitoringPolicy": {
-            "name": "ipslaMonitoringPolicyName",
-            "reference": "ipslaMonitoringRef",
-            "type": "ipslaMonitoringPolicy",
-            "template": "ipslaMonitoringPolicyTemplateName",
-            "templateId": "ipslaMonitoringPolicyTemplateId",
-        },
+    l3out_scope_ref = {
+        "name": "scopeName",
+        "reference": "scope",
+        "template": "scopeTemplateName",
+        "templateId": "scopeTemplateId",
+        "type": "l3out",
+    }
+    bd_scope_ref = {
+        "name": "scopeName",
+        "reference": "scope",
+        "template": "scopeTemplateName",
+        "templateId": "scopeTemplateId",
+        "schema": "scopeSchemaName",
+        "schemaId": "scopeSchemaId",
+        "type": "bd",
+    }
+    ipsla_ref = {
+        "name": "ipslaMonitoringPolicyName",
+        "reference": "ipslaMonitoringRef",
+        "type": "ipslaMonitoringPolicy",
     }
     mso_template.clear_template_objects_cache()
     mso_template.update_config_with_template_and_references(ipsla_track_list_config)
     for track_member in ipsla_track_list_config.get("trackListMembers", []):
-        reference_dict["scope"]["type"] = track_member.get("trackMember", {}).get("scopeType")
-        mso_template.update_config_with_template_and_references(track_member["trackMember"], reference_dict, False, True)
+        ref_dict = {}
+        if track_member.get("trackMember", {}).get("scopeType") == "l3out":
+            ref_dict["scope"] = l3out_scope_ref
+        else:
+            ref_dict["scope"] = bd_scope_ref
+        ref_dict["ipslaMonitoringPolicy"] = ipsla_ref
+        mso_template.update_config_with_template_and_references(track_member["trackMember"], ref_dict, False, True)
     return ipsla_track_list_config
 
 

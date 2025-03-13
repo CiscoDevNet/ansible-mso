@@ -1452,6 +1452,13 @@ class MSOModule(object):
             self.module.fail_json(msg="Schema '{0}' is not a valid schema name.".format(schema))
         return schema_id, schema_path, schema_obj
 
+    def query_schema_by_id(self, schema_id):
+        schema_path = "schemas/{0}".format(schema_id)
+        schema_obj = self.query_obj(schema_path)
+        if not schema_obj:
+            self.module.fail_json(msg="Schema '{0}' is not a valid schema ID.".format(schema_id))
+        return schema_id, schema_path, schema_obj
+
     def query_service_node_types(self):
         node_objs = self.query_objs("schemas/service-node-types", key="serviceNodeTypes")
         if not node_objs:

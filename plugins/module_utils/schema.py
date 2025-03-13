@@ -15,24 +15,23 @@ Item = namedtuple("Item", "index details")
 
 
 class MSOSchema:
-    def __init__(self, mso_module, schema_name, template_name=None, site_name=None):
+    def __init__(self, mso_module, schema_name, template_name=None, site_name=None, schema_id=None, template_id=None):
         self.mso = mso_module
         self.schema_name = schema_name
-        self.id, self.path, self.schema = mso_module.query_schema(schema_name)
+        if schema_id:
+            self.id, self.path, self.schema = mso_module.query_schema_by_id(schema_id)
+            self.schema_name = self.schema.get("displayName")
+        else:
+            self.id, self.path, self.schema = mso_module.query_schema(schema_name)
         self.schema_objects = {}
-        if template_name:
-            self.set_template(template_name)
-        if site_name and template_name:
-            self.set_site(template_name, site_name)
-
-    @classmethod
-    def with_template_id(cls, mso_module, schema_name, template_name=None, template_id=None):
-        schema = cls(mso_module, schema_name)
-        if template_id:
-            schema.set_template_from_id(template_id)
-        elif template_name:
-            schema.set_template(template_name)
-        return schema
+        self.template_id = template_id
+        self.template_name = template_name
+        if self.template_id:
+            self.set_template_from_id(self.template_id)
+        elif self.template_name:
+            self.set_template(self.template_name)
+        if site_name and self.template_name:
+            self.set_site(self.template_name, site_name)
 
     @staticmethod
     def get_object_from_list(search_list, kv_list):
@@ -75,6 +74,7 @@ class MSOSchema:
         if not match and fail_module:
             msg = "Provided template '{0}' not matching existing template(s): {1}".format(template_name, ", ".join(existing))
             self.mso.fail_json(msg=msg)
+        self.template_id = match.details.get("templateID")
         self.schema_objects["template"] = match
 
     def set_template_from_id(self, template_id, fail_module=True):
@@ -89,6 +89,7 @@ class MSOSchema:
         if not match and fail_module:
             msg = "Provided template ID '{0}' not matching existing template(s): {1}".format(template_id, ", ".join(existing))
             self.mso.fail_json(msg=msg)
+        self.template_name = match.details.get("name")
         self.schema_objects["template"] = match
 
     def set_template_vrf(self, vrf, fail_module=True):

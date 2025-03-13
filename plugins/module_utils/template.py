@@ -461,6 +461,11 @@ class MSOTemplate:
                         config_data[reference_details.get("template")] = template_object.get("templateName")
                     if reference_details.get("templateId"):
                         config_data[reference_details.get("templateId")] = template_object.get("templateId")
+                    if reference_details.get("schemaId"):
+                        config_data[reference_details.get("schemaId")] = template_object.get("schemaId")
+                    if reference_details.get("schema"):
+                        config_data[reference_details.get("schema")] = template_object.get("schemaName")
+            return config_data
         return config_data
 
     def check_template_when_name_is_provided(self, parameter):

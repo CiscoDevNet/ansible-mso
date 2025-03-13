@@ -27,6 +27,7 @@ class MSOTemplate:
         self.template_id = template_id
         self.template_type = template_type
         self.template_summary = {}
+        self.template_objects_cache = {}
 
         if template_id:
             # Checking if the template with id exists to avoid error: MSO Error 400: Template ID 665da24b95400f375928f195 invalid
@@ -34,6 +35,8 @@ class MSOTemplate:
             if self.template_summary:
                 self.template_path = "{0}/{1}".format(self.templates_path, self.template_id)
                 self.template = self.mso.query_obj(self.template_path)
+                self.template_name = self.template.get("displayName")
+                self.template_type = self.template.get("templateType")
             else:
                 self.mso.fail_json(
                     msg="Provided template id '{0}' does not exist. Existing templates: {1}".format(
@@ -219,6 +222,28 @@ class MSOTemplate:
         match = self.get_object_by_key_value_pairs("Interface Policy Groups", existing_policy_groups, kv_list, fail_module=True)
         return match.details.get("uuid")
 
+    def get_ipsla_monitoring_policy(self, uuid=None, name=None, fail_module=False):
+        """
+        Get the IPSLA Monitoring Policy by UUID or Name.
+        :param uuid: UUID of the IPSLA Monitoring Policy to search for -> Str
+        :param name: Name of the IPSLA Monitoring Policy to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        existing_ipsla_policies = self.template.get("tenantPolicyTemplate", {}).get("template", {}).get("ipslaMonitoringPolicies", [])
+        if name or uuid:
+            return self.get_object_by_key_value_pairs(
+                "IPSLA Monitoring Policy",
+                existing_ipsla_policies,
+                [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
+                fail_module=fail_module,
+            )
+        return existing_ipsla_policies
+
     def get_l3out_object(self, uuid=None, name=None, fail_module=False):
         """
         Get the L3Out by uuid or name.
@@ -291,3 +316,127 @@ class MSOTemplate:
                 fail_module,
             )
         return existing_l3out_interface_routing_policy  # Query all objects
+
+    def clear_template_objects_cache(self):
+        self.template_objects_cache = {}
+
+    def get_template_object_by_uuid(self, object_type, uuid, fail_module=True, use_cache=False):
+        """
+        Retrieve a specific object type in the MSO template using its UUID.
+        :param object_type: The type of the object to retrieve -> Str
+        :param uuid: The UUID of the object to retrieve -> Str
+        :param use_cache: Use the cached result of the templates/objects API for the UUID -> Bool
+        :return: Dict | None: The processed result which could be:
+            When the UUID is existing, returns object -> Dict
+            When the UUID is not existing -> None
+        """
+        response_object = None
+        if use_cache and uuid in self.template_objects_cache.keys():
+            response_object = self.template_objects_cache[uuid]
+        else:
+            response_object = self.mso.request("templates/objects?type={0}&uuid={1}".format(object_type, uuid), "GET")
+            self.template_objects_cache[uuid] = response_object
+        if not response_object and fail_module:
+            msg = "Provided {0} with UUID of '{1}' not found.".format(object_type, uuid)
+            self.mso.fail_json(msg=msg)
+        return response_object
+
+    def update_config_with_template_and_references(self, config_data, reference_dict=None, set_template=True, use_cache=False):
+        """
+        Return the updated config_data with the template values and reference_dict if provided
+        :param config_data: The original config_data that requires to be updated -> Dict
+        :param reference_dict: A dict containing the object type, references and the corresponding names -> Dict
+        :param set_template: Adds the templateId and templateName to the config_data -> Bool
+        :param use_cache: Use the cached result of the templates/objects API for the ref UUID -> Bool
+        :return: Updated config_data with names for references -> Dict
+        Example 1:
+        reference_dict = {
+            "qos": {
+                "name": "qosName",
+                "reference": "qosRef",
+                "type": "qos",
+                "template": "qosTemplateName",
+                "templateId": "qosTemplateId",
+            },
+            "interfaceRoutingPolicy": {
+                "name": "interfaceRoutingPolicyName",
+                "reference": "interfaceRoutingPolicyRef",
+                "type": "l3OutIntfPolGroup",
+                "template": "interfaceRoutingPolicyTemplateName",
+                "templateId": "interfaceRoutingPolicyTemplateId",
+            },
+        }
+        config_data = {
+            "qosRef": "unique-qos-id",
+            "interfaceRoutingPolicyRef": "unique-interface-id"
+        }
+        updated_config_data = MSOHandler.set_names_for_references(mso_instance, config_data, reference_dict)
+        # Expected Output:
+        # {   "templateName": "template_name",
+        #     "templateId": "unique-template-id",
+        #     "qosRef": "unique-qos-id",
+        #     "interfaceRoutingPolicyRef": "unique-interface-id",
+        #     "qosName": "Resolved QoS Name",
+        #     "qosTemplateName": "Resolved QoS Template Name",
+        #     "qosTemplateId": "Resolved QoS Template ID",
+        #     "interfaceRoutingPolicyName": "Resolved Interface Routing Policy Name",
+        #     "interfaceRoutingPolicyTemplateName": "Resolved Interface Routing Policy Template Name",
+        #     "interfaceRoutingPolicyTemplateId": "Resolved Interface Routing Policy Template ID"
+        # }
+        Example 2:
+        reference_dict = {
+            "stateLimitRouteMap": {
+                "name": "stateLimitRouteMapName",
+                "reference": "stateLimitRouteMapRef",
+                "type": "mcastRouteMap"
+            },
+            "reportPolicyRouteMap": {
+                "name": "reportPolicyRouteMapName",
+                "reference": "reportPolicyRouteMapRef",
+                "type": "mcastRouteMap"
+            },
+            "staticReportRouteMap": {
+                "name": "staticReportRouteMapName",
+                "reference": "staticReportRouteMapRef",
+                "type": "mcastRouteMap"
+            },
+        }
+        config_data = {
+            "stateLimitRouteMapRef": "unique-state-limit-id",
+            "reportPolicyRouteMapRef": "unique-report-policy-id"
+        }
+        updated_config_data = MSOHandler.set_names_for_references(mso_instance, config_data, reference_dict)
+        # Expected Output:
+        # {   "templateName": "template_name",
+        #     "templateId": "unique-template-id",
+        #     "stateLimitRouteMapRef": "unique-state-limit-id",
+        #     "reportPolicyRouteMapRef": "unique-report-policy-id",
+        #     "stateLimitRouteMapName": "Resolved State Limit Route Map Name",
+        #     "reportPolicyRouteMapName": "Resolved Report Policy Route Map Name"
+        # }
+        """
+
+        # Set template ID and template name if available
+        if set_template:
+            if self.template_id:
+                config_data["templateId"] = self.template_id
+            if self.template_name:
+                config_data["templateName"] = self.template_name
+
+        # Update config data with reference names if reference_dict is provided
+        if reference_dict:
+            for object_values in reference_dict.values():
+                if config_data.get(object_values.get("reference")):
+                    template_object = self.get_template_object_by_uuid(
+                        object_values.get("type"), config_data.get(object_values.get("reference")), True, use_cache
+                    )
+                    config_data[object_values.get("name")] = template_object.get("name")
+                    if object_values.get("template"):
+                        config_data[object_values.get("template")] = template_object.get("templateName")
+                    if object_values.get("templateId"):
+                        config_data[object_values.get("templateId")] = template_object.get("templateId")
+                    if object_values.get("schemaId"):
+                        config_data[object_values.get("schemaId")] = template_object.get("schemaId")
+                    if object_values.get("schema"):
+                        config_data[object_values.get("schema")] = template_object.get("schemaName")
+            return config_data

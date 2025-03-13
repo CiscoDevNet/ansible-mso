@@ -1,0 +1,683 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Samita Bhattacharjee (@samiib)
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    
+    - name: Ensure sites exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ item.site }}'
+        apic_username: '{{ apic_username }}'
+        apic_password: '{{ apic_password }}'
+        apic_site_id: '{{ item.apic_site_id }}'
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+      loop:
+        - {site: "ansible_test", apic_site_id: 101}
+        - {site: "ansible_test_2", apic_site_id: 102}
+    
+    - name: Ensure tenant exist
+      cisco.mso.mso_tenant: 
+        <<: *mso_info
+        tenant: '{{ item }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+          - ansible_test_2
+        state: present
+      loop:
+        - ansible_test
+    
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_tenant_template
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+
+    - name: Ensure l3out template does not exist
+      cisco.mso.ndo_template: &l3out_template_absent
+        <<: *mso_info
+        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template_type: l3out
+        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure schemas do not exist
+      cisco.mso.mso_schema: &remove_schemas
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        state: absent
+    
+    - name: Ensure schema with template exists
+      cisco.mso.mso_schema_template:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: ansible_test
+        template: ansible_test
+        state: present
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+      register: create_tenant_template
+
+    - name: Ensure IPSLA monitoring policy exists
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
+        sla_type: icmp
+        sla_frequency: 60
+        description: icmp_type
+        state: present
+      register: nm_ansible_test_ipsla_mon_pol
+
+    - name: Ensure VRF exists
+      cisco.mso.mso_schema_template_vrf: &vrf_present
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_test
+        vrf: VRF
+        layer3_multicast: true
+        state: present
+
+    - name: Ensure BD exists
+      cisco.mso.mso_schema_template_bd: &bd_present
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_test
+        bd: ansible_test_bd
+        vrf:
+          name: VRF
+        state: present
+      register: nm_ansible_test_bd
+
+    - name: Ensure L3Out template exists
+      cisco.mso.ndo_template:
+        <<: *l3out_template_absent
+        state: present
+      register: create_l3out_template
+
+    - name: Ensure L3Out object exists
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        name: ansible_test_l3out
+        vrf:
+          name: VRF
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+          template: ansible_test
+        state: present
+      register: nm_ansible_test_l3out
+
+    # CREATE
+    - name: Create a new IPSLA track list (check_mode)
+      cisco.mso.ndo_ipsla_track_list: &create_ipsla_track_list
+        <<: *mso_info
+        template: ansible_tenant_template
+        ipsla_track_list: ansible_test_ipsla_track_list
+        description: test track list
+        type: percentage
+        threshold_up: 10
+        threshold_down: 2
+        members:
+          - destination_ip: 1.1.1.1
+            scope_type: bd
+            scope:
+              name: ansible_test_bd
+              template: ansible_test
+              schema: ansible_test
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+          - destination_ip: 2001:0000:130F:0000:0000:09C0:876A:130B
+            scope_type: l3out
+            scope:
+              name: ansible_test_l3out
+              template: ansible_test
+            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
+          - destination_ip: 1.1.1.3
+            scope_type: l3out
+            scope_uuid: "{{ nm_ansible_test_l3out.current.uuid }}"
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+        state: present
+      check_mode: true
+      register: cm_create_new_ipsla_track_list
+    
+    - name: Create a new IPSLA track list
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *create_ipsla_track_list
+      register: nm_create_new_ipsla_track_list
+    
+    - name: Create a new IPSLA track list again
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *create_ipsla_track_list
+      register: nm_create_new_ipsla_track_list_again
+
+    - name: Assert IPSLA track list was created
+      ansible.builtin.assert:
+        that:
+          - cm_create_new_ipsla_track_list is changed
+          - cm_create_new_ipsla_track_list.previous == {}
+          - cm_create_new_ipsla_track_list.current.name == "ansible_test_ipsla_track_list"
+          - cm_create_new_ipsla_track_list.current.type == "percentage"
+          - cm_create_new_ipsla_track_list.current.percentageDown == 2
+          - cm_create_new_ipsla_track_list.current.percentageUp == 10
+          - cm_create_new_ipsla_track_list.current.description == "test track list"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.destIP == "1.1.1.1"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - cm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.ipslaMonitoringPolicyName == nm_ansible_test_ipsla_mon_pol.current.name
+          # The bd module does not currently return the uuid or templateId.
+          # - cm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scope == nm_ansible_test_bd.current.uuid
+          # - cm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scopeTemplateId == nm_ansible_test_bd.current.templateId
+          - cm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scopeType == "bd"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scopeName == "ansible_test_bd"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scopeTemplateName == "ansible_test"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scopeSchemaName == "ansible_test"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scopeSchemaId == nm_ansible_test_bd.current.vrfRef.schemaId
+          - cm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.destIP == "2001:0000:130F:0000:0000:09C0:876A:130B"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - cm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.ipslaMonitoringPolicyName == nm_ansible_test_ipsla_mon_pol.current.name
+          - cm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - cm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scopeName == "ansible_test_l3out"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scopeTemplateId == create_l3out_template.current.templateId
+          - cm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scopeTemplateName == "ansible_test"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scopeType == "l3out"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.destIP == "1.1.1.3"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - cm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.ipslaMonitoringPolicyName == nm_ansible_test_ipsla_mon_pol.current.name
+          - cm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - cm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scopeName == "ansible_test_l3out"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scopeTemplateId == create_l3out_template.current.templateId
+          - cm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scopeTemplateName == "ansible_test"
+          - cm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scopeType == "l3out"
+          - nm_create_new_ipsla_track_list is changed
+          - nm_create_new_ipsla_track_list.previous == {}
+          - nm_create_new_ipsla_track_list.current.name == "ansible_test_ipsla_track_list"
+          - nm_create_new_ipsla_track_list.current.type == "percentage"
+          - nm_create_new_ipsla_track_list.current.percentageDown == 2
+          - nm_create_new_ipsla_track_list.current.percentageUp == 10
+          - nm_create_new_ipsla_track_list.current.weightDown == 0
+          - nm_create_new_ipsla_track_list.current.weightUp == 1
+          - nm_create_new_ipsla_track_list.current.description == "test track list"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.destIP == "1.1.1.1"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          # The bd module does not currently return the uuid or templateId.
+          # - nm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scope == nm_ansible_test_bd.current.uuid
+          # - nm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scopeTemplateId == nm_ansible_test_bd.current.templateId
+          - nm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scopeType == "bd"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scopeName == "ansible_test_bd"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scopeTemplateName == "ansible_test"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scopeSchemaName == "ansible_test"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[0].trackMember.scopeSchemaId == nm_ansible_test_bd.current.vrfRef.schemaId
+          - nm_create_new_ipsla_track_list.current.trackListMembers[0].weight == 10
+          - nm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.destIP == "2001:0000:130F:0000:0000:09C0:876A:130B"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - nm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.ipslaMonitoringPolicyName == nm_ansible_test_ipsla_mon_pol.current.name
+          - nm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - nm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scopeName == "ansible_test_l3out"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scopeTemplateId == create_l3out_template.current.templateId
+          - nm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scopeTemplateName == "ansible_test"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[1].trackMember.scopeType == "l3out"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[1].weight == 10
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.destIP == "1.1.1.3"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.ipslaMonitoringPolicyName == nm_ansible_test_ipsla_mon_pol.current.name
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scopeName == "ansible_test_l3out"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scopeTemplateId == create_l3out_template.current.templateId
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scopeTemplateName == "ansible_test"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].trackMember.scopeType == "l3out"
+          - nm_create_new_ipsla_track_list.current.trackListMembers[2].weight == 10
+          - nm_create_new_ipsla_track_list_again is not changed
+          - nm_create_new_ipsla_track_list_again.previous == nm_create_new_ipsla_track_list_again.current == nm_create_new_ipsla_track_list.current
+
+    # UPDATE
+    - name: Update an IPSLA track list (check_mode)
+      cisco.mso.ndo_ipsla_track_list: &update_ipsla_track_list
+        <<: *create_ipsla_track_list
+        template: "{{ omit }}"
+        template_id: "{{ create_tenant_template.current.templateId }}"
+        description: test track list updated
+        type: weight
+        threshold_up: 50
+        threshold_down: 40
+        members:
+          - destination_ip: 1.1.1.2
+            scope_type: bd
+            weight: 30
+            scope:
+              name: ansible_test_bd
+              template: ansible_test
+              schema_id: "{{ nm_ansible_test_bd.current.vrfRef.schemaId }}"
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+          - destination_ip: 2001:0000:130F:0000:0000:09C0:876A:130C
+            scope_type: l3out
+            weight: 20
+            scope:
+              name: ansible_test_l3out
+              template_id: "{{ create_l3out_template.current.templateId }}"
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+          - destination_ip: 1.1.1.3
+            scope_type: l3out
+            scope_uuid: "{{ nm_ansible_test_l3out.current.uuid }}"
+            ipsla_monitoring_policy_uuid: "{{ nm_ansible_test_ipsla_mon_pol.current.uuid }}"
+            weight: 5
+        state: present
+      check_mode: true
+      register: cm_update_ipsla_track_list
+    
+    - name: Update an IPSLA track list
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *update_ipsla_track_list
+      register: nm_update_ipsla_track_list
+    
+    - name: Update an IPSLA track list again
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *update_ipsla_track_list
+      register: nm_update_ipsla_track_list_again
+
+    - name: Assert IPSLA track list was updated
+      ansible.builtin.assert:
+        that:
+          - cm_update_ipsla_track_list is changed
+          - cm_update_ipsla_track_list.previous == nm_create_new_ipsla_track_list.current
+          - cm_update_ipsla_track_list.current.name == "ansible_test_ipsla_track_list"
+          - cm_update_ipsla_track_list.current.type == "weight"
+          - cm_update_ipsla_track_list.current.weightDown == 40
+          - cm_update_ipsla_track_list.current.weightUp == 50
+          - cm_update_ipsla_track_list.current.description == "test track list updated"
+          - cm_update_ipsla_track_list.current.trackListMembers[0].trackMember.destIP == "1.1.1.2"
+          - cm_update_ipsla_track_list.current.trackListMembers[0].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          # The bd module does not currently return the uuid or templateId.
+          # - cm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scope == nm_ansible_test_bd.current.uuid
+          # - cm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scopeTemplateId == nm_ansible_test_bd.current.templateId
+          - cm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scopeType == "bd"
+          - cm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scopeName == "ansible_test_bd"
+          - cm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scopeTemplateName == "ansible_test"
+          - cm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scopeSchemaName == "ansible_test"
+          - cm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scopeSchemaId == nm_ansible_test_bd.current.vrfRef.schemaId
+          - cm_update_ipsla_track_list.current.trackListMembers[0].weight == 30
+          - cm_update_ipsla_track_list.current.trackListMembers[1].trackMember.destIP == "2001:0000:130F:0000:0000:09C0:876A:130C"
+          - cm_update_ipsla_track_list.current.trackListMembers[1].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - cm_update_ipsla_track_list.current.trackListMembers[1].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - cm_update_ipsla_track_list.current.trackListMembers[1].trackMember.scopeType == "l3out"
+          - cm_update_ipsla_track_list.current.trackListMembers[1].weight == 20
+          - cm_update_ipsla_track_list.current.trackListMembers[2].trackMember.destIP == "1.1.1.3"
+          - cm_update_ipsla_track_list.current.trackListMembers[2].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - cm_update_ipsla_track_list.current.trackListMembers[2].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - cm_update_ipsla_track_list.current.trackListMembers[2].trackMember.scopeType == "l3out"
+          - cm_update_ipsla_track_list.current.trackListMembers[2].weight == 5
+          - nm_update_ipsla_track_list is changed
+          - nm_update_ipsla_track_list.previous == nm_create_new_ipsla_track_list.current
+          - nm_update_ipsla_track_list.current.name == "ansible_test_ipsla_track_list"
+          - nm_update_ipsla_track_list.current.type == "weight"
+          - nm_update_ipsla_track_list.current.percentageDown == 2
+          - nm_update_ipsla_track_list.current.percentageUp == 10
+          - nm_update_ipsla_track_list.current.weightDown == 40
+          - nm_update_ipsla_track_list.current.weightUp == 50
+          - nm_update_ipsla_track_list.current.description == "test track list updated"
+          - nm_update_ipsla_track_list.current.trackListMembers[0].trackMember.destIP == "1.1.1.2"
+          - nm_update_ipsla_track_list.current.trackListMembers[0].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - nm_update_ipsla_track_list.current.trackListMembers[0].trackMember.ipslaMonitoringPolicyName == nm_ansible_test_ipsla_mon_pol.current.name
+          # The bd module does not currently return the uuid or templateId.
+          # - nm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scope == nm_ansible_test_bd.current.uuid
+          # - nm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scopeTemplateId == nm_ansible_test_bd.current.templateId
+          - nm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scopeType == "bd"
+          - nm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scopeName == "ansible_test_bd"
+          - nm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scopeTemplateName == "ansible_test"
+          - nm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scopeSchemaName == "ansible_test"
+          - nm_update_ipsla_track_list.current.trackListMembers[0].trackMember.scopeSchemaId == nm_ansible_test_bd.current.vrfRef.schemaId
+          - nm_update_ipsla_track_list.current.trackListMembers[0].weight == 30
+          - nm_update_ipsla_track_list.current.trackListMembers[1].trackMember.destIP == "2001:0000:130F:0000:0000:09C0:876A:130C"
+          - nm_update_ipsla_track_list.current.trackListMembers[1].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - nm_update_ipsla_track_list.current.trackListMembers[1].trackMember.ipslaMonitoringPolicyName == nm_ansible_test_ipsla_mon_pol.current.name
+          - nm_update_ipsla_track_list.current.trackListMembers[1].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - nm_update_ipsla_track_list.current.trackListMembers[1].trackMember.scopeName == "ansible_test_l3out"
+          - nm_update_ipsla_track_list.current.trackListMembers[1].trackMember.scopeTemplateId == create_l3out_template.current.templateId
+          - nm_update_ipsla_track_list.current.trackListMembers[1].trackMember.scopeTemplateName == "ansible_test"
+          - nm_update_ipsla_track_list.current.trackListMembers[1].trackMember.scopeType == "l3out"
+          - nm_update_ipsla_track_list.current.trackListMembers[1].weight == 20
+          - nm_update_ipsla_track_list.current.trackListMembers[2].trackMember.destIP == "1.1.1.3"
+          - nm_update_ipsla_track_list.current.trackListMembers[2].trackMember.ipslaMonitoringRef == nm_ansible_test_ipsla_mon_pol.current.uuid
+          - nm_update_ipsla_track_list.current.trackListMembers[2].trackMember.ipslaMonitoringPolicyName == nm_ansible_test_ipsla_mon_pol.current.name
+          - nm_update_ipsla_track_list.current.trackListMembers[2].trackMember.scope == nm_ansible_test_l3out.current.uuid
+          - nm_update_ipsla_track_list.current.trackListMembers[2].trackMember.scopeName == "ansible_test_l3out"
+          - nm_update_ipsla_track_list.current.trackListMembers[2].trackMember.scopeTemplateId == create_l3out_template.current.templateId
+          - nm_update_ipsla_track_list.current.trackListMembers[2].trackMember.scopeTemplateName == "ansible_test"
+          - nm_update_ipsla_track_list.current.trackListMembers[2].trackMember.scopeType == "l3out"
+          - nm_update_ipsla_track_list.current.trackListMembers[2].weight == 5
+          - nm_update_ipsla_track_list_again is not changed
+          - nm_update_ipsla_track_list_again.previous == nm_update_ipsla_track_list_again.current == nm_update_ipsla_track_list.current
+
+    - name: Update an IPSLA Track List name
+      cisco.mso.ndo_ipsla_track_list: &update_ipsla_track_list_name
+        <<: *update_ipsla_track_list
+        ipsla_track_list_uuid: '{{ nm_update_ipsla_track_list.current.uuid }}'
+        ipsla_track_list: ansible_test_ipsla_track_list_changed
+      register: nm_update_ipsla_track_list_name
+    
+    - name: Assert IPSLA Track List name was updated
+      ansible.builtin.assert:
+        that:
+          - nm_update_ipsla_track_list_name is changed
+          - nm_update_ipsla_track_list_name.previous.name == "ansible_test_ipsla_track_list"
+          - nm_update_ipsla_track_list_name.current.name == "ansible_test_ipsla_track_list_changed"
+
+    - name: Remove all members from an IPSLA Track List
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *update_ipsla_track_list_name
+        members: []
+      register: nm_remove_ipsla_track_list_members
+    
+    - name: Assert IPSLA Track List members were removed
+      ansible.builtin.assert:
+        that:
+          - nm_remove_ipsla_track_list_members is changed
+          - nm_remove_ipsla_track_list_members.previous.trackListMembers == nm_update_ipsla_track_list.current.trackListMembers
+          - nm_remove_ipsla_track_list_members.current.trackListMembers is undefined
+
+    # QUERY
+    - name: Create another IPSLA track list
+      cisco.mso.ndo_ipsla_track_list: &create_ipsla_track_list_2
+        <<: *create_ipsla_track_list
+        ipsla_track_list: ansible_test_ipsla_track_list_2
+
+    - name: Query an IPSLA track list with name
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *create_ipsla_track_list_2
+        state: query
+      register: query_one
+
+    - name: Query all IPSLA track lists in the template
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *mso_info
+        template: ansible_tenant_template
+        state: query
+      register: query_all
+
+    - name: Query an IPSLA track list with UUID
+      cisco.mso.ndo_ipsla_track_list: &query_ipsla_track_list_uuid
+        <<: *mso_info
+        template: ansible_tenant_template
+        ipsla_track_list_uuid: "{{ query_one.current.uuid }}"
+        state: query
+      register: query_one_uuid
+    
+    - name: Assert IPSLA track list was queried
+      ansible.builtin.assert:
+        that:
+          - query_one is not changed
+          - query_one.current.name == "ansible_test_ipsla_track_list_2"
+          - query_one_uuid is not changed
+          - query_one_uuid.current.name == "ansible_test_ipsla_track_list_2"
+          - query_all is not changed
+          - query_all.current | length == 2
+          - query_all.current[0].name == "ansible_test_ipsla_track_list_changed"
+          - query_all.current[1].name == "ansible_test_ipsla_track_list_2"
+
+    # ERRORS
+
+    - name: Create IPSLA track list with out of range threshold down with type of percentage
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *create_ipsla_track_list
+        ipsla_track_list: ansible_test_ipsla_track_list_3
+        threshold_down: -1
+      register: err_threshold_down_out_of_range_percent
+      ignore_errors: true
+
+    - name: Create IPSLA track list with out of range threshold up with type of percentage
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *create_ipsla_track_list
+        ipsla_track_list: ansible_test_ipsla_track_list_3
+        threshold_up: 101
+      register: err_threshold_up_out_of_range_percent
+      ignore_errors: true
+
+    - name: Create IPSLA track list with out of range threshold down with type of weight
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *create_ipsla_track_list
+        ipsla_track_list: ansible_test_ipsla_track_list_3
+        threshold_down: -1
+        type: weight
+      register: err_threshold_down_out_of_range_weight
+      ignore_errors: true
+
+    - name: Create IPSLA track list with out of range threshold up with type of weight
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *create_ipsla_track_list
+        ipsla_track_list: ansible_test_ipsla_track_list_3
+        threshold_up: 256
+        type: weight
+      register: err_threshold_up_out_of_range_weight
+      ignore_errors: true
+
+    - name: Create IPSLA track list with threshold up less than threshold down
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *create_ipsla_track_list
+        ipsla_track_list: ansible_test_ipsla_track_list_3
+        threshold_up: 5
+        threshold_down: 10
+      register: err_threshold_up_less_than_down
+      ignore_errors: true
+
+    - name: Assert validation errors
+      ansible.builtin.assert:
+        that:
+          - err_threshold_down_out_of_range_percent is failed
+          - err_threshold_down_out_of_range_percent.msg == "Invalid value provided for threshold_down{{":"}} -1; it must be in the range 0 - 100"
+          - err_threshold_up_out_of_range_percent is failed
+          - err_threshold_up_out_of_range_percent.msg == "Invalid value provided for threshold_up{{":"}} 101; it must be in the range 0 - 100"
+          - err_threshold_down_out_of_range_weight is failed
+          - err_threshold_down_out_of_range_weight.msg == "Invalid value provided for threshold_down{{":"}} -1; it must be in the range 0 - 255"
+          - err_threshold_up_out_of_range_weight is failed
+          - err_threshold_up_out_of_range_weight.msg == "Invalid value provided for threshold_up{{":"}} 256; it must be in the range 0 - 255"
+          - err_threshold_up_less_than_down is failed
+          - err_threshold_up_less_than_down.msg == "MSO Error 400{{":"}} Invalid configuration for IPSLA Track List ansible_test_ipsla_track_list_3{{":"}} Threshold Percentage Up should be more than Threshold Percentage Down"
+
+    - name: Create an IPSLA track list with a member referencing an invalid bd
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *update_ipsla_track_list
+        members:
+          - destination_ip: 1.1.1.2
+            scope:
+              name: ansible_test_bd_non_existing
+              schema: ansible_test
+              template: ansible_test
+            scope_type: bd
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+      register: err_invalid_bd
+      ignore_errors: true
+
+    - name: Create an IPSLA track list with a member referencing a bd with no schema
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *update_ipsla_track_list
+        members:
+          - destination_ip: 1.1.1.2
+            scope:
+              name: ansible_test_bd_no_schema
+              template: ansible_test
+            scope_type: bd
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+      register: err_bd_no_schema
+      ignore_errors: true
+
+    - name: Create an IPSLA track list with a member referencing a bd with name and uuid
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *update_ipsla_track_list
+        members:
+          - destination_ip: 1.1.1.2
+            scope_uuid: ansible_test_bd_uuid
+            scope:
+              name: ansible_test_bd
+              template: ansible_test
+            scope_type: bd
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+      register: err_bd_name_and_uuid
+      ignore_errors: true
+
+    - name: Create an IPSLA track list with a member referencing an invalid l3out
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *update_ipsla_track_list
+        members:
+          - destination_ip: 2001:0000:130F:0000:0000:09C0:876A:130C
+            scope: 
+              name: ansible_test_l3out_non_existing
+              template: ansible_test
+            scope_type: l3out
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+      register: err_invalid_l3out
+      ignore_errors: true
+
+    - name: Create an IPSLA track list with a member referencing an invalid IPSLA monitoring policy
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *update_ipsla_track_list
+        members:
+          - destination_ip: 2001:0000:130F:0000:0000:09C0:876A:130C
+            scope_uuid: "{{ nm_ansible_test_l3out.current.uuid }}"
+            scope_type: l3out
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy_invalid
+      register: err_invalid_ipsla_monitoring_policy
+      ignore_errors: true
+
+    - name: Assert invalid referencing errors
+      ansible.builtin.assert:
+        that:
+          - err_invalid_bd is failed
+          - err_invalid_bd.msg == "Provided BD 'ansible_test_bd_non_existing' not matching existing bd(s){{":"}} ansible_test_bd"
+          - err_bd_no_schema is failed
+          - err_bd_no_schema.msg == "A member scope_type is bd and scope is used but the schema or schema_id option is missing."
+          - err_bd_name_and_uuid is failed
+          - err_bd_name_and_uuid.msg == "parameters are mutually exclusive{{":"}} scope|scope_uuid found in members"
+          - err_invalid_l3out is failed
+          - err_invalid_l3out.msg == "Provided L3Out with '[KVPair(key='name', value='ansible_test_l3out_non_existing')]' not matching existing object(s){{":"}} ansible_test_l3out"
+          - err_invalid_ipsla_monitoring_policy is failed
+          - err_invalid_ipsla_monitoring_policy.msg == "Provided IPSLA Monitoring Policy with '[KVPair(key='name', value='ansible_test_ipsla_monitoring_policy_invalid')]' not matching existing object(s){{":"}} ansible_test_ipsla_monitoring_policy"
+
+    # DELETE
+    - name: Delete an IPSLA track list (check_mode)
+      cisco.mso.ndo_ipsla_track_list: &delete_ipsla_track_list
+        <<: *update_ipsla_track_list_name
+        state: absent
+      check_mode: true
+      register: cm_delete_ipsla_track_list
+    
+    - name: Delete an IPSLA track list
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *delete_ipsla_track_list
+      register: nm_delete_ipsla_track_list
+    
+    - name: Delete an IPSLA track list again
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *delete_ipsla_track_list
+      register: nm_delete_ipsla_track_list_again
+
+    - name: Assert IPSLA track list was deleted
+      assert:
+        that:
+          - cm_delete_ipsla_track_list is changed
+          - cm_delete_ipsla_track_list.previous.name == 'ansible_test_ipsla_track_list_changed'
+          - cm_delete_ipsla_track_list.previous.type == 'weight'
+          - cm_delete_ipsla_track_list.current == {}
+          - nm_delete_ipsla_track_list is changed
+          - nm_delete_ipsla_track_list.previous.name == 'ansible_test_ipsla_track_list_changed'
+          - nm_delete_ipsla_track_list.previous.type == 'weight'
+          - nm_delete_ipsla_track_list.current == {}
+          - nm_delete_ipsla_track_list_again is not changed
+          - nm_delete_ipsla_track_list_again.previous == {}
+          - nm_delete_ipsla_track_list_again.current == {}
+
+    - name: Delete an IPSLA track list with UUID
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *query_ipsla_track_list_uuid
+        state: absent
+      register: nm_delete_ipsla_track_list_uuid
+
+    - name: Assert IPSLA track list was deleted with UUID
+      assert:
+        that:
+          - nm_delete_ipsla_track_list_uuid is changed
+          - nm_delete_ipsla_track_list_uuid.previous.name == 'ansible_test_ipsla_track_list_2'
+          - nm_delete_ipsla_track_list_uuid.previous.description == "test track list"
+          - nm_delete_ipsla_track_list_uuid.current == {}
+
+    # Errors and no lists found
+    - name: Query all IPSLA track lists in the template when all are deleted
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *mso_info
+        template: ansible_tenant_template
+        state: query
+      register: query_all_none
+
+    - name: Update with non-existing UUID
+      cisco.mso.ndo_ipsla_track_list:
+        <<: *mso_info
+        template: ansible_tenant_template
+        uuid: non-existing-uuid
+        type: percentage
+        state: present
+      ignore_errors: true
+      register: update_non_existing_uuid
+
+    - name: Assert no IPSLA Track List found
+      assert:
+        that:
+          - query_all_none is not changed
+          - query_all_none.current == []
+          - update_non_existing_uuid is failed
+          - update_non_existing_uuid.msg == "IPSLA Track List with the UUID{{":"}} 'non-existing-uuid' not found"
+    
+    # CLEANUP TEMPLATE
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+
+    - name: Ensure l3out templates do not exist
+      cisco.mso.ndo_template:
+        <<: *l3out_template_absent
+    
+    - name: Ensure schemas do not exist
+      cisco.mso.mso_schema:
+        <<: *remove_schemas

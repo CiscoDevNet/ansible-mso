@@ -55,7 +55,7 @@ options:
   nodes:
     description:
     - The list of node IDs to associate with the Node Profile.
-    - Each element can either be a single node ID or a range of IDs in quotation marks ('').
+    - Each element can either be a single node ID or a range of IDs.
     - This parameter is required when O(state=present).
     type: list
     elements: str
@@ -111,7 +111,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template: fabric_resource_template
     name: node_profile_1
-    nodes: [101, 102, '103-105']
+    nodes: [101, 102, 103-105]
     node_setting:
       name: node_setting_1
       template: fabric_template
@@ -125,7 +125,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template_id: "{{ create_fabric_resource.current.templateId }}"
     name: node_profile_1_updated
-    nodes: [101, 102, '103-105']
+    nodes: [101, 102, 103-105]
     node_setting_uuid: "{{ create_node_setting_2.current.uuid }}"
     state: present
   register: update_node_profile_1
@@ -247,8 +247,6 @@ def main():
     uuid = module.params.get("uuid")
     description = module.params.get("description")
     nodes = module.params.get("nodes")
-    if nodes:
-        nodes = [str(node) for node in nodes]
     node_setting_uuid = module.params.get("node_setting_uuid")
     node_setting = module.params.get("node_setting")
     state = module.params.get("state")

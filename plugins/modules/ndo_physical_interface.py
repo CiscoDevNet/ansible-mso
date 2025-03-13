@@ -46,7 +46,7 @@ options:
   nodes:
     description:
     - The node IDs where the Physical Interface policy will be deployed.
-    - Each element can either be a single node ID or a range of IDs in quotation marks ('').
+    - Each element can either be a single node ID or a range of IDs.
     type: list
     elements: str
   interfaces:
@@ -136,7 +136,7 @@ EXAMPLES = r"""
     template: ansible_test_template
     name: ansible_test_physical_interface_physical
     description: "Physical Interface for Ansible Test"
-    nodes: [101, 102, '103-105']
+    nodes: [101, 102, 103-105]
     interfaces: "1/1"
     physical_interface_type: physical
     physical_policy: ansible_test_interface_setting_policy_uuid
@@ -151,7 +151,7 @@ EXAMPLES = r"""
     template: ansible_test_template
     name: ansible_test_physical_interface_breakout
     description: "breakout interface for Ansible Test"
-    nodes: [101, 102, '103-105']
+    nodes: [101, 102, 103-105]
     interfaces: "1/1"
     physical_interface_type: breakout
     breakout_mode: 4x25G
@@ -274,8 +274,6 @@ def main():
     uuid = module.params.get("uuid")
     description = module.params.get("description")
     nodes = module.params.get("nodes")
-    if nodes:
-        nodes = [str(node) for node in nodes]
     interfaces = module.params.get("interfaces")
     if interfaces:
         interfaces = ",".join(interfaces)

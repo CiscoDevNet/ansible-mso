@@ -41,6 +41,7 @@ options:
   uuid:
     description:
     - The UUID of the FEX Device.
+    - This parameter is required when the O(name) needs to be updated.
     type: str
     aliases: [ fex_device_uuid ]
   description:

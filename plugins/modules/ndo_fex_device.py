@@ -42,6 +42,7 @@ options:
     description:
     - The UUID of the FEX Device.
     - This parameter is required when the O(name) needs to be updated.
+    - This parameter can be used instead of O(name) when an existing FEX device is updated or queried.
     type: str
     aliases: [ fex_device_uuid ]
   description:

@@ -280,6 +280,24 @@ def ndo_bfd_multi_hop_settings_spec():
     )
 
 
+def ndo_template_object_spec():
+    return dict(
+        type="dict",
+        options=dict(
+            name=dict(type="str"),
+            template=dict(type="str"),
+            template_id=dict(type="str"),
+        ),
+        required_by={
+            "template": "name",
+            "template_id": "name",
+        },
+        mutually_exclusive=[
+            ["template", "template_id"],
+        ],
+    )
+
+
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp, tmpsrc=None):
     # create a tempfile with some test content
@@ -1333,16 +1351,23 @@ class MSOModule(object):
                     del self.sent[key]
                     continue
 
+                # Remove nested unspecified values
+                if not collate and updates.get(key) is not None:
+                    cleaned_value = self.remove_none_values(updates.get(key))
+                    self.sent[key] = (
+                        cleaned_value
+                        if cleaned_value
+                        else (
+                            {}
+                            if isinstance(updates.get(key), dict)
+                            else ([] if isinstance(updates.get(key), list) else (cleaned_value if cleaned_value is not None else None))
+                        )
+                    )
+                    continue
+
                 # Add everything else
                 if updates.get(key) is not None:
                     self.sent[key] = updates.get(key)
-
-                # Remove nested unspecified values
-                if not collate and updates.get(key) is not None:
-                    cleaned_value = self.remove_none_values(self.sent[key])
-                    self.sent[key] = (
-                        cleaned_value if cleaned_value else ({} if isinstance(self.sent[key], dict) else ([] if isinstance(self.sent[key], list) else None))
-                    )
 
             # Update self.proposed
             self.proposed.update(self.sent)

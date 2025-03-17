@@ -198,33 +198,41 @@
       ansible.builtin.assert:
         that:
           - cm_bgp_peer_ipv4_present is changed
+          - cm_bgp_peer_ipv4_present.current.authEnabled == true
+          - cm_bgp_peer_ipv4_present.current.password.value == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
           - cm_bgp_peer_ipv4_present.current.peerAddressV4 == "1.1.1.1"
+          - cm_bgp_peer_ipv4_present.current.templateId != ""
+          - cm_bgp_peer_ipv4_present.current.templateName == "ansible_test"
           - cm_bgp_peer_ipv4_present.previous == {}
+          - cm_bgp_peer_ipv4_present.proposed.authEnabled == true
+          - cm_bgp_peer_ipv4_present.proposed.password.value == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
           - cm_bgp_peer_ipv4_present.proposed.peerAddressV4 == "1.1.1.1"
+          - cm_bgp_peer_ipv4_present.proposed.templateId != ""
+          - cm_bgp_peer_ipv4_present.proposed.templateName == "ansible_test"
           - nm_bgp_peer_ipv4_present is changed
           - nm_bgp_peer_ipv4_present.current.adminState == "enabled"
           - nm_bgp_peer_ipv4_present.current.allowedSelfASCount == 3
           - nm_bgp_peer_ipv4_present.current.authEnabled == true
           - nm_bgp_peer_ipv4_present.current.ebpgMultiHopTTL == 1
           - nm_bgp_peer_ipv4_present.current.peerAddressV4 == "1.1.1.1"
+          - nm_bgp_peer_ipv4_present.current.templateId != ""
+          - nm_bgp_peer_ipv4_present.current.templateName == "ansible_test"
           - nm_bgp_peer_ipv4_present.previous == {}
-          - nm_bgp_peer_ipv4_present.proposed.peerAddressV4 == "1.1.1.1"
           - nm_bgp_peer_ipv4_present_again is not changed
           - nm_bgp_peer_ipv4_present_again.current.adminState == "enabled"
           - nm_bgp_peer_ipv4_present_again.current.allowedSelfASCount == 3
           - nm_bgp_peer_ipv4_present_again.current.authEnabled == true
           - nm_bgp_peer_ipv4_present_again.current.ebpgMultiHopTTL == 1
           - nm_bgp_peer_ipv4_present_again.current.peerAddressV4 == "1.1.1.1"
+          - nm_bgp_peer_ipv4_present_again.current.templateId != ""
+          - nm_bgp_peer_ipv4_present_again.current.templateName == "ansible_test"
           - nm_bgp_peer_ipv4_present_again.previous.adminState == "enabled"
           - nm_bgp_peer_ipv4_present_again.previous.allowedSelfASCount == 3
           - nm_bgp_peer_ipv4_present_again.previous.authEnabled == true
           - nm_bgp_peer_ipv4_present_again.previous.ebpgMultiHopTTL == 1
           - nm_bgp_peer_ipv4_present_again.previous.peerAddressV4 == "1.1.1.1"
-          - nm_bgp_peer_ipv4_present_again.proposed.adminState == "enabled"
-          - nm_bgp_peer_ipv4_present_again.proposed.allowedSelfASCount == 3
-          - nm_bgp_peer_ipv4_present_again.proposed.authEnabled == true
-          - nm_bgp_peer_ipv4_present_again.proposed.ebpgMultiHopTTL == 1
-          - nm_bgp_peer_ipv4_present_again.proposed.peerAddressV4 == "1.1.1.1"
+          - nm_bgp_peer_ipv4_present_again.previous.templateId != ""
+          - nm_bgp_peer_ipv4_present_again.previous.templateName == "ansible_test"
 
     # CREATE WITH DIFFERENT COMBINATIONS
     - name: Create L3Out BGP Peer full config using only ipv6
@@ -236,9 +244,15 @@
         ipv6_address: "1::8/16"
         remote_asn: 2
         admin_state: enabled
-        import_route_map: ans_route_map
-        export_route_map: ans_route_map_2
-        peer_prefix: ansible_test_bgp_peer_prefix_policy
+        import_route_map:
+          name: ans_route_map
+          template: ansible_test_policy
+        export_route_map:
+          name: ans_route_map_2
+          template: ansible_test_policy
+        peer_prefix:
+          name: ansible_test_bgp_peer_prefix_policy
+          template_id: "{{ ansible_test_policy.current.templateId }}"
         ebgp_multi_hop_ttl: 1
         auth_password: 123
         weight: 2
@@ -308,6 +322,20 @@
         state: query
       register: query_ipv4_addr
 
+    - name: Create L3Out BGP Peer using route map and peer prefix object UUIDs (check_mode)
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: "l3out_1"
+        node_group: "node_group_policy_1"
+        ipv6_address: "1::20/16"
+        import_route_map_uuid: "{{ tenant_pol_template.current.tenantPolicyTemplate.template.routeMapPolicies.0.uuid }}"
+        export_route_map_uuid: "{{ tenant_pol_template.current.tenantPolicyTemplate.template.routeMapPolicies.1.uuid }}"
+        peer_prefix_uuid: "{{ tenant_pol_template.current.tenantPolicyTemplate.template.bgpPeerPrefixPolicies.0.uuid }}"
+        state: present
+      check_mode: true
+      register: cm_add_ipv6_bgp_peer_with_obj_uuid
+
     - name: Create L3Out BGP Peer using route map and peer prefix object UUIDs
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
@@ -357,22 +385,30 @@
           - add_ipv6_bgp_peer.current.bgpControls.sendDomainPath == true
           - add_ipv6_bgp_peer.current.bgpControls.sendExtendedCommunity == true
           - add_ipv6_bgp_peer.current.ebpgMultiHopTTL == 1
-          - add_ipv6_bgp_peer.current.exportRouteMapRef != ""
           - add_ipv6_bgp_peer.current.exportRouteMapName == "ans_route_map_2"
-          - add_ipv6_bgp_peer.current.importRouteMapRef != ""
+          - add_ipv6_bgp_peer.current.exportRouteMapRef != ""
+          - add_ipv6_bgp_peer.current.exportRouteMapTemplateId != ""
+          - add_ipv6_bgp_peer.current.exportRouteMapTemplateName == "ansible_test_policy"
           - add_ipv6_bgp_peer.current.importRouteMapName == "ans_route_map"
+          - add_ipv6_bgp_peer.current.importRouteMapRef != ""
+          - add_ipv6_bgp_peer.current.importRouteMapTemplateId != ""
+          - add_ipv6_bgp_peer.current.importRouteMapTemplateName == "ansible_test_policy"
           - add_ipv6_bgp_peer.current.localAsn == 1
           - add_ipv6_bgp_peer.current.localAsnConfig == "replace-as"
           - add_ipv6_bgp_peer.current.peerAddressV6 == "1::8/16"
           - add_ipv6_bgp_peer.current.peerAsn == 2
           - add_ipv6_bgp_peer.current.peerControls.bfd == true
           - add_ipv6_bgp_peer.current.peerControls.disableConnectedCheck == true
-          - add_ipv6_bgp_peer.current.peerPrefixRef != ""
           - add_ipv6_bgp_peer.current.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
+          - add_ipv6_bgp_peer.current.peerPrefixRef != ""
+          - add_ipv6_bgp_peer.current.peerPrefixTemplateId != ""
+          - add_ipv6_bgp_peer.current.peerPrefixTemplateName == "ansible_test_policy"
           - add_ipv6_bgp_peer.current.privateASControls.removeAll == true
           - add_ipv6_bgp_peer.current.privateASControls.removeExclusive == true
           - add_ipv6_bgp_peer.current.privateASControls.replaceWithLocalAS == true
           - add_ipv6_bgp_peer.current.siteOfOrigin == "extended:as2-nn2:1000:65534"
+          - add_ipv6_bgp_peer.current.templateId != ""
+          - add_ipv6_bgp_peer.current.templateName == "ansible_test"
           - add_ipv6_bgp_peer.current.weight == 2
           - add_ipv6_bgp_peer.previous == {}
           - add_ipv4_ipv6_addr is changed
@@ -382,7 +418,27 @@
           - add_ipv4_ipv6_addr.current.ebpgMultiHopTTL == 1
           - add_ipv4_ipv6_addr.current.peerAddressV4 == "5.5.5.5"
           - add_ipv4_ipv6_addr.current.peerAddressV6 == "1::19/16"
+          - add_ipv4_ipv6_addr.current.templateId != ""
+          - add_ipv4_ipv6_addr.current.templateName == "ansible_test"
           - add_ipv4_ipv6_addr.previous == {}
+          - cm_add_ipv6_bgp_peer_with_obj_uuid is changed
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.authEnabled == false
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapName == "ans_route_map_2"
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapRef != ""
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateId != ""
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateName == "ansible_test_policy"
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapName == "ans_route_map"
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapRef != ""
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateId != ""
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateName == "ansible_test_policy"
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.peerAddressV6 == "1::20/16"
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixRef != ""
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateId != ""
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateName == "ansible_test_policy"
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.templateId != ""
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.templateName == "ansible_test"
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.previous == {}
           - add_ipv6_bgp_peer_with_obj_uuid is changed
           - add_ipv6_bgp_peer_with_obj_uuid.current.adminState == "enabled"
           - add_ipv6_bgp_peer_with_obj_uuid.current.allowedSelfASCount == 3
@@ -390,22 +446,46 @@
           - add_ipv6_bgp_peer_with_obj_uuid.current.ebpgMultiHopTTL == 1
           - add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapName == "ans_route_map_2"
           - add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapRef != ""
+          - add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateId != ""
+          - add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateName == "ansible_test_policy"
           - add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapName == "ans_route_map"
           - add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapRef != ""
+          - add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateId != ""
+          - add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateName == "ansible_test_policy"
           - add_ipv6_bgp_peer_with_obj_uuid.current.peerAddressV6 == "1::20/16"
           - add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
           - add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixRef != ""
+          - add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateId != ""
+          - add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateName == "ansible_test_policy"
+          - add_ipv6_bgp_peer_with_obj_uuid.current.templateId != ""
+          - add_ipv6_bgp_peer_with_obj_uuid.current.templateName == "ansible_test"
           - add_ipv6_bgp_peer_with_obj_uuid.previous == {}
           - add_bgp_peer_with_default_ctrl is changed
+          - add_bgp_peer_with_default_ctrl.current.addressTypeControls.afMast == false
+          - add_bgp_peer_with_default_ctrl.current.addressTypeControls.afUcast == false
           - add_bgp_peer_with_default_ctrl.current.adminState == "enabled"
           - add_bgp_peer_with_default_ctrl.current.allowedSelfASCount == 3
           - add_bgp_peer_with_default_ctrl.current.authEnabled == false
+          - add_bgp_peer_with_default_ctrl.current.bgpControls.allowSelfAS == false
+          - add_bgp_peer_with_default_ctrl.current.bgpControls.asOverride == false
+          - add_bgp_peer_with_default_ctrl.current.bgpControls.disablePeerASCheck == false
+          - add_bgp_peer_with_default_ctrl.current.bgpControls.nextHopSelf == false
+          - add_bgp_peer_with_default_ctrl.current.bgpControls.sendCommunity == false
+          - add_bgp_peer_with_default_ctrl.current.bgpControls.sendDomainPath == false
+          - add_bgp_peer_with_default_ctrl.current.bgpControls.sendExtendedCommunity == false
           - add_bgp_peer_with_default_ctrl.current.ebpgMultiHopTTL == 1
           - add_bgp_peer_with_default_ctrl.current.peerAddressV4 == "3.3.3.3"
           - add_bgp_peer_with_default_ctrl.current.peerAddressV6 == "1::9/16"
+          - add_bgp_peer_with_default_ctrl.current.peerControls.bfd == false
+          - add_bgp_peer_with_default_ctrl.current.peerControls.disableConnectedCheck == false
+          - add_bgp_peer_with_default_ctrl.current.privateASControls.removeAll == false
+          - add_bgp_peer_with_default_ctrl.current.privateASControls.removeExclusive == false
+          - add_bgp_peer_with_default_ctrl.current.privateASControls.replaceWithLocalAS == false
+          - add_bgp_peer_with_default_ctrl.current.templateId != ""
+          - add_bgp_peer_with_default_ctrl.current.templateName == "ansible_test"
           - add_bgp_peer_with_default_ctrl.previous == {}
 
-    # UPDATE
+    # # UPDATE
     - name: Clear route map and peer prefix config from the L3Out BGP Peer using UUID with empty string (check_mode)
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
@@ -455,56 +535,95 @@
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.authEnabled == false
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.ebpgMultiHopTTL == 1
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapName == "ans_route_map_2"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapRef == ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateId != ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateName == "ansible_test_policy"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapName == "ans_route_map"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapRef == ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateId != ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateName == "ansible_test_policy"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerAddressV6 == "1::20/16"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixRef == ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateId != ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateName == "ansible_test_policy"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.templateId != ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.templateName == "ansible_test"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.adminState == "enabled"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.allowedSelfASCount == 3
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.authEnabled == false
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.ebpgMultiHopTTL == 1
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapName == "ans_route_map_2"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapRef != ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapTemplateId != ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapTemplateName == "ansible_test_policy"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapName == "ans_route_map"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapRef != ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapTemplateId != ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapTemplateName == "ansible_test_policy"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerAddressV6 == "1::20/16"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixRef != ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateId != ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateName == "ansible_test_policy"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateId != ""
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateName == "ansible_test"
           - nm_update_ipv6_bgp_peer_with_obj_uuid is changed
           - nm_update_ipv6_bgp_peer_with_obj_uuid.current.adminState == "enabled"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.current.allowedSelfASCount == 3
           - nm_update_ipv6_bgp_peer_with_obj_uuid.current.authEnabled == false
           - nm_update_ipv6_bgp_peer_with_obj_uuid.current.ebpgMultiHopTTL == 1
           - nm_update_ipv6_bgp_peer_with_obj_uuid.current.peerAddressV6 == "1::20/16"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.current.templateId != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.current.templateName == "ansible_test"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.adminState == "enabled"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.allowedSelfASCount == 3
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.authEnabled == false
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.ebpgMultiHopTTL == 1
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapName == "ans_route_map_2"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapRef != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapTemplateId != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapTemplateName == "ansible_test_policy"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapName == "ans_route_map"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapRef != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapTemplateId != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapTemplateName == "ansible_test_policy"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerAddressV6 == "1::20/16"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixRef != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateId != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateName == "ansible_test_policy"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateId != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateName == "ansible_test"
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again is not changed
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.adminState == "enabled"
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.allowedSelfASCount == 3
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.authEnabled == false
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.ebpgMultiHopTTL == 1
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.peerAddressV6 == "1::20/16"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.templateId != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.templateName == "ansible_test"
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.adminState == "enabled"
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.allowedSelfASCount == 3
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.authEnabled == false
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.ebpgMultiHopTTL == 1
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.peerAddressV6 == "1::20/16"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.templateId != ""
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.templateName == "ansible_test"
 
     - name: Change additional attribute values of an existing L3Out BGP Peer object
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *add_ipv6_bgp_peer
         remote_asn: 0
-        import_route_map: ans_route_map_2
-        export_route_map: ans_route_map
-        peer_prefix: ansible_test_bgp_peer_prefix_policy_1
+        import_route_map:
+          name: ans_route_map_2
+          template_id: "{{ ansible_test_policy.current.templateId }}"
+        export_route_map:
+          name: ans_route_map
+          template_id: "{{ ansible_test_policy.current.templateId }}"
+        peer_prefix:
+          name: ansible_test_bgp_peer_prefix_policy_1
+          template: ansible_test_policy
         ebgp_multi_hop_ttl: 3
         auth_password: ""
         weight: 0
@@ -538,9 +657,9 @@
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv6_address: "1::8/16"
-        import_route_map: ""
-        export_route_map: ""
-        peer_prefix: ""
+        import_route_map: {}
+        export_route_map: {}
+        peer_prefix: {}
         auth_password: ""
         bgp_controls:
           state: disabled
@@ -560,9 +679,9 @@
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv6_address: "1::8/16"
-        import_route_map: ""
-        export_route_map: ""
-        peer_prefix: ""
+        import_route_map: {}
+        export_route_map: {}
+        peer_prefix: {}
         auth_password: ""
         bgp_controls:
           state: enabled
@@ -606,19 +725,27 @@
           - update_ipv6_bgp_peer.current.bgpControls.sendDomainPath == false
           - update_ipv6_bgp_peer.current.bgpControls.sendExtendedCommunity == true
           - update_ipv6_bgp_peer.current.ebpgMultiHopTTL == 3
-          - update_ipv6_bgp_peer.current.exportRouteMapRef != ""
           - update_ipv6_bgp_peer.current.exportRouteMapName == "ans_route_map"
-          - update_ipv6_bgp_peer.current.importRouteMapRef != ""
+          - update_ipv6_bgp_peer.current.exportRouteMapRef != ""
+          - update_ipv6_bgp_peer.current.exportRouteMapTemplateId != ""
+          - update_ipv6_bgp_peer.current.exportRouteMapTemplateName == "ansible_test_policy"
           - update_ipv6_bgp_peer.current.importRouteMapName == "ans_route_map_2"
+          - update_ipv6_bgp_peer.current.importRouteMapRef != ""
+          - update_ipv6_bgp_peer.current.importRouteMapTemplateId != ""
+          - update_ipv6_bgp_peer.current.importRouteMapTemplateName == "ansible_test_policy"
           - update_ipv6_bgp_peer.current.localAsnConfig == "none"
           - update_ipv6_bgp_peer.current.peerAddressV6 == "1::8/16"
           - update_ipv6_bgp_peer.current.peerControls.bfd == false
           - update_ipv6_bgp_peer.current.peerControls.disableConnectedCheck == true
-          - update_ipv6_bgp_peer.current.peerPrefixRef != ""
           - update_ipv6_bgp_peer.current.peerPrefixName == "ansible_test_bgp_peer_prefix_policy_1"
+          - update_ipv6_bgp_peer.current.peerPrefixRef != ""
+          - update_ipv6_bgp_peer.current.peerPrefixTemplateId != ""
+          - update_ipv6_bgp_peer.current.peerPrefixTemplateName == "ansible_test_policy"
           - update_ipv6_bgp_peer.current.privateASControls.removeAll == true
           - update_ipv6_bgp_peer.current.privateASControls.removeExclusive == true
           - update_ipv6_bgp_peer.current.privateASControls.replaceWithLocalAS == true
+          - update_ipv6_bgp_peer.current.templateId != ""
+          - update_ipv6_bgp_peer.current.templateName == "ansible_test"
           - update_ipv6_bgp_peer.previous.addressTypeControls.afMast == true
           - update_ipv6_bgp_peer.previous.addressTypeControls.afUcast == true
           - update_ipv6_bgp_peer.previous.adminState == "enabled"
@@ -632,22 +759,31 @@
           - update_ipv6_bgp_peer.previous.bgpControls.sendDomainPath == true
           - update_ipv6_bgp_peer.previous.bgpControls.sendExtendedCommunity == true
           - update_ipv6_bgp_peer.previous.ebpgMultiHopTTL == 1
-          - update_ipv6_bgp_peer.previous.exportRouteMapRef != ""
           - update_ipv6_bgp_peer.previous.exportRouteMapName == "ans_route_map_2"
-          - update_ipv6_bgp_peer.previous.importRouteMapRef != ""
+          - update_ipv6_bgp_peer.previous.exportRouteMapRef != ""
+          - update_ipv6_bgp_peer.previous.exportRouteMapTemplateId != ""
+          - update_ipv6_bgp_peer.previous.exportRouteMapTemplateName == "ansible_test_policy"
           - update_ipv6_bgp_peer.previous.importRouteMapName == "ans_route_map"
+          - update_ipv6_bgp_peer.previous.importRouteMapRef != ""
+          - update_ipv6_bgp_peer.previous.importRouteMapTemplateId != ""
+          - update_ipv6_bgp_peer.previous.importRouteMapTemplateName == "ansible_test_policy"
           - update_ipv6_bgp_peer.previous.localAsn == 1
           - update_ipv6_bgp_peer.previous.localAsnConfig == "replace-as"
+          - update_ipv6_bgp_peer.previous.password == {}
           - update_ipv6_bgp_peer.previous.peerAddressV6 == "1::8/16"
           - update_ipv6_bgp_peer.previous.peerAsn == 2
           - update_ipv6_bgp_peer.previous.peerControls.bfd == true
           - update_ipv6_bgp_peer.previous.peerControls.disableConnectedCheck == true
-          - update_ipv6_bgp_peer.previous.peerPrefixRef != ""
           - update_ipv6_bgp_peer.previous.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
+          - update_ipv6_bgp_peer.previous.peerPrefixRef != ""
+          - update_ipv6_bgp_peer.previous.peerPrefixTemplateId != ""
+          - update_ipv6_bgp_peer.previous.peerPrefixTemplateName == "ansible_test_policy"
           - update_ipv6_bgp_peer.previous.privateASControls.removeAll == true
           - update_ipv6_bgp_peer.previous.privateASControls.removeExclusive == true
           - update_ipv6_bgp_peer.previous.privateASControls.replaceWithLocalAS == true
           - update_ipv6_bgp_peer.previous.siteOfOrigin == "extended:as2-nn2:1000:65534"
+          - update_ipv6_bgp_peer.previous.templateId != ""
+          - update_ipv6_bgp_peer.previous.templateName == "ansible_test"
           - update_ipv6_bgp_peer.previous.weight == 2
           - clear_ctrl_attr is changed
           - clear_ctrl_attr.current.adminState == "enabled"
@@ -656,6 +792,8 @@
           - clear_ctrl_attr.current.ebpgMultiHopTTL == 3
           - clear_ctrl_attr.current.localAsnConfig == "none"
           - clear_ctrl_attr.current.peerAddressV6 == "1::8/16"
+          - clear_ctrl_attr.current.templateId != ""
+          - clear_ctrl_attr.current.templateName == "ansible_test"
           - clear_ctrl_attr.previous.addressTypeControls.afMast == true
           - clear_ctrl_attr.previous.addressTypeControls.afUcast == false
           - clear_ctrl_attr.previous.adminState == "enabled"
@@ -669,43 +807,77 @@
           - clear_ctrl_attr.previous.bgpControls.sendDomainPath == false
           - clear_ctrl_attr.previous.bgpControls.sendExtendedCommunity == true
           - clear_ctrl_attr.previous.ebpgMultiHopTTL == 3
-          - clear_ctrl_attr.previous.exportRouteMapRef != ""
           - clear_ctrl_attr.previous.exportRouteMapName == "ans_route_map"
-          - clear_ctrl_attr.previous.importRouteMapRef != ""
+          - clear_ctrl_attr.previous.exportRouteMapRef != ""
+          - clear_ctrl_attr.previous.exportRouteMapTemplateId != ""
+          - clear_ctrl_attr.previous.exportRouteMapTemplateName == "ansible_test_policy"
           - clear_ctrl_attr.previous.importRouteMapName == "ans_route_map_2"
+          - clear_ctrl_attr.previous.importRouteMapRef != ""
+          - clear_ctrl_attr.previous.importRouteMapTemplateId != ""
+          - clear_ctrl_attr.previous.importRouteMapTemplateName == "ansible_test_policy"
           - clear_ctrl_attr.previous.localAsnConfig == "none"
           - clear_ctrl_attr.previous.peerAddressV6 == "1::8/16"
           - clear_ctrl_attr.previous.peerControls.bfd == false
           - clear_ctrl_attr.previous.peerControls.disableConnectedCheck == true
-          - clear_ctrl_attr.previous.peerPrefixRef != ""
           - clear_ctrl_attr.previous.peerPrefixName == "ansible_test_bgp_peer_prefix_policy_1"
+          - clear_ctrl_attr.previous.peerPrefixRef != ""
+          - clear_ctrl_attr.previous.peerPrefixTemplateId != ""
+          - clear_ctrl_attr.previous.peerPrefixTemplateName == "ansible_test_policy"
           - clear_ctrl_attr.previous.privateASControls.removeAll == true
           - clear_ctrl_attr.previous.privateASControls.removeExclusive == true
           - clear_ctrl_attr.previous.privateASControls.replaceWithLocalAS == true
+          - clear_ctrl_attr.previous.templateId != ""
+          - clear_ctrl_attr.previous.templateName == "ansible_test"
           - add_ctrl_attr_again is changed
+          - add_ctrl_attr_again.current.addressTypeControls.afMast == false
+          - add_ctrl_attr_again.current.addressTypeControls.afUcast == false
           - add_ctrl_attr_again.current.adminState == "enabled"
           - add_ctrl_attr_again.current.allowedSelfASCount == 3
           - add_ctrl_attr_again.current.authEnabled == false
+          - add_ctrl_attr_again.current.bgpControls.allowSelfAS == false
+          - add_ctrl_attr_again.current.bgpControls.asOverride == false
+          - add_ctrl_attr_again.current.bgpControls.disablePeerASCheck == false
+          - add_ctrl_attr_again.current.bgpControls.nextHopSelf == false
+          - add_ctrl_attr_again.current.bgpControls.sendCommunity == false
+          - add_ctrl_attr_again.current.bgpControls.sendDomainPath == false
+          - add_ctrl_attr_again.current.bgpControls.sendExtendedCommunity == false
           - add_ctrl_attr_again.current.ebpgMultiHopTTL == 3
           - add_ctrl_attr_again.current.localAsnConfig == "none"
           - add_ctrl_attr_again.current.peerAddressV6 == "1::8/16"
+          - add_ctrl_attr_again.current.peerControls.bfd == false
+          - add_ctrl_attr_again.current.peerControls.disableConnectedCheck == false
+          - add_ctrl_attr_again.current.privateASControls.removeAll == false
+          - add_ctrl_attr_again.current.privateASControls.removeExclusive == false
+          - add_ctrl_attr_again.current.privateASControls.replaceWithLocalAS == false
+          - add_ctrl_attr_again.current.templateId != ""
+          - add_ctrl_attr_again.current.templateName == "ansible_test"
           - add_ctrl_attr_again.previous.adminState == "enabled"
           - add_ctrl_attr_again.previous.allowedSelfASCount == 3
           - add_ctrl_attr_again.previous.authEnabled == false
           - add_ctrl_attr_again.previous.ebpgMultiHopTTL == 3
           - add_ctrl_attr_again.previous.localAsnConfig == "none"
           - add_ctrl_attr_again.previous.peerAddressV6 == "1::8/16"
+          - add_ctrl_attr_again.previous.templateId != ""
+          - add_ctrl_attr_again.previous.templateName == "ansible_test"
           - enable_pvt_as_ctrl_remove_all is changed
           - enable_pvt_as_ctrl_remove_all.current.peerAddressV4 == "3.3.3.3"
           - enable_pvt_as_ctrl_remove_all.current.peerAddressV6 == "1::9/16"
+          - enable_pvt_as_ctrl_remove_all.current.peerControls.bfd == false
+          - enable_pvt_as_ctrl_remove_all.current.peerControls.disableConnectedCheck == false
           - enable_pvt_as_ctrl_remove_all.current.privateASControls.removeAll == true
           - enable_pvt_as_ctrl_remove_all.current.privateASControls.removeExclusive == true
           - enable_pvt_as_ctrl_remove_all.current.privateASControls.replaceWithLocalAS == false
+          - enable_pvt_as_ctrl_remove_all.current.templateId != ""
+          - enable_pvt_as_ctrl_remove_all.current.templateName == "ansible_test"
           - enable_pvt_as_ctrl_remove_all.previous.peerAddressV4 == "3.3.3.3"
           - enable_pvt_as_ctrl_remove_all.previous.peerAddressV6 == "1::9/16"
+          - enable_pvt_as_ctrl_remove_all.previous.peerControls.bfd == false
+          - enable_pvt_as_ctrl_remove_all.previous.peerControls.disableConnectedCheck == false
           - enable_pvt_as_ctrl_remove_all.previous.privateASControls.removeAll == false
           - enable_pvt_as_ctrl_remove_all.previous.privateASControls.removeExclusive == false
           - enable_pvt_as_ctrl_remove_all.previous.privateASControls.replaceWithLocalAS == false
+          - enable_pvt_as_ctrl_remove_all.previous.templateId != ""
+          - enable_pvt_as_ctrl_remove_all.previous.templateName == "ansible_test"
 
     # Errors and no policies found
     - name: Invalid test - create L3Out BGP Peer config without IPv4, IPv6 address
@@ -737,16 +909,23 @@
           - nt_add_bgp_peer_without_ip is not changed
           - nt_add_bgp_peer_without_ip.msg == "state is present but any of the following are missing{{':'}} ipv4_address, ipv6_address"
           - nt_change_allowed_self_as_count is not changed
+          - nt_change_allowed_self_as_count.current.addressTypeControls.afMast == false
+          - nt_change_allowed_self_as_count.current.addressTypeControls.afUcast == false
           - nt_change_allowed_self_as_count.current.adminState == "enabled"
           - nt_change_allowed_self_as_count.current.allowedSelfASCount == 3
           - nt_change_allowed_self_as_count.current.authEnabled == false
-          - nt_change_allowed_self_as_count.current.ebpgMultiHopTTL == 1
+          - nt_change_allowed_self_as_count.current.bgpControls.allowSelfAS == false
           - nt_change_allowed_self_as_count.current.peerAddressV4 == "3.3.3.3"
           - nt_change_allowed_self_as_count.current.peerAddressV6 == "1::9/16"
+          - nt_change_allowed_self_as_count.current.templateId != ""
+          - nt_change_allowed_self_as_count.current.templateName == "ansible_test"
           - nt_change_allowed_self_as_count.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 3.3.3.3-1::9/16 allowedSelfASCount value is set to 4, but AllowSelfAS is false"
+          - nt_change_allowed_self_as_count.previous.addressTypeControls.afMast == false
+          - nt_change_allowed_self_as_count.previous.addressTypeControls.afUcast == false
           - nt_change_allowed_self_as_count.previous.adminState == "enabled"
           - nt_change_allowed_self_as_count.previous.allowedSelfASCount == 3
           - nt_change_allowed_self_as_count.previous.authEnabled == false
+          - nt_change_allowed_self_as_count.previous.bgpControls.allowSelfAS == false
           - nt_change_allowed_self_as_count.previous.ebpgMultiHopTTL == 1
           - nt_change_allowed_self_as_count.previous.peerAddressV4 == "3.3.3.3"
           - nt_change_allowed_self_as_count.previous.peerAddressV6 == "1::9/16"
@@ -825,7 +1004,7 @@
         ipv4_address: "3.3.3.3"
         ipv6_address: "1::9/16"
         state: present
-      register: add_same_ipv4_addr
+      register: nt_add_same_ipv4_addr
       ignore_errors: true
 
     - name: Invalid test - change configured IPv6 address when IPv4 is already configured
@@ -859,7 +1038,9 @@
         node_group: "node_group_policy_1"
         ipv4_address: "1.1.1.1"
         auth_password: 123
-        import_route_map: "import_route_map"
+        import_route_map:
+          name: "import_route_map"
+          template: ansible_test_policy
         import_route_map_uuid: "import_route_map_uuid"
         state: present
       register: nt_create_with_import_route_map
@@ -873,7 +1054,9 @@
         node_group: "node_group_policy_1"
         ipv4_address: "1.1.1.1"
         auth_password: 123
-        export_route_map: "export_route_map"
+        export_route_map:
+          name: "export_route_map"
+          template: ansible_test_policy
         export_route_map_uuid: "export_route_map_uuid"
         state: present
       register: nt_create_with_export_route_map
@@ -887,7 +1070,9 @@
         node_group: "node_group_policy_1"
         ipv4_address: "1.1.1.1"
         auth_password: 123
-        peer_prefix: "peer_prefix"
+        peer_prefix:
+          name: "peer_prefix"
+          template: ansible_test_policy
         peer_prefix_uuid: "peer_prefix_uuid"
         state: present
       register: nt_create_with_peer_prefix
@@ -896,14 +1081,18 @@
     - name: Assertion check for invalid test - L3Out BGP Peer with different options 1
       ansible.builtin.assert:
         that:
-          - add_same_ipv4_addr is not changed
-          - add_same_ipv4_addr.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 3.3.3.3-1::9/16 is duplicated. Please delete one"
           - nt_update_ipv4_addr is not changed
           - nt_update_ipv4_addr.current == {}
           - nt_update_ipv4_addr.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 5.5.5.6-1::19/16 is duplicated. Please delete one"
           - nt_update_ipv4_addr.previous == {}
+          - nt_add_same_ipv4_addr is not changed
+          - nt_add_same_ipv4_addr.current == {}
+          - nt_add_same_ipv4_addr.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 3.3.3.3-1::9/16 is duplicated. Please delete one"
+          - nt_add_same_ipv4_addr.previous == {}
           - nt_update_ipv6_addr is not changed
+          - nt_update_ipv6_addr.current == {}
           - nt_update_ipv6_addr.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 5.5.5.5-1::20/16 is duplicated. Please delete one"
+          - nt_update_ipv6_addr.previous == {}
           - nt_create_without_template is not changed
           - nt_create_without_template.msg == "one of the following is required{{':'}} template, template_id"
           - nt_create_with_import_route_map is not changed
@@ -927,16 +1116,17 @@
       ansible.builtin.assert:
         that:
           - query_ipv6_addr is not changed
-          - query_ipv4_addr_using_l3out_uuid is not changed
-          - query_ipv4_addr is not changed
           - query_ipv4_ipv6_addr is not changed
           - query_ipv6_addr.current == query_ipv4_addr.current == query_ipv4_ipv6_addr.current
+          - query_ipv4_addr is not changed
           - query_ipv4_addr.current.adminState == "enabled"
           - query_ipv4_addr.current.allowedSelfASCount == 3
           - query_ipv4_addr.current.authEnabled == false
           - query_ipv4_addr.current.ebpgMultiHopTTL == 1
           - query_ipv4_addr.current.peerAddressV4 == "5.5.5.5"
           - query_ipv4_addr.current.peerAddressV6 == "1::19/16"
+          - query_ipv4_addr.current.templateId != ""
+          - query_ipv4_addr.current.templateName == "ansible_test"
           - query_all_l3out_bgp_peers_again is not changed
           - query_all_l3out_bgp_peers_again.current | length >= 5
           - query_all_l3out_bgp_peers_again.current.0.peerAddressV4 == "1.1.1.1"
@@ -992,23 +1182,17 @@
           - cm_rm_bgp_peer is not changed
           - cm_rm_bgp_peer.current == {}
           - cm_rm_bgp_peer.previous == {}
-          - cm_rm_bgp_peer.proposed == {}
           - nm_rm_bgp_peer is not changed
           - nm_rm_bgp_peer.current == {}
           - nm_rm_bgp_peer.previous == {}
-          - nm_rm_bgp_peer.proposed == {}
           - nm_rm_bgp_peer_again is not changed
           - nm_rm_bgp_peer_again.current == {}
           - nm_rm_bgp_peer_again.previous == {}
-          - nm_rm_bgp_peer_again.proposed == {}
           - nm_rm_ipv6_bgp_peer is changed
           - nm_rm_ipv6_bgp_peer.current == {}
-          - nm_rm_ipv6_bgp_peer.previous.adminState == "enabled"
-          - nm_rm_ipv6_bgp_peer.previous.allowedSelfASCount == 3
-          - nm_rm_ipv6_bgp_peer.previous.authEnabled == false
-          - nm_rm_ipv6_bgp_peer.previous.ebpgMultiHopTTL == 3
-          - nm_rm_ipv6_bgp_peer.previous.localAsnConfig == "none"
           - nm_rm_ipv6_bgp_peer.previous.peerAddressV6 == "1::8/16"
+          - nm_rm_ipv6_bgp_peer.previous.templateId != ""
+          - nm_rm_ipv6_bgp_peer.previous.templateName == "ansible_test"
           - nm_rm_ipv4_bgp_peer is changed
           - nm_rm_ipv4_bgp_peer.current == {}
           - nm_rm_ipv4_bgp_peer.previous.adminState == "enabled"
@@ -1016,6 +1200,8 @@
           - nm_rm_ipv4_bgp_peer.previous.authEnabled == false
           - nm_rm_ipv4_bgp_peer.previous.ebpgMultiHopTTL == 1
           - nm_rm_ipv4_bgp_peer.previous.peerAddressV4 == "5.5.5.5"
+          - nm_rm_ipv4_bgp_peer.previous.templateId != ""
+          - nm_rm_ipv4_bgp_peer.previous.templateName == "ansible_test"
 
     # CLEANUP TEMPLATE
     - name: Ensure l3out template not exist

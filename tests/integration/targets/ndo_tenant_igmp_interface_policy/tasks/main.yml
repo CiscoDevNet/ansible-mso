@@ -130,10 +130,13 @@
         that:
           - cm_create_new_igmp_interface_policy is changed
           - cm_create_new_igmp_interface_policy.previous == {}
-          - nm_create_new_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy'
+          - cm_create_new_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy'
+          - cm_create_new_igmp_interface_policy.current.templateName == 'ansible_tenant_template'
           - nm_create_new_igmp_interface_policy is changed
           - nm_create_new_igmp_interface_policy.previous == {}
           - nm_create_new_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy'
+          - nm_create_new_igmp_interface_policy.current.templateName == 'ansible_tenant_template'
+          - cm_create_new_igmp_interface_policy.current.templateId == nm_create_new_igmp_interface_policy.current.templateId
           - nm_create_new_igmp_interface_policy.current.uuid is defined
           - nm_create_new_igmp_interface_policy.current.description == ""
           - nm_create_new_igmp_interface_policy.current.enableFastLeaveControl == false
@@ -156,6 +159,8 @@
           - nm_create_new_igmp_interface_policy.current.staticReportRouteMapRef == ""
           - nm_create_new_igmp_interface_policy_again is not changed
           - nm_create_new_igmp_interface_policy_again.previous.name == nm_create_new_igmp_interface_policy_again.current.name == 'ansible_igmp_interface_policy'
+          - nm_create_new_igmp_interface_policy_again.previous.templateName == nm_create_new_igmp_interface_policy_again.current.templateName == 'ansible_tenant_template'
+          - nm_create_new_igmp_interface_policy_again.previous.templateId == nm_create_new_igmp_interface_policy_again.current.templateId
           - nm_create_new_igmp_interface_policy_again.previous.description == nm_create_new_igmp_interface_policy_again.current.description == ""
           - nm_create_new_igmp_interface_policy_again.previous.enableFastLeaveControl == nm_create_new_igmp_interface_policy_again.current.enableFastLeaveControl == false
           - nm_create_new_igmp_interface_policy_again.previous.enableReportLinkLocalGroups == nm_create_new_igmp_interface_policy_again.current.enableReportLinkLocalGroups == false
@@ -215,6 +220,8 @@
           - create_igmp_interface_policy_2 is changed
           - create_igmp_interface_policy_2.previous == {}
           - create_igmp_interface_policy_2.current.name == 'ansible_igmp_interface_policy_2'
+          - create_igmp_interface_policy_2.current.templateName == 'ansible_tenant_template'
+          - create_igmp_interface_policy_2.current.templateId is defined
           - create_igmp_interface_policy_2.current.uuid is defined
           - create_igmp_interface_policy_2.current.description == 'IGMP Interface Policy 2 description'
           - create_igmp_interface_policy_2.current.enableFastLeaveControl == true
@@ -233,8 +240,11 @@
           - create_igmp_interface_policy_2.current.startQueryCount == 4
           - create_igmp_interface_policy_2.current.startQueryInterval == 1000
           - create_igmp_interface_policy_2.current.reportPolicyRouteMapName == 'ansible_test_route_map_policy_2'
+          - create_igmp_interface_policy_2.current.reportPolicyRouteMapRef is defined
           - create_igmp_interface_policy_2.current.stateLimitRouteMapName == 'ansible_test_route_map_policy_1'
+          - create_igmp_interface_policy_2.current.stateLimitRouteMapRef is defined
           - create_igmp_interface_policy_2.current.staticReportRouteMapName == 'ansible_test_route_map_policy_3'
+          - create_igmp_interface_policy_2.current.staticReportRouteMapRef is defined
 
     # UPDATE
     - name: Update an IGMP interface policy (check mode)
@@ -283,6 +293,10 @@
           - nm_update_igmp_interface_policy is changed
           - cm_update_igmp_interface_policy.previous.name == nm_update_igmp_interface_policy.previous.name == 'ansible_igmp_interface_policy_2'
           - cm_update_igmp_interface_policy.current.name == nm_update_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy_2'
+          - cm_update_igmp_interface_policy.previous.templateName == nm_update_igmp_interface_policy.previous.templateName == 'ansible_tenant_template'
+          - cm_update_igmp_interface_policy.current.templateName == nm_update_igmp_interface_policy.current.templateName == 'ansible_tenant_template'
+          - cm_update_igmp_interface_policy.previous.templateId == nm_update_igmp_interface_policy.previous.templateId
+          - cm_update_igmp_interface_policy.current.templateId == nm_update_igmp_interface_policy.current.templateId
           - cm_update_igmp_interface_policy.previous.description == nm_update_igmp_interface_policy.previous.description == 'IGMP Interface Policy 2 description'
           - cm_update_igmp_interface_policy.current.description == nm_update_igmp_interface_policy.current.description == 'IGMP Interface Policy 2 description updated'
           - cm_update_igmp_interface_policy.previous.enableFastLeaveControl == nm_update_igmp_interface_policy.previous.enableFastLeaveControl == true
@@ -323,6 +337,8 @@
           - cm_update_igmp_interface_policy.current.staticReportRouteMapName == nm_update_igmp_interface_policy.current.staticReportRouteMapName == 'ansible_test_route_map_policy_1'
           - nm_update_igmp_interface_policy_again is not changed
           - nm_update_igmp_interface_policy_again.previous.name == nm_update_igmp_interface_policy_again.current.name == 'ansible_igmp_interface_policy_2'
+          - nm_update_igmp_interface_policy_again.previous.templateName == nm_update_igmp_interface_policy_again.current.templateName == 'ansible_tenant_template'
+          - nm_update_igmp_interface_policy_again.previous.templateId == nm_update_igmp_interface_policy_again.current.templateId
           - nm_update_igmp_interface_policy_again.previous.description == nm_update_igmp_interface_policy_again.current.description == 'IGMP Interface Policy 2 description updated'
           - nm_update_igmp_interface_policy_again.previous.enableFastLeaveControl == nm_update_igmp_interface_policy_again.current.enableFastLeaveControl == false
           - nm_update_igmp_interface_policy_again.previous.enableReportLinkLocalGroups == nm_update_igmp_interface_policy_again.current.enableReportLinkLocalGroups == false
@@ -358,6 +374,7 @@
           - update_igmp_interface_policy_name is changed
           - update_igmp_interface_policy_name.previous.name == 'ansible_igmp_interface_policy_2'
           - update_igmp_interface_policy_name.current.name == 'ansible_igmp_interface_policy_2_updated'
+          - update_igmp_interface_policy_name.current.templateName == 'ansible_tenant_template'
 
     - name: Update the state_limit_route_map and static_report_route_map in ansible_igmp_interface_policy_2_updated
       cisco.mso.ndo_tenant_igmp_interface_policy:
@@ -372,6 +389,8 @@
         that:
           - updated_route_map is changed
           - updated_route_map.previous.name == updated_route_map.current.name == 'ansible_igmp_interface_policy_2_updated'
+          - updated_route_map.previous.templateName == updated_route_map.current.templateName == 'ansible_tenant_template'
+          - updated_route_map.previous.templateId == updated_route_map.current.templateId
           - updated_route_map.previous.stateLimitRouteMapName == 'ansible_test_route_map_policy_2'
           - updated_route_map.previous.stateLimitRouteMapRef != ""
           - updated_route_map.current.stateLimitRouteMapRef == ""
@@ -384,16 +403,18 @@
         <<: *ansible_igmp_interface_policy_2_updated
         report_policy_route_map: {}
         state: present
-      register: updated_route_map
+      register: updated_report_policy_route_map
 
-    - name: Assert IGMP Interface Policy 2report_policy_route_map was updated
+    - name: Assert IGMP Interface Policy 2 report_policy_route_map was updated
       assert:
         that:
-          - updated_route_map is changed
-          - updated_route_map.previous.name == updated_route_map.current.name == 'ansible_igmp_interface_policy_2_updated'
-          - updated_route_map.previous.reportPolicyRouteMapName == 'ansible_test_route_map_policy_3'
-          - updated_route_map.previous.reportPolicyRouteMapRef != ""
-          - updated_route_map.current.reportPolicyRouteMapRef == ""
+          - updated_report_policy_route_map is changed
+          - updated_report_policy_route_map.previous.name == updated_report_policy_route_map.current.name == 'ansible_igmp_interface_policy_2_updated'
+          - updated_report_policy_route_map.previous.templateName == updated_report_policy_route_map.current.templateName == 'ansible_tenant_template'
+          - updated_report_policy_route_map.previous.templateId == updated_report_policy_route_map.current.templateId
+          - updated_report_policy_route_map.previous.reportPolicyRouteMapName == 'ansible_test_route_map_policy_3'
+          - updated_report_policy_route_map.previous.reportPolicyRouteMapRef != ""
+          - updated_report_policy_route_map.current.reportPolicyRouteMapRef == ""
 
     # Query
     - name: Query an IGMP Interface Policy
@@ -424,12 +445,17 @@
         that:
           - query_igmp_interface_policy is not changed
           - query_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy_2_updated'
+          - query_igmp_interface_policy.current.templateName == 'ansible_tenant_template'
+          - query_igmp_interface_policy.current.templateId is defined
           - query_igmp_interface_policy_uuid is not changed
           - query_igmp_interface_policy_uuid.current.name == 'ansible_igmp_interface_policy'
           - query_all_igmp_interface_policies is not changed
           - query_all_igmp_interface_policies.current | length == 2
           - query_all_igmp_interface_policies.current[0].name == 'ansible_igmp_interface_policy'
+          - query_all_igmp_interface_policies.current[0].templateName == 'ansible_tenant_template'
           - query_all_igmp_interface_policies.current[1].name == 'ansible_igmp_interface_policy_2_updated'
+          - query_all_igmp_interface_policies.current[1].templateName == 'ansible_tenant_template'
+          - - query_all_igmp_interface_policies.current[0].templateId == query_all_igmp_interface_policies.current[1].templateId
 
     # DELETE
     - name: Delete an IGMP Interface Policy (check mode)
@@ -458,6 +484,8 @@
           - nm_delete_igmp_interface_policy is changed
           - cm_delete_igmp_interface_policy.current == nm_delete_igmp_interface_policy.current == {}
           - cm_delete_igmp_interface_policy.previous.name == nm_delete_igmp_interface_policy.previous.name == 'ansible_igmp_interface_policy_2_updated'
+          - cm_delete_igmp_interface_policy.previous.templateName == nm_delete_igmp_interface_policy.previous.templateName == 'ansible_tenant_template'
+          - cm_delete_igmp_interface_policy.previous.templateId == nm_delete_igmp_interface_policy.previous.templateId
           - cm_delete_igmp_interface_policy.previous.uuid == nm_delete_igmp_interface_policy.previous.uuid
           - cm_delete_igmp_interface_policy.previous.description == nm_delete_igmp_interface_policy.previous.description == 'IGMP Interface Policy 2 description updated'
           - cm_delete_igmp_interface_policy.previous.enableFastLeaveControl == nm_delete_igmp_interface_policy.previous.enableFastLeaveControl == false
@@ -494,6 +522,8 @@
         that:
         - delete_igmp_interface_policy_uuid is changed
         - delete_igmp_interface_policy_uuid.previous.name == 'ansible_igmp_interface_policy'
+        - delete_igmp_interface_policy_uuid.previous.templateName == 'ansible_tenant_template'
+        - delete_igmp_interface_policy_uuid.previous.templateId is defined
         - delete_igmp_interface_policy_uuid.previous.description == ""
         - delete_igmp_interface_policy_uuid.current == {}
 

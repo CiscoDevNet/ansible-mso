@@ -52,9 +52,10 @@ options:
   fex_id:
     description:
     - The FEX ID.
+    - The value must be in the range 101 - 199.
     - This parameter is required when O(state=present).
     type: int
-    aliases: [ id ]
+    aliases: [ fex_device_id ]
   nodes:
     description:
     - The list of node IDs where the FEX Device will be deployed.
@@ -173,7 +174,7 @@ def main():
         name=dict(type="str", aliases=["fex_device_name"]),
         uuid=dict(type="str", aliases=["fex_device_uuid"]),
         description=dict(type="str"),
-        fex_id=dict(type="int", aliases=["id"]),
+        fex_id=dict(type="int", aliases=["fex_device_id"]),
         nodes=dict(type="list", elements="str"),
         interfaces=dict(type="list", elements="str"),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),

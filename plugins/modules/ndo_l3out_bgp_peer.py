@@ -301,7 +301,7 @@ notes:
   Use M(cisco.mso.ndo_l3out_template) to create the L3Out.
 - The O(node_group) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_l3out_node_group_policy) to create the L3Out Node Group Policy.
-- The O(peer_prefix) must exist before using this module in your playbook.
+- The O(peer_prefix) must exist before using it with this module in your playbook.
   Use M(cisco.mso.ndo_tenant_bgp_peer_prefix_policy) to create the BGP Peer Prefix Policy.
 seealso:
 - module: cisco.mso.ndo_template
@@ -408,6 +408,17 @@ EXAMPLES = r"""
     ipv6_address: "1::8/16"
     state: query
   register: query_with_ipv6
+
+- name: Query all L3Out BGP Peer
+  cisco.mso.ndo_l3out_bgp_peer:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: l3out_template
+    l3out: l3out_1
+    node_group: node_group_policy_1
+    state: query
+  register: query_all
 
 - name: Remove an L3Out BGP Peer with IPv4 and IPv6 addresses
   cisco.mso.ndo_l3out_bgp_peer:

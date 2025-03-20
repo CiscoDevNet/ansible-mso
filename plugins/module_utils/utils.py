@@ -71,7 +71,7 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
         "description": "new_description",
         "ospfIntfPol": {
             "ifControl": {
-                "adminState": "disbaled",
+                "adminState": "disabled",
             },
             "cost": 0,
         },

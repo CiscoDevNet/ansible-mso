@@ -1,0 +1,217 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query mso version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for FEX version > 2.0
+  when: version.current.version is version('2.0', '>')
+  block:
+
+    # SETUP
+    - name: Ensure Fabric Resource template does not exist
+      cisco.mso.ndo_template: &ndo_fabric_resource_template_absent
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        type: fabric_resource
+        state: absent
+
+    - name: Create a new Fabric Resource template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_resource_template_absent
+        state: present
+      register: create_fabric_resource
+
+    # CREATE
+    - name: Create FEX Device (check mode)
+      cisco.mso.ndo_fex_device: &add_fex_device
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        name: ansible_fex_device
+        fex_id: 101
+        nodes: [203]
+        interfaces: ['1/3']
+        description: Ansible FEX Device
+        state: present
+      check_mode: true
+      register: cm_fex_device
+
+    - name: Create FEX Device
+      cisco.mso.ndo_fex_device:
+        <<: *add_fex_device
+      register: nm_fex_device
+
+    - name: Create FEX Device again
+      cisco.mso.ndo_fex_device:
+        <<: *add_fex_device
+      register: nm_fex_device_again
+
+    - name: Assert FEX Device is created
+      ansible.builtin.assert:
+        that:
+          - cm_fex_device is changed
+          - nm_fex_device is changed
+          - nm_fex_device_again is not changed
+          - cm_fex_device.previous == nm_fex_device.previous == {}
+          - cm_fex_device.current.templateName == nm_fex_device.current.templateName == create_fabric_resource.current.displayName
+          - cm_fex_device.current.templateId == nm_fex_device.current.templateId == create_fabric_resource.current.templateId
+          - cm_fex_device.current.name == nm_fex_device.current.name == "ansible_fex_device"
+          - cm_fex_device.current.fexId == nm_fex_device.current.fexId == 101
+          - cm_fex_device.current.nodes[0] == nm_fex_device.current.nodes[0] == "203"
+          - cm_fex_device.current.interfaces == nm_fex_device.current.interfaces == "1/3"
+          - cm_fex_device.current.description == nm_fex_device.current.description == "Ansible FEX Device"
+          - nm_fex_device_again.previous == nm_fex_device_again.current == nm_fex_device.current
+
+    # UPDATE
+    - name: Update FEX Device (check mode)
+      cisco.mso.ndo_fex_device: &update_fex_device
+        <<: *add_fex_device
+        description: Test Ansible FEX Device Updated
+        nodes: [101, 102, 103-105]
+        interfaces: ['1/1,1/2-4']
+      check_mode: true
+      register: cm_update_fex_device
+
+    - name: Update FEX Device
+      cisco.mso.ndo_fex_device:
+        <<: *update_fex_device
+      register: nm_update_fex_device
+
+    - name: Update FEX Device again
+      cisco.mso.ndo_fex_device:
+        <<: *update_fex_device
+      register: nm_update_fex_device_again
+
+    - name: Assert FEX Device is updated
+      ansible.builtin.assert:
+        that:
+          - cm_update_fex_device is changed
+          - nm_update_fex_device is changed
+          - nm_update_fex_device_again is not changed
+          - cm_update_fex_device.current.templateName == nm_update_fex_device.current.templateName == create_fabric_resource.current.displayName
+          - cm_update_fex_device.current.templateId == nm_update_fex_device.current.templateId == create_fabric_resource.current.templateId
+          - cm_update_fex_device.previous.nodes[0] == nm_update_fex_device.previous.nodes[0] == "203"
+          - cm_update_fex_device.current.nodes[0] == nm_update_fex_device.current.nodes[0] == "101"
+          - cm_update_fex_device.current.nodes[1] == nm_update_fex_device.current.nodes[1] == "102"
+          - cm_update_fex_device.current.nodes[2] == nm_update_fex_device.current.nodes[2] == "103-105"
+          - cm_update_fex_device.previous.interfaces == nm_update_fex_device.previous.interfaces == "1/3"
+          - cm_update_fex_device.current.interfaces == nm_update_fex_device.current.interfaces == "1/1,1/2-4"
+          - cm_update_fex_device.previous.description == nm_update_fex_device.previous.description == "Ansible FEX Device"
+          - cm_update_fex_device.current.description == nm_update_fex_device.current.description == "Test Ansible FEX Device Updated"
+          - nm_update_fex_device_again.previous == nm_update_fex_device_again.current == nm_update_fex_device.current
+
+    - name: Create another FEX Device for query all
+      cisco.mso.ndo_fex_device: &add_fex_device_another
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        name: ansible_fex_device_another
+        fex_id: 101
+        nodes: [203]
+        interfaces: ['1/3']
+        description: Ansible FEX Device
+        state: present
+      register: another_fex
+
+    # QUERY
+    - name: Query FEX Device by name
+      cisco.mso.ndo_fex_device:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        name: ansible_fex_device
+        state: query
+      register: query_name
+
+    - name: Query FEX Device by UUID
+      cisco.mso.ndo_fex_device:
+        <<: *mso_info
+        template_id: '{{ create_fabric_resource.current.templateId }}'
+        uuid: '{{ nm_fex_device.current.uuid }}'
+        state: query
+      register: query_uuid
+
+    - name: Query all FEX Devices
+      cisco.mso.ndo_fex_device:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        state: query
+      register: query_all
+
+    - name: Assert FEX Device is queried
+      ansible.builtin.assert:
+        that:
+          - query_name is not changed
+          - query_uuid is not changed
+          - query_name.current == nm_update_fex_device.current
+          - query_uuid.current == nm_update_fex_device.current
+          - query_all.current | length == 2
+          - query_all.current.0.name == "ansible_fex_device"
+          - query_all.current.1.name == "ansible_fex_device_another"
+
+    # DELETE
+    - name: Delete FEX Device using name (check mode)
+      cisco.mso.ndo_fex_device: &delete_fex_device
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        name: ansible_fex_device
+        state: absent
+      check_mode: true
+      register: cm_delete_fex_device
+
+    - name: Delete FEX Device using name
+      cisco.mso.ndo_fex_device:
+        <<: *delete_fex_device
+      register: nm_delete_fex_device
+
+    - name: Delete FEX Device using name again
+      cisco.mso.ndo_fex_device:
+        <<: *delete_fex_device
+      register: nm_delete_fex_device_again
+
+    - name: Delete FEX Device using uuid
+      cisco.mso.ndo_fex_device:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        uuid: '{{ another_fex.current.uuid }}'
+        state: absent
+      register: nm_delete_another_fex_device
+
+    - name: Assert FEX Device is deleted
+      ansible.builtin.assert:
+        that:
+          - cm_delete_fex_device is changed
+          - nm_delete_fex_device is changed
+          - nm_delete_fex_device_again is not changed
+          - nm_delete_another_fex_device is changed
+          - cm_delete_fex_device.current == nm_delete_fex_device.current == {}
+          - cm_delete_fex_device.previous.name == nm_delete_fex_device.previous.name == "ansible_fex_device"
+          - nm_delete_another_fex_device.previous.name == "ansible_fex_device_another"
+          - nm_delete_another_fex_device.current == {}
+          - nm_delete_fex_device_again.previous == nm_delete_fex_device_again.current == nm_delete_another_fex_device.current
+
+    # CLEANUP
+    - name: Ensure fabric resource template does not exist
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_resource_template_absent

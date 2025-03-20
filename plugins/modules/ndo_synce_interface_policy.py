@@ -195,23 +195,15 @@ def main():
     mso_template.validate_template("fabricPolicy")
 
     path = "/fabricPolicyTemplate/template/syncEthIntfPolicies"
+    match = get_synce_interface_policy(mso_template, interface_policy_uuid, interface_policy)
 
-    existing_interface_policies = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("syncEthIntfPolicies", [])
-
-    if interface_policy or interface_policy_uuid:
-        object_description = "SyncE Interface Policy"
-        if interface_policy_uuid:
-            match = mso_template.get_object_by_uuid(object_description, existing_interface_policies, interface_policy_uuid)
-        else:
-            kv_list = [KVPair("name", interface_policy)]
-            match = mso_template.get_object_by_key_value_pairs(object_description, existing_interface_policies, kv_list)
+    if interface_policy_uuid or interface_policy:
         if match:
-            mso.existing = mso.previous = copy.deepcopy(match.details)
-    else:
-        mso.existing = mso.previous = existing_interface_policies
+            mso.existing = mso.previous = copy.deepcopy(match.details)  # Query a specific object
+    elif match:
+        mso.existing = match  # Query all objects
 
     if state == "present":
-
         mso.existing = {}
 
         if match:
@@ -249,7 +241,6 @@ def main():
             mso.sanitize(match.details)
 
         else:
-
             payload = {"name": interface_policy, "templateId": mso_template.template.get("templateId"), "schemaId": mso_template.template.get("schemaId")}
             if description:
                 payload["description"] = description
@@ -276,9 +267,36 @@ def main():
         mso.existing = {}
 
     if not module.check_mode and ops:
-        mso.request(mso_template.template_path, method="PATCH", data=ops)
+        mso_template.template = mso.request(mso_template.template_path, method="PATCH", data=ops)
+        match = get_synce_interface_policy(mso_template, interface_policy_uuid, interface_policy)
+        if match:
+            mso.existing = match.details  # When the state is present
+        else:
+            mso.existing = {}  # When the state is absent
+    elif module.check_mode and state != "query":  # When the state is present/absent with check mode
+        mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
+
+
+def get_synce_interface_policy(mso_template, uuid=None, name=None, fail_module=False):
+    """
+    Get the SyncE Interface Policy by UUID or Name.
+    :param uuid: UUID of the SyncE Interface Policy to search for -> Str
+    :param name: Name of the SyncE Interface Policy to search for -> Str
+    :param fail_module: When match is not found fail the ansible module -> Bool
+    :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+              When the UUID | Name is existing in the search list -> Dict
+              When the UUID | Name is not existing in the search list -> None
+              When both UUID and Name are None, and the search list is not empty -> List[Dict]
+              When both UUID and Name are None, and the search list is empty -> List[]
+    """
+    match = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("syncEthIntfPolicies", [])
+    if uuid or name:  # Query a specific object
+        return mso_template.get_object_by_key_value_pairs(
+            "SyncE Interface Policy", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module
+        )
+    return match  # Query all objects
 
 
 if __name__ == "__main__":

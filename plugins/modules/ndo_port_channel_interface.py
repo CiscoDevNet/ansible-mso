@@ -311,8 +311,8 @@ def main():
         mso.exit_json()
     elif state == "query" and not (name or uuid):
         for port_channel in existing_port_channel_interfaces:
-            policy_match = get_fabric_template_object_by_key_value(
-                mso_template, "pcPolicyGroup", "Interface Settings", [KVPair("uuid", port_channel.get("policy"))]
+            policy_match = mso_template.get_fabric_template_object_by_key_value(
+                "pcPolicyGroup", "Interface Settings", [KVPair("uuid", port_channel.get("policy"))]
             )
             port_channel["policyName"] = policy_match.get("name")
         mso.existing = existing_port_channel_interfaces
@@ -325,8 +325,8 @@ def main():
         if match:
             port_channel_attrs_path = "/fabricResourceTemplate/template/portChannels/{0}".format(match.index)
 
-            policy_match = get_fabric_template_object_by_key_value(
-                mso_template, "pcPolicyGroup", "Interface Settings", [KVPair("uuid", match.details.get("policy"))]
+            policy_match = mso_template.get_fabric_template_object_by_key_value(
+                "pcPolicyGroup", "Interface Settings", [KVPair("uuid", match.details.get("policy"))]
             )
             match.details["policyName"] = policy_match.get("name")
 
@@ -339,12 +339,11 @@ def main():
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
         if interface_policy_group_uuid:
-            policy_match = get_fabric_template_object_by_key_value(
-                mso_template, "pcPolicyGroup", "Interface Settings", [KVPair("uuid", interface_policy_group_uuid)]
+            policy_match = mso_template.get_fabric_template_object_by_key_value(
+                "pcPolicyGroup", "Interface Settings", [KVPair("uuid", interface_policy_group_uuid)]
             )
         elif interface_policy_group and interface_policy_group.get("name"):
-            policy_match = get_fabric_template_object_by_key_value(
-                mso_template,
+            policy_match = mso_template.get_fabric_template_object_by_key_value(
                 "pcPolicyGroup",
                 "Interface Settings",
                 [KVPair("name", interface_policy_group.get("name")), KVPair("templateName", interface_policy_group.get("template"))],
@@ -392,8 +391,8 @@ def main():
             [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
-            policy_match = get_fabric_template_object_by_key_value(
-                mso_template, "pcPolicyGroup", "Interface Settings", [KVPair("uuid", match.details.get("policy"))]
+            policy_match = mso_template.get_fabric_template_object_by_key_value(
+                "pcPolicyGroup", "Interface Settings", [KVPair("uuid", match.details.get("policy"))]
             )
             match.details["policyName"] = policy_match.get("name")
             mso.existing = match.details
@@ -403,14 +402,6 @@ def main():
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
-
-
-def get_fabric_template_object_by_key_value(mso_template, object_type, object_description, kv_list, fail_module=False):
-    response_object = mso_template.mso.request("getfabricpolicies?type={0}".format(object_type), "GET")
-    search_list = response_object.get("items", [{"spec": {"policies": []}}])[0].get("spec", {}).get("policies", [])
-    match = mso_template.get_object_by_key_value_pairs(object_description, search_list, kv_list, fail_module)
-    if match:
-        return match.details
 
 
 if __name__ == "__main__":

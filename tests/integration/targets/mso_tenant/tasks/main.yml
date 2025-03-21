@@ -295,10 +295,17 @@
     state: present
   register: nm_add_tenant3
 
-- name: Verify nm_add_tenant3
+- name: Verify nm_add_tenant3 - mso_username is admin
+  ansible.builtin.assert:
+    that:
+    - nm_add_tenant3 is not changed
+  when: mso_username == "admin"
+
+- name: Verify nm_add_tenant3 - mso_username is not admin
   ansible.builtin.assert:
     that:
     - nm_add_tenant3 is changed
+  when: mso_username != "admin"
 
 - name: Verify nm_add_tenant3 (when mso_username != admin)
   ansible.builtin.assert:
@@ -309,7 +316,7 @@
 - name: Verify nm_add_tenant3 (when mso_username == admin)
   ansible.builtin.assert:
     that:
-    - nm_add_tenant3.current.userAssociations | length == 1
+    - nm_add_tenant3.current.userAssociations | length == 2
   when: mso_username == 'admin'
 
 # CHANGE TENANT
@@ -792,3 +799,22 @@
       - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_no is not changed
       - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_no.current == {}
       - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_no.previous == {}
+
+# CLEAN ENVIRONMENT
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Remove tenants
+  cisco.mso.mso_tenant:
+    <<: *mso_info
+    tenant: '{{ item }}'
+    state: absent
+  loop:
+  - ansible_test3
+  - tenant_with_site

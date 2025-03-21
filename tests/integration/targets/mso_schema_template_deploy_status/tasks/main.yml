@@ -614,3 +614,13 @@
     ansible.builtin.assert:
       that:
       - non_temp.msg == "Template 'non-existing-template' not found."
+
+# CLEAN ENVIRONMENT
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'

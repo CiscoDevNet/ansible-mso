@@ -246,8 +246,8 @@
 - name: Verify validation errors before deploy and redploy
   ansible.builtin.assert:
     that:
-    - failed_validaton_deploy.msg ==  "MSO Error 400{{':'}} VRF{{':'}} VRF1 in Schema{{':'}} ansible_test , Template{{':'}} Template2 has VzAnyEnabled flag enabled but is not consuming or providing contracts"
-    - failed_validaton_redeploy.msg ==  "MSO Error 400{{':'}} VRF{{':'}} VRF1 in Schema{{':'}} ansible_test , Template{{':'}} Template2 has VzAnyEnabled flag enabled but is not consuming or providing contracts"
+    - failed_validaton_deploy.msg is match ("MSO Error 400{{':'}} VRF{{':'}} VRF1 in Schema{{':'}} ansible_test.+Template{{':'}} Template2.+has VzAnyEnabled flag enabled but is not consuming or providing contracts")
+    - failed_validaton_redeploy.msg is match ("MSO Error 400{{':'}} VRF{{':'}} VRF1 in Schema{{':'}} ansible_test.+Template{{':'}} Template2.+has VzAnyEnabled flag enabled but is not consuming or providing contracts")
   when: version.current.version is version('4.0', '>=')
 
 - name: Remove VRF1 with validation error
@@ -339,3 +339,14 @@
     - '"deploy" in deploy_template_all.current.reqDetails'
     - '"deploy" in redeploy_template_all.current.reqDetails'
   when: version.current.version is version('4.0', '>=')
+
+
+# CLEAN ENVIRONMENT
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'

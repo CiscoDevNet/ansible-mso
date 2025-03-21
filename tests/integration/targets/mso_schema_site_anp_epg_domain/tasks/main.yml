@@ -1060,3 +1060,13 @@
     - cm_no_site_associated is not changed
     - nm_no_site_associated is not changed
     - cm_no_site_associated.msg == nm_no_site_associated.msg == "No site associated with template 'Template3'. Associate the site with the template using mso_schema_site."
+
+# CLEAN ENVIRONMENT
+- name: Remove Schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'

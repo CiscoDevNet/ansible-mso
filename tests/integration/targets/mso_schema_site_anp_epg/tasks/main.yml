@@ -475,7 +475,6 @@
     that:
     - nm_non_existing_template is not changed
     - nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2, Template3"
-  ignore_errors: true
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema (normal_mode)
@@ -495,7 +494,6 @@
     that:
     - nm_non_existing_schema is not changed
     - nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
-  ignore_errors: true
 
 # USE A NON-EXISTING SITE
 - name: Non-existing site (normal_mode)
@@ -534,14 +532,6 @@
     that:
     - nm_non_existing_site_template is not changed
     - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template3, [0-9a-zA-Z]*/Template1")
-  when: version.current.version is version('4.0', '>=')
-
-- name: Verify non_existing_site_template
-  ansible.builtin.assert:
-    that:
-    - nm_non_existing_site_template is not changed
-    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template3, [0-9a-zA-Z]*/Template1")
-  when: version.current.version is version('3', '>=') and version.current.version is version('3.2', '<')
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add EPG to Template without any site associated (normal mode)
@@ -561,7 +551,6 @@
     that:
     - nm_no_site_associated is not changed
     - nm_no_site_associated.msg == "No site associated with template 'Template4'. Associate the site with the template using mso_schema_site."
-  ignore_errors: true
 
 # ADDING PRIVATE LINK LABEL
 # Add private link label when MSO version >= 3.3
@@ -592,3 +581,59 @@
       service_type: 'Azure-Storage'
       access_type: 'private'
       state: present
+
+  - name: Add private link label to the EPG (for version greater than 3.3)
+    cisco.mso.mso_schema_site_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 3
+      anp: ANP_3
+      epg: ansible_test_3
+      site: '{{ mso_site | default("ansible_test") }}'
+      private_link_label: 'New_Private_Link_Label'
+      state: present
+    register: add_private_link_label
+
+  - name: Change private link label in the EPG (for version greater than 3.3)
+    cisco.mso.mso_schema_site_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 3
+      anp: ANP_3
+      epg: ansible_test_3
+      site: '{{ mso_site | default("ansible_test") }}'
+      private_link_label: 'PLL'
+      state: present
+    register: change_private_link_label
+
+  - name: Verify site application profile EPG private link label
+    ansible.builtin.assert:
+      that:
+      - add_private_link_label is changed
+      - add_private_link_label.current.epgRef.anpName == "ANP_3"
+      - add_private_link_label.current.epgRef.epgName == "ansible_test_3"
+      - add_private_link_label.current.epgRef.templateName == "Template3"
+      - add_private_link_label.current.privateLinkLabel.name == "New_Private_Link_Label"
+      - add_private_link_label.current.shutdown == false
+      - add_private_link_label.previous.epgRef.anpName == "ANP_3"
+      - add_private_link_label.previous.epgRef.epgName == "ansible_test_3"
+      - add_private_link_label.previous.epgRef.templateName == "Template3"
+      - change_private_link_label is changed
+      - change_private_link_label.current.epgRef.anpName == "ANP_3"
+      - change_private_link_label.current.epgRef.epgName == "ansible_test_3"
+      - change_private_link_label.current.epgRef.templateName == "Template3"
+      - change_private_link_label.current.privateLinkLabel.name == "PLL"
+      - change_private_link_label.previous.epgRef.anpName == "ANP_3"
+      - change_private_link_label.previous.epgRef.epgName == "ansible_test_3"
+      - change_private_link_label.previous.epgRef.templateName == "Template3"
+      - change_private_link_label.previous.privateLinkLabel.name == "New_Private_Link_Label"
+
+# CLEAN ENVIRONMENT
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'

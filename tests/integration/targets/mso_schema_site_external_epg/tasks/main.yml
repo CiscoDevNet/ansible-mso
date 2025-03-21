@@ -47,12 +47,20 @@
     - https://{{ apic_hostname }}
     state: present
 
+- name: Query ansible_test tenant
+  cisco.mso.mso_tenant:
+    <<: *mso_info
+    tenant: ansible_test
+    state: query
+  register: query_tenant
+
 - name: Ensure sites removed from tenant ansible_test
   cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ mso_site | default("ansible_test") }}'
     state: absent
+  when: query_tenant.current != {} and query_tenant.current.name == "ansible_test"
 
 - name: Ensure tenant ansible_test exist
   cisco.mso.mso_tenant:
@@ -960,3 +968,109 @@
       - cm_no_site_associated is not changed
       - nm_no_site_associated is not changed
       - cm_no_site_associated.msg == nm_no_site_associated.msg == "Provided site 'ansible_test' not associated with template 'Template4'. Site is currently associated with template(s){{':'}} Template1, Template2, Template3"
+
+# Verify route_reachability argument when template_external_epg is associated with ansible_test site and
+# template_external_epg type argument is set to cloud
+- name: Ensure ANP exists
+  cisco.mso.mso_schema_template_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template4
+    anp: ANP4
+    state: present
+
+- name: Ensure VRF4 exists
+  cisco.mso.mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template4
+    vrf: VRF4
+    state: present
+
+- name: Ensure L3Out4 Exists
+  cisco.mso.mso_schema_template_l3out:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template4
+    vrf:
+      name: VRF4
+    l3out: L3out4
+    state: present
+
+- name: Add external EPG4 at template4 level type cloud (normal mode)
+  cisco.mso.mso_schema_template_external_epg:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template4
+    external_epg: ext_epg_4
+    type: cloud
+    vrf:
+      name: VRF4
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template4
+    anp:
+      name: ANP4
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template4
+    state: present
+  register: nm_add_ext_epg_4
+
+- name: Execute azure tasks
+  when:
+  - version.current.version is version('3.3', '>=')
+  - version.current.version is version('4.3', '<')
+  block:
+  - name: Add azure site to a schema Template4
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template4
+      state: present
+    when: version.current.version is version('3.3', '>=')
+    register: add_cloud_site
+
+  - name: Add external EPG to site (normal mode)
+    cisco.mso.mso_schema_site_external_epg:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template4
+      external_epg: ext_epg_4
+      route_reachability: site-ext
+      state: present
+    register: nm_add_ext_epg_site
+
+  - name: Verify nm_add_ext_epg_site
+    ansible.builtin.assert:
+      that:
+      - nm_add_ext_epg_site.current.externalEpgRef.externalEpgName == "ext_epg_4"
+      - nm_add_ext_epg_site.current.routeReachabilityInternetType == "site-ext"
+
+  - name: Add external EPG to site again(normal mode)
+    cisco.mso.mso_schema_site_external_epg:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template4
+      external_epg: ext_epg_4
+      route_reachability: site-ext
+      state: present
+    register: nm_add_ext_epg_site_again
+
+  - name: Verify nm_add_ext_epg_site_again
+    ansible.builtin.assert:
+      that:
+      - nm_add_ext_epg_site_again is not changed
+      - nm_add_ext_epg_site_again.current.externalEpgRef.externalEpgName == "ext_epg_4"
+      - nm_add_ext_epg_site_again.current.routeReachabilityInternetType == "site-ext"
+
+# CLEAN ENVIRONMENT
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'

@@ -1275,37 +1275,6 @@ class MSOModule(object):
             del data["dhcp_option_policy"]
         return data
 
-    def remove_none_values(self, data):
-        """
-        Recursively removes all key-value pairs where the value is None from a dictionary,
-        including nested dictionaries and lists of dictionaries. If a dictionary becomes empty
-        after removals, it is set to None if it is a value in another dictionary or removed if in a list.
-
-        :param data: The original data structure (dictionary or list) from which None values should be removed -> List, Dict
-        :return: A new data structure with all None values removed, or None if the structure is empty -> List, Dict or None
-
-        Sample Data:
-        ------------
-            data = {
-                "multicast": None,
-                "unicast": False,
-            }
-
-        Sample Output:
-        --------------
-            return_value = {
-                "unicast": False,
-            }
-        """
-        if isinstance(data, dict):
-            cleaned_dict = {key: self.remove_none_values(value) for key, value in data.items() if value is not None}
-            return {key: value for key, value in cleaned_dict.items() if value is not None} or None
-        elif isinstance(data, list):
-            cleaned_list = [self.remove_none_values(item) for item in data if item is not None]
-            return [item for item in cleaned_list if item is not None] or None
-        else:
-            return data
-
     def sanitize(self, updates, collate=False, required=None, unwanted=None):
         """Clean up unset keys from a request payload"""
         if required is None:
@@ -1349,20 +1318,6 @@ class MSOModule(object):
                 # Remove identical values
                 elif not collate and updates.get(key) == self.existing.get(key):
                     del self.sent[key]
-                    continue
-
-                # Remove nested unspecified values
-                if not collate and updates.get(key) is not None:
-                    cleaned_value = self.remove_none_values(updates.get(key))
-                    self.sent[key] = (
-                        cleaned_value
-                        if cleaned_value
-                        else (
-                            {}
-                            if isinstance(updates.get(key), dict)
-                            else ([] if isinstance(updates.get(key), list) else (cleaned_value if cleaned_value is not None else None))
-                        )
-                    )
                     continue
 
                 # Add everything else

@@ -44,12 +44,8 @@
   cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ item }}'
+    site: '{{ mso_site | default("ansible_test") }}'
     state: absent
-  loop:
-    - '{{ mso_site | default("ansible_test") }}'
-    - 'aws_{{ mso_site | default("ansible_test") }}'
-    - 'azure_{{ mso_site | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
   cisco.mso.mso_tenant: 
@@ -772,3 +768,13 @@
     that:
     - nm_add_no_static_port is not changed
     - nm_add_no_static_port.msg == "state is present but all of the following are missing{{':'}} static_ports"
+
+# CLEAN ENVIRONMENT
+- name: Remove Schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'

@@ -771,6 +771,15 @@
     - nm_change_epg_1_l3out.current.l3outRef.templateName == 'Template1'
     - nm_change_epg_1_l3out.current.qosPriority == 'level5'
 
+- name: Enable VRF preferred_group
+  cisco.mso.mso_schema_template_vrf:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    vrf: VRF
+    preferred_group: true
+    state: present
+
 - name: Change epg 4 preferredGroup(normal mode)
   cisco.mso.mso_schema_template_external_epg:
     <<: *mso_info
@@ -1161,3 +1170,13 @@
   ansible.builtin.assert:
     that:
     - nm_query_contract_ext_epg_1.current.contractRelationships | length == 4
+
+# CLEAN ENVIRONMENT
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'

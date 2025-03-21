@@ -58,40 +58,15 @@
   cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: '{{ item }}'
+    site: '{{ mso_site | default("ansible_test") }}'
     state: absent
-  loop:
-    - '{{ mso_site | default("ansible_test") }}'
-    - 'aws_{{ mso_site | default("ansible_test") }}'
-    - 'azure_{{ mso_site | default("ansible_test") }}'
 
-- name: Associate non-cloud site with ansible_test again in normal mode
+- name: Associate site with ansible_test again in normal mode
   cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
     site: '{{ mso_site | default("ansible_test") }}'
     state: present
-
-- name: Associate aws site with ansible_test in normal mode
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    cloud_account: "000000000000"
-    aws_trusted: false
-    aws_access_key: "1"
-    secret_key: "0"
-    state: present
-  register: aaws_nm
-
-- name: Associate azure site with access_type not present, with ansible_test in normal mode
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
-    cloud_account: uni/tn-ansible_test/act-[100]-vendor-azure
-    state: present
-  register: aazure_shared_nm
 
 - name: Ensure schema 1 with Template 1, and Template 2 exist
   cisco.mso.mso_schema_template:
@@ -112,18 +87,6 @@
     tenant: ansible_test
     template: Template 4
     state: present
-
-- name: Add cloud site to a schema
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{item.site}}'
-    template: '{{item.template}}'
-    state: present
-  loop:
-  - { site: 'azure_{{ mso_site | default("ansible_test") }}', template: 'Template 1' }
-  - { site: 'aws_{{ mso_site | default("ansible_test") }}', template: 'Template 2' }
-  when: version.current.version is version('3', '<') or version.current.version is version('3.2', '>=')
 
 - name: Add physical site to a schema
   cisco.mso.mso_schema_site:
@@ -494,31 +457,12 @@
     - nm_query_non_anp.msg == "Provided anp 'ANP_3' does not exist at site level."
   when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
-# USE A NON-EXISTING STATE
-- name: Non-existing state (normal_mode)
-  cisco.mso.mso_schema_site_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    epg: ansible_test_1
-    state: non-existing-state
-  ignore_errors: true
-  register: nm_non_existing_state
-
-- name: Verify non_existing_state
-  ansible.builtin.assert:
-    that:
-    - nm_non_existing_state is not changed
-    - nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
-
-# # USE A NON-EXISTING TEMPLATE
+# USE A NON-EXISTING TEMPLATE
 - name: Non-existing template (normal_mode)
   cisco.mso.mso_schema_site_anp_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
     template: non-existing-template
     anp: ANP
     epg: ansible_test_1
@@ -537,7 +481,7 @@
   cisco.mso.mso_schema_site_anp_epg:
     <<: *mso_info
     schema: non-existing-schema
-    site: 'aws_{{ mso_site | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
     template: Template 1
     anp: ANP
     epg: ansible_test_1
@@ -587,22 +531,14 @@
   ansible.builtin.assert:
     that:
     - nm_non_existing_site_template is not changed
-    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1, [0-9a-zA-Z]*/Template2, [0-9a-zA-Z]*/Template3, [0-9a-zA-Z]*/Template1")
-  when: version.current.version is version('3', '<') or version.current.version is version('3.2', '>=')
-
-- name: Verify non_existing_site_template
-  ansible.builtin.assert:
-    that:
-    - nm_non_existing_site_template is not changed
     - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template3, [0-9a-zA-Z]*/Template1")
-  when: version.current.version is version('3', '>=') and version.current.version is version('3.2', '<')
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add EPG to Template without any site associated (normal mode)
   cisco.mso.mso_schema_site_anp_epg:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: 'azure_{{ mso_site | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
     template: Template 4
     anp: ANP_4
     epg: ansible_test_1
@@ -629,42 +565,6 @@
       template: 'Template 1'
       state: absent
 
-  - name: Ensure region for VRF1 at site level exists
-    cisco.mso.mso_schema_site_vrf_region_cidr:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
-      site: 'azure_{{ mso_site | default("ansible_test") }}'
-      vrf: VRF1
-      region: us-west-1
-      cidr: 10.0.0.0/16
-      state: present
-
-  - name: Ensure Private Link Label in Azure VRF subnet exist (MSO >3.3)
-    cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
-      site: 'azure_{{ mso_site | default("ansible_test") }}'
-      vrf: VRF1
-      region: us-west-1
-      cidr: 10.0.0.0/16
-      subnet: 10.0.0.0/24
-      private_link_label: 'New_Private_Link_Label'
-      zone: null
-
-  - name: Ensure another Private Link Label in Azure VRF subnet exist (MSO >3.3)
-    cisco.mso.mso_schema_site_vrf_region_cidr_subnet:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
-      site: 'azure_{{ mso_site | default("ansible_test") }}'
-      vrf: VRF1
-      region: us-west-1
-      cidr: 10.0.0.0/16
-      subnet: 10.0.1.0/26
-      private_link_label: 'PLL'
-
   - name: Add new EPG service type parameters (for version greater than 3.3)
     cisco.mso.mso_schema_template_anp_epg:
       <<: *mso_info
@@ -686,20 +586,54 @@
     cisco.mso.mso_schema_site_anp_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
-      anp: ANP
-      epg: ansible_test_1
-      site: 'azure_{{ mso_site | default("ansible_test") }}'
+      template: Template 3
+      anp: ANP_3
+      epg: ansible_test_3
+      site: '{{ mso_site | default("ansible_test") }}'
       private_link_label: 'New_Private_Link_Label'
       state: present
+    register: add_private_link_label
 
   - name: Change private link label in the EPG (for version greater than 3.3)
     cisco.mso.mso_schema_site_anp_epg:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
-      anp: ANP
-      epg: ansible_test_1
-      site: 'azure_{{ mso_site | default("ansible_test") }}'
+      template: Template 3
+      anp: ANP_3
+      epg: ansible_test_3
+      site: '{{ mso_site | default("ansible_test") }}'
       private_link_label: 'PLL'
       state: present
+    register: change_private_link_label
+
+  - name: Verify site application profile EPG private link label
+    ansible.builtin.assert:
+      that:
+      - add_private_link_label is changed
+      - add_private_link_label.current.epgRef.anpName == "ANP_3"
+      - add_private_link_label.current.epgRef.epgName == "ansible_test_3"
+      - add_private_link_label.current.epgRef.templateName == "Template3"
+      - add_private_link_label.current.privateLinkLabel.name == "New_Private_Link_Label"
+      - add_private_link_label.current.shutdown == false
+      - add_private_link_label.previous.epgRef.anpName == "ANP_3"
+      - add_private_link_label.previous.epgRef.epgName == "ansible_test_3"
+      - add_private_link_label.previous.epgRef.templateName == "Template3"
+      - change_private_link_label is changed
+      - change_private_link_label.current.epgRef.anpName == "ANP_3"
+      - change_private_link_label.current.epgRef.epgName == "ansible_test_3"
+      - change_private_link_label.current.epgRef.templateName == "Template3"
+      - change_private_link_label.current.privateLinkLabel.name == "PLL"
+      - change_private_link_label.previous.epgRef.anpName == "ANP_3"
+      - change_private_link_label.previous.epgRef.epgName == "ansible_test_3"
+      - change_private_link_label.previous.epgRef.templateName == "Template3"
+      - change_private_link_label.previous.privateLinkLabel.name == "New_Private_Link_Label"
+
+# CLEAN ENVIRONMENT
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'

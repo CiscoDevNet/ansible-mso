@@ -277,6 +277,24 @@
     - nm_query_non_anp is not changed
     - nm_query_non_anp.msg == "ANP 'non_existing_anp' not found"
 
+# USE A NON-EXISTING STATE
+- name: Non-existing state (normal_mode)
+  cisco.mso.mso_schema_site_anp:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    site: '{{ mso_site | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    state: non-existing-state
+  ignore_errors: true
+  register: nm_non_existing_state
+
+- name: Verify non_existing_state
+  ansible.builtin.assert:
+    that:
+    - nm_non_existing_state is not changed
+    - nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema (normal_mode)
   cisco.mso.mso_schema_site_anp:
@@ -343,9 +361,18 @@
   ignore_errors: true
   register: nm_non_existing_site_template
 
-- name: Verify non_existing_site_template for NDO version > 3.7
+- name: Verify non_existing_site_template
   ansible.builtin.assert:
     that:
     - nm_non_existing_site_template is not changed
     - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template3")
-  when: version.current.version is version('3.7', '>')
+
+# CLEAN ENVIRONMENT
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'

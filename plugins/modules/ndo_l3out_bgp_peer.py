@@ -681,29 +681,66 @@ def main():
         if not mso.existing:
             # BGP Controls
             if bgp_controls:
-                mso_values["bgpControls"] = dict(
-                    allowSelfAS=bgp_controls["allow_self_as"],
-                    asOverride=bgp_controls["override_as"],
-                    disablePeerASCheck=bgp_controls["disabled_peer_as_check"],
-                    nextHopSelf=bgp_controls["next_hop_self"],
-                    sendCommunity=bgp_controls["send_community"],
-                    sendDomainPath=bgp_controls["send_extended_community"],
-                    sendExtendedCommunity=bgp_controls["send_domain_path"],
-                )
+                bgp_controls_dict = dict()
+
+                if bgp_controls["allow_self_as"]:
+                    bgp_controls_dict["allowSelfAS"] = bgp_controls["allow_self_as"]
+
+                if bgp_controls["override_as"]:
+                    bgp_controls_dict["asOverride"] = bgp_controls["override_as"]
+
+                if bgp_controls["disabled_peer_as_check"]:
+                    bgp_controls_dict["disablePeerASCheck"] = bgp_controls["disabled_peer_as_check"]
+
+                if bgp_controls["next_hop_self"]:
+                    bgp_controls_dict["nextHopSelf"] = bgp_controls["next_hop_self"]
+
+                if bgp_controls["send_community"]:
+                    bgp_controls_dict["sendCommunity"] = bgp_controls["send_community"]
+
+                if bgp_controls["send_extended_community"]:
+                    bgp_controls_dict["sendDomainPath"] = bgp_controls["send_extended_community"]
+
+                if bgp_controls["send_domain_path"]:
+                    bgp_controls_dict["sendExtendedCommunity"] = bgp_controls["send_domain_path"]
+
+                mso_values["bgpControls"] = bgp_controls_dict
 
             # Peer Controls
             if peer_controls:
-                mso_values["peerControls"] = dict(bfd=peer_controls["bfd"], disableConnectedCheck=peer_controls["disable_peer_connected_check"])
+                peer_controls_dict = dict()
+
+                if peer_controls["bfd"]:
+                    peer_controls_dict["bfd"] = peer_controls["bfd"]
+
+                if peer_controls["disable_peer_connected_check"]:
+                    peer_controls_dict["disableConnectedCheck"] = peer_controls["disable_peer_connected_check"]
+
+                mso_values["peerControls"] = peer_controls_dict
 
             # Address Type Controls
             if address_families:
-                mso_values["addressTypeControls"] = dict(afMast=address_families["multicast"], afUcast=address_families["unicast"])
+                address_families_dict = dict()
+
+                if address_families["multicast"]:
+                    address_families_dict["afMast"] = address_families["multicast"]
+
+                if address_families["unicast"]:
+                    address_families_dict["afUcast"] = address_families["unicast"]
+
+                mso_values["addressTypeControls"] = address_families_dict
 
             # Private AS Controls
             if private_as_controls:
-                mso_values["privateASControls"] = dict(
-                    removeAll=private_as_controls["remove_all"], replaceWithLocalAS=private_as_controls["replace_with_local_as"]
-                )
+                private_as_controls_dict = dict()
+
+                if private_as_controls["remove_all"]:
+                    private_as_controls_dict["removeAll"] = private_as_controls["remove_all"]
+
+                if private_as_controls["replace_with_local_as"]:
+                    private_as_controls_dict["replaceWithLocalAS"] = private_as_controls["replace_with_local_as"]
+
+                mso_values["privateASControls"] = private_as_controls_dict
 
             if private_as_controls and (private_as_controls.get("remove_all") or private_as_controls.get("replace_with_local_as")):
                 mso_values["privateASControls"]["removeExclusive"] = True

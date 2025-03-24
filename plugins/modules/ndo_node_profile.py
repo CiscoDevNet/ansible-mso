@@ -259,7 +259,7 @@ def main():
     object_description = "Node Profile"
     path = "/fabricResourceTemplate/template/nodeProfiles"
     node_profile_path = None
-    reference_dict = {
+    reference_collection = {
         "policy": {
             "name": "policyName",
             "reference": "policy",
@@ -279,10 +279,12 @@ def main():
         )
         if match:
             node_profile_path = "{0}/{1}".format(path, match.index)
-            mso_template.update_config_with_template_and_references(match.details, reference_dict)
+            mso_template.update_config_with_template_and_references(match.details, reference_collection)
             mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
-        mso.existing = mso.previous = [mso_template.update_config_with_template_and_references(profile, reference_dict) for profile in existing_node_profiles]
+        mso.existing = mso.previous = [
+            mso_template.update_config_with_template_and_references(profile, reference_collection) for profile in existing_node_profiles
+        ]
 
     if state == "present":
         if uuid and not mso.existing:
@@ -321,12 +323,12 @@ def main():
             [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
-            mso_template.update_config_with_template_and_references(match.details, reference_dict)
+            mso_template.update_config_with_template_and_references(match.details, reference_collection)
             mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
-        mso_template.update_config_with_template_and_references(mso.proposed, reference_dict)
+        mso_template.update_config_with_template_and_references(mso.proposed, reference_collection)
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()

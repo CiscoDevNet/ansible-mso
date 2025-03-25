@@ -63,8 +63,8 @@ options:
     description:
     - The remote autonomous system number (ASN) of the L3Out BGP Peer.
     - The value must be between 1 and 4294967295.
-    - Providing zero will remove the O(remote_asn=0) from the L3Out BGP Peer.
-    type: int
+    - Providing an empty string will remove the O(remote_asn="") from the L3Out BGP Peer.
+    type: str
   admin_state:
     description:
     - The administrative state of the L3Out BGP Peer.
@@ -90,8 +90,8 @@ options:
     description:
     - The weight of the L3Out BGP Peer.
     - The value must be between 1 and 65535.
-    - Providing zero will remove the O(weight=0) from the L3Out BGP Peer.
-    type: int
+    - Providing an empty string will remove the O(weight="") from the L3Out BGP Peer.
+    type: str
   allowed_self_as_count:
     description:
     - The allowed self-AS count of the L3Out BGP Peer.
@@ -107,8 +107,8 @@ options:
     description:
     - The local autonomous system number (ASN) of the L3Out BGP Peer.
     - The value must be between 1 and 4294967295.
-    - Providing zero will remove the O(local_asn=0) from the L3Out BGP Peer.
-    type: int
+    - Providing an empty string will remove the O(local_asn="") from the L3Out BGP Peer.
+    type: str
   import_route_map:
     description:
     - The name of the import route map.
@@ -481,15 +481,15 @@ def main():
         node_group=dict(type="str", required=True),
         ipv4_address=dict(type="str", aliases=["peer_address_ipv4"]),
         ipv6_address=dict(type="str", aliases=["peer_address_ipv6"]),
-        remote_asn=dict(type="int"),
+        remote_asn=dict(type="str"),
         admin_state=dict(type="str", choices=["enabled", "disabled"]),
         ebgp_multi_hop_ttl=dict(type="int"),
         auth_password=dict(type="str", no_log=True),
-        weight=dict(type="int"),
+        weight=dict(type="str"),
         site_of_origin=dict(type="str", aliases=["fabric_of_origin"]),
         allowed_self_as_count=dict(type="int"),
         local_asn_config=dict(type="str", choices=list(LOCAL_ASN_CONFIG)),
-        local_asn=dict(type="int"),
+        local_asn=dict(type="str"),
         bgp_controls=dict(
             type="dict",
             options=dict(
@@ -663,20 +663,26 @@ def main():
         mso_values = dict(
             peerAddressV4=ipv4_addr,
             peerAddressV6=ipv6_addr,
-            peerAsn=remote_asn,
             adminState=admin_state,
             authEnabled=True if auth_password else False,
             allowedSelfASCount=allowed_self_as_count,
             ebpgMultiHopTTL=ebgp_multi_hop_ttl,
-            weight=weight,
             siteOfOrigin=site_of_origin,
             localAsnConfig=local_asn_config,
-            localAsn=local_asn,
             peerPrefixRef=peer_prefix_uuid,
             importRouteMapRef=import_route_map_uuid,
             exportRouteMapRef=export_route_map_uuid,
             password=dict(value=auth_password) if auth_password is not None else None,
         )
+
+        if remote_asn not in ["", None]:
+            mso_values["peerAsn"] = int(remote_asn)
+
+        if weight not in ["", None]:
+            mso_values["weight"] = int(weight)
+
+        if local_asn not in ["", None]:
+            mso_values["localAsn"] = int(local_asn)
 
         if not mso.existing:
             # BGP Controls
@@ -761,15 +767,15 @@ def main():
                 mso_values_remove.append("peerAddressV6")
                 mso_values.pop("peerAddressV6", None)
 
-            if remote_asn == 0 and "peerAsn" in proposed_payload:
+            if remote_asn == "" and "peerAsn" in proposed_payload:
                 mso_values_remove.append("peerAsn")
                 mso_values.pop("peerAsn", None)
 
-            if weight == 0 and "weight" in proposed_payload:
+            if weight == "" and "weight" in proposed_payload:
                 mso_values_remove.append("weight")
                 mso_values.pop("weight", None)
 
-            if local_asn == 0 and "localAsn" in proposed_payload:
+            if local_asn == "" and "localAsn" in proposed_payload:
                 mso_values_remove.append("localAsn")
                 mso_values.pop("localAsn", None)
 

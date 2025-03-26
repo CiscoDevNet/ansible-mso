@@ -586,7 +586,7 @@
   - name: Verify status after querying site with non associated Template 1
     ansible.builtin.assert:
       that:
-      - status_site_temp3.msg is match ("Provided Template 'Template1' not associated with Site .+")
+      - status_site_temp3.msg == "Provided Template 'Template1' not associated with Site 'ansible_test'."
 
   - name: Check Non-existing schema
     cisco.mso.mso_schema_template_deploy_status:
@@ -614,13 +614,3 @@
     ansible.builtin.assert:
       that:
       - non_temp.msg == "Template 'non-existing-template' not found."
-
-# CLEAN ENVIRONMENT
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'

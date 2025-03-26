@@ -140,10 +140,10 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
 
 def check_if_all_elements_are_none(values):
     """
-    Checks if all the elements in the provided list are None.
+    Checks if all elements in the provided iterable are None
 
-    :param values: List of values to check. -> List
-    :return: True if all elements are None, False otherwise. -> Bool
+    :param values: An iterable containing values to be checked -> Iterable[Any]
+    :return: True if all elements are None, False otherwise -> Bool
     """
     return all(value is None for value in values)
 

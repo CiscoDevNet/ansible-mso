@@ -366,13 +366,3 @@
     that:
     - nm_non_existing_site_template is not changed
     - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template3")
-
-# CLEAN ENVIRONMENT
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'

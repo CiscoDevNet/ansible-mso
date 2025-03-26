@@ -768,13 +768,3 @@
     that:
     - nm_add_no_static_port is not changed
     - nm_add_no_static_port.msg == "state is present but all of the following are missing{{':'}} static_ports"
-
-# CLEAN ENVIRONMENT
-- name: Remove Schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'

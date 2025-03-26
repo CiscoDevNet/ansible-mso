@@ -866,7 +866,7 @@
   - name: Verify service type error
     ansible.builtin.assert:
       that:
-      - service_type_epg_error.msg is match ("MSO Error 400{{':'}} EPG{{':'}} ansible_test_1 in Schema{{':'}} ansible_test, Template{{':'}} Template1.+DeploymentType{{':'}} saas, AccessType {{':'}}publicAndPrivateType, Combination is not supported")
+      - service_type_epg_error.msg is match ("MSO Error 400{{':'}} EPG{{':'}} ansible_test_1 in Schema{{':'}} ansible_test\s*,?\s*Template{{':'}} Template1\s*,?\s*DeploymentType{{':'}} saas, AccessType {{':'}}publicAndPrivateType, Combination is not supported")
 
 # Add EPG when MSO version >= 3.3 and < 4.0
 - name: Execute tasks only for MSO version >= 3.3 and < 4.0
@@ -1263,13 +1263,3 @@
   ansible.builtin.assert:
     that:
     - nm_query_contract_epg_2.current.contractRelationships | length == 4
-
-# CLEAN ENVIRONMENT
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'

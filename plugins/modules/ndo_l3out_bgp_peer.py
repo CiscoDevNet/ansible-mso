@@ -462,13 +462,9 @@ RETURN = r"""
 import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, ndo_template_object_spec
-from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
+from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair, MSOTemplateCache
 from ansible_collections.cisco.mso.plugins.module_utils.constants import LOCAL_ASN_CONFIG
 from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, check_if_all_elements_are_none
-
-
-# Dictionary to store unique MSOTemplate instances
-l3out_bgp_peer_instance_cache = {}
 
 
 def main():
@@ -640,24 +636,22 @@ def main():
     ops = []
 
     if state == "present":
-        peer_prefix_is_empty = check_if_all_elements_are_none(list(peer_prefix.values())) if peer_prefix else True  # peer_prefix is None or empty dict => True
-        import_route_map_is_empty = check_if_all_elements_are_none(list(import_route_map.values())) if import_route_map else True
-        export_route_map_is_empty = check_if_all_elements_are_none(list(export_route_map.values())) if export_route_map else True
+        peer_prefix_is_empty = check_if_all_elements_are_none(peer_prefix.values()) if peer_prefix else True  # peer_prefix is None or empty dict => True
+        import_route_map_is_empty = check_if_all_elements_are_none(import_route_map.values()) if import_route_map else True
+        export_route_map_is_empty = check_if_all_elements_are_none(export_route_map.values()) if export_route_map else True
+
+        mso_template_cache = MSOTemplateCache()
 
         if not peer_prefix_is_empty:
-            peer_prefix_template = initiate_l3out_bgp_peer_mso_templates(mso, "tenant", peer_prefix.get("template"), peer_prefix.get("template_id"))
+            peer_prefix_template = mso_template_cache.get_template(mso, "tenant", peer_prefix.get("template"), peer_prefix.get("template_id"))
             peer_prefix_uuid = mso_template.get_tenant_policy_uuid(peer_prefix_template, peer_prefix.get("name"), "bgpPeerPrefixPolicies")
 
         if not import_route_map_is_empty:
-            import_route_map_template = initiate_l3out_bgp_peer_mso_templates(
-                mso, "tenant", import_route_map.get("template"), import_route_map.get("template_id")
-            )
+            import_route_map_template = mso_template_cache.get_template(mso, "tenant", import_route_map.get("template"), import_route_map.get("template_id"))
             import_route_map_uuid = mso_template.get_tenant_policy_uuid(import_route_map_template, import_route_map.get("name"), "routeMapPolicies")
 
         if not export_route_map_is_empty:
-            export_route_map_template = initiate_l3out_bgp_peer_mso_templates(
-                mso, "tenant", export_route_map.get("template"), export_route_map.get("template_id")
-            )
+            export_route_map_template = mso_template_cache.get_template(mso, "tenant", export_route_map.get("template"), export_route_map.get("template_id"))
             export_route_map_uuid = mso_template.get_tenant_policy_uuid(export_route_map_template, export_route_map.get("name"), "routeMapPolicies")
 
         mso_values = dict(
@@ -673,16 +667,10 @@ def main():
             importRouteMapRef=import_route_map_uuid,
             exportRouteMapRef=export_route_map_uuid,
             password=dict(value=auth_password) if auth_password is not None else None,
+            peerAsn=int(remote_asn) if remote_asn not in ["", None] else None,
+            weight=int(weight) if weight not in ["", None] else None,
+            localAsn=int(local_asn) if local_asn not in ["", None] else None,
         )
-
-        if remote_asn not in ["", None]:
-            mso_values["peerAsn"] = int(remote_asn)
-
-        if weight not in ["", None]:
-            mso_values["weight"] = int(weight)
-
-        if local_asn not in ["", None]:
-            mso_values["localAsn"] = int(local_asn)
 
         if not mso.existing:
             # BGP Controls
@@ -917,17 +905,6 @@ def get_bgp_peer_by_address(mso_template, bgp_peers, ipv4_addr=None, ipv6_addr=N
 
         return mso_template.get_object_by_key_value_pairs("L3Out BGP Peer", bgp_peers, kv_list, fail_module)
     return bgp_peers  # Query all objects
-
-
-def initiate_l3out_bgp_peer_mso_templates(mso, template_type, template_name, template_id):
-    key = (template_name, template_id)
-
-    # Check if the combination is unique and create an instance if needed
-    if key not in l3out_bgp_peer_instance_cache:
-        l3out_bgp_peer_instance_cache[key] = MSOTemplate(mso, template_type, template_name, template_id)
-
-    # Return the instance for this key
-    return l3out_bgp_peer_instance_cache[key]
 
 
 if __name__ == "__main__":

@@ -488,3 +488,30 @@ class MSOTemplate:
         kv_list = [KVPair("name", route_map_policy_for_multicast_name)]
         match = self.get_object_by_key_value_pairs("Route Map Policy for Multicast", existing_route_map_policies, kv_list, fail_module=True)
         return match.details.get("uuid")
+
+
+class MSOTemplateCache:
+    def __init__(self):
+        self.cache = {}
+        self.template_property_cache = {}
+
+    def get_template(self, mso, template_type, template_name, template_id):
+        if not template_id:
+            template_id = self._get_template_id(mso, template_type, template_name)
+
+        if template_id in self.cache:
+            return self.cache[template_id]
+
+        new_template = MSOTemplate(mso, template_type, template_name, template_id)
+        self.cache[template_id] = new_template
+        self.template_property_cache[(template_name, template_type)] = template_id
+        return new_template
+
+    def _get_template_id(self, mso, template_type, template_name):
+        if (template_name, template_type) in self.template_property_cache:
+            return self.template_property_cache[(template_name, template_type)]
+
+        template_summary = mso.get_obj("templates/summaries", templateName=template_name, templateType=TEMPLATE_TYPES[template_type]["template_type"])
+        if template_summary:
+            return template_summary.get("templateId")
+        return None

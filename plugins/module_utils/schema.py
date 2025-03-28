@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2022, Akini Ross (@akinross) <akinross@cisco.com>
+# Copyright: (c) 2025, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -14,15 +15,23 @@ Item = namedtuple("Item", "index details")
 
 
 class MSOSchema:
-    def __init__(self, mso_module, schema_name, template_name=None, site_name=None):
+    def __init__(self, mso_module, schema_name, template_name=None, site_name=None, schema_id=None, template_id=None):
         self.mso = mso_module
         self.schema_name = schema_name
-        self.id, self.path, self.schema = mso_module.query_schema(schema_name)
+        if schema_id:
+            self.id, self.path, self.schema = mso_module.query_schema_by_id(schema_id)
+            self.schema_name = self.schema.get("displayName")
+        else:
+            self.id, self.path, self.schema = mso_module.query_schema(schema_name)
         self.schema_objects = {}
-        if template_name:
-            self.set_template(template_name)
-        if site_name and template_name:
-            self.set_site(template_name, site_name)
+        self.template_id = template_id
+        self.template_name = template_name
+        if self.template_id:
+            self.set_template_from_id(self.template_id)
+        elif self.template_name:
+            self.set_template(self.template_name)
+        if site_name and self.template_name:
+            self.set_site(self.template_name, site_name)
 
     @staticmethod
     def get_object_from_list(search_list, kv_list):
@@ -65,6 +74,22 @@ class MSOSchema:
         if not match and fail_module:
             msg = "Provided template '{0}' not matching existing template(s): {1}".format(template_name, ", ".join(existing))
             self.mso.fail_json(msg=msg)
+        self.template_id = match.details.get("templateID")
+        self.schema_objects["template"] = match
+
+    def set_template_from_id(self, template_id, fail_module=True):
+        """
+        Get template item that matches the id of a template.
+        :param template_id: ID of the template to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template item. -> Item(Int, Dict) | None
+        """
+        kv_list = [KVPair("templateID", template_id)]
+        match, existing = self.get_object_from_list(self.schema.get("templates"), kv_list)
+        if not match and fail_module:
+            msg = "Provided template ID '{0}' not matching existing template(s): {1}".format(template_id, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        self.template_name = match.details.get("name")
         self.schema_objects["template"] = match
 
     def set_template_vrf(self, vrf, fail_module=True):
@@ -372,3 +397,17 @@ class MSOSchema:
             msg = "Provided Static Port Path '{0}' not matching existing static port path(s): {1}".format(path, ", ".join(existing))
             self.mso.fail_json(msg=msg)
         self.schema_objects["site_anp_epg_static_port"] = match
+
+
+class MSOSchemaCache:
+    def __init__(self):
+        self.cache = {}
+
+    def get_schema(self, mso, schema_name, schema_id, template, template_id):
+        if schema_id in self.cache:
+            return self.cache[schema_id]
+
+        new_schema = MSOSchema(mso, schema_name, template, None, schema_id, template_id)
+        self.cache[new_schema.id] = new_schema
+        self.cache[(new_schema.schema_name, new_schema.template_name)] = new_schema
+        return new_schema

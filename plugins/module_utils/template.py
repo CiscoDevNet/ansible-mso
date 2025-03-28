@@ -429,3 +429,17 @@ class MSOTemplate:
     def check_template_when_name_is_provided(self, parameter):
         if parameter and parameter.get("name") and not (parameter.get("template") or parameter.get("template_id")):
             self.mso.fail_json(msg="Either 'template' or 'template_id' associated with '{}' must be provided".format(parameter.get("name")))
+
+
+class MSOTemplateCache:
+    def __init__(self):
+        self.cache = {}
+
+    def get_template(self, mso, template_type, template_name, template_id):
+        if template_id in self.cache:
+            return self.cache[template_id]
+
+        new_template = MSOTemplate(mso, template_type, template_name, template_id)
+        self.cache[new_template.template_id] = new_template
+        self.cache[(new_template.template_name, new_template.template_type)] = new_template
+        return new_template

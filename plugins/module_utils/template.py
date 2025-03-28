@@ -346,6 +346,12 @@ class MSOTemplate:
         if response_object:
             return response_object.get("name")
 
+<<<<<<< HEAD
+=======
+    def clear_template_objects_cache(self):
+        self.template_objects_cache = {}
+
+>>>>>>> d667af2 ([minor_change] Addition of new module ndo_service_device_cluster and its test file)
     def get_template_object_by_uuid(self, object_type, uuid, fail_module=True, use_cache=False):
         """
         Retrieve a specific object type in the MSO template using its UUID.
@@ -465,7 +471,10 @@ class MSOTemplate:
                         config_data[reference_details.get("schemaId")] = template_object.get("schemaId")
                     if reference_details.get("schema"):
                         config_data[reference_details.get("schema")] = template_object.get("schemaName")
+<<<<<<< HEAD
             return config_data
+=======
+>>>>>>> d667af2 ([minor_change] Addition of new module ndo_service_device_cluster and its test file)
         return config_data
 
     def check_template_when_name_is_provided(self, parameter):

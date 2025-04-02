@@ -121,6 +121,15 @@
         state: present
       register: ansible_test_epg
 
+    - name: Query the external EPG for UUID
+      cisco.mso.mso_schema_template_external_epg:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_template
+        external_epg: ansible_test_epg
+        state: query
+      register: ansible_test_epg_query
+
     # Tenant Policy Template Setup for the IPSLA and Custom QoS Policy
     - name: Ensure ansible_test_policy tenant policy template exists
       cisco.mso.ndo_template:
@@ -190,7 +199,7 @@
             rewrite_source_mac: false
             config_static_mac: false
             is_backup_redirect_ip: true
-            load_balance_hashing: sourceIP
+            load_balance_hashing: source_ip
             pod_aware_redirection: false
             resilient_hashing: true
             tag_based_sorting: false
@@ -231,7 +240,20 @@
           - cm_add_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
           - cm_add_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
           - cm_add_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyName == "ansible_custom_qos_policy"
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyRef == custom_qos_policy.current.uuid
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyTemplateId == ansible_test_policy.current.templateId
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyTemplateName == "ansible_tenant_template"
           - cm_add_device1.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == true
+          - cm_add_device1.current.interfaces[0].externalEpgName == "ansible_test_epg"
+          - cm_add_device1.current.interfaces[0].externalEpgRef == ansible_test_epg_query.current.uuid
+          - cm_add_device1.current.interfaces[0].externalEpgSchemaId == ansible_test_bd.current.vrfRef.schemaId
+          - cm_add_device1.current.interfaces[0].externalEpgSchemaName == "ansible_test"
+          - cm_add_device1.current.interfaces[0].externalEpgTemplateName == "ansible_template"
+          - cm_add_device1.current.interfaces[0].ipslaMonitoringPolicyName == "ansible_test_ipsla_monitoring_policy"
+          - cm_add_device1.current.interfaces[0].ipslaMonitoringPolicyTemplateId == ansible_test_policy.current.templateId
+          - cm_add_device1.current.interfaces[0].ipslaMonitoringPolicyTemplateName == "ansible_tenant_template"
+          - cm_add_device1.current.interfaces[0].ipslaMonitoringRef == ipsla_monitoring_policy.current.uuid
           - nm_add_device1 is changed
           - nm_add_device1.previous == {}
           - nm_add_device1.current.name == "device1"
@@ -245,6 +267,19 @@
           - nm_add_device1.current.interfaces[0].deviceInterfaceType == "l3out"
           - nm_add_device1.current.interfaces[0].redirect == true
           - nm_add_device1.current.interfaces[0].isAdvancedIntfConfig == true
+          - nm_add_device1.current.interfaces[0].externalEpgName == "ansible_test_epg"
+          - nm_add_device1.current.interfaces[0].externalEpgRef == ansible_test_epg_query.current.uuid
+          - nm_add_device1.current.interfaces[0].externalEpgSchemaId == ansible_test_bd.current.vrfRef.schemaId
+          - nm_add_device1.current.interfaces[0].externalEpgSchemaName == "ansible_test"
+          - nm_add_device1.current.interfaces[0].externalEpgTemplateName == "ansible_template"
+          - nm_add_device1.current.interfaces[0].ipslaMonitoringPolicyName == "ansible_test_ipsla_monitoring_policy"
+          - nm_add_device1.current.interfaces[0].ipslaMonitoringPolicyTemplateId == ansible_test_policy.current.templateId
+          - nm_add_device1.current.interfaces[0].ipslaMonitoringPolicyTemplateName == "ansible_tenant_template"
+          - nm_add_device1.current.interfaces[0].ipslaMonitoringRef == ipsla_monitoring_policy.current.uuid
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyName == "ansible_custom_qos_policy"
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyRef == custom_qos_policy.current.uuid
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyTemplateId == ansible_test_policy.current.templateId
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyTemplateName == "ansible_tenant_template"
           - nm_add_device1.current.interfaces[0].advancedIntfConfig.preferredGroup == true
           - nm_add_device1.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceIP"
           - nm_add_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
@@ -295,7 +330,7 @@
             rewrite_source_mac: false
             config_static_mac: false
             is_backup_redirect_ip: true
-            load_balance_hashing: sourceIP
+            load_balance_hashing: source_ip
             pod_aware_redirection: false
             resilient_hashing: true
             tag_based_sorting: false
@@ -318,7 +353,7 @@
             rewrite_source_mac: false
             config_static_mac: false
             is_backup_redirect_ip: true
-            load_balance_hashing: sourceIP
+            load_balance_hashing: source_ip
             pod_aware_redirection: false
             resilient_hashing: true
             tag_based_sorting: false
@@ -483,7 +518,7 @@
             rewrite_source_mac: false
             config_static_mac: false
             is_backup_redirect_ip: true
-            load_balance_hashing: sourceIP
+            load_balance_hashing: source_ip
             pod_aware_redirection: false
             resilient_hashing: true
             tag_based_sorting: false
@@ -501,7 +536,7 @@
             rewrite_source_mac: false
             config_static_mac: false
             is_backup_redirect_ip: true
-            load_balance_hashing: sourceIP
+            load_balance_hashing: source_ip
             pod_aware_redirection: false
             resilient_hashing: true
             tag_based_sorting: false
@@ -521,7 +556,7 @@
             rewrite_source_mac: false
             config_static_mac: false
             is_backup_redirect_ip: true
-            load_balance_hashing: destinationIP
+            load_balance_hashing: destination_ip
             pod_aware_redirection: false
             resilient_hashing: true
             tag_based_sorting: false
@@ -727,17 +762,6 @@
             qos_policy:
               name: ansible_custom_qos_policy
               template: ansible_tenant_template
-            preferred_group: true
-            rewrite_source_mac: false
-            config_static_mac: false
-            is_backup_redirect_ip: true
-            load_balance_hashing: sourceIP
-            pod_aware_redirection: false
-            resilient_hashing: true
-            tag_based_sorting: false
-            min_threshold: 10
-            max_threshold: 100
-            threshold_down_action: permit
         state: present
       register: cm_add_device2
 
@@ -761,17 +785,14 @@
           - cm_add_device2.current.interfaces[0].deviceInterfaceType == "l3out"
           - cm_add_device2.current.interfaces[0].redirect == true
           - cm_add_device2.current.interfaces[0].isAdvancedIntfConfig == true
-          - cm_add_device2.current.interfaces[0].advancedIntfConfig.preferredGroup == true
+          - cm_add_device2.current.interfaces[0].advancedIntfConfig.preferredGroup == false
           - cm_add_device2.current.interfaces[0].advancedIntfConfig.rewriteSourceMac == false
           - cm_add_device2.current.interfaces[0].advancedIntfConfig.configStaticMac == false
-          - cm_add_device2.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == true
-          - cm_add_device2.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - cm_add_device2.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == false
+          - cm_add_device2.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceDestinationAndProtocol"
           - cm_add_device2.current.interfaces[0].advancedIntfConfig.podAwareRedirection == false
-          - cm_add_device2.current.interfaces[0].advancedIntfConfig.resilientHashing == true
+          - cm_add_device2.current.interfaces[0].advancedIntfConfig.resilientHashing == false
           - cm_add_device2.current.interfaces[0].advancedIntfConfig.tag == false
-          - cm_add_device2.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
-          - cm_add_device2.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
-          - cm_add_device2.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
           - nm_add_device2 is not changed
           - nm_add_device2.previous.name == nm_add_device2.current.name == "device2"
           - nm_add_device2.previous.deviceMode == nm_add_device2.current.deviceMode == "layer3"
@@ -784,17 +805,14 @@
           - nm_add_device2.previous.interfaces[0].deviceInterfaceType == nm_add_device2.current.interfaces[0].deviceInterfaceType == "l3out"
           - nm_add_device2.previous.interfaces[0].redirect == nm_add_device2.current.interfaces[0].redirect == true
           - nm_add_device2.previous.interfaces[0].isAdvancedIntfConfig == nm_add_device2.current.interfaces[0].isAdvancedIntfConfig == true
-          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.preferredGroup == nm_add_device2.current.interfaces[0].advancedIntfConfig.preferredGroup == true
+          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.preferredGroup == nm_add_device2.current.interfaces[0].advancedIntfConfig.preferredGroup == false
           - nm_add_device2.previous.interfaces[0].advancedIntfConfig.rewriteSourceMac == nm_add_device2.current.interfaces[0].advancedIntfConfig.rewriteSourceMac == false
           - nm_add_device2.previous.interfaces[0].advancedIntfConfig.configStaticMac == nm_add_device2.current.interfaces[0].advancedIntfConfig.configStaticMac == false
-          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.isBackupRedirectIP == nm_add_device2.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == true
-          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.loadBalanceHashing == nm_add_device2.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.isBackupRedirectIP == nm_add_device2.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == false
+          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.loadBalanceHashing == nm_add_device2.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceDestinationAndProtocol"
           - nm_add_device2.previous.interfaces[0].advancedIntfConfig.podAwareRedirection == nm_add_device2.current.interfaces[0].advancedIntfConfig.podAwareRedirection == false
-          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.resilientHashing == nm_add_device2.current.interfaces[0].advancedIntfConfig.resilientHashing == true
+          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.resilientHashing == nm_add_device2.current.interfaces[0].advancedIntfConfig.resilientHashing == false
           - nm_add_device2.previous.interfaces[0].advancedIntfConfig.tag == nm_add_device2.current.interfaces[0].advancedIntfConfig.tag == false
-          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == nm_add_device2.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
-          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == nm_add_device2.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
-          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == nm_add_device2.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
 
     - name: Query the second service device cluster using name
       cisco.mso.ndo_service_device_cluster:
@@ -835,17 +853,14 @@
           - query_device2.current.interfaces[0].deviceInterfaceType == "l3out"
           - query_device2.current.interfaces[0].redirect == true
           - query_device2.current.interfaces[0].isAdvancedIntfConfig == true
-          - query_device2.current.interfaces[0].advancedIntfConfig.preferredGroup == true
+          - query_device2.current.interfaces[0].advancedIntfConfig.preferredGroup == false
           - query_device2.current.interfaces[0].advancedIntfConfig.rewriteSourceMac == false
           - query_device2.current.interfaces[0].advancedIntfConfig.configStaticMac == false
-          - query_device2.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == true
-          - query_device2.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - query_device2.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == false
+          - query_device2.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceDestinationAndProtocol"
           - query_device2.current.interfaces[0].advancedIntfConfig.podAwareRedirection == false
-          - query_device2.current.interfaces[0].advancedIntfConfig.resilientHashing == true
+          - query_device2.current.interfaces[0].advancedIntfConfig.resilientHashing == false
           - query_device2.current.interfaces[0].advancedIntfConfig.tag == false
-          - query_device2.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
-          - query_device2.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
-          - query_device2.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
           - query_device2_uuid.current == query_device2.current
           - query_all.current | length == 2
 

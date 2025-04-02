@@ -462,7 +462,7 @@ RETURN = r"""
 import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, ndo_template_object_spec
-from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair, MSOTemplateCache
+from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.constants import LOCAL_ASN_CONFIG
 from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, check_if_all_elements_are_none
 
@@ -640,18 +640,16 @@ def main():
         import_route_map_is_empty = check_if_all_elements_are_none(import_route_map.values()) if import_route_map else True
         export_route_map_is_empty = check_if_all_elements_are_none(export_route_map.values()) if export_route_map else True
 
-        mso_template_cache = MSOTemplateCache()
-
         if not peer_prefix_is_empty:
-            peer_prefix_template = mso_template_cache.get_template(mso, "tenant", peer_prefix.get("template"), peer_prefix.get("template_id"))
+            peer_prefix_template = mso_template.get_template(mso, "tenant", peer_prefix.get("template"), peer_prefix.get("template_id"))
             peer_prefix_uuid = mso_template.get_tenant_policy_uuid(peer_prefix_template, peer_prefix.get("name"), "bgpPeerPrefixPolicies")
 
         if not import_route_map_is_empty:
-            import_route_map_template = mso_template_cache.get_template(mso, "tenant", import_route_map.get("template"), import_route_map.get("template_id"))
+            import_route_map_template = mso_template.get_template(mso, "tenant", import_route_map.get("template"), import_route_map.get("template_id"))
             import_route_map_uuid = mso_template.get_tenant_policy_uuid(import_route_map_template, import_route_map.get("name"), "routeMapPolicies")
 
         if not export_route_map_is_empty:
-            export_route_map_template = mso_template_cache.get_template(mso, "tenant", export_route_map.get("template"), export_route_map.get("template_id"))
+            export_route_map_template = mso_template.get_template(mso, "tenant", export_route_map.get("template"), export_route_map.get("template_id"))
             export_route_map_uuid = mso_template.get_tenant_policy_uuid(export_route_map_template, export_route_map.get("name"), "routeMapPolicies")
 
         mso_values = dict(

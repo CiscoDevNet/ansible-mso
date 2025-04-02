@@ -53,10 +53,10 @@ options:
     description:
     - Defines the type of device being configured.
     type: str
-    choices: [ firewall, loadBalancer, other ]
+    choices: [ firewall, load_balancer, other ]
   interface_properties:
     description:
-    - A dictionary containing interface configuration.
+    - A list containing interface configuration.
     type: list
     elements: dict
     suboptions:
@@ -67,7 +67,7 @@ options:
         required: true
       type:
         description:
-        - The type of the interface, either Bridge Domain (BD) or Layer 3 Out (l3out).
+        - The type of the interface.
         type: str
         choices: ["bd", "l3out"]
       interface:
@@ -153,47 +153,61 @@ options:
       preferred_group:
         description:
         - Whether the interface belongs to a preferred group.
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       rewrite_source_mac:
         description:
         - Whether to rewrite the source MAC address.
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       anycast:
         description:
         - Indicates if anycast is enabled.
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       config_static_mac:
         description:
         - Indicates if static MAC configuration is enabled.
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       is_backup_redirect_ip:
         description:
         - Indicates if it is a backup redirect IP.
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       load_balance_hashing:
         description:
         - Load balancing hashing method.
+        - If this parameter is unspecified, it defaults to source_destination_and_protocol.
         type: str
-        choices: ["sourceDestinationAndProtocol", "sourceIP", "destinationIP"]
+        choices: ["source_destination_and_protocol", "source_ip", "destination_ip"]
       pod_aware_redirection:
         description:
         - Indicates if pod-aware redirection is enabled.
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       resilient_hashing:
         description:
         - Indicates if resilient hashing is enabled.
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       tag_based_sorting:
         description:
         - Indicates if tag-based sorting is enabled.
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       min_threshold:
         description:
         - Minimum threshold value for redirect.
+        - If this parameter is unspecified, it defaults to 0.
+        - This value must be between 0 and 100.
+        - This value cannot be greater than or equal to maximum threshold.
         type: int
       max_threshold:
         description:
         - Maximum threshold value for redirect.
+        - If this parameter is unspecified, it defaults to 0.
+        - This value must be between 0 and 100.
         type: int
       threshold_down_action:
         description:
@@ -208,6 +222,11 @@ options:
     type: str
     choices: [ absent, query, present ]
     default: query
+notes:
+- The O(template) must exist before using this module in your playbook.
+  Use M(cisco.mso.ndo_template) to create the service device template.
+seealso:
+- module: cisco.mso.ndo_template
 extends_documentation_fragment: cisco.mso.modules
 """
 
@@ -248,8 +267,8 @@ EXAMPLES = r"""
     state: present
   register: add_device1
 
-- name: Update the service device cluster to three arm
-  cisco.mso.ndo_service_device_cluster: &another_update_service_device_cluster1
+- name: Update the service device cluster to advanced
+  cisco.mso.ndo_service_device_cluster:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -368,14 +387,14 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import (
 from ansible_collections.cisco.mso.plugins.module_utils.template import (
     MSOTemplate,
     KVPair,
-    MSOTemplateCache,
 )
 from ansible_collections.cisco.mso.plugins.module_utils.utils import (
     append_update_ops_data,
     check_if_all_elements_are_none,
+    snake_to_camel,
 )
 from ansible_collections.cisco.mso.plugins.module_utils.schema import (
-    MSOSchemaCache,
+    MSOSchema,
 )
 import copy
 
@@ -389,7 +408,7 @@ def main():
         uuid=dict(type="str"),
         description=dict(type="str"),
         device_mode=dict(type="str", choices=["layer1", "layer2", "layer3"]),
-        device_type=dict(type="str", choices=["firewall", "loadBalancer", "other"]),
+        device_type=dict(type="str", choices=["firewall", "load_balancer", "other"]),
         interface_properties=dict(
             type="list",
             elements="dict",
@@ -452,7 +471,7 @@ def main():
                 anycast=dict(type="bool"),
                 config_static_mac=dict(type="bool"),
                 is_backup_redirect_ip=dict(type="bool"),
-                load_balance_hashing=dict(type="str", choices=["sourceDestinationAndProtocol", "sourceIP", "destinationIP"]),
+                load_balance_hashing=dict(type="str", choices=["source_destination_and_protocol", "source_ip", "destination_ip"]),
                 pod_aware_redirection=dict(type="bool"),
                 resilient_hashing=dict(type="bool"),
                 tag_based_sorting=dict(type="bool"),
@@ -460,6 +479,12 @@ def main():
                 max_threshold=dict(type="int"),
                 threshold_down_action=dict(type="str", choices=["permit", "deny", "bypass"]),
             ),
+            required_one_of=[["interface", "interface_uuid"]],
+            mutually_exclusive=[
+                ["interface", "interface_uuid"],
+                ["ipsla_monitoring_policy", "ipsla_monitoring_policy_uuid"],
+                ["qos_policy", "qos_policy_uuid"],
+            ],
         ),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
@@ -473,9 +498,7 @@ def main():
             ["state", "present", ["device_mode", "device_type", "interface_properties"]],
         ],
         required_one_of=[["template", "template_id"]],
-        mutually_exclusive=[
-            ["template", "template_id"],
-        ],
+        mutually_exclusive=[["template", "template_id"]],
     )
 
     mso = MSOModule(module)
@@ -487,7 +510,6 @@ def main():
     description = module.params.get("description")
     device_type = module.params.get("device_type")
     device_mode = module.params.get("device_mode")
-    connectivity_mode = module.params.get("connectivity_mode")
     state = module.params.get("state")
 
     ops = []
@@ -496,14 +518,8 @@ def main():
 
     mso_template = MSOTemplate(mso, "service_device", template, template_id)
     mso_template.validate_template("serviceDevice")
-    references = {"bd": "bdRef", "l3out": "externalEpgRef"}
-    connectivity_mode = {1: "oneArm", 2: "twoArm"}
-    mso_schema_cache = MSOSchemaCache()
-    mso_template_cache = MSOTemplateCache()
     if module.params.get("interface_properties") is not None:
-        interface_properties = get_interfaces_payload(
-            mso, mso_template, module.params.get("interface_properties"), references, mso_schema_cache, mso_template_cache
-        )
+        interface_properties = get_interfaces_payload(mso, mso_template, module.params.get("interface_properties"), None)
     object_description = "Service Device Cluster"
     path = "/deviceTemplate/template/devices"
 
@@ -517,10 +533,10 @@ def main():
         )
         if match:
             device_path = "{0}/{1}".format(path, match.index)
-            mso_template.update_config_with_template_and_references(match.details)
+            set_template_and_references(mso_template, match.details)
             mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
-        mso.existing = mso.previous = [mso_template.update_config_with_template_and_references(device) for device in existing_devices]
+        mso.existing = mso.previous = [set_template_and_references(mso_template, device) for device in existing_devices]
 
     if state == "present":
         mso_values = dict(
@@ -528,8 +544,8 @@ def main():
             description=description,
             deviceLocation="onPremise",
             deviceMode=device_mode,
-            deviceType=device_type,
-            connectivityMode="advanced" if len(interface_properties) >= 3 else connectivity_mode.get(len(interface_properties)),
+            deviceType=snake_to_camel(device_type),
+            connectivityMode="advanced" if len(interface_properties) >= 3 else ("oneArm" if len(interface_properties) == 1 else "twoArm"),
             interfaces=interface_properties,
         )
 
@@ -549,36 +565,40 @@ def main():
         devices = response.get("deviceTemplate", {}).get("template", {}).get("devices") or []
         match = mso_template.get_object_by_key_value_pairs(object_description, devices, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
         if match:
-            mso_template.update_config_with_template_and_references(match.details)
+            set_template_and_references(mso_template, match.details)
             mso.existing = match.details
         else:
             mso.existing = {}
     elif module.check_mode and state != "query":
-        mso_template.update_config_with_template_and_references(mso.proposed)
+        set_template_and_references(mso_template, mso.proposed)
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
 
 
-def get_interfaces_payload(mso, mso_template, interfaces, references, mso_schema_cache, mso_template_cache):
+def get_interfaces_payload(mso, mso_template, interfaces, schema):
     def get_object_uuid_from_schema(interface_type, uuid, interface):
         if uuid:
             return uuid
 
+        nonlocal schema
         name = interface.get("name")
         template = interface.get("template")
         template_id = interface.get("template_id")
         schema_name = interface.get("schema")
         schema_id = interface.get("schema_id")
 
-        get_schema = mso_schema_cache.get_schema(mso, schema_name, schema_id, template, template_id)
+        if schema is None:
+            schema = MSOSchema(mso, schema_name, template, None, schema_id, template_id)
+        else:
+            schema = schema.get_schema(schema_name, schema_id, template, template_id)
 
         if interface_type == "bd":
-            get_schema.set_template_bd(name, fail_module=True)
-            return get_schema.schema_objects.get("template_bd").details.get("uuid")
+            schema.set_template_bd(name, fail_module=True)
+            return schema.schema_objects.get("template_bd").details.get("uuid")
         elif interface_type == "l3out":
-            get_schema.set_template_external_epg(name, fail_module=True)
-            return get_schema.schema_objects.get("template_external_epg").details.get("uuid")
+            schema.set_template_external_epg(name, fail_module=True)
+            return schema.schema_objects.get("template_external_epg").details.get("uuid")
 
     def get_object_uuid_from_template(object_type, uuid, obj):
         if uuid:
@@ -590,51 +610,95 @@ def get_interfaces_payload(mso, mso_template, interfaces, references, mso_schema
             template = obj.get("template")
             template_id = obj.get("template_id")
 
-            get_template = mso_template_cache.get_template(mso, "tenant", template, template_id)
+            get_template = mso_template.get_template("tenant", template, template_id)
 
             if object_type == "ipsla":
                 return mso_template.get_tenant_policy_uuid(get_template, name, "ipslaMonitoringPolicies")
             else:
                 return mso_template.get_tenant_policy_uuid(get_template, name, "qosPolicies")
 
+    references = {"bd": "bdRef", "l3out": "externalEpgRef"}
     payload = []
     for interface in interfaces:
         mso_template.check_template_when_name_is_provided(interface.get("ipsla_monitoring_policy"))
         mso_template.check_template_when_name_is_provided(interface.get("qos_policy"))
-        interface_payload = {"name": interface.get("name")}
-        interface_payload["deviceInterfaceType"] = interface.get("type")
-        interface_payload["thresholdForRedirectDestination"] = interface.get("threshold_for_redirect_destination")
-        interface_payload[references.get(interface.get("type"))] = get_object_uuid_from_schema(
-            interface.get("type"), interface.get("interface_uuid"), interface.get("interface")
-        )
-        interface_payload["redirect"] = interface.get("redirect")
-        interface_payload["redirect"] = True
-        interface_payload["isAdvancedIntfConfig"] = True
-        interface_payload["ipslaMonitoringRef"] = get_object_uuid_from_template(
-            "ipsla", interface.get("ipsla_monitoring_policy_uuid"), interface.get("ipsla_monitoring_policy")
-        )
-        interface_payload["advancedIntfConfig"] = {
-            "thresholdForRedirectDestination": True,
-            "rewriteSourceMac": interface.get("rewrite_source_mac"),
-            "anycast": interface.get("anycast"),
-            "configStaticMac": interface.get("config_static_mac"),
-            "isBackupRedirectIP": interface.get("is_backup_redirect_ip"),
-            "loadBalanceHashing": interface.get("load_balance_hashing"),
-            "podAwareRedirection": interface.get("pod_aware_redirection"),
-            "preferredGroup": interface.get("preferred_group"),
-            "resilientHashing": interface.get("resilient_hashing"),
-            "qosPolicyRef": get_object_uuid_from_template("qos", interface.get("qos_policy_uuid"), interface.get("qos_policy")),
-            "tag": interface.get("tag_based_sorting"),
-            "thresholdForRedirect": {
-                "maxThreshold": interface.get("max_threshold"),
-                "minThreshold": interface.get("min_threshold"),
-                "thresholdDownAction": interface.get("threshold_down_action"),
+        interface_payload = {
+            "name": interface.get("name"),
+            "deviceInterfaceType": interface.get("type"),
+            references.get(interface.get("type")): get_object_uuid_from_schema(
+                interface.get("type"), interface.get("interface_uuid"), interface.get("interface")
+            ),
+            "redirect": True,
+            "isAdvancedIntfConfig": True,
+            "ipslaMonitoringRef": get_object_uuid_from_template(
+                "ipsla", interface.get("ipsla_monitoring_policy_uuid"), interface.get("ipsla_monitoring_policy")
+            ),
+            "advancedIntfConfig": {
+                "rewriteSourceMac": interface.get("rewrite_source_mac"),
+                "anycast": interface.get("anycast"),
+                "configStaticMac": interface.get("config_static_mac"),
+                "isBackupRedirectIP": interface.get("is_backup_redirect_ip"),
+                "loadBalanceHashing": snake_to_camel(interface.get("load_balance_hashing")),
+                "podAwareRedirection": interface.get("pod_aware_redirection"),
+                "preferredGroup": interface.get("preferred_group"),
+                "resilientHashing": interface.get("resilient_hashing"),
+                "qosPolicyRef": get_object_uuid_from_template("qos", interface.get("qos_policy_uuid"), interface.get("qos_policy")),
+                "tag": interface.get("tag_based_sorting"),
+                "thresholdForRedirect": {
+                    "maxThreshold": interface.get("max_threshold"),
+                    "minThreshold": interface.get("min_threshold"),
+                    "thresholdDownAction": interface.get("threshold_down_action"),
+                },
             },
         }
         if interface_payload.get("ipslaMonitoringRef"):
             interface_payload["advancedIntfConfig"]["advancedTrackingOptions"] = True
+        if interface_payload.get("advancedIntfConfig", {}).get("thresholdForRedirect", {}).get("thresholdDownAction"):
+            interface_payload["advancedIntfConfig"]["thresholdForRedirectDestination"] = True
         payload.append(interface_payload)
     return payload
+
+
+def set_template_and_references(mso_template, device):
+    reference_dict = {
+        "qos": {
+            "name": "qosPolicyName",
+            "reference": "qosPolicyRef",
+            "type": "qos",
+            "template": "qosPolicyTemplateName",
+            "templateId": "qosPolicyTemplateId",
+        },
+        "ipsla": {
+            "name": "ipslaMonitoringPolicyName",
+            "reference": "ipslaMonitoringRef",
+            "type": "ipslaMonitoringPolicy",
+            "template": "ipslaMonitoringPolicyTemplateName",
+            "templateId": "ipslaMonitoringPolicyTemplateId",
+        },
+        "epg": {
+            "name": "externalEpgName",
+            "reference": "externalEpgRef",
+            "template": "externalEpgTemplateName",
+            "templateId": "externalEpgTemplateId",
+            "schema": "externalEpgSchemaName",
+            "schemaId": "externalEpgSchemaId",
+            "type": "externalEpg",
+        },
+        "bd": {
+            "name": "bdName",
+            "reference": "bdRef",
+            "template": "bdTemplateName",
+            "templateId": "bdTemplateId",
+            "schema": "bdSchemaName",
+            "schemaId": "bdSchemaId",
+            "type": "bd",
+        },
+    }
+    mso_template.update_config_with_template_and_references(device)
+    for interface in device.get("interfaces", []):
+        mso_template.update_config_with_template_and_references(interface, reference_dict, False)
+        mso_template.update_config_with_template_and_references(interface["advancedIntfConfig"], reference_dict, False)
+    return device
 
 
 if __name__ == "__main__":

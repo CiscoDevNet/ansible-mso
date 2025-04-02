@@ -18,6 +18,7 @@ class MSOSchema:
     def __init__(self, mso_module, schema_name, template_name=None, site_name=None, schema_id=None, template_id=None):
         self.mso = mso_module
         self.schema_name = schema_name
+        self.cache = {}
         if schema_id:
             self.id, self.path, self.schema = mso_module.query_schema_by_id(schema_id)
             self.schema_name = self.schema.get("displayName")
@@ -398,16 +399,11 @@ class MSOSchema:
             self.mso.fail_json(msg=msg)
         self.schema_objects["site_anp_epg_static_port"] = match
 
-
-class MSOSchemaCache:
-    def __init__(self):
-        self.cache = {}
-
-    def get_schema(self, mso, schema_name, schema_id, template, template_id):
+    def get_schema(self, schema_name, schema_id, template, template_id):
         if schema_id in self.cache:
             return self.cache[schema_id]
 
-        new_schema = MSOSchema(mso, schema_name, template, None, schema_id, template_id)
+        new_schema = MSOSchema(self.mso, schema_name, template, None, schema_id, template_id)
         self.cache[new_schema.id] = new_schema
         self.cache[(new_schema.schema_name, new_schema.template_name)] = new_schema
         return new_schema

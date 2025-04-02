@@ -28,6 +28,7 @@ class MSOTemplate:
         self.template_type = template_type
         self.template_summary = {}
         self.template_objects_cache = {}
+        self.cache = {}
 
         if template_id:
             # Checking if the template with id exists to avoid error: MSO Error 400: Template ID 665da24b95400f375928f195 invalid
@@ -346,32 +347,29 @@ class MSOTemplate:
         if response_object:
             return response_object.get("name")
 
-<<<<<<< HEAD
-=======
     def clear_template_objects_cache(self):
         self.template_objects_cache = {}
 
->>>>>>> d667af2 ([minor_change] Addition of new module ndo_service_device_cluster and its test file)
     def get_template_object_by_uuid(self, object_type, uuid, fail_module=True, use_cache=False):
-        """
-        Retrieve a specific object type in the MSO template using its UUID.
-        :param object_type: The type of the object to retrieve -> Str
-        :param uuid: The UUID of the object to retrieve -> Str
-        :param use_cache: Use the cached result of the templates/objects API for the UUID -> Bool
-        :return: Dict | None: The processed result which could be:
-            When the UUID is existing, returns object -> Dict
-            When the UUID is not existing -> None
-        """
-        response_object = None
-        if use_cache and uuid in self.template_objects_cache.keys():
-            response_object = self.template_objects_cache[uuid]
-        else:
-            response_object = self.mso.request("templates/objects?type={0}&uuid={1}".format(object_type, uuid), "GET")
-            self.template_objects_cache[uuid] = response_object
-        if not response_object and fail_module:
-            msg = "Provided {0} with UUID of '{1}' not found.".format(object_type, uuid)
-            self.mso.fail_json(msg=msg)
-        return response_object
+            """
+            Retrieve a specific object type in the MSO template using its UUID.
+            :param object_type: The type of the object to retrieve -> Str
+            :param uuid: The UUID of the object to retrieve -> Str
+            :param use_cache: Use the cached result of the templates/objects API for the UUID -> Bool
+            :return: Dict | None: The processed result which could be:
+                When the UUID is existing, returns object -> Dict
+                When the UUID is not existing -> None
+            """
+            response_object = None
+            if use_cache and uuid in self.template_objects_cache.keys():
+                response_object = self.template_objects_cache[uuid]
+            else:
+                response_object = self.mso.request("templates/objects?type={0}&uuid={1}".format(object_type, uuid), "GET")
+                self.template_objects_cache[uuid] = response_object
+            if not response_object and fail_module:
+                msg = "Provided {0} with UUID of '{1}' not found.".format(object_type, uuid)
+                self.mso.fail_json(msg=msg)
+            return response_object
 
     def update_config_with_template_and_references(self, config_data, reference_collections=None, set_template=True, use_cache=False):
         """
@@ -459,9 +457,7 @@ class MSOTemplate:
         if reference_collections:
             for reference_details in reference_collections.values():
                 if config_data.get(reference_details.get("reference")):
-                    template_object = self.get_template_object_by_uuid(
-                        reference_details.get("type"), config_data.get(reference_details.get("reference")), True, use_cache
-                    )
+                    template_object = self.get_template_object_by_uuid(reference_details.get("type"), config_data.get(reference_details.get("reference")), False, use_cache)
                     config_data[reference_details.get("name")] = template_object.get("name")
                     if reference_details.get("template"):
                         config_data[reference_details.get("template")] = template_object.get("templateName")
@@ -471,10 +467,6 @@ class MSOTemplate:
                         config_data[reference_details.get("schemaId")] = template_object.get("schemaId")
                     if reference_details.get("schema"):
                         config_data[reference_details.get("schema")] = template_object.get("schemaName")
-<<<<<<< HEAD
-            return config_data
-=======
->>>>>>> d667af2 ([minor_change] Addition of new module ndo_service_device_cluster and its test file)
         return config_data
 
     def check_template_when_name_is_provided(self, parameter):
@@ -491,3 +483,12 @@ class MSOTemplate:
         kv_list = [KVPair("name", route_map_policy_for_multicast_name)]
         match = self.get_object_by_key_value_pairs("Route Map Policy for Multicast", existing_route_map_policies, kv_list, fail_module=True)
         return match.details.get("uuid")
+
+    def get_template(self, template_type, template_name, template_id):
+        if template_id in self.cache:
+            return self.cache[template_id]
+
+        new_template = MSOTemplate(self.mso, template_type, template_name, template_id)
+        self.cache[new_template.template_id] = new_template
+        self.cache[(new_template.template_name, new_template.template_type)] = new_template
+        return new_template

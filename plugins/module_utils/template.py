@@ -18,6 +18,7 @@ SearchQuery = namedtuple("SearchQuery", "key kv_pairs")
 
 class MSOTemplate:
     def __init__(self, mso_module, template_type=None, template_name=None, template_id=None):
+        self.cache = {}
         self.mso = mso_module
         self.templates_path = "templates"
         self.summaries_path = "{0}/summaries".format(self.templates_path)
@@ -440,3 +441,12 @@ class MSOTemplate:
         kv_list = [KVPair("name", route_map_policy_for_multicast_name)]
         match = self.get_object_by_key_value_pairs("Route Map Policy for Multicast", existing_route_map_policies, kv_list, fail_module=True)
         return match.details.get("uuid")
+
+    def get_template(self, template_type, template_name, template_id):
+        if template_id in self.cache:
+            return self.cache[template_id]
+
+        new_template = MSOTemplate(self.mso, template_type, template_name, template_id)
+        self.cache[new_template.template_id] = new_template
+        self.cache[(new_template.template_name, new_template.template_type)] = new_template
+        return new_template

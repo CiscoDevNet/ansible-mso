@@ -237,3 +237,5 @@ DSCP_COS_KEY_MAP = {
     "target_cos": "targetCos",
     "qos_priority": "priority",
 }
+
+LOCAL_ASN_CONFIG = {"none": "none", "no_prepend": "no-prepend", "dual_as": "dual-as", "replace_as": "replace-as"}

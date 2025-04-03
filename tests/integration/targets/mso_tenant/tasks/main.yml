@@ -21,6 +21,15 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    username: r_ansible_github_ci
+    password: "{{ apic_password }}"
+    login_domain: test
+    state: query
+  register: version
+
 - name: Ensure sites exists
   cisco.mso.mso_site:
     <<: *mso_info

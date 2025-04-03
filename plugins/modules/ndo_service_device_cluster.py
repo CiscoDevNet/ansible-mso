@@ -350,7 +350,7 @@ EXAMPLES = r"""
     state: query
   register: query_device
 
-- name: Query the second service device cluster using UUID
+- name: Query the service device cluster using UUID
   cisco.mso.ndo_service_device_cluster:
     host: mso_host
     username: admin

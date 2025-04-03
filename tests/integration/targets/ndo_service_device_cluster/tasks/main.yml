@@ -50,19 +50,19 @@
       register: ansible_test_tenant
       when: ansible_test_site.current.common.name == 'ansible_test'
 
-    - name: Ensure ansible_tenant_template tenant policy template does not exist
-      cisco.mso.ndo_template: &tenant_pol_template_absent
-        <<: *mso_info
-        name: ansible_tenant_template
-        template_type: tenant
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        state: absent
-
     - name: Ensure ansible_device_template does not exist
       cisco.mso.ndo_template: &device_template_absent
         <<: *mso_info
         name: ansible_device_template
         template_type: service_device
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_tenant_template tenant policy template does not exist
+      cisco.mso.ndo_template: &tenant_pol_template_absent
+        <<: *mso_info
+        name: ansible_tenant_template
+        template_type: tenant
         tenant: '{{ mso_tenant | default("ansible_test") }}'
         state: absent
 

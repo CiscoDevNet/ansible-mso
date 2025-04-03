@@ -516,6 +516,41 @@ def main():
     match = None
     device_path = None
 
+    reference_dict = {
+        "qos": {
+            "name": "qosPolicyName",
+            "reference": "qosPolicyRef",
+            "type": "qos",
+            "template": "qosPolicyTemplateName",
+            "templateId": "qosPolicyTemplateId",
+        },
+        "ipsla": {
+            "name": "ipslaMonitoringPolicyName",
+            "reference": "ipslaMonitoringRef",
+            "type": "ipslaMonitoringPolicy",
+            "template": "ipslaMonitoringPolicyTemplateName",
+            "templateId": "ipslaMonitoringPolicyTemplateId",
+        },
+        "epg": {
+            "name": "externalEpgName",
+            "reference": "externalEpgRef",
+            "template": "externalEpgTemplateName",
+            "templateId": "externalEpgTemplateId",
+            "schema": "externalEpgSchemaName",
+            "schemaId": "externalEpgSchemaId",
+            "type": "externalEpg",
+        },
+        "bd": {
+            "name": "bdName",
+            "reference": "bdRef",
+            "template": "bdTemplateName",
+            "templateId": "bdTemplateId",
+            "schema": "bdSchemaName",
+            "schemaId": "bdSchemaId",
+            "type": "bd",
+        },
+    }
+
     mso_template = MSOTemplate(mso, "service_device", template, template_id)
     mso_template.validate_template("serviceDevice")
     if module.params.get("interface_properties") is not None:
@@ -533,10 +568,10 @@ def main():
         )
         if match:
             device_path = "{0}/{1}".format(path, match.index)
-            set_template_and_references(mso_template, match.details)
+            mso_template.update_config_with_template_and_references(match.details, reference_dict)
             mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
-        mso.existing = mso.previous = [set_template_and_references(mso_template, device) for device in existing_devices]
+        mso.existing = mso.previous = [mso_template.update_config_with_template_and_references(device, reference_dict) for device in existing_devices]
 
     if state == "present":
         mso_values = dict(
@@ -565,40 +600,41 @@ def main():
         devices = response.get("deviceTemplate", {}).get("template", {}).get("devices") or []
         match = mso_template.get_object_by_key_value_pairs(object_description, devices, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
         if match:
-            set_template_and_references(mso_template, match.details)
+            mso_template.update_config_with_template_and_references(match.details, reference_dict)
             mso.existing = match.details
         else:
             mso.existing = {}
     elif module.check_mode and state != "query":
-        set_template_and_references(mso_template, mso.proposed)
+        mso_template.update_config_with_template_and_references(mso.proposed, reference_dict)
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
 
 
 def get_interfaces_payload(mso, mso_template, interfaces, schema):
+    schema_holder = [schema]
+
     def get_object_uuid_from_schema(interface_type, uuid, interface):
         if uuid:
             return uuid
 
-        nonlocal schema
         name = interface.get("name")
         template = interface.get("template")
         template_id = interface.get("template_id")
         schema_name = interface.get("schema")
         schema_id = interface.get("schema_id")
 
-        if schema is None:
-            schema = MSOSchema(mso, schema_name, template, None, schema_id, template_id)
+        if schema_holder[0] is None:
+            schema_holder[0] = MSOSchema(mso, schema_name, template, None, schema_id, template_id)
         else:
-            schema = schema.get_schema(schema_name, schema_id, template, template_id)
+            schema_holder[0] = schema_holder[0].get_schema(schema_name, schema_id, template, template_id)
 
         if interface_type == "bd":
-            schema.set_template_bd(name, fail_module=True)
-            return schema.schema_objects.get("template_bd").details.get("uuid")
+            schema_holder[0].set_template_bd(name, fail_module=True)
+            return schema_holder[0].schema_objects.get("template_bd").details.get("uuid")
         elif interface_type == "l3out":
-            schema.set_template_external_epg(name, fail_module=True)
-            return schema.schema_objects.get("template_external_epg").details.get("uuid")
+            schema_holder[0].set_template_external_epg(name, fail_module=True)
+            return schema_holder[0].schema_objects.get("template_external_epg").details.get("uuid")
 
     def get_object_uuid_from_template(object_type, uuid, obj):
         if uuid:
@@ -657,48 +693,6 @@ def get_interfaces_payload(mso, mso_template, interfaces, schema):
             interface_payload["advancedIntfConfig"]["thresholdForRedirectDestination"] = True
         payload.append(interface_payload)
     return payload
-
-
-def set_template_and_references(mso_template, device):
-    reference_dict = {
-        "qos": {
-            "name": "qosPolicyName",
-            "reference": "qosPolicyRef",
-            "type": "qos",
-            "template": "qosPolicyTemplateName",
-            "templateId": "qosPolicyTemplateId",
-        },
-        "ipsla": {
-            "name": "ipslaMonitoringPolicyName",
-            "reference": "ipslaMonitoringRef",
-            "type": "ipslaMonitoringPolicy",
-            "template": "ipslaMonitoringPolicyTemplateName",
-            "templateId": "ipslaMonitoringPolicyTemplateId",
-        },
-        "epg": {
-            "name": "externalEpgName",
-            "reference": "externalEpgRef",
-            "template": "externalEpgTemplateName",
-            "templateId": "externalEpgTemplateId",
-            "schema": "externalEpgSchemaName",
-            "schemaId": "externalEpgSchemaId",
-            "type": "externalEpg",
-        },
-        "bd": {
-            "name": "bdName",
-            "reference": "bdRef",
-            "template": "bdTemplateName",
-            "templateId": "bdTemplateId",
-            "schema": "bdSchemaName",
-            "schemaId": "bdSchemaId",
-            "type": "bd",
-        },
-    }
-    mso_template.update_config_with_template_and_references(device)
-    for interface in device.get("interfaces", []):
-        mso_template.update_config_with_template_and_references(interface, reference_dict, False)
-        mso_template.update_config_with_template_and_references(interface["advancedIntfConfig"], reference_dict, False)
-    return device
 
 
 if __name__ == "__main__":

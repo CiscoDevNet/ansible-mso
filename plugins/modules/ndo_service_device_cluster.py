@@ -69,6 +69,7 @@ options:
         description:
         - The type of the interface.
         type: str
+        required: true
         choices: ["bd", "l3out"]
       interface:
         description:
@@ -153,48 +154,49 @@ options:
       preferred_group:
         description:
         - Whether the interface belongs to a preferred group.
-        - If this parameter is unspecified, it defaults to False.
+        - If this parameter is unspecified, it defaults to C(False).
         type: bool
       rewrite_source_mac:
         description:
         - Whether to rewrite the source MAC address.
-        - If this parameter is unspecified, it defaults to False.
+        - If this parameter is unspecified, it defaults to C(False).
         type: bool
       anycast:
         description:
         - Indicates if anycast is enabled.
-        - If this parameter is unspecified, it defaults to False.
+        - If this parameter is unspecified, it defaults to C(False).
         type: bool
       config_static_mac:
         description:
         - Indicates if static MAC configuration is enabled.
-        - If this parameter is unspecified, it defaults to False.
+        - If this parameter is unspecified, it defaults to C(False).
         type: bool
+        aliases: [ static_mac_configuration ]
       is_backup_redirect_ip:
         description:
         - Indicates if it is a backup redirect IP.
-        - If this parameter is unspecified, it defaults to False.
+        - If this parameter is unspecified, it defaults to C(False).
         type: bool
       load_balance_hashing:
         description:
         - Load balancing hashing method.
-        - If this parameter is unspecified, it defaults to source_destination_and_protocol.
+        - If this parameter is unspecified, it defaults to C(source_destination_and_protocol).
         type: str
         choices: ["source_destination_and_protocol", "source_ip", "destination_ip"]
       pod_aware_redirection:
         description:
         - Indicates if pod-aware redirection is enabled.
-        - If this parameter is unspecified, it defaults to False.
+        - If this parameter is unspecified, it defaults to C(False).
         type: bool
       resilient_hashing:
         description:
         - Indicates if resilient hashing is enabled.
-        - If this parameter is unspecified, it defaults to False.
+        - If this parameter is unspecified, it defaults to C(False).
         type: bool
       tag_based_sorting:
         description:
         - Indicates if tag-based sorting is enabled.
-        - If this parameter is unspecified, it defaults to False.
+        - If this parameter is unspecified, it defaults to C(False).
         type: bool
       min_threshold:
         description:
@@ -414,7 +416,7 @@ def main():
             elements="dict",
             options=dict(
                 name=dict(type="str", required=True),
-                type=dict(type="str", choices=["bd", "l3out"]),
+                type=dict(type="str", required=True, choices=["bd", "l3out"]),
                 interface=dict(
                     type="dict",
                     options=dict(
@@ -469,7 +471,7 @@ def main():
                 preferred_group=dict(type="bool"),
                 rewrite_source_mac=dict(type="bool"),
                 anycast=dict(type="bool"),
-                config_static_mac=dict(type="bool"),
+                config_static_mac=dict(type="bool", aliases=["static_mac_configuration"]),
                 is_backup_redirect_ip=dict(type="bool"),
                 load_balance_hashing=dict(type="str", choices=["source_destination_and_protocol", "source_ip", "destination_ip"]),
                 pod_aware_redirection=dict(type="bool"),

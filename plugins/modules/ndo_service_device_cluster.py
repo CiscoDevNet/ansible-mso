@@ -257,7 +257,7 @@ EXAMPLES = r"""
         rewrite_source_mac: false
         config_static_mac: false
         is_backup_redirect_ip: true
-        load_balance_hashing: sourceIP
+        load_balance_hashing: source_ip
         pod_aware_redirection: false
         resilient_hashing: true
         tag_based_sorting: false
@@ -293,7 +293,7 @@ EXAMPLES = r"""
         rewrite_source_mac: false
         config_static_mac: false
         is_backup_redirect_ip: true
-        load_balance_hashing: sourceIP
+        load_balance_hashing: source_ip
         pod_aware_redirection: false
         resilient_hashing: true
         tag_based_sorting: false
@@ -311,7 +311,7 @@ EXAMPLES = r"""
         rewrite_source_mac: false
         config_static_mac: false
         is_backup_redirect_ip: true
-        load_balance_hashing: sourceIP
+        load_balance_hashing: source_ip
         pod_aware_redirection: false
         resilient_hashing: true
         tag_based_sorting: false
@@ -331,7 +331,7 @@ EXAMPLES = r"""
         rewrite_source_mac: false
         config_static_mac: false
         is_backup_redirect_ip: true
-        load_balance_hashing: destinationIP
+        load_balance_hashing: destination_ip
         pod_aware_redirection: false
         resilient_hashing: true
         tag_based_sorting: false
@@ -674,7 +674,7 @@ def get_interfaces_payload(mso, mso_template, interfaces, schema):
                 "anycast": interface.get("anycast"),
                 "configStaticMac": interface.get("config_static_mac"),
                 "isBackupRedirectIP": interface.get("is_backup_redirect_ip"),
-                "loadBalanceHashing": snake_to_camel(interface.get("load_balance_hashing")),
+                "loadBalanceHashing": snake_to_camel(interface.get("load_balance_hashing"), ["ip"]),
                 "podAwareRedirection": interface.get("pod_aware_redirection"),
                 "preferredGroup": interface.get("preferred_group"),
                 "resilientHashing": interface.get("resilient_hashing"),

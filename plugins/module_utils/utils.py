@@ -146,3 +146,14 @@ def check_if_all_elements_are_none(values):
     :return: True if all elements are None, False otherwise. -> bool
     """
     return all(value is None for value in values)
+
+
+def snake_to_camel(snake_str, upper_case_components=None):
+    if snake_str is not None and "_" in snake_str:
+        if upper_case_components is None:
+            upper_case_components = []
+        components = snake_str.split("_")
+        camel_case_str = components[0] + "".join((x.upper() if x in upper_case_components else x.title()) for x in components[1:])
+        return camel_case_str
+    else:
+        return snake_str

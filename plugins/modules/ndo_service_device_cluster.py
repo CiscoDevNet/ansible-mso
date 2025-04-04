@@ -57,6 +57,7 @@ options:
   interface_properties:
     description:
     - A list containing interface configuration.
+    - The old O(interface_properties) will be replaced with the new O(interface_properties) during an update.
     type: list
     elements: dict
     suboptions:
@@ -154,28 +155,28 @@ options:
       preferred_group:
         description:
         - Whether the interface belongs to a preferred group.
-        - If this parameter is unspecified, it defaults to C(False).
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       rewrite_source_mac:
         description:
         - Whether to rewrite the source MAC address.
-        - If this parameter is unspecified, it defaults to C(False).
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       anycast:
         description:
         - Indicates if anycast is enabled.
-        - If this parameter is unspecified, it defaults to C(False).
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       config_static_mac:
         description:
         - Indicates if static MAC configuration is enabled.
-        - If this parameter is unspecified, it defaults to C(False).
+        - If this parameter is unspecified, it defaults to False.
         type: bool
         aliases: [ static_mac_configuration ]
       is_backup_redirect_ip:
         description:
         - Indicates if it is a backup redirect IP.
-        - If this parameter is unspecified, it defaults to C(False).
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       load_balance_hashing:
         description:
@@ -186,17 +187,17 @@ options:
       pod_aware_redirection:
         description:
         - Indicates if pod-aware redirection is enabled.
-        - If this parameter is unspecified, it defaults to C(False).
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       resilient_hashing:
         description:
         - Indicates if resilient hashing is enabled.
-        - If this parameter is unspecified, it defaults to C(False).
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       tag_based_sorting:
         description:
         - Indicates if tag-based sorting is enabled.
-        - If this parameter is unspecified, it defaults to C(False).
+        - If this parameter is unspecified, it defaults to False.
         type: bool
       min_threshold:
         description:

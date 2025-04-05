@@ -1774,3 +1774,28 @@ def listener_rules_spec():
         ),
         target_ip_type=dict(type="str", choices=["unspecified", "primary", "secondary"]),
     )
+
+
+def epg_object_reference_spec():
+    return dict(
+        type="dict",
+        options=dict(
+            name=dict(type="str", required=True),
+            template=dict(type="str"),
+            template_id=dict(type="str"),
+            schema=dict(type="str"),
+            schema_id=dict(type="str"),
+            anp=dict(type="str"),
+            anp_id=dict(type="str"),
+        ),
+        required_one_of=[
+            ["template", "template_id"],
+            ["schema", "schema_id"],
+            ["anp", "anp_id"],
+        ],
+        mutually_exclusive=[
+            ("schema", "schema_id"),
+            ("template", "template_id"),
+            ("anp", "anp_id"),
+        ],
+    )

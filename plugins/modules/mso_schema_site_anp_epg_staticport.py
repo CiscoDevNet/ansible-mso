@@ -521,10 +521,16 @@ def main():
             if len(found_static_ports) == len(static_ports):
                 mso.existing = found_static_ports
             else:
-                not_found_static_ports = [
-                    "Provided Static Port Path '{0}' not found".format(full_paths[index])
+                configured_static_ports = [
+                    get_full_static_path(
+                        static_port.get("type"), static_port.get("pod"), static_port.get("leaf"), static_port.get("fex"), static_port.get("path")
+                    )
                     for index, static_port in enumerate(static_ports)
-                    if full_paths[index] not in found_full_paths
+                ]
+                not_found_static_ports = [
+                    "Provided Static Port Path '{0}' not found".format(static_port)
+                    for static_port in configured_static_ports
+                    if static_port not in found_full_paths
                 ]
                 mso.fail_json(msg=not_found_static_ports)
         elif not mso.existing and full_path:
@@ -596,7 +602,7 @@ def main():
                     ops.append(dict(op="add", path=static_port_path, value=payload))
                     mso.proposed.append(payload)
                 else:
-                    index = found_full_paths.index(full_path)
+                    index = full_paths.index(full_path)
                     mso.proposed[index] = payload
                     ops.append(dict(op="replace", path="{0}/{1}".format(static_ports_path, index), value=payload))
         else:

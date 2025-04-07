@@ -1275,6 +1275,41 @@
       - nm_force_replace_new_static_ports.current.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
       - nm_force_replace_new_static_ports.current.9.portEncapVlan == 1209
 
+- name: Replace VLAN of existing static port with bulk
+  cisco.mso.mso_schema_site_anp_epg_staticport: &replace_vlan_static_ports
+    <<: *static_ports_append
+    static_ports:
+    - leaf: 101
+      pod: pod-1
+      path: eth2/9
+      type: port
+      vlan: 1309
+  register: nm_replace_vlan_static_ports
+
+- name: Replace VLAN of existing static port with bulk again
+  cisco.mso.mso_schema_site_anp_epg_staticport:
+    <<: *replace_vlan_static_ports
+    static_ports:
+    - leaf: 101
+      pod: pod-1
+      path: eth2/9
+      type: port
+      vlan: 1309
+  register: nm_replace_vlan_static_ports_again
+
+- name: Verify replacing VLAN of existing static port with bulk
+  ansible.builtin.assert:
+    that:
+      - nm_replace_vlan_static_ports is changed
+      - nm_replace_vlan_static_ports.previous.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+      - nm_replace_vlan_static_ports.previous.9.portEncapVlan == 1209
+      - nm_replace_vlan_static_ports.current.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+      - nm_replace_vlan_static_ports.current.9.portEncapVlan == 1309
+      - nm_replace_vlan_static_ports_again is not changed
+      - nm_replace_vlan_static_ports_again.previous.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+      - nm_replace_vlan_static_ports_again.previous.9.portEncapVlan == 1309
+      - nm_replace_vlan_static_ports_again.current.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
+
 # QUERY TESTS FOR BULK
 
 - name: Query static ports
@@ -1297,6 +1332,11 @@
   cisco.mso.mso_schema_site_anp_epg_staticport:
     <<: *static_ports_append
     static_ports:
+    - leaf: 101
+      pod: pod-1
+      path: eth2/0
+      type: port
+      vlan: 1200
     - leaf: 101
       pod: pod-1 
       path: eth1/40
@@ -1323,10 +1363,10 @@
       - nm_query_static_ports.current.3.path == "topology/pod-1/paths-101/pathep-[eth2/3]"
       - nm_query_static_ports.current.3.portEncapVlan == 1203
       - nm_query_static_ports.current.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
-      - nm_query_static_ports.current.9.portEncapVlan == 1209
+      - nm_query_static_ports.current.9.portEncapVlan == 1309
       - err_query_static_ports is failed
-      - err_query_static_ports.msg.0 == "Provided Static Port Path 'topology/pod-1/paths-101/pathep-[eth2/0]' not found"
-      - err_query_static_ports.msg.1 == "Provided Static Port Path 'topology/pod-1/paths-101/pathep-[eth2/1]' not found"
+      - err_query_static_ports.msg.0 == "Provided Static Port Path 'topology/pod-1/paths-101/pathep-[eth1/40]' not found"
+      - err_query_static_ports.msg.1 == "Provided Static Port Path 'topology/pod-1/paths-201/pathep-[eth1/41]' not found"
 
 # FORCE REMOVE ALL CONTRACTS
 

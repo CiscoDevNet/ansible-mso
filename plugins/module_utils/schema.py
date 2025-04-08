@@ -399,6 +399,7 @@ class MSOSchema:
             self.mso.fail_json(msg=msg)
         self.schema_objects["site_anp_epg_static_port"] = match
 
+
 class MSOSchemaCache:
     def __init__(self, mso):
         self.mso = mso

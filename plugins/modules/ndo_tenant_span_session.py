@@ -72,9 +72,10 @@ options:
         required: true
         choices: [ incoming, outgoing, both ]
       epg_uuid:
-        decription:
+        description:
         - The UUID of the source Endpoint Group (EPG) to use for the SPAN Session.
         - This parameter or O(sources.epg) is required.
+        type: str
       epg:
         description:
         - The EPG to use for the SPAN Session source.
@@ -100,18 +101,22 @@ options:
             description:
             - The ID of the schema that contains the source EPG.
             - This parameter or O(sources.epg.schema) is required.
+            type: str
           schema:
             description:
             - The name of the schema that contains the source EPG.
             - This parameter or O(sources.epg.schema_id) is required.
+            type: str
           anp:
             description:
             - The name of the Application Profile (ANP) that contains the source EPG.
             - This parameter or O(sources.epg.anp_id) is required.
+            type: str
           anp_id:
             description:
             - The ID of the ANP that contains the source EPG.
             - This parameter or O(sources.epg.anp) is required.
+            type: str
   admin_state:
     description:
     - The administrative state of the SPAN Session.
@@ -124,7 +129,7 @@ options:
     - The value must be in the range 64 - 9216.
     - Defaults to C(1518) when unset during creation.
     type: int
-    destination_epg:
+  destination_epg:
     description:
     - The destination EPG configuration group.
     type: dict
@@ -155,6 +160,26 @@ options:
             - The ID of the  that contains the destination EPG.
             - This parameter or O(destination_epg.epg.template) is required.
             type: str
+          schema_id:
+            description:
+            - The ID of the schema that contains the destination EPG.
+            - This parameter or O(destination_epg.epg.schema) is required.
+            type: str
+          schema:
+            description:
+            - The name of the schema that contains the destination EPG.
+            - This parameter or O(destination_epg.epg.schema_id) is required.
+            type: str
+          anp:
+            description:
+            - The name of the  that contains the destination EPG.
+            - This parameter or O(destination_epg.epg.anp_id) is required.
+            type: str
+          anp_id:
+            description:
+            - The ID of the  that contains the destination EPG.
+            - This parameter or O(destination_epg.epg.anp) is required.
+            type: str
       destination_ip:
         description:
         - The destination IP address to route SPAN Session packets.
@@ -171,7 +196,7 @@ options:
         type: str
       enforce_span_version:
         description:
-        - Enforce the SPAN Session version defined in O(desination_epg.span_version).
+        - Enforce the SPAN Session version defined in O(destination_epg.span_version).
         - Defaults to C(true) when unset during creation.
         type: bool
       flow_id:
@@ -190,7 +215,30 @@ options:
         description:
         - The DSCP value for sending the monitored SPAN Session packets.
         - Defaults to C(unspecified) when unset during creation.
-        choices: [ af11, af12, af13, af21, af22, af23, af31, af32, af33, af41, af42, af43, cs0, cs1, cs2, cs3, cs4, cs5, cs6, cs7, expedited_forwarding, voice_admit, unspecified ]
+        choices:
+          - af11
+          - af12
+          - af13
+          - af21
+          - af22
+          - af23
+          - af31
+          - af32
+          - af33
+          - af41
+          - af42
+          - af43
+          - cs0
+          - cs1
+          - cs2
+          - cs3
+          - cs4
+          - cs5
+          - cs6
+          - cs7
+          - expedited_forwarding
+          - voice_admit
+          - unspecified
         type: str
   state:
     description:

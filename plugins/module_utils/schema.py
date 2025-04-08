@@ -402,8 +402,13 @@ class MSOSchema:
     def get_schema(self, schema_name, schema_id, template, template_id):
         if schema_id in self.cache:
             return self.cache[schema_id]
+        elif template is not None and (schema_name, template) in self.cache:
+            return self.cache[(schema_name, template)]
+        elif template_id is not None and (schema_name, template_id) in self.cache:
+            return self.cache[(schema_name, template_id)]
 
         new_schema = MSOSchema(self.mso, schema_name, template, None, schema_id, template_id)
         self.cache[new_schema.id] = new_schema
         self.cache[(new_schema.schema_name, new_schema.template_name)] = new_schema
+        self.cache[(new_schema.schema_name, new_schema.template_id)] = new_schema
         return new_schema

@@ -128,7 +128,7 @@
 
     # CREATE
     - name: Create SPAN Session (check mode)
-      cisco.mso.ndo_span_session: &add_span_session
+      cisco.mso.ndo_tenant_span_session: &add_span_session
         <<: *mso_info
         template: ansible_monitoring_tenant_policy_template
         name: ansible_span_session
@@ -164,12 +164,12 @@
       register: cm_span_session
 
     - name: Create SPAN Session
-      cisco.mso.ndo_span_session:
+      cisco.mso.ndo_tenant_span_session:
         <<: *add_span_session
       register: nm_span_session
 
     - name: Create SPAN Session again
-      cisco.mso.ndo_span_session:
+      cisco.mso.ndo_tenant_span_session:
         <<: *add_span_session
       register: nm_span_session_again
 
@@ -221,7 +221,7 @@
 
     # UPDATE
     - name: Update SPAN Session (check mode)
-      cisco.mso.ndo_span_session: &update_span_session
+      cisco.mso.ndo_tenant_span_session: &update_span_session
         <<: *add_span_session
         template: '{{ omit }}'
         template_id: '{{ create_monitoring_tenant.current.templateId }}'
@@ -237,17 +237,17 @@
       register: cm_update_span_session
 
     - name: Update SPAN Session
-      cisco.mso.ndo_span_session:
+      cisco.mso.ndo_tenant_span_session:
         <<: *update_span_session
       register: nm_update_span_session
 
     - name: Update SPAN Session again
-      cisco.mso.ndo_span_session:
+      cisco.mso.ndo_tenant_span_session:
         <<: *update_span_session
       register: nm_update_span_session_again
 
     - name: Update SPAN Session name using UUID
-      cisco.mso.ndo_span_session:
+      cisco.mso.ndo_tenant_span_session:
         <<: *update_span_session
         name: ansible_span_session_1
         uuid: "{{ nm_span_session.current.uuid}}"
@@ -303,13 +303,13 @@
 
     # QUERY
     - name: Create another SPAN Session
-      cisco.mso.ndo_span_session:
+      cisco.mso.ndo_tenant_span_session:
         <<: *add_span_session
         name: ansible_span_session_2
       register: nm_span_session_2
 
     - name: Query one SPAN Session by name
-      cisco.mso.ndo_span_session:
+      cisco.mso.ndo_tenant_span_session:
         <<: *mso_info
         name: ansible_span_session_2
         template: ansible_monitoring_tenant_policy_template
@@ -317,7 +317,7 @@
       register: query_name
 
     - name: Query one SPAN Session by UUID
-      cisco.mso.ndo_span_session:
+      cisco.mso.ndo_tenant_span_session:
         <<: *mso_info
         uuid: '{{ nm_span_session.current.uuid }}'
         template: ansible_monitoring_tenant_policy_template
@@ -325,7 +325,7 @@
       register: query_uuid
 
     - name: Query all SPAN Sessions
-      cisco.mso.ndo_span_session: &query_all_span_sessions
+      cisco.mso.ndo_tenant_span_session: &query_all_span_sessions
         <<: *mso_info
         template: ansible_monitoring_tenant_policy_template
         state: query
@@ -347,7 +347,7 @@
 
     # DELETE
     - name: Delete SPAN Session (check mode)
-      cisco.mso.ndo_span_session: &delete_span_session
+      cisco.mso.ndo_tenant_span_session: &delete_span_session
         <<: *mso_info
         template: ansible_monitoring_tenant_policy_template
         name: ansible_span_session_1
@@ -356,17 +356,17 @@
       register: cm_delete_span_session
 
     - name: Delete SPAN Session
-      cisco.mso.ndo_span_session:
+      cisco.mso.ndo_tenant_span_session:
         <<: *delete_span_session
       register: nm_delete_span_session
 
     - name: Delete SPAN Session
-      cisco.mso.ndo_span_session:
+      cisco.mso.ndo_tenant_span_session:
         <<: *delete_span_session
       register: nm_delete_span_session_again
 
     - name: Delete SPAN Session with UUID
-      cisco.mso.ndo_span_session:
+      cisco.mso.ndo_tenant_span_session:
         <<: *mso_info
         template: ansible_monitoring_tenant_policy_template
         uuid: "{{ nm_span_session_2.current.uuid }}"
@@ -391,12 +391,12 @@
 
     # NO POLICIES
     - name: Query all SPAN Sessions in the template when all are deleted
-      cisco.mso.ndo_span_session:
+      cisco.mso.ndo_tenant_span_session:
         <<: *query_all_span_sessions
       register: query_all_none
 
     - name: Update SPAN Session with non-existing UUID
-      cisco.mso.ndo_span_session:
+      cisco.mso.ndo_tenant_span_session:
         <<: *mso_info
         template: ansible_monitoring_tenant_policy_template
         uuid: non-existing-uuid

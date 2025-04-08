@@ -17,7 +17,7 @@ ANSIBLE_METADATA = {
 
 DOCUMENTATION = r"""
 ---
-module: ndo_span_session
+module: ndo_tenant_span_session
 short_description: Manage SPAN Sessions on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage Switched Port Analyzer (SPAN) Sessions on Cisco Nexus Dashboard Orchestrator (NDO).
@@ -210,7 +210,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r"""
 - name: Create a new SPAN Session
-  cisco.mso.ndo_span_session:
+  cisco.mso.ndo_tenant_span_session:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -246,7 +246,7 @@ EXAMPLES = r"""
   register: create_span_session_1
 
 - name: Update the name of the SPAN Session using UUID
-  cisco.mso.ndo_span_session:
+  cisco.mso.ndo_tenant_span_session:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -257,7 +257,7 @@ EXAMPLES = r"""
   register: update_span_session_1
 
 - name: Query an existing SPAN Session using UUID
-  cisco.mso.ndo_span_session:
+  cisco.mso.ndo_tenant_span_session:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -267,7 +267,7 @@ EXAMPLES = r"""
   register: query_with_uuid
 
 - name: Query an existing SPAN Session using name
-  cisco.mso.ndo_span_session:
+  cisco.mso.ndo_tenant_span_session:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -277,7 +277,7 @@ EXAMPLES = r"""
   register: query_with_name
 
 - name: Query all SPAN Sessions
-  cisco.mso.ndo_span_session:
+  cisco.mso.ndo_tenant_span_session:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -286,7 +286,7 @@ EXAMPLES = r"""
   register: query_all
 
 - name: Remove all sources from a SPAN Session
-  cisco.mso.ndo_span_session:
+  cisco.mso.ndo_tenant_span_session:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -296,7 +296,7 @@ EXAMPLES = r"""
     state: present
 
 - name: Delete an existing SPAN Session using UUID
-  cisco.mso.ndo_span_session:
+  cisco.mso.ndo_tenant_span_session:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -305,7 +305,7 @@ EXAMPLES = r"""
     state: absent
 
 - name: Delete an existing SPAN Session using Name
-  cisco.mso.ndo_span_session:
+  cisco.mso.ndo_tenant_span_session:
     host: mso_host
     username: admin
     password: SomeSecretPassword

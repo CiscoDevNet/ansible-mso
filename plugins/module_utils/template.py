@@ -495,6 +495,8 @@ class MSOTemplate:
     def get_template(self, template_type, template_name, template_id):
         if template_id in self.cache:
             return self.cache[template_id]
+        elif template_name is not None and (template_name, template_type) in self.cache:
+            return self.cache[(template_name, template_type)]
 
         new_template = MSOTemplate(self.mso, template_type, template_name, template_id)
         self.cache[new_template.template_id] = new_template

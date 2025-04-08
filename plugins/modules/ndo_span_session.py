@@ -118,90 +118,80 @@ options:
     - Defaults to C(enabled) when unset during creation.
     choices: [ enabled, disabled ]
     type: str
-  destination_epg_uuid:
-    description:
-    - The UUID of the destination EPG to use for the SPAN Session.
-    - This parameter or O(destination_epg) is required when O(state=present).
-    type: str
-  destination_epg:
-    description:
-    - The destination EPG to use for the SPAN Session.
-    type: dict
-    suboptions:
-      name:
-        description:
-        - The name of the destination EPG.
-        type: str
-        required: true
-      template:
-        description:
-        - The name of the template that contains the destination EPG.
-        - This parameter or O(destination_epg.template_id) is required.
-        type: str
-      template_id:
-        description:
-        - The ID of the template that contains the destination EPG.
-        - This parameter or O(destination_epg.template) is required.
-        type: str
-      schema_id:
-        description:
-        - The ID of the schema that contains the destination EPG.
-        - This parameter or O(destination_epg.schema) is required.
-      schema:
-        description:
-        - The name of the schema that contains the destination EPG.
-        - This parameter or O(destination_epg.schema_id) is required.
-      anp:
-        description:
-        - The name of the ANP that contains the destination EPG.
-        - This parameter or O(destination_epg.anp_id) is required.
-      anp_id:
-        description:
-        - The ID of the ANP that contains the destination EPG.
-        - This parameter or O(destination_epg.anp) is required.
-  destination_ip:
-    description:
-    - The destination IP address to route SPAN Session packets.
-    type: str
-  source_ip_prefix:
-    description:
-    - The destination IP address prefix to route SPAN Session packets.
-    type: str
-  span_version:
-    description:
-    - The version of the SPAN Session.
-    - Defaults to C(v2) when unset during creation.
-    choices: [ v1, v2 ]
-    type: str
-  enforce_span_version:
-    description:
-    - Enforce the SPAN Session version defined in O(span_version).
-    - Defaults to C(true) when unset during creation.
-    type: bool
-  flow_id:
-    description:
-    - The flow ID of the SPAN Session packets.
-    - The value must be in the range 1 - 1023.
-    - Defaults to C(1) when unset during creation.
-    type: int
-  ttl:
-    description:
-    - The time to live (TTL) of the SPAN Session packets.
-    - The value must be in the range 1 - 1023.
-    - Defaults to C(1) when unset during creation.
-    type: int
-  dscp:
-    description:
-    - The DSCP value for sending the monitored SPAN Session packets.
-    - Defaults to C(unspecified) when unset during creation.
-    choices: [ af11, af12, af13, af21, af22, af23, af31, af32, af33, af41, af42, af43, cs0, cs1, cs2, cs3, cs4, cs5, cs6, cs7, expedited_forwarding, voice_admit, unspecified ]
-    type: str
   mtu:
     description:
     - The MTU truncation size for the SPAN packets.
     - The value must be in the range 64 - 9216.
     - Defaults to C(1518) when unset during creation.
     type: int
+    destination_epg:
+    description:
+    - The destination EPG configuration group.
+    type: dict
+    suboptions:
+      epg_uuid:
+        description:
+        - The UUID of the destination EPG to use for the SPAN Session.
+        - This parameter or O(destination_epg.epg) is required when creating the SPAN Session.
+        type: str
+      epg:
+        description:
+        - The destination EPG to use for the SPAN Session.
+        - This parameter or O(destination_epg.epg_uuid) is required when creating the SPAN Session.
+        type: dict
+        suboptions:
+          name:
+            description:
+            - The name of the destination EPG.
+            type: str
+            required: true
+          template:
+            description:
+            - The name of the template that contains the destination EPG.
+            - This parameter or O(destination_epg.epg.template_id) is required.
+            type: str
+          template_id:
+            description:
+            - The ID of the  that contains the destination EPG.
+            - This parameter or O(destination_epg.epg.template) is required.
+            type: str
+      destination_ip:
+        description:
+        - The destination IP address to route SPAN Session packets.
+        type: str
+      source_ip_prefix:
+        description:
+        - The destination IP address prefix to route SPAN Session packets.
+        type: str
+      span_version:
+        description:
+        - The version of the SPAN Session.
+        - Defaults to C(v2) when unset during creation.
+        choices: [ v1, v2 ]
+        type: str
+      enforce_span_version:
+        description:
+        - Enforce the SPAN Session version defined in O(desination_epg.span_version).
+        - Defaults to C(true) when unset during creation.
+        type: bool
+      flow_id:
+        description:
+        - The flow ID of the SPAN Session packets.
+        - The value must be in the range 1 - 1023.
+        - Defaults to C(1) when unset during creation.
+        type: int
+      ttl:
+        description:
+        - The time to live (TTL) of the SPAN Session packets.
+        - The value must be in the range 1 - 1023.
+        - Defaults to C(1) when unset during creation.
+        type: int
+      dscp:
+        description:
+        - The DSCP value for sending the monitored SPAN Session packets.
+        - Defaults to C(unspecified) when unset during creation.
+        choices: [ af11, af12, af13, af21, af22, af23, af31, af32, af33, af41, af42, af43, cs0, cs1, cs2, cs3, cs4, cs5, cs6, cs7, expedited_forwarding, voice_admit, unspecified ]
+        type: str
   state:
     description:
     - Use C(absent) for removing.
@@ -238,14 +228,20 @@ EXAMPLES = r"""
           template: template_1
           schema: schema_1
     admin_state: enabled
-    destination_ip: 10.1.1.1
-    source_ip_prefix: 10.1.1.1/24
-    span_version: v1
-    enforce_span_version: false
-    flow_id: 15
-    ttl: 128
-    dscp: af11
     mtu: 9216
+    destination_epg:
+      epg:
+        name: epg_3
+        anp: anp_1
+        template: template_1
+        schema: schema_1
+      destination_ip: 10.1.1.1
+      source_ip_prefix: 10.1.1.1/24
+      span_version: v1
+      enforce_span_version: false
+      flow_id: 15
+      ttl: 128
+      dscp: af11
     state: present
   register: create_span_session_1
 
@@ -360,16 +356,24 @@ def main():
             ),
         ),
         admin_state=dict(type="str", choices=["enabled", "disabled"]),
-        destination_epg_uuid=dict(type="str"),
-        destination_epg=epg_object_reference_spec(),
-        destination_ip=dict(type="str"),
-        source_ip_prefix=dict(type="str"),
-        span_version=dict(type="str", choices=["v1", "v2"]),
-        enforce_span_version=dict(type="bool"),
-        flow_id=dict(type="int"),
-        ttl=dict(type="int"),
-        dscp=dict(type="str", choices=list(TARGET_DSCP_MAP)),
         mtu=dict(type="int"),
+        destination_epg=dict(
+            type="dict",
+            mutually_exclusive=[
+                ("epg", "epg_uuid"),
+            ],
+            options=dict(
+                epg_uuid=dict(type="str"),
+                epg=epg_object_reference_spec(),
+                destination_ip=dict(type="str"),
+                source_ip_prefix=dict(type="str"),
+                span_version=dict(type="str", choices=["v1", "v2"]),
+                enforce_span_version=dict(type="bool"),
+                flow_id=dict(type="int"),
+                ttl=dict(type="int"),
+                dscp=dict(type="str", choices=list(TARGET_DSCP_MAP)),
+            ),
+        ),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
 
@@ -378,7 +382,6 @@ def main():
         supports_check_mode=True,
         mutually_exclusive=[
             ("template", "template_id"),
-            ("destination_epg", "destination_epg_uuid"),
         ],
         required_if=[
             ["state", "absent", ["name", "uuid"], True],
@@ -396,16 +399,8 @@ def main():
     description = module.params.get("description")
     sources = module.params.get("sources")
     admin_state = module.params.get("admin_state")
-    destination_epg_uuid = module.params.get("destination_epg_uuid")
-    destination_epg = module.params.get("destination_epg")
-    destination_ip = module.params.get("destination_ip")
-    source_ip_prefix = module.params.get("source_ip_prefix")
-    span_version = module.params.get("span_version")
-    enforce_span_version = module.params.get("enforce_span_version")
-    flow_id = module.params.get("flow_id")
-    ttl = module.params.get("ttl")
-    dscp = module.params.get("dscp")
     mtu = module.params.get("mtu")
+    destination_epg = module.params.get("destination_epg")
     state = module.params.get("state")
 
     ops = []
@@ -447,34 +442,58 @@ def main():
         if uuid and not mso.existing:
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
-        destination_epg_uuid = get_epg_uuid(mso, destination_epg, destination_epg_uuid)
+        destination_epg_uuid = get_epg_uuid(mso, destination_epg.get("epg"), destination_epg.get("epg_uuid"))
 
         mso_values = dict(
             name=name,
             description=description,
-            sourceGroup=dict(
-                enableAdminState=(True if admin_state == "enabled" else False),
-            ),
             destination=dict(
                 remote=dict(
-                    spanVersion=span_version,
-                    enforceSpanVersion=enforce_span_version,
-                    destIPAddress=destination_ip,
-                    srcIPPrefix=source_ip_prefix,
                     epgRef=destination_epg_uuid,
-                    flowID=flow_id,
-                    ttl=ttl,
-                    dscp=TARGET_DSCP_MAP.get(dscp),
+                    spanVersion=destination_epg.get("span_version"),
+                    enforceSpanVersion=destination_epg.get("enforce_span_version"),
+                    destIPAddress=destination_epg.get("destination_ip"),
+                    srcIPPrefix=destination_epg.get("source_ip_prefix"),
+                    flowID=destination_epg.get("flow_id"),
+                    ttl=destination_epg.get("ttl"),
+                    dscp=TARGET_DSCP_MAP.get(destination_epg.get("dscp")),
                 ),
                 mtu=mtu,
             ),
         )
-        if sources is not None:
-            mso_values["sourceGroup"]["sources"] = format_sources(mso, sources)
+        if admin_state is not None or sources is not None:
+            source_group = dict()
+            if admin_state is not None:
+                source_group["enableAdminState"] = False if admin_state == "disabled" else True
+            if sources is not None:
+                source_group["sources"] = format_sources(mso, sources)
+            mso_values["sourceGroup"] = source_group
 
         if match:
+
+            mso_update_values = {
+                "name": name,
+                "description": description,
+                ("destination", "mtu"): mtu,
+            }
+            source_group = mso_values.get("sourceGroup")
+            if source_group:
+                mso_update_values[("sourceGroup", "enableAdminState")] = source_group.get("enableAdminState")
+                mso_update_values[("sourceGroup", "sources")] = source_group.get("sources")
+            if destination_epg:
+                remote_group = mso_values.get("destination", {}).get("remote")
+                if remote_group:
+                    mso_update_values[("destination", "remote", "epgRef")] = remote_group.get("epgRef")
+                    mso_update_values[("destination", "remote", "spanVersion")] = remote_group.get("spanVersion")
+                    mso_update_values[("destination", "remote", "enforceSpanVersion")] = remote_group.get("enforceSpanVersion")
+                    mso_update_values[("destination", "remote", "destIPAddress")] = remote_group.get("destIPAddress")
+                    mso_update_values[("destination", "remote", "srcIPPrefix")] = remote_group.get("srcIPPrefix")
+                    mso_update_values[("destination", "remote", "flowID")] = remote_group.get("flowID")
+                    mso_update_values[("destination", "remote", "ttl")] = remote_group.get("ttl")
+                    mso_update_values[("destination", "remote", "dscp")] = remote_group.get("dscp")
+
             proposed_payload = copy.deepcopy(match.details)
-            append_update_ops_data(ops, proposed_payload, span_session_path, mso_values)
+            append_update_ops_data(ops, proposed_payload, span_session_path, mso_update_values)
             mso.sanitize(proposed_payload, collate=True)
         else:
             mso.sanitize(mso_values)
@@ -531,6 +550,8 @@ def set_template_and_references(mso_template, config, reference_collection):
 
 
 def format_sources(mso, sources):
+    if sources is None:
+        return None
     source_list = []
     for source in sources:
         source_values = {

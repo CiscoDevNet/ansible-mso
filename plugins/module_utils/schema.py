@@ -398,3 +398,23 @@ class MSOSchema:
             msg = "Provided Static Port Path '{0}' not matching existing static port path(s): {1}".format(path, ", ".join(existing))
             self.mso.fail_json(msg=msg)
         self.schema_objects["site_anp_epg_static_port"] = match
+
+class MSOSchemaCache:
+    def __init__(self, mso):
+        self.mso = mso
+        self.cache = {}
+
+    def get_mso_schema(self, schema, schema_id=None, template=None, template_id=None):
+        cache_key = "{0}-{1}-{2}-{3}".format(schema, schema_id, template, template_id)
+        if cache_key in self.cache.keys():
+            return self.cache[cache_key]
+        mso_schema = MSOSchema(
+            self.mso,
+            schema,
+            template,
+            None,
+            schema_id,
+            template_id,
+        )
+        self.cache[cache_key] = mso_schema
+        return mso_schema

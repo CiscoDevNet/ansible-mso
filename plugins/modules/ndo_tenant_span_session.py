@@ -319,7 +319,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, epg_object_reference_spec
-from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
+from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchemaCache
 from ansible_collections.cisco.mso.plugins.module_utils.template import (
     MSOTemplate,
     KVPair,
@@ -391,6 +391,7 @@ def main():
     )
 
     mso = MSOModule(module)
+    mso_schema_cache = MSOSchemaCache(mso)
 
     template_name = module.params.get("template")
     template_id = module.params.get("template_id")
@@ -442,7 +443,7 @@ def main():
         if uuid and not mso.existing:
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
-        destination_epg_uuid = get_epg_uuid(mso, destination_epg.get("epg"), destination_epg.get("epg_uuid"))
+        destination_epg_uuid = get_epg_uuid(mso_schema_cache, destination_epg.get("epg"), destination_epg.get("epg_uuid"))
 
         mso_values = dict(
             name=name,
@@ -466,7 +467,7 @@ def main():
             if admin_state is not None:
                 source_group["enableAdminState"] = False if admin_state == "disabled" else True
             if sources is not None:
-                source_group["sources"] = format_sources(mso, sources)
+                source_group["sources"] = format_sources(mso_schema_cache, sources)
             mso_values["sourceGroup"] = source_group
 
         if match:
@@ -523,15 +524,13 @@ def main():
     mso.exit_json()
 
 
-def get_epg_uuid(mso, epg_obj, epg_uuid):
+def get_epg_uuid(mso_schema_cache, epg_obj, epg_uuid):
     if epg_uuid:
         return epg_uuid
-    mso_schema = MSOSchema(
-        mso,
+    mso_schema = mso_schema_cache.get_mso_schema(
         epg_obj.get("schema"),
-        epg_obj.get("template"),
-        None,
         epg_obj.get("schema_id"),
+        epg_obj.get("template"),
         epg_obj.get("template_id"),
     )
     mso_schema.set_template_anp(epg_obj.get("anp"), epg_obj.get("anp_id"), fail_module=True)
@@ -549,7 +548,7 @@ def set_template_and_references(mso_template, config, reference_collection):
     return config
 
 
-def format_sources(mso, sources):
+def format_sources(mso_schema_cache, sources):
     if sources is None:
         return None
     source_list = []
@@ -557,7 +556,7 @@ def format_sources(mso, sources):
         source_values = {
             "name": source.get("name"),
             "direction": source.get("direction"),
-            "epg": get_epg_uuid(mso, source.get("epg"), source.get("epg_uuid")),
+            "epg": get_epg_uuid(mso_schema_cache, source.get("epg"), source.get("epg_uuid")),
         }
         source_list.append(source_values)
     return source_list

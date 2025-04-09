@@ -93,7 +93,7 @@
       cisco.mso.mso_schema:
         <<: *remove_schemas
         state: query
-      register: create_schema
+      register: query_schema
 
     - name: Ensure an ANP exists
       cisco.mso.mso_schema_template_anp: &anp_present
@@ -107,7 +107,7 @@
       cisco.mso.mso_schema_template_anp:
         <<: *anp_present
         state: query
-      register: create_anp
+      register: query_anp
 
     - name: Ensure EPGs exist
       cisco.mso.mso_schema_template_anp_epg: &epg_present
@@ -117,7 +117,7 @@
         anp: ansible_test_anp
         epg: '{{ item }}'
         state: present
-      loop: [ ansible_test_epg_1, ansible_test_epg_2, ansible_test_epg_3, ansible_test_epg_4 ]
+      loop: [ ansible_test_epg_1, ansible_test_epg_2, ansible_test_epg_3, ansible_test_epg_4, ansible_test_epg_5 ]
 
     - name: Query all EPGs
       cisco.mso.mso_schema_template_anp_epg:
@@ -144,6 +144,13 @@
           - name: source_2
             direction: outgoing
             epg_uuid: '{{ query_epgs.current.3.uuid }}'
+          - name: source_3
+            direction: incoming
+            epg:
+              schema_id: '{{ query_schema.current.id }}'
+              template_id: '{{ query_schema.current.templates.0.templateID }}'
+              anp_uuid: '{{ query_anp.current.uuid }}'
+              name: ansible_test_epg_5
         admin_state: disabled
         mtu: 9001
         destination_epg:
@@ -187,10 +194,10 @@
           - cm_span_session.current.destination.mtu == nm_span_session.current.destination.mtu == 9001
           - cm_span_session.current.destination.remote.epgRef == nm_span_session.current.destination.remote.epgRef == query_epgs.current.0.uuid
           - cm_span_session.current.destination.remote.epgName == nm_span_session.current.destination.remote.epgName == query_epgs.current.0.name
-          - cm_span_session.current.destination.remote.epgSchemaName == nm_span_session.current.destination.remote.epgSchemaName == create_schema.current.displayName
-          - cm_span_session.current.destination.remote.epgSchemaId == nm_span_session.current.destination.remote.epgSchemaId == create_schema.current.id
-          - cm_span_session.current.destination.remote.epgTemplateName == nm_span_session.current.destination.remote.epgTemplateName == create_schema.current.templates.0.displayName
-          - cm_span_session.current.destination.remote.epgTemplateId == nm_span_session.current.destination.remote.epgTemplateId == create_schema.current.templates.0.templateID
+          - cm_span_session.current.destination.remote.epgSchemaName == nm_span_session.current.destination.remote.epgSchemaName == query_schema.current.displayName
+          - cm_span_session.current.destination.remote.epgSchemaId == nm_span_session.current.destination.remote.epgSchemaId == query_schema.current.id
+          - cm_span_session.current.destination.remote.epgTemplateName == nm_span_session.current.destination.remote.epgTemplateName == query_schema.current.templates.0.displayName
+          - cm_span_session.current.destination.remote.epgTemplateId == nm_span_session.current.destination.remote.epgTemplateId == query_schema.current.templates.0.templateID
           - cm_span_session.current.destination.remote.destIPAddress == nm_span_session.current.destination.remote.destIPAddress == "10.1.1.1"
           - cm_span_session.current.destination.remote.srcIPPrefix == nm_span_session.current.destination.remote.srcIPPrefix == "10.1.1.1/24"
           - cm_span_session.current.destination.remote.spanVersion == nm_span_session.current.destination.remote.spanVersion == "v1"
@@ -198,23 +205,31 @@
           - cm_span_session.current.destination.remote.flowID == nm_span_session.current.destination.remote.flowID == 15
           - cm_span_session.current.destination.remote.ttl == nm_span_session.current.destination.remote.ttl == 128
           - cm_span_session.current.destination.remote.dscp == nm_span_session.current.destination.remote.dscp == "af12"
-          - cm_span_session.current.sourceGroup.sources | length == nm_span_session.current.sourceGroup.sources | length == 2
+          - cm_span_session.current.sourceGroup.sources | length == nm_span_session.current.sourceGroup.sources | length == 3
           - cm_span_session.current.sourceGroup.sources.0.name == nm_span_session.current.sourceGroup.sources.0.name == "source_1"
           - cm_span_session.current.sourceGroup.sources.0.direction == nm_span_session.current.sourceGroup.sources.0.direction == "both"
           - cm_span_session.current.sourceGroup.sources.0.epg == nm_span_session.current.sourceGroup.sources.0.epg == query_epgs.current.2.uuid
           - cm_span_session.current.sourceGroup.sources.0.epgName == nm_span_session.current.sourceGroup.sources.0.epgName == "ansible_test_epg_3"
-          - cm_span_session.current.sourceGroup.sources.0.epgSchemaName == nm_span_session.current.sourceGroup.sources.0.epgSchemaName == create_schema.current.displayName
-          - cm_span_session.current.sourceGroup.sources.0.epgSchemaId == nm_span_session.current.sourceGroup.sources.0.epgSchemaId == create_schema.current.id
-          - cm_span_session.current.sourceGroup.sources.0.epgTemplateName == nm_span_session.current.sourceGroup.sources.0.epgTemplateName == create_schema.current.templates.0.displayName
-          - cm_span_session.current.sourceGroup.sources.0.epgTemplateId == nm_span_session.current.sourceGroup.sources.0.epgTemplateId == create_schema.current.templates.0.templateID
+          - cm_span_session.current.sourceGroup.sources.0.epgSchemaName == nm_span_session.current.sourceGroup.sources.0.epgSchemaName == query_schema.current.displayName
+          - cm_span_session.current.sourceGroup.sources.0.epgSchemaId == nm_span_session.current.sourceGroup.sources.0.epgSchemaId == query_schema.current.id
+          - cm_span_session.current.sourceGroup.sources.0.epgTemplateName == nm_span_session.current.sourceGroup.sources.0.epgTemplateName == query_schema.current.templates.0.displayName
+          - cm_span_session.current.sourceGroup.sources.0.epgTemplateId == nm_span_session.current.sourceGroup.sources.0.epgTemplateId == query_schema.current.templates.0.templateID
           - cm_span_session.current.sourceGroup.sources.1.name == nm_span_session.current.sourceGroup.sources.1.name == "source_2"
           - cm_span_session.current.sourceGroup.sources.1.direction == nm_span_session.current.sourceGroup.sources.1.direction == "outgoing"
           - cm_span_session.current.sourceGroup.sources.1.epg == nm_span_session.current.sourceGroup.sources.1.epg == query_epgs.current.3.uuid
           - cm_span_session.current.sourceGroup.sources.1.epgName == nm_span_session.current.sourceGroup.sources.1.epgName == "ansible_test_epg_4"
-          - cm_span_session.current.sourceGroup.sources.1.epgSchemaName == nm_span_session.current.sourceGroup.sources.1.epgSchemaName == create_schema.current.displayName
-          - cm_span_session.current.sourceGroup.sources.1.epgSchemaId == nm_span_session.current.sourceGroup.sources.1.epgSchemaId == create_schema.current.id
-          - cm_span_session.current.sourceGroup.sources.1.epgTemplateName == nm_span_session.current.sourceGroup.sources.1.epgTemplateName == create_schema.current.templates.0.displayName
-          - cm_span_session.current.sourceGroup.sources.1.epgTemplateId == nm_span_session.current.sourceGroup.sources.1.epgTemplateId == create_schema.current.templates.0.templateID
+          - cm_span_session.current.sourceGroup.sources.1.epgSchemaName == nm_span_session.current.sourceGroup.sources.1.epgSchemaName == query_schema.current.displayName
+          - cm_span_session.current.sourceGroup.sources.1.epgSchemaId == nm_span_session.current.sourceGroup.sources.1.epgSchemaId == query_schema.current.id
+          - cm_span_session.current.sourceGroup.sources.1.epgTemplateName == nm_span_session.current.sourceGroup.sources.1.epgTemplateName == query_schema.current.templates.0.displayName
+          - cm_span_session.current.sourceGroup.sources.1.epgTemplateId == nm_span_session.current.sourceGroup.sources.1.epgTemplateId == query_schema.current.templates.0.templateID
+          - cm_span_session.current.sourceGroup.sources.2.name == nm_span_session.current.sourceGroup.sources.2.name == "source_3"
+          - cm_span_session.current.sourceGroup.sources.2.direction == nm_span_session.current.sourceGroup.sources.2.direction == "incoming"
+          - cm_span_session.current.sourceGroup.sources.2.epg == nm_span_session.current.sourceGroup.sources.2.epg == query_epgs.current.4.uuid
+          - cm_span_session.current.sourceGroup.sources.2.epgName == nm_span_session.current.sourceGroup.sources.2.epgName == "ansible_test_epg_5"
+          - cm_span_session.current.sourceGroup.sources.2.epgSchemaName == nm_span_session.current.sourceGroup.sources.2.epgSchemaName == query_schema.current.displayName
+          - cm_span_session.current.sourceGroup.sources.2.epgSchemaId == nm_span_session.current.sourceGroup.sources.2.epgSchemaId == query_schema.current.id
+          - cm_span_session.current.sourceGroup.sources.2.epgTemplateName == nm_span_session.current.sourceGroup.sources.2.epgTemplateName == query_schema.current.templates.0.displayName
+          - cm_span_session.current.sourceGroup.sources.2.epgTemplateId == nm_span_session.current.sourceGroup.sources.2.epgTemplateId == query_schema.current.templates.0.templateID
           - nm_span_session.current.uuid is defined
           - nm_span_session_again is not changed
           - nm_span_session_again.previous == nm_span_session_again.current == nm_span_session.current
@@ -277,23 +292,31 @@
           - cm_update_span_session.previous.destination.remote.epgName == nm_update_span_session.previous.destination.remote.epgName == query_epgs.current.0.name
           - cm_update_span_session.current.destination.remote.dscp == nm_update_span_session.current.destination.remote.dscp == "expeditedForwarding"
           - cm_update_span_session.previous.destination.remote.dscp == nm_update_span_session.previous.destination.remote.dscp == "af12"
-          - cm_update_span_session.current.sourceGroup.sources | length == nm_update_span_session.current.sourceGroup.sources | length == 2
+          - cm_update_span_session.current.sourceGroup.sources | length == nm_update_span_session.current.sourceGroup.sources | length == 3
           - cm_update_span_session.current.sourceGroup.sources.0.name == nm_update_span_session.current.sourceGroup.sources.0.name == "source_1"
           - cm_update_span_session.current.sourceGroup.sources.0.direction == nm_update_span_session.current.sourceGroup.sources.0.direction == "both"
           - cm_update_span_session.current.sourceGroup.sources.0.epg == nm_update_span_session.current.sourceGroup.sources.0.epg == query_epgs.current.2.uuid
           - cm_update_span_session.current.sourceGroup.sources.0.epgName == nm_update_span_session.current.sourceGroup.sources.0.epgName == "ansible_test_epg_3"
-          - cm_update_span_session.current.sourceGroup.sources.0.epgSchemaName == nm_update_span_session.current.sourceGroup.sources.0.epgSchemaName == create_schema.current.displayName
-          - cm_update_span_session.current.sourceGroup.sources.0.epgSchemaId == nm_update_span_session.current.sourceGroup.sources.0.epgSchemaId == create_schema.current.id
-          - cm_update_span_session.current.sourceGroup.sources.0.epgTemplateName == nm_update_span_session.current.sourceGroup.sources.0.epgTemplateName == create_schema.current.templates.0.displayName
-          - cm_update_span_session.current.sourceGroup.sources.0.epgTemplateId == nm_update_span_session.current.sourceGroup.sources.0.epgTemplateId == create_schema.current.templates.0.templateID
+          - cm_update_span_session.current.sourceGroup.sources.0.epgSchemaName == nm_update_span_session.current.sourceGroup.sources.0.epgSchemaName == query_schema.current.displayName
+          - cm_update_span_session.current.sourceGroup.sources.0.epgSchemaId == nm_update_span_session.current.sourceGroup.sources.0.epgSchemaId == query_schema.current.id
+          - cm_update_span_session.current.sourceGroup.sources.0.epgTemplateName == nm_update_span_session.current.sourceGroup.sources.0.epgTemplateName == query_schema.current.templates.0.displayName
+          - cm_update_span_session.current.sourceGroup.sources.0.epgTemplateId == nm_update_span_session.current.sourceGroup.sources.0.epgTemplateId == query_schema.current.templates.0.templateID
           - cm_update_span_session.current.sourceGroup.sources.1.name == nm_update_span_session.current.sourceGroup.sources.1.name == "source_2"
           - cm_update_span_session.current.sourceGroup.sources.1.direction == nm_update_span_session.current.sourceGroup.sources.1.direction == "outgoing"
           - cm_update_span_session.current.sourceGroup.sources.1.epg == nm_update_span_session.current.sourceGroup.sources.1.epg == query_epgs.current.3.uuid
           - cm_update_span_session.current.sourceGroup.sources.1.epgName == nm_update_span_session.current.sourceGroup.sources.1.epgName == "ansible_test_epg_4"
-          - cm_update_span_session.current.sourceGroup.sources.1.epgSchemaName == nm_update_span_session.current.sourceGroup.sources.1.epgSchemaName == create_schema.current.displayName
-          - cm_update_span_session.current.sourceGroup.sources.1.epgSchemaId == nm_update_span_session.current.sourceGroup.sources.1.epgSchemaId == create_schema.current.id
-          - cm_update_span_session.current.sourceGroup.sources.1.epgTemplateName == nm_update_span_session.current.sourceGroup.sources.1.epgTemplateName == create_schema.current.templates.0.displayName
-          - cm_update_span_session.current.sourceGroup.sources.1.epgTemplateId == nm_update_span_session.current.sourceGroup.sources.1.epgTemplateId == create_schema.current.templates.0.templateID
+          - cm_update_span_session.current.sourceGroup.sources.1.epgSchemaName == nm_update_span_session.current.sourceGroup.sources.1.epgSchemaName == query_schema.current.displayName
+          - cm_update_span_session.current.sourceGroup.sources.1.epgSchemaId == nm_update_span_session.current.sourceGroup.sources.1.epgSchemaId == query_schema.current.id
+          - cm_update_span_session.current.sourceGroup.sources.1.epgTemplateName == nm_update_span_session.current.sourceGroup.sources.1.epgTemplateName == query_schema.current.templates.0.displayName
+          - cm_update_span_session.current.sourceGroup.sources.1.epgTemplateId == nm_update_span_session.current.sourceGroup.sources.1.epgTemplateId == query_schema.current.templates.0.templateID
+          - cm_update_span_session.current.sourceGroup.sources.2.name == nm_update_span_session.current.sourceGroup.sources.2.name == "source_3"
+          - cm_update_span_session.current.sourceGroup.sources.2.direction == nm_update_span_session.current.sourceGroup.sources.2.direction == "incoming"
+          - cm_update_span_session.current.sourceGroup.sources.2.epg == nm_update_span_session.current.sourceGroup.sources.2.epg == query_epgs.current.4.uuid
+          - cm_update_span_session.current.sourceGroup.sources.2.epgName == nm_update_span_session.current.sourceGroup.sources.2.epgName == "ansible_test_epg_5"
+          - cm_update_span_session.current.sourceGroup.sources.2.epgSchemaName == nm_update_span_session.current.sourceGroup.sources.2.epgSchemaName == query_schema.current.displayName
+          - cm_update_span_session.current.sourceGroup.sources.2.epgSchemaId == nm_update_span_session.current.sourceGroup.sources.2.epgSchemaId == query_schema.current.id
+          - cm_update_span_session.current.sourceGroup.sources.2.epgTemplateName == nm_update_span_session.current.sourceGroup.sources.2.epgTemplateName == query_schema.current.templates.0.displayName
+          - cm_update_span_session.current.sourceGroup.sources.2.epgTemplateId == nm_update_span_session.current.sourceGroup.sources.2.epgTemplateId == query_schema.current.templates.0.templateID
           - cm_update_span_session.current.uuid == nm_update_span_session.current.uuid
           - nm_update_span_session_again is not changed
           - nm_update_span_session_again.previous == nm_update_span_session_again.current == nm_update_span_session.current
@@ -342,8 +365,6 @@
           - query_all.current | length == 2
           - query_all.current[0].name == "ansible_span_session_1"
           - query_all.current[1].name == "ansible_span_session_2"
-
-    # ERRORS TODO
 
     # DELETE
     - name: Delete SPAN Session (check mode)

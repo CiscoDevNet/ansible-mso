@@ -110,11 +110,11 @@ options:
           anp:
             description:
             - The name of the Application Profile (ANP) that contains the source EPG.
-            - This parameter or O(sources.epg.anp_id) is required.
+            - This parameter or O(sources.epg.anp_uuid) is required.
             type: str
-          anp_id:
+          anp_uuid:
             description:
-            - The ID of the ANP that contains the source EPG.
+            - The UUID of the ANP that contains the source EPG.
             - This parameter or O(sources.epg.anp) is required.
             type: str
   admin_state:
@@ -172,12 +172,12 @@ options:
             type: str
           anp:
             description:
-            - The name of the  that contains the destination EPG.
-            - This parameter or O(destination_epg.epg.anp_id) is required.
+            - The name of the ANP that contains the destination EPG.
+            - This parameter or O(destination_epg.epg.anp_uuid) is required.
             type: str
-          anp_id:
+          anp_uuid:
             description:
-            - The ID of the  that contains the destination EPG.
+            - The UUID of the ANP that contains the destination EPG.
             - This parameter or O(destination_epg.epg.anp) is required.
             type: str
       destination_ip:
@@ -367,7 +367,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, epg_object_reference_spec
-from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchemaCache
+from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 from ansible_collections.cisco.mso.plugins.module_utils.template import (
     MSOTemplate,
     KVPair,
@@ -439,7 +439,7 @@ def main():
     )
 
     mso = MSOModule(module)
-    mso_schema_cache = MSOSchemaCache(mso)
+    mso_schema = None
 
     template_name = module.params.get("template")
     template_id = module.params.get("template_id")
@@ -491,7 +491,7 @@ def main():
         if uuid and not mso.existing:
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
-        destination_epg_uuid = get_epg_uuid(mso_schema_cache, destination_epg.get("epg"), destination_epg.get("epg_uuid"))
+        destination_epg_uuid = get_epg_uuid(mso, mso_schema, destination_epg.get("epg"), destination_epg.get("epg_uuid"))
 
         mso_values = dict(
             name=name,
@@ -515,7 +515,7 @@ def main():
             if admin_state is not None:
                 source_group["enableAdminState"] = False if admin_state == "disabled" else True
             if sources is not None:
-                source_group["sources"] = format_sources(mso_schema_cache, sources)
+                source_group["sources"] = format_sources(mso, mso_schema, sources)
             mso_values["sourceGroup"] = source_group
 
         if match:
@@ -572,18 +572,28 @@ def main():
     mso.exit_json()
 
 
-def get_epg_uuid(mso_schema_cache, epg_obj, epg_uuid):
+def get_epg_uuid(mso, schema, epg_obj, epg_uuid):
     if epg_uuid:
         return epg_uuid
-    mso_schema = mso_schema_cache.get_mso_schema(
-        epg_obj.get("schema"),
-        epg_obj.get("schema_id"),
-        epg_obj.get("template"),
-        epg_obj.get("template_id"),
-    )
-    mso_schema.set_template_anp(epg_obj.get("anp"), epg_obj.get("anp_id"), fail_module=True)
-    mso_schema.set_template_anp_epg(epg_obj.get("name"), fail_module=True)
-    return mso_schema.schema_objects.get("template_anp_epg").details.get("uuid")
+    if schema is None:
+        schema = MSOSchema(
+            mso,
+            epg_obj.get("schema"),
+            epg_obj.get("template"),
+            None,
+            epg_obj.get("schema_id"),
+            epg_obj.get("template_id"),
+        )
+    else:
+        schema = schema.get_schema(
+            epg_obj.get("schema"),
+            epg_obj.get("schema_id"),
+            epg_obj.get("template"),
+            epg_obj.get("template_id"),
+        )
+    schema.set_template_anp(epg_obj.get("anp"), epg_obj.get("anp_uuid"), fail_module=True)
+    schema.set_template_anp_epg(epg_obj.get("name"), fail_module=True)
+    return schema.schema_objects.get("template_anp_epg").details.get("uuid")
 
 
 def set_template_and_references(mso_template, config, reference_collection):
@@ -596,7 +606,7 @@ def set_template_and_references(mso_template, config, reference_collection):
     return config
 
 
-def format_sources(mso_schema_cache, sources):
+def format_sources(mso, schema, sources):
     if sources is None:
         return None
     source_list = []
@@ -604,7 +614,7 @@ def format_sources(mso_schema_cache, sources):
         source_values = {
             "name": source.get("name"),
             "direction": source.get("direction"),
-            "epg": get_epg_uuid(mso_schema_cache, source.get("epg"), source.get("epg_uuid")),
+            "epg": get_epg_uuid(mso, schema, source.get("epg"), source.get("epg_uuid")),
         }
         source_list.append(source_values)
     return source_list

@@ -458,7 +458,7 @@ class MSOTemplate:
             for reference_details in reference_collections.values():
                 if config_data.get(reference_details.get("reference")):
                     template_object = self.get_template_object_by_uuid(
-                        reference_details.get("type"), config_data.get(reference_details.get("reference")), False, use_cache
+                        reference_details.get("type"), config_data.get(reference_details.get("reference")), True, use_cache
                     )
                     config_data[reference_details.get("name")] = template_object.get("name")
                     if reference_details.get("template"):

@@ -1786,16 +1786,16 @@ def epg_object_reference_spec():
             schema=dict(type="str"),
             schema_id=dict(type="str"),
             anp=dict(type="str"),
-            anp_id=dict(type="str"),
+            anp_uuid=dict(type="str"),
         ),
         required_one_of=[
             ["template", "template_id"],
             ["schema", "schema_id"],
-            ["anp", "anp_id"],
+            ["anp", "anp_uuid"],
         ],
         mutually_exclusive=[
             ("schema", "schema_id"),
             ("template", "template_id"),
-            ("anp", "anp_id"),
+            ("anp", "anp_uuid"),
         ],
     )

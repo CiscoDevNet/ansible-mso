@@ -36,10 +36,12 @@ options:
     description:
     - The UUID of the Service Device Cluster.
     type: str
+    aliases: [ service_device_cluster_uuid ]
   name:
     description:
     - The name of the Service Device Cluster.
     type: str
+    aliases: [ service_device_cluster ]
   description:
     description:
     - The description of the Service Device Cluster.
@@ -407,8 +409,8 @@ def main():
     argument_spec.update(
         template=dict(type="str"),
         template_id=dict(type="str"),
-        name=dict(type="str"),
-        uuid=dict(type="str"),
+        name=dict(type="str", aliases=["service_device_cluster"]),
+        uuid=dict(type="str", aliases=["service_device_cluster_uuid"]),
         description=dict(type="str"),
         device_mode=dict(type="str", choices=["layer1", "layer2", "layer3"]),
         device_type=dict(type="str", choices=["firewall", "load_balancer", "other"]),

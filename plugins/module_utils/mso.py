@@ -280,11 +280,11 @@ def ndo_bfd_multi_hop_settings_spec():
     )
 
 
-def ndo_template_object_spec():
+def ndo_template_object_spec(aliases=None):
     return dict(
         type="dict",
         options=dict(
-            name=dict(type="str"),
+            name=dict(type="str", aliases=aliases) if aliases else dict(type="str"),
             template=dict(type="str"),
             template_id=dict(type="str"),
         ),

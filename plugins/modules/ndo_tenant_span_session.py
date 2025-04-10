@@ -18,7 +18,7 @@ ANSIBLE_METADATA = {
 DOCUMENTATION = r"""
 ---
 module: ndo_tenant_span_session
-short_description: Manage SPAN Sessions on Cisco Nexus Dashboard Orchestrator (NDO).
+short_description: Manage Tenant SPAN Sessions on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage Switched Port Analyzer (SPAN) Sessions on Cisco Nexus Dashboard Orchestrator (NDO).
 - This module is only supported on ND v3.1 (NDO v4.3) and later.
@@ -367,10 +367,9 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, epg_object_reference_spec
-from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
-from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, get_epg_uuid
 import copy
 
 
@@ -558,30 +557,6 @@ def main():
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
-
-
-def get_epg_uuid(mso, schema, epg_obj, epg_uuid):
-    if epg_uuid:
-        return epg_uuid
-    if schema is None:
-        schema = MSOSchema(
-            mso,
-            epg_obj.get("schema"),
-            epg_obj.get("template"),
-            None,
-            epg_obj.get("schema_id"),
-            epg_obj.get("template_id"),
-        )
-    else:
-        schema = schema.get_schema(
-            epg_obj.get("schema"),
-            epg_obj.get("schema_id"),
-            epg_obj.get("template"),
-            epg_obj.get("template_id"),
-        )
-    schema.set_template_anp(epg_obj.get("anp"), epg_obj.get("anp_uuid"), fail_module=True)
-    schema.set_template_anp_epg(epg_obj.get("name"), fail_module=True)
-    return schema.schema_objects.get("template_anp_epg").details.get("uuid")
 
 
 def set_template_and_references(mso_template, config, reference_collection):

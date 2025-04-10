@@ -127,7 +127,7 @@ options:
     description:
     - The MTU truncation size for the SPAN packets.
     - The value must be in the range 64 - 9216.
-    - Defaults to C(1518) when unset during creation.
+    - Defaults to 1518 when unset during creation.
     type: int
   destination_epg:
     description:
@@ -197,19 +197,19 @@ options:
       enforce_span_version:
         description:
         - Enforce the SPAN Session version defined in O(destination_epg.span_version).
-        - Defaults to C(true) when unset during creation.
+        - Defaults to true when unset during creation.
         type: bool
       flow_id:
         description:
         - The flow ID of the SPAN Session packets.
         - The value must be in the range 1 - 1023.
-        - Defaults to C(1) when unset during creation.
+        - Defaults to 1 when unset during creation.
         type: int
       ttl:
         description:
         - The time to live (TTL) of the SPAN Session packets.
         - The value must be in the range 1 - 1023.
-        - Defaults to C(1) when unset during creation.
+        - Defaults to 1 when unset during creation.
         type: int
       dscp:
         description:
@@ -368,14 +368,9 @@ RETURN = r"""
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, epg_object_reference_spec
 from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
-from ansible_collections.cisco.mso.plugins.module_utils.template import (
-    MSOTemplate,
-    KVPair,
-)
-from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP
-from ansible_collections.cisco.mso.plugins.module_utils.utils import (
-    append_update_ops_data,
-)
+from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
+from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 import copy
 
 
@@ -403,7 +398,7 @@ def main():
                 epg=epg_object_reference_spec(),
             ),
         ),
-        admin_state=dict(type="str", choices=["enabled", "disabled"]),
+        admin_state=dict(type="str", choices=list(ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP)),
         mtu=dict(type="int"),
         destination_epg=dict(
             type="dict",
@@ -491,32 +486,25 @@ def main():
         if uuid and not mso.existing:
             mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
 
-        destination_epg_uuid = get_epg_uuid(mso, mso_schema, destination_epg.get("epg"), destination_epg.get("epg_uuid"))
-
-        mso_values = dict(
-            name=name,
-            description=description,
-            destination=dict(
-                remote=dict(
-                    epgRef=destination_epg_uuid,
-                    spanVersion=destination_epg.get("span_version"),
-                    enforceSpanVersion=destination_epg.get("enforce_span_version"),
-                    destIPAddress=destination_epg.get("destination_ip"),
-                    srcIPPrefix=destination_epg.get("source_ip_prefix"),
-                    flowID=destination_epg.get("flow_id"),
-                    ttl=destination_epg.get("ttl"),
-                    dscp=TARGET_DSCP_MAP.get(destination_epg.get("dscp")),
-                ),
-                mtu=mtu,
-            ),
-        )
+        mso_values = dict(name=name, description=description, destination=dict(mtu=mtu))
         if admin_state is not None or sources is not None:
             source_group = dict()
             if admin_state is not None:
-                source_group["enableAdminState"] = False if admin_state == "disabled" else True
+                source_group["enableAdminState"] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(admin_state)
             if sources is not None:
                 source_group["sources"] = format_sources(mso, mso_schema, sources)
             mso_values["sourceGroup"] = source_group
+        if destination_epg:
+            mso_values["destination"]["remote"] = dict(
+                epgRef=get_epg_uuid(mso, mso_schema, destination_epg.get("epg"), destination_epg.get("epg_uuid")),
+                spanVersion=destination_epg.get("span_version"),
+                enforceSpanVersion=destination_epg.get("enforce_span_version"),
+                destIPAddress=destination_epg.get("destination_ip"),
+                srcIPPrefix=destination_epg.get("source_ip_prefix"),
+                flowID=destination_epg.get("flow_id"),
+                ttl=destination_epg.get("ttl"),
+                dscp=TARGET_DSCP_MAP.get(destination_epg.get("dscp")),
+            )
 
         if match:
 

@@ -7,6 +7,7 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
+from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 import copy
 
 
@@ -195,3 +196,36 @@ def delete_none_values(obj_to_sanitize, recursive=True):
 
     else:
         raise TypeError("Object to sanitize must be of type list or dict. Got {}".format(type(obj_to_sanitize)))
+
+
+def get_epg_uuid(mso, schema, epg_obj, epg_uuid):
+    """
+    Returns the EPG UUID in a given schema, template and ANP.
+
+    :param mso: The mso module object. -> MSOModule
+    :param schema: The mso schema object. -> MSOSchema | None
+    :param epg_obj: A dictionary containing the epg reference object. -> Dict
+    :param epg_uuid: The EPG UUID to return if specified. -> Str
+    :return: The EPG UUID if found, otherwise it fails the module. -> Str
+    """
+    if epg_uuid:
+        return epg_uuid
+    if schema is None:
+        schema = MSOSchema(
+            mso,
+            epg_obj.get("schema"),
+            epg_obj.get("template"),
+            None,
+            epg_obj.get("schema_id"),
+            epg_obj.get("template_id"),
+        )
+    else:
+        schema = schema.get_schema(
+            epg_obj.get("schema"),
+            epg_obj.get("schema_id"),
+            epg_obj.get("template"),
+            epg_obj.get("template_id"),
+        )
+    schema.set_template_anp(epg_obj.get("anp"), epg_obj.get("anp_uuid"), fail_module=True)
+    schema.set_template_anp_epg(epg_obj.get("name"), fail_module=True)
+    return schema.schema_objects.get("template_anp_epg").details.get("uuid")

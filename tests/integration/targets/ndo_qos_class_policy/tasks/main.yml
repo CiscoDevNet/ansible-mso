@@ -1,0 +1,453 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Gaspard Micol (@sgmciol) <gmicol@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username, and password
+  ansible.builtin.fail:
+    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for MSO version > 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    - name: Remove fabric template
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        type: fabric_policy
+        state: absent
+
+    - name: Create a fabric template
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: ansible_fabric_policy_template
+        type: fabric_policy
+        state: present
+      register: create_new_fabric_policy_template
+
+    # CREATE
+    - name: Create a new QoS Class policy with minimum configuration (check mode)
+      cisco.mso.ndo_qos_class_policy: &add_qos_class_policy
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: ansible_test_qos_class_policy
+        state: present
+      check_mode: true
+      register: cm_add_qos_class_policy
+
+    - name: Create a new QoS Class policy wih with minimum configuration
+      cisco.mso.ndo_qos_class_policy:
+        <<: *add_qos_class_policy
+      register: nm_add_qos_class_policy
+
+    - name: Create a QoS Class policy with minimum configuration again
+      cisco.mso.ndo_qos_class_policy:
+        <<: *add_qos_class_policy
+      register: nm_add_qos_class_policy_again
+
+    - name: Assert QoS Class policy was created
+      assert:
+        that:
+          - cm_add_qos_class_policy is changed
+          - cm_add_qos_class_policy.previous == {}
+          - cm_add_qos_class_policy.current.name == cm_add_qos_class_policy.proposed.name == "ansible_test_qos_class_policy"
+          - cm_add_qos_class_policy.current.templateName == cm_add_qos_class_policy.proposed.templateName == "ansible_fabric_policy_template"
+          - nm_add_qos_class_policy is changed
+          - nm_add_qos_class_policy.previous == {}
+          - nm_add_qos_class_policy.current.name == "ansible_test_qos_class_policy"
+          - nm_add_qos_class_policy.current.templateName == "ansible_fabric_policy_template"
+          - nm_add_qos_class_policy_again is not changed
+          - nm_add_qos_class_policy_again.previous.name == nm_add_qos_class_policy_again.current.name == "ansible_test_qos_class_policy"
+          - nm_add_qos_class_policy_again.previous.templateName == nm_add_qos_class_policy_again.current.templateName == "ansible_fabric_policy_template"
+          - nm_add_qos_class_policy_again.previous.uuid is defined
+          - nm_add_qos_class_policy_again.current.uuid is defined
+
+    # UPDATE
+    - name: Update the QoS Class policy with full configuration (check mode)
+      cisco.mso.ndo_qos_class_policy: &update_qos_class_policy
+        <<: *add_qos_class_policy
+        description: Ansible Test QoS Class Policy
+        preserve_cos: true
+        qos_levels:
+          - level: level1
+            mtu: 9000
+            minimum_buffer: 1
+            congestion_algorithm: wred
+            wred_configuration:
+              congestion_notification: enabled
+              forward_non_ecn_traffic: false
+              minimum_threshold: 5
+              maximum_threshold: 95
+              probability: 80
+              weight: 1
+            scheduling_algorithm: weighted_round_robin
+            bandwidth_allocated: 50
+            pfc_admin_state: enabled
+            admin_state: enabled
+            no_drop_cos: cos1
+            pfc_scope: intra_tor
+        state: present
+      check_mode: true
+      register: cm_update_qos_class_policy
+
+    - name: Update the QoS Class policy with full configuration
+      cisco.mso.ndo_qos_class_policy:
+        <<: *update_qos_class_policy
+      register: nm_update_qos_class_policy
+
+    - name: Update the QoS Class policy with full configuration again
+      cisco.mso.ndo_qos_class_policy:
+        <<: *update_qos_class_policy
+      register: nm_update_qos_class_policy_again
+    
+    - name: Update the QoS Class policy by adding a new QoS level with minimum configuration
+      cisco.mso.ndo_qos_class_policy:
+        <<: *update_qos_class_policy
+        qos_levels:
+          - level: level1
+            mtu: 9000
+            minimum_buffer: 1
+            congestion_algorithm: wred
+            wred_configuration:
+              congestion_notification: enabled
+              forward_non_ecn_traffic: false
+              minimum_threshold: 5
+              maximum_threshold: 95
+              probability: 80
+              weight: 1
+            scheduling_algorithm: weighted_round_robin
+            bandwidth_allocated: 50
+            pfc_admin_state: enabled
+            admin_state: enabled
+            no_drop_cos: cos1
+            pfc_scope: intra_tor
+          - level: level2
+        state: present
+      register: nm_update_qos_class_policy_add_new_min_qos_level
+
+    - name: Update the QoS Class policy by removing a QoS level configuration
+      cisco.mso.ndo_qos_class_policy:
+        <<: *update_qos_class_policy
+        qos_levels:
+          - level: level1
+            mtu: 9000
+            minimum_buffer: 1
+            congestion_algorithm: wred
+            wred_configuration:
+              congestion_notification: enabled
+              forward_non_ecn_traffic: false
+              minimum_threshold: 5
+              maximum_threshold: 95
+              probability: 80
+              weight: 1
+            scheduling_algorithm: weighted_round_robin
+            bandwidth_allocated: 50
+            pfc_admin_state: enabled
+            admin_state: enabled
+            no_drop_cos: cos1
+            pfc_scope: intra_tor
+        state: present
+      register: nm_update_qos_class_policy_remove_qos_level
+
+    - name: Update the QoS Class policy by removing all QoS level configurations
+      cisco.mso.ndo_qos_class_policy:
+        <<: *update_qos_class_policy
+        qos_levels: []
+        state: present
+      register: nm_update_qos_class_policy_remove_all_qos_levels
+
+
+    - name: Assert QoS Class policy was updated
+      assert:
+        that:
+          - cm_update_qos_class_policy is changed
+          - cm_update_qos_class_policy.previous.name == "ansible_test_qos_class_policy"
+          - cm_update_qos_class_policy.previous.templateName == "ansible_fabric_policy_template"
+          - cm_update_qos_class_policy.previous.description == ""
+          - cm_update_qos_class_policy.current == cm_update_qos_class_policy.proposed
+          - cm_update_qos_class_policy.current.description == "Ansible Test QoS Class Policy"
+          - cm_update_qos_class_policy.current.level1.adminState == "enabled"
+          - cm_update_qos_class_policy.current.level1.bandwidthAllocated == 50
+          - cm_update_qos_class_policy.current.level1.congestionAlgorithm == "wred"
+          - cm_update_qos_class_policy.current.level1.minBuffer == 1
+          - cm_update_qos_class_policy.current.level1.mtu == 9000
+          - cm_update_qos_class_policy.current.level1.noDropCoS == "cos1"
+          - cm_update_qos_class_policy.current.level1.pfcAdminState == "enabled"
+          - cm_update_qos_class_policy.current.level1.pfcScope == "intraTor"
+          - cm_update_qos_class_policy.current.level1.schedulingAlgorithm == "wrr"
+          - cm_update_qos_class_policy.current.level1.wredConfig.congestionNotification == "enabled"
+          - cm_update_qos_class_policy.current.level1.wredConfig.forwardNonEcn == false
+          - cm_update_qos_class_policy.current.level1.wredConfig.maxThreshold == 95
+          - cm_update_qos_class_policy.current.level1.wredConfig.minThreshold == 5
+          - cm_update_qos_class_policy.current.level1.wredConfig.probability == 80
+          - cm_update_qos_class_policy.current.level1.wredConfig.weight == 1
+          - cm_update_qos_class_policy.current.name == "ansible_test_qos_class_policy"
+          - cm_update_qos_class_policy.current.templateName == "ansible_fabric_policy_template"
+          - cm_update_qos_class_policy.current.preserveCos == true
+          - nm_update_qos_class_policy is changed
+          - nm_update_qos_class_policy.previous.name == "ansible_test_qos_class_policy"
+          - nm_update_qos_class_policy.previous.templateName == "ansible_fabric_policy_template"
+          - nm_update_qos_class_policy.previous.description == ""
+          - nm_update_qos_class_policy.current == cm_update_qos_class_policy.proposed
+          - nm_update_qos_class_policy.current.description == "Ansible Test QoS Class Policy"
+          - nm_update_qos_class_policy.current.level1.adminState == "enabled"
+          - nm_update_qos_class_policy.current.level1.bandwidthAllocated == 50
+          - nm_update_qos_class_policy.current.level1.congestionAlgorithm == "wred"
+          - nm_update_qos_class_policy.current.level1.minBuffer == 1
+          - nm_update_qos_class_policy.current.level1.mtu == 9000
+          - nm_update_qos_class_policy.current.level1.noDropCoS == "cos1"
+          - nm_update_qos_class_policy.current.level1.pfcAdminState == "enabled"
+          - nm_update_qos_class_policy.current.level1.pfcScope == "intraTor"
+          - nm_update_qos_class_policy.current.level1.schedulingAlgorithm == "wrr"
+          - nm_update_qos_class_policy.current.level1.wredConfig.congestionNotification == "enabled"
+          - nm_update_qos_class_policy.current.level1.wredConfig.forwardNonEcn == false
+          - nm_update_qos_class_policy.current.level1.wredConfig.maxThreshold == 95
+          - nm_update_qos_class_policy.current.level1.wredConfig.minThreshold == 5
+          - nm_update_qos_class_policy.current.level1.wredConfig.probability == 80
+          - nm_update_qos_class_policy.current.level1.wredConfig.weight == 1
+          - nm_update_qos_class_policy.current.name == "ansible_test_qos_class_policy"
+          - nm_update_qos_class_policy.current.templateName == "ansible_fabric_policy_template"
+          - nm_update_qos_class_policy.current.preserveCos == true
+          - nm_update_qos_class_policy_again is not changed
+          - nm_update_qos_class_policy_again.current == nm_update_qos_class_policy_again.previous
+          - nm_update_qos_class_policy_add_new_min_qos_level is changed
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.description == "Ansible Test QoS Class Policy"
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.adminState == "enabled"
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.bandwidthAllocated == 50
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.congestionAlgorithm == "wred"
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.minBuffer == 1
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.mtu == 9000
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.noDropCoS == "cos1"
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.pfcAdminState == "enabled"
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.pfcScope == "intraTor"
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.schedulingAlgorithm == "wrr"
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.wredConfig.congestionNotification == "enabled"
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.wredConfig.forwardNonEcn == false
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.wredConfig.maxThreshold == 95
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.wredConfig.minThreshold == 5
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.wredConfig.probability == 80
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.level1.wredConfig.weight == 1
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.name == "ansible_test_qos_class_policy"
+          - nm_update_qos_class_policy_add_new_min_qos_level.previous.templateName == "ansible_fabric_policy_template"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.description == "Ansible Test QoS Class Policy"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.adminState == "enabled"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.bandwidthAllocated == 50
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.congestionAlgorithm == "wred"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.minBuffer == 1
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.mtu == 9000
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.noDropCoS == "cos1"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.pfcAdminState == "enabled"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.pfcScope == "intraTor"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.schedulingAlgorithm == "wrr"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.wredConfig.congestionNotification == "enabled"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.wredConfig.forwardNonEcn == false
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.wredConfig.maxThreshold == 95
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.wredConfig.minThreshold == 5
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.wredConfig.probability == 80
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level1.wredConfig.weight == 1
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.adminState == "enabled"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.bandwidthAllocated == 20
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.congestionAlgorithm == "tailDrop"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.minBuffer == 0
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.mtu == 9216
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.noDropCoS == "unspecified"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.pfcAdminState == "disabled"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.pfcScope == "fabricWide"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.schedulingAlgorithm == "wrr"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.wredConfig.congestionNotification == "disabled"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.wredConfig.forwardNonEcn == false
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.wredConfig.maxThreshold == 100
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.wredConfig.minThreshold == 0
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.wredConfig.probability == 0
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.wredConfig.weight == 0
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.name == "ansible_test_qos_class_policy"
+          - nm_update_qos_class_policy_add_new_min_qos_level.current.templateName == "ansible_fabric_policy_template"
+          - nm_update_qos_class_policy_remove_qos_level is changed
+          - nm_update_qos_class_policy_remove_qos_level.previous.description == "Ansible Test QoS Class Policy"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.adminState == "enabled"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.bandwidthAllocated == 50
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.congestionAlgorithm == "wred"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.minBuffer == 1
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.mtu == 9000
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.noDropCoS == "cos1"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.pfcAdminState == "enabled"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.pfcScope == "intraTor"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.schedulingAlgorithm == "wrr"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.wredConfig.congestionNotification == "enabled"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.wredConfig.forwardNonEcn == false
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.wredConfig.maxThreshold == 95
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.wredConfig.minThreshold == 5
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.wredConfig.probability == 80
+          - nm_update_qos_class_policy_remove_qos_level.previous.level1.wredConfig.weight == 1
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.adminState == "enabled"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.bandwidthAllocated == 20
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.congestionAlgorithm == "tailDrop"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.minBuffer == 0
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.mtu == 9216
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.noDropCoS == "unspecified"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.pfcAdminState == "disabled"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.pfcScope == "fabricWide"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.schedulingAlgorithm == "wrr"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.wredConfig.congestionNotification == "disabled"
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.wredConfig.forwardNonEcn == false
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.wredConfig.maxThreshold == 100
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.wredConfig.minThreshold == 0
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.wredConfig.probability == 0
+          - nm_update_qos_class_policy_remove_qos_level.previous.level2.wredConfig.weight == 0
+          - nm_update_qos_class_policy_remove_qos_level.previous.name == "ansible_test_qos_class_policy"
+          - nm_update_qos_class_policy_remove_qos_level.previous.templateName == "ansible_fabric_policy_template"
+          - nm_update_qos_class_policy_remove_qos_level.current.description == "Ansible Test QoS Class Policy"
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.adminState == "enabled"
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.bandwidthAllocated == 50
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.congestionAlgorithm == "wred"
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.minBuffer == 1
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.mtu == 9000
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.noDropCoS == "cos1"
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.pfcAdminState == "enabled"
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.pfcScope == "intraTor"
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.schedulingAlgorithm == "wrr"
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.wredConfig.congestionNotification == "enabled"
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.wredConfig.forwardNonEcn == false
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.wredConfig.maxThreshold == 95
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.wredConfig.minThreshold == 5
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.wredConfig.probability == 80
+          - nm_update_qos_class_policy_remove_qos_level.current.level1.wredConfig.weight == 1
+          - nm_update_qos_class_policy_remove_qos_level.current.name == "ansible_test_qos_class_policy"
+          - nm_update_qos_class_policy_remove_qos_level.current.templateName == "ansible_fabric_policy_template"
+          - nm_update_qos_class_policy_remove_all_qos_levels is changed
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.description == "Ansible Test QoS Class Policy"
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.adminState == "enabled"
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.bandwidthAllocated == 50
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.congestionAlgorithm == "wred"
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.minBuffer == 1
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.mtu == 9000
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.noDropCoS == "cos1"
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.pfcAdminState == "enabled"
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.pfcScope == "intraTor"
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.schedulingAlgorithm == "wrr"
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.wredConfig.congestionNotification == "enabled"
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.wredConfig.forwardNonEcn == false
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.wredConfig.maxThreshold == 95
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.wredConfig.minThreshold == 5
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.wredConfig.probability == 80
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.level1.wredConfig.weight == 1
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.name == "ansible_test_qos_class_policy"
+          - nm_update_qos_class_policy_remove_all_qos_levels.previous.templateName == "ansible_fabric_policy_template"
+          - nm_update_qos_class_policy_remove_all_qos_levels.current.preserveCos == true
+          - nm_update_qos_class_policy_remove_all_qos_levels.current.description == "Ansible Test QoS Class Policy"
+          - nm_update_qos_class_policy_remove_all_qos_levels.current.name == "ansible_test_qos_class_policy"
+          - nm_update_qos_class_policy_remove_all_qos_levels.current.templateName == "ansible_fabric_policy_template"
+
+    # QUERY
+    - name: Query the QoS Class policy with name
+      cisco.mso.ndo_qos_class_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: ansible_test_qos_class_policy
+        state: query
+      register: query_one
+
+    - name: Query the QoS Class policy with uuid
+      cisco.mso.ndo_qos_class_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        uuid: "{{ nm_add_qos_class_policy.current.uuid }}"
+        state: query
+      register: query_one_uuid
+
+    - name: Query all QoS Class policies
+      cisco.mso.ndo_qos_class_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        state: query
+      register: query_all
+
+    - name: Assert QoS Class policy query results
+      assert:
+        that:
+          - query_one is not changed
+          - query_all is not changed
+          - query_one.current == query_one_uuid.current == query_all.current
+          - query_one.current.name == "ansible_test_qos_class_policy"
+          - query_one.current.description == "Ansible Test QoS Class Policy"
+          - query_one.current.preserveCos == true
+          - query_one.current.templateName == "ansible_fabric_policy_template"
+
+    # ERRORS
+    - name: Create a new QoS Class policy with dupicate QoS level configurations
+      cisco.mso.ndo_qos_class_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: ansible_test_qos_class_policy_error
+        qos_levels:
+          - level: level1
+          - level: level1
+        state: present
+      ignore_errors: true
+      register: nm_create_qos_class_policy_with_duplicate_level
+    
+    - name: Assert QoS Class policy errors
+      assert:
+        that:
+          - nm_create_qos_class_policy_with_duplicate_level.msg == "Duplicate configurations for QoS level1"
+
+    # DELETE
+    - name: Delete the QoS Class policy (check mode)
+      cisco.mso.ndo_qos_class_policy: &rm_qos_class_policy
+        <<: *mso_info
+        template_id: '{{ create_new_fabric_policy_template.current.templateId }}'
+        name: ansible_test_qos_class_policy
+        state: absent
+      check_mode: true
+      register: cm_rm_qos_class_policy
+
+    - name: Delete the QoS Class policy
+      cisco.mso.ndo_qos_class_policy:
+        <<: *rm_qos_class_policy
+      register: nm_rm_qos_class_policy
+
+    - name: Delete the QoS Class policy again
+      cisco.mso.ndo_qos_class_policy:
+        <<: *rm_qos_class_policy
+      register: nm_rm_qos_class_policy_again
+
+    - name: Assert QoS Class policy was deleted
+      assert:
+        that:
+          - cm_rm_qos_class_policy is changed
+          - nm_rm_qos_class_policy is changed
+          - cm_rm_qos_class_policy.current == nm_rm_qos_class_policy.current == {}
+          - cm_rm_qos_class_policy.previous.name == "ansible_test_qos_class_policy"
+          - cm_rm_qos_class_policy.previous.description == "Ansible Test QoS Class Policy"
+          - cm_rm_qos_class_policy.previous.preserveCos == true
+          - cm_rm_qos_class_policy.previous.templateName == "ansible_fabric_policy_template"
+          - nm_rm_qos_class_policy.previous.name == "ansible_test_qos_class_policy"
+          - nm_rm_qos_class_policy.previous.description == "Ansible Test QoS Class Policy"
+          - nm_rm_qos_class_policy.previous.preserveCos == true
+          - nm_rm_qos_class_policy.previous.templateName == "ansible_fabric_policy_template"
+          - nm_rm_qos_class_policy_again is not changed
+          - nm_rm_qos_class_policy_again.current == nm_rm_qos_class_policy_again.previous == {}
+
+    # CLEANUP TEMPLATE
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

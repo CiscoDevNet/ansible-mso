@@ -237,3 +237,7 @@ DSCP_COS_KEY_MAP = {
     "target_cos": "targetCos",
     "qos_priority": "priority",
 }
+
+QOS_CONGESTION_ALGORITHM_MAP = {"tail_drop": "tailDrop", "wred": "wred"}
+QOS_SCHEDULING_ALGORITHM_MAP = {"strict_priority": "strictPriority", "weighted_round_robin": "wrr"}
+QOS_PFC_SCOPE_MAP = {"fabric_wide": "fabricWide", "intra_tor": "intraTor"}

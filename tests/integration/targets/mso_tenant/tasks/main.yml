@@ -21,7 +21,7 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
-- name: Query MSO version
+- name: Query MSO version # Used to create the remote user - r_ansible_github_ci login entry. Which allows to map remote user with tenant.
   cisco.mso.mso_version:
     <<: *mso_info
     username: r_ansible_github_ci
@@ -94,7 +94,6 @@
   - ansible_test2
   - ansible_test3
   - tenant_with_site
-  ignore_errors: true
 
 # ADD TENANT
 - name: Add tenant (check_mode)
@@ -219,14 +218,10 @@
 
 # ADD TENANT WITH REMOTE USERS
 - name: Add tenant 3 (check_mode)
-  cisco.mso.mso_tenant: &remote_user_login
-    <<: *mso_info
-    username: '{{ mso_remote_username | default(mso_username) }}'
-    password: '{{ mso_remote_password | default(mso_password) }}'
-    login_domain: '{{ mso_remote_login_domain | default("") }}'
+  cisco.mso.mso_tenant:
+    <<: *tenant_present
     tenant: ansible_test3
     display_name: null
-    description: Ansible test tenant
     remote_users:
     - name: r_ansible_github_ci
       login_domain: test
@@ -241,7 +236,7 @@
 
 - name: Add tenant 3 (normal_mode)
   cisco.mso.mso_tenant:
-    <<: *remote_user_login
+    <<: *tenant_present
     tenant: ansible_test3
     display_name: null
     remote_users:
@@ -293,7 +288,7 @@
 
 - name: Add tenant 3 (normal mode)
   cisco.mso.mso_tenant:
-    <<: *remote_user_login
+    <<: *tenant_present
     tenant: ansible_test3
     users:
     - '{{ mso_username }}'
@@ -304,17 +299,10 @@
     state: present
   register: nm_add_tenant3
 
-- name: Verify nm_add_tenant3 - mso_username is admin
-  ansible.builtin.assert:
-    that:
-    - nm_add_tenant3 is not changed
-  when: mso_username == "admin"
-
-- name: Verify nm_add_tenant3 - mso_username is not admin
+- name: Verify nm_add_tenant3
   ansible.builtin.assert:
     that:
     - nm_add_tenant3 is changed
-  when: mso_username != "admin"
 
 - name: Verify nm_add_tenant3 (when mso_username != admin)
   ansible.builtin.assert:
@@ -325,7 +313,7 @@
 - name: Verify nm_add_tenant3 (when mso_username == admin)
   ansible.builtin.assert:
     that:
-    - nm_add_tenant3.current.userAssociations | length == 2
+    - nm_add_tenant3.current.userAssociations | length == 1
   when: mso_username == 'admin'
 
 # CHANGE TENANT
@@ -517,7 +505,6 @@
     <<: *tenant_present
     tenant: common
     display_name: common
-    # sites: ['{{ mso_site | default("ansible_test") }}', 'aws_{{ mso_site | default("ansible_test") }}']
     sites: ['{{ mso_site | default("ansible_test") }}']
   register: nm_add_common_tenant
 

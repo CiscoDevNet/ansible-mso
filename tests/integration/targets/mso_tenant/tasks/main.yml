@@ -21,6 +21,15 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
+- name: Query MSO version # Used to create the remote user - r_ansible_github_ci login entry. Which allows to map remote user with tenant.
+  cisco.mso.mso_version:
+    <<: *mso_info
+    username: r_ansible_github_ci
+    password: "{{ apic_password }}"
+    login_domain: test
+    state: query
+  register: version
+
 - name: Ensure sites exists
   cisco.mso.mso_site:
     <<: *mso_info
@@ -33,7 +42,6 @@
     state: present
   loop:
   - { site: '{{ mso_site | default("ansible_test") }}', username: '{{ apic_username }}', password: '{{ apic_password }}', id: '{{ apic_site_id | default(101) }}', urls: '{{ apic_hostname }}' }
-  # - { site: 'aws_{{ mso_site | default("ansible_test") }}', username: '{{ aws_apic_username }}', password: '{{ aws_apic_password }}', id: '{{ aws_site_id | default(102) }}', urls: '{{ aws_apic_hostname }}' }
 
 - name: Undeploy a schema 1 template 1
   cisco.mso.mso_schema_template_deploy: &schema_undeploy
@@ -45,7 +53,6 @@
   ignore_errors: true
   loop:
   - '{{ mso_site | default("ansible_test") }}'
-  # - 'aws_{{ mso_site | default("ansible_test") }}'
 
 - name: Undeploy a schema 1 template 2
   cisco.mso.mso_schema_template_deploy:
@@ -56,7 +63,6 @@
   ignore_errors: true
   loop:
   - '{{ mso_site | default("ansible_test") }}'
-  # - 'aws_{{ mso_site | default("ansible_test") }}'
 
 - name: Undeploy a schema 2 template 3
   cisco.mso.mso_schema_template_deploy:
@@ -68,7 +74,6 @@
   ignore_errors: true
   loop:
   - '{{ mso_site | default("ansible_test") }}'
-  # - 'aws_{{ mso_site | default("ansible_test") }}'
 
 - name: Remove schemas
   cisco.mso.mso_schema:
@@ -500,7 +505,6 @@
     <<: *tenant_present
     tenant: common
     display_name: common
-    # sites: ['{{ mso_site | default("ansible_test") }}', 'aws_{{ mso_site | default("ansible_test") }}']
     sites: ['{{ mso_site | default("ansible_test") }}']
   register: nm_add_common_tenant
 

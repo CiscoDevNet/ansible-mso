@@ -206,6 +206,7 @@ def main():
 
             if module.params.get("vlan_ranges") is not None and match.details.get("encapBlocks") != vlan_ranges:
                 ops.append(dict(op="replace", path="{0}/{1}/encapBlocks".format(path, match.index), value=vlan_ranges))
+                match.details["vlan_ranges"] = vlan_ranges
                 match.details["encapBlocks"] = vlan_ranges
 
             mso.sanitize(match.details)

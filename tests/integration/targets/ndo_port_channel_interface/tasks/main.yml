@@ -280,7 +280,7 @@
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.2.interfaceID == "1/3"
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.2.description == "third Ansible interface test"
           - nm_delete_port_channel_interface_descriptions is changed
-          # - nm_delete_port_channel_interface_descriptions.current.interfaceDescriptions is not defined
+          - nm_delete_port_channel_interface_descriptions.current.interfaceDescriptions is none
           - nm_delete_port_channel_interface_member is changed
           - nm_delete_port_channel_interface_member.current.memberInterfaces == "1/1-2"
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions | length == 2
@@ -337,16 +337,6 @@
           - pci_2_updated_policy_group is changed
           - pci_2_updated_policy_group.current.policyName == "ansible_test_interface_policy_group_port_channel_2"
           - pci_2_updated_policy_group.previous.policyName == "ansible_test_interface_policy_group_port_channel"
-
-    # - name: Change port channel interface - policy group to ansible_test_interface_policy_group_port_channel_2
-    #   cisco.mso.ndo_port_channel_interface:
-    #     <<: *create_port_channel_interface_2
-    #     node: "{{ fakevar | default(omit)}}"
-    #     interfaces: "{{ fakevar | default(omit)}}"
-    #     interface_descriptions: "{{ fakevar | default(omit)}}"
-    #     interface_policy_group:
-    #       name: ansible_test_interface_policy_group_port_channel_2
-    #       template: ansible_fabric_policy_template
 
     - name: Query a port channel interface with template_name
       cisco.mso.ndo_port_channel_interface:

@@ -53,7 +53,7 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
     replace_data = {
         ("name"): "new_name",
         "description": "new_description",
-        ("ospfIntfPol"): dict(ifControl=dict(adminState="disabled"), cost=0)),
+        ("ospfIntfPol"): dict(ifControl=dict(adminState="disabled"), cost=0),
     }
     remove_data = [("bfdMultiHopPol", "ifControl", "adminState"), "bfdPol"]
 

@@ -482,3 +482,21 @@ class MSOTemplate:
         kv_list = [KVPair("name", route_map_policy_for_multicast_name)]
         match = self.get_object_by_key_value_pairs("Route Map Policy for Multicast", existing_route_map_policies, kv_list, fail_module=True)
         return match.details.get("uuid")
+
+    def get_fabric_template_object_by_key_value(self, object_type, object_description, kv_list, fail_module=False):
+        """
+        Get the Fabric Policy by policy type and search criteria.
+        The search criteria could be name and UUID of the object.
+        :param object_type: The type of the object to retrieve the name for -> Str
+        :param object_description: Description of the object to search for -> Str
+        :param kv_list: Key/value pairs that should match in the object. -> List[KVPair(Str, Str)]
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Dict | None: The processed result which could be:
+              When the object is existing in the search list -> Dict
+              When the object is not existing -> None
+        """
+        response_object = self.mso.request("getfabricpolicies?type={0}".format(object_type), "GET")
+        search_list = response_object.get("items", [{"spec": {"policies": []}}])[0].get("spec", {}).get("policies", [])
+        match = self.get_object_by_key_value_pairs(object_description, search_list, kv_list, fail_module)
+        if match:
+            return match.details

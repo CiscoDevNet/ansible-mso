@@ -28,6 +28,7 @@ class MSOTemplate:
         self.template_type = template_type
         self.template_summary = {}
         self.template_objects_cache = {}
+        self.cache = {}
 
         if template_id:
             # Checking if the template with id exists to avoid error: MSO Error 400: Template ID 665da24b95400f375928f195 invalid
@@ -346,6 +347,9 @@ class MSOTemplate:
         if response_object:
             return response_object.get("name")
 
+    def clear_template_objects_cache(self):
+        self.template_objects_cache = {}
+
     def get_template_object_by_uuid(self, object_type, uuid, fail_module=True, use_cache=False):
         """
         Retrieve a specific object type in the MSO template using its UUID.
@@ -465,7 +469,12 @@ class MSOTemplate:
                         config_data[reference_details.get("schemaId")] = template_object.get("schemaId")
                     if reference_details.get("schema"):
                         config_data[reference_details.get("schema")] = template_object.get("schemaName")
-            return config_data
+            for config_val in config_data.values():
+                if isinstance(config_val, dict):
+                    self.update_config_with_template_and_references(config_val, reference_collections, False, use_cache)
+                elif isinstance(config_val, list):
+                    for item in config_val:
+                        self.update_config_with_template_and_references(item, reference_collections, False, use_cache)
         return config_data
 
     def check_template_when_name_is_provided(self, parameter):
@@ -482,3 +491,14 @@ class MSOTemplate:
         kv_list = [KVPair("name", route_map_policy_for_multicast_name)]
         match = self.get_object_by_key_value_pairs("Route Map Policy for Multicast", existing_route_map_policies, kv_list, fail_module=True)
         return match.details.get("uuid")
+
+    def get_template(self, template_type, template_name, template_id):
+        if template_id in self.cache:
+            return self.cache[template_id]
+        elif (template_name, TEMPLATE_TYPES[template_type]["template_type"]) in self.cache:
+            return self.cache[(template_name, TEMPLATE_TYPES[template_type]["template_type"])]
+
+        new_template = MSOTemplate(self.mso, template_type, template_name, template_id)
+        self.cache[new_template.template_id] = new_template
+        self.cache[(new_template.template_name, new_template.template_type)] = new_template
+        return new_template

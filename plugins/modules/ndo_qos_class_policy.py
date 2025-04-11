@@ -90,6 +90,8 @@ options:
         description:
         - The Weighted Random Early Detection (WRED) Algorithm configuration.
         - This attribute must be specified when O(qos_levels.congestion_algorithm="wred").
+        - Providing an empty list will remove the O(qos_levels.wred_configuration=[])
+          from the QoS Class Policy.
         type: dict
         suboptions:
           congestion_notification:
@@ -102,7 +104,7 @@ options:
             default: disabled
           forward_non_ecn_traffic:
             description:
-            - Wether to foward Non-ECN Traffic.
+            - Wether to forward Non-ECN Traffic.
             - This attribute is only used when O(qos_levels.wred_configuration.congestion_notification="enabled").
             type: bool
           minimum_threshold:
@@ -115,13 +117,12 @@ options:
             description:
             - The maximum queue threshold as a percentage of the maximum queue length for WRED algorithm.
             - The value must be between 0 and 100.
-            - The default value is 100.
             type: int
             default: 100
           probability:
             description:
             - The probability value for WRED algorithm.
-            - The probability determines whether the packet is dropped or queued
+            - The probability used to determines whether a packet is dropped or queued
               when the average queue size is between the minimum and the maximum threshold values.
             - The value must be between 0 and 100.
             type: int
@@ -135,7 +136,7 @@ options:
             default: 0
       scheduling_algorithm:
         description:
-        - The Qos Scheduling Algorithm.
+        - The QoS Scheduling Algorithm.
         type: str
         choices: [ weighted_round_robin, strict_priority ]
         default: weighted_round_robin
@@ -147,7 +148,7 @@ options:
         default: 20
       pfc_admin_state:
         description:
-        - The administrative state of the Priority Flow Control (PFC) policy applied to FCoE traffic.
+        - The administrative state of the Priority Flow Control (PFC) policy.
         type: str
         choices: [ enabled, disabled ]
         default: disabled
@@ -159,7 +160,7 @@ options:
         default: enabled
       no_drop_cos:
         description:
-        - The CoS level to impose no drop FCoE packet handling even in case of FCoE traffic congestion.
+        - The Class of Service (CoS) level for which to enforce the no drop packet handling even in case of traffic congestion.
         - This attribute must be specified when O(qos_levels.pfc_admin_state="enabled")
         type: str
         choices: [ cos0, cos1, cos2, cos3, cos4, cos5, cos6, cos7, unspecified ]
@@ -227,6 +228,80 @@ EXAMPLES = r"""
         pfc_scope: intra_tor
     state: present
   register: update_qos_class_policy
+
+- name: Update a QoS Class policy by adding QoS level2 with minimum configuration
+  cisco.mso.ndo_qos_class_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_tenant_template
+    name: ansible_test_qos_class_policy
+    description: Ansible Test QoS Class Policy
+    preserve_cos: true
+    qos_levels:
+      - level: level1
+        mtu: 9000
+        minimum_buffer: 1
+        congestion_algorithm: wred
+        wred_configuration:
+          congestion_notification: enabled
+          forward_non_ecn_traffic: false
+          minimum_threshold: 5
+          maximum_threshold: 95
+          probability: 80
+          weight: 1
+        scheduling_algorithm: weighted_round_robin
+        bandwidth_allocated: 50
+        pfc_admin_state: enabled
+        admin_state: enabled
+        no_drop_cos: cos1
+        pfc_scope: intra_tor
+      - level: level2
+    state: present
+  register: add_qos_class_policy_level2
+
+- name: Update a QoS Class policy by removing QoS level2
+  cisco.mso.ndo_qos_class_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_tenant_template
+    name: ansible_test_qos_class_policy
+    description: Ansible Test QoS Class Policy
+    preserve_cos: true
+    qos_levels:
+      - level: level1
+        mtu: 9000
+        minimum_buffer: 1
+        congestion_algorithm: wred
+        wred_configuration:
+          congestion_notification: enabled
+          forward_non_ecn_traffic: false
+          minimum_threshold: 5
+          maximum_threshold: 95
+          probability: 80
+          weight: 1
+        scheduling_algorithm: weighted_round_robin
+        bandwidth_allocated: 50
+        pfc_admin_state: enabled
+        admin_state: enabled
+        no_drop_cos: cos1
+        pfc_scope: intra_tor
+    state: present
+  register: remove_qos_class_policy_level2
+
+- name: Update a QoS Class policy by removing all QoS levels
+  cisco.mso.ndo_qos_class_policy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_tenant_template
+    name: ansible_test_qos_class_policy
+    description: Ansible Test QoS Class Policy
+    preserve_cos: true
+    qos_levels: []
+    state: present
+  register: remove_qos_class_policy_all_levels
 
 - name: Query QoS Class policy with name
   cisco.mso.ndo_qos_class_policy:

@@ -280,6 +280,24 @@ def ndo_bfd_multi_hop_settings_spec():
     )
 
 
+def ndo_template_object_spec(aliases=None):
+    return dict(
+        type="dict",
+        options=dict(
+            name=dict(type="str", aliases=aliases) if aliases else dict(type="str"),
+            template=dict(type="str"),
+            template_id=dict(type="str"),
+        ),
+        required_by={
+            "template": "name",
+            "template_id": "name",
+        },
+        mutually_exclusive=[
+            ["template", "template_id"],
+        ],
+    )
+
+
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
 def write_file(module, url, dest, content, resp, tmpsrc=None):
     # create a tempfile with some test content

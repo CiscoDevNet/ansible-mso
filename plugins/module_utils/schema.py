@@ -18,6 +18,7 @@ class MSOSchema:
     def __init__(self, mso_module, schema_name, template_name=None, site_name=None, schema_id=None, template_id=None):
         self.mso = mso_module
         self.schema_name = schema_name
+        self.cache = {}
         if schema_id:
             self.id, self.path, self.schema = mso_module.query_schema_by_id(schema_id)
             self.schema_name = self.schema.get("displayName")
@@ -152,18 +153,19 @@ class MSOSchema:
             self.mso.fail_json(msg=msg)
         self.schema_objects["template_bd_dhcp_relay_policy"] = match
 
-    def set_template_anp(self, anp, fail_module=True):
+    def set_template_anp(self, anp, anp_uuid=None, fail_module=True):
         """
         Get template application profile item that matches the name of an anp.
         :param anp: Name of the anp to match. -> Str
+        :param anp: UUID of the anp to match. -> Str
         :param fail_module: When match is not found fail the ansible module. -> Bool
         :return: Template anp item. -> Item(Int, Dict) | None
         """
         self.validate_schema_objects_present(["template"])
-        kv_list = [KVPair("name", anp)]
+        kv_list = [KVPair("uuid", anp_uuid) if anp_uuid else KVPair("name", anp)]
         match, existing = self.get_object_from_list(self.schema_objects["template"].details.get("anps"), kv_list)
         if not match and fail_module:
-            msg = "Provided ANP '{0}' not matching existing anp(s): {1}".format(anp, ", ".join(existing))
+            msg = "Provided ANP '{0}' not matching existing anp(s): {1}".format(anp_uuid if anp_uuid else anp, ", ".join(existing))
             self.mso.fail_json(msg=msg)
         self.schema_objects["template_anp"] = match
 
@@ -397,3 +399,17 @@ class MSOSchema:
             msg = "Provided Static Port Path '{0}' not matching existing static port path(s): {1}".format(path, ", ".join(existing))
             self.mso.fail_json(msg=msg)
         self.schema_objects["site_anp_epg_static_port"] = match
+
+    def get_schema(self, schema_name, schema_id, template, template_id):
+        if schema_id in self.cache:
+            return self.cache[schema_id]
+        elif template is not None and (schema_name, template) in self.cache:
+            return self.cache[(schema_name, template)]
+        elif template_id is not None and (schema_name, template_id) in self.cache:
+            return self.cache[(schema_name, template_id)]
+
+        new_schema = MSOSchema(self.mso, schema_name, template, None, schema_id, template_id)
+        self.cache[new_schema.id] = new_schema
+        self.cache[(new_schema.schema_name, new_schema.template_name)] = new_schema
+        self.cache[(new_schema.schema_name, new_schema.template_id)] = new_schema
+        return new_schema

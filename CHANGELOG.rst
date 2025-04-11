@@ -6,6 +6,61 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.10.0
+=======
+
+Release Summary
+---------------
+
+Release v2.10.0 of the ``ansible-mso`` collection on 2025-04-11.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.9.0.
+
+Minor Changes
+-------------
+
+- Add module ndo_tenant_bgp_peer_prefix_policy for tenant bgp peer prefix policy configuration
+- Add module ndo_tenant_mld_snooping_policy for tenant mld snooping configuration
+- Add ndo_ipsla_monitoring_policy module for IPSLA Monitoring Policy (#531)
+- Add ndo_ntp_policy as a new module for managing NTP Policy objects.
+- Add ndo_port_channel_interface as a new module.
+- Add ndo_tenant_custom_qos_policy for tenant Custom QoS configuration.
+- Add ndo_virtual_port_channel_interface as a new module.
+- Add support for name attribute in mso_schema_template_external_epg_subnet module
+- Added QoS Level to the mso_schema_template_external_epg module
+- Added module `mso_schema_anp_epg_annotation` used to configure EPG annotations.
+- Added mso_schema_template_anp_epg_intra_epg_contract module to manage Intra-EPG Contract
+- Added ndo_l3out_annotation module to manage L3Out annotations
+- Added ndo_l3out_interface_routing_policy to manage L3Out Interface Routing Policy
+- Added ndo_l3out_node_group_policy module to manage L3Out Node/Interface Group Policy (DCNE-181) (#555)
+- Added ndo_l3out_node_routing_policy module to manage L3Out Node Routing Policy under the tenant templates
+- Added ndo_l3out_template module and test file
+- Added ndo_mcp_global_policy for fabric policy global MCP configuration.
+- Added ndo_node_setting module to manage Fabric Node Settings
+- Added new module for IPSLA Track List.
+- Added new module for Node Profile.
+- Added new module ndo_mac_sec_policy (for macsecPolicies object).
+- Added new module ndo_synce_interface_policy (#521)
+- Added support for Ansible 2.18 and dropped support for 2.15
+- Added support for configuring node ID ranges in ndo_physical_interface.
+- Adding new module for IGMP Snooping policy in Tenant Policy Templates.
+- Adding new module for interface policy group object.
+- Adding new module for physical interface (object: interfaceProfiles)
+- Addition of a new module ndo_fex_device and its test file
+- Addition of a new module ndo_qos_dscp_cos_translation_policy and its test file
+- Addition of ep detection mode for mso_schema_template_bd
+- Addition of new module ndo_l3out_interface_group_policy and its corresponding test file
+- Addition of new module ndo_ptp_policy and its child ndo_ptp_policy_profiles
+- Allow site configuration for tenant policy template types in ndo_template module
+- Fixed ndo_l3out_template module doc string
+- Replaced individual payload entries with the append_update_ops_data function in the ndo_route_map_policy_multicast module
+
+Bugfixes
+--------
+
+- Fix query results for bulk query to display correct static_paths and fix replace operation for bulk present without force replace
+- Fixed various module documentation to match spec.
+- Updated README to match RedHat s ansible collection template.
+
 v2.9.0
 ======
 

@@ -249,10 +249,12 @@ options:
     choices: [ absent, query, present ]
     default: query
 notes:
-- The O(template) must exist before using this module in your playbook.
+- The O(template), O(destination_epg.epg) and O(sources.epg) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_template) to create the Tenant Monitoring Policy template.
+  Use M(cisco.mso.mso_schema_template_anp_epg) to create the EPGs.
 seealso:
 - module: cisco.mso.ndo_template
+- module: cisco.mso.mso_schema_template_anp_epg
 extends_documentation_fragment: cisco.mso.modules
 """
 
@@ -570,8 +572,6 @@ def set_template_and_references(mso_template, config, reference_collection):
 
 
 def format_sources(mso, schema, sources):
-    if sources is None:
-        return None
     source_list = []
     for source in sources:
         source_values = {

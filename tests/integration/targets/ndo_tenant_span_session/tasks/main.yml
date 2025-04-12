@@ -261,6 +261,15 @@
         <<: *update_span_session
       register: nm_update_span_session_again
 
+    - name: Remove all sources from SPAN Session
+      cisco.mso.ndo_tenant_span_session:
+        <<: *mso_info
+        template_id: '{{ create_monitoring_tenant.current.templateId }}'
+        uuid: "{{ nm_span_session.current.uuid}}"
+        sources: []
+        state: present
+      register: nm_update_span_session_remove_sources
+
     - name: Update SPAN Session name using UUID
       cisco.mso.ndo_tenant_span_session:
         <<: *mso_info
@@ -325,7 +334,9 @@
           - nm_update_span_session_name is changed
           - nm_update_span_session_name.previous.name == "ansible_span_session"
           - nm_update_span_session_name.current.name == "ansible_span_session_1"
-
+          - nm_update_span_session_remove_sources is changed
+          - nm_update_span_session_remove_sources.previous.sourceGroup.sources == nm_update_span_session_again.current.sourceGroup.sources
+          - nm_update_span_session_remove_sources.current.sourceGroup.sources is undefined
     # QUERY
     - name: Create another SPAN Session
       cisco.mso.ndo_tenant_span_session:

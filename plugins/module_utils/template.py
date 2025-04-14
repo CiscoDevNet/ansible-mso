@@ -317,7 +317,7 @@ class MSOTemplate:
             )
         return existing_l3out_interface_routing_policy  # Query all objects
 
-    def get_tenant_policy_uuid(self, tenant_template, policy_name, policy_type):
+    def get_tenant_policy_uuid(self, policy_name, policy_type):
         """
         Get the UUID of a Tenant Policy by name.
         :param tenant_template: The tenant object -> Dict
@@ -325,7 +325,7 @@ class MSOTemplate:
         :param policy_type: The type of the policy specified in the API response -> Str
         :return: UUID of the tenant policy -> Str
         """
-        existing_policies = tenant_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get(policy_type, [])
+        existing_policies = self.template.get("tenantPolicyTemplate", {}).get("template", {}).get(policy_type, [])
         match = self.get_object_by_key_value_pairs(policy_type, existing_policies, [KVPair("name", policy_name)], fail_module=True)
         return match.details.get("uuid")
 
@@ -490,21 +490,3 @@ class MSOTemplate:
         kv_list = [KVPair("name", route_map_policy_for_multicast_name)]
         match = self.get_object_by_key_value_pairs("Route Map Policy for Multicast", existing_route_map_policies, kv_list, fail_module=True)
         return match.details.get("uuid")
-
-
-class MSOTemplates:
-    def __init__(self, mso_module):
-        self.mso = mso_module
-        self.templates = {}
-
-    def get_template(self, template_type, template_name, template_id, refresh=False):
-        if not refresh:
-            if template_id in self.templates:
-                return self.templates[template_id]
-            elif (template_name, TEMPLATE_TYPES[template_type]["template_type"]) in self.templates:
-                return self.templates[(template_name, TEMPLATE_TYPES[template_type]["template_type"])]
-
-        new_template = MSOTemplate(self.mso, template_type, template_name, template_id)
-        self.templates[new_template.template_id] = new_template
-        self.templates[(new_template.template_name, new_template.template_type)] = new_template
-        return new_template

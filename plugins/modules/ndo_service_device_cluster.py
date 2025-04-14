@@ -68,17 +68,10 @@ options:
         - The name of the interface.
         type: str
         required: true
-      type:
-        description:
-        - The type of the interface.
-        type: str
-        required: true
-        choices: ["bd", "l3out"]
       bd:
         description:
         - bd configuration details.
-        - This parameter is required if O(interface_properties.type=bd).
-        - This parameter or O(interface_properties.bd_uuid) is required if O(interface_properties.type=bd).
+        - This parameter or O(interface_properties.bd_uuid) or O(interface_properties.external_epg_uuid) or O(interface_properties.external_epg) is required.
         type: dict
         suboptions:
           name:
@@ -109,12 +102,12 @@ options:
       bd_uuid:
         description:
         - UUID of the bd.
-        - This parameter or O(interface_properties.bd) is required if O(interface_properties.type=bd).
+        - This parameter or O(interface_properties.bd) or O(interface_properties.external_epg_uuid) or O(interface_properties.external_epg) is required.
         type: str
       external_epg:
         description:
         - external_epg configuration details.
-        - This parameter or O(interface_properties.external_epg_uuid) is required if O(interface_properties.type=l3out).
+        - This parameter or O(interface_properties.bd) or O(interface_properties.external_epg_uuid) or O(interface_properties.bd_uuid) is required.
         type: dict
         suboptions:
           name:
@@ -145,7 +138,7 @@ options:
       external_epg_uuid:
         description:
         - UUID of the external_epg.
-        - This parameter or O(interface_properties.external_epg) is required if O(interface_properties.type=l3out).
+        - This parameter or O(interface_properties.bd) or O(interface_properties.external_epg) or O(interface_properties.bd_uuid) is required.
         type: str
       ipsla_monitoring_policy:
         description:
@@ -285,8 +278,7 @@ EXAMPLES = r"""
     device_mode: layer3
     device_type: firewall
     interface_properties:
-      - name: "interface1"
-        type: "l3out"
+      - name: interface1
         external_epg:
           name: ansible_test_epg
           template: ansible_template
@@ -322,7 +314,6 @@ EXAMPLES = r"""
     device_type: firewall
     interface_properties:
       - name: interface1
-        type: l3out
         external_epg::
           name: ansible_test_epg
           template: ansible_template
@@ -345,7 +336,6 @@ EXAMPLES = r"""
         max_threshold: 100
         threshold_down_action: permit
       - name: interface2
-        type: bd
         bd_uuid: '{{ ansible_test_bd_query.current.uuid }}'
         ipsla_monitoring_policy_uuid: '{{ ipsla_monitoring_policy.current.uuid }}'
         qos_policy:
@@ -363,7 +353,6 @@ EXAMPLES = r"""
         max_threshold: 100
         threshold_down_action: permit
       - name: interface3
-        type: bd
         bd:
           name: ansible_test_bd
           template: ansible_template
@@ -431,14 +420,15 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import (
 from ansible_collections.cisco.mso.plugins.module_utils.template import (
     MSOTemplate,
     KVPair,
+)
+from ansible_collections.cisco.mso.plugins.module_utils.templates import (
     MSOTemplates,
 )
 from ansible_collections.cisco.mso.plugins.module_utils.utils import (
     append_update_ops_data,
-    check_if_all_elements_are_none,
     snake_to_camel,
 )
-from ansible_collections.cisco.mso.plugins.module_utils.schema import (
+from ansible_collections.cisco.mso.plugins.module_utils.schemas import (
     MSOSchemas,
 )
 import copy
@@ -459,7 +449,6 @@ def main():
             elements="dict",
             options=dict(
                 name=dict(type="str", required=True),
-                type=dict(type="str", required=True, choices=["bd", "l3out"]),
                 bd=dict(
                     type="dict",
                     options=dict(
@@ -595,7 +584,7 @@ def main():
             "template": "ipslaMonitoringPolicyTemplateName",
             "templateId": "ipslaMonitoringPolicyTemplateId",
         },
-        "epg": {
+        "l3out": {
             "name": "externalEpgName",
             "reference": "externalEpgRef",
             "template": "externalEpgTemplateName",
@@ -618,7 +607,7 @@ def main():
     mso_template = MSOTemplate(mso, "service_device", template, template_id)
     mso_template.validate_template("serviceDevice")
     if module.params.get("interface_properties") is not None:
-        interface_properties = get_interfaces_payload(mso, mso_template, module.params.get("interface_properties"))
+        interface_properties = get_interfaces_payload(mso, mso_template, module.params.get("interface_properties"), reference_dict)
     object_description = "Service Device Cluster"
     path = "/deviceTemplate/template/devices"
 
@@ -675,29 +664,11 @@ def main():
     mso.exit_json()
 
 
-def get_interfaces_payload(mso, mso_template, interfaces):
+def get_interfaces_payload(mso, mso_template, interfaces, reference_dict):
 
     schema = MSOSchemas(mso)
     templates = MSOTemplates(mso)
 
-    def get_object_uuid_from_template(templates, object_type, uuid, obj):
-        if uuid:
-            return uuid
-
-        is_empty = check_if_all_elements_are_none(obj.values()) if obj else True
-        if not is_empty:
-            name = obj.get("name")
-            template = obj.get("template")
-            template_id = obj.get("template_id")
-
-            get_template = templates.get_template("tenant", template, template_id)
-
-            if object_type == "ipsla":
-                return mso_template.get_tenant_policy_uuid(get_template, name, "ipslaMonitoringPolicies")
-            else:
-                return mso_template.get_tenant_policy_uuid(get_template, name, "qosPolicies")
-
-    references = {"bd": "bdRef", "external_epg": "externalEpgRef"}
     payload = []
     for interface in interfaces:
         mso_template.check_template_when_name_is_provided(interface.get("ipsla_monitoring_policy"))
@@ -705,11 +676,10 @@ def get_interfaces_payload(mso, mso_template, interfaces):
 
         interface_payload = {
             "name": interface.get("name"),
-            "deviceInterfaceType": interface.get("type"),
             "redirect": True,
             "isAdvancedIntfConfig": True,
-            "ipslaMonitoringRef": get_object_uuid_from_template(
-                templates, "ipsla", interface.get("ipsla_monitoring_policy_uuid"), interface.get("ipsla_monitoring_policy")
+            "ipslaMonitoringRef": templates.get_object_uuid_from_template(
+                "tenant", "ipslaMonitoringPolicies", interface.get("ipsla_monitoring_policy_uuid"), interface.get("ipsla_monitoring_policy")
             ),
             "advancedIntfConfig": {
                 "rewriteSourceMac": interface.get("rewrite_source_mac"),
@@ -720,7 +690,9 @@ def get_interfaces_payload(mso, mso_template, interfaces):
                 "podAwareRedirection": interface.get("pod_aware_redirection"),
                 "preferredGroup": interface.get("preferred_group"),
                 "resilientHashing": interface.get("resilient_hashing"),
-                "qosPolicyRef": get_object_uuid_from_template(templates, "qos", interface.get("qos_policy_uuid"), interface.get("qos_policy")),
+                "qosPolicyRef": templates.get_object_uuid_from_template(
+                    "tenant", "qosPolicies", interface.get("qos_policy_uuid"), interface.get("qos_policy")
+                ),
                 "tag": interface.get("tag_based_sorting"),
                 "thresholdForRedirect": {
                     "maxThreshold": interface.get("max_threshold"),
@@ -729,22 +701,23 @@ def get_interfaces_payload(mso, mso_template, interfaces):
                 },
             },
         }
-        interface_item = "bd" if interface.get("type") == "bd" else "external_epg"
-        interface_uuid = interface.get("bd_uuid") if interface_item == "bd" else interface.get("external_epg_uuid")
+        interface_payload["deviceInterfaceType"] = "bd" if (interface.get("bd_uuid") or interface.get("bd")) else "l3out"
+        interface_uuid = interface.get("bd_uuid") or interface.get("external_epg_uuid")
         if interface_uuid is None:
+            interface_type = "bd" if interface.get("bd") else "external_epg"
             existing_schema = schema.get_template_from_schema(
-                interface[interface_item].get("schema"),
-                interface[interface_item].get("schema_id"),
-                interface[interface_item].get("template"),
-                interface[interface_item].get("template_id"),
+                interface[interface_type].get("schema"),
+                interface[interface_type].get("schema_id"),
+                interface[interface_type].get("template"),
+                interface[interface_type].get("template_id"),
             )
-            if interface_item == "bd":
+            if interface_type == "bd":
                 existing_schema.set_template_bd(interface["bd"].get("name"), fail_module=True)
                 interface_uuid = existing_schema.schema_objects.get("template_bd").details.get("uuid")
             else:
                 existing_schema.set_template_external_epg(interface["external_epg"].get("name"), fail_module=True)
                 interface_uuid = existing_schema.schema_objects.get("template_external_epg").details.get("uuid")
-        interface_payload[references.get(interface_item)] = interface_uuid
+        interface_payload[reference_dict[interface_payload["deviceInterfaceType"]].get("reference")] = interface_uuid
         if interface_payload.get("ipslaMonitoringRef"):
             interface_payload["advancedIntfConfig"]["advancedTrackingOptions"] = True
         if interface_payload.get("advancedIntfConfig", {}).get("thresholdForRedirect", {}).get("thresholdDownAction"):

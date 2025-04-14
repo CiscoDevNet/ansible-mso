@@ -17,6 +17,7 @@ module: ndo_template
 short_description: Manage Templates on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage Templates on Cisco Nexus Dashboard Orchestrator (NDO).
+- This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Akini Ross (@akinross)
 options:

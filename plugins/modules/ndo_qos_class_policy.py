@@ -54,7 +54,7 @@ options:
     type: str
   preserve_cos:
     description:
-    - Wether to preserve the Class of Service (CoS).
+    - Whether to preserve the Class of Service (CoS).
     type: bool
   qos_levels:
     description:
@@ -104,8 +104,8 @@ options:
             default: disabled
           forward_non_ecn_traffic:
             description:
-            - Wether to forward Non-ECN Traffic.
-            - This attribute is only used when O(qos_levels.wred_configuration.congestion_notification="enabled").
+            - Whether to forward Non-ECN Traffic.
+            - This attribute should only be used when O(qos_levels.wred_configuration.congestion_notification="enabled").
             type: bool
           minimum_threshold:
             description:
@@ -122,7 +122,7 @@ options:
           probability:
             description:
             - The probability value for WRED algorithm.
-            - The probability used to determines whether a packet is dropped or queued
+            - The probability used to determine whether a packet is dropped or queued
               when the average queue size is between the minimum and the maximum threshold values.
             - The value must be between 0 and 100.
             type: int

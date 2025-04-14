@@ -16,6 +16,7 @@ module: ndo_schema_template_bd_dhcp_policy
 short_description: Manage BD DHCP Policies in schema templates
 description:
 - Manage BD DHCP policies in schema templates on Cisco ACI Multi-Site.
+- This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Akini Ross (@akinross)
 options:

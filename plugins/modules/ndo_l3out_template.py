@@ -17,6 +17,7 @@ module: ndo_l3out_template
 short_description: Manage L3Outs on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage L3Outs on Cisco Nexus Dashboard Orchestrator (NDO).
+- This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Sabari Jaganathan (@sajagana)
 options:

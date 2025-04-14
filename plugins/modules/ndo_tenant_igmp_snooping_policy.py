@@ -17,7 +17,7 @@ module: ndo_tenant_igmp_snooping_policy
 short_description: Manage Internet Group Management Protocol (IGMP) Snooping Policies in Tenant Policy Templates on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage IGMP Snooping Policies in Tenant Policy Templates on Cisco Nexus Dashboard Orchestrator (NDO).
-- This module is only supported on ND v3.2 (NDO v4.4) and later.
+- This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Anvitha Jain (@anvjain)
 options:

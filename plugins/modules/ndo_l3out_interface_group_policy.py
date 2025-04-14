@@ -622,7 +622,7 @@ def update_mso_values_attributes_payload(mso_values, protocols_dict):
 
 
 def process_tenant_policy(mso_values, mso_template, tenant_template, policy, policy_ref, policy_type):
-    mso_values[policy_ref] = mso_template.get_tenant_policy_uuid(tenant_template, policy.get("name"), policy_type)
+    mso_values[policy_ref] = tenant_template.get_tenant_policy_uuid(policy.get("name"), policy_type)
 
 
 if __name__ == "__main__":

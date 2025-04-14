@@ -28,7 +28,6 @@ class MSOTemplate:
         self.template_type = template_type
         self.template_summary = {}
         self.template_objects_cache = {}
-        self.cache = {}
 
         if template_id:
             # Checking if the template with id exists to avoid error: MSO Error 400: Template ID 665da24b95400f375928f195 invalid
@@ -492,13 +491,20 @@ class MSOTemplate:
         match = self.get_object_by_key_value_pairs("Route Map Policy for Multicast", existing_route_map_policies, kv_list, fail_module=True)
         return match.details.get("uuid")
 
-    def get_template(self, template_type, template_name, template_id):
-        if template_id in self.cache:
-            return self.cache[template_id]
-        elif (template_name, TEMPLATE_TYPES[template_type]["template_type"]) in self.cache:
-            return self.cache[(template_name, TEMPLATE_TYPES[template_type]["template_type"])]
+
+class MSOTemplates:
+    def __init__(self, mso_module):
+        self.mso = mso_module
+        self.templates = {}
+
+    def get_template(self, template_type, template_name, template_id, refresh=False):
+        if not refresh:
+            if template_id in self.templates:
+                return self.templates[template_id]
+            elif (template_name, TEMPLATE_TYPES[template_type]["template_type"]) in self.templates:
+                return self.templates[(template_name, TEMPLATE_TYPES[template_type]["template_type"])]
 
         new_template = MSOTemplate(self.mso, template_type, template_name, template_id)
-        self.cache[new_template.template_id] = new_template
-        self.cache[(new_template.template_name, new_template.template_type)] = new_template
+        self.templates[new_template.template_id] = new_template
+        self.templates[(new_template.template_name, new_template.template_type)] = new_template
         return new_template

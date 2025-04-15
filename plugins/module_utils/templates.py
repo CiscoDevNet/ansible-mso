@@ -37,5 +37,4 @@ class MSOTemplates:
 
             get_template = self.get_template(template_type, template, template_id, refresh)
 
-            if template_type == "tenant":
-                return get_template.get_tenant_policy_uuid(name, object_type)
+            return get_template.get_template_policy_uuid(template_type, name, object_type)

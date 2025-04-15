@@ -580,7 +580,7 @@ def main():
                 ops.append(dict(op="remove", path=interface_path + "/domains"))
                 proposed_payload.pop("domains", None)
             elif domains:
-                domain_uuid_list, _ = validate_domains(mso, domains, template, template_info)
+                domain_uuid_list, domain_uuid_name_list = validate_domains(mso, domains, template, template_info)
                 if set(domain_uuid_list) != set(mso.existing.get("domains", [])):
                     ops.append(dict(op="replace", path=interface_path + "/domains", value=domain_uuid_list))
                 proposed_payload["domains"] = domain_uuid_list
@@ -731,7 +731,7 @@ def main():
                 payload["description"] = description
 
             if domains:
-                payload["domains"], _ = validate_domains(mso, domains, template, template_info)
+                payload["domains"], domain_uuid_name_list = validate_domains(mso, domains, template, template_info)
 
             if synce:
                 existing_sync_e = validate_sync_e(mso, synce, template, template_info)
@@ -842,7 +842,7 @@ def map_interface_settings_ref_name(mso_template, template_info, interface_setti
         )
 
     if interface_settings.get("domains"):
-        _, interface_settings["domainsName"] = validate_domains(
+        domain_uuid_list, interface_settings["domainsName"] = validate_domains(
             mso_template.mso, interface_settings.get("domains"), mso_template.template_name, template_info, domain_input_type
         )
     return interface_settings

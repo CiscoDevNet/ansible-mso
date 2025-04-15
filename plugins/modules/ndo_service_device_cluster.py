@@ -413,24 +413,11 @@ EXAMPLES = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import (
-    MSOModule,
-    mso_argument_spec,
-)
-from ansible_collections.cisco.mso.plugins.module_utils.template import (
-    MSOTemplate,
-    KVPair,
-)
-from ansible_collections.cisco.mso.plugins.module_utils.templates import (
-    MSOTemplates,
-)
-from ansible_collections.cisco.mso.plugins.module_utils.utils import (
-    append_update_ops_data,
-    snake_to_camel,
-)
-from ansible_collections.cisco.mso.plugins.module_utils.schemas import (
-    MSOSchemas,
-)
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
+from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, snake_to_camel
+from ansible_collections.cisco.mso.plugins.module_utils.schemas import MSOSchemas
 import copy
 
 

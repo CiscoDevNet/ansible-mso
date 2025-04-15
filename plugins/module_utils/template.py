@@ -317,15 +317,15 @@ class MSOTemplate:
             )
         return existing_l3out_interface_routing_policy  # Query all objects
 
-    def get_tenant_policy_uuid(self, policy_name, policy_type):
+    def get_template_policy_uuid(self, template_type, policy_name, policy_type):
         """
         Get the UUID of a Tenant Policy by name.
-        :param tenant_template: The tenant object -> Dict
+        :param template_type: The type of template -> Str
         :param policy_name: Name of the policy -> Str
         :param policy_type: The type of the policy specified in the API response -> Str
         :return: UUID of the tenant policy -> Str
         """
-        existing_policies = self.template.get("tenantPolicyTemplate", {}).get("template", {}).get(policy_type, [])
+        existing_policies = self.template.get(TEMPLATE_TYPES[template_type]["template_type_container"], {}).get("template", {}).get(policy_type, [])
         match = self.get_object_by_key_value_pairs(policy_type, existing_policies, [KVPair("name", policy_name)], fail_module=True)
         return match.details.get("uuid")
 
@@ -345,9 +345,6 @@ class MSOTemplate:
         response_object = self.get_template_object_by_uuid(object_type, uuid, fail_module)
         if response_object:
             return response_object.get("name")
-
-    def clear_template_objects_cache(self):
-        self.template_objects_cache = {}
 
     def get_template_object_by_uuid(self, object_type, uuid, fail_module=True, use_cache=False):
         """

@@ -369,6 +369,7 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, epg_object_reference_spec
+from ansible_collections.cisco.mso.plugins.module_utils.schemas import MSOSchemas
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
 from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, get_epg_uuid
@@ -435,7 +436,7 @@ def main():
     )
 
     mso = MSOModule(module)
-    mso_schema = None
+    mso_schemas = MSOSchemas(mso)
 
     template_name = module.params.get("template")
     template_id = module.params.get("template_id")
@@ -456,17 +457,6 @@ def main():
     object_description = "SPAN Session"
     path = "/monitoringTemplate/template/spanSessions"
     span_session_path = None
-    reference_collection = {
-        "epg": {
-            "name": "epgName",
-            "reference": "epgRef",
-            "type": "epg",
-            "template": "epgTemplateName",
-            "templateId": "epgTemplateId",
-            "schema": "epgSchemaName",
-            "schemaId": "epgSchemaId",
-        }
-    }
 
     existing_span_sessions = mso_template.template.get("monitoringTemplate", {}).get("template", {}).get("spanSessions") or []
 
@@ -478,10 +468,10 @@ def main():
         )
         if match:
             span_session_path = "{0}/{1}".format(path, match.index)
-            set_template_and_references(mso_template, match.details, reference_collection)
+            set_template_and_references(mso_template, match.details)
             mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
-        mso.existing = mso.previous = [set_template_and_references(mso_template, obj, reference_collection) for obj in existing_span_sessions]
+        mso.existing = mso.previous = [set_template_and_references(mso_template, obj) for obj in existing_span_sessions]
 
     if state == "present":
         if uuid and not mso.existing:
@@ -493,11 +483,11 @@ def main():
             if admin_state is not None:
                 source_group["enableAdminState"] = ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP.get(admin_state)
             if sources is not None:
-                source_group["sources"] = format_sources(mso, mso_schema, sources)
+                source_group["sources"] = format_sources(mso_schemas, sources)
             mso_values["sourceGroup"] = source_group
         if destination_epg:
             mso_values["destination"]["remote"] = dict(
-                epgRef=get_epg_uuid(mso, mso_schema, destination_epg.get("epg"), destination_epg.get("epg_uuid")),
+                epgRef=get_epg_uuid(mso_schemas, destination_epg.get("epg"), destination_epg.get("epg_uuid")),
                 spanVersion=destination_epg.get("span_version"),
                 enforceSpanVersion=destination_epg.get("enforce_span_version"),
                 destIPAddress=destination_epg.get("destination_ip"),
@@ -550,19 +540,29 @@ def main():
             [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
-            set_template_and_references(mso_template, match.details, reference_collection)
+            set_template_and_references(mso_template, match.details)
             mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
-        set_template_and_references(mso_template, mso.proposed, reference_collection)
+        set_template_and_references(mso_template, mso.proposed)
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
 
 
-def set_template_and_references(mso_template, config, reference_collection):
-    reference_collection["epg"]["reference"] = "epgRef"
+def set_template_and_references(mso_template, config):
+    reference_collection = {
+        "epg": {
+            "name": "epgName",
+            "reference": "epgRef",
+            "type": "epg",
+            "template": "epgTemplateName",
+            "templateId": "epgTemplateId",
+            "schema": "epgSchemaName",
+            "schemaId": "epgSchemaId",
+        }
+    }
     mso_template.update_config_with_template_and_references(config.get("destination", {}).get("remote", {}), reference_collection, False)
     reference_collection["epg"]["reference"] = "epg"
     for source in config.get("sourceGroup", {}).get("sources", []):
@@ -571,13 +571,13 @@ def set_template_and_references(mso_template, config, reference_collection):
     return config
 
 
-def format_sources(mso, schema, sources):
+def format_sources(schemas, sources):
     source_list = []
     for source in sources:
         source_values = {
             "name": source.get("name"),
             "direction": source.get("direction"),
-            "epg": get_epg_uuid(mso, schema, source.get("epg"), source.get("epg_uuid")),
+            "epg": get_epg_uuid(schemas, source.get("epg"), source.get("epg_uuid")),
         }
         source_list.append(source_values)
     return source_list

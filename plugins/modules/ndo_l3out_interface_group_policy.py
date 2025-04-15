@@ -484,9 +484,7 @@ def main():
                         mso, "tenant", interface_routing_policy.get("template"), interface_routing_policy.get("template_id")
                     )
                     tenant_template_interface.validate_template("tenantPolicy")
-                    process_tenant_policy(
-                        mso_values, tenant_template_interface, interface_routing_policy, "interfaceRoutingPolicyRef", "l3OutIntfPolGroups"
-                    )
+                    process_tenant_policy(mso_values, tenant_template_interface, interface_routing_policy, "interfaceRoutingPolicyRef", "l3OutIntfPolGroups")
 
             if custom_qos_policy:
                 empty_custom_qos_policy = check_if_all_elements_are_none(list(custom_qos_policy.values()))

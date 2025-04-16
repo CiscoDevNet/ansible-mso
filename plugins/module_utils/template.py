@@ -465,12 +465,13 @@ class MSOTemplate:
                         config_data[reference_details.get("schemaId")] = template_object.get("schemaId")
                     if reference_details.get("schema"):
                         config_data[reference_details.get("schema")] = template_object.get("schemaName")
-            for config_val in config_data.values():
-                if isinstance(config_val, dict):
-                    self.update_config_with_template_and_references(config_val, reference_collections, False, use_cache)
-                elif isinstance(config_val, list):
-                    for item in config_val:
-                        self.update_config_with_template_and_references(item, reference_collections, False, use_cache)
+            for config_value in config_data.values():
+                if isinstance(config_value, dict):
+                    self.update_config_with_template_and_references(config_value, reference_collections, False, use_cache)
+                elif isinstance(config_value, list):
+                    for item in config_value:
+                        if isinstance(item, dict):
+                            self.update_config_with_template_and_references(item, reference_collections, False, use_cache)
         return config_data
 
     def check_template_when_name_is_provided(self, parameter):

@@ -141,6 +141,11 @@
             no_drop_cos: cos1
             pfc_scope: intra_tor
           - level: level2
+            mtu: 9216
+            minimum_buffer: 0
+            congestion_algorithm: tail_drop
+            scheduling_algorithm: weighted_round_robin
+            bandwidth_allocated: 20
         state: present
       register: nm_update_qos_class_policy_add_new_min_qos_level
 
@@ -273,12 +278,6 @@
           - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.pfcAdminState == "disabled"
           - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.pfcScope == "fabricWide"
           - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.schedulingAlgorithm == "wrr"
-          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.wredConfig.congestionNotification == "disabled"
-          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.wredConfig.forwardNonEcn == false
-          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.wredConfig.maxThreshold == 100
-          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.wredConfig.minThreshold == 0
-          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.wredConfig.probability == 0
-          - nm_update_qos_class_policy_add_new_min_qos_level.current.level2.wredConfig.weight == 0
           - nm_update_qos_class_policy_add_new_min_qos_level.current.name == "ansible_test_qos_class_policy"
           - nm_update_qos_class_policy_add_new_min_qos_level.current.templateName == "ansible_fabric_policy_template"
           - nm_update_qos_class_policy_remove_qos_level is changed
@@ -307,12 +306,6 @@
           - nm_update_qos_class_policy_remove_qos_level.previous.level2.pfcAdminState == "disabled"
           - nm_update_qos_class_policy_remove_qos_level.previous.level2.pfcScope == "fabricWide"
           - nm_update_qos_class_policy_remove_qos_level.previous.level2.schedulingAlgorithm == "wrr"
-          - nm_update_qos_class_policy_remove_qos_level.previous.level2.wredConfig.congestionNotification == "disabled"
-          - nm_update_qos_class_policy_remove_qos_level.previous.level2.wredConfig.forwardNonEcn == false
-          - nm_update_qos_class_policy_remove_qos_level.previous.level2.wredConfig.maxThreshold == 100
-          - nm_update_qos_class_policy_remove_qos_level.previous.level2.wredConfig.minThreshold == 0
-          - nm_update_qos_class_policy_remove_qos_level.previous.level2.wredConfig.probability == 0
-          - nm_update_qos_class_policy_remove_qos_level.previous.level2.wredConfig.weight == 0
           - nm_update_qos_class_policy_remove_qos_level.previous.name == "ansible_test_qos_class_policy"
           - nm_update_qos_class_policy_remove_qos_level.previous.templateName == "ansible_fabric_policy_template"
           - nm_update_qos_class_policy_remove_qos_level.current.description == "Ansible Test QoS Class Policy"
@@ -400,7 +393,15 @@
         name: ansible_test_qos_class_policy_error
         qos_levels:
           - level: level1
+            mtu: 9200
+            minimum_buffer: 0
+            congestion_algorithm: tail_drop
+            scheduling_algorithm: strict_priority
           - level: level1
+            mtu: 9100
+            minimum_buffer: 1
+            congestion_algorithm: tail_drop
+            scheduling_algorithm: strict_priority
         state: present
       ignore_errors: true
       register: nm_create_qos_class_policy_with_duplicate_level

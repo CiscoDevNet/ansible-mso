@@ -73,19 +73,19 @@ options:
         - The MTU value.
         - The value must be between 1500 and 9216.
         type: int
-        default: 9216
+        required: true
       minimum_buffer:
         description:
         - The minimum number of reserved buffers.
         - The value must be between 0 and 3.
         type: int
-        default: 0
+        required: true
       congestion_algorithm:
         description:
         - The congestion algorithm used for this QoS Level.
         type: str
         choices: [ tail_drop, wred ]
-        default: tail_drop
+        required: true
       wred_configuration:
         description:
         - The Weighted Random Early Detection (WRED) Algorithm configuration.
@@ -112,13 +112,13 @@ options:
             - The The minimum queue threshold as a percentage of the maximum queue length for WRED algorithm.
             - The value must be between 0 and 100.
             type: int
-            default: 0
+            required: true
           maximum_threshold:
             description:
             - The maximum queue threshold as a percentage of the maximum queue length for WRED algorithm.
             - The value must be between 0 and 100.
             type: int
-            default: 100
+            required: true
           probability:
             description:
             - The probability value for WRED algorithm.
@@ -126,26 +126,26 @@ options:
               when the average queue size is between the minimum and the maximum threshold values.
             - The value must be between 0 and 100.
             type: int
-            default: 0
+            required: true
           weight:
             description:
             - The weight value for WRED algorithm.
             - Lower weight prioritizes current queue length, while higher weight prioritizes older queue lengths.
             - The value must be between 0 and 7.
             type: int
-            default: 0
+            required: true
       scheduling_algorithm:
         description:
         - The QoS Scheduling Algorithm.
         type: str
         choices: [ weighted_round_robin, strict_priority ]
-        default: weighted_round_robin
+        required: true
       bandwidth_allocated:
         description:
         - The percentage of total bandwidth allocated to this QoS Level.
+        - This attribute must be specified when O(qos_levels.scheduling_algorithm="weighted_round_robin").
         - The value must be between 0 and 100.
         type: int
-        default: 20
       pfc_admin_state:
         description:
         - The administrative state of the Priority Flow Control (PFC) policy.
@@ -161,7 +161,7 @@ options:
       no_drop_cos:
         description:
         - The Class of Service (CoS) level for which to enforce the no drop packet handling even in case of traffic congestion.
-        - This attribute must be specified when O(qos_levels.pfc_admin_state="enabled")
+        - This attribute must be specified when O(qos_levels.pfc_admin_state="enabled").
         type: str
         choices: [ cos0, cos1, cos2, cos3, cos4, cos5, cos6, cos7, unspecified ]
         default: unspecified
@@ -257,6 +257,10 @@ EXAMPLES = r"""
         no_drop_cos: cos1
         pfc_scope: intra_tor
       - level: level2
+        mtu: 9216
+        minimum_buffer: 0
+        congestion_algorithm: tail_drop
+        scheduling_algorithm: strict_priority
     state: present
   register: add_qos_class_policy_level2
 
@@ -376,22 +380,22 @@ def main():
             elements="dict",
             options=dict(
                 level=dict(type="str", required=True, choices=["level1", "level2", "level3", "level4", "level5", "level6"]),
-                mtu=dict(type="int", default=9216),
-                minimum_buffer=dict(type="int", default=0),
-                congestion_algorithm=dict(type="str", choices=["tail_drop", "wred"], default="tail_drop"),
+                mtu=dict(type="int", required=True),
+                minimum_buffer=dict(type="int", required=True),
+                congestion_algorithm=dict(type="str", choices=["tail_drop", "wred"], required=True),
                 wred_configuration=dict(
                     type="dict",
                     options=dict(
                         congestion_notification=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
                         forward_non_ecn_traffic=dict(type="bool"),
-                        minimum_threshold=dict(type="int", default=0),
-                        maximum_threshold=dict(type="int", default=100),
-                        probability=dict(type="int", default=0),
-                        weight=dict(type="int", default=0),
+                        minimum_threshold=dict(type="int", required=True),
+                        maximum_threshold=dict(type="int", required=True),
+                        probability=dict(type="int", required=True),
+                        weight=dict(type="int", required=True),
                     ),
                 ),
-                scheduling_algorithm=dict(type="str", choices=["weighted_round_robin", "strict_priority"], default="weighted_round_robin"),
-                bandwidth_allocated=dict(type="int", default=20),
+                scheduling_algorithm=dict(type="str", choices=["weighted_round_robin", "strict_priority"], required=True),
+                bandwidth_allocated=dict(type="int"),
                 pfc_admin_state=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
                 admin_state=dict(type="str", choices=["enabled", "disabled"], default="enabled"),
                 no_drop_cos=dict(type="str", choices=["cos0", "cos1", "cos2", "cos3", "cos4", "cos5", "cos6", "cos7", "unspecified"], default="unspecified"),
@@ -399,6 +403,8 @@ def main():
             ),
             required_if=[
                 ["congestion_algorithm", "wred", ["wred_configuration"]],
+                ["scheduling_algorithm", "weighted_round_robin", ["bandwidth_allocated"]],
+                ["pfc_admin_state", "enabled", ["no_drop_cos"]],
             ],
         ),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),

@@ -29,12 +29,12 @@ class MSOTemplates:
         if uuid:
             return uuid
 
-        is_empty = check_if_all_elements_are_none(obj.values()) if obj else True
+        is_empty = check_if_all_elements_are_none(obj.values()) if obj and isinstance(obj, dict) else True
         if not is_empty:
             name = obj.get("name")
-            template = obj.get("template")
+            template_name = obj.get("template")
             template_id = obj.get("template_id")
 
-            get_template = self.get_template(template_type, template, template_id, refresh)
+            template = self.get_template(template_type, template_name, template_id, refresh)
 
-            return get_template.get_template_policy_uuid(template_type, name, object_type)
+            return template.get_template_policy_uuid(template_type, name, object_type)

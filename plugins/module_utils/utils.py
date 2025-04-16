@@ -153,7 +153,14 @@ def snake_to_camel(snake_str, upper_case_components=None):
         if upper_case_components is None:
             upper_case_components = []
         components = snake_str.split("_")
-        camel_case_str = components[0] + "".join((x.upper() if x in upper_case_components else x.title()) for x in components[1:])
+        camel_case_str = components[0]
+
+        for component in components[1:]:
+            if component in upper_case_components:
+                camel_case_str += component.upper()
+            else:
+                camel_case_str += component.title()
+
         return camel_case_str
     else:
         return snake_str

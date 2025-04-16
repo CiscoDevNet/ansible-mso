@@ -141,11 +141,6 @@
             no_drop_cos: cos1
             pfc_scope: intra_tor
           - level: level2
-            mtu: 9216
-            minimum_buffer: 0
-            congestion_algorithm: tail_drop
-            scheduling_algorithm: weighted_round_robin
-            bandwidth_allocated: 20
         state: present
       register: nm_update_qos_class_policy_add_new_min_qos_level
 
@@ -393,15 +388,7 @@
         name: ansible_test_qos_class_policy_error
         qos_levels:
           - level: level1
-            mtu: 9200
-            minimum_buffer: 0
-            congestion_algorithm: tail_drop
-            scheduling_algorithm: strict_priority
           - level: level1
-            mtu: 9100
-            minimum_buffer: 1
-            congestion_algorithm: tail_drop
-            scheduling_algorithm: strict_priority
         state: present
       ignore_errors: true
       register: nm_create_qos_class_policy_with_duplicate_level

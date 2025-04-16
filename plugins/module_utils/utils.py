@@ -146,3 +146,22 @@ def check_if_all_elements_are_none(values):
     :return: True if all elements are None, False otherwise. -> bool
     """
     return all(value is None for value in values)
+
+
+def delete_none_values(obj_to_sanitize, recursive=True):
+    """
+    Removes keys with None values from a Python object, which can be either a list or a dictionary.
+    Optionally performs the operation recursively on nested structures.
+
+    :param obj_to_sanitize: The Python object to sanitize from None values. -> List or Dict
+    :param recursive: A boolean flag indicating whether to recursively sanitize nested objects. Defaults to True. -> bool
+    :return: A sanitized copy of the original Python object, with all keys with None values removed. -> List or Dict
+    """
+    if isinstance(obj_to_sanitize, dict):
+        return {k: delete_none_values(v, recursive) if recursive and isinstance(v, (dict, list)) else v for k, v in obj_to_sanitize.items() if v is not None}
+
+    elif isinstance(obj_to_sanitize, list):
+        return [delete_none_values(item, recursive) if recursive and isinstance(item, (dict, list)) else item for item in obj_to_sanitize if item is not None]
+
+    else:
+        raise TypeError("Object to sanitize must be of type list or dict. Got {}".format(type(obj_to_sanitize)))

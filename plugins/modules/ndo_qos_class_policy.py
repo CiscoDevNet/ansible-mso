@@ -55,10 +55,12 @@ options:
   preserve_cos:
     description:
     - Whether to preserve the Class of Service (CoS).
+    - Defaults to C(trues) when unset during creation.
     type: bool
   qos_levels:
     description:
     - The list of configurable QoS levels for the QoS Class Policy.
+    - Providing an empty list will remove the O(qos_levels=[])
     type: list
     elements: dict
     suboptions:
@@ -72,24 +74,23 @@ options:
         description:
         - The MTU value.
         - The value must be between 1500 and 9216.
+        - Defaults to C(9216) when unset during creation.
         type: int
-        required: true
       minimum_buffer:
         description:
         - The minimum number of reserved buffers.
         - The value must be between 0 and 3.
+        - Defaults to C(0) when unset during creation.
         type: int
-        required: true
       congestion_algorithm:
         description:
         - The congestion algorithm used for this QoS Level.
+        - Defaults to C(tail_drop) when unset during creation.
         type: str
         choices: [ tail_drop, wred ]
-        required: true
       wred_configuration:
         description:
         - The Weighted Random Early Detection (WRED) Algorithm configuration.
-        - This attribute must be specified when O(qos_levels.congestion_algorithm="wred").
         - Providing an empty list will remove the O(qos_levels.wred_configuration=[])
           from the QoS Class Policy.
         type: dict
@@ -98,53 +99,53 @@ options:
             description:
             - The state of Explicit Congestion Notification (ECN) setting.
             - Enabling Congestion Notification causes the packets that would be dropped to be ECN-marked instead.
-            - The default value is C(disabled).
+            - Defaults to C(disabled) when unset during creation.
             type: str
             choices: [ enabled, disabled ]
-            default: disabled
           forward_non_ecn_traffic:
             description:
             - Whether to forward Non-ECN Traffic.
             - This attribute should only be used when O(qos_levels.wred_configuration.congestion_notification="enabled").
+            - Defaults to C(false) when unset during creation.
             type: bool
           minimum_threshold:
             description:
             - The The minimum queue threshold as a percentage of the maximum queue length for WRED algorithm.
             - The value must be between 0 and 100.
+            - Defaults to C(0) when unset during creation.
             type: int
-            required: true
           maximum_threshold:
             description:
             - The maximum queue threshold as a percentage of the maximum queue length for WRED algorithm.
             - The value must be between 0 and 100.
+            - Defaults to C(100) when unset during creation.
             type: int
-            required: true
           probability:
             description:
             - The probability value for WRED algorithm.
             - The probability used to determine whether a packet is dropped or queued
               when the average queue size is between the minimum and the maximum threshold values.
             - The value must be between 0 and 100.
+            - Defaults to C(0) when unset during creation.
             type: int
-            required: true
           weight:
             description:
             - The weight value for WRED algorithm.
             - Lower weight prioritizes current queue length, while higher weight prioritizes older queue lengths.
             - The value must be between 0 and 7.
+            - Defaults to C(0) when unset during creation.
             type: int
-            required: true
       scheduling_algorithm:
         description:
         - The QoS Scheduling Algorithm.
+        - Defaults to C(weighted_round_robin) when unset during creation.
         type: str
         choices: [ weighted_round_robin, strict_priority ]
-        required: true
       bandwidth_allocated:
         description:
         - The percentage of total bandwidth allocated to this QoS Level.
-        - This attribute must be specified when O(qos_levels.scheduling_algorithm="weighted_round_robin").
         - The value must be between 0 and 100.
+        - Defaults to C(20) when unset during creation.
         type: int
       pfc_admin_state:
         description:
@@ -155,22 +156,22 @@ options:
       admin_state:
         description:
         - The policy administrative state.
+        - Defaults to C(enabled) when unset during creation.
         type: str
         choices: [ enabled, disabled ]
-        default: enabled
       no_drop_cos:
         description:
         - The Class of Service (CoS) level for which to enforce the no drop packet handling even in case of traffic congestion.
         - This attribute must be specified when O(qos_levels.pfc_admin_state="enabled").
+        - Defaults to C(unspecified) when unset during creation.
         type: str
         choices: [ cos0, cos1, cos2, cos3, cos4, cos5, cos6, cos7, unspecified ]
-        default: unspecified
       pfc_scope:
         description:
         - The PFC scope.
+        - Defaults to C(fabric_wide) when unset during creation.
         type: str
         choices: [ fabric_wide, intra_tor ]
-        default: fabric_wide
   state:
     description:
     - Use C(absent) for removing.
@@ -199,7 +200,7 @@ EXAMPLES = r"""
     state: present
   register: create_qos_class_policy
 
-- name: Update a QoS Class policy with full configuration
+- name: Update a QoS Class policy by adding QoS level1 with minimum configuration
   cisco.mso.ndo_qos_class_policy:
     host: mso_host
     username: admin
@@ -210,26 +211,10 @@ EXAMPLES = r"""
     preserve_cos: true
     qos_levels:
       - level: level1
-        mtu: 9000
-        minimum_buffer: 1
-        congestion_algorithm: wred
-        wred_configuration:
-          congestion_notification: enabled
-          forward_non_ecn_traffic: false
-          minimum_threshold: 5
-          maximum_threshold: 95
-          probability: 80
-          weight: 1
-        scheduling_algorithm: weighted_round_robin
-        bandwidth_allocated: 50
-        pfc_admin_state: enabled
-        admin_state: enabled
-        no_drop_cos: cos1
-        pfc_scope: intra_tor
     state: present
-  register: update_qos_class_policy
+  register: update_qos_class_policy_with_qos_level1
 
-- name: Update a QoS Class policy by adding QoS level2 with minimum configuration
+- name: Update a QoS Class policy by adding QoS level2 with full configuration
   cisco.mso.ndo_qos_class_policy:
     host: mso_host
     username: admin
@@ -240,6 +225,7 @@ EXAMPLES = r"""
     preserve_cos: true
     qos_levels:
       - level: level1
+      - level: level2
         mtu: 9000
         minimum_buffer: 1
         congestion_algorithm: wred
@@ -256,15 +242,10 @@ EXAMPLES = r"""
         admin_state: enabled
         no_drop_cos: cos1
         pfc_scope: intra_tor
-      - level: level2
-        mtu: 9216
-        minimum_buffer: 0
-        congestion_algorithm: tail_drop
-        scheduling_algorithm: strict_priority
     state: present
   register: add_qos_class_policy_level2
 
-- name: Update a QoS Class policy by removing QoS level2
+- name: Update a QoS Class policy by removing QoS level2 and keeping QoS level1
   cisco.mso.ndo_qos_class_policy:
     host: mso_host
     username: admin
@@ -275,22 +256,6 @@ EXAMPLES = r"""
     preserve_cos: true
     qos_levels:
       - level: level1
-        mtu: 9000
-        minimum_buffer: 1
-        congestion_algorithm: wred
-        wred_configuration:
-          congestion_notification: enabled
-          forward_non_ecn_traffic: false
-          minimum_threshold: 5
-          maximum_threshold: 95
-          probability: 80
-          weight: 1
-        scheduling_algorithm: weighted_round_robin
-        bandwidth_allocated: 50
-        pfc_admin_state: enabled
-        admin_state: enabled
-        no_drop_cos: cos1
-        pfc_scope: intra_tor
     state: present
   register: remove_qos_class_policy_level2
 
@@ -358,15 +323,21 @@ from ansible_collections.cisco.mso.plugins.module_utils.template import (
     MSOTemplate,
     KVPair,
 )
-from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
+from ansible_collections.cisco.mso.plugins.module_utils.utils import (
+    append_update_ops_data,
+    delete_none_values,
+)
 from ansible_collections.cisco.mso.plugins.module_utils.constants import (
     QOS_CONGESTION_ALGORITHM_MAP,
     QOS_SCHEDULING_ALGORITHM_MAP,
     QOS_PFC_SCOPE_MAP,
+    QOS_LEVEL,
 )
 
 
 def main():
+    qos_level_list = copy.deepcopy(QOS_LEVEL)
+    qos_level_list.remove("unspecified")
     argument_spec = mso_argument_spec()
     argument_spec.update(
         template=dict(type="str"),
@@ -379,31 +350,29 @@ def main():
             type="list",
             elements="dict",
             options=dict(
-                level=dict(type="str", required=True, choices=["level1", "level2", "level3", "level4", "level5", "level6"]),
-                mtu=dict(type="int", required=True),
-                minimum_buffer=dict(type="int", required=True),
-                congestion_algorithm=dict(type="str", choices=["tail_drop", "wred"], required=True),
+                level=dict(type="str", required=True, choices=qos_level_list),
+                mtu=dict(type="int"),
+                minimum_buffer=dict(type="int"),
+                congestion_algorithm=dict(type="str", choices=["tail_drop", "wred"]),
                 wred_configuration=dict(
                     type="dict",
                     options=dict(
-                        congestion_notification=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
+                        congestion_notification=dict(type="str", choices=["enabled", "disabled"]),
                         forward_non_ecn_traffic=dict(type="bool"),
-                        minimum_threshold=dict(type="int", required=True),
-                        maximum_threshold=dict(type="int", required=True),
-                        probability=dict(type="int", required=True),
-                        weight=dict(type="int", required=True),
+                        minimum_threshold=dict(type="int"),
+                        maximum_threshold=dict(type="int"),
+                        probability=dict(type="int"),
+                        weight=dict(type="int"),
                     ),
                 ),
-                scheduling_algorithm=dict(type="str", choices=["weighted_round_robin", "strict_priority"], required=True),
+                scheduling_algorithm=dict(type="str", choices=["weighted_round_robin", "strict_priority"]),
                 bandwidth_allocated=dict(type="int"),
                 pfc_admin_state=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
-                admin_state=dict(type="str", choices=["enabled", "disabled"], default="enabled"),
-                no_drop_cos=dict(type="str", choices=["cos0", "cos1", "cos2", "cos3", "cos4", "cos5", "cos6", "cos7", "unspecified"], default="unspecified"),
-                pfc_scope=dict(type="str", choices=["fabric_wide", "intra_tor"], default="fabric_wide"),
+                admin_state=dict(type="str", choices=["enabled", "disabled"]),
+                no_drop_cos=dict(type="str", choices=["cos0", "cos1", "cos2", "cos3", "cos4", "cos5", "cos6", "cos7", "unspecified"]),
+                pfc_scope=dict(type="str", choices=["fabric_wide", "intra_tor"]),
             ),
             required_if=[
-                ["congestion_algorithm", "wred", ["wred_configuration"]],
-                ["scheduling_algorithm", "weighted_round_robin", ["bandwidth_allocated"]],
                 ["pfc_admin_state", "enabled", ["no_drop_cos"]],
             ],
         ),
@@ -462,11 +431,44 @@ def main():
             "description": description,
             "preserveCos": preserve_cos,
         }
-        qos_levels, remove_data = format_qos_levels(mso, qos_levels)
-        if isinstance(qos_levels, dict):
-            mso_values.update(qos_levels)
+        if qos_levels is not None:
+            for qos_level in qos_levels:
+                level = qos_level.get("level")
+                if level not in qos_level_list:
+                    mso.fail_json(msg="Duplicate configurations for QoS {0}".format(level))
+                else:
+                    qos_level_list.remove(level)
+
+                mso_values[level] = {
+                    "adminState": qos_level.get("admin_state"),
+                    "minBuffer": qos_level.get("minimum_buffer"),
+                    "mtu": qos_level.get("mtu"),
+                    "congestionAlgorithm": QOS_CONGESTION_ALGORITHM_MAP.get(qos_level.get("congestion_algorithm")),
+                    "wredConfig": (
+                        {
+                            "congestionNotification": qos_level["wred_configuration"].get("congestion_notification"),
+                            "minThreshold": qos_level["wred_configuration"].get("minimum_threshold"),
+                            "maxThreshold": qos_level["wred_configuration"].get("maximum_threshold"),
+                            "probability": qos_level["wred_configuration"].get("probability"),
+                            "weight": qos_level["wred_configuration"].get("weight"),
+                            "forwardNonEcn": qos_level["wred_configuration"].get("forward_non_ecn_traffic"),
+                        }
+                        if qos_level.get("wred_configuration")
+                        else None
+                    ),
+                    "schedulingAlgorithm": QOS_SCHEDULING_ALGORITHM_MAP.get(qos_level.get("scheduling_algorithm")),
+                    "bandwidthAllocated": qos_level.get("bandwidth_allocated"),
+                    "pfcAdminState": qos_level.get("pfc_admin_state"),
+                    "noDropCoS": qos_level.get("no_drop_cos"),
+                    "pfcScope": QOS_PFC_SCOPE_MAP.get(qos_level.get("pfc_scope")),
+                }
+        else:
+            qos_level_list = []
+
+        mso_values = delete_none_values(mso_values)
+
         if match:
-            append_update_ops_data(ops, match.details, path, mso_values, remove_data)
+            append_update_ops_data(ops, match.details, path, mso_values, qos_level_list)
             mso.sanitize(match.details, collate=True)
 
         else:
@@ -494,50 +496,6 @@ def main():
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
-
-
-def format_qos_levels(mso, qos_levels=None):
-    remove_data = []
-    if isinstance(qos_levels, list):
-        exsting_qos_levels = set()
-        for qos_level in qos_levels:
-            level = qos_level.get("level")
-            if level in exsting_qos_levels:
-                mso.fail_json(msg="Duplicate configurations for QoS {0}".format(level))
-            else:
-                exsting_qos_levels.add(level)
-        remove_data = list({"level1", "level2", "level3", "level4", "level5", "level6"}.difference(exsting_qos_levels))
-
-        formatted_qos_levels = {
-            qos_level.get("level"): {
-                "adminState": qos_level.get("admin_state"),
-                "minBuffer": qos_level.get("minimum_buffer"),
-                "mtu": qos_level.get("mtu"),
-                "congestionAlgorithm": QOS_CONGESTION_ALGORITHM_MAP.get(qos_level.get("congestion_algorithm")),
-                "wredConfig": (
-                    {
-                        "congestionNotification": qos_level["wred_configuration"].get("congestion_notification"),
-                        "minThreshold": qos_level["wred_configuration"].get("minimum_threshold"),
-                        "maxThreshold": qos_level["wred_configuration"].get("maximum_threshold"),
-                        "probability": qos_level["wred_configuration"].get("probability"),
-                        "weight": qos_level["wred_configuration"].get("weight"),
-                        "forwardNonEcn": qos_level["wred_configuration"].get("forward_non_ecn_traffic"),
-                    }
-                    if qos_level.get("wred_configuration")
-                    else None
-                ),
-                "schedulingAlgorithm": QOS_SCHEDULING_ALGORITHM_MAP.get(qos_level.get("scheduling_algorithm")),
-                "bandwidthAllocated": qos_level.get("bandwidth_allocated"),
-                "pfcAdminState": qos_level.get("pfc_admin_state"),
-                "noDropCoS": qos_level.get("no_drop_cos"),
-                "pfcScope": QOS_PFC_SCOPE_MAP.get(qos_level.get("pfc_scope")),
-            }
-            for qos_level in qos_levels
-        }
-        mso.sanitize(formatted_qos_levels)
-        return formatted_qos_levels, remove_data
-    else:
-        return None, remove_data
 
 
 if __name__ == "__main__":

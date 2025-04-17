@@ -6,7 +6,6 @@
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
-
 import copy
 
 
@@ -146,3 +145,25 @@ def check_if_all_elements_are_none(values):
     :return: True if all elements are None, False otherwise. -> bool
     """
     return all(value is None for value in values)
+
+
+def get_epg_uuid(schemas, epg_obj, epg_uuid):
+    """
+    Returns the EPG UUID in a given schema, template and ANP.
+
+    :param schemas: The mso schemas object. -> MSOSchemas
+    :param epg_obj: A dictionary containing the epg reference object. -> Dict
+    :param epg_uuid: The EPG UUID to return if specified. -> Str
+    :return: The EPG UUID if found, otherwise it fails the module. -> Str
+    """
+    if epg_uuid:
+        return epg_uuid
+    schema = schemas.get_template_from_schema(
+        epg_obj.get("schema"),
+        epg_obj.get("schema_id"),
+        epg_obj.get("template"),
+        epg_obj.get("template_id"),
+    )
+    schema.set_template_anp(epg_obj.get("anp"), epg_obj.get("anp_uuid"), fail_module=True)
+    schema.set_template_anp_epg(epg_obj.get("name"), fail_module=True)
+    return schema.schema_objects.get("template_anp_epg").details.get("uuid")

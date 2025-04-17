@@ -5,19 +5,19 @@
 
 - name: Test that we have an ACI MultiSite host, username and password
   ansible.builtin.fail:
-    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
   ansible.builtin.set_fact:
     mso_info: &mso_info
-      host: '{{ mso_hostname }}'
-      username: '{{ mso_username }}'
-      password: '{{ mso_password }}'
-      validate_certs: '{{ mso_validate_certs | default(false) }}'
-      use_ssl: '{{ mso_use_ssl | default(true) }}'
-      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("info") }}'
 
 # QUERY VERSION
@@ -31,20 +31,19 @@
 - name: Execute tasks only for MSO version >= 4.4
   when: version.current.version is version('4.4', '>=')
   block:
-    
     - name: Ensure sites exists
       cisco.mso.mso_site:
         <<: *mso_info
-        site: '{{ item.site }}'
-        apic_username: '{{ apic_username }}'
-        apic_password: '{{ apic_password }}'
-        apic_site_id: '{{ item.apic_site_id }}'
+        site: "{{ item.site }}"
+        apic_username: "{{ apic_username }}"
+        apic_password: "{{ apic_password }}"
+        apic_site_id: "{{ item.apic_site_id }}"
         urls:
           - https://{{ apic_hostname }}
         state: present
       loop:
-        - {site: "ansible_test", apic_site_id: 101}
-        - {site: "ansible_test_2", apic_site_id: 102}
+        - { site: "ansible_test", apic_site_id: 101 }
+        - { site: "ansible_test_2", apic_site_id: 102 }
 
     - name: Ensure fabric resource template does not exist
       cisco.mso.ndo_template: &template_absent
@@ -80,6 +79,7 @@
       loop:
         - ansible_test_interface_policy_group_port_channel
         - ansible_test_interface_policy_group_port_channel_2
+      register: port_channel_policy_groups
 
     # CREATE
 
@@ -91,7 +91,7 @@
         description: Ansible Port Channel test
         node: 101
         interfaces: 1/1
-        interface_policy_group: 
+        interface_policy_group:
           name: ansible_test_interface_policy_group_port_channel
           template: ansible_fabric_policy_template
         interface_descriptions:
@@ -100,12 +100,12 @@
         state: present
       check_mode: true
       register: cm_create_new_port_channel_interface
-    
+
     - name: Create a new port channel interface
       cisco.mso.ndo_port_channel_interface:
         <<: *create_port_channel_interface
       register: nm_create_new_port_channel_interface
-    
+
     - name: Create a new port channel interface again
       cisco.mso.ndo_port_channel_interface:
         <<: *create_port_channel_interface
@@ -144,6 +144,8 @@
           - nm_create_new_port_channel_interface_again.current.interfaceDescriptions.0.nodeID == "101"
           - nm_create_new_port_channel_interface_again.current.interfaceDescriptions.0.interfaceID == "1/1"
           - nm_create_new_port_channel_interface_again.current.interfaceDescriptions.0.description == "first Ansible interface test"
+          - cm_create_new_port_channel_interface.current.policy ==  nm_create_new_port_channel_interface.current.policy ==  nm_create_new_port_channel_interface_again.current.policy == nm_create_new_port_channel_interface_again.previous.policy
+          - cm_create_new_port_channel_interface.current.policyName ==  nm_create_new_port_channel_interface.current.policyName ==  nm_create_new_port_channel_interface_again.current.policyName == nm_create_new_port_channel_interface_again.previous.policyName == "ansible_test_interface_policy_group_port_channel"
 
     # UPDATE
 
@@ -153,12 +155,12 @@
         node: 102
       check_mode: true
       register: cm_update_port_channel_interface_node
-    
+
     - name: Update a port channel interface node
       cisco.mso.ndo_port_channel_interface:
         <<: *update_port_channel_interface
       register: nm_update_port_channel_interface_node
-    
+
     - name: Update a port channel interface node again
       cisco.mso.ndo_port_channel_interface:
         <<: *update_port_channel_interface
@@ -172,62 +174,68 @@
         node: 103
         state: present
       register: nm_update_node_without_previous_config
-    
+
     - name: Update a port channel interface name
       cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_name
         <<: *update_port_channel_interface_node
-        port_channel_interface_uuid: '{{ nm_update_port_channel_interface_node.current.uuid }}'
+        port_channel_interface_uuid: "{{ nm_update_port_channel_interface_node.current.uuid }}"
         port_channel_interface: ansible_port_channel_interface_changed
       register: nm_update_port_channel_interface_name
 
     - name: Update a port channel interface description
-      cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_description
+      cisco.mso.ndo_port_channel_interface:
+        &update_port_channel_interface_description
         <<: *update_port_channel_interface_name
         description: Ansible Port Channel test updated
       register: nm_update_port_channel_interface_description
 
     - name: Update a port channel interface policy
-      cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_policy
+      cisco.mso.ndo_port_channel_interface:
+        &update_port_channel_interface_policy
         <<: *update_port_channel_interface_description
-        interface_policy_group: 
+        interface_policy_group:
           name: ansible_test_interface_policy_group_port_channel_2
           template: ansible_fabric_policy_template
       register: nm_update_port_channel_interface_policy
-    
+
     - name: Update a port channel interface members
-      cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_members
+      cisco.mso.ndo_port_channel_interface:
+        &update_port_channel_interface_members
         <<: *update_port_channel_interface_policy
-        interfaces: 
+        interfaces:
           - 1/1-3
           - 1/8-10
           - 2/3-5
       register: nm_update_port_channel_interface_members
-    
+
     - name: Update a port channel interface members descriptions
-      cisco.mso.ndo_port_channel_interface: &update_port_channel_interface_descriptions
+      cisco.mso.ndo_port_channel_interface:
+        &update_port_channel_interface_descriptions
         <<: *update_port_channel_interface_members
         interface_descriptions:
           - interface_id: 1/1
-            description:  new first Ansible interface test
+            description: new first Ansible interface test
           - interface_id: 1/2
             description: second Ansible interface test
           - interface_id: 1/3
             description: third Ansible interface test
       register: nm_update_port_channel_interface_descriptions
-    
+
     - name: Delete a port channel interface members descriptions
-      cisco.mso.ndo_port_channel_interface: &delete_port_channel_interface_desciptions
+      cisco.mso.ndo_port_channel_interface:
+        &delete_port_channel_interface_desciptions
         <<: *update_port_channel_interface_descriptions
         interface_descriptions: []
       register: nm_delete_port_channel_interface_descriptions
 
     - name: Delete a port channel interface member and add descriptions again
-      cisco.mso.ndo_port_channel_interface: &delete_port_channel_interface_member
+      cisco.mso.ndo_port_channel_interface:
+        &delete_port_channel_interface_member
         <<: *delete_port_channel_interface_desciptions
         interfaces: 1/1-2
         interface_descriptions:
           - interface_id: 1/1-2
-            description:  All Ansible interface tests
+            description: All Ansible interface tests
       register: nm_delete_port_channel_interface_member
 
     - name: Assert port channel interface update tasks
@@ -272,7 +280,7 @@
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.2.interfaceID == "1/3"
           - nm_update_port_channel_interface_descriptions.current.interfaceDescriptions.2.description == "third Ansible interface test"
           - nm_delete_port_channel_interface_descriptions is changed
-          - nm_delete_port_channel_interface_descriptions.current.interfaceDescriptions is not defined
+          - nm_delete_port_channel_interface_descriptions.current.interfaceDescriptions is none
           - nm_delete_port_channel_interface_member is changed
           - nm_delete_port_channel_interface_member.current.memberInterfaces == "1/1-2"
           - nm_delete_port_channel_interface_member.current.interfaceDescriptions | length == 2
@@ -292,10 +300,43 @@
         port_channel_interface: ansible_port_channel_interface_2
         node: 101
         interfaces: 1/1
-        interface_policy_group: 
-          name: ansible_test_interface_policy_group_port_channel_2
+        interface_policy_group:
+          name: ansible_test_interface_policy_group_port_channel
           template: ansible_fabric_policy_template
         state: present
+      register: pci_2
+
+    - name: Update port channel interface - Policy Group with UUID
+      cisco.mso.ndo_port_channel_interface:
+        <<: *create_port_channel_interface_2
+        node: "{{ fakevar | default(omit)}}"
+        interfaces: 1/1-2
+        interface_descriptions:
+          - interface_id: 1/1-2
+            description: Test
+        interface_policy_group_uuid: "{{ nm_update_port_channel_interface_policy.current.policy }}"
+      register: pci_2_updated_policy_group
+
+    - name: Update port channel interface - with invalid Policy Group
+      cisco.mso.ndo_port_channel_interface:
+        <<: *create_port_channel_interface_2
+        node: "{{ fakevar | default(omit)}}"
+        interfaces: "{{ fakevar | default(omit)}}"
+        interface_descriptions: "{{ fakevar | default(omit)}}"
+        interface_policy_group:
+          name: nt_ansible_test_interface_policy_group_port_channel
+          template: ansible_fabric_policy_template
+      register: pci_2_updated_nt_policy_group
+      ignore_errors: true
+
+    - name: Assert port channel interface query tasks
+      assert:
+        that:
+          - pci_2 is changed
+          - pci_2.current.policyName == "ansible_test_interface_policy_group_port_channel"
+          - pci_2_updated_policy_group is changed
+          - pci_2_updated_policy_group.current.policyName == "ansible_test_interface_policy_group_port_channel_2"
+          - pci_2_updated_policy_group.previous.policyName == "ansible_test_interface_policy_group_port_channel"
 
     - name: Query a port channel interface with template_name
       cisco.mso.ndo_port_channel_interface:
@@ -304,10 +345,10 @@
       register: query_one
 
     - name: Query a port channel with template_name and UUID
-      cisco.mso.ndo_tenant_custom_qos_policy: &query_port_channel_interface_uuid
-        <<: *create_port_channel_interface_2
-        uuid: '{{ query_one.current.uuid }}'
-        name: '{{ fakevar | default(omit)}}'
+      cisco.mso.ndo_port_channel_interface: &query_port_channel_interface_uuid
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        uuid: "{{ query_one.current.uuid }}"
         state: query
       register: query_one_uuid
 
@@ -317,7 +358,7 @@
         template: ansible_fabric_resource_template
         state: query
       register: query_all
-    
+
     - name: Assert port channel interface query tasks
       assert:
         that:
@@ -338,7 +379,7 @@
         template: ansible_fabric_resource_template
         port_channel_interface: ansible_port_channel_interface_error
         interfaces: 1/1
-        interface_policy_group: 
+        interface_policy_group:
           name: ansible_test_interface_policy_group_port_channel
           template: ansible_fabric_policy_template
         state: present
@@ -352,7 +393,7 @@
         port_channel_interface: ansible_port_channel_interface_error
         node: 101
         interfaces: 1/1-2
-        interface_policy_group: 
+        interface_policy_group:
           name: ansible_test_interface_policy_group_port_channel
           template: ansible_fabric_policy_template
         interface_descriptions:
@@ -369,7 +410,7 @@
         port_channel_interface: ansible_port_channel_interface_error
         node: 101
         interfaces: 1/1-2
-        interface_policy_group: 
+        interface_policy_group:
           name: ansible_test_interface_policy_group_port_channel
           template: ansible_fabric_policy_template
         interface_descriptions:
@@ -394,7 +435,7 @@
         port_channel_interface: ansible_port_channel_interface_error
         node: 101
         interfaces: 1/1
-        interface_policy_group: 
+        interface_policy_group:
           name: ansible_test_interface_policy_group_port_channel
           template: ansible_fabric_policy_template
         state: present
@@ -417,12 +458,12 @@
         state: absent
       check_mode: true
       register: cm_delete_port_channel_interface
-    
+
     - name: Delete a port channel interface
       cisco.mso.ndo_port_channel_interface:
         <<: *delete_port_channel_interface
       register: nm_delete_port_channel_interface
-    
+
     - name: Delete a port channel interface again
       cisco.mso.ndo_port_channel_interface:
         <<: *delete_port_channel_interface
@@ -458,7 +499,7 @@
         template: ansible_fabric_resource_template
         state: query
       register: query_all_none
-    
+
     - name: Update with non-existing UUID
       cisco.mso.ndo_port_channel_interface:
         <<: *mso_info
@@ -475,9 +516,9 @@
           - query_all_none.current == {}
           - update_non_existing_uuid is failed
           - update_non_existing_uuid.msg == "Port Channel Interface with the UUID{{":"}} 'non-existing-uuid' not found"
-    
+
     # CLEANUP TEMPLATE
-    
+
     - name: Ensure fabric resource template does not exist
       cisco.mso.ndo_template:
         <<: *template_absent

@@ -5,19 +5,19 @@
 
 - name: Test that we have an ACI MultiSite host, username and password
   ansible.builtin.fail:
-    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
   ansible.builtin.set_fact:
     mso_info: &mso_info
-      host: '{{ mso_hostname }}'
-      username: '{{ mso_username }}'
-      password: '{{ mso_password }}'
-      validate_certs: '{{ mso_validate_certs | default(false) }}'
-      use_ssl: '{{ mso_use_ssl | default(true) }}'
-      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("info") }}'
 
 # QUERY VERSION
@@ -27,11 +27,9 @@
     state: query
   register: version
 
-
 - name: Execute tasks only for MSO version >= 4.3
   when: version.current.version is version('4.3', '>=')
   block:
-
     - name: Ensure templates do not exist
       cisco.mso.ndo_template: &template_absent
         <<: *mso_info
@@ -74,24 +72,24 @@
           - cm_create_new_vlan_pool is changed
           - cm_create_new_vlan_pool.previous == {}
           - cm_create_new_vlan_pool.current.name == "ansible_test_vlan_pool"
-          - cm_create_new_vlan_pool.current.vlan_ranges.0.range.from == 100
-          - cm_create_new_vlan_pool.current.vlan_ranges.0.range.to == 200
+          - cm_create_new_vlan_pool.current.encapBlocks.0.range.from == 100
+          - cm_create_new_vlan_pool.current.encapBlocks.0.range.to == 200
           - nm_create_new_vlan_pool is changed
           - nm_create_new_vlan_pool.previous == {}
           - nm_create_new_vlan_pool.current.name == "ansible_test_vlan_pool"
-          - nm_create_new_vlan_pool.current.vlan_ranges.0.range.from == 100
-          - nm_create_new_vlan_pool.current.vlan_ranges.0.range.to == 200
+          - nm_create_new_vlan_pool.current.encapBlocks.0.range.from == 100
+          - nm_create_new_vlan_pool.current.encapBlocks.0.range.to == 200
           - nm_create_new_vlan_pool_again is not changed
           - nm_create_new_vlan_pool_again.previous.name == "ansible_test_vlan_pool"
           - nm_create_new_vlan_pool_again.previous.description == ""
           - nm_create_new_vlan_pool_again.previous.uuid is defined
-          - nm_create_new_vlan_pool_again.previous.vlan_ranges.0.range.from == 100
-          - nm_create_new_vlan_pool_again.previous.vlan_ranges.0.range.to == 200
+          - nm_create_new_vlan_pool_again.previous.encapBlocks.0.range.from == 100
+          - nm_create_new_vlan_pool_again.previous.encapBlocks.0.range.to == 200
           - nm_create_new_vlan_pool_again.current.name == "ansible_test_vlan_pool"
           - nm_create_new_vlan_pool_again.current.description == ""
           - nm_create_new_vlan_pool_again.current.uuid is defined
-          - nm_create_new_vlan_pool_again.current.vlan_ranges.0.range.from == 100
-          - nm_create_new_vlan_pool_again.current.vlan_ranges.0.range.to == 200
+          - nm_create_new_vlan_pool_again.current.encapBlocks.0.range.from == 100
+          - nm_create_new_vlan_pool_again.current.encapBlocks.0.range.to == 200
 
     # UPDATE
 
@@ -128,7 +126,7 @@
     - name: Update a vlan pool name
       cisco.mso.ndo_vlan_pool: &update_vlan_pool_name
         <<: *update_vlan_pool
-        vlan_pool_uuid: '{{ nm_update_vlan_pool_description.current.uuid }}'
+        vlan_pool_uuid: "{{ nm_update_vlan_pool_description.current.uuid }}"
         vlan_pool: ansible_test_vlan_pool_changed
       register: nm_update_vlan_pool_name
 
@@ -192,24 +190,24 @@
           - nm_update_vlan_pool_name.previous.name == "ansible_test_vlan_pool"
           - nm_update_vlan_pool_name.current.name == "ansible_test_vlan_pool_changed"
           - nm_update_vlan_pool_vlan_ranges_change_input is changed
-          - nm_update_vlan_pool_vlan_ranges_change_input.previous.vlan_ranges | length == 1
-          - nm_update_vlan_pool_vlan_ranges_change_input.previous.vlan_ranges.0.range.from == 100
-          - nm_update_vlan_pool_vlan_ranges_change_input.previous.vlan_ranges.0.range.to == 200
-          - nm_update_vlan_pool_vlan_ranges_change_input.current.vlan_ranges | length == 1
-          - nm_update_vlan_pool_vlan_ranges_change_input.current.vlan_ranges.0.range.from == 300
-          - nm_update_vlan_pool_vlan_ranges_change_input.current.vlan_ranges.0.range.to == 400
+          - nm_update_vlan_pool_vlan_ranges_change_input.previous.encapBlocks | length == 1
+          - nm_update_vlan_pool_vlan_ranges_change_input.previous.encapBlocks.0.range.from == 100
+          - nm_update_vlan_pool_vlan_ranges_change_input.previous.encapBlocks.0.range.to == 200
+          - nm_update_vlan_pool_vlan_ranges_change_input.current.encapBlocks | length == 1
+          - nm_update_vlan_pool_vlan_ranges_change_input.current.encapBlocks.0.range.from == 300
+          - nm_update_vlan_pool_vlan_ranges_change_input.current.encapBlocks.0.range.to == 400
           - nm_update_vlan_pool_vlan_ranges_4 is changed
-          - nm_update_vlan_pool_vlan_ranges_4.previous.vlan_ranges | length == 1
-          - nm_update_vlan_pool_vlan_ranges_4.current.vlan_ranges | length == 4
+          - nm_update_vlan_pool_vlan_ranges_4.previous.encapBlocks | length == 1
+          - nm_update_vlan_pool_vlan_ranges_4.current.encapBlocks | length == 4
           - nm_update_vlan_pool_vlan_ranges_4_again is not changed
-          - nm_update_vlan_pool_vlan_ranges_4_again.previous.vlan_ranges | length == 4
-          - nm_update_vlan_pool_vlan_ranges_4_again.current.vlan_ranges | length == 4
+          - nm_update_vlan_pool_vlan_ranges_4_again.previous.encapBlocks | length == 4
+          - nm_update_vlan_pool_vlan_ranges_4_again.current.encapBlocks | length == 4
           - nm_update_vlan_pool_vlan_ranges_4_order is changed
-          - nm_update_vlan_pool_vlan_ranges_4_order.previous.vlan_ranges | length == 4
-          - nm_update_vlan_pool_vlan_ranges_4_order.current.vlan_ranges | length == 4
+          - nm_update_vlan_pool_vlan_ranges_4_order.previous.encapBlocks | length == 4
+          - nm_update_vlan_pool_vlan_ranges_4_order.current.encapBlocks | length == 4
           - nm_delete_vlan_pool_vlan_ranges_3 is changed
-          - nm_delete_vlan_pool_vlan_ranges_3.previous.vlan_ranges | length == 4
-          - nm_delete_vlan_pool_vlan_ranges_3.current.vlan_ranges | length == 3
+          - nm_delete_vlan_pool_vlan_ranges_3.previous.encapBlocks | length == 4
+          - nm_delete_vlan_pool_vlan_ranges_3.current.encapBlocks | length == 3
 
     # QUERY
 
@@ -256,7 +254,7 @@
       cisco.mso.ndo_vlan_pool: &create_vlan_pool_null_vlan_ranges
         <<: *create_vlan_pool
         vlan_pool: ansible_test_vlan_pool_3
-        vlan_ranges: '{{ fakevar | default(omit)}}'
+        vlan_ranges: "{{ fakevar | default(omit)}}"
       register: err_vlan_ranges_create_null
       ignore_errors: true
 
@@ -308,11 +306,11 @@
         that:
           - cm_delete_vlan_pool is changed
           - cm_delete_vlan_pool.previous.name == 'ansible_test_vlan_pool_changed'
-          - cm_delete_vlan_pool.previous.vlan_ranges | length == 3
+          - cm_delete_vlan_pool.previous.encapBlocks | length == 3
           - cm_delete_vlan_pool.current == {}
           - nm_delete_vlan_pool is changed
           - nm_delete_vlan_pool.previous.name == 'ansible_test_vlan_pool_changed'
-          - nm_delete_vlan_pool.previous.vlan_ranges | length == 3
+          - nm_delete_vlan_pool.previous.encapBlocks | length == 3
           - nm_delete_vlan_pool.current == {}
           - nm_delete_vlan_pool_again is not changed
           - nm_delete_vlan_pool_again.previous == {}

@@ -5,19 +5,19 @@
 
 - name: Test that we have an ACI MultiSite host, username and password
   ansible.builtin.fail:
-    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
   ansible.builtin.set_fact:
     mso_info: &mso_info
-      host: '{{ mso_hostname }}'
-      username: '{{ mso_username }}'
-      password: '{{ mso_password }}'
-      validate_certs: '{{ mso_validate_certs | default(false) }}'
-      use_ssl: '{{ mso_use_ssl | default(true) }}'
-      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
@@ -48,44 +48,44 @@
       cisco.mso.ndo_physical_domain:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        name: '{{ item }}'
+        name: "{{ item }}"
         state: present
       loop:
-        - 'ansible_physical_domain'
-        - 'ansible_physical_domain_2'
+        - "ansible_physical_domain"
+        - "ansible_physical_domain_2"
 
     - name: Create a l3 domain
       cisco.mso.ndo_l3_domain:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        name: '{{ item }}'
+        name: "{{ item }}"
         state: present
       loop:
-        - 'ansible_l3_domain'
-        - 'ansible_l3_domain_2'
+        - "ansible_l3_domain"
+        - "ansible_l3_domain_2"
 
     #  Create SyncE Interface Policy
     - name: Create a SyncE Interface Policy
       cisco.mso.ndo_synce_interface_policy:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        interface_policy: '{{ item }}'
+        interface_policy: "{{ item }}"
         state: present
       loop:
-        - 'ansible_synce_interface_policy'
-        - 'ansible_synce_interface_policy_2'
+        - "ansible_synce_interface_policy"
+        - "ansible_synce_interface_policy_2"
 
     # Create MACsec Policy
     - name: Create a MACsec Policy
       cisco.mso.ndo_macsec_policy:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        macsec_policy: '{{ item }}'
+        macsec_policy: "{{ item }}"
         interface_type: access
         state: present
       loop:
-        - 'ansible_macsec_policy'
-        - 'ansible_macsec_policy_2'
+        - "ansible_macsec_policy"
+        - "ansible_macsec_policy_2"
 
     # CREATE
 
@@ -178,7 +178,6 @@
           - nm_add_interface_policy_group_again.previous.uuid is defined
           - nm_add_interface_policy_group_again.current.uuid is defined
 
-
     # Interface Policy group interface_type PC/VPC
     - name: Create a Interface Policy group of interface_type 'port_channel' (check mode)
       cisco.mso.ndo_interface_setting: &add_interface_policy_group_pc
@@ -193,7 +192,13 @@
         port_channel_mode: lacp_active
         min_links: 5
         max_links: 50
-        controls: ["fast_sel_hot_stdby", "graceful_conv", "susp_individual", "symmetric_hash"]
+        controls:
+          [
+            "fast_sel_hot_stdby",
+            "graceful_conv",
+            "susp_individual",
+            "symmetric_hash",
+          ]
         load_balance_hashing: destination_ip
         link_level_debounce_interval: 200
         link_level_bring_up_delay: 500
@@ -217,7 +222,7 @@
         state: present
       check_mode: true
       register: cm_add_interface_policy_group_pc
-    
+
     - name: Create a Interface Policy group of interface_type 'port_channel'
       cisco.mso.ndo_interface_setting:
         <<: *add_interface_policy_group_pc
@@ -260,7 +265,10 @@
           - cm_add_interface_policy_group_pc.current.syncEthPolicy == nm_add_interface_policy_group_pc.current.syncEthPolicy
           - cm_add_interface_policy_group_pc.current.accessMACsecPolicy == nm_add_interface_policy_group_pc.current.accessMACsecPolicy
           - cm_add_interface_policy_group_pc.current.domains | length == nm_add_interface_policy_group_pc.current.domains | length == 2
-
+          - cm_add_interface_policy_group_pc.current.accessMACsecPolicyName == nm_add_interface_policy_group_pc.current.accessMACsecPolicyName == "ansible_macsec_policy"
+          - cm_add_interface_policy_group_pc.current.syncEthPolicyName == nm_add_interface_policy_group_pc.current.syncEthPolicyName == "ansible_synce_interface_policy"
+          - cm_add_interface_policy_group_pc.current.domains == nm_add_interface_policy_group_pc.current.domains
+          - cm_add_interface_policy_group_pc.current.domainsName == nm_add_interface_policy_group_pc.current.domainsName
 
     # UPDATE
     - name: Update a Interface Policy group of interface_type 'physical' (check mode)
@@ -274,7 +282,14 @@
         port_channel_mode: mac_pinning
         min_links: 6
         max_links: 60
-        controls: ["fast_sel_hot_stdby", "graceful_conv", "susp_individual", "load_defer", "symmetric_hash"]
+        controls:
+          [
+            "fast_sel_hot_stdby",
+            "graceful_conv",
+            "susp_individual",
+            "load_defer",
+            "symmetric_hash",
+          ]
         load_balance_hashing: source_ip
         link_level_debounce_interval: 300
         link_level_bring_up_delay: 600
@@ -396,12 +411,24 @@
           - cm_update_interface_policy_group.current.domains[1] == nm_update_interface_policy_group.current.domains[1]
           - update_interface_policy_group_again is not changed
           - update_interface_policy_group_again.previous == update_interface_policy_group_again.current
+          - cm_update_interface_policy_group.current.syncEthPolicy == nm_update_interface_policy_group.current.syncEthPolicy == update_interface_policy_group_again.previous.syncEthPolicy == update_interface_policy_group_again.previous.syncEthPolicy
+          - cm_update_interface_policy_group.current.syncEthPolicyName == nm_update_interface_policy_group.current.syncEthPolicyName == update_interface_policy_group_again.previous.syncEthPolicyName == update_interface_policy_group_again.previous.syncEthPolicyName == "ansible_synce_interface_policy_2"
+          - cm_update_interface_policy_group.current.accessMACsecPolicy == nm_update_interface_policy_group.current.accessMACsecPolicy == update_interface_policy_group_again.previous.accessMACsecPolicy == update_interface_policy_group_again.previous.accessMACsecPolicy
+          - cm_update_interface_policy_group.current.accessMACsecPolicyName == nm_update_interface_policy_group.current.accessMACsecPolicyName == update_interface_policy_group_again.current.accessMACsecPolicyName == update_interface_policy_group_again.previous.accessMACsecPolicyName == "ansible_macsec_policy_2"
+          - cm_update_interface_policy_group.current.domains == nm_update_interface_policy_group.current.domains == update_interface_policy_group_again.current.domains == update_interface_policy_group_again.previous.domains
+          - cm_update_interface_policy_group.current.domainsName == nm_update_interface_policy_group.current.domainsName == update_interface_policy_group_again.current.domainsName == update_interface_policy_group_again.previous.domainsName
+          - cm_update_interface_policy_group.current.syncEthPolicy != cm_update_interface_policy_group.previous.syncEthPolicy
+          - cm_update_interface_policy_group.current.accessMACsecPolicy != cm_update_interface_policy_group.previous.accessMACsecPolicy
+          - cm_update_interface_policy_group.current.domains !=  cm_update_interface_policy_group.previous.domains
+          - cm_update_interface_policy_group.current.domainsName !=  cm_update_interface_policy_group.previous.domainsName
+          - cm_update_interface_policy_group.previous.syncEthPolicyName == "ansible_synce_interface_policy"
+          - cm_update_interface_policy_group.previous.accessMACsecPolicyName == "ansible_macsec_policy"
 
     # Update Interface Policy group name with mcp_strict_mode off and remove domains
     - name: Update a Interface Policy group of interface_type 'physical' with MCP strict_mode off
       cisco.mso.ndo_interface_setting: &update_mcp
         <<: *update_interface_policy_group
-        uuid: '{{ nm_update_interface_policy_group.current.uuid }}'
+        uuid: "{{ nm_update_interface_policy_group.current.uuid }}"
         name: ansible_interface_policy_group_changed
         domains: []
         mcp:
@@ -422,7 +449,7 @@
           - nm_update_interface_policy_name is changed
           - nm_update_interface_policy_name.previous.name == "ansible_interface_policy_group_pc"
           - nm_update_interface_policy_name.current.name == "ansible_interface_policy_group_changed"
-          - nm_update_interface_policy_name.previous.uuid is defined 
+          - nm_update_interface_policy_name.previous.uuid is defined
           - nm_update_interface_policy_name.current.uuid is defined
           - nm_update_interface_policy_name.previous.type == nm_update_interface_policy_name.current.type == "portchannel"
           - nm_update_interface_policy_name.previous.mcp.mcpMode == "on"
@@ -441,6 +468,10 @@
           - nm_update_interface_policy_mcp.current.mcp.adminState == "disabled"
           - nm_update_interface_policy_mcp.previous.portChannelPolicy.control | length == 5
           - nm_update_interface_policy_mcp.current.portChannelPolicy.control is not defined
+          - nm_update_interface_policy_mcp.previous.accessMACsecPolicy == nm_update_interface_policy_mcp.current.accessMACsecPolicy
+          - nm_update_interface_policy_mcp.previous.accessMACsecPolicyName == nm_update_interface_policy_mcp.current.accessMACsecPolicyName == "ansible_macsec_policy_2"
+          - nm_update_interface_policy_mcp.previous.syncEthPolicy == nm_update_interface_policy_mcp.current.syncEthPolicy
+          - nm_update_interface_policy_mcp.previous.syncEthPolicyName == nm_update_interface_policy_mcp.current.syncEthPolicyName == "ansible_synce_interface_policy_2"
 
     # QUERY
     - name: Query all Interface Policy groups in a template
@@ -464,6 +495,8 @@
           - query_all.current | length >= 2
           - query_all.current.0.name == "ansible_interface_policy_group"
           - query_all.current.1.name == "ansible_interface_policy_group_changed"
+          - query_all.current.1.accessMACsecPolicyName == "ansible_macsec_policy_2"
+          - query_all.current.1.syncEthPolicyName == "ansible_synce_interface_policy_2"
           - query_one.current.name == "ansible_interface_policy_group"
           - query_one.current.type == "physical"
 
@@ -471,7 +504,7 @@
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        uuid: '{{ nm_add_interface_policy_group.current.uuid }}'
+        uuid: "{{ nm_add_interface_policy_group.current.uuid }}"
         state: query
       register: query_one_uuid
 
@@ -547,7 +580,7 @@
         synce: non_existing_synce_interface_policy
         state: present
       ignore_errors: true
-      register: nm_add_interface_policy_synce 
+      register: nm_add_interface_policy_synce
 
     - name: Assert adding the Interface Policy group with non-existing syncE policy
       assert:
@@ -717,7 +750,7 @@
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
         template: ansible_fabric_policy_template
-        uuid: '{{ query_one.current.uuid }}'
+        uuid: "{{ query_one.current.uuid }}"
         state: absent
       register: nm_delete_interface_policy_group_uuid
 

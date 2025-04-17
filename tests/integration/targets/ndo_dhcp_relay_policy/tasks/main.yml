@@ -5,19 +5,19 @@
 
 - name: Test that we have an ACI MultiSite host, username and password
   ansible.builtin.fail:
-    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
   ansible.builtin.set_fact:
     mso_info: &mso_info
-      host: '{{ mso_hostname }}'
-      username: '{{ mso_username }}'
-      password: '{{ mso_password }}'
-      validate_certs: '{{ mso_validate_certs | default(false) }}'
-      use_ssl: '{{ mso_use_ssl | default(true) }}'
-      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("info") }}'
 
 # QUERY VERSION
@@ -31,34 +31,33 @@
 - name: Execute tasks only for MSO version >= 4.3
   when: version.current.version is version('4.3', '>=')
   block:
-    
     - name: Ensure sites exists
       cisco.mso.mso_site:
         <<: *mso_info
-        site: '{{ item.site }}'
-        apic_username: '{{ apic_username }}'
-        apic_password: '{{ apic_password }}'
-        apic_site_id: '{{ item.apic_site_id }}'
+        site: "{{ item.site }}"
+        apic_username: "{{ apic_username }}"
+        apic_password: "{{ apic_password }}"
+        apic_site_id: "{{ item.apic_site_id }}"
         urls:
           - https://{{ apic_hostname }}
         state: present
       loop:
-        - {site: "ansible_test", apic_site_id: 101}
-        - {site: "ansible_test_2", apic_site_id: 102}
-    
+        - { site: "ansible_test", apic_site_id: 101 }
+        - { site: "ansible_test_2", apic_site_id: 102 }
+
     - name: Ensure tenant exist
-      cisco.mso.mso_tenant: 
+      cisco.mso.mso_tenant:
         <<: *mso_info
-        tenant: '{{ item }}'
+        tenant: "{{ item }}"
         users:
-          - '{{ mso_username }}'
+          - "{{ mso_username }}"
         sites:
           - '{{ mso_site | default("ansible_test") }}'
           - ansible_test_2
         state: present
       loop:
         - ansible_test
-    
+
     - name: Ensure templates do not exist
       cisco.mso.ndo_template: &template_absent
         <<: *mso_info
@@ -72,7 +71,7 @@
         <<: *mso_info
         schema: '{{ mso_schema | default("ansible_test") }}'
         state: absent
-    
+
     - name: Ensure schema with template exists
       cisco.mso.mso_schema_template:
         <<: *mso_info
@@ -112,7 +111,7 @@
         schema: '{{ mso_schema | default("ansible_test") }}'
         template: ansible_test
         external_epg: "{{ item }}"
-        vrf: 
+        vrf:
           name: ansible_test_vrf
           template: ansible_test
           schema: '{{ mso_schema | default("ansible_test") }}'
@@ -142,12 +141,12 @@
         state: present
       check_mode: true
       register: cm_create_new_dhcp_relay_policy
-    
+
     - name: Create a new dhcp relay policy
       cisco.mso.ndo_dhcp_relay_policy:
         <<: *create_dhcp_relay_policy
       register: nm_create_new_dhcp_relay_policy
-    
+
     - name: Create a new dhcp relay policy again
       cisco.mso.ndo_dhcp_relay_policy:
         <<: *create_dhcp_relay_policy
@@ -160,12 +159,14 @@
           - cm_create_new_dhcp_relay_policy.previous == {}
           - cm_create_new_dhcp_relay_policy.current.name == "ansible_test_relay_policy"
           - cm_create_new_dhcp_relay_policy.current.providers.0.epgRef is defined
+          - cm_create_new_dhcp_relay_policy.current.providers.0.epgName == "ansible_test_epg_1"
           - cm_create_new_dhcp_relay_policy.current.providers.0.ip == "1.1.1.1"
           - cm_create_new_dhcp_relay_policy.current.providers.0.useServerVrf == false
           - nm_create_new_dhcp_relay_policy is changed
           - nm_create_new_dhcp_relay_policy.previous == {}
           - nm_create_new_dhcp_relay_policy.current.name == "ansible_test_relay_policy"
           - nm_create_new_dhcp_relay_policy.current.providers.0.epgRef is defined
+          - nm_create_new_dhcp_relay_policy.current.providers.0.epgName == "ansible_test_epg_1"
           - nm_create_new_dhcp_relay_policy.current.providers.0.ip == "1.1.1.1"
           - nm_create_new_dhcp_relay_policy.current.providers.0.useServerVrf == false
           - nm_create_new_dhcp_relay_policy_again is not changed
@@ -173,12 +174,14 @@
           - nm_create_new_dhcp_relay_policy_again.previous.description == ""
           - nm_create_new_dhcp_relay_policy_again.previous.uuid is defined
           - nm_create_new_dhcp_relay_policy_again.previous.providers.0.epgRef is defined
+          - nm_create_new_dhcp_relay_policy_again.previous.providers.0.epgName == "ansible_test_epg_1"
           - nm_create_new_dhcp_relay_policy_again.previous.providers.0.ip == "1.1.1.1"
           - nm_create_new_dhcp_relay_policy_again.previous.providers.0.useServerVrf == false
           - nm_create_new_dhcp_relay_policy_again.current.name == "ansible_test_relay_policy"
           - nm_create_new_dhcp_relay_policy_again.current.description == ""
           - nm_create_new_dhcp_relay_policy_again.current.uuid is defined
           - nm_create_new_dhcp_relay_policy_again.current.providers.0.epgRef is defined
+          - nm_create_new_dhcp_relay_policy_again.current.providers.0.epgName == "ansible_test_epg_1"
           - nm_create_new_dhcp_relay_policy_again.current.providers.0.ip == "1.1.1.1"
           - nm_create_new_dhcp_relay_policy_again.current.providers.0.useServerVrf == false
 
@@ -190,17 +193,17 @@
         description: changed_description
       check_mode: true
       register: cm_update_dhcp_relay_policy_description
-    
+
     - name: Update a dhcp relay policy description
       cisco.mso.ndo_dhcp_relay_policy:
         <<: *update_dhcp_relay_policy
       register: nm_update_dhcp_relay_policy_description
-    
+
     - name: Update a dhcp relay policy description again
       cisco.mso.ndo_dhcp_relay_policy:
         <<: *update_dhcp_relay_policy
       register: nm_update_dhcp_relay_policy_description_again
-    
+
     - name: Assert dhcp relay policy was updated
       assert:
         that:
@@ -217,7 +220,7 @@
     - name: Update a dhcp relay policy name
       cisco.mso.ndo_dhcp_relay_policy: &update_dhcp_relay_policy_name
         <<: *update_dhcp_relay_policy
-        relay_policy_uuid: '{{ nm_update_dhcp_relay_policy_description.current.uuid }}'
+        relay_policy_uuid: "{{ nm_update_dhcp_relay_policy_description.current.uuid }}"
         relay_policy: ansible_test_relay_policy_changed
       register: nm_update_dhcp_relay_policy_name
 
@@ -231,7 +234,7 @@
             ip: 2.2.2.2
             use_server_vrf: true
       register: nm_update_dhcp_relay_policy_providers_change_input
-    
+
     - name: Update a dhcp relay policy providers to 4
       cisco.mso.ndo_dhcp_relay_policy: &update_dhcp_relay_policy_providers_4
         <<: *update_dhcp_relay_policy_name
@@ -257,12 +260,12 @@
             ip: 4.4.4.4
             use_server_vrf: true
       register: nm_update_dhcp_relay_policy_providers_4
-    
+
     - name: Update a dhcp relay policy providers to 4 again
       cisco.mso.ndo_dhcp_relay_policy:
         <<: *update_dhcp_relay_policy_providers_4
       register: nm_update_dhcp_relay_policy_providers_4_again
-    
+
     - name: Update a dhcp relay policy providers order without change
       cisco.mso.ndo_dhcp_relay_policy:
         <<: *update_dhcp_relay_policy_name
@@ -308,7 +311,7 @@
             external_epg: ansible_test_external_epg_1
             ip: 3.3.3.3
       register: nm_delete_dhcp_relay_policy_providers_3
-    
+
     - name: Assert dhcp relay policy was updated
       assert:
         that:
@@ -318,10 +321,12 @@
           - nm_update_dhcp_relay_policy_providers_change_input is changed
           - nm_update_dhcp_relay_policy_providers_change_input.previous.providers | length == 1
           - nm_update_dhcp_relay_policy_providers_change_input.previous.providers.0.epgRef is defined
+          - nm_update_dhcp_relay_policy_providers_change_input.previous.providers.0.epgName == "ansible_test_epg_1"
           - nm_update_dhcp_relay_policy_providers_change_input.previous.providers.0.ip == "1.1.1.1"
           - nm_update_dhcp_relay_policy_providers_change_input.previous.providers.0.useServerVrf == false
           - nm_update_dhcp_relay_policy_providers_change_input.current.providers | length == 1
           - nm_update_dhcp_relay_policy_providers_change_input.current.providers.0.externalEpgRef is defined
+          - nm_update_dhcp_relay_policy_providers_change_input.current.providers.0.externalEpgName == "ansible_test_external_epg_1"
           - nm_update_dhcp_relay_policy_providers_change_input.current.providers.0.ip == "2.2.2.2"
           - nm_update_dhcp_relay_policy_providers_change_input.current.providers.0.useServerVrf == true
           - nm_update_dhcp_relay_policy_providers_4 is changed
@@ -365,7 +370,7 @@
         template: ansible_tenant_template
         state: query
       register: query_all
-    
+
     - name: Assert dhcp relay policy was queried
       assert:
         that:
@@ -382,10 +387,10 @@
       cisco.mso.ndo_dhcp_relay_policy: &create_dhcp_relay_policy_null_providers
         <<: *create_dhcp_relay_policy
         relay_policy: ansible_test_relay_policy_3
-        providers: '{{ fakevar | default(omit)}}'
+        providers: "{{ fakevar | default(omit)}}"
       register: err_providers_create_null
       ignore_errors: true
-    
+
     - name: Error providers provided as empty list on create
       cisco.mso.ndo_dhcp_relay_policy:
         <<: *create_dhcp_relay_policy_null_providers
@@ -435,7 +440,7 @@
             epg: ansible_test_epg_1
       register: err_providers_create_no_ip
       ignore_errors: true
-    
+
     - name: Error providers provided no epg or external_epg
       cisco.mso.ndo_dhcp_relay_policy:
         <<: *create_dhcp_relay_policy
@@ -446,7 +451,7 @@
             ip: 1.1.1.1
       register: err_providers_create_no_epg_or_external_epg
       ignore_errors: true
-    
+
     - name: Error providers provided epg and external_epg
       cisco.mso.ndo_dhcp_relay_policy:
         <<: *create_dhcp_relay_policy
@@ -460,7 +465,7 @@
             ip: 1.1.1.1
       register: err_providers_create_epg_and_external_epg
       ignore_errors: true
-    
+
     - name: Error providers provided anp and external_epg
       cisco.mso.ndo_dhcp_relay_policy:
         <<: *create_dhcp_relay_policy
@@ -518,12 +523,12 @@
         state: absent
       check_mode: true
       register: cm_delete_dhcp_relay_policy
-    
+
     - name: Delete a dhcp relay policy
       cisco.mso.ndo_dhcp_relay_policy:
         <<: *delete_dhcp_relay_policy
       register: nm_delete_dhcp_relay_policy
-    
+
     - name: Delete a dhcp relay policy again
       cisco.mso.ndo_dhcp_relay_policy:
         <<: *delete_dhcp_relay_policy
@@ -543,13 +548,13 @@
           - nm_delete_dhcp_relay_policy_again is not changed
           - nm_delete_dhcp_relay_policy_again.previous == {}
           - nm_delete_dhcp_relay_policy_again.current == {}
-    
+
     # CLEANUP TEMPLATE
-    
+
     - name: Ensure templates do not exist
       cisco.mso.ndo_template:
         <<: *template_absent
-    
+
     - name: Ensure schemas do not exist
       cisco.mso.mso_schema:
         <<: *remove_schemas

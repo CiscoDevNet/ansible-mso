@@ -5,19 +5,19 @@
 
 - name: Test that we have an ACI MultiSite host, username and password
   ansible.builtin.fail:
-    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
 - name: Set vars
   ansible.builtin.set_fact:
     mso_info: &mso_info
-      host: '{{ mso_hostname }}'
-      username: '{{ mso_username }}'
-      password: '{{ mso_password }}'
-      validate_certs: '{{ mso_validate_certs | default(false) }}'
-      use_ssl: '{{ mso_use_ssl | default(true) }}'
-      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("info") }}'
 
 # QUERY VERSION
@@ -27,11 +27,9 @@
     state: query
   register: version
 
-
 - name: Execute tasks only for MSO version >= 4.3
   when: version.current.version is version('4.3', '>=')
   block:
-
     - name: Ensure templates do not exist
       cisco.mso.ndo_template: &template_absent
         <<: *mso_info
@@ -54,8 +52,8 @@
             to_vlan: "{{ item.to_vlan }}"
         state: present
       loop:
-        - {name: ansible_test_vlan_pool_1, from_vlan: 100, to_vlan: 200}
-        - {name: ansible_test_vlan_pool_2, from_vlan: 300, to_vlan: 400}
+        - { name: ansible_test_vlan_pool_1, from_vlan: 100, to_vlan: 200 }
+        - { name: ansible_test_vlan_pool_2, from_vlan: 300, to_vlan: 400 }
 
     # CREATE
 
@@ -99,6 +97,7 @@
           - nm_create_new_l3_domain_again.current.description == ""
           - nm_create_new_l3_domain_again.current.uuid is defined
           - nm_create_new_l3_domain_again.current.pool == "ansible_test_vlan_pool_1"
+          - cm_create_new_l3_domain.current.poolRef == nm_create_new_l3_domain.current.poolRef == nm_create_new_l3_domain_again.previous.poolRef == nm_create_new_l3_domain_again.current.poolRef
 
     # UPDATE
 
@@ -135,7 +134,7 @@
     - name: Update a l3 domain name
       cisco.mso.ndo_l3_domain: &update_l3_domain_name
         <<: *update_l3_domain
-        l3_domain_uuid: '{{ nm_update_l3_domain_description.current.uuid }}'
+        l3_domain_uuid: "{{ nm_update_l3_domain_description.current.uuid }}"
         l3_domain: ansible_test_l3_domain_changed
       register: nm_update_l3_domain_name
 
@@ -144,6 +143,19 @@
         <<: *update_l3_domain_name
         pool: ansible_test_vlan_pool_2
       register: nm_update_l3_domain_pool
+
+    - name: Query a l3 domain to check the poolRef value
+      cisco.mso.ndo_l3_domain:
+        <<: *update_l3_domain_name
+        state: query
+      register: query_l3_domain_pool_2
+
+    - name: Query all l3 domain in the template to check the poolRef value
+      cisco.mso.ndo_l3_domain:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        state: query
+      register: query_all_1
 
     - name: Remove a l3 domain pool
       cisco.mso.ndo_l3_domain:
@@ -163,6 +175,12 @@
           - nm_update_l3_domain_pool_remove is changed
           - nm_update_l3_domain_pool_remove.previous.pool == "ansible_test_vlan_pool_2"
           - nm_update_l3_domain_pool_remove.current.pool is not defined
+          - query_l3_domain_pool_2 is not changed
+          - query_all_1 is not changed
+          - query_all_1.current | length == 1
+          - query_all_1.current.0.name == "ansible_test_l3_domain_changed"
+          - query_all_1.current.0.pool == "ansible_test_vlan_pool_2"
+          - nm_update_l3_domain_pool.current.poolRef == nm_update_l3_domain_pool_remove.previous.poolRef == query_l3_domain_pool_2.current.poolRef == query_all_1.current.0.poolRef
 
     # QUERY
 
@@ -170,7 +188,7 @@
       cisco.mso.ndo_l3_domain: &create_l3_domain_2
         <<: *create_l3_domain
         l3_domain: ansible_test_l3_domain_2
-        pool: '{{ fakevar | default(omit)}}'
+        pool: "{{ fakevar | default(omit)}}"
         description: "This is a test l3 domain 2"
 
     - name: Query a l3 domain with template_name

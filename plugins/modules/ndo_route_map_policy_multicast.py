@@ -151,7 +151,6 @@ import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
-from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
 def main():
@@ -205,27 +204,43 @@ def main():
 
     if route_map_policy_uuid or route_map_policy:
         if match:  # Query a specific object
-            mso.existing = mso.previous = copy.deepcopy(match.details)
+            mso.existing = copy.deepcopy(match.details)
+            mso.previous = copy.deepcopy(match.details)
     elif match:
         mso.existing = match  # Query all objects
 
     if state == "present":
-        if (module.params.get("entries") is not None and len(entries) == 0) or (not entries):
-            mso.fail_json(msg=err_message_min_entries)
-
-        mso_values = dict(
-            name=route_map_policy,
-            description=description,
-            mcastRtMapEntryList=entries,
-        )
-
         if match:
-            append_update_ops_data(ops, match.details, "{0}/{1}".format(path, match.index), mso_values)
-            mso.sanitize(match.details, collate=True)
+            if module.params.get("entries") is not None and len(entries) == 0:
+                mso.fail_json(msg=err_message_min_entries)
+
+            if route_map_policy and match.details.get("name") != route_map_policy:
+                ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=route_map_policy))
+                match.details["name"] = route_map_policy
+
+            if description is not None and match.details.get("description") != description:
+                ops.append(dict(op="replace", path="{0}/{1}/description".format(path, match.index), value=description))
+                match.details["description"] = description
+
+            if module.params.get("entries") is not None and match.details.get("mcastRtMapEntryList") != entries:
+                ops.append(dict(op="replace", path="{0}/{1}/mcastRtMapEntryList".format(path, match.index), value=entries))
+                match.details["mcastRtMapEntryList"] = entries
+
+            mso.sanitize(match.details)
 
         else:
-            mso.sanitize(mso_values)
-            ops.append(dict(op="add", path="{0}/-".format(path), value=mso.sent))
+            if not entries:
+                mso.fail_json(msg=err_message_min_entries)
+
+            payload = {"name": route_map_policy, "mcastRtMapEntryList": entries}
+            if description:
+                payload["description"] = description
+
+            ops.append(dict(op="add", path="{0}/-".format(path), value=copy.deepcopy(payload)))
+
+            mso.sanitize(payload)
+
+        mso.existing = mso.proposed
 
     elif state == "absent":
         if match:

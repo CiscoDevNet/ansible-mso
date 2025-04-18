@@ -438,23 +438,25 @@ def main():
                     mso.fail_json(msg="Duplicate configurations for QoS {0}".format(level))
                 else:
                     qos_level_list.remove(level)
+
+                if qos_level.get("wred_configuration"):
+                    wred_configuration = {
+                        "congestionNotification": qos_level["wred_configuration"].get("congestion_notification"),
+                        "minThreshold": qos_level["wred_configuration"].get("minimum_threshold"),
+                        "maxThreshold": qos_level["wred_configuration"].get("maximum_threshold"),
+                        "probability": qos_level["wred_configuration"].get("probability"),
+                        "weight": qos_level["wred_configuration"].get("weight"),
+                        "forwardNonEcn": qos_level["wred_configuration"].get("forward_non_ecn_traffic"),
+                    }
+                else:
+                    wred_configuration = None
+
                 mso_values[level] = {
                     "adminState": qos_level.get("admin_state"),
                     "minBuffer": qos_level.get("minimum_buffer"),
                     "mtu": qos_level.get("mtu"),
                     "congestionAlgorithm": QOS_CONGESTION_ALGORITHM_MAP.get(qos_level.get("congestion_algorithm")),
-                    "wredConfig": (
-                        {
-                            "congestionNotification": qos_level["wred_configuration"].get("congestion_notification"),
-                            "minThreshold": qos_level["wred_configuration"].get("minimum_threshold"),
-                            "maxThreshold": qos_level["wred_configuration"].get("maximum_threshold"),
-                            "probability": qos_level["wred_configuration"].get("probability"),
-                            "weight": qos_level["wred_configuration"].get("weight"),
-                            "forwardNonEcn": qos_level["wred_configuration"].get("forward_non_ecn_traffic"),
-                        }
-                        if qos_level.get("wred_configuration")
-                        else None
-                    ),
+                    "wredConfig": wred_configuration,
                     "schedulingAlgorithm": QOS_SCHEDULING_ALGORITHM_MAP.get(qos_level.get("scheduling_algorithm")),
                     "bandwidthAllocated": qos_level.get("bandwidth_allocated"),
                     "pfcAdminState": qos_level.get("pfc_admin_state"),

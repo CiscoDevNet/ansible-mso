@@ -336,7 +336,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import (
 
 
 def main():
-    qos_level_list = copy.deepcopy(QOS_LEVEL)
+    qos_level_list = copy.copy(QOS_LEVEL)
     qos_level_list.remove("unspecified")
     argument_spec = mso_argument_spec()
     argument_spec.update(
@@ -438,7 +438,6 @@ def main():
                     mso.fail_json(msg="Duplicate configurations for QoS {0}".format(level))
                 else:
                     qos_level_list.remove(level)
-
                 mso_values[level] = {
                     "adminState": qos_level.get("admin_state"),
                     "minBuffer": qos_level.get("minimum_buffer"),

@@ -470,13 +470,12 @@ def main():
             tenant_template.validate_template("tenantPolicy")
             process_tenant_policy(
                 mso_values,
-                mso_template,
                 tenant_template,
                 interface_routing_policy,
                 "interfaceRoutingPolicyRef",
                 "l3OutIntfPolGroups",
             )
-            process_tenant_policy(mso_values, mso_template, tenant_template, custom_qos_policy, "qosRef", "qosPolicies")
+            process_tenant_policy(mso_values, tenant_template, custom_qos_policy, "qosRef", "qosPolicies")
         else:
             if interface_routing_policy:
                 empty_interface_routing_policy = check_if_all_elements_are_none(list(interface_routing_policy.values()))
@@ -485,16 +484,14 @@ def main():
                         mso, "tenant", interface_routing_policy.get("template"), interface_routing_policy.get("template_id")
                     )
                     tenant_template_interface.validate_template("tenantPolicy")
-                    process_tenant_policy(
-                        mso_values, mso_template, tenant_template_interface, interface_routing_policy, "interfaceRoutingPolicyRef", "l3OutIntfPolGroups"
-                    )
+                    process_tenant_policy(mso_values, tenant_template_interface, interface_routing_policy, "interfaceRoutingPolicyRef", "l3OutIntfPolGroups")
 
             if custom_qos_policy:
                 empty_custom_qos_policy = check_if_all_elements_are_none(list(custom_qos_policy.values()))
                 if not empty_custom_qos_policy:
                     tenant_template_qos = MSOTemplate(mso, "tenant", custom_qos_policy.get("template"), custom_qos_policy.get("template_id"))
                     tenant_template_qos.validate_template("tenantPolicy")
-                    process_tenant_policy(mso_values, mso_template, tenant_template_qos, custom_qos_policy, "qosRef", "qosPolicies")
+                    process_tenant_policy(mso_values, tenant_template_qos, custom_qos_policy, "qosRef", "qosPolicies")
 
         if match:
             mso_values_remove = list()
@@ -621,8 +618,8 @@ def update_mso_values_attributes_payload(mso_values, protocols_dict):
                     )
 
 
-def process_tenant_policy(mso_values, mso_template, tenant_template, policy, policy_ref, policy_type):
-    mso_values[policy_ref] = mso_template.get_tenant_policy_uuid(tenant_template, policy.get("name"), policy_type)
+def process_tenant_policy(mso_values, tenant_template, policy, policy_ref, policy_type):
+    mso_values[policy_ref] = tenant_template.get_template_policy_uuid("tenant", policy.get("name"), policy_type)
 
 
 if __name__ == "__main__":

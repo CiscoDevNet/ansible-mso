@@ -317,15 +317,15 @@ class MSOTemplate:
             )
         return existing_l3out_interface_routing_policy  # Query all objects
 
-    def get_tenant_policy_uuid(self, tenant_template, policy_name, policy_type):
+    def get_template_policy_uuid(self, template_type, policy_name, policy_type):
         """
         Get the UUID of a Tenant Policy by name.
-        :param tenant_template: The tenant object -> Dict
+        :param template_type: The type of template -> Str
         :param policy_name: Name of the policy -> Str
         :param policy_type: The type of the policy specified in the API response -> Str
         :return: UUID of the tenant policy -> Str
         """
-        existing_policies = tenant_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get(policy_type, [])
+        existing_policies = self.template.get(TEMPLATE_TYPES[template_type]["template_type_container"], {}).get("template", {}).get(policy_type, [])
         match = self.get_object_by_key_value_pairs(policy_type, existing_policies, [KVPair("name", policy_name)], fail_module=True)
         return match.details.get("uuid")
 
@@ -465,7 +465,13 @@ class MSOTemplate:
                         config_data[reference_details.get("schemaId")] = template_object.get("schemaId")
                     if reference_details.get("schema"):
                         config_data[reference_details.get("schema")] = template_object.get("schemaName")
-            return config_data
+            for config_value in config_data.values():
+                if isinstance(config_value, dict):
+                    self.update_config_with_template_and_references(config_value, reference_collections, False, use_cache)
+                elif isinstance(config_value, list):
+                    for item in config_value:
+                        if isinstance(item, dict):
+                            self.update_config_with_template_and_references(item, reference_collections, False, use_cache)
         return config_data
 
     def check_template_when_name_is_provided(self, parameter):

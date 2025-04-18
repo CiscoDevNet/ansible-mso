@@ -1,0 +1,914 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version > 4.2
+  when: version.current.version is version('4.2', '>')
+  block:
+    # Setup Part
+    - name: Ensure ansible_test site exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: query
+      register: ansible_test_site
+
+    - name: Ensure ansible_test tenant exists
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+      register: ansible_test_tenant
+      when: ansible_test_site.current.common.name == 'ansible_test'
+
+    - name: Ensure ansible_device_template does not exist
+      cisco.mso.ndo_template: &device_template_absent
+        <<: *mso_info
+        name: ansible_device_template
+        template_type: service_device
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_tenant_template tenant policy template does not exist
+      cisco.mso.ndo_template: &tenant_pol_template_absent
+        <<: *mso_info
+        name: ansible_tenant_template
+        template_type: tenant
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_test schema template does not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        template: ansible_template
+        state: absent
+
+    # Schema Template Setup
+    - name: Add an ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+        state: present
+      register: schema
+
+    - name: Add a new VRF1
+      cisco.mso.mso_schema_template_vrf:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_template
+        vrf: VRF1
+        layer3_multicast: true
+        state: present
+
+    - name: Ensure BD exists
+      cisco.mso.mso_schema_template_bd:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_template
+        bd: ansible_test_bd
+        vrf:
+          name: VRF1
+        state: present
+      register: ansible_test_bd
+
+    - name: Query the BD for UUID
+      cisco.mso.mso_schema_template_bd:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_template
+        bd: ansible_test_bd
+        state: query
+      register: ansible_test_bd_query
+
+    - name: Ensure external EPG exists
+      cisco.mso.mso_schema_template_external_epg:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_template
+        external_epg: ansible_test_epg
+        vrf:
+          name: VRF1
+        state: present
+      register: ansible_test_epg
+
+    - name: Query the external EPG for UUID
+      cisco.mso.mso_schema_template_external_epg:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_template
+        external_epg: ansible_test_epg
+        state: query
+      register: ansible_test_epg_query
+
+    # Tenant Policy Template Setup for the IPSLA and Custom QoS Policy
+    - name: Ensure ansible_test_policy tenant policy template exists
+      cisco.mso.ndo_template:
+        <<: *tenant_pol_template_absent
+        state: present
+      register: ansible_test_policy
+
+    - name: Add a new IPSLA monitoring Policy
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        ipsla_monitoring_policy: ansible_test_ipsla_monitoring_policy
+        sla_type: l2ping
+        sla_frequency: 60
+        description: l2
+        state: present
+      register: ipsla_monitoring_policy
+
+    - name: Create a new Custom QoS Policy object
+      cisco.mso.ndo_tenant_custom_qos_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_custom_qos_policy
+        dscp_mappings:
+          - dscp_from: af11
+            dscp_to: af12
+            dscp_target: af11
+            target_cos: background
+            qos_priority: level1
+        cos_mappings:
+          - dot1p_from: background
+            dot1p_to: best_effort
+            target: af11
+            target_cos: background
+            qos_priority: level1
+        state: present
+      register: custom_qos_policy
+
+    # Service Device Template Setup
+    - name: Create a new service device template
+      cisco.mso.ndo_template:
+        <<: *device_template_absent
+        state: present
+      register: create_new_device_template
+
+    - name: Create a service device cluster (check mode)
+      cisco.mso.ndo_service_device_cluster: &service_device_cluster1
+        <<: *mso_info
+        template: ansible_device_template
+        name: device1
+        device_mode: layer3
+        device_type: firewall
+        interface_properties:
+          - name: "interface1"
+            external_epg:
+              name: ansible_test_epg
+              template: ansible_template
+              schema: ansible_test
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+              template: ansible_tenant_template
+            qos_policy:
+              name: ansible_custom_qos_policy
+              template: ansible_tenant_template
+            preferred_group: true
+            rewrite_source_mac: false
+            config_static_mac: false
+            is_backup_redirect_ip: true
+            load_balance_hashing: source_ip
+            pod_aware_redirection: false
+            resilient_hashing: true
+            tag_based_sorting: false
+            min_threshold: 10
+            max_threshold: 100
+            threshold_down_action: permit
+        state: present
+      check_mode: true
+      register: cm_add_device1
+
+    - name: Create a service device cluster (normal mode)
+      cisco.mso.ndo_service_device_cluster:
+        <<: *service_device_cluster1
+      register: nm_add_device1
+
+    - name: Create a service device cluster again (normal mode)
+      cisco.mso.ndo_service_device_cluster:
+        <<: *service_device_cluster1
+      register: nm_add_device1_again
+
+    - name: Assert Service Device Cluster was created
+      assert:
+        that:
+          - cm_add_device1 is changed
+          - cm_add_device1.previous == {}
+          - cm_add_device1.current.name == "device1"
+          - cm_add_device1.current.deviceMode == "layer3"
+          - cm_add_device1.current.deviceType == "firewall"
+          - cm_add_device1.current.connectivityMode == "oneArm"
+          - cm_add_device1.current.templateId == create_new_device_template.current.templateId
+          - cm_add_device1.current.templateName == "ansible_device_template"
+          - cm_add_device1.current.interfaces[0].name == "interface1"
+          - cm_add_device1.current.interfaces[0].deviceInterfaceType == "l3out"
+          - cm_add_device1.current.interfaces[0].redirect == true
+          - cm_add_device1.current.interfaces[0].isAdvancedIntfConfig == true
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.preferredGroup == true
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyName == "ansible_custom_qos_policy"
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyRef == custom_qos_policy.current.uuid
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyTemplateId == ansible_test_policy.current.templateId
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyTemplateName == "ansible_tenant_template"
+          - cm_add_device1.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == true
+          - cm_add_device1.current.interfaces[0].externalEpgName == "ansible_test_epg"
+          - cm_add_device1.current.interfaces[0].externalEpgRef == ansible_test_epg_query.current.uuid
+          - cm_add_device1.current.interfaces[0].externalEpgSchemaId == ansible_test_bd.current.vrfRef.schemaId
+          - cm_add_device1.current.interfaces[0].externalEpgSchemaName == "ansible_test"
+          - cm_add_device1.current.interfaces[0].externalEpgTemplateName == "ansible_template"
+          - cm_add_device1.current.interfaces[0].ipslaMonitoringPolicyName == "ansible_test_ipsla_monitoring_policy"
+          - cm_add_device1.current.interfaces[0].ipslaMonitoringPolicyTemplateId == ansible_test_policy.current.templateId
+          - cm_add_device1.current.interfaces[0].ipslaMonitoringPolicyTemplateName == "ansible_tenant_template"
+          - cm_add_device1.current.interfaces[0].ipslaMonitoringRef == ipsla_monitoring_policy.current.uuid
+          - nm_add_device1 is changed
+          - nm_add_device1.previous == {}
+          - nm_add_device1.current.name == "device1"
+          - nm_add_device1.current.deviceMode == "layer3"
+          - nm_add_device1.current.deviceType == "firewall"
+          - nm_add_device1.current.connectivityMode == "oneArm"
+          - nm_add_device1.current.templateId == create_new_device_template.current.templateId
+          - nm_add_device1.current.templateName == "ansible_device_template"
+          - nm_add_device1.current.uuid is defined
+          - nm_add_device1.current.interfaces[0].name == "interface1"
+          - nm_add_device1.current.interfaces[0].deviceInterfaceType == "l3out"
+          - nm_add_device1.current.interfaces[0].redirect == true
+          - nm_add_device1.current.interfaces[0].isAdvancedIntfConfig == true
+          - nm_add_device1.current.interfaces[0].externalEpgName == "ansible_test_epg"
+          - nm_add_device1.current.interfaces[0].externalEpgRef == ansible_test_epg_query.current.uuid
+          - nm_add_device1.current.interfaces[0].externalEpgSchemaId == ansible_test_bd.current.vrfRef.schemaId
+          - nm_add_device1.current.interfaces[0].externalEpgSchemaName == "ansible_test"
+          - nm_add_device1.current.interfaces[0].externalEpgTemplateName == "ansible_template"
+          - nm_add_device1.current.interfaces[0].ipslaMonitoringPolicyName == "ansible_test_ipsla_monitoring_policy"
+          - nm_add_device1.current.interfaces[0].ipslaMonitoringPolicyTemplateId == ansible_test_policy.current.templateId
+          - nm_add_device1.current.interfaces[0].ipslaMonitoringPolicyTemplateName == "ansible_tenant_template"
+          - nm_add_device1.current.interfaces[0].ipslaMonitoringRef == ipsla_monitoring_policy.current.uuid
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyName == "ansible_custom_qos_policy"
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyRef == custom_qos_policy.current.uuid
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyTemplateId == ansible_test_policy.current.templateId
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.qosPolicyTemplateName == "ansible_tenant_template"
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.preferredGroup == true
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - nm_add_device1.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == true
+          - nm_add_device1_again is not changed
+          - nm_add_device1_again.previous.name == nm_add_device1_again.current.name == "device1"
+          - nm_add_device1_again.previous.deviceMode == nm_add_device1_again.current.deviceMode == "layer3"
+          - nm_add_device1_again.previous.deviceType == nm_add_device1_again.current.deviceType == "firewall"
+          - nm_add_device1_again.previous.connectivityMode == nm_add_device1_again.current.connectivityMode == "oneArm"
+          - nm_add_device1_again.previous.templateId == nm_add_device1_again.current.templateId == create_new_device_template.current.templateId
+          - nm_add_device1_again.previous.templateName == nm_add_device1_again.current.templateName == "ansible_device_template"
+          - nm_add_device1_again.previous.uuid == nm_add_device1_again.current.uuid
+          - nm_add_device1_again.previous.interfaces[0].name == nm_add_device1_again.current.interfaces[0].name == "interface1"
+          - nm_add_device1_again.previous.interfaces[0].deviceInterfaceType == nm_add_device1_again.current.interfaces[0].deviceInterfaceType == "l3out"
+          - nm_add_device1_again.previous.interfaces[0].redirect == nm_add_device1_again.current.interfaces[0].redirect == true
+          - nm_add_device1_again.previous.interfaces[0].isAdvancedIntfConfig == nm_add_device1_again.current.interfaces[0].isAdvancedIntfConfig == true
+          - nm_add_device1_again.previous.interfaces[0].advancedIntfConfig.preferredGroup == nm_add_device1_again.current.interfaces[0].advancedIntfConfig.preferredGroup == true
+          - nm_add_device1_again.previous.interfaces[0].advancedIntfConfig.loadBalanceHashing == nm_add_device1_again.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - nm_add_device1_again.previous.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == nm_add_device1_again.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - nm_add_device1_again.previous.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == nm_add_device1_again.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - nm_add_device1_again.previous.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == nm_add_device1_again.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - nm_add_device1_again.previous.interfaces[0].advancedIntfConfig.isBackupRedirectIP == nm_add_device1_again.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == true
+          - nm_add_device1.current == nm_add_device1_again.current
+
+    - name: Update the service device cluster (check mode)
+      cisco.mso.ndo_service_device_cluster: &update_service_device_cluster1
+        <<: *mso_info
+        template: ansible_device_template
+        name: device1
+        device_mode: layer3
+        device_type: firewall
+        interface_properties:
+          - name: interface1
+            external_epg:
+              name: ansible_test_epg
+              template: ansible_template
+              schema: ansible_test
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+              template: ansible_tenant_template
+            qos_policy:
+              name: ansible_custom_qos_policy
+              template: ansible_tenant_template
+            preferred_group: true
+            rewrite_source_mac: false
+            config_static_mac: false
+            is_backup_redirect_ip: true
+            load_balance_hashing: source_ip
+            pod_aware_redirection: false
+            resilient_hashing: true
+            tag_based_sorting: false
+            min_threshold: 10
+            max_threshold: 100
+            threshold_down_action: permit
+          - name: interface2
+            bd:
+              name: ansible_test_bd
+              template: ansible_template
+              schema_id: '{{ ansible_test_bd.current.vrfRef.schemaId }}'
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+              template_id: '{{ ansible_test_policy.current.templateId }}'
+            qos_policy:
+              name: ansible_custom_qos_policy
+              template_id: '{{ ansible_test_policy.current.templateId }}'
+            preferred_group: true
+            rewrite_source_mac: false
+            config_static_mac: false
+            is_backup_redirect_ip: true
+            load_balance_hashing: source_ip
+            pod_aware_redirection: false
+            resilient_hashing: true
+            tag_based_sorting: false
+            min_threshold: 10
+            max_threshold: 100
+            threshold_down_action: permit
+        state: present
+      check_mode: true
+      register: cm_update_device1
+
+    - name: Update the service device cluster (normal mode)
+      cisco.mso.ndo_service_device_cluster:
+        <<: *update_service_device_cluster1
+      register: nm_update_device1
+
+    - name: Update the service device cluster again (normal mode)
+      cisco.mso.ndo_service_device_cluster:
+        <<: *update_service_device_cluster1
+      register: nm_update_device1_again
+
+    - name: Assert Service Device Cluster updates
+      assert:
+        that:
+          - cm_update_device1 is changed
+          - cm_update_device1.previous.connectivityMode == "oneArm"
+          - cm_update_device1.current.connectivityMode == "twoArm"
+          - cm_update_device1.current.name == "device1"
+          - cm_update_device1.current.deviceMode == "layer3"
+          - cm_update_device1.current.deviceType == "firewall"
+          - cm_update_device1.current.templateId == create_new_device_template.current.templateId
+          - cm_update_device1.current.templateName == "ansible_device_template"
+          - cm_update_device1.current.uuid is defined
+          - cm_update_device1.current.interfaces[0].name == "interface1"
+          - cm_update_device1.current.interfaces[0].deviceInterfaceType == "l3out"
+          - cm_update_device1.current.interfaces[0].redirect == true
+          - cm_update_device1.current.interfaces[0].isAdvancedIntfConfig == true
+          - cm_update_device1.current.interfaces[0].advancedIntfConfig.preferredGroup == true
+          - cm_update_device1.current.interfaces[0].advancedIntfConfig.rewriteSourceMac == false
+          - cm_update_device1.current.interfaces[0].advancedIntfConfig.configStaticMac == false
+          - cm_update_device1.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == true
+          - cm_update_device1.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - cm_update_device1.current.interfaces[0].advancedIntfConfig.podAwareRedirection == false
+          - cm_update_device1.current.interfaces[0].advancedIntfConfig.resilientHashing == true
+          - cm_update_device1.current.interfaces[0].advancedIntfConfig.tag == false
+          - cm_update_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - cm_update_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - cm_update_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - cm_update_device1.current.interfaces[1].name == "interface2"
+          - cm_update_device1.current.interfaces[1].deviceInterfaceType == "bd"
+          - cm_update_device1.current.interfaces[1].redirect == true
+          - cm_update_device1.current.interfaces[1].isAdvancedIntfConfig == true
+          - cm_update_device1.current.interfaces[1].advancedIntfConfig.preferredGroup == true
+          - cm_update_device1.current.interfaces[1].advancedIntfConfig.rewriteSourceMac == false
+          - cm_update_device1.current.interfaces[1].advancedIntfConfig.configStaticMac == false
+          - cm_update_device1.current.interfaces[1].advancedIntfConfig.isBackupRedirectIP == true
+          - cm_update_device1.current.interfaces[1].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - cm_update_device1.current.interfaces[1].advancedIntfConfig.podAwareRedirection == false
+          - cm_update_device1.current.interfaces[1].advancedIntfConfig.resilientHashing == true
+          - cm_update_device1.current.interfaces[1].advancedIntfConfig.tag == false
+          - cm_update_device1.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - cm_update_device1.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - cm_update_device1.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - nm_update_device1 is changed
+          - nm_update_device1.previous.connectivityMode == "oneArm"
+          - nm_update_device1.current.connectivityMode == "twoArm"
+          - nm_update_device1.current.name == "device1"
+          - nm_update_device1.current.deviceMode == "layer3"
+          - nm_update_device1.current.deviceType == "firewall"
+          - nm_update_device1.current.templateId == create_new_device_template.current.templateId
+          - nm_update_device1.current.templateName == "ansible_device_template"
+          - nm_update_device1.current.uuid is defined
+          - nm_update_device1.current.interfaces[0].name == "interface1"
+          - nm_update_device1.current.interfaces[0].deviceInterfaceType == "l3out"
+          - nm_update_device1.current.interfaces[0].redirect == true
+          - nm_update_device1.current.interfaces[0].isAdvancedIntfConfig == true
+          - nm_update_device1.current.interfaces[0].advancedIntfConfig.preferredGroup == true
+          - nm_update_device1.current.interfaces[0].advancedIntfConfig.rewriteSourceMac == false
+          - nm_update_device1.current.interfaces[0].advancedIntfConfig.configStaticMac == false
+          - nm_update_device1.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == true
+          - nm_update_device1.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - nm_update_device1.current.interfaces[0].advancedIntfConfig.podAwareRedirection == false
+          - nm_update_device1.current.interfaces[0].advancedIntfConfig.resilientHashing == true
+          - nm_update_device1.current.interfaces[0].advancedIntfConfig.tag == false
+          - nm_update_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - nm_update_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - nm_update_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - nm_update_device1.current.interfaces[1].name == "interface2"
+          - nm_update_device1.current.interfaces[1].deviceInterfaceType == "bd"
+          - nm_update_device1.current.interfaces[1].redirect == true
+          - nm_update_device1.current.interfaces[1].isAdvancedIntfConfig == true
+          - nm_update_device1.current.interfaces[1].advancedIntfConfig.preferredGroup == true
+          - nm_update_device1.current.interfaces[1].advancedIntfConfig.rewriteSourceMac == false
+          - nm_update_device1.current.interfaces[1].advancedIntfConfig.configStaticMac == false
+          - nm_update_device1.current.interfaces[1].advancedIntfConfig.isBackupRedirectIP == true
+          - nm_update_device1.current.interfaces[1].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - nm_update_device1.current.interfaces[1].advancedIntfConfig.podAwareRedirection == false
+          - nm_update_device1.current.interfaces[1].advancedIntfConfig.resilientHashing == true
+          - nm_update_device1.current.interfaces[1].advancedIntfConfig.tag == false
+          - nm_update_device1.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - nm_update_device1.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - nm_update_device1.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - nm_update_device1_again is not changed
+          - nm_update_device1_again.previous.connectivityMode == nm_update_device1_again.current.connectivityMode == "twoArm"
+          - nm_update_device1_again.previous.name == nm_update_device1_again.current.name == "device1"
+          - nm_update_device1_again.previous.deviceMode == nm_update_device1_again.current.deviceMode == "layer3"
+          - nm_update_device1_again.previous.deviceType == nm_update_device1_again.current.deviceType == "firewall"
+          - nm_update_device1_again.previous.templateId == nm_update_device1_again.current.templateId == create_new_device_template.current.templateId
+          - nm_update_device1_again.previous.templateName == nm_update_device1_again.current.templateName == "ansible_device_template"
+          - nm_update_device1_again.previous.uuid == nm_update_device1_again.current.uuid
+          - nm_update_device1_again.previous.interfaces[0].name == nm_update_device1_again.current.interfaces[0].name == "interface1"
+          - nm_update_device1_again.previous.interfaces[0].deviceInterfaceType == nm_update_device1_again.current.interfaces[0].deviceInterfaceType == "l3out"
+          - nm_update_device1_again.previous.interfaces[0].redirect == nm_update_device1_again.current.interfaces[0].redirect == true
+          - nm_update_device1_again.previous.interfaces[0].isAdvancedIntfConfig == nm_update_device1_again.current.interfaces[0].isAdvancedIntfConfig == true
+          - nm_update_device1_again.previous.interfaces[0].advancedIntfConfig.preferredGroup == nm_update_device1_again.current.interfaces[0].advancedIntfConfig.preferredGroup == true
+          - nm_update_device1_again.previous.interfaces[0].advancedIntfConfig.rewriteSourceMac == nm_update_device1_again.current.interfaces[0].advancedIntfConfig.rewriteSourceMac == false
+          - nm_update_device1_again.previous.interfaces[0].advancedIntfConfig.configStaticMac == nm_update_device1_again.current.interfaces[0].advancedIntfConfig.configStaticMac == false
+          - nm_update_device1_again.previous.interfaces[0].advancedIntfConfig.isBackupRedirectIP == nm_update_device1_again.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == true
+          - nm_update_device1_again.previous.interfaces[0].advancedIntfConfig.loadBalanceHashing == nm_update_device1_again.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - nm_update_device1_again.previous.interfaces[0].advancedIntfConfig.podAwareRedirection == nm_update_device1_again.current.interfaces[0].advancedIntfConfig.podAwareRedirection == false
+          - nm_update_device1_again.previous.interfaces[0].advancedIntfConfig.resilientHashing == nm_update_device1_again.current.interfaces[0].advancedIntfConfig.resilientHashing == true
+          - nm_update_device1_again.previous.interfaces[0].advancedIntfConfig.tag == nm_update_device1_again.current.interfaces[0].advancedIntfConfig.tag == false
+          - nm_update_device1_again.previous.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == nm_update_device1_again.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - nm_update_device1_again.previous.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == nm_update_device1_again.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - nm_update_device1_again.previous.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == nm_update_device1_again.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - nm_update_device1_again.previous.interfaces[1].name == nm_update_device1_again.current.interfaces[1].name == "interface2"
+          - nm_update_device1_again.previous.interfaces[1].deviceInterfaceType == nm_update_device1_again.current.interfaces[1].deviceInterfaceType == "bd"
+          - nm_update_device1_again.previous.interfaces[1].redirect == nm_update_device1_again.current.interfaces[1].redirect == true
+          - nm_update_device1_again.previous.interfaces[1].isAdvancedIntfConfig == nm_update_device1_again.current.interfaces[1].isAdvancedIntfConfig == true
+          - nm_update_device1_again.previous.interfaces[1].advancedIntfConfig.preferredGroup == nm_update_device1_again.current.interfaces[1].advancedIntfConfig.preferredGroup == true
+          - nm_update_device1_again.previous.interfaces[1].advancedIntfConfig.rewriteSourceMac == nm_update_device1_again.current.interfaces[1].advancedIntfConfig.rewriteSourceMac == false
+          - nm_update_device1_again.previous.interfaces[1].advancedIntfConfig.configStaticMac == nm_update_device1_again.current.interfaces[1].advancedIntfConfig.configStaticMac == false
+          - nm_update_device1_again.previous.interfaces[1].advancedIntfConfig.isBackupRedirectIP == nm_update_device1_again.current.interfaces[1].advancedIntfConfig.isBackupRedirectIP == true
+          - nm_update_device1_again.previous.interfaces[1].advancedIntfConfig.loadBalanceHashing == nm_update_device1_again.current.interfaces[1].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - nm_update_device1_again.previous.interfaces[1].advancedIntfConfig.podAwareRedirection == nm_update_device1_again.current.interfaces[1].advancedIntfConfig.podAwareRedirection == false
+          - nm_update_device1_again.previous.interfaces[1].advancedIntfConfig.resilientHashing == nm_update_device1_again.current.interfaces[1].advancedIntfConfig.resilientHashing == true
+          - nm_update_device1_again.previous.interfaces[1].advancedIntfConfig.tag == nm_update_device1_again.current.interfaces[1].advancedIntfConfig.tag == false
+          - nm_update_device1_again.previous.interfaces[1].advancedIntfConfig.thresholdForRedirect.maxThreshold == nm_update_device1_again.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - nm_update_device1_again.previous.interfaces[1].advancedIntfConfig.thresholdForRedirect.minThreshold == nm_update_device1_again.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - nm_update_device1_again.previous.interfaces[1].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == nm_update_device1_again.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+
+    - name: Update the service device cluster with three arm (check mode)
+      cisco.mso.ndo_service_device_cluster: &another_update_service_device_cluster1
+        <<: *mso_info
+        template: ansible_device_template
+        name: device1
+        device_mode: layer3
+        device_type: firewall
+        interface_properties:
+          - name: interface1
+            external_epg:
+              name: ansible_test_epg
+              template: ansible_template
+              schema: ansible_test
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+              template: ansible_tenant_template
+            qos_policy:
+              name: ansible_custom_qos_policy
+              template: ansible_tenant_template
+            preferred_group: true
+            rewrite_source_mac: false
+            config_static_mac: false
+            is_backup_redirect_ip: true
+            load_balance_hashing: source_ip
+            pod_aware_redirection: false
+            resilient_hashing: true
+            tag_based_sorting: false
+            min_threshold: 10
+            max_threshold: 100
+            threshold_down_action: permit
+          - name: interface2
+            bd_uuid: '{{ ansible_test_bd_query.current.uuid }}'
+            ipsla_monitoring_policy_uuid: '{{ ipsla_monitoring_policy.current.uuid }}'
+            qos_policy:
+              name: ansible_custom_qos_policy
+              template_id: '{{ ansible_test_policy.current.templateId }}'
+            preferred_group: true
+            rewrite_source_mac: false
+            config_static_mac: false
+            is_backup_redirect_ip: true
+            load_balance_hashing: source_ip
+            pod_aware_redirection: false
+            resilient_hashing: true
+            tag_based_sorting: false
+            min_threshold: 10
+            max_threshold: 100
+            threshold_down_action: permit
+          - name: interface3
+            bd:
+              name: ansible_test_bd
+              template: ansible_template
+              schema_id: '{{ ansible_test_bd.current.vrfRef.schemaId }}'
+            qos_policy:
+              name: ansible_custom_qos_policy
+              template_id: '{{ ansible_test_policy.current.templateId }}'
+            anycast: true
+            rewrite_source_mac: false
+            config_static_mac: false
+            is_backup_redirect_ip: true
+            load_balance_hashing: destination_ip
+            pod_aware_redirection: false
+            resilient_hashing: true
+            tag_based_sorting: false
+            min_threshold: 10
+            max_threshold: 100
+            threshold_down_action: deny
+        state: present
+      check_mode: true
+      register: cm_another_update_device1
+
+    - name: Update the service device cluster with three arm (normal mode)
+      cisco.mso.ndo_service_device_cluster:
+        <<: *another_update_service_device_cluster1
+      register: nm_another_update_device1
+
+    - name: Update the service device cluster with three arm again (normal mode)
+      cisco.mso.ndo_service_device_cluster:
+        <<: *another_update_service_device_cluster1
+      register: nm_another_update_device1_again
+
+    - name: Assert Service Device Cluster updates and consistency for three-arm configuration
+      assert:
+        that:
+          - cm_another_update_device1 is changed
+          - cm_another_update_device1.previous.connectivityMode == "twoArm"
+          - cm_another_update_device1.current.connectivityMode == "advanced"
+          - cm_another_update_device1.current.name == "device1"
+          - cm_another_update_device1.current.deviceMode == "layer3"
+          - cm_another_update_device1.current.deviceType == "firewall"
+          - cm_another_update_device1.current.templateId == create_new_device_template.current.templateId
+          - cm_another_update_device1.current.templateName == "ansible_device_template"
+          - cm_another_update_device1.current.uuid is defined
+          - cm_another_update_device1.current.interfaces[0].name == "interface1"
+          - cm_another_update_device1.current.interfaces[0].deviceInterfaceType == "l3out"
+          - cm_another_update_device1.current.interfaces[0].redirect == true
+          - cm_another_update_device1.current.interfaces[0].isAdvancedIntfConfig == true
+          - cm_another_update_device1.current.interfaces[0].advancedIntfConfig.preferredGroup == true
+          - cm_another_update_device1.current.interfaces[0].advancedIntfConfig.rewriteSourceMac == false
+          - cm_another_update_device1.current.interfaces[0].advancedIntfConfig.configStaticMac == false
+          - cm_another_update_device1.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == true
+          - cm_another_update_device1.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - cm_another_update_device1.current.interfaces[0].advancedIntfConfig.podAwareRedirection == false
+          - cm_another_update_device1.current.interfaces[0].advancedIntfConfig.resilientHashing == true
+          - cm_another_update_device1.current.interfaces[0].advancedIntfConfig.tag == false
+          - cm_another_update_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - cm_another_update_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - cm_another_update_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - cm_another_update_device1.current.interfaces[1].name == "interface2"
+          - cm_another_update_device1.current.interfaces[1].deviceInterfaceType == "bd"
+          - cm_another_update_device1.current.interfaces[1].redirect == true
+          - cm_another_update_device1.current.interfaces[1].isAdvancedIntfConfig == true
+          - cm_another_update_device1.current.interfaces[1].advancedIntfConfig.preferredGroup == true
+          - cm_another_update_device1.current.interfaces[1].advancedIntfConfig.rewriteSourceMac == false
+          - cm_another_update_device1.current.interfaces[1].advancedIntfConfig.configStaticMac == false
+          - cm_another_update_device1.current.interfaces[1].advancedIntfConfig.isBackupRedirectIP == true
+          - cm_another_update_device1.current.interfaces[1].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - cm_another_update_device1.current.interfaces[1].advancedIntfConfig.podAwareRedirection == false
+          - cm_another_update_device1.current.interfaces[1].advancedIntfConfig.resilientHashing == true
+          - cm_another_update_device1.current.interfaces[1].advancedIntfConfig.tag == false
+          - cm_another_update_device1.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - cm_another_update_device1.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - cm_another_update_device1.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - cm_another_update_device1.current.interfaces[2].name == "interface3"
+          - cm_another_update_device1.current.interfaces[2].deviceInterfaceType == "bd"
+          - cm_another_update_device1.current.interfaces[2].redirect == true
+          - cm_another_update_device1.current.interfaces[2].isAdvancedIntfConfig == true
+          - cm_another_update_device1.current.interfaces[2].advancedIntfConfig.anycast == true
+          - cm_another_update_device1.current.interfaces[2].advancedIntfConfig.rewriteSourceMac == false
+          - cm_another_update_device1.current.interfaces[2].advancedIntfConfig.configStaticMac == false
+          - cm_another_update_device1.current.interfaces[2].advancedIntfConfig.isBackupRedirectIP == true
+          - cm_another_update_device1.current.interfaces[2].advancedIntfConfig.loadBalanceHashing == "destinationIP"
+          - cm_another_update_device1.current.interfaces[2].advancedIntfConfig.podAwareRedirection == false
+          - cm_another_update_device1.current.interfaces[2].advancedIntfConfig.resilientHashing == true
+          - cm_another_update_device1.current.interfaces[2].advancedIntfConfig.tag == false
+          - cm_another_update_device1.current.interfaces[2].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - cm_another_update_device1.current.interfaces[2].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - cm_another_update_device1.current.interfaces[2].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "deny"
+          - nm_another_update_device1 is changed
+          - nm_another_update_device1.previous.connectivityMode == "twoArm" 
+          - nm_another_update_device1.current.connectivityMode == "advanced"
+          - nm_another_update_device1.current.name == "device1"
+          - nm_another_update_device1.current.deviceMode == "layer3"
+          - nm_another_update_device1.current.deviceType == "firewall"
+          - nm_another_update_device1.current.templateId == create_new_device_template.current.templateId
+          - nm_another_update_device1.current.templateName == "ansible_device_template"
+          - nm_another_update_device1.current.uuid is defined
+          - nm_another_update_device1.current.interfaces[0].name == "interface1"
+          - nm_another_update_device1.current.interfaces[0].deviceInterfaceType == "l3out"
+          - nm_another_update_device1.current.interfaces[0].redirect == true
+          - nm_another_update_device1.current.interfaces[0].isAdvancedIntfConfig == true
+          - nm_another_update_device1.current.interfaces[0].advancedIntfConfig.preferredGroup == true
+          - nm_another_update_device1.current.interfaces[0].advancedIntfConfig.rewriteSourceMac == false
+          - nm_another_update_device1.current.interfaces[0].advancedIntfConfig.configStaticMac == false
+          - nm_another_update_device1.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == true
+          - nm_another_update_device1.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - nm_another_update_device1.current.interfaces[0].advancedIntfConfig.podAwareRedirection == false
+          - nm_another_update_device1.current.interfaces[0].advancedIntfConfig.resilientHashing == true
+          - nm_another_update_device1.current.interfaces[0].advancedIntfConfig.tag == false
+          - nm_another_update_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - nm_another_update_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - nm_another_update_device1.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - nm_another_update_device1.current.interfaces[1].name == "interface2"
+          - nm_another_update_device1.current.interfaces[1].deviceInterfaceType == "bd"
+          - nm_another_update_device1.current.interfaces[1].redirect == true
+          - nm_another_update_device1.current.interfaces[1].isAdvancedIntfConfig == true
+          - nm_another_update_device1.current.interfaces[1].advancedIntfConfig.preferredGroup == true
+          - nm_another_update_device1.current.interfaces[1].advancedIntfConfig.rewriteSourceMac == false
+          - nm_another_update_device1.current.interfaces[1].advancedIntfConfig.configStaticMac == false
+          - nm_another_update_device1.current.interfaces[1].advancedIntfConfig.isBackupRedirectIP == true
+          - nm_another_update_device1.current.interfaces[1].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - nm_another_update_device1.current.interfaces[1].advancedIntfConfig.podAwareRedirection == false
+          - nm_another_update_device1.current.interfaces[1].advancedIntfConfig.resilientHashing == true
+          - nm_another_update_device1.current.interfaces[1].advancedIntfConfig.tag == false
+          - nm_another_update_device1.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - nm_another_update_device1.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - nm_another_update_device1.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - nm_another_update_device1.current.interfaces[2].name == "interface3"
+          - nm_another_update_device1.current.interfaces[2].deviceInterfaceType == "bd"
+          - nm_another_update_device1.current.interfaces[2].redirect == true
+          - nm_another_update_device1.current.interfaces[2].isAdvancedIntfConfig == true
+          - nm_another_update_device1.current.interfaces[2].advancedIntfConfig.anycast == true
+          - nm_another_update_device1.current.interfaces[2].advancedIntfConfig.rewriteSourceMac == false
+          - nm_another_update_device1.current.interfaces[2].advancedIntfConfig.configStaticMac == false
+          - nm_another_update_device1.current.interfaces[2].advancedIntfConfig.isBackupRedirectIP == true
+          - nm_another_update_device1.current.interfaces[2].advancedIntfConfig.loadBalanceHashing == "destinationIP"
+          - nm_another_update_device1.current.interfaces[2].advancedIntfConfig.podAwareRedirection == false
+          - nm_another_update_device1.current.interfaces[2].advancedIntfConfig.resilientHashing == true
+          - nm_another_update_device1.current.interfaces[2].advancedIntfConfig.tag == false
+          - nm_another_update_device1.current.interfaces[2].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - nm_another_update_device1.current.interfaces[2].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - nm_another_update_device1.current.interfaces[2].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "deny"
+          - nm_another_update_device1_again is not changed
+          - nm_another_update_device1_again.previous.connectivityMode == nm_another_update_device1_again.current.connectivityMode == "advanced"
+          - nm_another_update_device1_again.previous.name == nm_another_update_device1_again.current.name == "device1"
+          - nm_another_update_device1_again.previous.deviceMode == nm_another_update_device1_again.current.deviceMode == "layer3"
+          - nm_another_update_device1_again.previous.deviceType == nm_another_update_device1_again.current.deviceType == "firewall"
+          - nm_another_update_device1_again.previous.templateId == nm_another_update_device1_again.current.templateId == create_new_device_template.current.templateId
+          - nm_another_update_device1_again.previous.templateName == nm_another_update_device1_again.current.templateName == "ansible_device_template"
+          - nm_another_update_device1_again.previous.uuid == nm_another_update_device1_again.current.uuid
+          - nm_another_update_device1_again.previous.interfaces[0].name == nm_another_update_device1_again.current.interfaces[0].name == "interface1"
+          - nm_another_update_device1_again.previous.interfaces[0].deviceInterfaceType == nm_another_update_device1_again.current.interfaces[0].deviceInterfaceType == "l3out"
+          - nm_another_update_device1_again.previous.interfaces[0].redirect == nm_another_update_device1_again.current.interfaces[0].redirect == true
+          - nm_another_update_device1_again.previous.interfaces[0].isAdvancedIntfConfig == nm_another_update_device1_again.current.interfaces[0].isAdvancedIntfConfig == true
+          - nm_another_update_device1_again.previous.interfaces[0].advancedIntfConfig.preferredGroup == nm_another_update_device1_again.current.interfaces[0].advancedIntfConfig.preferredGroup == true
+          - nm_another_update_device1_again.previous.interfaces[0].advancedIntfConfig.rewriteSourceMac == nm_another_update_device1_again.current.interfaces[0].advancedIntfConfig.rewriteSourceMac == false
+          - nm_another_update_device1_again.previous.interfaces[0].advancedIntfConfig.configStaticMac == nm_another_update_device1_again.current.interfaces[0].advancedIntfConfig.configStaticMac == false
+          - nm_another_update_device1_again.previous.interfaces[0].advancedIntfConfig.isBackupRedirectIP == nm_another_update_device1_again.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == true
+          - nm_another_update_device1_again.previous.interfaces[0].advancedIntfConfig.loadBalanceHashing == nm_another_update_device1_again.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - nm_another_update_device1_again.previous.interfaces[0].advancedIntfConfig.podAwareRedirection == nm_another_update_device1_again.current.interfaces[0].advancedIntfConfig.podAwareRedirection == false
+          - nm_another_update_device1_again.previous.interfaces[0].advancedIntfConfig.resilientHashing == nm_another_update_device1_again.current.interfaces[0].advancedIntfConfig.resilientHashing == true
+          - nm_another_update_device1_again.previous.interfaces[0].advancedIntfConfig.tag == nm_another_update_device1_again.current.interfaces[0].advancedIntfConfig.tag == false
+          - nm_another_update_device1_again.previous.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == nm_another_update_device1_again.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - nm_another_update_device1_again.previous.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == nm_another_update_device1_again.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - nm_another_update_device1_again.previous.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == nm_another_update_device1_again.current.interfaces[0].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - nm_another_update_device1_again.previous.interfaces[1].name == nm_another_update_device1_again.current.interfaces[1].name == "interface2"
+          - nm_another_update_device1_again.previous.interfaces[1].deviceInterfaceType == nm_another_update_device1_again.current.interfaces[1].deviceInterfaceType == "bd"
+          - nm_another_update_device1_again.previous.interfaces[1].redirect == nm_another_update_device1_again.current.interfaces[1].redirect == true
+          - nm_another_update_device1_again.previous.interfaces[1].isAdvancedIntfConfig == nm_another_update_device1_again.current.interfaces[1].isAdvancedIntfConfig == true
+          - nm_another_update_device1_again.previous.interfaces[1].advancedIntfConfig.preferredGroup == nm_another_update_device1_again.current.interfaces[1].advancedIntfConfig.preferredGroup == true
+          - nm_another_update_device1_again.previous.interfaces[1].advancedIntfConfig.rewriteSourceMac == nm_another_update_device1_again.current.interfaces[1].advancedIntfConfig.rewriteSourceMac == false
+          - nm_another_update_device1_again.previous.interfaces[1].advancedIntfConfig.configStaticMac == nm_another_update_device1_again.current.interfaces[1].advancedIntfConfig.configStaticMac == false
+          - nm_another_update_device1_again.previous.interfaces[1].advancedIntfConfig.isBackupRedirectIP == nm_another_update_device1_again.current.interfaces[1].advancedIntfConfig.isBackupRedirectIP == true
+          - nm_another_update_device1_again.previous.interfaces[1].advancedIntfConfig.loadBalanceHashing == nm_another_update_device1_again.current.interfaces[1].advancedIntfConfig.loadBalanceHashing == "sourceIP"
+          - nm_another_update_device1_again.previous.interfaces[1].advancedIntfConfig.podAwareRedirection == nm_another_update_device1_again.current.interfaces[1].advancedIntfConfig.podAwareRedirection == false
+          - nm_another_update_device1_again.previous.interfaces[1].advancedIntfConfig.resilientHashing == nm_another_update_device1_again.current.interfaces[1].advancedIntfConfig.resilientHashing == true
+          - nm_another_update_device1_again.previous.interfaces[1].advancedIntfConfig.tag == nm_another_update_device1_again.current.interfaces[1].advancedIntfConfig.tag == false
+          - nm_another_update_device1_again.previous.interfaces[1].advancedIntfConfig.thresholdForRedirect.maxThreshold == nm_another_update_device1_again.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - nm_another_update_device1_again.previous.interfaces[1].advancedIntfConfig.thresholdForRedirect.minThreshold == nm_another_update_device1_again.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - nm_another_update_device1_again.previous.interfaces[1].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == nm_another_update_device1_again.current.interfaces[1].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "permit"
+          - nm_another_update_device1_again.previous.interfaces[2].name == nm_another_update_device1_again.current.interfaces[2].name == "interface3"
+          - nm_another_update_device1_again.previous.interfaces[2].deviceInterfaceType == nm_another_update_device1_again.current.interfaces[2].deviceInterfaceType == "bd"
+          - nm_another_update_device1_again.previous.interfaces[2].redirect == nm_another_update_device1_again.current.interfaces[2].redirect == true
+          - nm_another_update_device1_again.previous.interfaces[2].isAdvancedIntfConfig == nm_another_update_device1_again.current.interfaces[2].isAdvancedIntfConfig == true
+          - nm_another_update_device1_again.previous.interfaces[2].advancedIntfConfig.anycast == nm_another_update_device1_again.current.interfaces[2].advancedIntfConfig.anycast == true
+          - nm_another_update_device1_again.previous.interfaces[2].advancedIntfConfig.rewriteSourceMac == nm_another_update_device1_again.current.interfaces[2].advancedIntfConfig.rewriteSourceMac == false
+          - nm_another_update_device1_again.previous.interfaces[2].advancedIntfConfig.configStaticMac == nm_another_update_device1_again.current.interfaces[2].advancedIntfConfig.configStaticMac == false
+          - nm_another_update_device1_again.previous.interfaces[2].advancedIntfConfig.isBackupRedirectIP == nm_another_update_device1_again.current.interfaces[2].advancedIntfConfig.isBackupRedirectIP == true
+          - nm_another_update_device1_again.previous.interfaces[2].advancedIntfConfig.loadBalanceHashing == nm_another_update_device1_again.current.interfaces[2].advancedIntfConfig.loadBalanceHashing == "destinationIP"
+          - nm_another_update_device1_again.previous.interfaces[2].advancedIntfConfig.podAwareRedirection == nm_another_update_device1_again.current.interfaces[2].advancedIntfConfig.podAwareRedirection == false
+          - nm_another_update_device1_again.previous.interfaces[2].advancedIntfConfig.resilientHashing == nm_another_update_device1_again.current.interfaces[2].advancedIntfConfig.resilientHashing == true
+          - nm_another_update_device1_again.previous.interfaces[2].advancedIntfConfig.tag == nm_another_update_device1_again.current.interfaces[2].advancedIntfConfig.tag == false
+          - nm_another_update_device1_again.previous.interfaces[2].advancedIntfConfig.thresholdForRedirect.maxThreshold == nm_another_update_device1_again.current.interfaces[2].advancedIntfConfig.thresholdForRedirect.maxThreshold == 100
+          - nm_another_update_device1_again.previous.interfaces[2].advancedIntfConfig.thresholdForRedirect.minThreshold == nm_another_update_device1_again.current.interfaces[2].advancedIntfConfig.thresholdForRedirect.minThreshold == 10
+          - nm_another_update_device1_again.previous.interfaces[2].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == nm_another_update_device1_again.current.interfaces[2].advancedIntfConfig.thresholdForRedirect.thresholdDownAction == "deny"
+
+    - name: Create a second service device cluster 
+      cisco.mso.ndo_service_device_cluster: &service_device_cluster2
+        <<: *mso_info
+        template: ansible_device_template
+        name: device2
+        device_mode: layer3
+        device_type: other
+        interface_properties:
+          - name: "interface1"
+            external_epg:
+              name: ansible_test_epg
+              template: ansible_template
+              schema: ansible_test
+            ipsla_monitoring_policy:
+              name: ansible_test_ipsla_monitoring_policy
+              template: ansible_tenant_template
+            qos_policy:
+              name: ansible_custom_qos_policy
+              template: ansible_tenant_template
+        state: present
+      register: cm_add_device2
+
+    - name: Create a second service device cluster again
+      cisco.mso.ndo_service_device_cluster:
+        <<: *service_device_cluster2
+      register: nm_add_device2
+
+    - name: Assert Second Service Device Cluster creation and consistency
+      assert:
+        that:
+          - cm_add_device2 is changed
+          - cm_add_device2.previous == {}
+          - cm_add_device2.current.name == "device2"
+          - cm_add_device2.current.deviceMode == "layer3"
+          - cm_add_device2.current.deviceType == "other"
+          - cm_add_device2.current.connectivityMode == "oneArm"
+          - cm_add_device2.current.templateId == create_new_device_template.current.templateId
+          - cm_add_device2.current.templateName == "ansible_device_template"
+          - cm_add_device2.current.interfaces[0].name == "interface1"
+          - cm_add_device2.current.interfaces[0].deviceInterfaceType == "l3out"
+          - cm_add_device2.current.interfaces[0].redirect == true
+          - cm_add_device2.current.interfaces[0].isAdvancedIntfConfig == true
+          - cm_add_device2.current.interfaces[0].advancedIntfConfig.preferredGroup == false
+          - cm_add_device2.current.interfaces[0].advancedIntfConfig.rewriteSourceMac == false
+          - cm_add_device2.current.interfaces[0].advancedIntfConfig.configStaticMac == false
+          - cm_add_device2.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == false
+          - cm_add_device2.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceDestinationAndProtocol"
+          - cm_add_device2.current.interfaces[0].advancedIntfConfig.podAwareRedirection == false
+          - cm_add_device2.current.interfaces[0].advancedIntfConfig.resilientHashing == false
+          - cm_add_device2.current.interfaces[0].advancedIntfConfig.tag == false
+          - nm_add_device2 is not changed
+          - nm_add_device2.previous.name == nm_add_device2.current.name == "device2"
+          - nm_add_device2.previous.deviceMode == nm_add_device2.current.deviceMode == "layer3"
+          - nm_add_device2.previous.deviceType == nm_add_device2.current.deviceType == "other"
+          - nm_add_device2.previous.connectivityMode == nm_add_device2.current.connectivityMode == "oneArm"
+          - nm_add_device2.previous.templateId == nm_add_device2.current.templateId == create_new_device_template.current.templateId
+          - nm_add_device2.previous.templateName == nm_add_device2.current.templateName == "ansible_device_template"
+          - nm_add_device2.previous.uuid == nm_add_device2.current.uuid
+          - nm_add_device2.previous.interfaces[0].name == nm_add_device2.current.interfaces[0].name == "interface1"
+          - nm_add_device2.previous.interfaces[0].deviceInterfaceType == nm_add_device2.current.interfaces[0].deviceInterfaceType == "l3out"
+          - nm_add_device2.previous.interfaces[0].redirect == nm_add_device2.current.interfaces[0].redirect == true
+          - nm_add_device2.previous.interfaces[0].isAdvancedIntfConfig == nm_add_device2.current.interfaces[0].isAdvancedIntfConfig == true
+          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.preferredGroup == nm_add_device2.current.interfaces[0].advancedIntfConfig.preferredGroup == false
+          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.rewriteSourceMac == nm_add_device2.current.interfaces[0].advancedIntfConfig.rewriteSourceMac == false
+          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.configStaticMac == nm_add_device2.current.interfaces[0].advancedIntfConfig.configStaticMac == false
+          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.isBackupRedirectIP == nm_add_device2.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == false
+          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.loadBalanceHashing == nm_add_device2.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceDestinationAndProtocol"
+          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.podAwareRedirection == nm_add_device2.current.interfaces[0].advancedIntfConfig.podAwareRedirection == false
+          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.resilientHashing == nm_add_device2.current.interfaces[0].advancedIntfConfig.resilientHashing == false
+          - nm_add_device2.previous.interfaces[0].advancedIntfConfig.tag == nm_add_device2.current.interfaces[0].advancedIntfConfig.tag == false
+
+    - name: Query the second service device cluster using name
+      cisco.mso.ndo_service_device_cluster:
+        <<: *mso_info
+        template: ansible_device_template
+        name: device2
+        state: query
+      register: query_device2
+
+    - name: Query the second service device cluster using UUID
+      cisco.mso.ndo_service_device_cluster:
+        <<: *mso_info
+        template: ansible_device_template
+        uuid: '{{ nm_add_device2.current.uuid }}'
+        state: query
+      register: query_device2_uuid
+
+    - name: Query all the device clusters
+      cisco.mso.ndo_service_device_cluster:
+        <<: *mso_info
+        template: ansible_device_template
+        state: query
+      register: query_all
+
+    - name: Assert Query
+      assert:
+        that:
+          - query_device2 is not changed
+          - query_device2_uuid is not changed
+          - query_device2.current.name == "device2"
+          - query_device2.current.deviceMode == "layer3"
+          - query_device2.current.deviceType == "other"
+          - query_device2.current.connectivityMode == "oneArm"
+          - query_device2.current.templateId == create_new_device_template.current.templateId
+          - query_device2.current.templateName == "ansible_device_template"
+          - query_device2.current.uuid is defined
+          - query_device2.current.interfaces[0].name == "interface1"
+          - query_device2.current.interfaces[0].deviceInterfaceType == "l3out"
+          - query_device2.current.interfaces[0].redirect == true
+          - query_device2.current.interfaces[0].isAdvancedIntfConfig == true
+          - query_device2.current.interfaces[0].advancedIntfConfig.preferredGroup == false
+          - query_device2.current.interfaces[0].advancedIntfConfig.rewriteSourceMac == false
+          - query_device2.current.interfaces[0].advancedIntfConfig.configStaticMac == false
+          - query_device2.current.interfaces[0].advancedIntfConfig.isBackupRedirectIP == false
+          - query_device2.current.interfaces[0].advancedIntfConfig.loadBalanceHashing == "sourceDestinationAndProtocol"
+          - query_device2.current.interfaces[0].advancedIntfConfig.podAwareRedirection == false
+          - query_device2.current.interfaces[0].advancedIntfConfig.resilientHashing == false
+          - query_device2.current.interfaces[0].advancedIntfConfig.tag == false
+          - query_device2_uuid.current == query_device2.current
+          - query_all.current | length == 2
+
+    - name: Remove the second service device cluster using name (check mode)
+      cisco.mso.ndo_service_device_cluster: &remove_service_device_cluster2
+        <<: *mso_info
+        template: ansible_device_template
+        name: device2
+        state: absent
+      check_mode: true
+      register: cm_rm_device2
+
+    - name: Remove the second service device cluster using name (normal mode)
+      cisco.mso.ndo_service_device_cluster:
+        <<: *remove_service_device_cluster2
+      register: nm_rm_device2
+
+    - name: Remove the second service device cluster using name again 
+      cisco.mso.ndo_service_device_cluster:
+        <<: *remove_service_device_cluster2
+      register: nm_rm_device2_again
+          
+    - name: Assert Second Service Device Cluster deletion and consistency
+      assert:
+        that:
+          - cm_rm_device2 is changed
+          - cm_rm_device2.previous.name == "device2"
+          - cm_rm_device2.previous.deviceMode == "layer3" 
+          - cm_rm_device2.previous.deviceType == "other"
+          - cm_rm_device2.previous.connectivityMode == "oneArm"
+          - cm_rm_device2.previous.templateId == create_new_device_template.current.templateId
+          - cm_rm_device2.previous.templateName == "ansible_device_template"
+          - cm_rm_device2.previous.uuid is defined
+          - cm_rm_device2.current == {}
+          - nm_rm_device2 is changed
+          - nm_rm_device2.previous.name == "device2"
+          - nm_rm_device2.previous.deviceMode == "layer3"
+          - nm_rm_device2.previous.deviceType == "other"
+          - nm_rm_device2.previous.connectivityMode == "oneArm"
+          - nm_rm_device2.previous.templateId == create_new_device_template.current.templateId
+          - nm_rm_device2.previous.templateName == "ansible_device_template"
+          - nm_rm_device2.previous.uuid is defined
+          - nm_rm_device2.current == {}
+          - nm_rm_device2_again is not changed
+          - nm_rm_device2_again.previous == nm_rm_device2_again.current == {}
+
+    # Cleanup Part
+    - name: Remove device template
+      cisco.mso.ndo_template:
+        <<: *device_template_absent
+
+    - name: Remove tenant policy template
+      cisco.mso.ndo_template:
+        <<: *tenant_pol_template_absent
+
+    - name: Remove ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent

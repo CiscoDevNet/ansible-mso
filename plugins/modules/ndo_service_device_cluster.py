@@ -688,10 +688,12 @@ def get_interfaces_payload(mso, mso_template, interfaces, reference_dict):
                 },
             },
         }
-        interface_payload["deviceInterfaceType"] = "bd" if (interface.get("bd_uuid") or interface.get("bd")) else "l3out"
+        interface_payload["deviceInterfaceType"] = "l3out"
+        interface_type = "external_epg"
+        if interface.get("bd_uuid") or interface.get("bd"):
+            interface_payload["deviceInterfaceType"] = interface_type = "bd"
         interface_uuid = interface.get("bd_uuid") or interface.get("external_epg_uuid")
         if interface_uuid is None:
-            interface_type = "bd" if interface.get("bd") else "external_epg"
             existing_schema = schema.get_template_from_schema(
                 interface[interface_type].get("schema"),
                 interface[interface_type].get("schema_id"),

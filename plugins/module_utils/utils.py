@@ -176,10 +176,22 @@ def delete_none_values(obj_to_sanitize, recursive=True):
     :return: A sanitized copy of the original Python object, with all keys with None values removed. -> List or Dict
     """
     if isinstance(obj_to_sanitize, dict):
-        return {k: delete_none_values(v, recursive) if recursive and isinstance(v, (dict, list)) else v for k, v in obj_to_sanitize.items() if v is not None}
+        sanitized_dict = {}
+        for item_key, item_value in obj_to_sanitize.items():
+            if recursive and isinstance(item_value, (dict, list)):
+                sanitized_dict[item_key] = delete_none_values(item_value, recursive)
+            elif item_value is not None:
+                sanitized_dict[item_key] = item_value
+        return sanitized_dict
 
     elif isinstance(obj_to_sanitize, list):
-        return [delete_none_values(item, recursive) if recursive and isinstance(item, (dict, list)) else item for item in obj_to_sanitize if item is not None]
+        sanitized_list = []
+        for item in obj_to_sanitize:
+            if recursive and isinstance(item, (dict, list)):
+                sanitized_list.append(delete_none_values(item, recursive))
+            elif item is not None:
+                sanitized_list.append(item)
+        return sanitized_list
 
     else:
         raise TypeError("Object to sanitize must be of type list or dict. Got {}".format(type(obj_to_sanitize)))

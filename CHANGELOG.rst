@@ -6,6 +6,20 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.11.0
+=======
+
+Release Summary
+---------------
+
+Release v2.11.0 of the ``ansible-mso`` collection on 2025-04-21.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.10.0.
+
+Minor Changes
+-------------
+
+- Addition of new module ndo_service_device_cluster and its test file
+
 v2.10.0
 =======
 

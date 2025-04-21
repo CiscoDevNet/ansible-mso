@@ -185,9 +185,10 @@ def main():
 
     if vlan_pool_uuid or vlan_pool:
         if match:
+            match.details["vlan_ranges"] = match.details["encapBlocks"]
             mso.existing = mso.previous = copy.deepcopy(match.details)  # Query a specific object
     elif match:
-        mso.existing = match  # Query all objects
+        mso.existing = [vlan_pool.update({"vlan_ranges": vlan_pool["encapBlocks"]}) for vlan_pool in match]  # Query all objects
 
     if state == "present":
         err_message_min_vlan_ranges = "At least one vlan range is required when state is present."
@@ -221,8 +222,8 @@ def main():
 
             ops.append(dict(op="add", path="{0}/-".format(path), value=copy.deepcopy(payload)))
 
+            payload["vlan_ranges"] = vlan_ranges
             mso.sanitize(payload)
-
         mso.existing = mso.proposed
 
     elif state == "absent":
@@ -234,6 +235,7 @@ def main():
         mso_template.template = mso.request(mso_template.template_path, method="PATCH", data=ops)
         match = get_fabric_policy_vlan_pool(mso_template, vlan_pool_uuid, vlan_pool)
         if match:
+            match.details["vlan_ranges"] = match.details["encapBlocks"]
             mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent

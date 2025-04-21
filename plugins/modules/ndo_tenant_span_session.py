@@ -451,6 +451,26 @@ def main():
 
     ops = []
     match = None
+    reference_collection = {
+        "epgRef": {
+            "name": "epgName",
+            "reference": "epgRef",
+            "type": "epg",
+            "template": "epgTemplateName",
+            "templateId": "epgTemplateId",
+            "schema": "epgSchemaName",
+            "schemaId": "epgSchemaId",
+        },
+        "epg": {
+            "name": "epgName",
+            "reference": "epg",
+            "type": "epg",
+            "template": "epgTemplateName",
+            "templateId": "epgTemplateId",
+            "schema": "epgSchemaName",
+            "schemaId": "epgSchemaId",
+        },
+    }
 
     mso_template = MSOTemplate(mso, "monitoring_tenant", template_name, template_id)
     mso_template.validate_template("monitoring")
@@ -468,10 +488,10 @@ def main():
         )
         if match:
             span_session_path = "{0}/{1}".format(path, match.index)
-            set_template_and_references(mso_template, match.details)
+            mso_template.update_config_with_template_and_references(match.details, reference_collection)
             mso.existing = mso.previous = copy.deepcopy(match.details)
     else:
-        mso.existing = mso.previous = [set_template_and_references(mso_template, obj) for obj in existing_span_sessions]
+        mso.existing = mso.previous = [mso_template.update_config_with_template_and_references(obj, reference_collection) for obj in existing_span_sessions]
 
     if state == "present":
         if uuid and not mso.existing:
@@ -540,35 +560,15 @@ def main():
             [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
         )
         if match:
-            set_template_and_references(mso_template, match.details)
+            mso_template.update_config_with_template_and_references(match.details, reference_collection)
             mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
-        set_template_and_references(mso_template, mso.proposed)
+        mso_template.update_config_with_template_and_references(mso.proposed, reference_collection)
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
-
-
-def set_template_and_references(mso_template, config):
-    reference_collection = {
-        "epg": {
-            "name": "epgName",
-            "reference": "epgRef",
-            "type": "epg",
-            "template": "epgTemplateName",
-            "templateId": "epgTemplateId",
-            "schema": "epgSchemaName",
-            "schemaId": "epgSchemaId",
-        }
-    }
-    mso_template.update_config_with_template_and_references(config.get("destination", {}).get("remote", {}), reference_collection, False)
-    reference_collection["epg"]["reference"] = "epg"
-    for source in config.get("sourceGroup", {}).get("sources", []):
-        mso_template.update_config_with_template_and_references(source, reference_collection, False)
-    mso_template.update_config_with_template_and_references(config, None)
-    return config
 
 
 def format_sources(schemas, sources):

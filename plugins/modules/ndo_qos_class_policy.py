@@ -60,7 +60,8 @@ options:
   qos_levels:
     description:
     - The list of configurable QoS levels for the QoS Class Policy.
-    - Providing an empty list will remove the O(qos_levels=[])
+    - Providing a new list of O(qos_levels) will replace the existing one from the Qos Class Policy.
+    - Providing an empty list will remove the O(qos_levels=[]) fron the Qos Class Policy.
     type: list
     elements: dict
     suboptions:
@@ -91,7 +92,8 @@ options:
       wred_configuration:
         description:
         - The Weighted Random Early Detection (WRED) Algorithm configuration.
-        - Providing an empty list will remove the O(qos_levels.wred_configuration=[])
+        - Providing a new list of O(qos_levels.wred_configuration) will replace the existing one from the list of QoS levels.
+        - Providing an empty list will remove the O(qos_levels.wred_configuration=[]) from the list of QoS levels.
           from the QoS Class Policy.
         type: dict
         suboptions:
@@ -200,13 +202,13 @@ EXAMPLES = r"""
     state: present
   register: create_qos_class_policy
 
-- name: Update a QoS Class policy by adding QoS level1 with minimum configuration
+- name: Update a QoS Class policy using UUID by adding QoS level1 with minimum configuration
   cisco.mso.ndo_qos_class_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    name: ansible_test_qos_class_policy
+    uuid: "{{ create_qos_class_policy.current.uuid }}"
     description: Ansible Test QoS Class Policy
     preserve_cos: true
     qos_levels:
@@ -272,7 +274,7 @@ EXAMPLES = r"""
     state: present
   register: remove_qos_class_policy_all_levels
 
-- name: Query QoS Class policy with name
+- name: Query QoS Class policy using name
   cisco.mso.ndo_qos_class_policy:
     host: mso_host
     username: admin
@@ -282,7 +284,7 @@ EXAMPLES = r"""
     state: query
   register: query_one
 
-- name: Query QoS Class policy with uuid
+- name: Query QoS Class policy using UUID
   cisco.mso.ndo_qos_class_policy:
     host: mso_host
     username: admin
@@ -292,7 +294,7 @@ EXAMPLES = r"""
     state: query
   register: query_one_uuid
 
-- name: Delete a QoS Class policy with name
+- name: Delete a QoS Class policy using name
   cisco.mso.ndo_qos_class_policy:
     host: mso_host
     username: admin
@@ -301,7 +303,7 @@ EXAMPLES = r"""
     name: ansible_test_qos_class_policy
     state: absent
 
-- name: Delete a QoS Class policy with uuid
+- name: Delete a QoS Class policy using UUID
   cisco.mso.ndo_qos_class_policy:
     host: mso_host
     username: admin
@@ -426,6 +428,9 @@ def main():
         mso.existing = mso.previous = mso_template.update_config_with_template_and_references(existing_qos_policies)
 
     if state == "present":
+        if uuid and not mso.existing:
+            mso.fail_json(msg="{0} with the UUID: '{1}' not found".format(object_description, uuid))
+
         mso_values = {
             "name": name,
             "description": description,

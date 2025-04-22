@@ -809,6 +809,19 @@
       register: nt_add_with_all_destination
       ignore_errors: true
 
+    - name: Create Fabric SPAN Session with invalid destination_port
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: invalid_span_session
+        destination_port:
+          port:
+            node: 1011
+            path: eth1/1
+        state: present
+      register: nt_add_with_invalid_destination_port
+      ignore_errors: true
+
     - name: Create Fabric SPAN Session without destination_epg, destination_port and destination_port_channel
       cisco.mso.ndo_fabric_span_session:
         <<: *mso_info
@@ -856,6 +869,8 @@
           - nt_update_port_channel_with_uuid.previous == {}
           - nt_query_one_object is not changed
           - nt_query_one_object.current == {}
+          - nt_add_with_invalid_destination_port is not changed
+          - nt_add_with_invalid_destination_port.msg is match("The site port interface not found. Site ID{{':'}} [a-zA-z0-9]*, Node{{':'}} 1011 and Path{{':'}} eth1/1")
 
     # DELETE
     - name: Delete a specific SPAN Session using Name (check_mode)
@@ -898,7 +913,7 @@
           - cm_rm_span_session_with_name is changed
           - cm_rm_span_session_with_name.current == {}
           - cm_rm_span_session_with_name.previous.name == "ansible_test_pc_updated"
-          - cm_rm_span_session_with_name.proposed.templateName == "ansible_test"
+          - cm_rm_span_session_with_name.proposed == {}
           - nm_rm_span_session_with_name is changed
           - nm_rm_span_session_with_name.current == {}
           - nm_rm_span_session_with_name.previous.destination.local.portChannelName == "ansible_test_resource_pc_1"

@@ -69,12 +69,12 @@ options:
       epg_uuid:
         description:
         - The UUID of the destination EPG to use for the SPAN Session.
-        - This parameter or O(destination_epg.epg) is required when creating the SPAN Session.
+        - This parameter or O(destination_epg.epg) is required.
         type: str
       epg:
         description:
         - The destination EPG to use for the SPAN Session.
-        - This parameter or O(destination_epg.epg_uuid) is required when creating the SPAN Session.
+        - This parameter or O(destination_epg.epg_uuid) is required.
         type: dict
         suboptions:
           name:
@@ -181,12 +181,12 @@ options:
       port_uuid:
         description:
         - The UUID of the destination port to use for the SPAN Session.
-        - This parameter or O(destination_port.port) is required when creating the SPAN Session.
+        - This parameter or O(destination_port.port) is required.
         type: str
-      port:        
+      port:
         description:
         - The destination port to use for the SPAN Session.
-        - This parameter or O(destination_port.port_uuid) is required when creating the SPAN Session.
+        - This parameter or O(destination_port.port_uuid) is required.
         type: dict
         suboptions:
           node:
@@ -208,12 +208,12 @@ options:
       port_channel_uuid:
         description:
         - The UUID of the destination port channel to use for the SPAN Session.
-        - This parameter or O(destination_port_channel.port_channel) is required when creating the SPAN Session.
+        - This parameter or O(destination_port_channel.port_channel) is required.
         type: str
-      port_channel:        
+      port_channel:
         description:
         - The destination port channel to use for the SPAN Session.
-        - This parameter or O(destination_port_channel.port_channel_uuid) is required when creating the SPAN Session.
+        - This parameter or O(destination_port_channel.port_channel_uuid) is required.
         type: dict
         suboptions:
           name:
@@ -245,7 +245,7 @@ notes:
 - The O(destination_epg.epg) must exist before using it with this module in your playbook.
   Use M(cisco.mso.mso_schema_template_anp_epg) to create the EPG.
 - The O(destination_port_channel.port_channel) must exist before using it with this module in your playbook.
-  Use M(cisco.mso.ndo_port_channel_interface) to create the Fabric resource port channel interface.  
+  Use M(cisco.mso.ndo_port_channel_interface) to create the Fabric resource port channel interface.
 seealso:
 - module: cisco.mso.ndo_template
 - module: cisco.mso.mso_schema_template_anp_epg
@@ -270,7 +270,7 @@ EXAMPLES = r"""
       destination_ip: "1.1.1.1"
       source_ip_prefix: "2.2.2.2"
     state: present
-  register: add_epg_span_session
+  register: create_epg_span_session
 
 - name: Create Port - Fabric SPAN Session
   cisco.mso.ndo_fabric_span_session:
@@ -341,7 +341,17 @@ EXAMPLES = r"""
       source_ip_prefix: "2.2.2.2"
     state: present
 
-- name: Query a specific SPAN Session
+- name: Update the Fabric SPAN Session name using UUID
+  cisco.mso.ndo_fabric_span_session:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test
+    uuid: "{{ create_epg_span_session.current.uuid }}"
+    name: ansible_test_pc_updated
+    state: present
+
+- name: Query a specific Fabric SPAN Session using name
   cisco.mso.ndo_fabric_span_session:
     host: mso_host
     username: admin
@@ -349,9 +359,19 @@ EXAMPLES = r"""
     template: ansible_test
     name: ansible_test_pc_updated
     state: query
-  register: query_one_object
+  register: query_with_name
 
-- name: Query all SPAN Sessions
+- name: Query a specific Fabric SPAN Session using UUID
+  cisco.mso.ndo_fabric_span_session:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: ansible_test
+    uuid: "{{ create_epg_span_session.current.uuid }}"
+    state: query
+  register: query_with_uuid
+
+- name: Query all Fabric SPAN Sessions
   cisco.mso.ndo_fabric_span_session:
     host: mso_host
     username: admin
@@ -360,7 +380,7 @@ EXAMPLES = r"""
     state: query
   register: query_all_objects
 
-- name: Delete a specific SPAN Session using Name
+- name: Delete a specific Fabric SPAN Session using Name
   cisco.mso.ndo_fabric_span_session:
     host: mso_host
     username: admin
@@ -375,7 +395,7 @@ EXAMPLES = r"""
     username: admin
     password: SomeSecretPassword
     template_id: ansible_test
-    uuid: "{{ add_epg_span_session.current.uuid }}"
+    uuid: "{{ create_epg_span_session.current.uuid }}"
     state: absent
 """
 
@@ -435,7 +455,7 @@ def main():
                 port=dict(
                     type="dict",
                     options=dict(
-                        node=dict(type="str", required=True),
+                        node=dict(type="int", required=True),
                         path=dict(type="str", required=True),
                     ),
                 ),
@@ -548,19 +568,11 @@ def main():
         if destination_port:
             # Destination Port supports UUIDs, but we have no module to get them
             destination_port_uuid = destination_port.get("port_uuid")
+
             if destination_port_uuid is None:
                 node = destination_port.get("port").get("node")
                 interface_port = destination_port.get("port").get("path")
-
-                site_data = mso.request(
-                    "/sitephysifsummary/site/{0}?node={1}".format(mso_template.template.get("monitoringTemplate").get("sites")[0].get("siteId"), node),
-                    method="GET",
-                )
-                if site_data:
-                    for interface in site_data.get("spec", {}).get("interfaces", []):
-                        if interface.get("port") == interface_port and interface.get("node") == node:
-                            destination_port_uuid = interface.get("uuid")
-
+                destination_port_uuid = get_site_interface_details(mso, site_id=site_id, uuid=None, node=node, port=interface_port).get("uuid")
             mso_values["destination"] = dict(local=dict(accessInterface=destination_port_uuid), mtu=mtu)
 
         if destination_port_channel:
@@ -656,29 +668,14 @@ def main():
 
 
 def set_fabric_span_session_object_details(mso_template, site_id, span_session):
-    span_session.update({"templateId": mso_template.template_id, "templateName": mso_template.template_name})
-    if span_session.get("destination", {}).get("local", {}).get("accessInterface"):
-        interface = get_site_interface_details(mso_template.mso, site_id, span_session.get("destination").get("local").get("accessInterface"))
-        interface.pop("uuid", None)
-        span_session.get("destination").get("local").update(interface)
-    elif span_session.get("destination", {}).get("local", {}).get("portChannel"):
-        mso_template.update_config_with_template_and_references(
-            span_session.get("destination").get("local"),
-            {
-                "local": {
-                    "name": "portChannelName",
-                    "reference": "portChannel",
-                    "type": "portChannel",
-                    "template": "portChannelTemplateName",
-                    "templateId": "portChannelTemplateId",
-                }
-            },
-            False,
-        )
-    elif span_session.get("destination", {}).get("remote", {}).get("epgRef"):
-        mso_template.update_config_with_template_and_references(
-            span_session.get("destination").get("remote"),
-            {
+    if span_session:
+        span_session.update({"templateId": mso_template.template_id, "templateName": mso_template.template_name})
+        if span_session.get("destination", {}).get("local", {}).get("accessInterface"):
+            interface = get_site_interface_details(mso_template.mso, site_id, span_session.get("destination").get("local").get("accessInterface"))
+            interface.pop("uuid", None)
+            span_session.get("destination").get("local").update(interface)
+        else:
+            reference_details = {
                 "remote": {
                     "name": "epgName",
                     "reference": "epgRef",
@@ -687,10 +684,20 @@ def set_fabric_span_session_object_details(mso_template, site_id, span_session):
                     "templateId": "epgTemplateId",
                     "schema": "epgSchemaName",
                     "schemaId": "epgSchemaId",
-                }
-            },
-            False,
-        )
+                },
+                "local": {
+                    "name": "portChannelName",
+                    "reference": "portChannel",
+                    "type": "portChannel",
+                    "template": "portChannelTemplateName",
+                    "templateId": "portChannelTemplateId",
+                },
+            }
+            mso_template.update_config_with_template_and_references(
+                span_session.get("destination"),
+                reference_details,
+                False,
+            )
     return span_session
 
 

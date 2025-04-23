@@ -392,11 +392,23 @@
         state: present
       ignore_errors: true
       register: nm_create_qos_class_policy_with_duplicate_level
-    
+
+    - name: Update a new QoS Class policy with non-existing UUID
+      cisco.mso.ndo_qos_class_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        uuid: non-existing-uuid
+        state: present
+      ignore_errors: true
+      register: update_non_existing_uuid
+
     - name: Assert QoS Class policy errors
       assert:
         that:
+          - nm_create_qos_class_policy_with_duplicate_level is failed
           - nm_create_qos_class_policy_with_duplicate_level.msg == "Duplicate configurations for QoS level1"
+          - update_non_existing_uuid is failed
+          - update_non_existing_uuid.msg == "QoS Class Policy with the UUID{{":"}} 'non-existing-uuid' not found"
 
     # DELETE
     - name: Delete the QoS Class policy (check mode)

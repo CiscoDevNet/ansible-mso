@@ -55,7 +55,7 @@ options:
   preserve_cos:
     description:
     - Whether to preserve the Class of Service (CoS).
-    - Defaults to C(trues) when unset during creation.
+    - Defaults to true when unset during creation.
     type: bool
   qos_levels:
     description:
@@ -75,13 +75,13 @@ options:
         description:
         - The MTU value.
         - The value must be between 1500 and 9216.
-        - Defaults to C(9216) when unset during creation.
+        - Defaults to 9216 when unset during creation.
         type: int
       minimum_buffer:
         description:
         - The minimum number of reserved buffers.
         - The value must be between 0 and 3.
-        - Defaults to C(0) when unset during creation.
+        - Defaults to 0 when unset during creation.
         type: int
       congestion_algorithm:
         description:
@@ -108,19 +108,19 @@ options:
             description:
             - Whether to forward Non-ECN Traffic.
             - This attribute should only be used when O(qos_levels.wred_configuration.congestion_notification="enabled").
-            - Defaults to C(false) when unset during creation.
+            - Defaults to false when unset during creation.
             type: bool
           minimum_threshold:
             description:
             - The The minimum queue threshold as a percentage of the maximum queue length for WRED algorithm.
             - The value must be between 0 and 100.
-            - Defaults to C(0) when unset during creation.
+            - Defaults to 0 when unset during creation.
             type: int
           maximum_threshold:
             description:
             - The maximum queue threshold as a percentage of the maximum queue length for WRED algorithm.
             - The value must be between 0 and 100.
-            - Defaults to C(100) when unset during creation.
+            - Defaults to 100 when unset during creation.
             type: int
           probability:
             description:
@@ -128,14 +128,14 @@ options:
             - The probability used to determine whether a packet is dropped or queued
               when the average queue size is between the minimum and the maximum threshold values.
             - The value must be between 0 and 100.
-            - Defaults to C(0) when unset during creation.
+            - Defaults to 0 when unset during creation.
             type: int
           weight:
             description:
             - The weight value for WRED algorithm.
             - Lower weight prioritizes current queue length, while higher weight prioritizes older queue lengths.
             - The value must be between 0 and 7.
-            - Defaults to C(0) when unset during creation.
+            - Defaults to 0 when unset during creation.
             type: int
       scheduling_algorithm:
         description:
@@ -147,7 +147,7 @@ options:
         description:
         - The percentage of total bandwidth allocated to this QoS Level.
         - The value must be between 0 and 100.
-        - Defaults to C(20) when unset during creation.
+        - Defaults to 20 when unset during creation.
         type: int
       pfc_admin_state:
         description:
@@ -317,18 +317,9 @@ RETURN = r"""
 """
 import copy
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import (
-    MSOModule,
-    mso_argument_spec,
-)
-from ansible_collections.cisco.mso.plugins.module_utils.template import (
-    MSOTemplate,
-    KVPair,
-)
-from ansible_collections.cisco.mso.plugins.module_utils.utils import (
-    append_update_ops_data,
-    delete_none_values,
-)
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, delete_none_values
 from ansible_collections.cisco.mso.plugins.module_utils.constants import (
     QOS_CONGESTION_ALGORITHM_MAP,
     QOS_SCHEDULING_ALGORITHM_MAP,
@@ -355,7 +346,7 @@ def main():
                 level=dict(type="str", required=True, choices=qos_level_list),
                 mtu=dict(type="int"),
                 minimum_buffer=dict(type="int"),
-                congestion_algorithm=dict(type="str", choices=["tail_drop", "wred"]),
+                congestion_algorithm=dict(type="str", choices=list(QOS_CONGESTION_ALGORITHM_MAP)),
                 wred_configuration=dict(
                     type="dict",
                     options=dict(
@@ -367,12 +358,12 @@ def main():
                         weight=dict(type="int"),
                     ),
                 ),
-                scheduling_algorithm=dict(type="str", choices=["weighted_round_robin", "strict_priority"]),
+                scheduling_algorithm=dict(type="str", choices=list(QOS_SCHEDULING_ALGORITHM_MAP)),
                 bandwidth_allocated=dict(type="int"),
                 pfc_admin_state=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
                 admin_state=dict(type="str", choices=["enabled", "disabled"]),
                 no_drop_cos=dict(type="str", choices=["cos0", "cos1", "cos2", "cos3", "cos4", "cos5", "cos6", "cos7", "unspecified"]),
-                pfc_scope=dict(type="str", choices=["fabric_wide", "intra_tor"]),
+                pfc_scope=dict(type="str", choices=list(QOS_PFC_SCOPE_MAP)),
             ),
             required_if=[
                 ["pfc_admin_state", "enabled", ["no_drop_cos"]],
@@ -444,6 +435,7 @@ def main():
                 else:
                     qos_level_list.remove(level)
 
+                wred_configuration = None
                 if qos_level.get("wred_configuration"):
                     wred_configuration = {
                         "congestionNotification": qos_level["wred_configuration"].get("congestion_notification"),
@@ -453,8 +445,6 @@ def main():
                         "weight": qos_level["wred_configuration"].get("weight"),
                         "forwardNonEcn": qos_level["wred_configuration"].get("forward_non_ecn_traffic"),
                     }
-                else:
-                    wred_configuration = None
 
                 mso_values[level] = {
                     "adminState": qos_level.get("admin_state"),
@@ -474,7 +464,7 @@ def main():
         mso_values = delete_none_values(mso_values)
 
         if match:
-            append_update_ops_data(ops, match.details, path, mso_values, qos_level_list)
+            append_update_ops_data(ops, match.details, path, mso_values, remove_data=qos_level_list)
             mso.sanitize(match.details, collate=True)
 
         else:

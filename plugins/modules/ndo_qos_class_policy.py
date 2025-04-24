@@ -60,8 +60,8 @@ options:
   qos_levels:
     description:
     - The list of configurable QoS levels for the QoS Class Policy.
-    - Providing a new list of O(qos_levels) will replace the existing one from the Qos Class Policy.
-    - Providing an empty list will remove the O(qos_levels=[]) fron the Qos Class Policy.
+    - Providing a new list of O(qos_levels) will replace the existing one from the QoS Class Policy.
+    - Providing an empty list will remove the O(qos_levels=[]) from the QoS Class Policy.
     type: list
     elements: dict
     suboptions:

@@ -112,7 +112,7 @@ options:
             type: bool
           minimum_threshold:
             description:
-            - The The minimum queue threshold as a percentage of the maximum queue length for WRED algorithm.
+            - The minimum queue threshold as a percentage of the maximum queue length for WRED algorithm.
             - The value must be between 0 and 100.
             - Defaults to 0 when unset during creation.
             type: int
@@ -325,12 +325,13 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import (
     QOS_SCHEDULING_ALGORITHM_MAP,
     QOS_PFC_SCOPE_MAP,
     QOS_LEVEL,
+    COS_VALUES,
 )
 
 
 def main():
-    qos_level_list = copy.copy(QOS_LEVEL)
-    qos_level_list.remove("unspecified")
+    qos_levels_to_remove = copy.copy(QOS_LEVEL)  # A list that tracks of all levels to be removed during the PATCH operation when qos_levels is being updated
+    qos_levels_to_remove.remove("unspecified")  # "unspecified" is removed as it is not a valid value for qos_levels.level
     argument_spec = mso_argument_spec()
     argument_spec.update(
         template=dict(type="str"),
@@ -343,7 +344,7 @@ def main():
             type="list",
             elements="dict",
             options=dict(
-                level=dict(type="str", required=True, choices=qos_level_list),
+                level=dict(type="str", required=True, choices=qos_levels_to_remove),
                 mtu=dict(type="int"),
                 minimum_buffer=dict(type="int"),
                 congestion_algorithm=dict(type="str", choices=list(QOS_CONGESTION_ALGORITHM_MAP)),
@@ -362,7 +363,7 @@ def main():
                 bandwidth_allocated=dict(type="int"),
                 pfc_admin_state=dict(type="str", choices=["enabled", "disabled"], default="disabled"),
                 admin_state=dict(type="str", choices=["enabled", "disabled"]),
-                no_drop_cos=dict(type="str", choices=["cos0", "cos1", "cos2", "cos3", "cos4", "cos5", "cos6", "cos7", "unspecified"]),
+                no_drop_cos=dict(type="str", choices=COS_VALUES),
                 pfc_scope=dict(type="str", choices=list(QOS_PFC_SCOPE_MAP)),
             ),
             required_if=[
@@ -430,10 +431,10 @@ def main():
         if qos_levels is not None:
             for qos_level in qos_levels:
                 level = qos_level.get("level")
-                if level not in qos_level_list:
+                if level not in qos_levels_to_remove:
                     mso.fail_json(msg="Duplicate configurations for QoS {0}".format(level))
                 else:
-                    qos_level_list.remove(level)
+                    qos_levels_to_remove.remove(level)
 
                 wred_configuration = None
                 if qos_level.get("wred_configuration"):
@@ -459,12 +460,12 @@ def main():
                     "pfcScope": QOS_PFC_SCOPE_MAP.get(qos_level.get("pfc_scope")),
                 }
         else:
-            qos_level_list = []
+            qos_levels_to_remove = []
 
         mso_values = delete_none_values(mso_values)
 
         if match:
-            append_update_ops_data(ops, match.details, path, mso_values, remove_data=qos_level_list)
+            append_update_ops_data(ops, match.details, path, mso_values, remove_data=qos_levels_to_remove)
             mso.sanitize(match.details, collate=True)
 
         else:

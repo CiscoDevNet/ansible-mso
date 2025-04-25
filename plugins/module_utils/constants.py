@@ -243,3 +243,4 @@ LOCAL_ASN_CONFIG = {"none": "none", "no_prepend": "no-prepend", "dual_as": "dual
 QOS_CONGESTION_ALGORITHM_MAP = {"tail_drop": "tailDrop", "wred": "wred"}
 QOS_SCHEDULING_ALGORITHM_MAP = {"strict_priority": "strictPriority", "weighted_round_robin": "wrr"}
 QOS_PFC_SCOPE_MAP = {"fabric_wide": "fabricWide", "intra_tor": "intraTor"}
+COS_VALUES = ["cos0", "cos1", "cos2", "cos3", "cos4", "cos5", "cos6", "cos7", "unspecified"]

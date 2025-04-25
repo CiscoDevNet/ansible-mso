@@ -6,6 +6,21 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.11.0
+=======
+
+Release Summary
+---------------
+
+Release v2.11.0 of the ``ansible-mso`` collection on 2025-04-25.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.10.0.
+
+Minor Changes
+-------------
+
+- Added ndo_l3out_bgp_peer module to manage L3Out Node/Interface Group Policy - BGP Peer objects
+- Addition of new module ndo_service_device_cluster and its test file
+
 v2.10.0
 =======
 

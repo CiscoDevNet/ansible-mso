@@ -166,27 +166,24 @@ def main():
     mso_template.validate_template("fabricPolicy")
 
     path = "/fabricPolicyTemplate/template/l3Domains"
-    existing_l3_domains = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("l3Domains", [])
-    if l3_domain or l3_domain_uuid:
-        object_description = "L3 Domain"
-        if l3_domain_uuid:
-            match = mso_template.get_object_by_uuid(object_description, existing_l3_domains, l3_domain_uuid)
-        else:
-            kv_list = [KVPair("name", l3_domain)]
-            match = mso_template.get_object_by_key_value_pairs(object_description, existing_l3_domains, kv_list)
+    match = get_l3_domain(mso_template, l3_domain_uuid, l3_domain)
+    if l3_domain_uuid or l3_domain:
         if match:
             if match.details.get("pool"):
+                match.details["poolRef"] = match.details.get("pool")
                 match.details["pool"] = mso_template.get_vlan_pool_name(match.details.get("pool"))
-            mso.existing = mso.previous = copy.deepcopy(match.details)
-    else:
-        mso.existing = mso.previous = existing_l3_domains
+            mso.existing = mso.previous = copy.deepcopy(match.details)  # Query a specific object
+    elif match:
+        for l3_domain in match:
+            if l3_domain.get("pool"):
+                l3_domain["poolRef"] = l3_domain.get("pool")
+                l3_domain["pool"] = mso_template.get_vlan_pool_name(l3_domain.get("pool"))
+        mso.existing = match  # Query all objects
 
     if state == "present":
-
         mso.existing = {}
 
         if match:
-
             if l3_domain and match.details.get("name") != l3_domain:
                 ops.append(dict(op="replace", path="{0}/{1}/name".format(path, match.index), value=l3_domain))
                 match.details["name"] = l3_domain
@@ -205,17 +202,19 @@ def main():
             mso.sanitize(match.details)
 
         else:
-
             payload = {"name": l3_domain, "templateId": mso_template.template.get("templateId"), "schemaId": mso_template.template.get("schemaId")}
             if description:
                 payload["description"] = description
+
             if pool:
-                payload["pool"] = mso_template.get_vlan_pool_uuid(pool)
+                pool_uuid = mso_template.get_vlan_pool_uuid(pool)
+                payload["pool"] = pool_uuid
 
             ops.append(dict(op="add", path="{0}/-".format(path), value=copy.deepcopy(payload)))
 
             if pool:
                 payload["pool"] = pool
+                payload["poolRef"] = pool_uuid
 
             mso.sanitize(payload)
 
@@ -227,9 +226,27 @@ def main():
         mso.existing = {}
 
     if not module.check_mode and ops:
-        mso.request(mso_template.template_path, method="PATCH", data=ops)
+        mso_template.template = mso.request(mso_template.template_path, method="PATCH", data=ops)
+        match = get_l3_domain(mso_template, l3_domain_uuid, l3_domain)
+        if match:
+            if match.details.get("pool"):
+                match.details["poolRef"] = match.details.get("pool")
+                match.details["pool"] = mso_template.get_vlan_pool_name(match.details.get("pool"))
+            mso.existing = match.details  # When the state is present
+        else:
+            mso.existing = {}  # When the state is absent
+    elif module.check_mode and state != "query":  # When the state is present/absent with check mode
+        mso.proposed["poolRef"] = mso_template.get_vlan_pool_uuid(pool)
+        mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
+
+
+def get_l3_domain(mso_template, uuid=None, name=None, fail_module=False):
+    match = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("l3Domains", [])
+    if uuid or name:  # Query a specific object
+        return mso_template.get_object_by_key_value_pairs("L3 Domain", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+    return match  # Query all objects
 
 
 if __name__ == "__main__":

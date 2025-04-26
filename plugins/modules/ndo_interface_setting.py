@@ -547,6 +547,8 @@ def main():
     if state in ["query", "absent"] and existing_interface_policies == []:
         mso.exit_json()
     elif state == "query" and not (name or uuid):
+        for interface in existing_interface_policies:
+            map_interface_settings_ref_name(mso_template, template_info, interface, "uuid")
         mso.existing = existing_interface_policies
     elif existing_interface_policies and (name or uuid):
         match = mso_template.get_object_by_key_value_pairs(
@@ -554,7 +556,7 @@ def main():
         )
         if match:
             interface_path = "/fabricPolicyTemplate/template/interfacePolicyGroups/{0}".format(match.index)
-            mso.existing = mso.previous = copy.deepcopy(match.details)
+            mso.existing = mso.previous = copy.deepcopy(map_interface_settings_ref_name(mso_template, template_info, match.details, "uuid"))
 
     if state == "present":
         if uuid and not mso.existing:
@@ -578,7 +580,7 @@ def main():
                 ops.append(dict(op="remove", path=interface_path + "/domains"))
                 proposed_payload.pop("domains", None)
             elif domains:
-                domain_uuid_list = validate_domains(mso, domains, template, template_info)
+                domain_uuid_list, domain_uuid_name_list = validate_domains(mso, domains, template, template_info)
                 if set(domain_uuid_list) != set(mso.existing.get("domains", [])):
                     ops.append(dict(op="replace", path=interface_path + "/domains", value=domain_uuid_list))
                 proposed_payload["domains"] = domain_uuid_list
@@ -706,7 +708,7 @@ def main():
                 ops.append(dict(op="remove", path=interface_path + "/portChannelPolicy/control"))
                 mso.existing.pop("controls", None)
 
-            mso.sanitize(proposed_payload, collate=True)
+            mso.sanitize(map_interface_settings_ref_name(mso_template, template_info, proposed_payload, "uuid"), collate=True)
 
         else:
             if not interface_type:
@@ -729,8 +731,7 @@ def main():
                 payload["description"] = description
 
             if domains:
-                domain_uuid_list = validate_domains(mso, domains, template, template_info)
-                payload["domains"] = domain_uuid_list
+                payload["domains"], domain_uuid_name_list = validate_domains(mso, domains, template, template_info)
 
             if synce:
                 existing_sync_e = validate_sync_e(mso, synce, template, template_info)
@@ -806,8 +807,8 @@ def main():
             if controls:
                 payload["portChannelPolicy"]["control"] = controls
 
-            mso.sanitize(payload)
-            ops.append(dict(op="add", path="/fabricPolicyTemplate/template/interfacePolicyGroups/-", value=mso.sent))
+            ops.append(dict(op="add", path="/fabricPolicyTemplate/template/interfacePolicyGroups/-", value=copy.deepcopy(payload)))
+            mso.sanitize(map_interface_settings_ref_name(mso_template, template_info, payload, "uuid"))
 
         mso.existing = mso.proposed
 
@@ -820,38 +821,75 @@ def main():
         interface_policies = response.get("fabricPolicyTemplate", {}).get("template", {}).get("interfacePolicyGroups", [])
         match = mso_template.get_object_by_key_value_pairs(object_description, interface_policies, [KVPair("uuid", uuid) if uuid else KVPair("name", name)])
         if match:
-            mso.existing = match.details  # When the state is present
+            mso.existing = map_interface_settings_ref_name(mso_template, template_info, match.details, "uuid")  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
-        mso.existing = mso.proposed if state == "present" else {}
+        mso.existing = map_interface_settings_ref_name(mso_template, template_info, mso.proposed, "uuid") if state == "present" else {}
 
     mso.exit_json()
 
 
-def validate_domains(mso, domains, template, template_info):
+def map_interface_settings_ref_name(mso_template, template_info, interface_settings, domain_input_type="name"):
+    if interface_settings.get("accessMACsecPolicy"):
+        interface_settings["accessMACsecPolicyName"] = validate_macsec_policy(
+            mso_template.mso, interface_settings.get("accessMACsecPolicy"), mso_template, template_info
+        ).get(interface_settings["accessMACsecPolicy"])
+
+    if interface_settings.get("syncEthPolicy"):
+        interface_settings["syncEthPolicyName"] = validate_sync_e(mso_template.mso, interface_settings.get("syncEthPolicy"), mso_template, template_info).get(
+            interface_settings["syncEthPolicy"]
+        )
+
+    if interface_settings.get("domains"):
+        domain_uuid_list, interface_settings["domainsName"] = validate_domains(
+            mso_template.mso, interface_settings.get("domains"), mso_template.template_name, template_info, domain_input_type
+        )
+    return interface_settings
+
+
+def validate_domains(mso, domains, template, template_info, input_type="name"):
     domain_uuid_list = []
-    existing_physical_domains = {domain["name"]: domain["uuid"] for domain in template_info.get("domains", [])}
-    existing_l3_domains = {domain["name"]: domain["uuid"] for domain in template_info.get("l3Domains", [])}
-    for item in domains:
-        if item in existing_physical_domains:
-            domain_uuid_list.append(existing_physical_domains[item])
-        elif item in existing_l3_domains:
-            domain_uuid_list.append(existing_l3_domains[item])
+    domain_uuid_name_list = dict()
+    # Combine physical and L3 domains into a single dictionary
+    existing_domains = dict()
+
+    for domain in template_info.get("domains", []):
+        existing_domains[domain["name"]] = domain["uuid"]
+        existing_domains[domain["uuid"]] = domain["name"]
+
+    for domain in template_info.get("l3Domains", []):
+        existing_domains[domain["name"]] = domain["uuid"]
+        existing_domains[domain["uuid"]] = domain["name"]
+
+    for domain in domains:
+        if domain in existing_domains:
+            if input_type == "name":
+                domain_uuid_list.append(existing_domains[domain])
+                domain_uuid_name_list[domain] = existing_domains[domain]
+            else:
+                domain_uuid_list.append(domain)
+                domain_uuid_name_list[existing_domains[domain]] = domain
         else:
-            mso.fail_json(msg="Domain '{0}' not found in the template '{1}'.".format(item, template))
-    return domain_uuid_list
+            mso.fail_json(msg="Domain '{0}' not found in the template '{1}'.".format(domain, template))
+    return domain_uuid_list, domain_uuid_name_list
 
 
 def validate_macsec_policy(mso, access_macsec_policy, template, template_info):
-    existing_access_macsec_policy = {macsec_policy["name"]: macsec_policy["uuid"] for macsec_policy in template_info.get("macsecPolicies", [])}
+    existing_access_macsec_policy = dict()
+    for macsec_policy in template_info.get("macsecPolicies", []):
+        existing_access_macsec_policy[macsec_policy["name"]] = macsec_policy["uuid"]
+        existing_access_macsec_policy[macsec_policy["uuid"]] = macsec_policy["name"]
     if access_macsec_policy not in existing_access_macsec_policy:
         mso.fail_json(msg="Access MACsec policy '{0}' not found in the template '{1}'.".format(access_macsec_policy, template))
     return existing_access_macsec_policy
 
 
 def validate_sync_e(mso, synce, template, template_info):
-    existing_sync_e = {synce["name"]: synce["uuid"] for synce in template_info.get("syncEthIntfPolicies", [])}
+    existing_sync_e = dict()
+    for synceth_intf_policy in template_info.get("syncEthIntfPolicies", []):
+        existing_sync_e[synceth_intf_policy["name"]] = synceth_intf_policy["uuid"]
+        existing_sync_e[synceth_intf_policy["uuid"]] = synceth_intf_policy["name"]
     if synce not in existing_sync_e:
         mso.fail_json(msg="SyncE policy '{0}' not found in the template '{1}'.".format(synce, template))
     return existing_sync_e

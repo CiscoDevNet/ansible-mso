@@ -214,23 +214,16 @@ def main():
     mso_template.validate_template("tenantPolicy")
 
     path = "/tenantPolicyTemplate/template/dhcpRelayPolicies"
-    existing_dhcp_relay_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("dhcpRelayPolicies", [])
-    if relay_policy or relay_policy_uuid:
-        object_description = "DHCP Relay Policy"
-        if relay_policy_uuid:
-            match = mso_template.get_object_by_uuid(object_description, existing_dhcp_relay_policies, relay_policy_uuid)
-        else:
-            kv_list = [KVPair("name", relay_policy)]
-            match = mso_template.get_object_by_key_value_pairs(object_description, existing_dhcp_relay_policies, kv_list)
+    match = get_dhcp_relay_policy(mso_template, relay_policy_uuid, relay_policy)
+
+    if relay_policy_uuid or relay_policy:
         if match:
-            mso.existing = mso.previous = copy.deepcopy(match.details)
-    else:
-        mso.existing = mso.previous = existing_dhcp_relay_policies
+            mso.existing = mso.previous = copy.deepcopy(insert_dhcp_relay_policy_relation_name(match.details, mso_template))  # Query a specific object
+    elif match:
+        mso.existing = [insert_dhcp_relay_policy_relation_name(dhcp_relay_policy, mso_template) for dhcp_relay_policy in match]  # Query all objects
 
     if state == "present":
-
         if match:
-
             if module.params.get("providers") is not None and len(providers) == 0:
                 mso.fail_json(msg=err_message_min_providers)
 
@@ -249,7 +242,6 @@ def main():
             mso.sanitize(match.details)
 
         else:
-
             if not providers:
                 mso.fail_json(msg=err_message_min_providers)
 
@@ -269,19 +261,40 @@ def main():
         mso.existing = {}
 
     if not module.check_mode and ops:
-        mso.request(mso_template.template_path, method="PATCH", data=ops)
+        mso_template.template = mso.request(mso_template.template_path, method="PATCH", data=ops)
+        match = get_dhcp_relay_policy(mso_template, relay_policy_uuid, relay_policy)
+        if match:
+            mso.existing = insert_dhcp_relay_policy_relation_name(match.details, mso_template)  # When the state is present
+        else:
+            mso.existing = {}  # When the state is absent
+    elif module.check_mode and state != "query":  # When the state is present/absent with check mode
+        mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
 
 
-def get_providers_payload(mso, providers):
+def insert_dhcp_relay_policy_relation_name(dhcp_relay_policy, mso_template):
+    for provider in dhcp_relay_policy.get("providers"):
+        if provider.get("epgRef"):
+            provider["epgName"] = mso_template.get_template_object_name_by_uuid("epg", provider.get("epgRef"))
+        if provider.get("externalEpgRef"):
+            provider["externalEpgName"] = mso_template.get_template_object_name_by_uuid("externalEpg", provider.get("externalEpgRef"))
+    return dhcp_relay_policy
 
+
+def get_dhcp_relay_policy(mso_template, uuid=None, name=None, fail_module=False):
+    match = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("dhcpRelayPolicies", [])
+    if uuid or name:  # Query a specific object
+        return mso_template.get_object_by_key_value_pairs("DHCP Relay Policy", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+    return match  # Query all objects
+
+
+def get_providers_payload(mso, providers):
     # Cache used to reduce the number of schema queries done by MSOSchema function.
     schema_cache = {}
 
     payload = []
     for provider in providers:
-
         schema = provider.get("schema")
         template = provider.get("template")
         anp = provider.get("anp")
@@ -309,9 +322,11 @@ def get_providers_payload(mso, providers):
             schema_cache[schema].set_template_anp(anp)
             schema_cache[schema].set_template_anp_epg(epg)
             provider_payload["epgRef"] = schema_cache[schema].schema_objects["template_anp_epg"].details.get("uuid")
+            provider_payload["epgName"] = epg
         else:
             schema_cache[schema].set_template_external_epg(external_epg)
             provider_payload["externalEpgRef"] = schema_cache[schema].schema_objects.get("template_external_epg").details.get("uuid")
+            provider_payload["externalEpgName"] = external_epg
 
         payload.append(provider_payload)
     return payload

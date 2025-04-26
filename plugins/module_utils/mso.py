@@ -819,7 +819,7 @@ class MSOModule(object):
         found = []
         objs = self.request(path, api_version=api_version, method="GET")
 
-        if objs == {} or objs == []:
+        if not objs:
             return found
 
         if key is None:

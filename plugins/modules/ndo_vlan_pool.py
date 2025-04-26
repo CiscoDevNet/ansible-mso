@@ -181,26 +181,19 @@ def main():
     mso_template.validate_template("fabricPolicy")
 
     path = "/fabricPolicyTemplate/template/vlanPools"
-    existing_vlan_pools = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("vlanPools", [])
-    if vlan_pool or vlan_pool_uuid:
-        object_description = "VLAN Pool"
-        if vlan_pool_uuid:
-            match = mso_template.get_object_by_uuid(object_description, existing_vlan_pools, vlan_pool_uuid)
-        else:
-            kv_list = [KVPair("name", vlan_pool)]
-            match = mso_template.get_object_by_key_value_pairs(object_description, existing_vlan_pools, kv_list)
+    match = get_fabric_policy_vlan_pool(mso_template, vlan_pool_uuid, vlan_pool)
+
+    if vlan_pool_uuid or vlan_pool:
         if match:
-            match.details["vlan_ranges"] = match.details.pop("encapBlocks")
-            mso.existing = mso.previous = copy.deepcopy(match.details)
-    else:
-        mso.existing = mso.previous = existing_vlan_pools
+            match.details["vlan_ranges"] = match.details["encapBlocks"]
+            mso.existing = mso.previous = copy.deepcopy(match.details)  # Query a specific object
+    elif match:
+        mso.existing = [vlan_pool.update({"vlan_ranges": vlan_pool["encapBlocks"]}) for vlan_pool in match]  # Query all objects
 
     if state == "present":
-
         err_message_min_vlan_ranges = "At least one vlan range is required when state is present."
 
         if match:
-
             if module.params.get("vlan_ranges") is not None and len(vlan_ranges) == 0:
                 mso.fail_json(msg=err_message_min_vlan_ranges)
 
@@ -212,14 +205,14 @@ def main():
                 ops.append(dict(op="replace", path="{0}/{1}/description".format(path, match.index), value=description))
                 match.details["description"] = description
 
-            if module.params.get("vlan_ranges") is not None and match.details.get("vlan_ranges") != vlan_ranges:
+            if module.params.get("vlan_ranges") is not None and match.details.get("encapBlocks") != vlan_ranges:
                 ops.append(dict(op="replace", path="{0}/{1}/encapBlocks".format(path, match.index), value=vlan_ranges))
                 match.details["vlan_ranges"] = vlan_ranges
+                match.details["encapBlocks"] = vlan_ranges
 
             mso.sanitize(match.details)
 
         else:
-
             if not vlan_ranges:
                 mso.fail_json(msg=err_message_min_vlan_ranges)
 
@@ -229,9 +222,8 @@ def main():
 
             ops.append(dict(op="add", path="{0}/-".format(path), value=copy.deepcopy(payload)))
 
-            payload["vlan_ranges"] = payload.pop("encapBlocks")
+            payload["vlan_ranges"] = vlan_ranges
             mso.sanitize(payload)
-
         mso.existing = mso.proposed
 
     elif state == "absent":
@@ -240,7 +232,15 @@ def main():
         mso.existing = {}
 
     if not module.check_mode and ops:
-        mso.request(mso_template.template_path, method="PATCH", data=ops)
+        mso_template.template = mso.request(mso_template.template_path, method="PATCH", data=ops)
+        match = get_fabric_policy_vlan_pool(mso_template, vlan_pool_uuid, vlan_pool)
+        if match:
+            match.details["vlan_ranges"] = match.details["encapBlocks"]
+            mso.existing = match.details  # When the state is present
+        else:
+            mso.existing = {}  # When the state is absent
+    elif module.check_mode and state != "query":  # When the state is present/absent with check mode
+        mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
 
@@ -257,6 +257,24 @@ def get_vlan_ranges_payload(vlan_ranges):
         }
         payload.append(vlan_range_payload)
     return payload
+
+
+def get_fabric_policy_vlan_pool(mso_template, uuid=None, name=None, fail_module=False):
+    """
+    Get the Fabric Policy VLAN Pool by UUID or Name.
+    :param uuid: UUID of the Fabric Policy VLAN Pool to search for -> Str
+    :param name: Name of the Fabric Policy VLAN Pool to search for -> Str
+    :param fail_module: When match is not found fail the ansible module -> Bool
+    :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+              When the UUID | Name is existing in the search list -> Dict
+              When the UUID | Name is not existing in the search list -> None
+              When both UUID and Name are None, and the search list is not empty -> List[Dict]
+              When both UUID and Name are None, and the search list is empty -> List[]
+    """
+    match = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("vlanPools", [])
+    if uuid or name:  # Query a specific object
+        return mso_template.get_object_by_key_value_pairs("VLAN Pool", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+    return match  # Query all objects
 
 
 if __name__ == "__main__":

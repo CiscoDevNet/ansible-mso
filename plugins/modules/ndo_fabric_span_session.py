@@ -254,7 +254,7 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-- name: Create EPG - Fabric SPAN Session
+- name: Create Fabric SPAN Session with destination EPG
   cisco.mso.ndo_fabric_span_session:
     host: mso_host
     username: admin
@@ -272,7 +272,7 @@ EXAMPLES = r"""
     state: present
   register: create_epg_span_session
 
-- name: Create Port - Fabric SPAN Session
+- name: Create Fabric SPAN Session with destination Port
   cisco.mso.ndo_fabric_span_session:
     host: mso_host
     username: admin
@@ -285,7 +285,7 @@ EXAMPLES = r"""
         path: "eth1/1"
     state: present
 
-- name: Create Port Channel - Fabric SPAN Session
+- name: Create Fabric SPAN Session with destination Port Channel
   cisco.mso.ndo_fabric_span_session:
     host: mso_host
     username: admin
@@ -298,7 +298,7 @@ EXAMPLES = r"""
         name: ansible_test_resource_pc_1
     state: present
 
-- name: Update/Change EPG - Fabric SPAN Session to Port Fabric SPAN Session
+- name: Update Fabric SPAN Session from destination EPG to destination Port
   cisco.mso.ndo_fabric_span_session:
     host: mso_host
     username: admin
@@ -311,7 +311,7 @@ EXAMPLES = r"""
         path: "eth1/1"
     state: present
 
-- name: Update/Change Port - Fabric SPAN Session to Port Channel Fabric SPAN Session
+- name: Update Fabric SPAN Session from destination Port to destination Port Channel
   cisco.mso.ndo_fabric_span_session:
     host: mso_host
     username: admin
@@ -324,7 +324,7 @@ EXAMPLES = r"""
         name: ansible_test_resource_pc_1
     state: present
 
-- name: Update/Change Port Channel - Fabric SPAN Session to EPG Fabric SPAN Session
+- name: Update Fabric SPAN Session from destination Port Channel to destination EPG
   cisco.mso.ndo_fabric_span_session:
     host: mso_host
     username: admin

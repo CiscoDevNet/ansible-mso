@@ -1003,8 +1003,12 @@ class MSOModule(object):
 
         ids = []
         if self.platform == "nd":
-            remote_users = self.nd_request("/nexus/infra/api/aaa/v4/remoteusers", method="GET")
-            local_users = self.nd_request("/nexus/infra/api/aaa/v4/localusers", method="GET")
+            remote_users = self.nd_request("/nexus/infra/api/aaa/v4/remoteusers", method="GET", ignore_not_found_error=True)
+            local_users = self.nd_request("/nexus/infra/api/aaa/v4/localusers", method="GET", ignore_not_found_error=True)
+
+            if remote_users == {} and local_users == {}:
+                remote_users = self.nd_request("/api/config/class/remoteusers", method="GET")
+                local_users = self.nd_request("/api/config/class/localusers", method="GET")
 
         for user in users:
             user_dict = dict()
@@ -1032,15 +1036,23 @@ class MSOModule(object):
 
     def get_user_from_list_of_users(self, user_name, list_of_users, login_domain=""):
         """Get user from list of users"""
-        for user in list_of_users.get("items"):
-            if user.get("spec").get("loginID") == user_name and (login_domain == "" or user.get("spec").get("loginDomain") == login_domain):
-                return user.get("spec")
+        if isinstance(list_of_users, list):
+            for user in list_of_users:
+                if (user.get("loginid") == user_name or user.get("loginID") == user_name) and (login_domain == "" or user.get("logindomain") == login_domain):
+                    return user
+        elif isinstance(list_of_users, dict):
+            for user in list_of_users.get("items"):
+                if user.get("spec").get("loginID") == user_name and (login_domain == "" or user.get("spec").get("loginDomain") == login_domain):
+                    return user.get("spec")
         return None
 
     def lookup_remote_users(self, remote_users, ignore_not_found_error=False):
         ids = []
         if self.platform == "nd":
-            remote_users_data = self.nd_request("/nexus/infra/api/aaa/v4/remoteusers", method="GET")
+            remote_users_data = self.nd_request("/nexus/infra/api/aaa/v4/remoteusers", method="GET", ignore_not_found_error=True)
+            if remote_users_data == {}:
+                remote_users_data = self.nd_request("/api/config/class/remoteusers", method="GET")
+
         for remote_user in remote_users:
             user_dict = dict()
             if self.platform == "nd":
@@ -1652,10 +1664,11 @@ class MSOModule(object):
                     self.fail_json(msg="ND Error: Unknown error no error code in decoded payload".format(**payload), data=data, info=info, payload=payload)
             else:
                 self.result["raw"] = info.get("raw")
-                # Connection error
-                msg = "Connection failed for {0}. {1}".format(info.get("url"), info.get("msg"))
-                self.error = msg
-                self.fail_json(msg=msg)
+                if not ignore_not_found_error:
+                    # Connection error
+                    msg = "Connection failed for {0}. {1}".format(info.get("url"), info.get("msg"))
+                    self.error = msg
+                    self.fail_json(msg=msg)
             return {}
 
     def verify_time_format(self, date_time):

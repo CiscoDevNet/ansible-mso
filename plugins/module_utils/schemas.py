@@ -31,3 +31,23 @@ class MSOSchemas:
         self.schemas_by_id[new_schema.id] = new_schema
         self.schemas_by_name[new_schema.schema_name] = new_schema
         return new_schema
+
+    def get_epg_uuid(self, epg_obj, epg_uuid):
+        """
+        Returns the EPG UUID in a given schema, template and ANP.
+
+        :param epg_obj: A dictionary containing the epg reference object. -> Dict
+        :param epg_uuid: The EPG UUID to return if specified. -> Str
+        :return: The EPG UUID if found, otherwise it fails the module. -> Str
+        """
+        if epg_uuid:
+            return epg_uuid
+        schema = self.get_template_from_schema(
+            epg_obj.get("schema"),
+            epg_obj.get("schema_id"),
+            epg_obj.get("template"),
+            epg_obj.get("template_id"),
+        )
+        schema.set_template_anp(epg_obj.get("anp"), epg_obj.get("anp_uuid"), fail_module=True)
+        schema.set_template_anp_epg(epg_obj.get("name"), fail_module=True)
+        return schema.schema_objects.get("template_anp_epg").details.get("uuid")

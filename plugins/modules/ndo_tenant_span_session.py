@@ -186,7 +186,8 @@ options:
         type: str
       source_ip_prefix:
         description:
-        - The destination IP address prefix to route SPAN Session packets.
+        - The prefix used to assign source IP addresses to ERSPAN packets which can be used to identify which Leaf or Spine is sending the traffic.
+        - This can be any IP. If the prefix is used, the node ID of the source node is used for the undefined bits of the prefix.
         type: str
       span_version:
         description:
@@ -372,7 +373,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 from ansible_collections.cisco.mso.plugins.module_utils.schemas import MSOSchemas
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
-from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, get_epg_uuid
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 import copy
 
 
@@ -507,7 +508,7 @@ def main():
             mso_values["sourceGroup"] = source_group
         if destination_epg:
             mso_values["destination"]["remote"] = dict(
-                epgRef=get_epg_uuid(mso_schemas, destination_epg.get("epg"), destination_epg.get("epg_uuid")),
+                epgRef=mso_schemas.get_epg_uuid(destination_epg.get("epg"), destination_epg.get("epg_uuid")),
                 spanVersion=destination_epg.get("span_version"),
                 enforceSpanVersion=destination_epg.get("enforce_span_version"),
                 destIPAddress=destination_epg.get("destination_ip"),
@@ -518,7 +519,6 @@ def main():
             )
 
         if match:
-
             mso_update_values = {
                 "name": name,
                 "description": description,
@@ -577,7 +577,7 @@ def format_sources(schemas, sources):
         source_values = {
             "name": source.get("name"),
             "direction": source.get("direction"),
-            "epg": get_epg_uuid(schemas, source.get("epg"), source.get("epg_uuid")),
+            "epg": schemas.get_epg_uuid(source.get("epg"), source.get("epg_uuid")),
         }
         source_list.append(source_values)
     return source_list

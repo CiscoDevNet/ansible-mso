@@ -228,7 +228,7 @@ options:
             type: str
           template_id:
             description:
-            - The ID of the  that contains the destination port channel.
+            - The ID of the template that contains the destination port channel.
             - This parameter or O(destination_port_channel.port_channel.template) is required.
             type: str
   state:
@@ -408,7 +408,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.schemas import MSOSchema
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP
-from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, get_site_interface_details, get_epg_uuid
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 import copy
 
 
@@ -521,7 +521,7 @@ def main():
 
     mso_template = MSOTemplate(mso, "monitoring_tenant", template_name, template_id)
     mso_template.validate_template("monitoring")
-    object_description = "SPAN Session "
+    object_description = "SPAN Session"
     site_id = mso_template.template.get("monitoringTemplate").get("sites")[0].get("siteId")
 
     match = None
@@ -553,7 +553,7 @@ def main():
         if destination_epg:
             mso_values["destination"] = dict(
                 remote=dict(
-                    epgRef=get_epg_uuid(mso_schemas, destination_epg.get("epg"), destination_epg.get("epg_uuid")),
+                    epgRef=mso_schemas.get_epg_uuid(destination_epg.get("epg"), destination_epg.get("epg_uuid")),
                     spanVersion=destination_epg.get("span_version"),
                     enforceSpanVersion=destination_epg.get("enforce_span_version"),
                     destIPAddress=destination_epg.get("destination_ip"),
@@ -572,7 +572,7 @@ def main():
             if destination_port_uuid is None:
                 node = destination_port.get("port").get("node")
                 interface_port = destination_port.get("port").get("path")
-                destination_port_uuid = get_site_interface_details(mso, site_id=site_id, uuid=None, node=node, port=interface_port).get("uuid")
+                destination_port_uuid = mso.get_site_interface_details(site_id=site_id, uuid=None, node=node, port=interface_port).get("uuid")
             mso_values["destination"] = dict(local=dict(accessInterface=destination_port_uuid), mtu=mtu)
 
         if destination_port_channel:
@@ -671,7 +671,7 @@ def set_fabric_span_session_object_details(mso_template, site_id, span_session):
     if span_session:
         span_session.update({"templateId": mso_template.template_id, "templateName": mso_template.template_name})
         if span_session.get("destination", {}).get("local", {}).get("accessInterface"):
-            interface = get_site_interface_details(mso_template.mso, site_id, span_session.get("destination").get("local").get("accessInterface"))
+            interface = mso_template.mso.get_site_interface_details(site_id, span_session.get("destination").get("local").get("accessInterface"))
             interface.pop("uuid", None)
             span_session.get("destination").get("local").update(interface)
         else:

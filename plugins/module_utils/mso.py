@@ -1040,13 +1040,17 @@ class MSOModule(object):
         """Get user from the ND users API response object"""
         if isinstance(users, dict):
             for user in users.get("items"):
-                if user.get("spec").get("loginID") == user_name and (login_domain == "" or user.get("spec").get("loginDomain") == login_domain):
+                if user.get("spec").get("loginID") == user_name and (
+                    (login_domain == "" and user.get("spec").get("loginDomain") is None) or user.get("spec").get("loginDomain") == login_domain
+                ):
                     return user.get("spec")
         else:
             # Handling a list of user objects is a temporary workaround that should be removed.
             # Once the ND official local and remote user API endpoints are operational.
             for user in users:
-                if (user.get("loginid") == user_name or user.get("loginID") == user_name) and (login_domain == "" or user.get("logindomain") == login_domain):
+                if (user.get("loginid") == user_name or user.get("loginID") == user_name) and (
+                    (login_domain == "" and user.get("logindomain") is None) or user.get("logindomain") == login_domain
+                ):
                     return user
         return None
 

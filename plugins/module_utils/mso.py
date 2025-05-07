@@ -1040,8 +1040,10 @@ class MSOModule(object):
         """Get user from the ND users API response object"""
         if isinstance(users, dict):
             for user in users.get("items"):
-                if user.get("spec").get("loginID") == user_name and (
-                    (login_domain == "" and user.get("spec").get("loginDomain") is None) or user.get("spec").get("loginDomain") == login_domain
+                if (
+                    user.get("spec")
+                    and user.get("spec").get("loginID") == user_name
+                    and ((login_domain == "" and user.get("spec").get("loginDomain") is None) or user.get("spec").get("loginDomain") == login_domain)
                 ):
                     return user.get("spec")
         else:

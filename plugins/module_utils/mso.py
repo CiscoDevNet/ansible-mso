@@ -1021,8 +1021,14 @@ class MSOModule(object):
 
         ids = []
         if self.platform == "nd":
-            remote_users = self.nd_request("/nexus/infra/api/aaa/v4/remoteusers", method="GET")
-            local_users = self.nd_request("/nexus/infra/api/aaa/v4/localusers", method="GET")
+            remote_users = self.nd_request("/nexus/infra/api/aaa/v4/remoteusers", method="GET", ignore_not_found_error=True)
+            local_users = self.nd_request("/nexus/infra/api/aaa/v4/localusers", method="GET", ignore_not_found_error=True)
+
+            # To handle the issue in ND 4.0 related to querying local and remote users, new API endpoints have been introduced.
+            # These endpoints should be removed once the official ND API endpoints become operational.
+            if remote_users == {} and local_users == {}:
+                remote_users = self.nd_request("/api/config/class/remoteusers", method="GET")
+                local_users = self.nd_request("/api/config/class/localusers", method="GET")
 
         for user in users:
             user_dict = dict()
@@ -1048,17 +1054,36 @@ class MSOModule(object):
             ids.append(id)
         return ids
 
-    def get_user_from_list_of_users(self, user_name, list_of_users, login_domain=""):
-        """Get user from list of users"""
-        for user in list_of_users.get("items"):
-            if user.get("spec").get("loginID") == user_name and (login_domain == "" or user.get("spec").get("loginDomain") == login_domain):
-                return user.get("spec")
+    def get_user_from_list_of_users(self, user_name, users, login_domain=""):
+        """Get user from the ND users API response object"""
+        if isinstance(users, dict):
+            for user in users.get("items"):
+                if (
+                    user.get("spec")
+                    and user.get("spec").get("loginID") == user_name
+                    and ((login_domain == "" and user.get("spec").get("loginDomain") is None) or user.get("spec").get("loginDomain") == login_domain)
+                ):
+                    return user.get("spec")
+        else:
+            # Handling a list of user objects is a temporary workaround that should be removed.
+            # Once the ND official local and remote user API endpoints are operational.
+            for user in users:
+                if (user.get("loginid") == user_name or user.get("loginID") == user_name) and (
+                    (login_domain == "" and user.get("logindomain") is None) or user.get("logindomain") == login_domain
+                ):
+                    return user
         return None
 
     def lookup_remote_users(self, remote_users, ignore_not_found_error=False):
         ids = []
         if self.platform == "nd":
-            remote_users_data = self.nd_request("/nexus/infra/api/aaa/v4/remoteusers", method="GET")
+            remote_users_data = self.nd_request("/nexus/infra/api/aaa/v4/remoteusers", method="GET", ignore_not_found_error=True)
+
+            # To handle the issue in ND 4.0 related to querying local and remote users, new API endpoints have been introduced.
+            # These endpoints should be removed once the official ND API endpoints become operational.
+            if remote_users_data == {}:
+                remote_users_data = self.nd_request("/api/config/class/remoteusers", method="GET")
+
         for remote_user in remote_users:
             user_dict = dict()
             if self.platform == "nd":
@@ -1668,7 +1693,7 @@ class MSOModule(object):
                     if ignore_not_found_error:
                         return {}
                     self.fail_json(msg="ND Error: Unknown error no error code in decoded payload".format(**payload), data=data, info=info, payload=payload)
-            else:
+            elif not ignore_not_found_error:
                 self.result["raw"] = info.get("raw")
                 # Connection error
                 msg = "Connection failed for {0}. {1}".format(info.get("url"), info.get("msg"))

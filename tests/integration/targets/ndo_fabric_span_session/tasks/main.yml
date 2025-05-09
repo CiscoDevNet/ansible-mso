@@ -1,0 +1,944 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 4.4
+  when: version.current.version is version('4.4', '>=')
+  block:
+    # CLEAN TEST ENVIRONMENT
+    - name: Ensure Fabric Monitoring Access Policy template do not exist
+      cisco.mso.ndo_template: &rm_monitoring_access_template
+        <<: *mso_info
+        template: ansible_test
+        template_type: monitoring_access
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+      register: rm_monitoring_access_template
+
+    - name: Ensure Fabric Resource Policy template do not exist
+      cisco.mso.ndo_template: &rm_fabric_resource_template
+        <<: *mso_info
+        template: ansible_test
+        template_type: fabric_resource
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+      register: rm_fabric_resource_template
+
+    - name: Ensure Fabric Policy template do not exist
+      cisco.mso.ndo_template: &rm_fabric_policy_template
+        <<: *mso_info
+        template: ansible_test
+        template_type: fabric_policy
+        state: absent
+      register: rm_fabric_policy_template
+
+    - name: Ensure Schema do not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: ansible_test
+        state: absent
+
+    - name: Ensure site exist
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ mso_site | default("ansible_test") }}'
+        apic_username: "{{ apic_username }}"
+        apic_password: "{{ apic_password }}"
+        apic_site_id: '{{ apic_site_id | default("101") }}'
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+
+    - name: Ensure Tenant exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: ansible_test
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+
+    - name: Ensure schema template exist
+      cisco.mso.mso_schema_template:
+        <<: *mso_info
+        schema: ansible_test
+        tenant: ansible_test
+        template: Template1
+        state: present
+      register: add_schema_template
+
+    - name: Ensure Anp1 exist
+      cisco.mso.mso_schema_template_anp:
+        <<: *mso_info
+        schema: ansible_test
+        template: Template1
+        anp: Anp1
+        state: present
+      register: add_anp1
+
+    - name: Ensure EPG1 exist
+      cisco.mso.mso_schema_template_anp_epg:
+        <<: *mso_info
+        schema: ansible_test
+        template: Template1
+        anp: Anp1
+        epg: EPG1
+        state: present
+      register: add_epg1
+
+    - name: Ensure EPG2 exist
+      cisco.mso.mso_schema_template_anp_epg:
+        <<: *mso_info
+        schema: ansible_test
+        template: Template1
+        anp: Anp1
+        epg: EPG2
+        state: present
+      register: add_epg2
+
+    - name: Query ansible_test schema # To get the schema, template, anp, epg UUIDs
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: ansible_test
+        state: query
+      register: query_schema
+
+    - name: Ensure Fabric Monitoring Access Policy template exist
+      cisco.mso.ndo_template:
+        <<: *rm_monitoring_access_template
+        state: present
+      register: add_monitoring_access_template
+
+    - name: Ensure Fabric Resource Policy template do not exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_resource_template
+        state: present
+      register: add_fabric_resource_template
+
+    - name: Ensure Fabric Policy template do not exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_policy_template
+        state: present
+      register: add_fabric_policy_template
+
+    - name: Create an Interface Policy group of interface_type 'port_channel'
+      cisco.mso.ndo_interface_setting: &add_interface_policy_group_pc
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_interface_pc_pol
+        interface_type: port_channel
+        state: present
+      register: add_interface_policy_group_pc
+
+    - name: Create ansible_test_resource_pc_1 port channel interface
+      cisco.mso.ndo_port_channel_interface: &add_ansible_test_1_resource_pc_1
+        <<: *mso_info
+        template: ansible_test
+        port_channel_interface: ansible_test_resource_pc_1
+        node: 101
+        interfaces: 1/20
+        interface_policy_group:
+          name: ansible_test_interface_pc_pol
+          template: ansible_test
+        state: present
+      register: add_ansible_test_1_resource_pc_1
+
+    - name: Create ansible_test_resource_pc_2 port channel interface
+      cisco.mso.ndo_port_channel_interface: &add_ansible_test_1_resource_pc_2
+        <<: *add_ansible_test_1_resource_pc_1
+        port_channel_interface: ansible_test_resource_pc_2
+        node: 101
+        interfaces: 1/21
+        state: present
+      register: add_ansible_test_1_resource_pc_2
+
+    # CREATE
+    - name: Create Fabric SPAN Session with destination EPG (check_mode)
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_epg
+        description: test
+        admin_state: enabled
+        destination_epg:
+          epg:
+            schema: ansible_test
+            template: Template1
+            anp: Anp1
+            name: EPG1
+          destination_ip: "1.1.1.1"
+          source_ip_prefix: "2.2.2.2"
+        state: present
+        output_level: debug
+      check_mode: true
+      register: cm_add_epg_span_session
+
+    - name: Create Fabric SPAN Session with destination EPG
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_epg
+        destination_epg:
+          epg:
+            schema: ansible_test
+            template: Template1
+            anp: Anp1
+            name: EPG1
+          destination_ip: "1.1.1.1"
+          source_ip_prefix: "2.2.2.2"
+        state: present
+      register: nm_add_epg_span_session
+
+    - name: Create Fabric SPAN Session with destination EPG again
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_epg
+        destination_epg:
+          epg:
+            schema: ansible_test
+            template: Template1
+            anp: Anp1
+            name: EPG1
+          destination_ip: "1.1.1.1"
+          source_ip_prefix: "2.2.2.2"
+        state: present
+      register: nm_add_epg_span_session_again
+
+    - name: Create Fabric SPAN Session with destination Port
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_port
+        destination_port:
+          port:
+            node: 101
+            interface: "eth1/1"
+        state: present
+      register: add_port_span_session
+
+    - name: Create Fabric SPAN Session with destination Port Channel
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_pc
+        destination_port_channel:
+          port_channel:
+            template: ansible_test
+            name: ansible_test_resource_pc_1
+        state: present
+      register: add_port_channel_span_session
+
+    - name: Assertion check for create Fabric SPAN Sessions
+      ansible.builtin.assert:
+        that:
+          - cm_add_epg_span_session is changed
+          - cm_add_epg_span_session.current.description == "test"
+          - cm_add_epg_span_session.current.destination.mtu == None
+          - cm_add_epg_span_session.current.destination.remote.destIPAddress == "1.1.1.1"
+          - cm_add_epg_span_session.current.destination.remote.dscp == None
+          - cm_add_epg_span_session.current.destination.remote.enforceSpanVersion == None
+          - cm_add_epg_span_session.current.destination.remote.epgName == "EPG1"
+          - cm_add_epg_span_session.current.destination.remote.epgRef != ""
+          - cm_add_epg_span_session.current.destination.remote.epgSchemaId is defined
+          - cm_add_epg_span_session.current.destination.remote.epgSchemaName == "ansible_test"
+          - cm_add_epg_span_session.current.destination.remote.epgTemplateId != ""
+          - cm_add_epg_span_session.current.destination.remote.epgTemplateName == "Template1"
+          - cm_add_epg_span_session.current.destination.remote.flowID == None
+          - cm_add_epg_span_session.current.destination.remote.spanVersion == None
+          - cm_add_epg_span_session.current.destination.remote.srcIPPrefix == "2.2.2.2"
+          - cm_add_epg_span_session.current.destination.remote.ttl == None
+          - cm_add_epg_span_session.current.name == "ansible_test_epg"
+          - cm_add_epg_span_session.current.sourceGroup.enableAdminState == true
+          - cm_add_epg_span_session.current.templateId != ""
+          - cm_add_epg_span_session.current.templateName == "ansible_test"
+          - cm_add_epg_span_session.previous == {}
+          - cm_add_epg_span_session.proposed.description == "test"
+          - cm_add_epg_span_session.proposed.destination.mtu == None
+          - cm_add_epg_span_session.proposed.destination.remote.destIPAddress == "1.1.1.1"
+          - cm_add_epg_span_session.proposed.destination.remote.dscp == None
+          - cm_add_epg_span_session.proposed.destination.remote.enforceSpanVersion == None
+          - cm_add_epg_span_session.proposed.destination.remote.epgName == "EPG1"
+          - cm_add_epg_span_session.proposed.destination.remote.epgRef != ""
+          - cm_add_epg_span_session.proposed.destination.remote.epgSchemaId is defined
+          - cm_add_epg_span_session.proposed.destination.remote.epgSchemaName == "ansible_test"
+          - cm_add_epg_span_session.proposed.destination.remote.epgTemplateId != ""
+          - cm_add_epg_span_session.proposed.destination.remote.epgTemplateName == "Template1"
+          - cm_add_epg_span_session.proposed.destination.remote.flowID == None
+          - cm_add_epg_span_session.proposed.destination.remote.spanVersion == None
+          - cm_add_epg_span_session.proposed.destination.remote.srcIPPrefix == "2.2.2.2"
+          - cm_add_epg_span_session.proposed.destination.remote.ttl == None
+          - cm_add_epg_span_session.proposed.name == "ansible_test_epg"
+          - cm_add_epg_span_session.proposed.sourceGroup.enableAdminState == true
+          - cm_add_epg_span_session.proposed.templateId != ""
+          - cm_add_epg_span_session.proposed.templateName == "ansible_test"
+          - nm_add_epg_span_session is changed
+          - nm_add_epg_span_session.current.description == ""
+          - nm_add_epg_span_session.current.destination.local == {}
+          - nm_add_epg_span_session.current.destination.mtu == 1518
+          - nm_add_epg_span_session.current.destination.remote.destIPAddress == "1.1.1.1"
+          - nm_add_epg_span_session.current.destination.remote.dscp == "unspecified"
+          - nm_add_epg_span_session.current.destination.remote.epgName == "EPG1"
+          - nm_add_epg_span_session.current.destination.remote.epgRef != ""
+          - nm_add_epg_span_session.current.destination.remote.epgSchemaId is defined
+          - nm_add_epg_span_session.current.destination.remote.epgSchemaName == "ansible_test"
+          - nm_add_epg_span_session.current.destination.remote.epgTemplateId != ""
+          - nm_add_epg_span_session.current.destination.remote.epgTemplateName == "Template1"
+          - nm_add_epg_span_session.current.destination.remote.flowID == 1
+          - nm_add_epg_span_session.current.destination.remote.spanVersion == "v1"
+          - nm_add_epg_span_session.current.destination.remote.srcIPPrefix == "2.2.2.2"
+          - nm_add_epg_span_session.current.destination.remote.ttl == 64
+          - nm_add_epg_span_session.current.name == "ansible_test_epg"
+          - nm_add_epg_span_session.current.sourceGroup.enableAdminState == false
+          - nm_add_epg_span_session.current.templateId != ""
+          - nm_add_epg_span_session.current.templateName == "ansible_test"
+          - nm_add_epg_span_session.current.uuid is defined
+          - nm_add_epg_span_session.previous == {}
+          - nm_add_epg_span_session_again is not changed
+          - nm_add_epg_span_session_again.current == nm_add_epg_span_session.current
+          - add_port_span_session is changed
+          - add_port_span_session.current.description == ""
+          - add_port_span_session.current.destination.local.accessInterface is defined
+          - add_port_span_session.current.destination.local.cardNum == "1"
+          - add_port_span_session.current.destination.local.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - add_port_span_session.current.destination.local.node == "101"
+          - add_port_span_session.current.destination.local.pod == "1"
+          - add_port_span_session.current.destination.local.port == "eth1/1"
+          - add_port_span_session.current.destination.local.portNum == "1"
+          - add_port_span_session.current.destination.local.portType == "leaf"
+          - add_port_span_session.current.destination.mtu == 1518
+          - add_port_span_session.current.destination.remote.dscp == "cs0"
+          - add_port_span_session.current.destination.remote.flowID == 1
+          - add_port_span_session.current.destination.remote.spanVersion == "v1"
+          - add_port_span_session.current.destination.remote.ttl == 64
+          - add_port_span_session.current.name == "ansible_test_port"
+          - add_port_span_session.current.sourceGroup.enableAdminState == false
+          - add_port_span_session.current.templateId != ""
+          - add_port_span_session.current.templateName == "ansible_test"
+          - add_port_span_session.current.uuid is defined
+          - add_port_span_session.previous == {}
+          - add_port_channel_span_session is changed
+          - add_port_channel_span_session.current.description == ""
+          - add_port_channel_span_session.current.destination.local.portChannel is defined
+          - add_port_channel_span_session.current.destination.local.portChannelName == "ansible_test_resource_pc_1"
+          - add_port_channel_span_session.current.destination.local.portChannelTemplateId != ""
+          - add_port_channel_span_session.current.destination.local.portChannelTemplateName == "ansible_test"
+          - add_port_channel_span_session.current.destination.mtu == 1518
+          - add_port_channel_span_session.current.destination.remote.dscp == "cs0"
+          - add_port_channel_span_session.current.destination.remote.flowID == 1
+          - add_port_channel_span_session.current.destination.remote.spanVersion == "v1"
+          - add_port_channel_span_session.current.destination.remote.ttl == 64
+          - add_port_channel_span_session.current.name == "ansible_test_pc"
+          - add_port_channel_span_session.current.sourceGroup.enableAdminState == false
+          - add_port_channel_span_session.current.templateId != ""
+          - add_port_channel_span_session.current.templateName == "ansible_test"
+          - add_port_channel_span_session.current.uuid is defined
+          - add_port_channel_span_session.previous == {}
+
+    # UPDATE
+    - name: Update Fabric SPAN Session destination EPG using UUID (check_mode)
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template_id: "{{ add_monitoring_access_template.current.templateId }}"
+        uuid: "{{ nm_add_epg_span_session.current.uuid }}"
+        destination_epg:
+          epg:
+            schema_id: "{{ query_schema.current.id }}"
+            template_id: "{{ query_schema.current.templates.0.templateID }}"
+            anp_uuid: "{{ query_schema.current.templates.0.anps.0.uuid }}"
+            name: EPG1
+          destination_ip: "1.1.1.10"
+          source_ip_prefix: "2.2.2.20"
+          span_version: v2
+          enforce_span_version: true
+          flow_id: 5
+          ttl: 5
+          dscp: af11
+        state: present
+        output_level: debug
+      check_mode: true
+      register: cm_update_epg_span_session
+
+    - name: Update Fabric SPAN Session destination EPG using UUID
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template_id: "{{ add_monitoring_access_template.current.templateId }}"
+        uuid: "{{ nm_add_epg_span_session.current.uuid }}"
+        destination_epg:
+          epg:
+            schema_id: "{{ query_schema.current.id }}"
+            template_id: "{{ query_schema.current.templates.0.templateID }}"
+            anp_uuid: "{{ query_schema.current.templates.0.anps.0.uuid }}"
+            name: EPG1
+          destination_ip: "1.1.1.10"
+          source_ip_prefix: "2.2.2.20"
+          span_version: v2
+          enforce_span_version: true
+          flow_id: 5
+          ttl: 5
+          dscp: af11
+        state: present
+      register: nm_update_epg_span_session
+
+    - name: Update Fabric SPAN Session destination EPG using UUID again
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template_id: "{{ add_monitoring_access_template.current.templateId }}"
+        uuid: "{{ nm_add_epg_span_session.current.uuid }}"
+        destination_epg:
+          epg:
+            schema_id: "{{ query_schema.current.id }}"
+            template_id: "{{ query_schema.current.templates.0.templateID }}"
+            anp_uuid: "{{ query_schema.current.templates.0.anps.0.uuid }}"
+            name: EPG1
+          destination_ip: "1.1.1.10"
+          source_ip_prefix: "2.2.2.20"
+          span_version: v2
+          enforce_span_version: true
+          flow_id: 5
+          ttl: 5
+          dscp: af11
+        state: present
+      register: nm_update_epg_span_session_again
+
+    - name: Update Fabric SPAN Session destination EPG using EPG2 UUID
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template_id: "{{ add_monitoring_access_template.current.templateId }}"
+        uuid: "{{ nm_add_epg_span_session.current.uuid }}"
+        destination_epg:
+          epg_uuid: "{{ query_schema.current.templates.0.anps.0.epgs.1.uuid }}"
+          destination_ip: "1.1.1.10"
+          source_ip_prefix: "2.2.2.20"
+          span_version: v2
+          enforce_span_version: true
+          flow_id: 5
+          ttl: 5
+          dscp: af11
+        state: present
+      register: update_with_epg2_uuid
+
+    - name: Update Fabric SPAN Session destination Port value
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_port
+        destination_port:
+          port:
+            node: 101
+            interface: "eth1/2"
+        admin_state: enabled
+        mtu: 1520
+        state: present
+      register: update_port_span_session
+
+    - name: Update Fabric SPAN Session destination Port Channel
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_pc
+        destination_port_channel:
+          port_channel_uuid: "{{ add_ansible_test_1_resource_pc_2.current.uuid }}"
+        state: present
+      register: update_port_channel_span_session
+
+    - name: Update Fabric SPAN Session from destination EPG to destination Port
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_epg
+        description: "Changed EPG - Fabric SPAN to Port Fabric SPAN"
+        destination_port:
+          port:
+            node: 101
+            interface: "eth1/1"
+        state: present
+      register: epg_to_port_span_session
+
+    - name: Update Fabric SPAN Session from destination Port to destination Port Channel
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_port
+        description: "Changed Port - Fabric SPAN to Port Channel Fabric SPAN"
+        destination_port_channel:
+          port_channel:
+            template: ansible_test
+            name: ansible_test_resource_pc_1
+        state: present
+      register: port_to_port_channel_span_session
+
+    - name: Update Fabric SPAN Session from destination Port Channel to destination EPG
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_pc
+        description: "Changed Port Channel - Fabric SPAN to EPG Fabric SPAN"
+        destination_epg:
+          epg:
+            schema: ansible_test
+            template: Template1
+            anp: Anp1
+            name: EPG1
+          destination_ip: "1.1.1.1"
+          source_ip_prefix: "2.2.2.2"
+        state: present
+      register: port_channel_to_epg_span_session
+
+    - name: Update Fabric SPAN Session from destination Port Channel to destination Port
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_port
+        description: "Changed Port Channel - Fabric SPAN to Port Fabric SPAN"
+        destination_port:
+          port:
+            node: 101
+            interface: "eth1/1"
+        state: present
+      register: port_channel_to_port_span_session
+
+    - name: Update Fabric SPAN Session from destination EPG to destination Port Channel
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_pc
+        description: "Changed EPG - Fabric SPAN to Port Channel Fabric SPAN"
+        destination_port_channel:
+          port_channel:
+            template: ansible_test
+            name: ansible_test_resource_pc_1
+        state: present
+      register: epg_to_port_channel_span_session
+
+    - name: Update SPAN Session name using UUID
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        uuid: "{{ epg_to_port_channel_span_session.current.uuid }}"
+        name: ansible_test_pc_updated
+        state: present
+      register: update_span_session_name
+
+    - name: Assertion check for update Fabric SPAN Sessions
+      ansible.builtin.assert:
+        that:
+          - cm_update_epg_span_session is changed
+          - cm_update_epg_span_session.current.description == ""
+          - cm_update_epg_span_session.current.destination.local == {}
+          - cm_update_epg_span_session.current.destination.mtu == 1518
+          - cm_update_epg_span_session.current.destination.remote.destIPAddress == "1.1.1.10"
+          - cm_update_epg_span_session.current.destination.remote.dscp == "af11"
+          - cm_update_epg_span_session.current.destination.remote.enforceSpanVersion == true
+          - cm_update_epg_span_session.current.destination.remote.epgName == "EPG1"
+          - cm_update_epg_span_session.current.destination.remote.epgRef != ""
+          - cm_update_epg_span_session.current.destination.remote.epgSchemaId is defined
+          - cm_update_epg_span_session.current.destination.remote.epgSchemaName == "ansible_test"
+          - cm_update_epg_span_session.current.destination.remote.epgTemplateId != ""
+          - cm_update_epg_span_session.current.destination.remote.epgTemplateName == "Template1"
+          - cm_update_epg_span_session.current.destination.remote.flowID == 5
+          - cm_update_epg_span_session.current.destination.remote.spanVersion == "v2"
+          - cm_update_epg_span_session.current.destination.remote.srcIPPrefix == "2.2.2.20"
+          - cm_update_epg_span_session.current.destination.remote.ttl == 5
+          - cm_update_epg_span_session.current.name == "ansible_test_epg"
+          - cm_update_epg_span_session.current.sourceGroup.enableAdminState == false
+          - cm_update_epg_span_session.current.templateId != ""
+          - cm_update_epg_span_session.current.templateName == "ansible_test"
+          - cm_update_epg_span_session.current.uuid is defined
+          - cm_update_epg_span_session.previous.description == ""
+          - cm_update_epg_span_session.previous.destination.local == {}
+          - cm_update_epg_span_session.previous.destination.mtu == 1518
+          - cm_update_epg_span_session.previous.destination.remote.destIPAddress == "1.1.1.1"
+          - cm_update_epg_span_session.previous.destination.remote.dscp == "unspecified"
+          - cm_update_epg_span_session.previous.destination.remote.epgName == "EPG1"
+          - cm_update_epg_span_session.previous.destination.remote.epgRef != ""
+          - cm_update_epg_span_session.previous.destination.remote.epgSchemaId is defined
+          - cm_update_epg_span_session.previous.destination.remote.epgSchemaName == "ansible_test"
+          - cm_update_epg_span_session.previous.destination.remote.epgTemplateId != ""
+          - cm_update_epg_span_session.previous.destination.remote.epgTemplateName == "Template1"
+          - cm_update_epg_span_session.previous.destination.remote.flowID == 1
+          - cm_update_epg_span_session.previous.destination.remote.spanVersion == "v1"
+          - cm_update_epg_span_session.previous.destination.remote.srcIPPrefix == "2.2.2.2"
+          - cm_update_epg_span_session.previous.destination.remote.ttl == 64
+          - cm_update_epg_span_session.previous.name == "ansible_test_epg"
+          - cm_update_epg_span_session.previous.sourceGroup.enableAdminState == false
+          - cm_update_epg_span_session.previous.templateId != ""
+          - cm_update_epg_span_session.previous.templateName == "ansible_test"
+          - cm_update_epg_span_session.previous.uuid is defined
+          - cm_update_epg_span_session.proposed.description == ""
+          - cm_update_epg_span_session.proposed.destination.local == {}
+          - cm_update_epg_span_session.proposed.destination.mtu == 1518
+          - cm_update_epg_span_session.proposed.destination.remote.destIPAddress == "1.1.1.10"
+          - cm_update_epg_span_session.proposed.destination.remote.dscp == "af11"
+          - cm_update_epg_span_session.proposed.destination.remote.enforceSpanVersion == true
+          - cm_update_epg_span_session.proposed.destination.remote.epgName == "EPG1"
+          - cm_update_epg_span_session.proposed.destination.remote.epgRef != ""
+          - cm_update_epg_span_session.proposed.destination.remote.epgSchemaId is defined
+          - cm_update_epg_span_session.proposed.destination.remote.epgSchemaName == "ansible_test"
+          - cm_update_epg_span_session.proposed.destination.remote.epgTemplateId != ""
+          - cm_update_epg_span_session.proposed.destination.remote.epgTemplateName == "Template1"
+          - cm_update_epg_span_session.proposed.destination.remote.flowID == 5
+          - cm_update_epg_span_session.proposed.destination.remote.spanVersion == "v2"
+          - cm_update_epg_span_session.proposed.destination.remote.srcIPPrefix == "2.2.2.20"
+          - cm_update_epg_span_session.proposed.destination.remote.ttl == 5
+          - cm_update_epg_span_session.proposed.name == "ansible_test_epg"
+          - cm_update_epg_span_session.proposed.sourceGroup.enableAdminState == false
+          - cm_update_epg_span_session.proposed.templateId != ""
+          - cm_update_epg_span_session.proposed.templateName == "ansible_test"
+          - cm_update_epg_span_session.proposed.uuid is defined
+          - nm_update_epg_span_session is changed
+          - nm_update_epg_span_session.current.description == ""
+          - nm_update_epg_span_session.current.destination.local == {}
+          - nm_update_epg_span_session.current.destination.mtu == 1518
+          - nm_update_epg_span_session.current.destination.remote.destIPAddress == "1.1.1.10"
+          - nm_update_epg_span_session.current.destination.remote.dscp == "af11"
+          - nm_update_epg_span_session.current.destination.remote.enforceSpanVersion == true
+          - nm_update_epg_span_session.current.destination.remote.epgName == "EPG1"
+          - nm_update_epg_span_session.current.destination.remote.epgRef != ""
+          - nm_update_epg_span_session.current.destination.remote.epgSchemaId is defined
+          - nm_update_epg_span_session.current.destination.remote.epgSchemaName == "ansible_test"
+          - nm_update_epg_span_session.current.destination.remote.epgTemplateId != ""
+          - nm_update_epg_span_session.current.destination.remote.epgTemplateName == "Template1"
+          - nm_update_epg_span_session.current.destination.remote.flowID == 5
+          - nm_update_epg_span_session.current.destination.remote.spanVersion == "v2"
+          - nm_update_epg_span_session.current.destination.remote.srcIPPrefix == "2.2.2.20"
+          - nm_update_epg_span_session.current.destination.remote.ttl == 5
+          - nm_update_epg_span_session.current.name == "ansible_test_epg"
+          - nm_update_epg_span_session.current.sourceGroup.enableAdminState == false
+          - nm_update_epg_span_session.current.templateId != ""
+          - nm_update_epg_span_session.current.templateName == "ansible_test"
+          - nm_update_epg_span_session.current.uuid is defined
+          - nm_update_epg_span_session.previous.description == ""
+          - nm_update_epg_span_session.previous.destination.local == {}
+          - nm_update_epg_span_session.previous.destination.mtu == 1518
+          - nm_update_epg_span_session.previous.destination.remote.destIPAddress == "1.1.1.1"
+          - nm_update_epg_span_session.previous.destination.remote.dscp == "unspecified"
+          - nm_update_epg_span_session.previous.destination.remote.epgName == "EPG1"
+          - nm_update_epg_span_session.previous.destination.remote.epgRef != ""
+          - nm_update_epg_span_session.previous.destination.remote.epgSchemaId is defined
+          - nm_update_epg_span_session.previous.destination.remote.epgSchemaName == "ansible_test"
+          - nm_update_epg_span_session.previous.destination.remote.epgTemplateId != ""
+          - nm_update_epg_span_session.previous.destination.remote.epgTemplateName == "Template1"
+          - nm_update_epg_span_session.previous.destination.remote.flowID == 1
+          - nm_update_epg_span_session.previous.destination.remote.spanVersion == "v1"
+          - nm_update_epg_span_session.previous.destination.remote.srcIPPrefix == "2.2.2.2"
+          - nm_update_epg_span_session.previous.destination.remote.ttl == 64
+          - nm_update_epg_span_session.previous.name == "ansible_test_epg"
+          - nm_update_epg_span_session.previous.sourceGroup.enableAdminState == false
+          - nm_update_epg_span_session.previous.templateId != ""
+          - nm_update_epg_span_session.previous.templateName == "ansible_test"
+          - nm_update_epg_span_session.previous.uuid is defined
+          - nm_update_epg_span_session_again.current == nm_update_epg_span_session.current
+          - update_with_epg2_uuid is changed
+          - update_with_epg2_uuid.current.destination.remote.epgName == "EPG2"
+          - update_with_epg2_uuid.previous.destination.remote.epgName == "EPG1"
+          - update_port_span_session is changed
+          - update_port_span_session.current.description == ""
+          - update_port_span_session.current.destination.local.accessInterface is defined
+          - update_port_span_session.current.destination.local.cardNum == "1"
+          - update_port_span_session.current.destination.local.dn == "topology/pod-1/paths-101/pathep-[eth1/2]"
+          - update_port_span_session.current.destination.local.node == "101"
+          - update_port_span_session.current.destination.local.pod == "1"
+          - update_port_span_session.current.destination.local.port == "eth1/2"
+          - update_port_span_session.current.destination.local.portNum == "2"
+          - update_port_span_session.current.destination.local.portType == "leaf"
+          - update_port_span_session.previous.destination.local.cardNum == "1"
+          - update_port_span_session.previous.destination.local.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - update_port_span_session.previous.destination.local.node == "101"
+          - update_port_span_session.previous.destination.local.pod == "1"
+          - update_port_span_session.previous.destination.local.port == "eth1/1"
+          - update_port_span_session.previous.destination.local.portNum == "1"
+          - update_port_span_session.previous.destination.local.portType == "leaf"
+          - update_port_channel_span_session is changed
+          - update_port_channel_span_session.current.description == ""
+          - update_port_channel_span_session.current.destination.local.portChannel is defined
+          - update_port_channel_span_session.current.destination.local.portChannelName == "ansible_test_resource_pc_2"
+          - update_port_channel_span_session.previous.destination.local.portChannel is defined
+          - update_port_channel_span_session.previous.destination.local.portChannelName == "ansible_test_resource_pc_1"
+          - update_port_channel_span_session.previous.uuid is defined
+          - epg_to_port_span_session is changed
+          - epg_to_port_span_session.current.description == "Changed EPG - Fabric SPAN to Port Fabric SPAN"
+          - epg_to_port_span_session.current.destination.local.accessInterface is defined
+          - epg_to_port_span_session.current.destination.local.cardNum == "1"
+          - epg_to_port_span_session.current.destination.local.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - epg_to_port_span_session.current.destination.local.node == "101"
+          - epg_to_port_span_session.current.destination.local.pod == "1"
+          - epg_to_port_span_session.current.destination.local.port == "eth1/1"
+          - epg_to_port_span_session.current.destination.local.portNum == "1"
+          - epg_to_port_span_session.current.destination.local.portType == "leaf"
+          - epg_to_port_span_session.previous.destination.remote.destIPAddress == "1.1.1.10"
+          - epg_to_port_span_session.previous.destination.remote.dscp == "af11"
+          - epg_to_port_span_session.previous.destination.remote.enforceSpanVersion == true
+          - epg_to_port_span_session.previous.destination.remote.epgName == "EPG2"
+          - epg_to_port_span_session.previous.sourceGroup.enableAdminState == false
+          - epg_to_port_span_session.previous.templateId != ""
+          - epg_to_port_span_session.previous.templateName == "ansible_test"
+          - epg_to_port_span_session.previous.uuid is defined
+          - port_to_port_channel_span_session is changed
+          - port_to_port_channel_span_session.current.description == "Changed Port - Fabric SPAN to Port Channel Fabric SPAN"
+          - port_to_port_channel_span_session.current.destination.local.portChannel is defined
+          - port_to_port_channel_span_session.current.destination.local.portChannelName == "ansible_test_resource_pc_1"
+          - port_to_port_channel_span_session.previous.destination.local.accessInterface is defined
+          - port_to_port_channel_span_session.previous.destination.local.cardNum == "1"
+          - port_to_port_channel_span_session.previous.destination.local.dn == "topology/pod-1/paths-101/pathep-[eth1/2]"
+          - port_to_port_channel_span_session.previous.destination.local.node == "101"
+          - port_to_port_channel_span_session.previous.destination.local.pod == "1"
+          - port_to_port_channel_span_session.previous.destination.local.port == "eth1/2"
+          - port_to_port_channel_span_session.previous.destination.local.portNum == "2"
+          - port_to_port_channel_span_session.previous.destination.local.portType == "leaf"
+          - port_to_port_channel_span_session.previous.uuid is defined
+          - port_channel_to_epg_span_session is changed
+          - port_channel_to_epg_span_session.current.description == "Changed Port Channel - Fabric SPAN to EPG Fabric SPAN"
+          - port_channel_to_epg_span_session.current.destination.remote.destIPAddress == "1.1.1.1"
+          - port_channel_to_epg_span_session.current.destination.remote.dscp == "cs0"
+          - port_channel_to_epg_span_session.current.destination.remote.epgName == "EPG1"
+          - port_channel_to_epg_span_session.current.destination.remote.epgRef != ""
+          - port_channel_to_epg_span_session.previous.destination.local.portChannel is defined
+          - port_channel_to_epg_span_session.previous.destination.local.portChannelName == "ansible_test_resource_pc_2"
+          - port_channel_to_epg_span_session.previous.destination.local.portChannelTemplateId != ""
+          - port_channel_to_epg_span_session.previous.destination.local.portChannelTemplateName == "ansible_test"
+          - port_channel_to_port_span_session is changed
+          - port_channel_to_port_span_session.current.description == "Changed Port Channel - Fabric SPAN to Port Fabric SPAN"
+          - port_channel_to_port_span_session.current.destination.local.accessInterface is defined
+          - port_channel_to_port_span_session.current.destination.local.cardNum == "1"
+          - port_channel_to_port_span_session.current.destination.local.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - port_channel_to_port_span_session.current.destination.local.node == "101"
+          - port_channel_to_port_span_session.current.destination.local.pod == "1"
+          - port_channel_to_port_span_session.current.destination.local.port == "eth1/1"
+          - port_channel_to_port_span_session.current.destination.local.portNum == "1"
+          - port_channel_to_port_span_session.current.destination.local.portType == "leaf"
+          - port_channel_to_port_span_session.previous.description == "Changed Port - Fabric SPAN to Port Channel Fabric SPAN"
+          - port_channel_to_port_span_session.previous.destination.local.portChannel is defined
+          - port_channel_to_port_span_session.previous.destination.local.portChannelName == "ansible_test_resource_pc_1"
+          - port_channel_to_port_span_session.previous.destination.local.portChannelTemplateId != ""
+          - port_channel_to_port_span_session.previous.destination.local.portChannelTemplateName == "ansible_test"
+          - port_channel_to_port_span_session.previous.uuid is defined
+          - epg_to_port_channel_span_session is changed
+          - epg_to_port_channel_span_session.current.description == "Changed EPG - Fabric SPAN to Port Channel Fabric SPAN"
+          - epg_to_port_channel_span_session.current.destination.local.portChannel is defined
+          - epg_to_port_channel_span_session.current.destination.local.portChannelName == "ansible_test_resource_pc_1"
+          - epg_to_port_channel_span_session.current.destination.local.portChannelTemplateId != ""
+          - epg_to_port_channel_span_session.current.destination.local.portChannelTemplateName == "ansible_test"
+          - epg_to_port_channel_span_session.previous.description == "Changed Port Channel - Fabric SPAN to EPG Fabric SPAN"
+          - epg_to_port_channel_span_session.previous.destination.remote.destIPAddress == "1.1.1.1"
+          - epg_to_port_channel_span_session.previous.destination.remote.dscp == "cs0"
+          - epg_to_port_channel_span_session.previous.destination.remote.epgName == "EPG1"
+          - epg_to_port_channel_span_session.previous.destination.remote.epgRef != ""
+          - epg_to_port_channel_span_session.previous.uuid is defined
+          - update_span_session_name is changed
+          - update_span_session_name.current.name == "ansible_test_pc_updated"
+          - update_span_session_name.previous.name == "ansible_test_pc"
+
+    # QUERY
+    - name: Query a specific SPAN Session
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_pc_updated
+        state: query
+      register: query_one_object
+
+    - name: Query all SPAN Sessions
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        state: query
+      register: query_all_objects
+
+    - name: Assertion check for query Fabric SPAN Sessions
+      ansible.builtin.assert:
+        that:
+          - query_one_object is not changed
+          - query_one_object.current.description == "Changed EPG - Fabric SPAN to Port Channel Fabric SPAN"
+          - query_one_object.current.destination.local.portChannel is defined
+          - query_one_object.current.destination.local.portChannelName == "ansible_test_resource_pc_1"
+          - query_one_object.current.destination.local.portChannelTemplateId != ""
+          - query_one_object.current.destination.local.portChannelTemplateName == "ansible_test"
+          - query_one_object.current.destination.mtu == 1518
+          - query_one_object.current.destination.remote.dscp == "unspecified"
+          - query_one_object.current.destination.remote.flowID == 1
+          - query_one_object.current.destination.remote.spanVersion == "v1"
+          - query_one_object.current.destination.remote.ttl == 64
+          - query_one_object.current.name == "ansible_test_pc_updated"
+          - query_one_object.current.sourceGroup.enableAdminState == false
+          - query_one_object.current.templateId != ""
+          - query_one_object.current.templateName == "ansible_test"
+          - query_one_object.current.uuid is defined
+          - query_all_objects is not changed
+          - query_all_objects.current | length >= 3
+          - "'ansible_test_epg' in query_all_objects.current | map(attribute='name') | list"
+          - "'ansible_test_port' in query_all_objects.current | map(attribute='name') | list"
+          - "'ansible_test_pc_updated' in query_all_objects.current | map(attribute='name') | list"
+
+    # ERROR
+    - name: Create Fabric SPAN Session with destination_epg, destination_port and destination_port_channel
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        destination_epg: {}
+        destination_port: {}
+        destination_port_channel: {}
+        state: present
+      register: nt_add_with_all_destination
+      ignore_errors: true
+
+    - name: Create Fabric SPAN Session with invalid destination_port
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: invalid_span_session
+        destination_port:
+          port:
+            node: 1011
+            interface: "eth1/1"
+        state: present
+      register: nt_add_with_invalid_destination_port
+      ignore_errors: true
+
+    - name: Create Fabric SPAN Session without destination_epg, destination_port and destination_port_channel
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: nt_span_session
+        state: present
+      register: nt_add_without_destination
+      ignore_errors: true
+
+    - name: Update Fabric SPAN Session with invalid UUID
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        uuid: "invalid_uuid"
+        destination_epg:
+          epg:
+            schema: ansible_test
+            template: Template1
+            anp: Anp1
+            name: EPG1
+          destination_ip: "1.1.1.1"
+          source_ip_prefix: "2.2.2.2"
+        state: present
+      register: nt_update_port_channel_with_uuid
+      ignore_errors: true
+
+    - name: Query an invalid Fabric SPAN Session
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: nt_ansible_test_pc
+        state: query
+      register: nt_query_one_object
+
+    - name: Assertion check for invalid checks for the Fabric SPAN Session
+      ansible.builtin.assert:
+        that:
+          - nt_add_with_all_destination is not changed
+          - nt_add_with_all_destination.msg == "parameters are mutually exclusive{{':'}} destination_epg|destination_port_channel|destination_port"
+          - nt_add_without_destination is not changed
+          - nt_add_without_destination.msg == "MSO Error 400{{':'}} {\"errors\"{{':'}}[\"SPAN session nt_span_session{{':'}} invalid access span destination - no destination provided\"]}"
+          - nt_update_port_channel_with_uuid is not changed
+          - nt_update_port_channel_with_uuid.current == {}
+          - nt_update_port_channel_with_uuid.msg == "SPAN Session with the UUID{{':'}} 'invalid_uuid' not found"
+          - nt_update_port_channel_with_uuid.previous == {}
+          - nt_query_one_object is not changed
+          - nt_query_one_object.current == {}
+          - nt_add_with_invalid_destination_port is not changed
+          - nt_add_with_invalid_destination_port.msg is match("The site port interface not found. Site ID{{':'}} [a-zA-z0-9]*, Node{{':'}} 1011 and Path{{':'}} eth1/1")
+
+    # DELETE
+    - name: Delete a specific SPAN Session using Name (check_mode)
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_pc_updated
+        state: absent
+        output_level: debug
+      check_mode: true
+      register: cm_rm_span_session_with_name
+
+    - name: Delete a specific SPAN Session using Name
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_pc_updated
+        state: absent
+      register: nm_rm_span_session_with_name
+
+    - name: Delete a specific SPAN Session using Name again
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_pc_updated
+        state: absent
+      register: nm_rm_span_session_with_name_again
+
+    - name: Delete a Fabric SPAN Session using UUID
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template_id: "{{ add_monitoring_access_template.current.templateId }}"
+        uuid: "{{ nm_add_epg_span_session.current.uuid }}"
+        state: absent
+      register: rm_span_session_with_uuid
+
+    - name: Assertion check for delete Fabric SPAN Sessions
+      ansible.builtin.assert:
+        that:
+          - cm_rm_span_session_with_name is changed
+          - cm_rm_span_session_with_name.current == {}
+          - cm_rm_span_session_with_name.previous.name == "ansible_test_pc_updated"
+          - cm_rm_span_session_with_name.proposed == {}
+          - nm_rm_span_session_with_name is changed
+          - nm_rm_span_session_with_name.current == {}
+          - nm_rm_span_session_with_name.previous.destination.local.portChannelName == "ansible_test_resource_pc_1"
+          - nm_rm_span_session_with_name.previous.destination.local.portChannelTemplateId != ""
+          - nm_rm_span_session_with_name.previous.destination.local.portChannelTemplateName == "ansible_test"
+          - nm_rm_span_session_with_name.previous.name == "ansible_test_pc_updated"
+          - nm_rm_span_session_with_name.previous.uuid is defined
+          - nm_rm_span_session_with_name_again is not changed
+          - nm_rm_span_session_with_name_again.current == {}
+          - nm_rm_span_session_with_name_again.previous == {}
+          - rm_span_session_with_uuid is changed
+          - rm_span_session_with_uuid.current == {}
+          - rm_span_session_with_uuid.previous.destination.local.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - rm_span_session_with_uuid.previous.name == "ansible_test_epg"
+          - rm_span_session_with_uuid.previous.uuid is defined
+
+    # CLEAN TEST ENVIRONMENT
+    - name: Ensure Fabric Monitoring Access Policy template do not exist
+      cisco.mso.ndo_template:
+        <<: *rm_monitoring_access_template
+
+    - name: Ensure Fabric Resource Policy template do not exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_resource_template
+
+    - name: Ensure Fabric Policy template do not exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_policy_template

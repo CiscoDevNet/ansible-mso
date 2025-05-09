@@ -1709,6 +1709,28 @@ class MSOModule(object):
             except ValueError:
                 return self.fail_json(msg="ERROR: The time must be in 'YYYY-MM-DD HH:MM:SS' format.")
 
+    def get_site_interface_details(self, site_id=None, uuid=None, node=None, port=None):
+        if node and port:
+            path = "/sitephysifsummary/site/{0}?node={1}".format(site_id, node)
+        elif uuid:
+            path = "/sitephysifsummary/site/{0}?uuid={1}".format(site_id, uuid)
+
+        site_data = self.request(path, method="GET")
+
+        if uuid:
+            if site_data.get("spec", {}).get("monitoringTemplateInterfaces"):
+                return site_data.get("spec", {}).get("monitoringTemplateInterfaces", [])[0]
+            else:
+                self.fail_json(msg="The site port interface not found. Site ID: {0} and UUID: {1}".format(site_id, uuid))
+        elif node and port:
+            for interface in site_data.get("spec", {}).get("interfaces", []):
+                # To ensure consistency between the API response data and the input data by converting the node to a string
+                if interface.get("port") == port and str(interface.get("node")) == str(node):
+                    return interface
+            self.fail_json(msg="The site port interface not found. Site ID: {0}, Node: {1} and Path: {2}".format(site_id, node, port))
+
+        return {}
+
 
 def service_node_ref_str_to_dict(serviceNodeRefStr):
     serviceNodeRefTokens = serviceNodeRefStr.split("/")

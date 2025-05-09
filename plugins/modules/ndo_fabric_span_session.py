@@ -118,7 +118,8 @@ options:
         type: str
       source_ip_prefix:
         description:
-        - The destination IP address prefix to route SPAN Session packets.
+        - The prefix used to assign source IP addresses to ERSPAN packets which can be used to identify which Leaf or Spine is sending the traffic.
+        - This can be any IP. If the prefix is used, the node ID of the source node is used for the undefined bits of the prefix.
         type: str
       span_version:
         description:
@@ -191,12 +192,12 @@ options:
         suboptions:
           node:
             description:
-            - The Node ID to use for the SPAN Session.
+            - The Node ID of the Node to use for the SPAN Session.
             type: int
             required: true
-          path:
+          interface:
             description:
-            - The Node Ethernet interface to use for the SPAN Session.
+            - The Ethernet interface of the Node to use for the SPAN Session
             type: str
             required: true
   destination_port_channel:
@@ -282,7 +283,7 @@ EXAMPLES = r"""
     destination_port:
       port:
         node: 101
-        path: "eth1/1"
+        interface: "eth1/1"
     state: present
 
 - name: Create Fabric SPAN Session with destination Port Channel
@@ -308,7 +309,7 @@ EXAMPLES = r"""
     destination_port:
       port:
         node: 101
-        path: "eth1/1"
+        interface: "eth1/1"
     state: present
 
 - name: Update Fabric SPAN Session from destination Port to destination Port Channel
@@ -456,7 +457,7 @@ def main():
                     type="dict",
                     options=dict(
                         node=dict(type="int", required=True),
-                        path=dict(type="str", required=True),
+                        interface=dict(type="str", required=True),
                     ),
                 ),
             ),
@@ -571,7 +572,7 @@ def main():
 
             if destination_port_uuid is None:
                 node = destination_port.get("port").get("node")
-                interface_port = destination_port.get("port").get("path")
+                interface_port = destination_port.get("port").get("interface")
                 destination_port_uuid = mso.get_site_interface_details(site_id=site_id, uuid=None, node=node, port=interface_port).get("uuid")
             mso_values["destination"] = dict(local=dict(accessInterface=destination_port_uuid), mtu=mtu)
 

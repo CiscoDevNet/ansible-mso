@@ -1,0 +1,392 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    # CLEAN TEST ENVIRONMENT
+    - name: Ensure Fabric Policy template does not exist
+      cisco.mso.ndo_template: &rm_fabric_policy_template
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        template_type: fabric_policy
+        state: absent
+
+    - name: Ensure Fabric Policy template exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_policy_template
+        state: present
+      register: fabric_policy_template
+
+    - name: Ensure MACsec policies exists
+      cisco.mso.ndo_macsec_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: "{{ item }}"
+        state: present
+      loop:
+        - macsec_policy_1
+        - macsec_policy_2
+      register: macsec_policies
+
+    - name: Ensure NTP Policy policies exists
+      cisco.mso.ndo_ntp_policy:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: "{{ item }}"
+        state: present
+      loop:
+        - ntp_policy_1
+        - ntp_policy_2
+      register: ntp_policies
+
+    # CREATE POD SETTINGS
+
+    - name: Create Pod Settings (check_mode)
+      cisco.mso.ndo_pod_settings: &create_pod_settings
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: ansible_pod_settings_1
+        state: present
+      register: cm_create_pod_settings
+      check_mode: true
+    
+    - name: Create Pod Settings
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings
+      register: nm_create_pod_settings
+
+    - name: Create Pod Settings again
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings
+      register: nm_create_pod_settings_again
+
+    - name: Assert Pod Settings creation
+      ansible.builtin.assert:
+        that:
+          - cm_create_pod_settings is changed
+          - cm_create_pod_settings.previous == {}
+          - cm_create_pod_settings.proposed.name == 'ansible_pod_settings_1'
+          - cm_create_pod_settings.current.name == 'ansible_pod_settings_1'
+          - cm_create_pod_settings.current.uuid is not defined
+          - nm_create_pod_settings is changed
+          - nm_create_pod_settings.previous == {}
+          - nm_create_pod_settings.proposed.name == 'ansible_pod_settings_1'
+          - nm_create_pod_settings.current.name == 'ansible_pod_settings_1'
+          - nm_create_pod_settings.current.uuid is defined
+          - nm_create_pod_settings_again is not changed
+          - nm_create_pod_settings_again.previous == nm_create_pod_settings_again.current == nm_create_pod_settings.current
+
+    # UPDATE POD SETTINGS
+
+    - name: Update Pod Settings (check_mode)
+      cisco.mso.ndo_pod_settings: &update_pod_settings
+        <<: *create_pod_settings
+        name: ansible_pod_settings_1
+        description: Updated Pod Settings
+        macsec_policy: macsec_policy_1
+        ntp_policy: ntp_policy_1
+      register: cm_update_pod_settings
+      check_mode: true
+    
+    - name: Update Pod Settings
+      cisco.mso.ndo_pod_settings:
+        <<: *update_pod_settings
+      register: nm_update_pod_settings
+    
+    - name: Update Pod Settings again
+      cisco.mso.ndo_pod_settings:
+        <<: *update_pod_settings
+      register: nm_update_pod_settings_again
+    
+    - name: Assert Pod Settings update
+      ansible.builtin.assert:
+        that:
+          - cm_update_pod_settings is changed
+          - cm_update_pod_settings.previous.name == 'ansible_pod_settings_1'
+          - cm_update_pod_settings.previous.uuid is defined
+          - cm_update_pod_settings.previous.fabricMACsec is not defined
+          - cm_update_pod_settings.previous.ntp is not defined
+          - cm_update_pod_settings.previous != cm_update_pod_settings.current
+          - cm_update_pod_settings.proposed == cm_update_pod_settings.current
+          - cm_update_pod_settings.current.description == 'Updated Pod Settings'
+          - cm_update_pod_settings.current.macsec_policy == 'macsec_policy_1'
+          - cm_update_pod_settings.current.ntp_policy == 'ntp_policy_1'
+          - cm_update_pod_settings.current.uuid is defined
+          - cm_update_pod_settings.current.fabricMACsec is defined
+          - cm_update_pod_settings.current.ntp is defined
+          - nm_update_pod_settings is changed
+          - nm_update_pod_settings.previous.name == 'ansible_pod_settings_1'
+          - nm_update_pod_settings.previous.uuid is defined
+          - nm_update_pod_settings.previous.fabricMACsec is not defined
+          - nm_update_pod_settings.previous.ntp is not defined
+          - nm_update_pod_settings.proposed == nm_update_pod_settings.current
+          - nm_update_pod_settings.current.description == 'Updated Pod Settings'
+          - nm_update_pod_settings.current.macsec_policy == 'macsec_policy_1'
+          - nm_update_pod_settings.current.ntp_policy == 'ntp_policy_1'
+          - nm_update_pod_settings.current.uuid is defined
+          - nm_update_pod_settings.current.fabricMACsec is defined
+          - nm_update_pod_settings.current.ntp is defined
+          - nm_update_pod_settings_again is not changed
+          - nm_update_pod_settings_again.previous == nm_update_pod_settings_again.current == nm_update_pod_settings.current
+
+    - name: Update MACsec and NTP policies with UUID
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings
+        name: ansible_pod_settings_1
+        macsec_policy_uuid: "{{ macsec_policies.results[1].current.uuid }}"
+        ntp_policy_uuid: "{{ ntp_policies.results[1].current.uuid }}"
+      register: nm_update_pod_settings_with_uuid
+    
+    - name: Assert Pod Settings update with UUID
+      ansible.builtin.assert:
+        that:
+          - nm_update_pod_settings_with_uuid is changed
+          - nm_update_pod_settings_with_uuid.previous.name == 'ansible_pod_settings_1'
+          - nm_update_pod_settings_with_uuid.previous.macsec_policy == 'macsec_policy_1'
+          - nm_update_pod_settings_with_uuid.previous.ntp_policy == 'ntp_policy_1'
+          - nm_update_pod_settings_with_uuid.previous.uuid is defined
+          - nm_update_pod_settings_with_uuid.previous.fabricMACsec is defined
+          - nm_update_pod_settings_with_uuid.previous.ntp is defined
+          - nm_update_pod_settings_with_uuid.proposed == nm_update_pod_settings_with_uuid.current
+          - nm_update_pod_settings_with_uuid.current.description == 'Updated Pod Settings'
+          - nm_update_pod_settings_with_uuid.current.macsec_policy == 'macsec_policy_2'
+          - nm_update_pod_settings_with_uuid.current.ntp_policy == 'ntp_policy_2'
+          - nm_update_pod_settings_with_uuid.current.uuid is defined
+          - nm_update_pod_settings_with_uuid.current.fabricMACsec is defined
+          - nm_update_pod_settings_with_uuid.current.ntp is defined
+
+    - name: Update description to empty string
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings
+        description: ""
+      register: nm_update_pod_settings_empty_description
+    
+    - name: Assert Pod Settings update with empty description
+      ansible.builtin.assert:
+        that:
+          - nm_update_pod_settings_empty_description is changed
+          - nm_update_pod_settings_empty_description.previous.name == 'ansible_pod_settings_1'
+          - nm_update_pod_settings_empty_description.previous.description == 'Updated Pod Settings'
+          - nm_update_pod_settings_empty_description.previous.macsec_policy == 'macsec_policy_2'
+          - nm_update_pod_settings_empty_description.previous.ntp_policy == 'ntp_policy_2'
+          - nm_update_pod_settings_empty_description.previous.uuid is defined
+          - nm_update_pod_settings_empty_description.previous.fabricMACsec is defined
+          - nm_update_pod_settings_empty_description.previous.ntp is defined
+          - nm_update_pod_settings_empty_description.proposed == nm_update_pod_settings_empty_description.current
+          - nm_update_pod_settings_empty_description.current.description == ''
+          - nm_update_pod_settings_empty_description.current.macsec_policy == 'macsec_policy_2'
+          - nm_update_pod_settings_empty_description.current.ntp_policy == 'ntp_policy_2'
+          - nm_update_pod_settings_empty_description.current.uuid is defined
+          - nm_update_pod_settings_empty_description.current.fabricMACsec is defined
+          - nm_update_pod_settings_empty_description.current.ntp is defined
+
+    - name: Remove MACsec and NTP policies from Pod Settings
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings
+        macsec_policy: ""
+        ntp_policy: ""
+      register: nm_update_pod_settings_removed_policies
+
+    - name: Assert Pod Settings update with removed policies
+      ansible.builtin.assert:
+        that:
+          - nm_update_pod_settings_removed_policies is changed
+          - nm_update_pod_settings_removed_policies.previous.name == 'ansible_pod_settings_1'
+          - nm_update_pod_settings_removed_policies.previous.description == ''
+          - nm_update_pod_settings_removed_policies.previous.macsec_policy == 'macsec_policy_2'
+          - nm_update_pod_settings_removed_policies.previous.ntp_policy == 'ntp_policy_2'
+          - nm_update_pod_settings_removed_policies.previous.uuid is defined
+          - nm_update_pod_settings_removed_policies.previous.fabricMACsec is defined
+          - nm_update_pod_settings_removed_policies.previous.ntp is defined
+          - nm_update_pod_settings_removed_policies.proposed == nm_update_pod_settings_removed_policies.current
+          - nm_update_pod_settings_removed_policies.current.description == ''
+          - nm_update_pod_settings_removed_policies.current.macsec_policy is not defined
+          - nm_update_pod_settings_removed_policies.current.ntp_policy is not defined
+          - nm_update_pod_settings_removed_policies.current.uuid is defined
+          - nm_update_pod_settings_removed_policies.current.fabricMACsec is not defined
+          - nm_update_pod_settings_removed_policies.current.ntp is not defined
+
+    - name: Create another Pod Settings
+      cisco.mso.ndo_pod_settings: &create_pod_settings_2
+        <<: *create_pod_settings
+        name: ansible_pod_settings_2
+      register: create_pod_settings_2
+
+    - name: Update name of Pod Settings
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings_2
+        name: ansible_pod_settings_2_changed
+        uuid: "{{create_pod_settings_2.current.uuid}}"
+      register: update_pod_settings_name
+
+    - name: Assert update of Pod Settings name
+      ansible.builtin.assert:
+        that:
+          - update_pod_settings_name is changed
+          - update_pod_settings_name.previous.name == 'ansible_pod_settings_2'
+          - update_pod_settings_name.current.name == 'ansible_pod_settings_2_changed'
+          - update_pod_settings_name.current.uuid == update_pod_settings_name.previous.uuid
+
+    # QUERY POD SETTINGS
+
+    - name: Query Pod Settings
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings
+        state: query
+      register: query_pod_settings
+
+    - name: Query all Pod Settings in Fabric Policy template
+      cisco.mso.ndo_pod_settings:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        state: query
+      register: query_all_pod_settings
+
+    - name: Assert Pod Settings query
+      ansible.builtin.assert:
+        that:
+          - query_pod_settings is not changed
+          - query_pod_settings.current.name == 'ansible_pod_settings_1'
+          - query_all_pod_settings is not changed
+          - query_all_pod_settings.current | length == 2
+          - query_all_pod_settings.current[0].name == 'ansible_pod_settings_1'
+          - query_all_pod_settings.current[1].name == 'ansible_pod_settings_2_changed'
+
+    # ERROR HANDLING
+
+    - name: Pod Settings with mutually exclusive template parameters (error)
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings
+        template_id: template_id
+      register: err_mutually_exclusive_template
+      ignore_errors: true
+    
+    - name: Pod Settings with mutually exclusive macsec_policy parameters (error)
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings
+        macsec_policy: macsec_policy_1
+        macsec_policy_uuid: "{{ macsec_policies.results[1].current.uuid }}"
+      register: err_mutually_exclusive_macsec_policy
+      ignore_errors: true
+    
+    - name: Pod Settings with mutually exclusive ntp_policy parameters (error)
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings
+        ntp_policy: ntp_policy_1
+        ntp_policy_uuid: "{{ ntp_policies.results[1].current.uuid }}"
+      register: err_mutually_exclusive_ntp_policy
+      ignore_errors: true
+    
+    - name: Assert Pod Settings error handling
+      ansible.builtin.assert:
+        that:
+          - err_mutually_exclusive_template is failed
+          - err_mutually_exclusive_template.msg == "parameters are mutually exclusive{{':'}} template|template_id"
+          - err_mutually_exclusive_macsec_policy is failed
+          - err_mutually_exclusive_macsec_policy.msg == "parameters are mutually exclusive{{':'}} macsec_policy|macsec_policy_uuid"
+          - err_mutually_exclusive_ntp_policy is failed
+          - err_mutually_exclusive_ntp_policy.msg == "parameters are mutually exclusive{{':'}} ntp_policy|ntp_policy_uuid"
+
+    - name: Pod Settings with invalid MACsec policy (error)
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings
+        macsec_policy: invalid_macsec_policy
+      register: err_invalid_macsec_policy
+      ignore_errors: true
+    
+    - name: Pod Settings with invalid NTP policy (error)
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings
+        ntp_policy: invalid_ntp_policy
+      register: err_invalid_ntp_policy
+      ignore_errors: true
+    
+    - name: Pod Settings with invalid MACsec policy UUID (error)
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings
+        macsec_policy_uuid: invalid_macsec_policy_uuid
+      register: err_invalid_macsec_policy_uuid
+      ignore_errors: true
+
+    - name: Pod Settings with invalid NTP policy UUID (error)
+      cisco.mso.ndo_pod_settings:
+        <<: *create_pod_settings
+        ntp_policy_uuid: invalid_ntp_policy_uuid
+      register: err_invalid_ntp_policy_uuid
+      ignore_errors: true
+    
+    - name: Assert Pod Settings error handling
+      ansible.builtin.assert:
+        that:
+          - err_invalid_macsec_policy is failed
+          - err_invalid_macsec_policy.msg == "Provided MACsec Policy with '[KVPair(key='name', value='invalid_macsec_policy')]' not matching existing object(s){{':'}} macsec_policy_1, macsec_policy_2"
+          - err_invalid_ntp_policy is failed
+          - err_invalid_ntp_policy.msg == "Provided NTP Policy with '[KVPair(key='name', value='invalid_ntp_policy')]' not matching existing object(s){{':'}} ntp_policy_1, ntp_policy_2"
+          - err_invalid_macsec_policy_uuid is failed
+          - err_invalid_macsec_policy_uuid.msg.startswith("Provided MACsec Policy with '[KVPair(key='uuid'")
+          - err_invalid_ntp_policy_uuid is failed
+          - err_invalid_ntp_policy_uuid.msg.startswith("Provided NTP Policy with '[KVPair(key='uuid'")
+
+    # DELETE POD SETTINGS
+
+    - name: Delete Pod Settings (check_mode)
+      cisco.mso.ndo_pod_settings: &delete_pod_settings
+        <<: *create_pod_settings
+        state: absent
+      register: cm_delete_pod_settings
+      check_mode: true
+
+    - name: Delete Pod Settings
+      cisco.mso.ndo_pod_settings:
+        <<: *delete_pod_settings
+      register: nm_delete_pod_settings
+
+    - name: Delete Pod Settings again
+      cisco.mso.ndo_pod_settings:
+        <<: *delete_pod_settings
+      register: nm_delete_pod_settings_again
+
+    - name: Assert Pod Settings deletion
+      ansible.builtin.assert:
+        that:
+          - cm_delete_pod_settings is changed
+          - cm_delete_pod_settings.previous.name == 'ansible_pod_settings_1'
+          - cm_delete_pod_settings.proposed == {}
+          - cm_delete_pod_settings.current  == {}
+          - nm_delete_pod_settings is changed
+          - nm_delete_pod_settings.previous.name == 'ansible_pod_settings_1'
+          - nm_delete_pod_settings.proposed == {}
+          - nm_delete_pod_settings.current  == {}
+          - nm_delete_pod_settings_again is not changed
+          - nm_delete_pod_settings_again.previous == nm_delete_pod_settings_again.current == nm_delete_pod_settings.current
+
+    # CLEAN TEST ENVIRONMENT
+    - name: Ensure Fabric Policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_policy_template

@@ -295,6 +295,66 @@ class MSOTemplate:
             return self.get_object_by_key_value_pairs("Node Settings", existing_objects, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
         return existing_objects  # Query all objects
 
+    def get_pod_settings_object(self, uuid=None, name=None, search_object=None, fail_module=False):
+        """
+        Get the Pod Settings by uuid or name.
+        :param uuid: UUID of the Pod Setting to search for -> Str
+        :param name: Name of the Pod Setting to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        if not search_object:
+            search_object = self.template
+        existing_objects = search_object.get("fabricPolicyTemplate", {}).get("template", {}).get("podPolicyGroups", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs("Pod Settings", existing_objects, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+        return existing_objects  # Query all objects
+
+    def get_ntp_policy_object(self, uuid=None, name=None, search_object=None, fail_module=False):
+        """
+        Get the NTP Policy by uuid or name.
+        :param uuid: UUID of the NTP Policy to search for -> Str
+        :param name: Name of the NTP Policy to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        if not search_object:
+            search_object = self.template
+        existing_objects = search_object.get("fabricPolicyTemplate", {}).get("template", {}).get("ntpPolicies", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs("NTP Policy", existing_objects, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+        return existing_objects  # Query all objects
+
+    def get_macsec_policy_object(self, uuid=None, name=None, search_object=None, fail_module=False):
+        """
+        Get the MACsec Policy by uuid or name.
+        :param uuid: UUID of the MACsec Policy to search for -> Str
+        :param name: Name of the MACsec Policy to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        if not search_object:
+            search_object = self.template
+        existing_objects = search_object.get("fabricPolicyTemplate", {}).get("template", {}).get("macsecPolicies", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs("MACsec Policy", existing_objects, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+        return existing_objects  # Query all objects
+
     def get_l3out_interface_routing_policy_object(self, uuid=None, name=None, fail_module=False):
         """
         Get the L3Out Interface Routing Policy by UUID or Name.

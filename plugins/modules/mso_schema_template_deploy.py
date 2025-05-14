@@ -8,7 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
-ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported_by": "community"}
+ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["deprecated"], "supported_by": "community"}
 
 DOCUMENTATION = r"""
 ---
@@ -18,7 +18,6 @@ description:
 - Deploy schema templates to sites.
 - Prior to deploy a schema validation is executed for MSO releases running on the ND platform.
 - When schema validation fails, M(cisco.mso.mso_schema_template_deploy) fails and deploy will not be executed.
-- DEPRECATED for NDO v4.1 and later. Use M(cisco.mso.ndo_schema_template_deploy) on NDO v4.1 and later.
 author:
 - Dag Wieers (@dagwieers)
 options:
@@ -45,6 +44,12 @@ options:
     type: str
     choices: [ deploy, status, undeploy ]
     default: deploy
+
+deprecated:
+  removed_in: '3.0.0'
+  why: Due to changes in the ND and NDO API, a new module (cisco.mso.ndo_schema_template_deploy) has been released for
+    ND v2.2 (NDO v4.1) and later.
+  alternative: Use M(cisco.mso.ndo_schema_template_deploy) instead.
 seealso:
 - module: cisco.mso.mso_schema_site
 - module: cisco.mso.mso_schema_template

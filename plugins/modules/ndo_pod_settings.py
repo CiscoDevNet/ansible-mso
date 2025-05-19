@@ -262,10 +262,10 @@ def main():
             unwanted = []
             if macsec_policy == "" or macsec_policy_uuid == "":
                 remove_data.append("fabricMACsec")
-                unwanted.extend(["fabricMACsec", "macsec_policy"])
+                unwanted.extend(["fabricMACsec", "fabricMACsecName"])
             if ntp_policy == "" or ntp_policy_uuid == "":
                 remove_data.append("ntp")
-                unwanted.extend(["ntp", "ntp_policy"])
+                unwanted.extend(["ntp", "ntpName"])
 
             append_update_ops_data(ops, match.details, pod_settings_path, mso_values, remove_data)
             mso.sanitize(mso_values, collate=True, unwanted=unwanted)
@@ -294,9 +294,9 @@ def main():
 
 def set_pod_settings_policy_names(mso_template, pod_settings):
     if pod_settings.get("fabricMACsec"):
-        pod_settings["macsec_policy"] = mso_template.get_macsec_policy_object(uuid=pod_settings["fabricMACsec"]).details.get("name")
+        pod_settings["fabricMACsecName"] = mso_template.get_macsec_policy_object(uuid=pod_settings["fabricMACsec"]).details.get("name")
     if pod_settings.get("ntp"):
-        pod_settings["ntp_policy"] = mso_template.get_ntp_policy_object(uuid=pod_settings["ntp"]).details.get("name")
+        pod_settings["ntpName"] = mso_template.get_ntp_policy_object(uuid=pod_settings["ntp"]).details.get("name")
     return pod_settings
 
 

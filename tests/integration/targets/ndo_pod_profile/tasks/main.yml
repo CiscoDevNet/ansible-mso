@@ -1,0 +1,393 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 4.4
+  when: version.current.version is version('4.4', '>=')
+  block:
+    # CLEAN TEST ENVIRONMENT
+    - name: Ensure Fabric Resource template does not exist
+      cisco.mso.ndo_template: &rm_fabric_resource_template
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        template_type: fabric_resource
+        state: absent
+    
+    - name: Ensure Fabric Policy template does not exist
+      cisco.mso.ndo_template: &rm_fabric_policy_template
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        template_type: fabric_policy
+        state: absent
+
+    - name: Ensure Fabric Policy template exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_policy_template
+        state: present
+      register: fabric_policy_template
+
+    - name: Ensure Fabric Resource template exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_resource_template
+        state: present
+
+    - name: Ensure Pod Settings exists
+      cisco.mso.ndo_pod_settings:
+        <<: *mso_info
+        template: ansible_fabric_policy_template
+        name: ansible_pod_settings_1
+        state: present
+      register: pod_settings
+
+    # CREATE Pod Profile
+
+    - name: Create Pod Profile (check_mode)
+      cisco.mso.ndo_pod_profile: &create_pod_profile
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        name: ansible_pod_profile_1
+        pod_settings: ansible_pod_settings_1
+        pod_settings_template: ansible_fabric_policy_template
+        state: present
+      register: cm_create_pod_profile
+      check_mode: true
+    
+    - name: Create Pod Profile
+      cisco.mso.ndo_pod_profile:
+        <<: *create_pod_profile
+      register: nm_create_pod_profile
+
+    - name: Create Pod Profile again
+      cisco.mso.ndo_pod_profile:
+        <<: *create_pod_profile
+      register: nm_create_pod_profile_again
+
+    - name: Assert Pod Profile creation
+      ansible.builtin.assert:
+        that:
+          - cm_create_pod_profile is changed
+          - cm_create_pod_profile.previous == {}
+          - cm_create_pod_profile.proposed == cm_create_pod_profile.current
+          - cm_create_pod_profile.current.name == 'ansible_pod_profile_1'
+          - cm_create_pod_profile.current.kind == 'all'
+          - cm_create_pod_profile.current.pod_settings == 'ansible_pod_settings_1'
+          - cm_create_pod_profile.current.policy is defined
+          - cm_create_pod_profile.current.uuid is not defined
+          - nm_create_pod_profile is changed
+          - nm_create_pod_profile.previous == {}
+          - nm_create_pod_profile.proposed != nm_create_pod_profile.current
+          - nm_create_pod_profile.current.name == 'ansible_pod_profile_1'
+          - nm_create_pod_profile.current.kind == 'all'
+          - nm_create_pod_profile.current.pod_settings == 'ansible_pod_settings_1'
+          - nm_create_pod_profile.current.policy is defined
+          - nm_create_pod_profile.current.uuid is defined
+          - nm_create_pod_profile_again is not changed
+          - nm_create_pod_profile_again.previous == nm_create_pod_profile_again.current == nm_create_pod_profile.current
+
+    # UPDATE Pod Profile
+
+    - name: Update Pod Profile (check_mode)
+      cisco.mso.ndo_pod_profile: &update_pod_profile
+        <<: *create_pod_profile
+        name: ansible_pod_profile_1
+        description: Updated Pod Profile
+        pods:
+          - 1
+          - 2
+      register: cm_update_pod_profile
+      check_mode: true
+    
+    - name: Update Pod Profile
+      cisco.mso.ndo_pod_profile:
+        <<: *update_pod_profile
+      register: nm_update_pod_profile
+    
+    - name: Update Pod Profile again
+      cisco.mso.ndo_pod_profile:
+        <<: *update_pod_profile
+      register: nm_update_pod_profile_again
+    
+    - name: Update Pod Profile back to type all
+      cisco.mso.ndo_pod_profile:
+        <<: *update_pod_profile
+        name: ansible_pod_profile_1
+        description: Updated Pod Profile
+        pods: []
+      register: nm_update_pod_profile_back_to_all
+    
+    - name: Update Pod Profile back to type range
+      cisco.mso.ndo_pod_profile:
+        <<: *update_pod_profile
+        name: ansible_pod_profile_1
+        description: Updated Pod Profile
+        pods:
+          - 1
+      register: nm_update_pod_profile_back_to_range
+
+    - name: Assert Pod Profile update
+      ansible.builtin.assert:
+        that:
+          - cm_update_pod_profile is changed
+          - cm_update_pod_profile.previous.name == 'ansible_pod_profile_1'
+          - cm_update_pod_profile.previous.uuid is defined
+          - cm_update_pod_profile.previous != cm_update_pod_profile.current
+          - cm_update_pod_profile.proposed == cm_update_pod_profile.current
+          - cm_update_pod_profile.current.name == 'ansible_pod_profile_1'
+          - cm_update_pod_profile.current.description == 'Updated Pod Profile'
+          - cm_update_pod_profile.current.kind == 'podRange'
+          - cm_update_pod_profile.current.pod_settings == 'ansible_pod_settings_1'
+          - cm_update_pod_profile.current.blocks | length == 2
+          - cm_update_pod_profile.current.blocks[0] == 1
+          - cm_update_pod_profile.current.blocks[1] == 2
+          - cm_update_pod_profile.current.policy is defined
+          - cm_update_pod_profile.current.uuid is defined
+          - nm_update_pod_profile is changed
+          - nm_update_pod_profile.previous.name == 'ansible_pod_profile_1'
+          - nm_update_pod_profile.previous.uuid is defined
+          - nm_update_pod_profile.previous != nm_update_pod_profile.current
+          - nm_update_pod_profile.proposed == nm_update_pod_profile.current
+          - nm_update_pod_profile.current.name == 'ansible_pod_profile_1'
+          - nm_update_pod_profile.current.description == 'Updated Pod Profile'
+          - nm_update_pod_profile.current.kind == 'podRange'
+          - nm_update_pod_profile.current.pod_settings == 'ansible_pod_settings_1'
+          - nm_update_pod_profile.current.blocks | length == 2
+          - nm_update_pod_profile.current.blocks[0] == 1
+          - nm_update_pod_profile.current.blocks[1] == 2
+          - nm_update_pod_profile.current.policy is defined
+          - nm_update_pod_profile.current.uuid is defined
+          - nm_update_pod_profile_again is not changed
+          - nm_update_pod_profile_again.previous == nm_update_pod_profile_again.current == nm_update_pod_profile.current
+          - nm_update_pod_profile_back_to_all is changed
+          - nm_update_pod_profile_back_to_all.previous.name == 'ansible_pod_profile_1'
+          - nm_update_pod_profile_back_to_all.previous.uuid is defined
+          - nm_update_pod_profile_back_to_all.previous != nm_update_pod_profile_back_to_all.current
+          - nm_update_pod_profile_back_to_all.proposed == nm_update_pod_profile_back_to_all.current
+          - nm_update_pod_profile_back_to_all.current.name == 'ansible_pod_profile_1'
+          - nm_update_pod_profile_back_to_all.current.description == 'Updated Pod Profile'
+          - nm_update_pod_profile_back_to_all.current.kind == 'all'
+          - nm_update_pod_profile_back_to_all.current.pod_settings == 'ansible_pod_settings_1'
+          - nm_update_pod_profile_back_to_all.current.blocks is not defined
+          - nm_update_pod_profile_back_to_all.current.policy is defined
+          - nm_update_pod_profile_back_to_all.current.uuid is defined
+          - nm_update_pod_profile_back_to_range is changed
+          - nm_update_pod_profile_back_to_range.previous.name == 'ansible_pod_profile_1'
+          - nm_update_pod_profile_back_to_range.previous.uuid is defined
+          - nm_update_pod_profile_back_to_range.previous != nm_update_pod_profile_back_to_range.current
+          - nm_update_pod_profile_back_to_range.proposed == nm_update_pod_profile_back_to_range.current
+          - nm_update_pod_profile_back_to_range.current.name == 'ansible_pod_profile_1'
+          - nm_update_pod_profile_back_to_range.current.description == 'Updated Pod Profile'
+          - nm_update_pod_profile_back_to_range.current.kind == 'podRange'
+          - nm_update_pod_profile_back_to_range.current.pod_settings == 'ansible_pod_settings_1'
+          - nm_update_pod_profile_back_to_range.current.blocks | length == 1
+          - nm_update_pod_profile_back_to_range.current.blocks[0] == 1
+          - nm_update_pod_profile_back_to_range.current.policy is defined
+          - nm_update_pod_profile_back_to_range.current.uuid is defined
+
+    - name: Update description to empty string
+      cisco.mso.ndo_pod_profile:
+        <<: *create_pod_profile
+        description: ""
+      register: nm_update_pod_profile_empty_description
+    
+    - name: Assert Pod Profile update with empty description
+      ansible.builtin.assert:
+        that:
+          - nm_update_pod_profile_empty_description is changed
+          - nm_update_pod_profile_empty_description.previous.name == 'ansible_pod_profile_1'
+          - nm_update_pod_profile_empty_description.previous.description == 'Updated Pod Profile'
+          - nm_update_pod_profile_empty_description.previous.uuid is defined
+          - nm_update_pod_profile_empty_description.proposed == nm_update_pod_profile_empty_description.current
+          - nm_update_pod_profile_empty_description.current.description == ''
+          - nm_update_pod_profile_empty_description.current.uuid is defined
+
+    - name: Create another Pod Profile with pod_settings_uuid and pod_settings_template_id
+      cisco.mso.ndo_pod_profile: &create_pod_profile_2
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        name: ansible_pod_profile_2
+        pod_settings_uuid: "{{ pod_settings.current.uuid }}"
+        pod_settings_template_id: "{{ fabric_policy_template.current.templateId }}"
+        pods:
+          - 2
+        state: present
+      register: create_pod_profile_2
+
+    - name: Update name of Pod Profile
+      cisco.mso.ndo_pod_profile:
+        <<: *create_pod_profile_2
+        name: ansible_pod_profile_2_changed
+        uuid: "{{create_pod_profile_2.current.uuid}}"
+      register: update_pod_profile_name
+
+    - name: Assert update of Pod Profile name
+      ansible.builtin.assert:
+        that:
+          - update_pod_profile_name is changed
+          - update_pod_profile_name.previous.name == 'ansible_pod_profile_2'
+          - update_pod_profile_name.current.name == 'ansible_pod_profile_2_changed'
+          - update_pod_profile_name.current.uuid == update_pod_profile_name.previous.uuid
+          - update_pod_profile_name.current.pod_settings == 'ansible_pod_settings_1'
+
+    # QUERY Pod Profile
+
+    - name: Query Pod Profile
+      cisco.mso.ndo_pod_profile:
+        <<: *create_pod_profile
+        state: query
+      register: query_pod_profile
+
+    - name: Query all Pod Profile in Fabric Policy template
+      cisco.mso.ndo_pod_profile:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        state: query
+      register: query_all_pod_profile
+
+    - name: Assert Pod Profile query
+      ansible.builtin.assert:
+        that:
+          - query_pod_profile is not changed
+          - query_pod_profile.current.name == 'ansible_pod_profile_1'
+          - query_all_pod_profile is not changed
+          - query_all_pod_profile.current | length == 2
+          - query_all_pod_profile.current[0].name == 'ansible_pod_profile_1'
+          - query_all_pod_profile.current[1].name == 'ansible_pod_profile_2_changed'
+
+    # ERROR HANDLING
+
+    - name: Pod Profile with mutually exclusive template parameters (error)
+      cisco.mso.ndo_pod_profile:
+        <<: *create_pod_profile
+        template_id: template_id
+      register: err_mutually_exclusive_template
+      ignore_errors: true
+    
+    - name: Pod Profile with mutually exclusive pod_settings parameters (error)
+      cisco.mso.ndo_pod_profile:
+        <<: *create_pod_profile
+        pod_settings: ansible_pod_settings_1
+        pod_settings_uuid: "{{ pod_settings.current.uuid }}"
+      register: err_mutually_exclusive_pod_settings
+      ignore_errors: true
+    
+    - name: Pod Profile with mutually exclusive pod_settings_template parameters (error)
+      cisco.mso.ndo_pod_profile:
+        <<: *create_pod_profile
+        pod_settings_template: ansible_fabric_policy_template
+        pod_settings_template_id: "{{ fabric_policy_template.current.templateId }}"
+      register: err_mutually_exclusive_pod_settings_template
+      ignore_errors: true
+    
+    - name: Assert mutually exclusive error handling
+      ansible.builtin.assert:
+        that:
+          - err_mutually_exclusive_template is failed
+          - err_mutually_exclusive_template.msg == "parameters are mutually exclusive{{':'}} template|template_id"
+          - err_mutually_exclusive_pod_settings is failed
+          - err_mutually_exclusive_pod_settings.msg == "parameters are mutually exclusive{{':'}} pod_settings|pod_settings_uuid"
+          - err_mutually_exclusive_pod_settings_template is failed
+          - err_mutually_exclusive_pod_settings_template.msg == "parameters are mutually exclusive{{':'}} pod_settings_template|pod_settings_template_id"
+    
+    - name: Pod Profile with required if parameters pod_settings and pod_settings_uuid missing (error)
+      cisco.mso.ndo_pod_profile:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        name: ansible_pod_profile_1
+        pod_settings_template: ansible_fabric_policy_template
+        state: present
+      register: err_required_parameters_missing_pod_settings
+      ignore_errors: true
+    
+    - name: Pod Profile with required if parameters pod_settings_template and pod_settings_template_id missing (error)
+      cisco.mso.ndo_pod_profile:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        name: ansible_pod_profile_1
+        pod_settings: ansible_pod_settings_1
+        state: present
+      register: err_required_parameters_missing_pod_settings_template
+      ignore_errors: true
+    
+    - name: Pod Profile with invalid pod_settings (error)
+      cisco.mso.ndo_pod_profile:
+        <<: *create_pod_profile
+        pod_settings: ansible_pod_settings_2
+      register: err_invalid_pod_settings_template
+      ignore_errors: true
+
+    - name: Assert Pod Settings error handling
+      ansible.builtin.assert:
+        that:
+          - err_required_parameters_missing_pod_settings is failed
+          - err_required_parameters_missing_pod_settings.msg == "state is present but any of the following are missing{{':'}} pod_settings, pod_settings_uuid"
+          - err_required_parameters_missing_pod_settings_template is failed
+          - err_required_parameters_missing_pod_settings_template.msg == "state is present but any of the following are missing{{':'}} pod_settings_template, pod_settings_template_id"
+          - err_invalid_pod_settings_template is failed
+          - err_invalid_pod_settings_template.msg == "Provided Pod Settings with '[KVPair(key='name', value='ansible_pod_settings_2')]' not matching existing object(s){{':'}} ansible_pod_settings_1"
+
+    # DELETE Pod Profile
+
+    - name: Delete Pod Profile (check_mode)
+      cisco.mso.ndo_pod_profile: &delete_pod_profile
+        <<: *create_pod_profile
+        state: absent
+      register: cm_delete_pod_profile
+      check_mode: true
+
+    - name: Delete Pod Profile
+      cisco.mso.ndo_pod_profile:
+        <<: *delete_pod_profile
+      register: nm_delete_pod_profile
+
+    - name: Delete Pod Profile again
+      cisco.mso.ndo_pod_profile:
+        <<: *delete_pod_profile
+      register: nm_delete_pod_profile_again
+
+    - name: Assert Pod Profile deletion
+      ansible.builtin.assert:
+        that:
+          - cm_delete_pod_profile is changed
+          - cm_delete_pod_profile.previous.name == 'ansible_pod_profile_1'
+          - cm_delete_pod_profile.proposed == {}
+          - cm_delete_pod_profile.current  == {}
+          - nm_delete_pod_profile is changed
+          - nm_delete_pod_profile.previous.name == 'ansible_pod_profile_1'
+          - nm_delete_pod_profile.proposed == {}
+          - nm_delete_pod_profile.current  == {}
+          - nm_delete_pod_profile_again is not changed
+          - nm_delete_pod_profile_again.previous == nm_delete_pod_profile_again.current == nm_delete_pod_profile.current
+
+    # CLEAN TEST ENVIRONMENT
+
+    - name: Ensure Fabric Resource template does not exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_resource_template
+    
+    - name: Ensure Fabric Policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_policy_template

@@ -79,6 +79,12 @@ class MSOTemplate:
                  Values of provided keys of all existing objects. -> List
         """
 
+        # Sometimes the attribute returned by api might be None
+        # If search_list is None, iterating over it will throw an error
+        # Thus we need to return the match of None and without existing values
+        if search_list is None:
+            return None, []
+
         def kv_match(kvs, item):
             return all((item.get(kv.key) == kv.value for kv in kvs))
 
@@ -293,6 +299,26 @@ class MSOTemplate:
         existing_objects = self.template.get("fabricPolicyTemplate", {}).get("template", {}).get("nodePolicyGroups", [])
         if uuid or name:  # Query a specific object
             return self.get_object_by_key_value_pairs("Node Settings", existing_objects, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+        return existing_objects  # Query all objects
+
+    def get_pod_profile_object(self, uuid=None, name=None, search_object=None, fail_module=False):
+        """
+        Get the Pod Profile by uuid or name.
+        :param uuid: UUID of the Pod Profile to search for -> Str
+        :param name: Name of the Pod Profile to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        if not search_object:
+            search_object = self.template
+        existing_objects = search_object.get("fabricResourceTemplate", {}).get("template", {}).get("podProfiles", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs("Pod Profile", existing_objects, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
         return existing_objects  # Query all objects
 
     def get_pod_settings_object(self, uuid=None, name=None, search_object=None, fail_module=False):

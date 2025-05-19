@@ -333,7 +333,7 @@ def set_pod_profile_policy_names(mso, mso_templates, pod_profile):
 
         # Check if the pod settings UUID is already in the cache
         if pod_settings_uuid in POD_SETTINGS_CACHE:
-            pod_profile["pod_settings"] = POD_SETTINGS_CACHE[pod_settings_uuid]
+            pod_profile["policyName"] = POD_SETTINGS_CACHE[pod_settings_uuid]
             return pod_profile
 
         # Retrieve a summary of all fabric_policy templates from NDO and loop through all templates to find the pod settings policy
@@ -344,7 +344,7 @@ def set_pod_profile_policy_names(mso, mso_templates, pod_profile):
                     pod_settings_template = mso_templates.get_template("fabric_policy", template.get("templateName"), template.get("templateId"))
                     match = pod_settings_template.get_pod_settings_object(pod_settings_uuid)
                     if match:
-                        pod_profile["pod_settings"] = match.details.get("name")
+                        pod_profile["policyName"] = match.details.get("name")
                         POD_SETTINGS_CACHE[pod_settings_uuid] = match.details.get("name")
                         return pod_profile
 

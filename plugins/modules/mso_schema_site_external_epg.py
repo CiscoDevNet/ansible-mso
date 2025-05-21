@@ -30,6 +30,12 @@ options:
     - The name of the template to change.
     type: str
     required: true
+  l3out_uuid:
+    description:
+    - The L3Out UUID to associate with the external epg.
+    - In NDO versions over 4.2, the parameter is accessible only when an external EPG is
+    - linked to the current schema-template's VRF.
+    type: str
   l3out:
     description:
     - The L3Out associated with the external epg.
@@ -48,6 +54,14 @@ options:
     - The template that defines the referenced L3Out.
     - If this parameter is unspecified, it defaults to the current template.
     type: str
+  l3out_template_id:
+    description:
+    - The ID of the L3Out template.
+    type: str
+  l3out_on_l3out_template:
+    description:
+    - If this parameter is specified, the constructed l3out reference will refer to L3Out template L3Out object.
+    type: bool
   l3out_on_apic:
     description:
     - If this parameter is specified, the constructed l3out reference will refer to a distinguished name (DN) in APIC.
@@ -76,7 +90,14 @@ options:
     type: str
     choices: [ absent, present, query ]
     default: present
+notes:
+- The O(l3out_template) must exist before using it with this module in your playbook.
+  Use M(cisco.mso.ndo_template) to create the L3Out template.
+- The O(l3out) must exist before using it with this module in your playbook.
+  Use M(cisco.mso.ndo_l3out_template) to create the L3Out.
 seealso:
+- module: cisco.mso.ndo_template
+- module: cisco.mso.ndo_l3out_template
 - module: cisco.mso.mso_schema_template_external_epg
 extends_documentation_fragment: cisco.mso.modules
 """
@@ -133,6 +154,7 @@ RETURN = r"""
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
+from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
 
 
 def main():
@@ -141,10 +163,13 @@ def main():
         schema=dict(type="str", required=True),
         template=dict(type="str", required=True),
         site=dict(type="str", required=True),
+        l3out_uuid=dict(type="str"),
         l3out=dict(type="str", aliases=["l3out_name"]),
         l3out_schema=dict(type="str"),
         l3out_template=dict(type="str"),
+        l3out_template_id=dict(type="str"),
         l3out_on_apic=dict(type="bool"),
+        l3out_on_l3out_template=dict(type="bool"),
         external_epg=dict(type="str", aliases=["name"]),
         route_reachability=dict(type="str", default="internet", choices=["internet", "site-ext"]),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
@@ -157,6 +182,7 @@ def main():
             ["state", "absent", ["external_epg"]],
             ["state", "present", ["external_epg"]],
         ],
+        mutually_exclusive=[("l3out_uuid", "l3out"), ("l3out_template", "l3out_template_id")],
     )
 
     schema = module.params.get("schema")
@@ -166,20 +192,25 @@ def main():
     l3out = module.params.get("l3out")
     l3out_schema = module.params.get("l3out_schema")
     l3out_template = module.params.get("l3out_template")
+    l3out_template_id = module.params.get("l3out_template_id")
     l3out_on_apic = module.params.get("l3out_on_apic")
     route_reachability = module.params.get("route_reachability")
+    l3out_uuid = module.params.get("l3out_uuid")
+    l3out_on_l3out_template = module.params.get("l3out_on_l3out_template")
     state = module.params.get("state")
 
     mso = MSOModule(module)
 
-    l3out_template = template if l3out_template is None else l3out_template.replace(" ", "")
-    l3out_schema = schema if l3out_schema is None else l3out_schema
-    l3out_schema_id = mso.lookup_schema(l3out_schema)
+    if not l3out_on_l3out_template:
+        l3out_template = template if l3out_template is None else l3out_template.replace(" ", "")
+        l3out_schema = schema if l3out_schema is None else l3out_schema
+        l3out_schema_id = mso.lookup_schema(l3out_schema)
 
     mso_schema = MSOSchema(mso, schema, template, site)
     mso_objects = mso_schema.schema_objects
 
     mso_schema.set_template_external_epg(external_epg, fail_module=False)
+    mso_template = MSOTemplate(mso, "l3out", l3out_template, l3out_template_id)
 
     # Path-based access uses site_id-template
     site_template = "{0}-{1}".format(mso_objects.get("site").details.get("siteId"), template)
@@ -217,11 +248,11 @@ def main():
     elif state == "present":
         # Get external EPGs type from template level and verify template_external_epg type.
         if mso_objects.get("template_external_epg") is not None and mso_objects.get("template_external_epg").details.get("extEpgType") != "cloud":
-            if l3out is not None:
+            if l3out is not None and not l3out_on_l3out_template:
                 path = "tenants/{0}".format(mso_objects.get("template").details.get("tenantId"))
                 tenant_name = mso.request(path, method="GET").get("name")
                 l3out_dn = "uni/tn-{0}/out-{1}".format(tenant_name, l3out)
-            else:
+            elif not l3out_uuid and not l3out_on_l3out_template:
                 mso.fail_json(msg="L3Out cannot be empty when template external EPG type is 'on-premise'.")
 
         payload = dict(
@@ -235,13 +266,18 @@ def main():
         )
 
         if not l3out_on_apic:
-            payload.update(
-                l3outRef=dict(
-                    schemaId=l3out_schema_id,
-                    templateName=l3out_template,
-                    l3outName=l3out,
-                ),
-            )
+            if l3out_uuid:
+                payload.update(l3outRef=l3out_uuid)
+            elif l3out_on_l3out_template and l3out:
+                payload.update(l3outRef=mso_template.get_l3out_object(uuid=l3out_uuid, name=l3out, fail_module=True).details.get("uuid"))
+            else:
+                payload.update(
+                    l3outRef=dict(
+                        schemaId=l3out_schema_id,
+                        templateName=l3out_template,
+                        l3outName=l3out,
+                    ),
+                )
 
         mso.sanitize(payload, collate=True)
 

@@ -224,13 +224,12 @@
           - nm_update_pod_profile_empty_description.current.description == ''
           - nm_update_pod_profile_empty_description.current.uuid is defined
 
-    - name: Create another Pod Profile with pod_settings_uuid and pod_settings_template_id
+    - name: Create another Pod Profile with pod_settings_uuid
       cisco.mso.ndo_pod_profile: &create_pod_profile_2
         <<: *mso_info
         template: ansible_fabric_resource_template
         name: ansible_pod_profile_2
         pod_settings_uuid: "{{ pod_settings.current.uuid }}"
-        pod_settings_template_id: "{{ fabric_policy_template.current.templateId }}"
         pods:
           - 2
         state: present
@@ -336,7 +335,18 @@
       cisco.mso.ndo_pod_profile:
         <<: *create_pod_profile
         pod_settings: ansible_pod_settings_2
-      register: err_invalid_pod_settings_template
+        pod_settings_template: ansible_fabric_policy_template
+      register: err_invalid_pod_settings_with_template
+      ignore_errors: true
+
+    - name: Pod Profile with invalid pod_settings_uuid (error)
+      cisco.mso.ndo_pod_profile:
+        <<: *mso_info
+        template: ansible_fabric_resource_template
+        name: ansible_pod_profile_invalid_uuid
+        pod_settings_uuid: invalid_uuid
+        state: present
+      register: err_invalid_pod_settings_uuid
       ignore_errors: true
 
     - name: Assert Pod Settings error handling
@@ -345,9 +355,11 @@
           - err_required_parameters_missing_pod_settings is failed
           - err_required_parameters_missing_pod_settings.msg == "state is present but any of the following are missing{{':'}} pod_settings, pod_settings_uuid"
           - err_required_parameters_missing_pod_settings_template is failed
-          - err_required_parameters_missing_pod_settings_template.msg == "state is present but any of the following are missing{{':'}} pod_settings_template, pod_settings_template_id"
-          - err_invalid_pod_settings_template is failed
-          - err_invalid_pod_settings_template.msg == "Provided Pod Settings with '[KVPair(key='name', value='ansible_pod_settings_2')]' not matching existing object(s){{':'}} ansible_pod_settings_1"
+          - err_required_parameters_missing_pod_settings_template.msg == "pod_settings is set but any of the following are missing{{':'}} pod_settings_template, pod_settings_template_id"
+          - err_invalid_pod_settings_with_template is failed
+          - err_invalid_pod_settings_with_template.msg == "Provided Pod Settings with '[KVPair(key='name', value='ansible_pod_settings_2')]' not matching existing object(s){{':'}} ansible_pod_settings_1"
+          - err_invalid_pod_settings_uuid is failed
+          - err_invalid_pod_settings_uuid.msg == "MSO Error 400{{':'}} {\"errors\"{{':'}}[\"Error validating pod policy group reference{{':'}} invalid_uuid\"]}"
 
     # DELETE Pod Profile
 

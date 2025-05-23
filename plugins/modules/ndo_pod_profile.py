@@ -60,23 +60,21 @@ options:
   pod_settings:
     description:
     - The name of the Pod Settings Policy to be used.
-    - Providing an empty string O(pod_settings="") will remove the Pod Settings Policy from the Pod Profile.
     type: str
     aliases: [ pod_settings_name ]
   pod_settings_uuid:
     description:
     - The UUID of the Pod Settings Policy to be used.
-    - Providing an empty string O(pod_settings_uuid="") will remove the Pod Settings Policy from the Pod Profile.
     type: str
   pod_settings_template:
     description:
     - The name of the Pod Settings template.
-    - This parameter or O(pod_settings_template_id) is required when O(pod_settings) or O(pod_settings_uuid) is used.
+    - This parameter or O(pod_settings_template_id) is required when O(pod_settings) is used.
     type: str
   pod_settings_template_id:
     description:
     - The ID of the Pod Settings template.
-    - This parameter or O(pod_settings_template) is required when O(pod_settings) or O(pod_settings_uuid) is used.
+    - This parameter or O(pod_settings_template) is required when O(pod_settings) is used.
     type: str
   state:
     description:
@@ -106,6 +104,7 @@ EXAMPLES = r"""
     template: ansible_test
     name: ansible_pod_profile
     pod_settings: ansible_pod_settings
+    pod_settings_template: ansible_fabric_policy_template
     state: present
   register: create_pod_profile
 
@@ -117,6 +116,7 @@ EXAMPLES = r"""
     template: ansible_test
     name: ansible_pod_profile
     pod_settings: ansible_pod_settings
+    pod_settings_template: ansible_fabric_policy_template
     description: Updated Pod Profile
     pods:
       - 1
@@ -223,7 +223,6 @@ def main():
             ["state", "absent", ["name", "uuid"], True],
             ["state", "present", ["name", "uuid"], True],
             ["state", "present", ["pod_settings", "pod_settings_uuid"], True],
-            ["state", "present", ["pod_settings_template", "pod_settings_template_id"], True],
         ],
         required_one_of=[
             ["template", "template_id"],
@@ -273,8 +272,13 @@ def main():
         elif pods == []:
             mso_values["kind"] = "all"
 
-        pod_settings_mso_template = mso_templates.get_template("fabric_policy", pod_settings_template, pod_settings_template_id)
-        mso_values["policy"] = pod_settings_mso_template.get_pod_settings_object(pod_settings_uuid, pod_settings, fail_module=True).details.get("uuid")
+        if pod_settings_uuid:
+            mso_values["policy"] = pod_settings_uuid
+        else:
+            if not pod_settings_template and not pod_settings_template_id:
+                module.fail_json(msg="pod_settings is set but any of the following are missing: pod_settings_template, pod_settings_template_id")
+            pod_settings_mso_template = mso_templates.get_template("fabric_policy", pod_settings_template, pod_settings_template_id)
+            mso_values["policy"] = pod_settings_mso_template.get_pod_settings_object(pod_settings_uuid, pod_settings, fail_module=True).details.get("uuid")
 
         if match:
             remove_data = []

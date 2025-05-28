@@ -1,0 +1,1037 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 4.4
+  when: version.current.version is version('4.4', '>=')
+  block:
+    
+    # CLEAN ENVIRONMENT - ENSURE CLEAN ENVIRONMENT FOR TESTS
+    # TODO: move to a separate task file for re-use
+
+    - name: Ensure ansible_test tenant exist
+      cisco.mso.mso_tenant: &mso_tenant_present
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+
+    - name: Ensure L3out template does not exist
+      cisco.mso.ndo_template: &ndo_l3out_template_absent
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template_type: l3out
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_test schema does not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        template: template_1
+        state: absent
+
+    - name: Ensure ansible_fabric_resource_template does not exist
+      cisco.mso.ndo_template: &ndo_fabric_resource_template_absent
+        <<: *mso_info
+        name: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template_type: fabric_resource
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+    
+    - name: Ensure ansible_fabric_policy_template does not exist
+      cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
+        <<: *mso_info
+        name: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template_type: fabric_policy
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    # CLEAN ENVIRONMENT - REQUIRED FOR TESTS
+
+    - name: Create a fabric_policy template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_policy_template_absent
+        state: present
+
+    - name: Create a VLAN pool in the fabric_policy template
+      cisco.mso.ndo_vlan_pool:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        vlan_pool: ansible_test_vlan_pool_1
+        vlan_ranges:
+          - from_vlan: 100
+            to_vlan: 200
+        state: present
+
+    - name: Create a L3 domain in the fabric_policy template
+      cisco.mso.ndo_l3_domain:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        l3_domain: ansible_test_l3_domain
+        pool: ansible_test_vlan_pool_1
+        state: present
+
+    - name: Create a interface policy group of type port channel
+      cisco.mso.ndo_interface_setting:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        name: ansible_test_interface_policy_group_port_channel
+        interface_type: port_channel
+        state: present
+
+    - name: Create a fabric_resource template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_resource_template_absent
+        state: present
+    
+    - name: Create port_channel_interface_1 in the fabric_resource template
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        port_channel_interface: ansible_port_channel_interface_1
+        node: 101
+        interfaces: 1/20
+        interface_policy_group:
+          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          name: ansible_test_interface_policy_group_port_channel
+        state: present
+      register: port_channel_interface_1
+
+    - name: Create port_channel_interface_2 in the fabric_resource template
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        port_channel_interface: ansible_port_channel_interface_2
+        node: 102
+        interfaces: 1/20
+        interface_policy_group:
+          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          name: ansible_test_interface_policy_group_port_channel
+        state: present
+      register: port_channel_interface_2
+
+    - name: Create a schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+        state: present
+
+    - name: Create a VRF in the schema template
+      cisco.mso.mso_schema_template_vrf:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: template_1
+        vrf: vrf_1
+        state: present
+
+    - name: Create a new L3Out template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+        state: present
+
+    - name: Create L3Out object in the L3Out template
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+        name: l3out_1
+        vrf:
+          name: vrf_1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+          template: template_1
+        l3_domain: ansible_test_l3_domain
+        ospf:
+          state: enabled
+          area_id: 0.0.0.1
+          area_type: regular
+        bgp:
+          state: enabled
+        state: present
+
+    - name: Create L3Out node group policy
+      cisco.mso.ndo_l3out_node_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        name: node_group_policy_1
+        state: present
+    
+    - name: Create L3Out interface group policy
+      cisco.mso.ndo_l3out_interface_group_policy:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        name: interface_group_policy_1
+        state: present
+
+    # CREATE
+
+    - name: Create a L3out routed interface of type port (check mode)
+      cisco.mso.ndo_l3out_routed_interface: &create_routed_interface
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        path: eth1/1
+        ipv4_address: 10.0.0.1/24
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        state: present
+      check_mode: true
+      register: cm_create_routed_interface
+
+    - name: Create a L3out routed interface of type port
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface
+        state: present
+      register: nm_create_routed_interface
+    
+    - name: Create a L3out routed interface of type port again
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface
+        state: present
+      register: nm_create_routed_interface_again
+    
+    - name: Assert that the L3out routed interface of type port was created
+      ansible.builtin.assert:
+        that:
+          - cm_create_routed_interface is changed
+          - cm_create_routed_interface.previous == {}
+          - cm_create_routed_interface.proposed.podID == "1"
+          - cm_create_routed_interface.proposed.nodeID == "101"
+          - cm_create_routed_interface.proposed.path == "eth1/1"
+          - cm_create_routed_interface.proposed.pathRef is not defined
+          - cm_create_routed_interface.proposed.pathType == "port"
+          - cm_create_routed_interface.proposed.templateId is defined
+          - cm_create_routed_interface.proposed.templateName is defined
+          - cm_create_routed_interface.proposed.mtu == "inherit"
+          - cm_create_routed_interface.proposed.mac == "00:22:BD:F8:19:FF"
+          - cm_create_routed_interface.proposed.group is not defined
+          - cm_create_routed_interface.proposed.targetDscp is not defined
+          - cm_create_routed_interface.proposed.addresses.primaryV4 == "10.0.0.1/24"
+          - cm_create_routed_interface.proposed.addresses.primaryV6 is not defined
+          - cm_create_routed_interface.proposed.addresses.linkLocalV6 is not defined
+          - cm_create_routed_interface.proposed.addresses.ipV6DAD is not defined
+          - cm_create_routed_interface.proposed.node.nodeID == "101"
+          - cm_create_routed_interface.proposed.node.podID == "1"
+          - cm_create_routed_interface.proposed.node.routerID == "1.1.1.1"
+          - cm_create_routed_interface.proposed.node.useRouteIDAsLoopback is not defined
+          - cm_create_routed_interface.proposed.node.loopbackIPs is not defined
+          - cm_create_routed_interface.proposed.node.group is not defined
+          - cm_create_routed_interface.proposed == cm_create_routed_interface.current
+          - nm_create_routed_interface is changed
+          - nm_create_routed_interface.previous == {}
+          - nm_create_routed_interface.proposed.podID == "1"
+          - nm_create_routed_interface.proposed.nodeID == "101"
+          - nm_create_routed_interface.proposed.path == "eth1/1"
+          - nm_create_routed_interface.proposed.pathRef is not defined
+          - nm_create_routed_interface.proposed.pathType == "port"
+          - nm_create_routed_interface.proposed.templateId is defined
+          - nm_create_routed_interface.proposed.templateName is defined
+          - nm_create_routed_interface.proposed.mtu == "inherit"
+          - nm_create_routed_interface.proposed.mac == "00:22:BD:F8:19:FF"
+          - nm_create_routed_interface.proposed.group is not defined
+          - nm_create_routed_interface.proposed.targetDscp is not defined
+          - nm_create_routed_interface.proposed.addresses.primaryV4 == "10.0.0.1/24"
+          - nm_create_routed_interface.proposed.addresses.primaryV6 is not defined
+          - nm_create_routed_interface.proposed.addresses.linkLocalV6 is not defined
+          - nm_create_routed_interface.proposed.addresses.ipV6DAD is not defined
+          - nm_create_routed_interface.proposed.node.nodeID == "101"
+          - nm_create_routed_interface.proposed.node.podID == "1"
+          - nm_create_routed_interface.proposed.node.routerID == "1.1.1.1"
+          - nm_create_routed_interface.proposed.node.useRouteIDAsLoopback is not defined
+          - nm_create_routed_interface.proposed.node.loopbackIPs is not defined
+          - nm_create_routed_interface.proposed.node.group is not defined
+          - nm_create_routed_interface.current != nm_create_routed_interface.proposed
+          - nm_create_routed_interface.current.podID == "1"
+          - nm_create_routed_interface.current.nodeID == "101"
+          - nm_create_routed_interface.current.path == "eth1/1"
+          - nm_create_routed_interface.current.pathRef is not defined
+          - nm_create_routed_interface.current.pathType == "port"
+          - nm_create_routed_interface.current.templateId is defined
+          - nm_create_routed_interface.current.templateName is defined
+          - nm_create_routed_interface.current.mtu == "inherit"
+          - nm_create_routed_interface.current.mac == "00:22:BD:F8:19:FF"
+          - nm_create_routed_interface.current.group == ""
+          - nm_create_routed_interface.current.targetDscp == "unspecified"
+          - nm_create_routed_interface.current.addresses.primaryV4 == "10.0.0.1/24"
+          - nm_create_routed_interface.current.addresses.primaryV6 is not defined
+          - nm_create_routed_interface.current.addresses.linkLocalV6 is not defined
+          - nm_create_routed_interface.current.addresses.ipV6DAD == "enabled"
+          - nm_create_routed_interface.current.node.nodeID == "101"
+          - nm_create_routed_interface.current.node.podID == "1"
+          - nm_create_routed_interface.current.node.routerID == "1.1.1.1"
+          - nm_create_routed_interface.current.node.useRouteIDAsLoopback == false
+          - nm_create_routed_interface.current.node.loopbackIPs is not defined
+          - nm_create_routed_interface.current.node.group == ""
+          - nm_create_routed_interface_again is not changed
+          - nm_create_routed_interface_again.previous == nm_create_routed_interface_again.proposed == nm_create_routed_interface_again.current
+          - nm_create_routed_interface_again.current.podID == "1"
+          - nm_create_routed_interface_again.current.nodeID == "101"
+          - nm_create_routed_interface_again.current.path == "eth1/1"
+          - nm_create_routed_interface_again.current.pathRef is not defined
+          - nm_create_routed_interface_again.current.pathType == "port"
+          - nm_create_routed_interface_again.current.templateId is defined
+          - nm_create_routed_interface_again.current.templateName is defined
+          - nm_create_routed_interface_again.current.mtu == "inherit"
+          - nm_create_routed_interface_again.current.mac == "00:22:BD:F8:19:FF"
+          - nm_create_routed_interface_again.current.group == ""
+          - nm_create_routed_interface_again.current.targetDscp == "unspecified"
+          - nm_create_routed_interface_again.current.addresses.primaryV4 == "10.0.0.1/24"
+          - nm_create_routed_interface_again.current.addresses.primaryV6 is not defined
+          - nm_create_routed_interface_again.current.addresses.linkLocalV6 is not defined
+          - nm_create_routed_interface_again.current.addresses.ipV6DAD == "enabled"
+          - nm_create_routed_interface_again.current.node.nodeID == "101"
+          - nm_create_routed_interface_again.current.node.podID == "1"
+          - nm_create_routed_interface_again.current.node.routerID == "1.1.1.1"
+          - nm_create_routed_interface_again.current.node.useRouteIDAsLoopback == false
+          - nm_create_routed_interface_again.current.node.loopbackIPs is not defined
+          - nm_create_routed_interface_again.current.node.group == ""
+
+    - name: Create a L3out routed interface of type port channel with uuid (check mode)
+      cisco.mso.ndo_l3out_routed_interface: &create_routed_interface_port_channel_uuid
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        port_channel:
+          uuid: '{{ port_channel_interface_1.current.uuid }}'
+        ipv6_address: 1::101/16
+        ipv6_dad: disabled
+        mac: 00:22:BD:F8:19:EE
+        mtu: 2000
+        state: present
+      check_mode: true
+      register: cm_create_routed_interface_port_channel_uuid
+    
+    - name: Create a L3out routed interface of type port channel
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface_port_channel_uuid
+        state: present
+      register: nm_create_routed_interface_port_channel_uuid
+    
+    - name: Create a L3out routed interface of type port channel again
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface_port_channel_uuid
+        state: present
+      register: nm_create_routed_interface_port_channel_uuid_again
+    
+    - name: Assert that the L3out routed interface of type port channel was created
+      ansible.builtin.assert:
+        that:
+          - cm_create_routed_interface_port_channel_uuid is changed
+          - cm_create_routed_interface_port_channel_uuid.previous == {}
+          - cm_create_routed_interface_port_channel_uuid.proposed.podID is not defined
+          - cm_create_routed_interface_port_channel_uuid.proposed.nodeID is not defined
+          - cm_create_routed_interface_port_channel_uuid.proposed.path is not defined
+          - cm_create_routed_interface_port_channel_uuid.proposed.pathRef is defined
+          - cm_create_routed_interface_port_channel_uuid.proposed.pathType == "pc"
+          - cm_create_routed_interface_port_channel_uuid.proposed.portChannelName == "ansible_port_channel_interface_1"
+          - cm_create_routed_interface_port_channel_uuid.proposed.portChannelTemplateId is defined
+          - cm_create_routed_interface_port_channel_uuid.proposed.portChannelTemplateName is defined
+          - cm_create_routed_interface_port_channel_uuid.proposed.templateId is defined
+          - cm_create_routed_interface_port_channel_uuid.proposed.templateName is defined
+          - cm_create_routed_interface_port_channel_uuid.proposed.mtu == "2000"
+          - cm_create_routed_interface_port_channel_uuid.proposed.mac == "00:22:BD:F8:19:EE"
+          - cm_create_routed_interface_port_channel_uuid.proposed.group is not defined
+          - cm_create_routed_interface_port_channel_uuid.proposed.targetDscp is not defined
+          - cm_create_routed_interface_port_channel_uuid.proposed.addresses.primaryV4 is not defined
+          - cm_create_routed_interface_port_channel_uuid.proposed.addresses.primaryV6 == "1::101/16"
+          - cm_create_routed_interface_port_channel_uuid.proposed.addresses.linkLocalV6 is not defined
+          - cm_create_routed_interface_port_channel_uuid.proposed.addresses.ipV6DAD == "disabled"
+          - cm_create_routed_interface_port_channel_uuid.proposed.node.nodeID == "101"
+          - cm_create_routed_interface_port_channel_uuid.proposed.node.podID == "1"
+          - cm_create_routed_interface_port_channel_uuid.proposed.node.routerID == "1.1.1.1"
+          - cm_create_routed_interface_port_channel_uuid.proposed.node.useRouteIDAsLoopback == false
+          - cm_create_routed_interface_port_channel_uuid.proposed.node.loopbackIPs is not defined
+          - cm_create_routed_interface_port_channel_uuid.proposed.node.group == ""
+          - cm_create_routed_interface_port_channel_uuid.proposed.microBfd is not defined
+          - cm_create_routed_interface_port_channel_uuid.proposed == cm_create_routed_interface_port_channel_uuid.current
+          - nm_create_routed_interface_port_channel_uuid is changed
+          - nm_create_routed_interface_port_channel_uuid.proposed.podID is not defined
+          - nm_create_routed_interface_port_channel_uuid.proposed.nodeID is not defined
+          - nm_create_routed_interface_port_channel_uuid.proposed.path is not defined
+          - nm_create_routed_interface_port_channel_uuid.proposed.pathRef is defined
+          - nm_create_routed_interface_port_channel_uuid.proposed.pathType == "pc"
+          - nm_create_routed_interface_port_channel_uuid.proposed.portChannelName == "ansible_port_channel_interface_1"
+          - nm_create_routed_interface_port_channel_uuid.proposed.portChannelTemplateId is defined
+          - nm_create_routed_interface_port_channel_uuid.proposed.portChannelTemplateName is defined
+          - nm_create_routed_interface_port_channel_uuid.proposed.templateId is defined
+          - nm_create_routed_interface_port_channel_uuid.proposed.templateName is defined
+          - nm_create_routed_interface_port_channel_uuid.proposed.mtu == "2000"
+          - nm_create_routed_interface_port_channel_uuid.proposed.mac == "00:22:BD:F8:19:EE"
+          - nm_create_routed_interface_port_channel_uuid.proposed.group is not defined
+          - nm_create_routed_interface_port_channel_uuid.proposed.targetDscp is not defined
+          - nm_create_routed_interface_port_channel_uuid.proposed.addresses.primaryV4 is not defined
+          - nm_create_routed_interface_port_channel_uuid.proposed.addresses.primaryV6 == "1::101/16"
+          - nm_create_routed_interface_port_channel_uuid.proposed.addresses.linkLocalV6 is not defined
+          - nm_create_routed_interface_port_channel_uuid.proposed.addresses.ipV6DAD == "disabled"
+          - nm_create_routed_interface_port_channel_uuid.proposed.node.nodeID == "101"
+          - nm_create_routed_interface_port_channel_uuid.proposed.node.podID == "1"
+          - nm_create_routed_interface_port_channel_uuid.proposed.node.routerID == "1.1.1.1"
+          - nm_create_routed_interface_port_channel_uuid.proposed.node.useRouteIDAsLoopback == false
+          - nm_create_routed_interface_port_channel_uuid.proposed.node.loopbackIPs is not defined
+          - nm_create_routed_interface_port_channel_uuid.proposed.node.group == ""
+          - nm_create_routed_interface_port_channel_uuid.proposed.microBfd is not defined
+          - nm_create_routed_interface_port_channel_uuid.current != nm_create_routed_interface_port_channel_uuid.proposed
+          - nm_create_routed_interface_port_channel_uuid.current.podID is not defined
+          - nm_create_routed_interface_port_channel_uuid.current.nodeID is not defined
+          - nm_create_routed_interface_port_channel_uuid.current.path is not defined
+          - nm_create_routed_interface_port_channel_uuid.current.pathRef is defined
+          - nm_create_routed_interface_port_channel_uuid.current.pathType == "pc"
+          - nm_create_routed_interface_port_channel_uuid.current.portChannelName == "ansible_port_channel_interface_1"
+          - nm_create_routed_interface_port_channel_uuid.current.portChannelTemplateId is defined
+          - nm_create_routed_interface_port_channel_uuid.current.portChannelTemplateName is defined
+          - nm_create_routed_interface_port_channel_uuid.current.templateId is defined
+          - nm_create_routed_interface_port_channel_uuid.current.templateName is defined
+          - nm_create_routed_interface_port_channel_uuid.current.mtu == "2000"
+          - nm_create_routed_interface_port_channel_uuid.current.mac == "00:22:BD:F8:19:EE"
+          - nm_create_routed_interface_port_channel_uuid.current.group == ""
+          - nm_create_routed_interface_port_channel_uuid.current.targetDscp == "unspecified"
+          - nm_create_routed_interface_port_channel_uuid.current.addresses.primaryV4 is not defined
+          - nm_create_routed_interface_port_channel_uuid.current.addresses.primaryV6 == "1::101/16"
+          - nm_create_routed_interface_port_channel_uuid.current.addresses.linkLocalV6 is not defined
+          - nm_create_routed_interface_port_channel_uuid.current.addresses.ipV6DAD == "disabled"
+          - nm_create_routed_interface_port_channel_uuid.current.node.nodeID == "101"
+          - nm_create_routed_interface_port_channel_uuid.current.node.podID == "1"
+          - nm_create_routed_interface_port_channel_uuid.current.node.routerID == "1.1.1.1"
+          - nm_create_routed_interface_port_channel_uuid.current.node.useRouteIDAsLoopback == false
+          - nm_create_routed_interface_port_channel_uuid.current.node.loopbackIPs is not defined
+          - nm_create_routed_interface_port_channel_uuid.current.node.group == ""
+          - nm_create_routed_interface_port_channel_uuid.current.microBfd is not defined
+          - nm_create_routed_interface_port_channel_uuid_again is not changed
+          - nm_create_routed_interface_port_channel_uuid_again.previous == nm_create_routed_interface_port_channel_uuid_again.proposed == nm_create_routed_interface_port_channel_uuid_again.current
+          - nm_create_routed_interface_port_channel_uuid_again.current.podID is not defined
+          - nm_create_routed_interface_port_channel_uuid_again.current.nodeID is not defined
+          - nm_create_routed_interface_port_channel_uuid_again.current.path is not defined
+          - nm_create_routed_interface_port_channel_uuid_again.current.pathRef is defined
+          - nm_create_routed_interface_port_channel_uuid_again.current.pathType == "pc"
+          - nm_create_routed_interface_port_channel_uuid_again.current.portChannelName == "ansible_port_channel_interface_1"
+          - nm_create_routed_interface_port_channel_uuid_again.current.portChannelTemplateId is defined
+          - nm_create_routed_interface_port_channel_uuid_again.current.portChannelTemplateName is defined
+          - nm_create_routed_interface_port_channel_uuid_again.current.templateId is defined
+          - nm_create_routed_interface_port_channel_uuid_again.current.templateName is defined
+          - nm_create_routed_interface_port_channel_uuid_again.current.mtu == "2000"
+          - nm_create_routed_interface_port_channel_uuid_again.current.mac == "00:22:BD:F8:19:EE"
+          - nm_create_routed_interface_port_channel_uuid_again.current.group == ""
+          - nm_create_routed_interface_port_channel_uuid_again.current.targetDscp == "unspecified"
+          - nm_create_routed_interface_port_channel_uuid_again.current.addresses.primaryV4 is not defined
+          - nm_create_routed_interface_port_channel_uuid_again.current.addresses.primaryV6 == "1::101/16"
+          - nm_create_routed_interface_port_channel_uuid_again.current.addresses.linkLocalV6 is not defined
+          - nm_create_routed_interface_port_channel_uuid_again.current.addresses.ipV6DAD == "disabled"
+          - nm_create_routed_interface_port_channel_uuid_again.current.node.nodeID == "101"
+          - nm_create_routed_interface_port_channel_uuid_again.current.node.podID == "1"
+          - nm_create_routed_interface_port_channel_uuid_again.current.node.routerID == "1.1.1.1"
+          - nm_create_routed_interface_port_channel_uuid_again.current.node.useRouteIDAsLoopback == false
+          - nm_create_routed_interface_port_channel_uuid_again.current.node.loopbackIPs is not defined
+          - nm_create_routed_interface_port_channel_uuid_again.current.node.group == ""
+          - nm_create_routed_interface_port_channel_uuid_again.current.microBfd is not defined
+
+    - name: Create a L3out routed interface of type port channel with reference and micro bfd
+      cisco.mso.ndo_l3out_routed_interface: &create_routed_interface_port_channel_reference
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_router_id: 2.2.2.2
+        use_router_id_as_loopback: true
+        port_channel:
+          micro_bfd_enabled: true
+          micro_bfd_address: 1::110
+          micro_bfd_start_timer: 60
+          reference:
+            name: '{{ port_channel_interface_2.current.name }}'
+            template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        ipv6_address: 1::102/16
+        mac: 00:22:BD:F8:19:EE
+        mtu: 2000
+        state: present
+      register: nm_create_routed_interface_port_channel_reference_micro_bfd
+
+    - name: Assert that the L3out routed interface of type port channel with reference and micro bfd was created
+      ansible.builtin.assert:
+        that:
+          - nm_create_routed_interface_port_channel_reference_micro_bfd is changed
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.previous == {}
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.podID is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.nodeID is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.path is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.pathRef is defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.pathType == "pc"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.portChannelName == "ansible_port_channel_interface_2"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.portChannelTemplateId is defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.portChannelTemplateName is defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.templateId is defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.templateName is defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.mtu == "2000"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.mac == "00:22:BD:F8:19:EE"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.group is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.targetDscp is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.microBfd.address == "1::110"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.microBfd.startTimer == 60
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.addresses.primaryV4 is not defined 
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.addresses.primaryV6 == "1::102/16"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.addresses.linkLocalV6 is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.addresses.ipV6DAD is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.node.nodeID == "102"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.node.podID == "1"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.node.routerID == "2.2.2.2"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.node.useRouteIDAsLoopback == true
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.node.loopbackIPs is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.proposed.node.group is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current != nm_create_routed_interface_port_channel_reference_micro_bfd.proposed
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.podID is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.nodeID is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.path is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.pathRef is defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.pathType == "pc"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.portChannelName == "ansible_port_channel_interface_2"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.portChannelTemplateId is defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.portChannelTemplateName is defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.templateId is defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.templateName is defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.mtu == "2000"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.mac == "00:22:BD:F8:19:EE"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.group == ""
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.targetDscp == "unspecified"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.microBfd.address == "1::110"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.microBfd.startTimer == 60
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.addresses.primaryV4 is not defined 
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.addresses.primaryV6 == "1::102/16"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.addresses.linkLocalV6 is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.addresses.ipV6DAD == "enabled"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.node.nodeID == "102"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.node.podID == "1"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.node.routerID == "2.2.2.2"
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.node.useRouteIDAsLoopback == true
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.node.loopbackIPs is not defined
+          - nm_create_routed_interface_port_channel_reference_micro_bfd.current.node.group == ""
+
+    # UPDATE
+
+    - name: Update a L3out routed interface of type port (check mode)
+      cisco.mso.ndo_l3out_routed_interface: &update_routed_interface
+        <<: *create_routed_interface
+        ipv4_address: 10.0.0.2/24
+        ipv6_address: 2::101/16
+        ipv6_link_local_address: FE80::10
+        ipv6_dad: enabled
+        mac: 00:22:BD:F8:19:FE
+        mtu: 1000
+        node_group_policy: node_group_policy_1
+        interface_group_policy: interface_group_policy_1
+        target_dscp: af11
+      check_mode: true
+      register: cm_update_routed_interface_port
+
+    - name: Update a L3out routed interface of type port
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *update_routed_interface
+      register: nm_update_routed_interface_port
+    
+    - name: Update a L3out routed interface of type port again
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *update_routed_interface
+      register: nm_update_routed_interface_port_again
+    
+    - name: Assert that the L3out routed interface of type port was updated
+      ansible.builtin.assert:
+        that:
+          - cm_update_routed_interface_port is changed
+          - cm_update_routed_interface_port.previous == nm_create_routed_interface_again.current
+          - cm_update_routed_interface_port.previous != cm_update_routed_interface_port.proposed
+          - cm_update_routed_interface_port.proposed == cm_update_routed_interface_port.current
+          - cm_update_routed_interface_port.proposed.podID == "1"
+          - cm_update_routed_interface_port.proposed.nodeID == "101"
+          - cm_update_routed_interface_port.proposed.path == "eth1/1"
+          - cm_update_routed_interface_port.proposed.pathRef is not defined
+          - cm_update_routed_interface_port.proposed.pathType == "port"
+          - cm_update_routed_interface_port.proposed.templateId is defined
+          - cm_update_routed_interface_port.proposed.templateName is defined
+          - cm_update_routed_interface_port.proposed.mtu == "1000"
+          - cm_update_routed_interface_port.proposed.mac == "00:22:BD:F8:19:FE"
+          - cm_update_routed_interface_port.proposed.group == "interface_group_policy_1"
+          - cm_update_routed_interface_port.proposed.targetDscp == "af11"
+          - cm_update_routed_interface_port.proposed.addresses.primaryV4 == "10.0.0.2/24"
+          - cm_update_routed_interface_port.proposed.addresses.primaryV6 == "2::101/16"
+          - cm_update_routed_interface_port.proposed.addresses.linkLocalV6 == "FE80::10"
+          - cm_update_routed_interface_port.proposed.addresses.ipV6DAD == "enabled"
+          - cm_update_routed_interface_port.proposed.node.nodeID == "101"
+          - cm_update_routed_interface_port.proposed.node.podID == "1"
+          - cm_update_routed_interface_port.proposed.node.routerID == "1.1.1.1"
+          - cm_update_routed_interface_port.proposed.node.useRouteIDAsLoopback == false
+          - cm_update_routed_interface_port.proposed.node.loopbackIPs is not defined
+          - cm_update_routed_interface_port.proposed.node.group == "node_group_policy_1"
+          - nm_update_routed_interface_port is changed
+          - nm_update_routed_interface_port.previous == nm_create_routed_interface_again.current
+          - nm_update_routed_interface_port.previous != nm_update_routed_interface_port.current
+          - nm_update_routed_interface_port.current == nm_update_routed_interface_port.proposed
+          - nm_update_routed_interface_port.current.podID == "1"
+          - nm_update_routed_interface_port.current.nodeID == "101"
+          - nm_update_routed_interface_port.current.path == "eth1/1"
+          - nm_update_routed_interface_port.current.pathRef is not defined
+          - nm_update_routed_interface_port.current.pathType == "port"
+          - nm_update_routed_interface_port.current.templateId is defined
+          - nm_update_routed_interface_port.current.templateName is defined
+          - nm_update_routed_interface_port.current.mtu == "1000"
+          - nm_update_routed_interface_port.current.mac == "00:22:BD:F8:19:FE"
+          - nm_update_routed_interface_port.current.group == "interface_group_policy_1"
+          - nm_update_routed_interface_port.current.targetDscp == "af11"
+          - nm_update_routed_interface_port.current.addresses.primaryV4 == "10.0.0.2/24"
+          - nm_update_routed_interface_port.current.addresses.primaryV6 == "2::101/16"
+          - nm_update_routed_interface_port.current.addresses.linkLocalV6 == "FE80::10"
+          - nm_update_routed_interface_port.current.addresses.ipV6DAD == "enabled"
+          - nm_update_routed_interface_port.current.node.nodeID == "101"
+          - nm_update_routed_interface_port.current.node.podID == "1"
+          - nm_update_routed_interface_port.current.node.routerID == "1.1.1.1"
+          - nm_update_routed_interface_port.current.node.useRouteIDAsLoopback == false
+          - nm_update_routed_interface_port.current.node.loopbackIPs is not defined
+          - nm_update_routed_interface_port.current.node.group == "node_group_policy_1"
+          - nm_update_routed_interface_port_again is not changed
+          - nm_update_routed_interface_port_again.previous == nm_update_routed_interface_port_again.proposed == nm_update_routed_interface_port_again.current
+          - nm_update_routed_interface_port_again.current.podID == "1"
+          - nm_update_routed_interface_port_again.current.nodeID == "101"
+          - nm_update_routed_interface_port_again.current.path == "eth1/1"
+          - nm_update_routed_interface_port_again.current.pathRef is not defined
+          - nm_update_routed_interface_port_again.current.pathType == "port"
+          - nm_update_routed_interface_port_again.current.templateId is defined
+          - nm_update_routed_interface_port_again.current.templateName is defined
+          - nm_update_routed_interface_port_again.current.mtu == "1000"
+          - nm_update_routed_interface_port_again.current.mac == "00:22:BD:F8:19:FE"
+          - nm_update_routed_interface_port_again.current.group == "interface_group_policy_1"
+          - nm_update_routed_interface_port_again.current.targetDscp == "af11"
+          - nm_update_routed_interface_port_again.current.addresses.primaryV4 == "10.0.0.2/24"
+          - nm_update_routed_interface_port_again.current.addresses.primaryV6 == "2::101/16"
+          - nm_update_routed_interface_port_again.current.addresses.linkLocalV6 == "FE80::10"
+          - nm_update_routed_interface_port_again.current.addresses.ipV6DAD == "enabled"
+          - nm_update_routed_interface_port_again.current.node.nodeID == "101"
+          - nm_update_routed_interface_port_again.current.node.podID == "1"
+          - nm_update_routed_interface_port_again.current.node.routerID == "1.1.1.1"
+          - nm_update_routed_interface_port_again.current.node.useRouteIDAsLoopback == false
+          - nm_update_routed_interface_port_again.current.node.loopbackIPs is not defined
+          - nm_update_routed_interface_port_again.current.node.group == "node_group_policy_1"
+
+    - name: Update a L3out routed interface of type port channel with uuid (check mode)
+      cisco.mso.ndo_l3out_routed_interface: &update_routed_interface_port_channel_uuid
+        <<: *create_routed_interface_port_channel_uuid
+        ipv4_address: 10.1.0.3/24
+        ipv6_address: 1::112/16
+        ipv6_link_local_address: FE80::20
+        ipv6_dad: enabled
+        mac: 00:22:BD:F8:19:EE
+        mtu: 1500
+        node_group_policy: node_group_policy_1
+        interface_group_policy: interface_group_policy_1
+        target_dscp: cs5
+      check_mode: true
+      register: cm_update_routed_interface_port_channel_uuid
+
+    - name: Update a L3out routed interface of type port channel
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *update_routed_interface_port_channel_uuid
+      register: nm_update_routed_interface_port_channel_uuid
+    
+    - name: Update a L3out routed interface of type port channel again
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *update_routed_interface_port_channel_uuid
+      register: nm_update_routed_interface_port_channel_uuid_again
+    
+    - name: Assert that the L3out routed interface of type port channel was updated
+      ansible.builtin.assert:
+        that:
+          - cm_update_routed_interface_port_channel_uuid is changed
+          - cm_update_routed_interface_port_channel_uuid.previous != nm_create_routed_interface_port_channel_uuid_again.proposed
+          - cm_update_routed_interface_port_channel_uuid.proposed == cm_update_routed_interface_port_channel_uuid.current
+          - cm_update_routed_interface_port_channel_uuid.proposed.podID is not defined
+          - cm_update_routed_interface_port_channel_uuid.proposed.nodeID is not defined
+          - cm_update_routed_interface_port_channel_uuid.proposed.path is not defined
+          - cm_update_routed_interface_port_channel_uuid.proposed.pathRef is defined
+          - cm_update_routed_interface_port_channel_uuid.proposed.pathType == "pc"
+          - cm_update_routed_interface_port_channel_uuid.proposed.portChannelName == "ansible_port_channel_interface_1"
+          - cm_update_routed_interface_port_channel_uuid.proposed.portChannelTemplateId is defined
+          - cm_update_routed_interface_port_channel_uuid.proposed.portChannelTemplateName is defined
+          - cm_update_routed_interface_port_channel_uuid.proposed.templateId is defined
+          - cm_update_routed_interface_port_channel_uuid.proposed.templateName is defined
+          - cm_update_routed_interface_port_channel_uuid.proposed.mtu == "1500"
+          - cm_update_routed_interface_port_channel_uuid.proposed.mac == "00:22:BD:F8:19:EE"
+          - cm_update_routed_interface_port_channel_uuid.proposed.group == "interface_group_policy_1"
+          - cm_update_routed_interface_port_channel_uuid.proposed.targetDscp == "cs5"
+          - cm_update_routed_interface_port_channel_uuid.proposed.microBfd is not defined
+          - cm_update_routed_interface_port_channel_uuid.proposed.addresses.primaryV4 == "10.1.0.3/24"
+          - cm_update_routed_interface_port_channel_uuid.proposed.addresses.primaryV6 == "1::112/16"
+          - cm_update_routed_interface_port_channel_uuid.proposed.addresses.linkLocalV6 == "FE80::20"
+          - cm_update_routed_interface_port_channel_uuid.proposed.addresses.ipV6DAD == "enabled"
+          - cm_update_routed_interface_port_channel_uuid.proposed.node.nodeID == "101"
+          - cm_update_routed_interface_port_channel_uuid.proposed.node.podID == "1"
+          - cm_update_routed_interface_port_channel_uuid.proposed.node.routerID == "1.1.1.1"
+          - cm_update_routed_interface_port_channel_uuid.proposed.node.useRouteIDAsLoopback == false
+          - cm_update_routed_interface_port_channel_uuid.proposed.node.loopbackIPs is not defined
+          - cm_update_routed_interface_port_channel_uuid.proposed.node.group == "node_group_policy_1"
+          - nm_update_routed_interface_port_channel_uuid is changed
+          - nm_update_routed_interface_port_channel_uuid.previous != nm_create_routed_interface_port_channel_uuid_again.current
+          - nm_update_routed_interface_port_channel_uuid.current == nm_update_routed_interface_port_channel_uuid.proposed
+          - nm_update_routed_interface_port_channel_uuid.current.podID is not defined
+          - nm_update_routed_interface_port_channel_uuid.current.nodeID is not defined
+          - nm_update_routed_interface_port_channel_uuid.current.path is not defined
+          - nm_update_routed_interface_port_channel_uuid.current.pathRef is defined
+          - nm_update_routed_interface_port_channel_uuid.current.pathType == "pc"
+          - nm_update_routed_interface_port_channel_uuid.current.portChannelName == "ansible_port_channel_interface_1"
+          - nm_update_routed_interface_port_channel_uuid.current.portChannelTemplateId is defined
+          - nm_update_routed_interface_port_channel_uuid.current.portChannelTemplateName is defined
+          - nm_update_routed_interface_port_channel_uuid.current.templateId is defined
+          - nm_update_routed_interface_port_channel_uuid.current.templateName is defined
+          - nm_update_routed_interface_port_channel_uuid.current.mtu == "1500"
+          - nm_update_routed_interface_port_channel_uuid.current.mac == "00:22:BD:F8:19:EE"
+          - nm_update_routed_interface_port_channel_uuid.current.group == "interface_group_policy_1"
+          - nm_update_routed_interface_port_channel_uuid.current.targetDscp == "cs5"
+          - nm_update_routed_interface_port_channel_uuid.current.microBfd is not defined
+          - nm_update_routed_interface_port_channel_uuid.current.addresses.primaryV4 == "10.1.0.3/24"
+          - nm_update_routed_interface_port_channel_uuid.current.addresses.primaryV6 == "1::112/16"
+          - nm_update_routed_interface_port_channel_uuid.current.addresses.linkLocalV6 == "FE80::20"
+          - nm_update_routed_interface_port_channel_uuid.current.addresses.ipV6DAD == "enabled"
+          - nm_update_routed_interface_port_channel_uuid.current.node.nodeID == "101"
+          - nm_update_routed_interface_port_channel_uuid.current.node.podID == "1"
+          - nm_update_routed_interface_port_channel_uuid.current.node.routerID == "1.1.1.1"
+          - nm_update_routed_interface_port_channel_uuid.current.node.useRouteIDAsLoopback == false
+          - nm_update_routed_interface_port_channel_uuid.current.node.loopbackIPs is not defined
+          - nm_update_routed_interface_port_channel_uuid.current.node.group == "node_group_policy_1"
+          - nm_update_routed_interface_port_channel_uuid_again is not changed
+          - nm_update_routed_interface_port_channel_uuid_again.previous == nm_update_routed_interface_port_channel_uuid_again.proposed == nm_update_routed_interface_port_channel_uuid_again.current
+          - nm_update_routed_interface_port_channel_uuid_again.current.podID is not defined
+          - nm_update_routed_interface_port_channel_uuid_again.current.nodeID is not defined
+          - nm_update_routed_interface_port_channel_uuid_again.current.path is not defined
+          - nm_update_routed_interface_port_channel_uuid_again.current.pathRef is defined
+          - nm_update_routed_interface_port_channel_uuid_again.current.pathType == "pc"
+          - nm_update_routed_interface_port_channel_uuid_again.current.portChannelName == "ansible_port_channel_interface_1"
+          - nm_update_routed_interface_port_channel_uuid_again.current.portChannelTemplateId is defined
+          - nm_update_routed_interface_port_channel_uuid_again.current.portChannelTemplateName is defined
+          - nm_update_routed_interface_port_channel_uuid_again.current.templateId is defined
+          - nm_update_routed_interface_port_channel_uuid_again.current.templateName is defined
+          - nm_update_routed_interface_port_channel_uuid_again.current.mtu == "1500"
+          - nm_update_routed_interface_port_channel_uuid_again.current.mac == "00:22:BD:F8:19:EE"
+          - nm_update_routed_interface_port_channel_uuid_again.current.group == "interface_group_policy_1"
+          - nm_update_routed_interface_port_channel_uuid_again.current.targetDscp == "cs5"
+          - nm_update_routed_interface_port_channel_uuid_again.current.microBfd is not defined
+          - nm_update_routed_interface_port_channel_uuid_again.current.addresses.primaryV4 == "10.1.0.3/24"
+          - nm_update_routed_interface_port_channel_uuid_again.current.addresses.primaryV6 == "1::112/16"
+          - nm_update_routed_interface_port_channel_uuid_again.current.addresses.linkLocalV6 == "FE80::20"
+          - nm_update_routed_interface_port_channel_uuid_again.current.addresses.ipV6DAD == "enabled"
+          - nm_update_routed_interface_port_channel_uuid_again.current.node.nodeID == "101"
+          - nm_update_routed_interface_port_channel_uuid_again.current.node.podID == "1"
+          - nm_update_routed_interface_port_channel_uuid_again.current.node.routerID == "1.1.1.1"
+          - nm_update_routed_interface_port_channel_uuid_again.current.node.useRouteIDAsLoopback == false
+          - nm_update_routed_interface_port_channel_uuid_again.current.node.loopbackIPs is not defined
+          - nm_update_routed_interface_port_channel_uuid_again.current.node.group == "node_group_policy_1"
+
+    - name: Remove the ipv4_address from a L3out routed interface
+      cisco.mso.ndo_l3out_routed_interface: &removed_ipv4_address
+        <<: *update_routed_interface
+        ipv4_address: ''
+      register: nm_update_routed_interface_port_ipv4_removed
+    
+    - name: Remove the ipv6_address from a L3out routed interface
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *update_routed_interface_port_channel_uuid
+        ipv6_address: ''
+      register: nm_update_routed_interface_port_ipv6_removed
+
+    - name: Remove the ipv6_link_local_address from a L3out routed interface
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *removed_ipv4_address
+        ipv6_link_local_address: ''
+      register: nm_update_routed_interface_port_ipv6_link_local_removed
+
+    - name: Assert that the ipv4_address, ipv6_address and ipv6_link_local_address were removed from the L3out routed interface
+      ansible.builtin.assert:
+        that:
+          - nm_update_routed_interface_port_ipv4_removed is changed
+          - nm_update_routed_interface_port_ipv4_removed.previous.addresses.primaryV4 == "10.0.0.2/24"
+          - nm_update_routed_interface_port_ipv4_removed.current.addresses.primaryV4 is not defined
+          - nm_update_routed_interface_port_ipv6_removed is changed
+          - nm_update_routed_interface_port_ipv6_removed.previous.addresses.primaryV6 == '1::112/16'
+          - nm_update_routed_interface_port_ipv6_removed.current.addresses.primaryV6 is not defined
+          - nm_update_routed_interface_port_ipv6_link_local_removed is changed
+          - nm_update_routed_interface_port_ipv6_link_local_removed.previous.addresses.linkLocalV6 == 'FE80::10'
+          - nm_update_routed_interface_port_ipv6_link_local_removed.current.addresses.linkLocalV6 is not defined
+
+    - name: Update a L3out routed interface of type port channel with micro bfd enabled
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface_port_channel_reference
+        port_channel:
+          micro_bfd_enabled: true
+          micro_bfd_address: 1::111
+          micro_bfd_start_timer: 70
+          reference:
+            name: '{{ port_channel_interface_2.current.name }}'
+            template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+      register: nm_update_routed_interface_port_channel_micro_bfd_enabled
+
+    - name: Update a L3out routed interface of type port channel with micro bfd disabled
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface_port_channel_reference
+        port_channel:
+          micro_bfd_enabled: false
+          reference:
+            name: '{{ port_channel_interface_2.current.name }}'
+            template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+      register: nm_update_routed_interface_port_channel_micro_bfd_to_false
+
+    - name: Assert that the L3out routed interface of type port channel with reference and micro bfd was created
+      ansible.builtin.assert:
+        that:
+          - nm_update_routed_interface_port_channel_micro_bfd_enabled is changed
+          - nm_update_routed_interface_port_channel_micro_bfd_enabled.previous.microBfd.address == "1::110"
+          - nm_update_routed_interface_port_channel_micro_bfd_enabled.previous.microBfd.startTimer == 60
+          - nm_update_routed_interface_port_channel_micro_bfd_enabled.current.microBfd.address == "1::111"
+          - nm_update_routed_interface_port_channel_micro_bfd_enabled.current.microBfd.startTimer == 70
+          - nm_update_routed_interface_port_channel_micro_bfd_to_false is changed
+          - nm_update_routed_interface_port_channel_micro_bfd_to_false.previous.microBfd.address == "1::111"
+          - nm_update_routed_interface_port_channel_micro_bfd_to_false.previous.microBfd.startTimer == 70
+          - nm_update_routed_interface_port_channel_micro_bfd_to_false.current.microBfd is not defined
+
+    - name: Update a L3out routed interface to use defined loopback as router id
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface_port_channel_reference
+        use_router_id_as_loopback: false
+        node_loopback_ip: 3.3.3.3
+      register: nm_update_routed_interface_port_channel_defined_loopback_as_router_id
+
+    - name: Update a L3out routed interface to use router id as loopback
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface_port_channel_reference
+      register: nm_update_routed_interface_port_channel_router_id_as_loopback
+
+    - name: Assert that the L3out routed interface of type port channel with router id as loopback was updated
+      ansible.builtin.assert:
+        that:
+          - nm_update_routed_interface_port_channel_defined_loopback_as_router_id is changed
+          - nm_update_routed_interface_port_channel_defined_loopback_as_router_id.previous.node.useRouteIDAsLoopback == true
+          - nm_update_routed_interface_port_channel_defined_loopback_as_router_id.previous.node.loopbackIPs is not defined
+          - nm_update_routed_interface_port_channel_defined_loopback_as_router_id.current.node.useRouteIDAsLoopback == false
+          - nm_update_routed_interface_port_channel_defined_loopback_as_router_id.current.node.loopbackIPs == ["3.3.3.3"]
+          - nm_update_routed_interface_port_channel_router_id_as_loopback is changed
+          - nm_update_routed_interface_port_channel_router_id_as_loopback.previous.node.useRouteIDAsLoopback == false
+          - nm_update_routed_interface_port_channel_router_id_as_loopback.previous.node.loopbackIPs == ["3.3.3.3"]
+          - nm_update_routed_interface_port_channel_router_id_as_loopback.current.node.useRouteIDAsLoopback == true
+          - nm_update_routed_interface_port_channel_router_id_as_loopback.current.node.loopbackIPs is not defined
+
+    # QUERY
+
+    - name: Get a L3out routed interface of type port
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface
+        state: query
+      register: query_routed_interface_port
+    
+    - name: Get a L3out routed interface of type port channel
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface_port_channel_uuid
+        state: query
+      register: query_routed_interface_port_channel
+    
+    - name: Query all L3out routed interfaces in a L3out
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        state: query
+      register: query_all_routed_interfaces
+
+    - name: Assert that the L3out routed interface of type port was queried
+      ansible.builtin.assert:
+        that:
+          - query_routed_interface_port is not changed
+          - query_routed_interface_port.current.podID == "1"
+          - query_routed_interface_port.current.nodeID == "101"
+          - query_routed_interface_port.current.path == "eth1/1"
+          - query_routed_interface_port.current.pathRef is not defined
+          - query_routed_interface_port.current.pathType == "port"
+          - query_routed_interface_port.current.templateId is defined
+          - query_routed_interface_port.current.templateName is defined
+          - query_routed_interface_port.current.mtu == "1000"
+          - query_routed_interface_port.current.mac == "00:22:BD:F8:19:FE"
+          - query_routed_interface_port.current.group == "interface_group_policy_1"
+          - query_routed_interface_port.current.targetDscp == "af11"
+          - query_routed_interface_port.current.addresses.primaryV4 is not defined
+          - query_routed_interface_port.current.addresses.primaryV6 == "2::101/16"
+          - query_routed_interface_port.current.addresses.linkLocalV6 is not defined
+          - query_routed_interface_port.current.addresses.ipV6DAD == "enabled"
+          - query_routed_interface_port.current.node.nodeID == "101"
+          - query_routed_interface_port.current.node.podID == "1"
+          - query_routed_interface_port.current.node.routerID == "1.1.1.1"
+          - query_routed_interface_port.current.node.useRouteIDAsLoopback == false
+          - query_routed_interface_port.current.node.loopbackIPs is not defined
+          - query_routed_interface_port.current.node.group == "node_group_policy_1"
+          - query_routed_interface_port_channel is not changed
+          - query_routed_interface_port_channel.current.podID is not defined
+          - query_routed_interface_port_channel.current.nodeID is not defined
+          - query_routed_interface_port_channel.current.path is not defined
+          - query_routed_interface_port_channel.current.pathRef is defined
+          - query_routed_interface_port_channel.current.pathType == "pc"
+          - query_routed_interface_port_channel.current.portChannelName == "ansible_port_channel_interface_1"
+          - query_routed_interface_port_channel.current.portChannelTemplateId is defined
+          - query_routed_interface_port_channel.current.portChannelTemplateName is defined
+          - query_routed_interface_port_channel.current.templateId is defined
+          - query_routed_interface_port_channel.current.templateName is defined
+          - query_routed_interface_port_channel.current.mtu == "1500"
+          - query_routed_interface_port_channel.current.mac == "00:22:BD:F8:19:EE"
+          - query_routed_interface_port_channel.current.group == "interface_group_policy_1"
+          - query_routed_interface_port_channel.current.targetDscp == "cs5"
+          - query_routed_interface_port_channel.current.microBfd is not defined
+          - query_routed_interface_port_channel.current.addresses.primaryV4 == "10.1.0.3/24"
+          - query_routed_interface_port_channel.current.addresses.primaryV6 is not defined
+          - query_routed_interface_port_channel.current.addresses.linkLocalV6 == "FE80::20"
+          - query_routed_interface_port_channel.current.addresses.ipV6DAD == "enabled"
+          - query_routed_interface_port_channel.current.node.nodeID == "101"
+          - query_routed_interface_port_channel.current.node.podID == "1"
+          - query_routed_interface_port_channel.current.node.routerID == "1.1.1.1"
+          - query_routed_interface_port_channel.current.node.useRouteIDAsLoopback == false
+          - query_routed_interface_port_channel.current.node.loopbackIPs is not defined
+          - query_routed_interface_port_channel.current.node.group == "node_group_policy_1"
+          - query_all_routed_interfaces is not changed
+          - query_all_routed_interfaces.current | length == 3
+          - query_all_routed_interfaces.current.0 == query_routed_interface_port.current
+          - query_all_routed_interfaces.current.1 == query_routed_interface_port_channel.current
+          - query_all_routed_interfaces.current.2.podID is not defined
+          - query_all_routed_interfaces.current.2.nodeID is not defined
+          - query_all_routed_interfaces.current.2.path is not defined
+          - query_all_routed_interfaces.current.2.pathRef is defined
+          - query_all_routed_interfaces.current.2.pathType == "pc"
+          - query_all_routed_interfaces.current.2.portChannelName == "ansible_port_channel_interface_2"
+          - query_all_routed_interfaces.current.2.portChannelTemplateId is defined
+          - query_all_routed_interfaces.current.2.portChannelTemplateName is defined
+          - query_all_routed_interfaces.current.2.templateId is defined
+          - query_all_routed_interfaces.current.2.templateName is defined
+          - query_all_routed_interfaces.current.2.mtu == "2000"
+          - query_all_routed_interfaces.current.2.mac == "00:22:BD:F8:19:EE"
+          - query_all_routed_interfaces.current.2.group == ""
+          - query_all_routed_interfaces.current.2.targetDscp == "unspecified"
+          - query_all_routed_interfaces.current.2.microBfd.address == "1::110"
+          - query_all_routed_interfaces.current.2.microBfd.startTimer == 60
+          - query_all_routed_interfaces.current.2.addresses.primaryV4 is not defined
+          - query_all_routed_interfaces.current.2.addresses.primaryV6 == "1::102/16"
+          - query_all_routed_interfaces.current.2.addresses.linkLocalV6 is not defined
+          - query_all_routed_interfaces.current.2.addresses.ipV6DAD == "enabled"
+          - query_all_routed_interfaces.current.2.node.nodeID == "102"
+          - query_all_routed_interfaces.current.2.node.podID == "1"
+          - query_all_routed_interfaces.current.2.node.routerID == "2.2.2.2"
+          - query_all_routed_interfaces.current.2.node.useRouteIDAsLoopback == true
+          - query_all_routed_interfaces.current.2.node.loopbackIPs is not defined
+          - query_all_routed_interfaces.current.2.node.group == ""
+
+    # DELETE
+    
+    - name: Delete a L3out routed interface of type port (check mode)
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface
+        state: absent
+      check_mode: true
+      register: cm_delete_routed_interface_port
+    
+    - name: Delete a L3out routed interface of type port
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface
+        state: absent
+      register: nm_delete_routed_interface_port
+    
+    - name: Delete a L3out routed interface of type port again
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface
+        state: absent
+      register: nm_delete_routed_interface_port_again
+    
+    - name: Assert that the L3out routed interface of type port was deleted
+      ansible.builtin.assert:
+        that:
+          - cm_delete_routed_interface_port is changed
+          - cm_delete_routed_interface_port.previous == query_routed_interface_port.current
+          - cm_delete_routed_interface_port.proposed == cm_delete_routed_interface_port.current == {}
+          - nm_delete_routed_interface_port is changed
+          - nm_delete_routed_interface_port.previous == query_routed_interface_port.current
+          - nm_delete_routed_interface_port.proposed == nm_delete_routed_interface_port.current == {}
+          - nm_delete_routed_interface_port_again is not changed
+          - nm_delete_routed_interface_port_again.previous == nm_delete_routed_interface_port_again.proposed == nm_delete_routed_interface_port_again.current == {}
+    
+    - name: Delete a L3out routed interface of type port channel (check mode)
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface_port_channel_uuid
+        state: absent
+      check_mode: true
+      register: cm_delete_routed_interface_port_channel_uuid
+    
+    - name: Delete a L3out routed interface of type port channel
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface_port_channel_uuid
+        state: absent
+      register: nm_delete_routed_interface_port_channel_uuid
+    
+    - name: Delete a L3out routed interface of type port channel again
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface_port_channel_uuid
+        state: absent
+      register: nm_delete_routed_interface_port_channel_uuid_again
+    
+    - name: Assert that the L3out routed interface of type port channel was deleted
+      ansible.builtin.assert:
+        that:
+          - cm_delete_routed_interface_port_channel_uuid is changed
+          - cm_delete_routed_interface_port_channel_uuid.previous == query_routed_interface_port_channel.current
+          - cm_delete_routed_interface_port_channel_uuid.proposed == cm_delete_routed_interface_port_channel_uuid.current == {}
+          - nm_delete_routed_interface_port_channel_uuid is changed
+          - nm_delete_routed_interface_port_channel_uuid.previous == query_routed_interface_port_channel.current
+          - nm_delete_routed_interface_port_channel_uuid.proposed == nm_delete_routed_interface_port_channel_uuid.current == {}
+          - nm_delete_routed_interface_port_channel_uuid_again is not changed
+          - nm_delete_routed_interface_port_channel_uuid_again.previous == nm_delete_routed_interface_port_channel_uuid_again.proposed == nm_delete_routed_interface_port_channel_uuid_again.current == {}
+
+    # CLEANUP TEMPLATE
+  
+    - name: Remove l3out template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+    
+    - name: Remove ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+
+    - name: Remove ansible_fabric_resource_template fabric_resource template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_resource_template_absent
+        
+    - name: Remove ansible_fabric_policy_template fabric_policy template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_policy_template_absent
+
+    - name: Remove tenant
+      cisco.mso.mso_tenant:
+        <<: *mso_tenant_present
+        state: absent

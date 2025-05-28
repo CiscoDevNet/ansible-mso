@@ -367,16 +367,16 @@ def set_pod_profile_policy_names(mso, mso_templates, mso_template, pod_profile):
             for policy in template.get("policies", []):
                 # Only retrieve the template details if the fabric_policy template has a pod settings policy defined
                 if policy.get("objType") == "podPolicyGroup" and policy.get("count") > 0:
-                    pod_settings_template = mso_templates.get_template("fabric_policy", template.get("templateName"), template.get("templateId"))
-                    match = pod_settings_template.get_pod_settings_object(pod_settings_uuid)
+                    pod_settings_mso_template = mso_templates.get_template("fabric_policy", template.get("templateName"), template.get("templateId"))
+                    match = pod_settings_mso_template.get_pod_settings_object(pod_settings_uuid)
                     if match:
                         pod_profile["policyName"] = match.details.get("name")
-                        pod_profile["policyTemplateName"] = pod_settings_template.template_name
-                        pod_profile["policyTemplateId"] = pod_settings_template.template_id
+                        pod_profile["policyTemplateName"] = pod_settings_mso_template.template_name
+                        pod_profile["policyTemplateId"] = pod_settings_mso_template.template_id
                         POD_SETTINGS_CACHE[pod_settings_uuid] = {
                             "policyName": match.details.get("name"),
-                            "policyTemplateName": pod_settings_template.template_name,
-                            "policyTemplateId": pod_settings_template.template_id,
+                            "policyTemplateName": pod_settings_mso_template.template_name,
+                            "policyTemplateId": pod_settings_mso_template.template_id,
                         }
                         return pod_profile
 

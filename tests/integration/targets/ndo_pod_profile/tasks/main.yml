@@ -70,8 +70,9 @@
         <<: *mso_info
         template: ansible_fabric_resource_template
         name: ansible_pod_profile_1
-        pod_settings: ansible_pod_settings_1
-        pod_settings_template: ansible_fabric_policy_template
+        pod_settings:
+          name: ansible_pod_settings_1
+          template: ansible_fabric_policy_template
         state: present
       register: cm_create_pod_profile
       check_mode: true
@@ -96,7 +97,11 @@
           - cm_create_pod_profile.current.kind == 'all'
           - cm_create_pod_profile.current.policyName == 'ansible_pod_settings_1'
           - cm_create_pod_profile.current.policy is defined
+          - cm_create_pod_profile.current.policyTemplateId is defined
+          - cm_create_pod_profile.current.policyTemplateName == 'ansible_fabric_policy_template'
           - cm_create_pod_profile.current.uuid is not defined
+          - cm_create_pod_profile.current.templateId is defined
+          - cm_create_pod_profile.current.templateName == 'ansible_fabric_resource_template'
           - nm_create_pod_profile is changed
           - nm_create_pod_profile.previous == {}
           - nm_create_pod_profile.proposed != nm_create_pod_profile.current
@@ -104,7 +109,11 @@
           - nm_create_pod_profile.current.kind == 'all'
           - nm_create_pod_profile.current.policyName == 'ansible_pod_settings_1'
           - nm_create_pod_profile.current.policy is defined
+          - nm_create_pod_profile.current.policyTemplateId is defined
+          - nm_create_pod_profile.current.policyTemplateName == 'ansible_fabric_policy_template'
           - nm_create_pod_profile.current.uuid is defined
+          - nm_create_pod_profile.current.templateId is defined
+          - nm_create_pod_profile.current.templateName == 'ansible_fabric_resource_template'
           - nm_create_pod_profile_again is not changed
           - nm_create_pod_profile_again.previous == nm_create_pod_profile_again.current == nm_create_pod_profile.current
 
@@ -164,6 +173,10 @@
           - cm_update_pod_profile.current.blocks[0] == 1
           - cm_update_pod_profile.current.blocks[1] == 2
           - cm_update_pod_profile.current.policy is defined
+          - cm_update_pod_profile.current.policyTemplateId is defined
+          - cm_update_pod_profile.current.policyTemplateName == 'ansible_fabric_policy_template'
+          - cm_update_pod_profile.current.templateId is defined
+          - cm_update_pod_profile.current.templateName == 'ansible_fabric_resource_template'
           - cm_update_pod_profile.current.uuid is defined
           - nm_update_pod_profile is changed
           - nm_update_pod_profile.previous.name == 'ansible_pod_profile_1'
@@ -178,6 +191,10 @@
           - nm_update_pod_profile.current.blocks[0] == 1
           - nm_update_pod_profile.current.blocks[1] == 2
           - nm_update_pod_profile.current.policy is defined
+          - nm_update_pod_profile.current.policyTemplateId is defined
+          - nm_update_pod_profile.current.policyTemplateName == 'ansible_fabric_policy_template'
+          - nm_update_pod_profile.current.templateId is defined
+          - nm_update_pod_profile.current.templateName == 'ansible_fabric_resource_template'
           - nm_update_pod_profile.current.uuid is defined
           - nm_update_pod_profile_again is not changed
           - nm_update_pod_profile_again.previous == nm_update_pod_profile_again.current == nm_update_pod_profile.current
@@ -205,6 +222,10 @@
           - nm_update_pod_profile_back_to_range.current.blocks | length == 1
           - nm_update_pod_profile_back_to_range.current.blocks[0] == 1
           - nm_update_pod_profile_back_to_range.current.policy is defined
+          - nm_update_pod_profile_back_to_range.current.policyTemplateId is defined
+          - nm_update_pod_profile_back_to_range.current.policyTemplateName == 'ansible_fabric_policy_template'
+          - nm_update_pod_profile_back_to_range.current.templateId is defined
+          - nm_update_pod_profile_back_to_range.current.templateName == 'ansible_fabric_resource_template'
           - nm_update_pod_profile_back_to_range.current.uuid is defined
 
     - name: Update description to empty string
@@ -288,7 +309,9 @@
     - name: Pod Profile with mutually exclusive pod_settings parameters (error)
       cisco.mso.ndo_pod_profile:
         <<: *create_pod_profile
-        pod_settings: ansible_pod_settings_1
+        pod_settings:
+          name: ansible_pod_settings_1
+          template: ansible_fabric_policy_template
         pod_settings_uuid: "{{ pod_settings.current.uuid }}"
       register: err_mutually_exclusive_pod_settings
       ignore_errors: true
@@ -296,8 +319,9 @@
     - name: Pod Profile with mutually exclusive pod_settings_template parameters (error)
       cisco.mso.ndo_pod_profile:
         <<: *create_pod_profile
-        pod_settings_template: ansible_fabric_policy_template
-        pod_settings_template_id: "{{ fabric_policy_template.current.templateId }}"
+        pod_settings:
+          template: ansible_fabric_policy_template
+          template_id: "{{ fabric_policy_template.current.templateId }}"
       register: err_mutually_exclusive_pod_settings_template
       ignore_errors: true
     
@@ -309,14 +333,15 @@
           - err_mutually_exclusive_pod_settings is failed
           - err_mutually_exclusive_pod_settings.msg == "parameters are mutually exclusive{{':'}} pod_settings|pod_settings_uuid"
           - err_mutually_exclusive_pod_settings_template is failed
-          - err_mutually_exclusive_pod_settings_template.msg == "parameters are mutually exclusive{{':'}} pod_settings_template|pod_settings_template_id"
+          - err_mutually_exclusive_pod_settings_template.msg == "parameters are mutually exclusive{{':'}} template|template_id found in pod_settings"
     
     - name: Pod Profile with required if parameters pod_settings and pod_settings_uuid missing (error)
       cisco.mso.ndo_pod_profile:
         <<: *mso_info
         template: ansible_fabric_resource_template
         name: ansible_pod_profile_1
-        pod_settings_template: ansible_fabric_policy_template
+        pod_settings:
+          template: ansible_fabric_policy_template
         state: present
       register: err_required_parameters_missing_pod_settings
       ignore_errors: true
@@ -326,7 +351,8 @@
         <<: *mso_info
         template: ansible_fabric_resource_template
         name: ansible_pod_profile_1
-        pod_settings: ansible_pod_settings_1
+        pod_settings:
+          name: ansible_pod_settings_1
         state: present
       register: err_required_parameters_missing_pod_settings_template
       ignore_errors: true
@@ -334,8 +360,9 @@
     - name: Pod Profile with invalid pod_settings (error)
       cisco.mso.ndo_pod_profile:
         <<: *create_pod_profile
-        pod_settings: ansible_pod_settings_2
-        pod_settings_template: ansible_fabric_policy_template
+        pod_settings:
+          name: ansible_pod_settings_2
+          template: ansible_fabric_policy_template
       register: err_invalid_pod_settings_with_template
       ignore_errors: true
 
@@ -353,9 +380,9 @@
       ansible.builtin.assert:
         that:
           - err_required_parameters_missing_pod_settings is failed
-          - err_required_parameters_missing_pod_settings.msg == "state is present but any of the following are missing{{':'}} pod_settings, pod_settings_uuid"
+          - err_required_parameters_missing_pod_settings.msg == "missing required arguments{{':'}} name found in pod_settings"
           - err_required_parameters_missing_pod_settings_template is failed
-          - err_required_parameters_missing_pod_settings_template.msg == "pod_settings is set but any of the following are missing{{':'}} pod_settings_template, pod_settings_template_id"
+          - err_required_parameters_missing_pod_settings_template.msg == "one of the following is required{{':'}} template, template_id found in pod_settings"
           - err_invalid_pod_settings_with_template is failed
           - err_invalid_pod_settings_with_template.msg == "Provided Pod Settings with '[KVPair(key='name', value='ansible_pod_settings_2')]' not matching existing object(s){{':'}} ansible_pod_settings_1"
           - err_invalid_pod_settings_uuid is failed

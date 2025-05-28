@@ -57,25 +57,30 @@ options:
     type: list
     elements: int
     aliases: [ blocks ]
-  pod_settings:
-    description:
-    - The name of the Pod Settings Policy to be used.
-    type: str
-    aliases: [ pod_settings_name ]
   pod_settings_uuid:
     description:
     - The UUID of the Pod Settings Policy to be used.
     type: str
-  pod_settings_template:
+  pod_settings:
     description:
-    - The name of the Pod Settings template.
-    - This parameter or O(pod_settings_template_id) is required when O(pod_settings) is used.
-    type: str
-  pod_settings_template_id:
-    description:
-    - The ID of the Pod Settings template.
-    - This parameter or O(pod_settings_template) is required when O(pod_settings) is used.
-    type: str
+    - The reference of the Pod Settings Policy to be used.
+    type: dict
+    suboptions:
+      name:
+        description:
+        - The name of the Pod Settings Policy.
+        type: str
+        required: true
+      template:
+        description:
+        - The name of the Pod Settings template.
+        - This parameter or O(pod_settings.template_id) is required when O(pod_settings) is used.
+        type: str
+      template_id:
+        description:
+        - The ID of the Pod Settings template.
+        - This parameter or O(pod_settings.template) is required when O(pod_settings) is used.
+        type: str
   state:
     description:
     - Use C(absent) for removing.
@@ -103,8 +108,9 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template: ansible_test
     name: ansible_pod_profile
-    pod_settings: ansible_pod_settings
-    pod_settings_template: ansible_fabric_policy_template
+    pod_settings:
+      name: ansible_pod_settings
+      template: ansible_fabric_policy_template
     state: present
   register: create_pod_profile
 
@@ -115,8 +121,9 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template: ansible_test
     name: ansible_pod_profile
-    pod_settings: ansible_pod_settings
-    pod_settings_template: ansible_fabric_policy_template
+    pod_settings:
+      name: ansible_pod_settings
+      template: ansible_fabric_policy_template
     description: Updated Pod Profile
     pods:
       - 1
@@ -204,10 +211,21 @@ def main():
         uuid=dict(type="str", aliases=["pod_profile_uuid"]),
         description=dict(type="str"),
         pods=dict(type="list", elements="int", aliases=["blocks"]),  # UI uses blocks but chose pods since it is more descriptive
-        pod_settings=dict(type="str", aliases=["pod_settings_name"]),
+        pod_settings=dict(
+            type="dict",
+            options=dict(
+                name=dict(type="str", required=True),
+                template=dict(type="str"),
+                template_id=dict(type="str"),
+            ),
+            required_one_of=[
+                ["template", "template_id"],
+            ],
+            mutually_exclusive=[
+                ("template", "template_id"),
+            ],
+        ),
         pod_settings_uuid=dict(type="str"),
-        pod_settings_template=dict(type="str"),
-        pod_settings_template_id=dict(type="str"),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
 
@@ -217,7 +235,6 @@ def main():
         mutually_exclusive=[
             ("template", "template_id"),
             ("pod_settings", "pod_settings_uuid"),
-            ("pod_settings_template", "pod_settings_template_id"),
         ],
         required_if=[
             ["state", "absent", ["name", "uuid"], True],
@@ -240,8 +257,6 @@ def main():
     pods = module.params.get("pods")
     pod_settings = module.params.get("pod_settings")
     pod_settings_uuid = module.params.get("pod_settings_uuid")
-    pod_settings_template = module.params.get("pod_settings_template")
-    pod_settings_template_id = module.params.get("pod_settings_template_id")
     state = module.params.get("state")
 
     mso_template = mso_templates.get_template("fabric_resource", template_name, template_id)
@@ -250,10 +265,10 @@ def main():
     match = mso_template.get_pod_profile_object(uuid, name)
 
     if (uuid or name) and match:
-        set_pod_profile_policy_names(mso, mso_templates, match.details)
+        set_pod_profile_policy_names(mso, mso_templates, mso_template, match.details)
         mso.existing = mso.previous = copy.deepcopy(match.details)  # Query a specific object
     elif match:
-        mso.existing = [set_pod_profile_policy_names(mso, mso_templates, obj) for obj in match]  # Query all objects
+        mso.existing = [set_pod_profile_policy_names(mso, mso_templates, mso_template, obj) for obj in match]  # Query all objects
 
     pod_profile_path = "/fabricResourceTemplate/template/podProfiles/{0}".format(match.index if match else "-")
 
@@ -275,10 +290,10 @@ def main():
         if pod_settings_uuid:
             mso_values["policy"] = pod_settings_uuid
         else:
-            if not pod_settings_template and not pod_settings_template_id:
-                module.fail_json(msg="pod_settings is set but any of the following are missing: pod_settings_template, pod_settings_template_id")
-            pod_settings_mso_template = mso_templates.get_template("fabric_policy", pod_settings_template, pod_settings_template_id)
-            mso_values["policy"] = pod_settings_mso_template.get_pod_settings_object(pod_settings_uuid, pod_settings, fail_module=True).details.get("uuid")
+            pod_settings_mso_template = mso_templates.get_template("fabric_policy", pod_settings.get("template"), pod_settings.get("template_id"))
+            mso_values["policy"] = pod_settings_mso_template.get_pod_settings_object(
+                pod_settings_uuid, pod_settings.get("name"), fail_module=True
+            ).details.get("uuid")
 
         if match:
             remove_data = []
@@ -287,7 +302,7 @@ def main():
 
             append_update_ops_data(ops, match.details, pod_profile_path, mso_values, remove_data)
             mso.sanitize(mso_values, collate=True, unwanted=remove_data)
-            set_pod_profile_policy_names(mso, mso_templates, mso.proposed)
+            set_pod_profile_policy_names(mso, mso_templates, mso_template, mso.proposed)
         else:
             if not pods:
                 mso_values["kind"] = "all"
@@ -302,17 +317,18 @@ def main():
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)
         match = mso_template.get_pod_profile_object(uuid, name, search_object=response)
         if match:
-            set_pod_profile_policy_names(mso, mso_templates, match.details)
+            set_pod_profile_policy_names(mso, mso_templates, mso_template, match.details)
             mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
-        set_pod_profile_policy_names(mso, mso_templates, mso.proposed)
+        if mso.proposed:
+            set_pod_profile_policy_names(mso, mso_templates, mso_template, mso.proposed)
         mso.existing = mso.proposed if state == "present" else {}
     mso.exit_json()
 
 
-def set_pod_profile_policy_names(mso, mso_templates, pod_profile):
+def set_pod_profile_policy_names(mso, mso_templates, mso_template, pod_profile):
 
     # TODO: leverage update_config_with_template_and_references when podPolicyGroup type is supported by objects API endpoint
     # "mso/api/v1/templates/objects?type=podPolicyGroup&uuid=0809339e-65f7-4000-a23a-a39241865db8"
@@ -332,12 +348,18 @@ def set_pod_profile_policy_names(mso, mso_templates, pod_profile):
 
     # Workaround template looping until podPolicyGroup type is supported by objects API endpoint
     # Check if a policy is set in the pod profile, this is the UUID of the pod settings policy
+
+    pod_profile["templateName"] = mso_template.template_name
+    pod_profile["templateId"] = mso_template.template_id
     if pod_profile.get("policy"):
         pod_settings_uuid = pod_profile.get("policy")
 
         # Check if the pod settings UUID is already in the cache
         if pod_settings_uuid in POD_SETTINGS_CACHE:
-            pod_profile["policyName"] = POD_SETTINGS_CACHE[pod_settings_uuid]
+            pod_profile_details = POD_SETTINGS_CACHE[pod_settings_uuid]
+            pod_profile["policyName"] = pod_profile_details.get("policyName")
+            pod_profile["policyTemplateName"] = pod_profile_details.get("policyTemplateName")
+            pod_profile["policyTemplateId"] = pod_profile_details.get("policyTemplateId")
             return pod_profile
 
         # Retrieve a summary of all fabric_policy templates from NDO and loop through all templates to find the pod settings policy
@@ -349,7 +371,13 @@ def set_pod_profile_policy_names(mso, mso_templates, pod_profile):
                     match = pod_settings_template.get_pod_settings_object(pod_settings_uuid)
                     if match:
                         pod_profile["policyName"] = match.details.get("name")
-                        POD_SETTINGS_CACHE[pod_settings_uuid] = match.details.get("name")
+                        pod_profile["policyTemplateName"] = pod_settings_template.template_name
+                        pod_profile["policyTemplateId"] = pod_settings_template.template_id
+                        POD_SETTINGS_CACHE[pod_settings_uuid] = {
+                            "policyName": match.details.get("name"),
+                            "policyTemplateName": pod_settings_template.template_name,
+                            "policyTemplateId": pod_settings_template.template_id,
+                        }
                         return pod_profile
 
 

@@ -83,7 +83,7 @@ options:
 notes:
 - The O(template) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_template) to create the Fabric Policy template.
-- The O(macsec_policy) or O(macsec_policy_uuid) must exist before using it with this module in your playbook.
+- The O(macsec_policy_name) or O(macsec_policy_uuid) must exist before using it with this module in your playbook.
   Use M(cisco.mso.ndo_macsec_policy) to create the MACsec Policy.
 - The O(ntp_policy_name) or O(ntp_policy_uuid) must exist before using it with this module in your playbook.
   Use M(cisco.mso.ndo_ntp_policy) to create the NTP Policy.

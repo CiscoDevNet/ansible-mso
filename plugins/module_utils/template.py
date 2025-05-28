@@ -250,11 +250,12 @@ class MSOTemplate:
             )
         return existing_ipsla_policies
 
-    def get_l3out_object(self, uuid=None, name=None, fail_module=False):
+    def get_l3out_object(self, uuid=None, name=None, fail_module=False, search_object=None):
         """
         Get the L3Out by uuid or name.
         :param uuid: UUID of the L3Out to search for -> Str
         :param name: Name of the L3Out to search for -> Str
+        :param search_object: The object to search in -> Dict
         :param fail_module: When match is not found fail the ansible module -> Bool
         :return: Dict | None | List[Dict] | List[]: The processed result which could be:
                  When the UUID | Name is existing in the search list -> Dict
@@ -262,7 +263,9 @@ class MSOTemplate:
                  When both UUID and Name are None, and the search list is not empty -> List[Dict]
                  When both UUID and Name are None, and the search list is empty -> List[]
         """
-        existing_l3outs = self.template.get("l3outTemplate", {}).get("l3outs", [])
+        if not search_object:
+            search_object = self.template
+        existing_l3outs = search_object.get("l3outTemplate", {}).get("l3outs", [])
         if uuid or name:  # Query a specific object
             return self.get_object_by_key_value_pairs("L3Out", existing_l3outs, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
         return existing_l3outs  # Query all objects
@@ -283,6 +286,68 @@ class MSOTemplate:
         if name:  # Query a specific object
             return self.get_object_by_key_value_pairs("L3Out Node Group Policy", existing_l3out_node_groups, [KVPair("name", name)], fail_module)
         return existing_l3out_node_groups  # Query all objects
+
+    def get_port_channel(self, uuid=None, name=None, fail_module=False):
+        """
+        Get the UUID of a port channel by name.
+        :param uuid: UUID of the Port Channel to search for -> Str
+        :param name: Name of the Port Channel to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        existing_port_channels = self.template.get("fabricResourceTemplate", {}).get("template", {}).get("portChannels", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs(
+                "Port Channel", existing_port_channels, [KVPair("uuid", uuid)] if uuid else [KVPair("name", name)], fail_module=fail_module
+            )
+        return existing_port_channels
+
+    def get_l3out_node(self, l3out_object, pod_id, node_id, fail_module=False):
+        """
+        Get the L3Out Node by pod_id and node_id.
+        :param l3out_object: L3Out object to search for the Node -> Dict
+        :param pod_id: Pod ID of the Node to search for -> Str
+        :param node_id: Node ID of the Node to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the pod_id | node_id is existing in the search list -> Dict
+                 When the pod_id | node_id is not existing in the search list -> None
+                 When both pod_id and node_id are None, and the search list is not empty -> List[Dict]
+                 When both pod_id and node_id are None, and the search list is empty -> List[]
+        """
+        existing_l3out_nodes = l3out_object.get("nodes", [])
+        if pod_id and node_id:  # Query a specific object
+            return self.get_object_by_key_value_pairs("L3Out Node", existing_l3out_nodes, [KVPair("podID", pod_id), KVPair("nodeID", node_id)], fail_module)
+        return existing_l3out_nodes  # Query all objects
+
+    def get_l3out_routed_interface(self, l3out_object, pod_id, node_id, path, path_ref, fail_module=False):
+        """
+        Get the L3Out Routed Interface by pod_id, node_id, path, and path_ref.
+        :param l3out_object: L3Out object to search for the Routed Interface -> Dict
+        :param pod_id: Pod ID of the Routed Interface to search for -> Str
+        :param node_id: Node ID of the Routed Interface to search for -> Str
+        :param path: Path of the Routed Interface to search for -> Str
+        :param path_ref: Path reference of the Routed Interface to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the pod_id, node_id, path | path_ref is existing in the search list -> Dict
+                 When the pod_id, node_id, path | path_ref is not existing in the search list -> None
+                 When both pod_id, node_id, path and path_ref are None, and the search list is not empty -> List[Dict]
+                 When both pod_id, node_id, path and path_ref are None, and the search list is empty -> List[]
+        """
+        existing_l3out_interfaces = l3out_object.get("interfaces", [])
+        if (pod_id and node_id and path) or path_ref:  # Query a specific object
+            if path_ref:
+                kv_list = [KVPair("pathRef", path_ref)]
+            else:
+                kv_list = [KVPair("podID", pod_id), KVPair("nodeID", node_id), KVPair("path", path)]
+
+            return self.get_object_by_key_value_pairs("L3Out Interface", existing_l3out_interfaces, kv_list, fail_module)
+        return existing_l3out_interfaces  # Query all objects
 
     def get_node_settings_object(self, uuid=None, name=None, fail_module=False):
         """
@@ -559,6 +624,42 @@ class MSOTemplate:
                         if isinstance(item, dict):
                             self.update_config_with_template_and_references(item, reference_collections, False, use_cache)
         return config_data
+
+    def update_config_with_port_channel_references(self, update_object):
+        if update_object:
+            reference_details = None
+            if update_object.get("pathRef"):
+                reference_details = {
+                    "port_channel_reference": {
+                        "name": "portChannelName",
+                        "reference": "pathRef",
+                        "type": "portChannel",
+                        "template": "portChannelTemplateName",
+                        "templateId": "portChannelTemplateId",
+                    }
+                }
+            self.update_config_with_template_and_references(
+                update_object,
+                reference_details,
+                True,
+            )
+
+    def update_config_with_node_references(self, interface, l3out_object):
+
+        pod_id = interface.get("podID")
+        node_id = interface.get("nodeID")
+
+        if interface.get("pathType") == "pc":
+            interface_details = self.mso.get_site_interface_details(
+                self.template.get("l3outTemplate", {}).get("siteId"),
+                port_channel_uuid=interface.get("pathRef"),
+            )
+            pod_id = interface_details.get("pod")
+            node_id = interface_details.get("node")
+
+        node = self.get_l3out_node(l3out_object.details, pod_id, node_id)
+        if node and not isinstance(node, list):
+            interface["node"] = node.details
 
     def check_template_when_name_is_provided(self, parameter):
         if parameter and parameter.get("name") and not (parameter.get("template") or parameter.get("template_id")):

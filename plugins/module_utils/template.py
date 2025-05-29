@@ -298,8 +298,8 @@ class MSOTemplate:
     def get_pod_settings_object(self, uuid=None, name=None, search_object=None, fail_module=False):
         """
         Get the Pod Settings by uuid or name.
-        :param uuid: UUID of the Pod Setting to search for -> Str
-        :param name: Name of the Pod Setting to search for -> Str
+        :param uuid: UUID of the Pod Settings to search for -> Str
+        :param name: Name of the Pod Settings to search for -> Str
         :param search_object: The object to search in -> Dict
         :param fail_module: When match is not found fail the ansible module -> Bool
         :return: Dict | None | List[Dict] | List[]: The processed result which could be:

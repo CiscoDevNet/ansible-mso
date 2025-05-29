@@ -53,7 +53,7 @@ options:
     - A list of pod IDs to be used in the Pod Profile.
     - When provided, the Pod Profile will apply to pods specified in the range.
     - When an empty list O(pods=[]) is provided, the Pod Profile will apply to all pods.
-    - When not provided on inital create, the Pod Profile will apply to all pods.
+    - When not provided on initial create, the Pod Profile will apply to all pods.
     type: list
     elements: int
     aliases: [ blocks ]

@@ -244,3 +244,51 @@ QOS_CONGESTION_ALGORITHM_MAP = {"tail_drop": "tailDrop", "wred": "wred"}
 QOS_SCHEDULING_ALGORITHM_MAP = {"strict_priority": "strictPriority", "weighted_round_robin": "wrr"}
 QOS_PFC_SCOPE_MAP = {"fabric_wide": "fabricWide", "intra_tor": "intraTor"}
 COS_VALUES = ["cos0", "cos1", "cos2", "cos3", "cos4", "cos5", "cos6", "cos7", "unspecified"]
+
+PORT_MAPPING = {
+    "53": 53,
+    "dns": 53,
+    "20": 20,
+    "ftp_data": 20,
+    "80": 80,
+    "http": 80,
+    "443": 443,
+    "https": 443,
+    "110": 110,
+    "pop3": 110,
+    "554": 554,
+    "rtsp": 554,
+    "25": 25,
+    "smtp": 25,
+    "22": 22,
+    "ssh": 22,
+    "0": 0,
+    "unspecified": 0,
+}
+
+IP_PROTOCOL_MAPPING = {
+    "0": "unspecified",
+    "unspecified": "unspecified",
+    "egp": "egp",
+    "8": "egp",
+    "eigrp": "eigrp",
+    "88": "eigrp",
+    "icmp": "icmp",
+    "1": "icmp",
+    "icmpv6": "icmpv6",
+    "58": "icmpv6",
+    "igmp": "igmp",
+    "2": "igmp",
+    "igp": "igp",
+    "9": "igp",
+    "l2tp": "l2tp",
+    "115": "l2tp",
+    "ospfigp": "ospfigp",
+    "89": "ospfigp",
+    "pim": "pim",
+    "103": "pim",
+    "tcp": "tcp",
+    "6": "tcp",
+    "udp": "udp",
+    "17": "udp",
+}

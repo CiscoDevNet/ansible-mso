@@ -7,7 +7,7 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
-from ansible_collections.cisco.mso.plugins.module_utils.constants import TEMPLATE_TYPES
+from ansible_collections.cisco.mso.plugins.module_utils.constants import TEMPLATE_TYPES, PORT_MAPPING, IP_PROTOCOL_MAPPING
 from ansible_collections.cisco.mso.plugins.module_utils.utils import generate_api_endpoint
 from collections import namedtuple
 
@@ -774,4 +774,28 @@ class MSOTemplate:
         """
         if name and search_list:  # Query a specific object
             return self.get_object_by_key_value_pairs("SPAN Sessions Source", search_list, [KVPair("name", name)], fail_module)
+        return search_list  # Query all objects
+
+    def get_fabric_span_session_source_filter(self, filter_config, search_list, fail_module=False):
+        """
+        Get the Fabric SPAN Session Source Filter by filter properties.
+        :param filter_config: Properties of the Fabric SPAN Session Source Filter to search for -> Dict
+        :param search_list: Objects to search through -> List.
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | List[Dict] | List[]: The processed result which could be:
+                 When the Properties are existing in the search list -> Dict
+                 When both Properties are None, and the search list is not empty -> List[Dict]
+                 When both Properties are None, and the search list is empty -> List[]
+        """
+        if filter_config and filter_config.get("source_ip_prefix") and filter_config.get("destination_ip_prefix") and search_list:  # Query a specific object
+            KVPairs = [
+                KVPair("srcIPPrefix", filter_config.get("source_ip_prefix")),
+                KVPair("srcPortFrom", int(PORT_MAPPING.get(filter_config.get("source_port_from")))),
+                KVPair("srcPortTo", int(PORT_MAPPING.get(filter_config.get("source_port_to")))),
+                KVPair("destIPPrefix", filter_config.get("destination_ip_prefix")),
+                KVPair("destPortFrom", int(PORT_MAPPING.get(filter_config.get("destination_port_from")))),
+                KVPair("destPortTo", int(PORT_MAPPING.get(filter_config.get("destination_port_to")))),
+                KVPair("ipProtocol", IP_PROTOCOL_MAPPING.get(filter_config.get("ip_protocol"))),
+            ]
+            return self.get_object_by_key_value_pairs("SPAN Sessions Source", search_list, KVPairs, fail_module)
         return search_list  # Query all objects

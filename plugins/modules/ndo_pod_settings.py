@@ -48,29 +48,39 @@ options:
     description:
     - The description of the Pod Settings.
     type: str
-  macsec_policy_name:
+  macsec_policy:
     description:
-    - The name of the MACsec Policy to be used.
-    - Providing an empty string O(macsec_policy_name="") will remove the MACsec Policy from the Pod Settings.
+    - The MACsec Policy to be used.
     - This parameter is mutually exclusive with O(macsec_policy_uuid).
-    type: str
+    - Providing an empty dictionary O(macsec_policy={}) will remove the MACsec Policy from the Pod Settings.
+    type: dict
+    suboptions:
+      name:
+        description:
+        - The name of the MACsec Policy to be used.
+        type: str
   macsec_policy_uuid:
     description:
     - The UUID of the MACsec Policy to be used.
     - Providing an empty string O(macsec_policy_uuid="") will remove the MACsec Policy from the Pod Settings.
-    - This parameter is mutually exclusive with O(macsec_policy_name).
+    - This parameter is mutually exclusive with O(macsec_policy).
     type: str
-  ntp_policy_name:
+  ntp_policy:
     description:
-    - The name of the NTP Policy to be used.
-    - Providing an empty string O(ntp_policy_name="") will remove the NTP Policy from the Pod Settings.
+    - The NTP Policy to be used.
     - This parameter is mutually exclusive with O(ntp_policy_uuid).
-    type: str
+    - Providing an empty dictionary O(ntp_policy={}) will remove the NTP Policy from the Pod Settings.
+    type: dict
+    suboptions:
+      name:
+        description:
+        - The name of the NTP Policy to be used.
+        type: str
   ntp_policy_uuid:
     description:
     - The UUID of the NTP Policy to be used.
     - Providing an empty string O(ntp_policy_uuid="") will remove the NTP Policy from the Pod Settings.
-    - This parameter is mutually exclusive with O(ntp_policy_name).
+    - This parameter is mutually exclusive with O(ntp_policy).
     type: str
   state:
     description:
@@ -83,9 +93,9 @@ options:
 notes:
 - The O(template) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_template) to create the Fabric Policy template.
-- The O(macsec_policy_name) or O(macsec_policy_uuid) must exist before using it with this module in your playbook.
+- The O(macsec_policy) or O(macsec_policy_uuid) must exist before using it with this module in your playbook.
   Use M(cisco.mso.ndo_macsec_policy) to create the MACsec Policy.
-- The O(ntp_policy_name) or O(ntp_policy_uuid) must exist before using it with this module in your playbook.
+- The O(ntp_policy) or O(ntp_policy_uuid) must exist before using it with this module in your playbook.
   Use M(cisco.mso.ndo_ntp_policy) to create the NTP Policy.
 seealso:
 - module: cisco.mso.ndo_template
@@ -113,8 +123,10 @@ EXAMPLES = r"""
     template: ansible_test
     name: ansible_pod_settings
     description: Updated Pod Settings
-    macsec_policy_name: ansible_macsec_policy
-    ntp_policy_name: ansible_ntp_policy
+    macsec_policy:
+      name: ansible_macsec_policy
+    ntp_policy:
+      name: ansible_ntp_policy
     state: present
 
 - name: Update the Pod Settings using UUID
@@ -182,7 +194,7 @@ RETURN = r"""
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
-from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, check_if_all_elements_are_none
 import copy
 
 
@@ -194,9 +206,19 @@ def main():
         name=dict(type="str", aliases=["pod_settings"]),
         uuid=dict(type="str", aliases=["pod_settings_uuid"]),
         description=dict(type="str"),
-        macsec_policy_name=dict(type="str"),
+        macsec_policy=dict(
+            type="dict",
+            options=dict(
+                name=dict(type="str"),
+            ),
+        ),
         macsec_policy_uuid=dict(type="str"),
-        ntp_policy_name=dict(type="str"),
+        ntp_policy=dict(
+            type="dict",
+            options=dict(
+                name=dict(type="str"),
+            ),
+        ),
         ntp_policy_uuid=dict(type="str"),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
@@ -206,8 +228,8 @@ def main():
         supports_check_mode=True,
         mutually_exclusive=[
             ("template", "template_id"),
-            ("macsec_policy_name", "macsec_policy_uuid"),
-            ("ntp_policy_name", "ntp_policy_uuid"),
+            ("macsec_policy", "macsec_policy_uuid"),
+            ("ntp_policy", "ntp_policy_uuid"),
         ],
         required_if=[
             ["state", "absent", ["name", "uuid"], True],
@@ -225,9 +247,13 @@ def main():
     name = module.params.get("name")
     uuid = module.params.get("uuid")
     description = module.params.get("description")
-    macsec_policy_name = module.params.get("macsec_policy_name")
+    macsec_policy = module.params.get("macsec_policy")
+    if macsec_policy is not None and check_if_all_elements_are_none(macsec_policy.values()):
+        macsec_policy = {}
     macsec_policy_uuid = module.params.get("macsec_policy_uuid")
-    ntp_policy_name = module.params.get("ntp_policy_name")
+    ntp_policy = module.params.get("ntp_policy")
+    if ntp_policy is not None and check_if_all_elements_are_none(ntp_policy.values()):
+        ntp_policy = {}
     ntp_policy_uuid = module.params.get("ntp_policy_uuid")
     state = module.params.get("state")
 
@@ -254,18 +280,26 @@ def main():
             "description": description,
         }
 
-        if macsec_policy_name or macsec_policy_uuid:
-            mso_values["fabricMACsec"] = mso_template.get_macsec_policy_object(macsec_policy_uuid, macsec_policy_name, fail_module=True).details.get("uuid")
-        if ntp_policy_name or ntp_policy_uuid:
-            mso_values["ntp"] = mso_template.get_ntp_policy_object(ntp_policy_uuid, ntp_policy_name, fail_module=True).details.get("uuid")
+        if macsec_policy or macsec_policy_uuid:
+            mso_values["fabricMACsec"] = mso_template.get_macsec_policy_object(
+                macsec_policy_uuid,
+                macsec_policy.get("name") if macsec_policy else macsec_policy,
+                fail_module=True,
+            ).details.get("uuid")
+        if ntp_policy or ntp_policy_uuid:
+            mso_values["ntp"] = mso_template.get_ntp_policy_object(
+                ntp_policy_uuid,
+                ntp_policy.get("name") if ntp_policy else ntp_policy,
+                fail_module=True,
+            ).details.get("uuid")
 
         if match:
             remove_data = []
             unwanted = []
-            if macsec_policy_name == "" or macsec_policy_uuid == "":
+            if macsec_policy == {} or macsec_policy_uuid == "":
                 remove_data.append("fabricMACsec")
                 unwanted.extend(["fabricMACsec", "fabricMACsecName"])
-            if ntp_policy_name == "" or ntp_policy_uuid == "":
+            if ntp_policy == {} or ntp_policy_uuid == "":
                 remove_data.append("ntp")
                 unwanted.extend(["ntp", "ntpName"])
 

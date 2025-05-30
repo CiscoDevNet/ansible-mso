@@ -62,6 +62,8 @@ options:
   filter_epg:
     description:
     - The Filter EPG of the SPAN Session source.
+    - When the Filter EPG is specified in the configuration, the Filter L3Out will be removed.
+    - Filter L3Out and Filter EPG cannot be configured simultaneously.
     type: dict
     suboptions:
       enabled:
@@ -117,6 +119,8 @@ options:
   filter_l3out:
     description:
     - The Filter L3Out of the SPAN Session source.
+    - When the Filter L3Out is specified in the configuration, the Filter EPG will be removed.
+    - Filter L3Out and Filter EPG cannot be configured simultaneously.
     type: dict
     suboptions:
       enabled:
@@ -539,6 +543,8 @@ def main():
                 match.details.pop("epgSchemaName")
                 match.details.pop("epgSchemaId")
             elif mso_values.get("epg"):
+                # When the filter EPG is specified in the configuration, the filter L3Out will be removed.
+                # L3Out and EPG cannot be configured simultaneously.
                 if match.details.get("l3out"):
                     mso_remove_values.append("l3out")
                 proposed_payload["epg"] = mso_values["epg"]
@@ -548,6 +554,8 @@ def main():
                 proposed_payload["l3out"] = {}
                 match.details["l3out"] = {}
             elif mso_values.get("l3out"):
+                # When the filter L3Out is specified in the configuration, the filter EPG will be removed.
+                # L3Out and EPG cannot be configured simultaneously.
                 if match.details.get("epg"):
                     mso_remove_values.append("epg")
                 proposed_payload["l3out"] = mso_values["l3out"]
@@ -681,7 +689,11 @@ def update_access_paths(mso, site_id, access_paths, mso_templates):
 
     # Remove duplicates
     unique_paths = {str(path): path for path in updated_paths}.values()
-    return list(unique_paths)
+
+    if len(list(unique_paths)) == len(updated_paths):
+        return updated_paths
+    else:
+        mso.fail_json(msg="Remove duplicate entries from the access_paths: {0}".format(access_paths))
 
 
 def set_fabric_span_session_source_object_details(mso_template, site_id, source):
@@ -725,6 +737,13 @@ def set_fabric_span_session_source_object_details(mso_template, site_id, source)
                 "type": "virtualPortChannel",
                 "template": "vpcComponentPcTemplateName",
                 "templateId": "vpcComponentPcTemplateId",
+            },
+            "l3out": {
+                "name": "l3outName",
+                "reference": "ref",
+                "type": "l3out",
+                "template": "l3outTemplateName",
+                "templateId": "l3outTemplateId",
             },
         }
 

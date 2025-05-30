@@ -954,6 +954,9 @@
           - add_ansible_test_source_4_port.current.l3out.encapType == "vlan"
           - add_ansible_test_source_4_port.current.l3out.encapValue == 41
           - add_ansible_test_source_4_port.current.l3out.ref is defined
+          - add_ansible_test_source_4_port.current.l3out.l3outName == "ansible_test_l3out"
+          - add_ansible_test_source_4_port.current.l3out.l3outTemplateId != ""
+          - add_ansible_test_source_4_port.current.l3out.l3outTemplateName == "ansible_test_l3out_template"
           - add_ansible_test_source_4_port.current.name == "ansible_test_source_4"
           - add_ansible_test_source_4_port.current.spanDropPackets == false
           - add_ansible_test_source_4_port.current.templateName == "ansible_test_mon_pol"
@@ -1691,24 +1694,8 @@
           - nt_epg_with_span_drop_packets.previous.templateName == "ansible_test_mon_pol"
           - nt_add_filter_epg_and_l3out is not changed
           - nt_add_filter_epg_and_l3out.msg == "parameters are mutually exclusive{{':'}} filter_epg|filter_l3out"
-          - nt_duplicate_access_paths is changed
-          - nt_duplicate_access_paths.current.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/3]"
-          - nt_duplicate_access_paths.current.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
-          - nt_duplicate_access_paths.current.direction == "outgoing"
-          - nt_duplicate_access_paths.current.l3out == {}
-          - nt_duplicate_access_paths.current.name == "ansible_test_source_2"
-          - nt_duplicate_access_paths.current.spanDropPackets == true
-          - nt_duplicate_access_paths.current.templateName == "ansible_test_mon_pol"
-          - nt_duplicate_access_paths.previous.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/6]"
-          - nt_duplicate_access_paths.previous.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
-          - nt_duplicate_access_paths.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
-          - nt_duplicate_access_paths.previous.accessPaths.3.vpcComponentPc.0.node == "101"
-          - nt_duplicate_access_paths.previous.accessPaths.3.vpcComponentPc.0.vpcComponentPcName == "ansible_test_vpc1"
-          - nt_duplicate_access_paths.previous.direction == "outgoing"
-          - nt_duplicate_access_paths.previous.l3out == {}
-          - nt_duplicate_access_paths.previous.name == "ansible_test_source_2"
-          - nt_duplicate_access_paths.previous.spanDropPackets == true
-          - nt_duplicate_access_paths.previous.templateName == "ansible_test_mon_pol"
+          - nt_duplicate_access_paths is not changed
+          - nt_duplicate_access_paths.msg is match("Remove duplicate entries from the access_paths.+")
           - nt_incomplete_port is not changed
           - nt_incomplete_port.current == {}
           - nt_incomplete_port.msg == "Access path 1{{':'}} when the access_path_type='port', either 'uuid' or both 'node' and 'interface' must be provided."

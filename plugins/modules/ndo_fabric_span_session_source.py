@@ -50,13 +50,13 @@ options:
   direction:
     description:
     - The direction of the SPAN Session source.
-    - Defaults to C(incoming) when unset during creation.
+    - Defaults to O(direction=incoming) when unset during creation.
     type: str
     choices: [ incoming, outgoing, both ]
   span_drop_packets:
     description:
     - The SPAN Drop Packets of the SPAN Session source.
-    - Defaults to false when unset during creation.
+    - Defaults to O(span_drop_packets=false) when unset during creation.
     - The O(filter_epg) and O(filter_l3out) is not configurable when this parameter set to true.
     type: bool
   filter_epg:
@@ -413,6 +413,10 @@ def main():
             type="dict",
             mutually_exclusive=[("l3out", "l3out_uuid"), ("tenant", "template", "template_id")],
             required_one_of=[["l3out", "l3out_uuid", "enabled"]],
+            required_by={
+                "l3out": "vlan_id",
+                "l3out_uuid": "vlan_id",
+            },
             options=dict(
                 enabled=dict(type="bool"),
                 tenant=dict(type="str"),
@@ -478,9 +482,9 @@ def main():
     if errors:
         mso.fail_json(msg=", ".join(errors))
 
-    errors = validate_filter_l3out(filter_l3out)
-    if errors:
-        mso.fail_json(msg=", ".join(errors))
+    if filter_l3out and filter_l3out.get("l3out"):
+        if not (filter_l3out.get("tenant") or filter_l3out.get("template") or filter_l3out.get("template_id")):
+            mso.fail_json(msg="At least one of 'tenant', 'template', or 'template_id' is required when 'l3out' is set.")
 
     mso_template = MSOTemplate(mso, "monitoring_tenant", template_name, template_id)
     mso_template.validate_template("monitoring")
@@ -590,20 +594,6 @@ def main():
     mso.exit_json()
 
 
-def validate_filter_l3out(filter_l3out):
-    if filter_l3out:
-        errors = []
-        if filter_l3out.get("l3out"):
-            if not filter_l3out.get("vlan_id"):
-                errors.append("The 'vlan_id' is required when 'l3out' is set.")
-            if not (filter_l3out.get("tenant") or filter_l3out.get("template") or filter_l3out.get("template_id")):
-                errors.append("At least one of 'tenant', 'template', or 'template_id' is required when 'l3out' is set.")
-        elif filter_l3out.get("l3out_uuid"):
-            if not filter_l3out.get("vlan_id"):
-                errors.append("The 'vlan_id' is required when 'l3out_uuid' is set.")
-        return errors
-
-
 def validate_access_paths(access_paths):
     if access_paths:
         errors = []
@@ -687,10 +677,7 @@ def update_access_paths(mso, site_id, access_paths, mso_templates):
         elif access_path.get("access_path_type") == "vpc_component_pc":
             updated_paths.append(get_access_path_payload(mso_templates, access_path, "vpc_component_pc", "virtualPortChannels"))
 
-    # Remove duplicates
-    unique_paths = {str(path): path for path in updated_paths}.values()
-
-    if len(list(unique_paths)) == len(updated_paths):
+    if len(set([str(path) for path in updated_paths])) == len(updated_paths):
         return updated_paths
     else:
         mso.fail_json(msg="Remove duplicate entries from the access_paths: {0}".format(access_paths))
@@ -706,7 +693,6 @@ def set_fabric_span_session_source_object_details(mso_template, site_id, source)
             elif access_path.get("virtualPortChannels") and isinstance(access_path.get("virtualPortChannels")[0], str):
                 access_path.get("virtualPortChannels")[0] = dict(virtualPortChannel=access_path.get("virtualPortChannels")[0])
 
-        source.update({"templateId": mso_template.template_id, "templateName": mso_template.template_name})
         reference_details = {
             "filterEPG": {
                 "name": "epgName",
@@ -747,7 +733,7 @@ def set_fabric_span_session_source_object_details(mso_template, site_id, source)
             },
         }
 
-        mso_template.update_config_with_template_and_references(source, reference_details, False)
+        mso_template.update_config_with_template_and_references(source, reference_details, True)
     return source
 
 

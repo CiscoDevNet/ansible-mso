@@ -298,8 +298,8 @@ def ndo_template_object_spec(aliases=None):
     )
 
 
-def ndo_port_channel_spec():
-    return dict(
+def ndo_l3out_port_channel_spec(micro_bfd=True):
+    portchannel_spec = dict(
         type="dict",
         options=dict(
             uuid=dict(type="str"),
@@ -317,9 +317,6 @@ def ndo_port_channel_spec():
                     ("template", "template_id"),
                 ],
             ),
-            micro_bfd_enabled=dict(type="bool"),
-            micro_bfd_address=dict(type="str"),
-            micro_bfd_start_timer=dict(type="int"),
         ),
         required_one_of=[
             ["reference", "uuid"],
@@ -328,6 +325,13 @@ def ndo_port_channel_spec():
             ("reference", "uuid"),
         ],
     )
+
+    if micro_bfd:
+        portchannel_spec["options"]["micro_bfd_enabled"] = dict(type="bool")
+        portchannel_spec["options"]["micro_bfd_address"] = dict(type="str")
+        portchannel_spec["options"]["micro_bfd_start_timer"] = dict(type="int")
+
+    return portchannel_spec
 
 
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py

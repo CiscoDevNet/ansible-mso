@@ -336,7 +336,7 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, ndo_port_channel_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, ndo_l3out_port_channel_spec
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
 from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP
 from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, delete_none_values
@@ -357,7 +357,7 @@ def main():
         use_router_id_as_loopback=dict(type="bool"),
         node_loopback_ip=dict(type="str", aliases=["loopback_ip"]),
         path=dict(type="str", aliases=["interface"]),
-        port_channel=ndo_port_channel_spec(),
+        port_channel=ndo_l3out_port_channel_spec(),
         interface_group_policy=dict(type="str"),
         ipv4_address=dict(type="str"),
         ipv6_address=dict(type="str"),

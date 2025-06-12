@@ -398,3 +398,20 @@ class MSOSchema:
             msg = "Provided Static Port Path '{0}' not matching existing static port path(s): {1}".format(path, ", ".join(existing))
             self.mso.fail_json(msg=msg)
         self.schema_objects["site_anp_epg_static_port"] = match
+
+    def set_template_contract(self, contract, contract_uuid=None, fail_module=True):
+        """
+        Get template contract item that matches the name of the contract.
+        :param contract: Name of the contract to match. -> Str
+        :param contract_uuid: UUID of the contract to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template contract item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template"])
+        kv_list = [KVPair("uuid", contract_uuid) if contract_uuid else KVPair("name", contract)]
+        match, existing = self.get_object_from_list(self.schema_objects["template"].details.get("contracts"), kv_list)
+        if not match and fail_module:
+            msg = "Provided contract '{0}' not matching existing contract(s): {1}".format(contract_uuid if contract_uuid else contract, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["template_contract"] = match
+        return match

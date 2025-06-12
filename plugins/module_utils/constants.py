@@ -271,3 +271,5 @@ IP_PROTOCOL_MAPPING = {
     "tcp": "6",
     "udp": "17",
 }
+
+CONTRACT_SERVICE_CHAIN_NODE_FILTER_MAP = {"allow_all": "allow-all", "filters_from_contract": "filters-from-contract"}

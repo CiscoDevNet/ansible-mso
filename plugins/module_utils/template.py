@@ -343,7 +343,7 @@ class MSOTemplate:
 
     def get_ipsla_track_list(self, uuid=None, name=None, fail_module=False):
         """
-        Get the UUID of a IPSLA Track List by name.
+        Get the IPSLA Track List by uuid or name.
         :param uuid: UUID of the IPSLA Track List to search for -> Str
         :param name: Name of the IPSLA Track List to search for -> Str
         :param fail_module: When match is not found fail the ansible module -> Bool

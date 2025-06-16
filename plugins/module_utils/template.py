@@ -283,7 +283,7 @@ class MSOTemplate:
 
     def get_port_channel(self, uuid=None, name=None, fail_module=False):
         """
-        Get the UUID of a port channel by name.
+        Get the port channel by uuid or name.
         :param uuid: UUID of the Port Channel to search for -> Str
         :param name: Name of the Port Channel to search for -> Str
         :param fail_module: When match is not found fail the ansible module -> Bool

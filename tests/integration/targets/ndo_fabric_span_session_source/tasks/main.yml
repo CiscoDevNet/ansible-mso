@@ -652,9 +652,10 @@
             node: 101
             interface: eth1/1
         filter_l3out:
-          l3out: ansible_test_l3out
           vlan_id: 41
-          template: ansible_test_l3out_template
+          l3out:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
         state: present
       register: add_ansible_test_source_4_port
 
@@ -670,9 +671,10 @@
             name: ansible_test_pc1
             template: ansible_test_fabric_resource
         filter_l3out:
-          l3out: ansible_test_l3out
-          template: ansible_test_l3out_template
           vlan_id: 42
+          l3out:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
         state: present
       register: add_ansible_test_source_4_pc
 
@@ -688,9 +690,10 @@
             name: ansible_test_vpc1
             template: ansible_test_fabric_resource
         filter_l3out:
-          l3out: ansible_test_l3out
-          template: ansible_test_l3out_template
           vlan_id: 45
+          l3out:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
         state: present
       register: add_ansible_test_source_4_vpc
 
@@ -707,9 +710,10 @@
             node: 101
             template: ansible_test_fabric_resource
         filter_l3out:
-          l3out: ansible_test_l3out
-          template: ansible_test_l3out_template
           vlan_id: 45
+          l3out:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
         state: present
       register: add_ansible_test_source_4_vpc_com_pc
       ignore_errors: true
@@ -778,9 +782,10 @@
             node: 101
             interface: eth1/1
         filter_l3out:
-          l3out: ansible_test_l3out
-          template: ansible_test_l3out_template
           vlan_id: 41
+          l3out:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
         state: present
       register: add_filter_l3out_ansible_test_source_1
 
@@ -796,9 +801,10 @@
             name: ansible_test_pc1
             template: ansible_test_fabric_resource
         filter_l3out:
-          l3out: ansible_test_l3out
-          template: ansible_test_l3out_template
           vlan_id: 42
+          l3out:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
         state: present
       register: update_filter_l3out_ansible_test_source_1
 
@@ -843,9 +849,10 @@
             node: 101
             interface: eth1/24
         filter_l3out:
-          l3out: apic_l3out
-          tenant: apic_ansible_test_tenant
           vlan_id: 24
+          l3out:
+            name: apic_l3out
+            tenant: apic_ansible_test_tenant
         state: present
       register: add_filter_l3out_ansible_test_source_1_tenant
       ignore_errors: true
@@ -1523,9 +1530,10 @@
             anp: ansible_test_anp
             name: ansible_test_epg2
         filter_l3out:
-          l3out: ansible_test_l3out
-          template: ansible_test_l3out_template
           vlan_id: 13
+          l3out:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
         state: present
       register: nt_add_filter_epg_and_l3out
       ignore_errors: true
@@ -1545,9 +1553,10 @@
             name: ansible_test_pc1
             template: ansible_test_fabric_resource
         filter_l3out:
-          l3out: ansible_test_l3out
-          template: ansible_test_l3out_template
           vlan_id: 13
+          l3out:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
         state: present
       register: nt_l3out_with_multiple_access_paths
       ignore_errors: true
@@ -1651,7 +1660,8 @@
         name: ansible_test_source_2
         direction: outgoing
         filter_l3out:
-          l3out: l3out
+          l3out:
+            name: l3out
         state: present
       register: nt_incomplete_l3out_2
       ignore_errors: true
@@ -1664,8 +1674,9 @@
         name: ansible_test_source_2
         direction: outgoing
         filter_l3out:
-          l3out: l3out
           vlan_id: 10
+          l3out:
+            name: l3out
         state: present
       register: nt_incomplete_l3out_3
       ignore_errors: true
@@ -1727,7 +1738,7 @@
           - nt_incomplete_l3out_2 is not changed
           - nt_incomplete_l3out_2.msg == "missing parameter(s) required by 'l3out'{{':'}} vlan_id found in filter_l3out"
           - nt_incomplete_l3out_3 is not changed
-          - nt_incomplete_l3out_3.msg == "At least one of 'tenant', 'template', or 'template_id' is required when 'l3out' is set."
+          - nt_incomplete_l3out_3.msg == "one of the following is required{{':'}} tenant, template, template_id found in filter_l3out -> l3out"
 
     # DELETE
     - name: Delete SPAN Session source (check mode)

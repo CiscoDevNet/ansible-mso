@@ -127,15 +127,32 @@ options:
         description:
         - This parameter is used to clear the Filter L3Out configuration.
         type: bool
-      tenant:
-        description:
-        - The name of the tenant. This parameter is used to associate the L3Out from APIC.
-        type: str
       l3out:
         description:
-        - The name of the L3Out.
+        - The Filter L3Out object detail used to configure the Filter L3Out.
         - This parameter or O(filter_l3out.l3out_uuid) is required.
-        type: str
+        type: dict
+        suboptions:
+          name:
+            description:
+            - The name of the L3Out.
+            required: true
+            type: str
+          tenant:
+            description:
+            - The name of the tenant. This parameter is used to associate the L3Out from APIC.
+            - This parameter or O(filter_l3out.l3out.template) or O(filter_l3out.l3out.template_id) is required to associate the L3Out from L3Out template.
+            type: str
+          template:
+            description:
+            - The name of the L3Out template.
+            - This parameter or O(filter_l3out.l3out.template_id) or O(filter_l3out.l3out.tenant) is required to associate the L3Out from L3Out template.
+            type: str
+          template_id:
+            description:
+            - The ID of the L3Out template.
+            - This parameter or O(filter_l3out.l3out.template) or O(filter_l3out.l3out.tenant) is required to associate the L3Out from L3Out template.
+            type: str
       l3out_uuid:
         description:
         - The UUID of the L3Out.
@@ -146,16 +163,6 @@ options:
         - The ID of the VLAN, which is associated with L3Out interface.
         - This parameter is required to configure the Filter L3Out.
         type: int
-      template:
-        description:
-        - The name of the L3Out template.
-        - This parameter or O(filter_l3out.template_id) is required to associate the L3Out from L3Out template.
-        type: str
-      template_id:
-        description:
-        - The ID of the L3Out template.
-        - This parameter or O(filter_l3out.template) is required to associate the L3Out from L3Out template.
-        type: str
   access_paths:
     description:
     - The Access Path of the SPAN Session source.
@@ -288,9 +295,10 @@ EXAMPLES = r"""
         node: 101
         interface: eth1/1
     filter_l3out:
-      l3out: ansible_test_l3out
+      l3out:
+        name: ansible_test_l3out
+        template: ansible_test_l3out_template
       vlan_id: 41
-      template: ansible_test_l3out_template
     state: present
 
 - name: Create the SPAN Session source with access paths UUID
@@ -401,31 +409,38 @@ def main():
         span_drop_packets=dict(type="bool"),
         filter_epg=dict(
             type="dict",
-            mutually_exclusive=[("epg", "epg_uuid")],
-            required_one_of=[["epg", "epg_uuid", "enabled"]],
             options=dict(
                 epg_uuid=dict(type="str"),
                 epg=epg_object_reference_spec(),
                 enabled=dict(type="bool"),
             ),
+            mutually_exclusive=[("epg", "epg_uuid")],
+            required_one_of=[["epg", "epg_uuid", "enabled"]],
         ),
         filter_l3out=dict(
             type="dict",
-            mutually_exclusive=[("l3out", "l3out_uuid"), ("tenant", "template", "template_id")],
+            options=dict(
+                enabled=dict(type="bool"),
+                l3out=dict(
+                    type="dict",
+                    options=dict(
+                        name=dict(type="str", required=True),
+                        tenant=dict(type="str"),
+                        template=dict(type="str"),
+                        template_id=dict(type="str"),
+                    ),
+                    mutually_exclusive=[("tenant", "template", "template_id")],
+                    required_one_of=[["tenant", "template", "template_id"]],
+                ),
+                l3out_uuid=dict(type="str"),
+                vlan_id=dict(type="int"),
+            ),
+            mutually_exclusive=[("l3out", "l3out_uuid")],
             required_one_of=[["l3out", "l3out_uuid", "enabled"]],
             required_by={
                 "l3out": "vlan_id",
                 "l3out_uuid": "vlan_id",
             },
-            options=dict(
-                enabled=dict(type="bool"),
-                tenant=dict(type="str"),
-                l3out=dict(type="str"),
-                l3out_uuid=dict(type="str"),
-                vlan_id=dict(type="int"),
-                template=dict(type="str"),
-                template_id=dict(type="str"),
-            ),
         ),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
         access_paths=dict(
@@ -482,10 +497,6 @@ def main():
     if errors:
         mso.fail_json(msg=", ".join(errors))
 
-    if filter_l3out and filter_l3out.get("l3out"):
-        if not (filter_l3out.get("tenant") or filter_l3out.get("template") or filter_l3out.get("template_id")):
-            mso.fail_json(msg="At least one of 'tenant', 'template', or 'template_id' is required when 'l3out' is set.")
-
     mso_template = MSOTemplate(mso, "monitoring_tenant", template_name, template_id)
     mso_template.validate_template("monitoring")
     site_id = mso_template.template.get("monitoringTemplate").get("sites")[0].get("siteId")
@@ -522,11 +533,13 @@ def main():
             )
             if filter_l3out.get("l3out_uuid"):
                 mso_values["l3out"]["ref"] = filter_l3out.get("l3out_uuid")
-            elif filter_l3out.get("l3out") and filter_l3out.get("tenant"):
-                mso_values["l3out"]["dn"] = "uni/tn-{0}/out-{1}".format(filter_l3out.get("tenant"), filter_l3out.get("l3out"))
-            elif filter_l3out.get("l3out") and (filter_l3out.get("template") or filter_l3out.get("template_id")):
-                l3out_template = mso_templates.get_template("l3out", filter_l3out.get("template"), filter_l3out.get("template_id"))
-                l3out_match = l3out_template.get_l3out_object(uuid=filter_l3out.get("l3out_uuid"), name=filter_l3out.get("l3out"), fail_module=True)
+            elif filter_l3out.get("l3out") and filter_l3out.get("l3out").get("tenant"):
+                mso_values["l3out"]["dn"] = "uni/tn-{0}/out-{1}".format(filter_l3out.get("l3out").get("tenant"), filter_l3out.get("l3out").get("name"))
+            elif filter_l3out.get("l3out") and (filter_l3out.get("l3out").get("template") or filter_l3out.get("l3out").get("template_id")):
+                l3out_template = mso_templates.get_template("l3out", filter_l3out.get("l3out").get("template"), filter_l3out.get("l3out").get("template_id"))
+                l3out_match = l3out_template.get_l3out_object(
+                    uuid=filter_l3out.get("l3out_uuid"), name=filter_l3out.get("l3out").get("name"), fail_module=True
+                )
                 if l3out_match:
                     mso_values["l3out"]["ref"] = l3out_match.details.get("uuid")
 

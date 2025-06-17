@@ -59,7 +59,7 @@
         tenant: '{{ mso_tenant | default("ansible_test") }}'
         template: template_1
         state: absent
-    
+
     - name: Ensure ansible_fabric_policy_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
         <<: *mso_info
@@ -68,7 +68,7 @@
         sites:
           - name: '{{ mso_site | default("ansible_test") }}'
         state: absent
-    
+
     - name: Ensure ansible_tenant_policy_template does not exist
       cisco.mso.ndo_template: &ndo_tenant_policy_template_absent
         <<: *mso_info
@@ -188,13 +188,13 @@
         <<: *create_node_static_route_next_hop
         state: present
       register: nm_create_node_static_route_next_hop
-    
+
     - name: Create a L3out node static route next hop again
       cisco.mso.ndo_l3out_node_static_route_next_hop:
         <<: *create_node_static_route_next_hop
         state: present
       register: nm_create_node_static_route_next_hop_again
-    
+
     - name: Assert that the L3out node static route next hop was created
       ansible.builtin.assert:
         that:
@@ -232,12 +232,12 @@
       cisco.mso.ndo_l3out_node_static_route_next_hop:
         <<: *update_node_static_route_next_hop
       register: nm_update_node_static_route_next_hop
-    
+
     - name: Update a L3out node static route next hop again
       cisco.mso.ndo_l3out_node_static_route_next_hop:
         <<: *update_node_static_route_next_hop
       register: nm_update_node_static_route_next_hop_again
-    
+
     - name: Assert that the L3out node static route next hop was updated
       ansible.builtin.assert:
         that:
@@ -285,7 +285,7 @@
         <<: *create_node_static_route_next_hop
         monitoring_policy_uuid: ""
       register: nm_update_node_static_route_next_hop_monitoring_policy_uuid_removed
-    
+
     - name: Assert that the L3out node static route next hop was updated with monitoring policy
       ansible.builtin.assert:
         that:
@@ -316,7 +316,7 @@
         <<: *create_node_static_route_next_hop
         description: ""
       register: nm_update_node_static_route_next_hop_description_empty_string
-    
+
     - name: Update a L3out node static route description to empty string again
       cisco.mso.ndo_l3out_node_static_route_next_hop:
         <<: *create_node_static_route_next_hop
@@ -328,7 +328,7 @@
         <<: *create_node_static_route_next_hop
         description: "Static route next hop for 10.0.0.2"
       register: nm_update_node_static_route_next_hop_description_back_to_string
-     
+
     - name: Assert that the L3out node static route description was updated
       ansible.builtin.assert:
         that:
@@ -351,7 +351,7 @@
         monitoring_policy_uuid: 'invalid-uuid'
       register: nm_create_node_static_route_next_hop_invalid_monitoring_policy_uuid
       ignore_errors: true
-    
+
     - name: Create a L3out node static route next hop with an invalid monitoring policy name (error)
       cisco.mso.ndo_l3out_node_static_route_next_hop:
         <<: *create_node_static_route_next_hop
@@ -360,7 +360,7 @@
           template: '{{ mso_tenant_policy_template | default("ansible_test") }}'
       register: nm_create_node_static_route_next_hop_invalid_monitoring_policy_name
       ignore_errors: true
-    
+
     - name: Create a L3out node static route next hop with an invalid monitoring policy template name (error)
       cisco.mso.ndo_l3out_node_static_route_next_hop:
         <<: *create_node_static_route_next_hop
@@ -369,7 +369,7 @@
           template: invalid_template
       register: nm_create_node_static_route_next_hop_invalid_monitoring_policy_template_name
       ignore_errors: true
-    
+
     - name: Create a L3out node static route next hop with an invalid monitoring policy template id (error)
       cisco.mso.ndo_l3out_node_static_route_next_hop:
         <<: *create_node_static_route_next_hop
@@ -386,7 +386,7 @@
           template: '{{ mso_tenant_policy_template | default("ansible_test") }}'
       register: nm_create_node_static_route_next_hop_missing_monitoring_policy_name
       ignore_errors: true
-    
+
     - name: Create a L3out node static route next hop with an a missing monitoring policy template name and id (error)
       cisco.mso.ndo_l3out_node_static_route_next_hop:
         <<: *create_node_static_route_next_hop
@@ -394,7 +394,7 @@
           name: '{{ mso_tenant_policy_template | default("ansible_test") }}'
       register: nm_create_node_static_route_next_hop_missing_monitoring_policy_template_and_template_id
       ignore_errors: true
-    
+
     - name: Create a L3out node static route next hop with mutually exclusive monitoring policy uuid and monitoring policy (error)
       cisco.mso.ndo_l3out_node_static_route_next_hop:
         <<: *create_node_static_route_next_hop
@@ -439,7 +439,7 @@
         <<: *create_node_static_route_next_hop
         state: query
       register: query_node_static_route_next_hop
-    
+
     - name: Query all L3out node static route next hops in a L3out node static route
       cisco.mso.ndo_l3out_node_static_route_next_hop:
         <<: *mso_info
@@ -486,26 +486,26 @@
           - query_all_node_static_route_next_hops.current.1.monitoringPolicyTemplateName is defined
 
     # DELETE
-    
+
     - name: Delete a L3out node static route next hop (check mode)
       cisco.mso.ndo_l3out_node_static_route_next_hop:
         <<: *create_node_static_route_next_hop
         state: absent
       check_mode: true
       register: cm_delete_node_static_route_next_hop
-    
+
     - name: Delete a L3out node static route next hop
       cisco.mso.ndo_l3out_node_static_route_next_hop:
         <<: *create_node_static_route_next_hop
         state: absent
       register: nm_delete_node_static_route_next_hop
-    
+
     - name: Delete a L3out node static route next hop again
       cisco.mso.ndo_l3out_node_static_route_next_hop:
         <<: *create_node_static_route_next_hop
         state: absent
       register: nm_delete_node_static_route_next_hop_again
-    
+
     - name: Assert that the L3out node static route next hop was deleted
       ansible.builtin.assert:
         that:
@@ -519,15 +519,15 @@
           - nm_delete_node_static_route_next_hop_again.previous == nm_delete_node_static_route_next_hop_again.proposed == nm_delete_node_static_route_next_hop_again.current == {}
 
     # CLEANUP TEMPLATE
-  
+
     - name: Remove l3out template
       cisco.mso.ndo_template:
         <<: *ndo_l3out_template_absent
-    
+
     - name: Remove ansible_test schema template
       cisco.mso.mso_schema_template:
         <<: *mso_schema_template_absent
-        
+
     - name: Remove ansible_fabric_policy_template fabric_policy template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_policy_template_absent

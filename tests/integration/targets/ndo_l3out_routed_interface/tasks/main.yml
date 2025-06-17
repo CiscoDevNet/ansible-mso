@@ -69,7 +69,7 @@
         sites:
           - name: '{{ mso_site | default("ansible_test") }}'
         state: absent
-    
+
     - name: Ensure ansible_fabric_policy_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
         <<: *mso_info
@@ -116,7 +116,7 @@
       cisco.mso.ndo_template:
         <<: *ndo_fabric_resource_template_absent
         state: present
-    
+
     - name: Create port_channel_interface_1 in the fabric_resource template
       cisco.mso.ndo_port_channel_interface:
         <<: *mso_info
@@ -186,7 +186,7 @@
         l3out: l3out_1
         name: node_group_policy_1
         state: present
-    
+
     - name: Create L3Out interface group policy
       cisco.mso.ndo_l3out_interface_group_policy:
         <<: *mso_info
@@ -217,13 +217,13 @@
         <<: *create_routed_interface
         state: present
       register: nm_create_routed_interface
-    
+
     - name: Create a L3out routed interface of type port again
       cisco.mso.ndo_l3out_routed_interface:
         <<: *create_routed_interface
         state: present
       register: nm_create_routed_interface_again
-    
+
     - name: Assert that the L3out routed interface of type port was created
       ansible.builtin.assert:
         that:
@@ -334,19 +334,19 @@
         state: present
       check_mode: true
       register: cm_create_routed_interface_port_channel_uuid
-    
+
     - name: Create a L3out routed interface of type port channel
       cisco.mso.ndo_l3out_routed_interface:
         <<: *create_routed_interface_port_channel_uuid
         state: present
       register: nm_create_routed_interface_port_channel_uuid
-    
+
     - name: Create a L3out routed interface of type port channel again
       cisco.mso.ndo_l3out_routed_interface:
         <<: *create_routed_interface_port_channel_uuid
         state: present
       register: nm_create_routed_interface_port_channel_uuid_again
-    
+
     - name: Assert that the L3out routed interface of type port channel was created
       ansible.builtin.assert:
         that:
@@ -558,12 +558,12 @@
       cisco.mso.ndo_l3out_routed_interface:
         <<: *update_routed_interface
       register: nm_update_routed_interface_port
-    
+
     - name: Update a L3out routed interface of type port again
       cisco.mso.ndo_l3out_routed_interface:
         <<: *update_routed_interface
       register: nm_update_routed_interface_port_again
-    
+
     - name: Assert that the L3out routed interface of type port was updated
       ansible.builtin.assert:
         that:
@@ -660,12 +660,12 @@
       cisco.mso.ndo_l3out_routed_interface:
         <<: *update_routed_interface_port_channel_uuid
       register: nm_update_routed_interface_port_channel_uuid
-    
+
     - name: Update a L3out routed interface of type port channel again
       cisco.mso.ndo_l3out_routed_interface:
         <<: *update_routed_interface_port_channel_uuid
       register: nm_update_routed_interface_port_channel_uuid_again
-    
+
     - name: Assert that the L3out routed interface of type port channel was updated
       ansible.builtin.assert:
         that:
@@ -758,7 +758,7 @@
         <<: *update_routed_interface
         ipv4_address: ''
       register: nm_update_routed_interface_port_ipv4_removed
-    
+
     - name: Remove the ipv6_address from a L3out routed interface
       cisco.mso.ndo_l3out_routed_interface:
         <<: *update_routed_interface_port_channel_uuid
@@ -852,13 +852,13 @@
         <<: *create_routed_interface
         state: query
       register: query_routed_interface_port
-    
+
     - name: Get a L3out routed interface of type port channel
       cisco.mso.ndo_l3out_routed_interface:
         <<: *create_routed_interface_port_channel_uuid
         state: query
       register: query_routed_interface_port_channel
-    
+
     - name: Query all L3out routed interfaces in a L3out
       cisco.mso.ndo_l3out_routed_interface:
         <<: *mso_info
@@ -950,26 +950,26 @@
           - query_all_routed_interfaces.current.2.node.group == ""
 
     # DELETE
-    
+
     - name: Delete a L3out routed interface of type port (check mode)
       cisco.mso.ndo_l3out_routed_interface:
         <<: *create_routed_interface
         state: absent
       check_mode: true
       register: cm_delete_routed_interface_port
-    
+
     - name: Delete a L3out routed interface of type port
       cisco.mso.ndo_l3out_routed_interface:
         <<: *create_routed_interface
         state: absent
       register: nm_delete_routed_interface_port
-    
+
     - name: Delete a L3out routed interface of type port again
       cisco.mso.ndo_l3out_routed_interface:
         <<: *create_routed_interface
         state: absent
       register: nm_delete_routed_interface_port_again
-    
+
     - name: Assert that the L3out routed interface of type port was deleted
       ansible.builtin.assert:
         that:
@@ -981,26 +981,26 @@
           - nm_delete_routed_interface_port.proposed == nm_delete_routed_interface_port.current == {}
           - nm_delete_routed_interface_port_again is not changed
           - nm_delete_routed_interface_port_again.previous == nm_delete_routed_interface_port_again.proposed == nm_delete_routed_interface_port_again.current == {}
-    
+
     - name: Delete a L3out routed interface of type port channel (check mode)
       cisco.mso.ndo_l3out_routed_interface:
         <<: *create_routed_interface_port_channel_uuid
         state: absent
       check_mode: true
       register: cm_delete_routed_interface_port_channel_uuid
-    
+
     - name: Delete a L3out routed interface of type port channel
       cisco.mso.ndo_l3out_routed_interface:
         <<: *create_routed_interface_port_channel_uuid
         state: absent
       register: nm_delete_routed_interface_port_channel_uuid
-    
+
     - name: Delete a L3out routed interface of type port channel again
       cisco.mso.ndo_l3out_routed_interface:
         <<: *create_routed_interface_port_channel_uuid
         state: absent
       register: nm_delete_routed_interface_port_channel_uuid_again
-    
+
     - name: Assert that the L3out routed interface of type port channel was deleted
       ansible.builtin.assert:
         that:
@@ -1014,11 +1014,11 @@
           - nm_delete_routed_interface_port_channel_uuid_again.previous == nm_delete_routed_interface_port_channel_uuid_again.proposed == nm_delete_routed_interface_port_channel_uuid_again.current == {}
 
     # CLEANUP TEMPLATE
-  
+
     - name: Remove l3out template
       cisco.mso.ndo_template:
         <<: *ndo_l3out_template_absent
-    
+
     - name: Remove ansible_test schema template
       cisco.mso.mso_schema_template:
         <<: *mso_schema_template_absent
@@ -1026,7 +1026,7 @@
     - name: Remove ansible_fabric_resource_template fabric_resource template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_resource_template_absent
-        
+
     - name: Remove ansible_fabric_policy_template fabric_policy template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_policy_template_absent

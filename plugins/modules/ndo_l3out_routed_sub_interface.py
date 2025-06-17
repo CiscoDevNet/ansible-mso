@@ -77,13 +77,13 @@ options:
     description:
     - The path of the interface.
     - The path is an existing physical port (eth1/1).
-    - This parameter is mutually exclusive with O(port_channel).
+    - This parameter or O(port_channel) is required.
     type: str
     aliases: [ interface ]
   port_channel:
     description:
     - The port channel details.
-    - This parameter is mutually exclusive with O(path).
+    - This parameter or O(path) is required.
     type: dict
     suboptions:
       uuid:

@@ -29,7 +29,7 @@
 - name: Execute tasks only for NDO version >= 4.3
   when: version.current.version is version('4.3', '>=')
   block:
-    
+
     # CLEAN ENVIRONMENT - ENSURE CLEAN ENVIRONMENT FOR TESTS
 
     - name: Ensure ansible_test tenant exist
@@ -59,7 +59,7 @@
         tenant: '{{ mso_tenant | default("ansible_test") }}'
         template: template_1
         state: absent
-    
+
     - name: Ensure ansible_fabric_policy_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
         <<: *mso_info
@@ -68,7 +68,7 @@
         sites:
           - name: '{{ mso_site | default("ansible_test") }}'
         state: absent
-    
+
     - name: Ensure ansible_tenant_policy_template does not exist
       cisco.mso.ndo_template: &ndo_tenant_policy_template_absent
         <<: *mso_info
@@ -177,13 +177,13 @@
         <<: *create_node_static_route
         state: present
       register: nm_create_node_static_route
-    
+
     - name: Create a L3out node static route again
       cisco.mso.ndo_l3out_node_static_route:
         <<: *create_node_static_route
         state: present
       register: nm_create_node_static_route_again
-    
+
     - name: Assert that the L3out node static route was created
       ansible.builtin.assert:
         that:
@@ -227,12 +227,12 @@
       cisco.mso.ndo_l3out_node_static_route:
         <<: *update_node_static_route
       register: nm_update_node_static_route
-    
+
     - name: Update a L3out node static route again
       cisco.mso.ndo_l3out_node_static_route:
         <<: *update_node_static_route
       register: nm_update_node_static_route_again
-    
+
     - name: Assert that the L3out node static route was updated
       ansible.builtin.assert:
         that:
@@ -284,7 +284,7 @@
         <<: *create_node_static_route
         track_policy_uuid: ""
       register: nm_update_node_static_route_track_policy_uuid_removed
-    
+
     - name: Assert that the L3out node static route was updated with track policy
       ansible.builtin.assert:
         that:
@@ -315,7 +315,7 @@
         <<: *create_node_static_route
         description: ""
       register: nm_update_node_static_route_description_empty_string
-    
+
     - name: Update a L3out node static route description to empty string again
       cisco.mso.ndo_l3out_node_static_route:
         <<: *create_node_static_route
@@ -327,7 +327,7 @@
         <<: *create_node_static_route
         description: "Static route for 10.0.0.0/24"
       register: nm_update_node_static_route_description_back_to_string
-     
+
     - name: Assert that the L3out node static route description was updated
       ansible.builtin.assert:
         that:
@@ -351,7 +351,7 @@
         track_policy_uuid: 'invalid-uuid'
       register: nm_create_node_static_route_invalid_track_policy_uuid
       ignore_errors: true
-    
+
     - name: Create a L3out node static route with an invalid track policy name (error)
       cisco.mso.ndo_l3out_node_static_route:
         <<: *create_node_static_route
@@ -360,7 +360,7 @@
           template: '{{ ipsla_track_list.current.templateName }}'
       register: nm_create_node_static_route_invalid_track_policy_name
       ignore_errors: true
-    
+
     - name: Create a L3out node static route with an invalid track policy template name (error)
       cisco.mso.ndo_l3out_node_static_route:
         <<: *create_node_static_route
@@ -369,7 +369,7 @@
           template: invalid_template
       register: nm_create_node_static_route_invalid_track_policy_template_name
       ignore_errors: true
-    
+
     - name: Create a L3out node static route with an invalid track policy template id (error)
       cisco.mso.ndo_l3out_node_static_route:
         <<: *create_node_static_route
@@ -386,7 +386,7 @@
           template: '{{ ipsla_track_list.current.templateName }}'
       register: nm_create_node_static_route_missing_track_policy_name
       ignore_errors: true
-    
+
     - name: Create a L3out node static route with an a missing track policy template name and id (error)
       cisco.mso.ndo_l3out_node_static_route:
         <<: *create_node_static_route
@@ -394,7 +394,7 @@
           name: '{{ ipsla_track_list.current.templateName }}'
       register: nm_create_node_static_route_missing_track_policy_template_and_template_id
       ignore_errors: true
-    
+
     - name: Create a L3out node static route with mutually exclusive track policy uuid and track policy (error)
       cisco.mso.ndo_l3out_node_static_route:
         <<: *create_node_static_route
@@ -441,7 +441,7 @@
         <<: *create_node_static_route
         state: query
       register: query_node_static_route
-    
+
     - name: Query all L3out node static routes in a L3out node
       cisco.mso.ndo_l3out_node_static_route:
         <<: *mso_info
@@ -500,19 +500,19 @@
         state: absent
       check_mode: true
       register: cm_delete_node_static_route
-    
+
     - name: Delete a L3out node static route
       cisco.mso.ndo_l3out_node_static_route:
         <<: *create_node_static_route
         state: absent
       register: nm_delete_node_static_route
-    
+
     - name: Delete a L3out node static route again
       cisco.mso.ndo_l3out_node_static_route:
         <<: *create_node_static_route
         state: absent
       register: nm_delete_node_static_route_again
-    
+
     - name: Assert that the L3out node static route was deleted
       ansible.builtin.assert:
         that:
@@ -526,15 +526,15 @@
           - nm_delete_node_static_route_again.previous == nm_delete_node_static_route_again.proposed == nm_delete_node_static_route_again.current == {}
 
     # CLEANUP TEMPLATE
-  
+
     - name: Remove l3out template
       cisco.mso.ndo_template:
         <<: *ndo_l3out_template_absent
-    
+
     - name: Remove ansible_test schema template
       cisco.mso.mso_schema_template:
         <<: *mso_schema_template_absent
-        
+
     - name: Remove ansible_fabric_policy_template fabric_policy template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_policy_template_absent

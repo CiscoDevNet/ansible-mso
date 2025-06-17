@@ -82,14 +82,14 @@ options:
   monitoring_policy_uuid:
     description:
     - The UUID of the Monitoring Policy to be used.
-    - This parameter is mutually exclusive with O(monitoring_policy).
+    - This parameter or O(monitoring_policy) is required.
     - Providing an empty string O(monitoring_policy="") will remove the Monitoring Policy from the static route next hop.
     type: str
     aliases: [ ipsla_monitoring_policy_uuid ]
   monitoring_policy:
     description:
     - The Monitoring Policy to be used.
-    - This parameter is mutually exclusive with O(monitoring_policy_uuid).
+    - This parameter or O(monitoring_policy_uuid) is required.
     - Providing an empty dictionary O(monitoring_policy={}) will remove the Monitoring Policy from the static route next hop.
     type: dict
     aliases: [ ipsla_monitoring_policy ]

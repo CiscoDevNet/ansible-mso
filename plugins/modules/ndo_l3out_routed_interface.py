@@ -207,7 +207,7 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-- name: Create a L3Out Routed Interface of type port
+- name: Create a L3Out Routed Interface of type port with L3Out Node configuration
   cisco.mso.ndo_l3out_routed_interface:
     host: mso_host
     username: admin
@@ -228,7 +228,7 @@ EXAMPLES = r"""
     use_router_id_as_loopback: true
     state: present
 
-- name: Create a L3Out Routed Interface of type port_channel with reference
+- name: Create a L3Out Routed Interface of type port_channel with reference and L3Out Node configuration
   cisco.mso.ndo_l3out_routed_interface:
     host: mso_host
     username: admin
@@ -255,7 +255,7 @@ EXAMPLES = r"""
     node_loopback_ip: 10.0.0.1
     state: present
 
-- name: Update a L3Out Routed Interface of type port_channel with uuid
+- name: Update a L3Out Routed Interface of type port_channel with uuid and L3Out Node configuration
   cisco.mso.ndo_l3out_routed_interface:
     host: mso_host
     username: admin
@@ -280,7 +280,7 @@ EXAMPLES = r"""
     node_loopback_ip: 10.0.0.1
     state: present
 
-- name: Query an existing L3Out Routed Interface of type port
+- name: Query an existing L3Out Routed Interface of type port with L3Out Node configuration
   cisco.mso.ndo_l3out_routed_interface:
     host: mso_host
     username: admin
@@ -292,7 +292,7 @@ EXAMPLES = r"""
     state: query
   register: query_with_name
 
-- name: Query an existing L3Out Routed Interface of type port_channel
+- name: Query an existing L3Out Routed Interface of type port_channel with L3Out Node configuration
   cisco.mso.ndo_l3out_routed_interface:
     host: mso_host
     username: admin
@@ -306,7 +306,7 @@ EXAMPLES = r"""
     state: query
   register: query_with_name
 
-- name: Query all existing Routed Interfaces of a L3Out
+- name: Query all existing Routed Interfaces of a L3Out with L3Out Node configuration
   cisco.mso.ndo_l3out_routed_interface:
     host: mso_host
     username: admin

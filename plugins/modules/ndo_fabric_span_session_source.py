@@ -57,28 +57,26 @@ options:
     description:
     - The SPAN Drop Packets of the SPAN Session source.
     - Defaults to O(span_drop_packets=false) when unset during creation.
-    - The O(filter_epg) and O(filter_l3out) is not configurable when this parameter set to true.
+    - The O(filter_epg) and O(filter_l3out) is not configurable when this parameter O(span_drop_packets=true) set to true.
     type: bool
   filter_epg:
     description:
     - The Filter EPG of the SPAN Session source.
     - When the Filter EPG is specified in the configuration, the Filter L3Out will be removed.
     - Filter L3Out and Filter EPG cannot be configured simultaneously.
+    - Providing an empty dictionary O(filter_epg={}) will remove the filter l3out from the SPAN Session source.
     type: dict
     suboptions:
-      enabled:
-        description:
-        - This parameter is used to clear the Filter EPG configuration.
-        type: bool
-      epg_uuid:
+      uuid:
         description:
         - The UUID of the EPG used to configure the Filter EPG.
         - This parameter or O(filter_epg.epg) is required.
         type: str
+        aliases: [ epg_uuid ]
       epg:
         description:
         - The EPG object detail used to configure the Filter EPG.
-        - This parameter or O(filter_epg.epg_uuid) is required.
+        - This parameter or O(filter_epg.uuid) is required.
         type: dict
         suboptions:
           name:
@@ -121,16 +119,15 @@ options:
     - The Filter L3Out of the SPAN Session source.
     - When the Filter L3Out is specified in the configuration, the Filter EPG will be removed.
     - Filter L3Out and Filter EPG cannot be configured simultaneously.
+    - The L3Out must be defined in either the L3Out template or directly within the APIC tenant.
+    - The Filter L3Out for a SPAN Session source does not support using an L3Out from an application tenant template.
+    - Providing an empty dictionary O(filter_l3out={}) will remove the filter l3out from the SPAN Session source.
     type: dict
     suboptions:
-      enabled:
-        description:
-        - This parameter is used to clear the Filter L3Out configuration.
-        type: bool
       l3out:
         description:
         - The Filter L3Out object detail used to configure the Filter L3Out.
-        - This parameter or O(filter_l3out.l3out_uuid) is required.
+        - This parameter or O(filter_l3out.uuid) is required.
         type: dict
         suboptions:
           name:
@@ -153,11 +150,12 @@ options:
             - The ID of the L3Out template.
             - This parameter or O(filter_l3out.l3out.template) or O(filter_l3out.l3out.tenant) is required to associate the L3Out from L3Out template.
             type: str
-      l3out_uuid:
+      uuid:
         description:
         - The UUID of the L3Out.
         - This parameter or O(filter_l3out.l3out) is required.
         type: str
+        aliases: [ l3out_uuid ]
       vlan_id:
         description:
         - The ID of the VLAN, which is associated with L3Out interface.
@@ -332,7 +330,7 @@ EXAMPLES = r"""
     name: ansible_test_source_1
     direction: outgoing
     filter_epg:
-      epg_uuid: "{{ add_epg.current.epg }}"
+      uuid: "{{ add_epg.current.epg }}"
     state: present
 
 - name: Update the SPAN Session source Filter L3Out using UUID
@@ -349,7 +347,7 @@ EXAMPLES = r"""
         name: ansible_test_pc1
         template: ansible_test_fabric_resource
     filter_l3out:
-      l3out_uuid: "{{ add_l3out.current.uuid }}"
+      uuid: "{{ add_l3out.current.uuid }}"
       vlan_id: 42
     state: present
 
@@ -393,7 +391,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 from ansible_collections.cisco.mso.plugins.module_utils.schemas import MSOSchemas
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
-from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, check_if_all_elements_are_none
 import copy
 
 
@@ -410,17 +408,14 @@ def main():
         filter_epg=dict(
             type="dict",
             options=dict(
-                epg_uuid=dict(type="str"),
+                uuid=dict(type="str", aliases=["epg_uuid"]),
                 epg=epg_object_reference_spec(),
-                enabled=dict(type="bool"),
             ),
-            mutually_exclusive=[("epg", "epg_uuid")],
-            required_one_of=[["epg", "epg_uuid", "enabled"]],
+            mutually_exclusive=[("epg", "uuid")],
         ),
         filter_l3out=dict(
             type="dict",
             options=dict(
-                enabled=dict(type="bool"),
                 l3out=dict(
                     type="dict",
                     options=dict(
@@ -432,14 +427,13 @@ def main():
                     mutually_exclusive=[("tenant", "template", "template_id")],
                     required_one_of=[["tenant", "template", "template_id"]],
                 ),
-                l3out_uuid=dict(type="str"),
+                uuid=dict(type="str", aliases=["l3out_uuid"]),
                 vlan_id=dict(type="int"),
             ),
-            mutually_exclusive=[("l3out", "l3out_uuid")],
-            required_one_of=[["l3out", "l3out_uuid", "enabled"]],
+            mutually_exclusive=[("l3out", "uuid")],
             required_by={
                 "l3out": "vlan_id",
-                "l3out_uuid": "vlan_id",
+                "uuid": "vlan_id",
             },
         ),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
@@ -493,6 +487,12 @@ def main():
     access_paths = module.params.get("access_paths")
     state = module.params.get("state")
 
+    if filter_epg is not None and check_if_all_elements_are_none(filter_epg.values()):
+        filter_epg = {}
+
+    if filter_l3out is not None and check_if_all_elements_are_none(filter_l3out.values()):
+        filter_l3out = {}
+
     errors = validate_access_paths(access_paths)
     if errors:
         mso.fail_json(msg=", ".join(errors))
@@ -523,23 +523,21 @@ def main():
             spanDropPackets=span_drop_packets,
         )
 
-        if filter_epg and (filter_epg.get("epg") or filter_epg.get("epg_uuid")):
-            mso_values["epg"] = mso_schemas.get_epg_uuid(filter_epg.get("epg"), filter_epg.get("epg_uuid"))
+        if filter_epg and (filter_epg.get("epg") or filter_epg.get("uuid")):
+            mso_values["epg"] = mso_schemas.get_epg_uuid(filter_epg.get("epg"), filter_epg.get("uuid"))
 
-        if filter_l3out and (filter_l3out.get("l3out") or filter_l3out.get("l3out_uuid")):
+        if filter_l3out and (filter_l3out.get("l3out") or filter_l3out.get("uuid")):
             mso_values["l3out"] = dict(
                 encapType="vlan",
                 encapValue=filter_l3out.get("vlan_id"),
             )
-            if filter_l3out.get("l3out_uuid"):
-                mso_values["l3out"]["ref"] = filter_l3out.get("l3out_uuid")
+            if filter_l3out.get("uuid"):
+                mso_values["l3out"]["ref"] = filter_l3out.get("uuid")
             elif filter_l3out.get("l3out") and filter_l3out.get("l3out").get("tenant"):
                 mso_values["l3out"]["dn"] = "uni/tn-{0}/out-{1}".format(filter_l3out.get("l3out").get("tenant"), filter_l3out.get("l3out").get("name"))
             elif filter_l3out.get("l3out") and (filter_l3out.get("l3out").get("template") or filter_l3out.get("l3out").get("template_id")):
                 l3out_template = mso_templates.get_template("l3out", filter_l3out.get("l3out").get("template"), filter_l3out.get("l3out").get("template_id"))
-                l3out_match = l3out_template.get_l3out_object(
-                    uuid=filter_l3out.get("l3out_uuid"), name=filter_l3out.get("l3out").get("name"), fail_module=True
-                )
+                l3out_match = l3out_template.get_l3out_object(uuid=filter_l3out.get("uuid"), name=filter_l3out.get("l3out").get("name"), fail_module=True)
                 if l3out_match:
                     mso_values["l3out"]["ref"] = l3out_match.details.get("uuid")
 
@@ -551,7 +549,7 @@ def main():
             proposed_payload = copy.deepcopy(match.details)
             proposed_payload.update({"name": mso_values["name"], "direction": mso_values["direction"], "spanDropPackets": mso_values["spanDropPackets"]})
 
-            if filter_epg and match.details.get("epg") and filter_epg.get("enabled") is False:
+            if filter_epg == {} and match.details.get("epg"):
                 mso_remove_values.append("epg")
                 proposed_payload["epg"] = ""
                 match.details.pop("epgName")
@@ -566,7 +564,7 @@ def main():
                     mso_remove_values.append("l3out")
                 proposed_payload["epg"] = mso_values["epg"]
 
-            if filter_l3out and match.details.get("l3out") and filter_l3out.get("enabled") is False:
+            if filter_l3out == {} and match.details.get("l3out"):
                 mso_remove_values.append("l3out")
                 proposed_payload["l3out"] = {}
                 match.details["l3out"] = {}

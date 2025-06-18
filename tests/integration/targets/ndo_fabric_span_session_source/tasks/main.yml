@@ -635,8 +635,7 @@
         name: ansible_test_source_3
         direction: outgoing
         access_paths: []
-        filter_epg:
-          enabled: false
+        filter_epg: {}
         state: present
       register: rm_ansible_test_source_3_filter_epg
 
@@ -816,7 +815,7 @@
         name: ansible_test_source_1
         direction: outgoing
         filter_epg:
-          epg_uuid: "{{ update_filter_epg_ansible_test_source_1.current.epg }}"
+          uuid: "{{ update_filter_epg_ansible_test_source_1.current.epg }}"
         state: present
       register: add_filter_epg_ansible_test_source_1_again
 
@@ -832,7 +831,7 @@
             name: ansible_test_pc1
             template: ansible_test_fabric_resource
         filter_l3out:
-          l3out_uuid: "{{ add_l3out.current.uuid }}"
+          uuid: "{{ add_l3out.current.uuid }}"
           vlan_id: 42
         state: present
       register: add_filter_l3out_ansible_test_source_1_uuid
@@ -865,8 +864,7 @@
         name: ansible_test_source_1
         direction: outgoing
         access_paths: []
-        filter_l3out:
-          enabled: false
+        filter_l3out: {}
         state: present
       register: update_filter_l3out_ansible_test_source_2
 
@@ -1647,7 +1645,7 @@
         name: ansible_test_source_2
         direction: outgoing
         filter_l3out:
-          l3out_uuid: l3out_uuid
+          uuid: l3out_uuid
         state: present
       register: nt_incomplete_l3out_1
       ignore_errors: true
@@ -1734,7 +1732,7 @@
           - nt_incomplete_vpc_pc.current == {}
           - nt_incomplete_vpc_pc.msg == "Access path 1{{':'}} when the access_path_type 'vpc_component_pc', either both 'uuid' and 'node', or all of 'name', 'template', and 'node', or all of 'name', 'template_id', and 'node' must be provided."
           - nt_incomplete_l3out_1 is not changed
-          - nt_incomplete_l3out_1.msg == "missing parameter(s) required by 'l3out_uuid'{{':'}} vlan_id found in filter_l3out"
+          - nt_incomplete_l3out_1.msg == "missing parameter(s) required by 'uuid'{{':'}} vlan_id found in filter_l3out"
           - nt_incomplete_l3out_2 is not changed
           - nt_incomplete_l3out_2.msg == "missing parameter(s) required by 'l3out'{{':'}} vlan_id found in filter_l3out"
           - nt_incomplete_l3out_3 is not changed

@@ -15,8 +15,10 @@ DOCUMENTATION = r"""
 module: mso_schema_template_contract_service_chain
 short_description: Manage the service chain association with a contract in schema template
 description:
-- Manage the service chain association with a contract in schema template on Cisco ACI Multi-Site.
-- The Contract Service Chain parameter is supported on versions of MSO/NDO that are 4.2 or greater.
+- Manage the service chain association with a contract in schema template on Cisco Nexus Dashboard Orchestrator (NDO).
+- This module is only supported on ND v3.1 (NDO v4.3) and later.
+- This module is incompatible with M(cisco.mso.mso_schema_template_contract_service_graph).
+- This module offers an alternative solution to the Schema Template Contract Service Graph.
 author:
 - Sabari Jaganathan (@sajagana)
 options:
@@ -56,16 +58,19 @@ options:
         type: str
         choices: [ firewall, load_balancer, other ]
         required: true
-      device_uuid:
+        aliases: [ type ]
+      uuid:
         description:
         - The UUID of the service device.
         - This parameter or O(service_nodes.device) is required.
         type: str
+        aliases: [ device_uuid ]
       provider_interface_name:
         description:
         - The name of the service device interface used as the provider interface in the contract service chain.
         type: str
         required: true
+        aliases: [ provider_interface, provider ]
       provider_redirect:
         description:
         - The provider redirect option of the contract service chain.
@@ -76,6 +81,7 @@ options:
         - The name of the service device interface used as the consumer interface in the contract service chain.
         type: str
         required: true
+        aliases: [ consumer_interface, consumer ]
       consumer_redirect:
         description:
         - The consumer redirect option of the contract service chain.
@@ -84,7 +90,7 @@ options:
       device:
         description:
         - The service device details for the contract service chain.
-        - This parameter or O(service_nodes.device_uuid) is required.
+        - This parameter or O(service_nodes.uuid) is required.
         type: dict
         suboptions:
           name:
@@ -123,7 +129,7 @@ EXAMPLES = r"""
     schema: schema1
     template: template1
     contract: contract1
-    node_filter: "allow_all"
+    node_filter: allow_all
     service_nodes:
       - device_type: load_balancer
         consumer_interface_name: lb_interface1
@@ -156,9 +162,7 @@ EXAMPLES = r"""
       - device_type: firewall
         consumer_interface_name: fw_interface1
         provider_interface_name: fw_interface2
-        device:
-          name: firewall
-          template: service_device_template
+        uuid: "{{ service_device.current.uuid }}"
     state: present
 
 - name: Query schema template contract service chain
@@ -208,8 +212,8 @@ def main():
             type="list",
             elements="dict",
             options=dict(
-                device_type=dict(type="str", choices=["firewall", "load_balancer", "other"], required=True),
-                device_uuid=dict(type="str"),
+                device_type=dict(type="str", choices=["firewall", "load_balancer", "other"], required=True, aliases=["type"]),
+                uuid=dict(type="str", aliases=["device_uuid"]),
                 device=dict(
                     type="dict",
                     options=dict(
@@ -220,13 +224,13 @@ def main():
                     mutually_exclusive=[["template", "template_id"]],
                     required_one_of=[["template", "template_id"]],
                 ),
-                provider_interface_name=dict(type="str", required=True),
+                provider_interface_name=dict(type="str", required=True, aliases=["provider_interface", "provider"]),
                 provider_redirect=dict(type="bool"),
-                consumer_interface_name=dict(type="str", required=True),
+                consumer_interface_name=dict(type="str", required=True, aliases=["consumer_interface", "consumer"]),
                 consumer_redirect=dict(type="bool"),
             ),
-            mutually_exclusive=[["device_uuid", "device"]],
-            required_one_of=[["device_uuid", "device"]],
+            mutually_exclusive=[["uuid", "device"]],
+            required_one_of=[["uuid", "device"]],
         ),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
@@ -269,6 +273,7 @@ def main():
             service_chain, reference_collections, set_template=False, use_cache=True
         )  # Query a specific object
 
+    service_chain_path = None
     if state != "query":
         service_chain_path = "/templates/{0}/contracts/{1}/serviceChaining".format(template, contract_match.index)
 
@@ -296,7 +301,7 @@ def main():
                     {
                         "index": index,
                         "name": "node-{0}".format(index),
-                        "deviceRef": service_node.get("device_uuid"),
+                        "deviceRef": service_node.get("uuid"),
                         "deviceType": snake_to_camel(service_node.get("device_type")),
                         "providerConnector": {
                             "interfaceName": service_node.get("provider_interface_name") or "one-arm",
@@ -332,11 +337,12 @@ def main():
             mso.existing = {}  # When the state is absent
 
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
-        mso.existing = (
-            ndo_template.update_config_with_template_and_references(copy.deepcopy(mso.proposed), reference_collections, set_template=False, use_cache=True)
-            if state == "present"
-            else {}
-        )
+        if state == "present":
+            mso.existing = ndo_template.update_config_with_template_and_references(
+                copy.deepcopy(mso.proposed), reference_collections, set_template=False, use_cache=True
+            )
+        else:
+            mso.existing = {}
 
     mso.exit_json()
 

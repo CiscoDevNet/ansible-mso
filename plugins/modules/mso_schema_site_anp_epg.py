@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2019, Dag Wieers (@dagwieers) <dag@wieers.com>
+# Copyright: (c) 2025, Gaspard Micol (@gmicol) <gmicol@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -18,6 +19,7 @@ description:
 - Manage site-local EPGs in schema template on Cisco ACI Multi-Site.
 author:
 - Dag Wieers (@dagwieers)
+- Gaspard Micol (@gmicol)
 options:
   schema:
     description:
@@ -49,6 +51,12 @@ options:
     - The private link label used to represent this subnet.
     - This parameter is available for MSO version greater than 3.3.
     type: str
+  admin_state:
+    description:
+    - The EPG admin state.
+    - Defaults to C(admin_up) when unset during creation.
+    type: str
+    choices: [ admin_up, admin_shut ]
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -130,6 +138,7 @@ def main():
         anp=dict(type="str", required=True),
         epg=dict(type="str", aliases=["name"]),  # This parameter is not required for querying all objects
         private_link_label=dict(type="str"),
+        admin_state=dict(type="str", choices=["admin_up", "admin_shut"]),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
 
@@ -148,6 +157,7 @@ def main():
     anp = module.params.get("anp")
     epg = module.params.get("epg")
     private_link_label = module.params.get("private_link_label")
+    admin_state = module.params.get("admin_state")
     state = module.params.get("state")
 
     mso = MSOModule(module)
@@ -278,6 +288,8 @@ def main():
     elif state == "present":
         if private_link_label is not None:
             payload["privateLinkLabel"] = dict(name=private_link_label)
+        if admin_state is not None:
+            payload["shutdown"] = True if admin_state == "admin_shut" else False
 
         mso.sanitize(payload, collate=True)
 

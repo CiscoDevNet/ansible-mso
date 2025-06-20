@@ -758,7 +758,7 @@ class MSOTemplate:
         """
         existing_objects = self.template.get("monitoringTemplate", {}).get("template", {}).get("spanSessions", [])
         if uuid or name:  # Query a specific object
-            return self.get_object_by_key_value_pairs("SPAN Sessions", existing_objects, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+            return self.get_object_by_key_value_pairs("SPAN Session", existing_objects, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
         return existing_objects  # Query all objects
 
     def get_fabric_span_session_source(self, name, search_list, fail_module=False):
@@ -773,7 +773,7 @@ class MSOTemplate:
                  When both Name is None, and the search list is empty -> List[]
         """
         if name and search_list:  # Query a specific object
-            return self.get_object_by_key_value_pairs("SPAN Sessions Source", search_list, [KVPair("name", name)], fail_module)
+            return self.get_object_by_key_value_pairs("SPAN Session Source", search_list, [KVPair("name", name)], fail_module)
         return search_list  # Query all objects
 
     def get_fabric_span_session_source_filter(self, filter_config, search_list, fail_module=False):
@@ -797,5 +797,5 @@ class MSOTemplate:
                 KVPair("destPortTo", int(PORT_MAPPING.get(filter_config.get("destination_port_to")))),
                 KVPair("ipProtocol", IP_PROTOCOL_MAPPING.get(filter_config.get("ip_protocol"))),
             ]
-            return self.get_object_by_key_value_pairs("SPAN Sessions Source", search_list, KVPairs, fail_module)
+            return self.get_object_by_key_value_pairs("SPAN Session Source Filter", search_list, KVPairs, fail_module)
         return search_list  # Query all objects

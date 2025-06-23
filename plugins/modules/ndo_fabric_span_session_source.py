@@ -56,6 +56,7 @@ options:
   span_drop_packets:
     description:
     - The SPAN Drop Packets of the SPAN Session source.
+    - SPAN Drop Packets are packets that get dropped when the SPAN destination port cannot handle the volume of mirrored traffic from the source ports.
     - Defaults to O(span_drop_packets=false) when unset during creation.
     - The O(filter_epg) and O(filter_l3out) is not configurable when this parameter O(span_drop_packets=true) set to true.
     type: bool
@@ -63,7 +64,7 @@ options:
     description:
     - The Filter EPG of the SPAN Session source.
     - When the Filter EPG is specified in the configuration, the Filter L3Out will be removed.
-    - Filter L3Out and Filter EPG cannot be configured simultaneously.
+    - This parameter and O(filter_l3out) are mutually exclusive.
     - Providing an empty dictionary O(filter_epg={}) will remove the filter l3out from the SPAN Session source.
     type: dict
     suboptions:
@@ -118,7 +119,7 @@ options:
     description:
     - The Filter L3Out of the SPAN Session source.
     - When the Filter L3Out is specified in the configuration, the Filter EPG will be removed.
-    - Filter L3Out and Filter EPG cannot be configured simultaneously.
+    - This parameter and O(filter_epg) are mutually exclusive.
     - The L3Out must be defined in either the L3Out template or directly within the APIC tenant.
     - The Filter L3Out for a SPAN Session source does not support using an L3Out from an application tenant template.
     - Providing an empty dictionary O(filter_l3out={}) will remove the filter l3out from the SPAN Session source.
@@ -138,17 +139,17 @@ options:
           tenant:
             description:
             - The name of the tenant. This parameter is used to associate the L3Out from APIC.
-            - This parameter or O(filter_l3out.l3out.template) or O(filter_l3out.l3out.template_id) is required to associate the L3Out from L3Out template.
+            - This parameter or O(filter_l3out.l3out.template), or O(filter_l3out.l3out.template_id) is required to associate the L3Out from L3Out template.
             type: str
           template:
             description:
             - The name of the L3Out template.
-            - This parameter or O(filter_l3out.l3out.template_id) or O(filter_l3out.l3out.tenant) is required to associate the L3Out from L3Out template.
+            - This parameter or O(filter_l3out.l3out.template_id), or O(filter_l3out.l3out.tenant) is required to associate the L3Out from L3Out template.
             type: str
           template_id:
             description:
             - The ID of the L3Out template.
-            - This parameter or O(filter_l3out.l3out.template) or O(filter_l3out.l3out.tenant) is required to associate the L3Out from L3Out template.
+            - This parameter or O(filter_l3out.l3out.template), or O(filter_l3out.l3out.tenant) is required to associate the L3Out from L3Out template.
             type: str
       uuid:
         description:
@@ -174,17 +175,18 @@ options:
         - The type of the Access Path.
         type: str
         choices: [ port, port_channel, virtual_port_channel, vpc_component_pc ]
+        aliases: [ type ]
       uuid:
         description:
-        - The UUID of the 'Access Port' or 'Port Channel' or 'Virtual Port Channel' which is used to create the Access Path.
+        - The UUID of the 'Access Port' or 'Port Channel', or 'Virtual Port Channel' which is used to create the Access Path.
         type: str
       node:
         description:
-        - The ID of the Node. This parameter is required to configure the 'Access Port' or 'Virtual Component PC' Access Path.
+        - The ID of the Node. This parameter is required when O(access_paths.access_path_type=port) or O(access_paths.access_path_type=vpc_component_pc).
         type: int
       interface:
         description:
-        - The interface of the Node. This parameter is required to configure the 'Access Port' Access Path.
+        - The interface of the Node. This parameter is required to configure the O(access_paths.access_path_type=port).
         type: str
       name:
         description:
@@ -193,12 +195,14 @@ options:
       template:
         description:
         - The name of the Fabric Resource Policy template.
-        - This parameter or O(access_paths.template_id) is required to configure the 'Port Channel' or 'Virtual Port Channel' Access Path.
+        - This parameter or O(access_paths.template_id) is required when O(access_paths.access_path_type=port_channel),
+          O(access_paths.access_path_type=virtual_port_channel), or O(access_paths.access_path_type=vpc_component_pc).
         type: str
       template_id:
         description:
         - The ID of the Fabric Resource Policy template.
-        - This parameter or O(access_paths.template) is required to configure the 'Port Channel' or 'Virtual Port Channel' Access Path.
+        - This parameter or O(access_paths.template) is required when O(access_paths.access_path_type=port_channel),
+          O(access_paths.access_path_type=virtual_port_channel), or O(access_paths.access_path_type=vpc_component_pc).
         type: str
   state:
     description:
@@ -447,7 +451,7 @@ def main():
                 name=dict(type="str"),
                 template=dict(type="str"),
                 template_id=dict(type="str"),
-                access_path_type=dict(type="str", choices=["port", "port_channel", "virtual_port_channel", "vpc_component_pc"]),
+                access_path_type=dict(type="str", choices=["port", "port_channel", "virtual_port_channel", "vpc_component_pc"], aliases=["type"]),
             ),
             mutually_exclusive=[("uuid", "interface", "name"), ("template", "template_id")],
         ),

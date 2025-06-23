@@ -48,7 +48,7 @@ options:
   tenant:
     description:
     - The name of the tenant attached to the template.
-    - Required when O(type=tenant), O(type=l3out), 0(type=monitoring_tenant) or 0(type=service_device).
+    - Required when O(type=tenant), O(type=l3out), O(type=monitoring_tenant) or O(type=service_device).
     type: str
   sites:
     description:

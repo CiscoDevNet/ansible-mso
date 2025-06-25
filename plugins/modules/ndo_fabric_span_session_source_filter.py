@@ -231,7 +231,12 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
 from ansible_collections.cisco.mso.plugins.module_utils.constants import PORT_MAPPING, IP_PROTOCOL_MAPPING
+from collections import namedtuple
 import copy
+
+
+port_mapping_values = list(PORT_MAPPING) + list(PORT_MAPPING.values())
+ip_protocol_mapping_values = list(IP_PROTOCOL_MAPPING) + list(IP_PROTOCOL_MAPPING.values())
 
 
 def main():
@@ -244,11 +249,11 @@ def main():
         span_session_source_name=dict(type="str"),
         source_ip_prefix=dict(type="str"),
         destination_ip_prefix=dict(type="str"),
-        source_port_from=dict(type="str", choices=list(PORT_MAPPING), default="unspecified"),
-        source_port_to=dict(type="str", choices=list(PORT_MAPPING), default="unspecified"),
-        destination_port_from=dict(type="str", choices=list(PORT_MAPPING), default="unspecified"),
-        destination_port_to=dict(type="str", choices=list(PORT_MAPPING), default="unspecified"),
-        ip_protocol=dict(type="str", choices=list(IP_PROTOCOL_MAPPING), default="unspecified"),
+        source_port_from=dict(type="str", choices=port_mapping_values, default="unspecified"),
+        source_port_to=dict(type="str", choices=port_mapping_values, default="unspecified"),
+        destination_port_from=dict(type="str", choices=port_mapping_values, default="unspecified"),
+        destination_port_to=dict(type="str", choices=port_mapping_values, default="unspecified"),
+        ip_protocol=dict(type="str", choices=ip_protocol_mapping_values, default="unspecified"),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
 
@@ -278,11 +283,11 @@ def main():
     span_session_source_name = module.params.get("span_session_source_name")
     source_ip_prefix = module.params.get("source_ip_prefix")
     destination_ip_prefix = module.params.get("destination_ip_prefix")
-    source_port_from = int(PORT_MAPPING.get(module.params.get("source_port_from")))
-    source_port_to = int(PORT_MAPPING.get(module.params.get("source_port_to")))
-    destination_port_from = int(PORT_MAPPING.get(module.params.get("destination_port_from")))
-    destination_port_to = int(PORT_MAPPING.get(module.params.get("destination_port_to")))
-    ip_protocol = IP_PROTOCOL_MAPPING.get(module.params.get("ip_protocol"))
+    source_port_from = int(PORT_MAPPING.get(module.params.get("source_port_from"), module.params.get("source_port_from")))
+    source_port_to = int(PORT_MAPPING.get(module.params.get("source_port_to"), module.params.get("source_port_to")))
+    destination_port_from = int(PORT_MAPPING.get(module.params.get("destination_port_from"), module.params.get("destination_port_from")))
+    destination_port_to = int(PORT_MAPPING.get(module.params.get("destination_port_to"), module.params.get("destination_port_to")))
+    ip_protocol = IP_PROTOCOL_MAPPING.get(module.params.get("ip_protocol"), module.params.get("ip_protocol"))
     state = module.params.get("state")
 
     mso_template = MSOTemplate(mso, "monitoring_tenant", template_name, template_id)
@@ -293,7 +298,7 @@ def main():
         span_session_source_name, fabric_span_session.details.get("sourceGroup", {}).get("sources", []), fail_module=True
     )
 
-    match = mso_template.get_fabric_span_session_source_filter(module.params, span_session_source.details.get("filters"))
+    match = get_fabric_span_session_source_filter(mso_template, module.params, span_session_source.details.get("filters"))
 
     filter_object_full_config = dict(
         templateId=mso_template.template_id,
@@ -342,7 +347,7 @@ def main():
             span_session_source = mso_template.get_fabric_span_session_source(
                 span_session_source_name, fabric_span_session.details.get("sourceGroup", {}).get("sources", []), fail_module=True
             )
-            match = mso_template.get_fabric_span_session_source_filter(module.params, span_session_source.details.get("filters"))
+            match = get_fabric_span_session_source_filter(mso_template, module.params, span_session_source.details.get("filters"))
             if match:
                 match.details.update(filter_object_full_config)
                 mso.existing = match.details  # When the state is present
@@ -356,6 +361,22 @@ def main():
             mso.existing = {}
 
     mso.exit_json()
+
+
+def get_fabric_span_session_source_filter(mso_template, filter_config, search_list, fail_module=False):
+    KVPair = namedtuple("KVPair", "key value")
+    if filter_config and filter_config.get("source_ip_prefix") and filter_config.get("destination_ip_prefix") and search_list:  # Query a specific object
+        KVPairs = [
+            KVPair("srcIPPrefix", filter_config.get("source_ip_prefix")),
+            KVPair("srcPortFrom", int(PORT_MAPPING.get(filter_config.get("source_port_from"), filter_config.get("source_port_from")))),
+            KVPair("srcPortTo", int(PORT_MAPPING.get(filter_config.get("source_port_to"), filter_config.get("source_port_to")))),
+            KVPair("destIPPrefix", filter_config.get("destination_ip_prefix")),
+            KVPair("destPortFrom", int(PORT_MAPPING.get(filter_config.get("destination_port_from"), filter_config.get("destination_port_from")))),
+            KVPair("destPortTo", int(PORT_MAPPING.get(filter_config.get("destination_port_to"), filter_config.get("destination_port_to")))),
+            KVPair("ipProtocol", IP_PROTOCOL_MAPPING.get(filter_config.get("ip_protocol"), filter_config.get("ip_protocol"))),
+        ]
+        return mso_template.get_object_by_key_value_pairs("SPAN Session Source Filter", search_list, KVPairs, fail_module)
+    return search_list  # Query all objects
 
 
 if __name__ == "__main__":

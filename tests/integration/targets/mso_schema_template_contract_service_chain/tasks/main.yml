@@ -122,15 +122,6 @@
         state: present
       register: ansible_test_bd
 
-    - name: Query the BD for UUID
-      cisco.mso.mso_schema_template_bd:
-        <<: *mso_info
-        schema: ansible_test
-        template: ansible_template
-        bd: ansible_test_bd
-        state: query
-      register: ansible_test_bd_query
-
     - name: Ensure external EPG exists
       cisco.mso.mso_schema_template_external_epg:
         <<: *mso_info
@@ -217,7 +208,6 @@
               name: ansible_test_device_ext_epg
               template: ansible_template
               schema: ansible_test
-
           - name: "fw_interface2"
             external_epg:
               name: ansible_test_device_ext_epg
@@ -297,71 +287,7 @@
         <<: *cm_add_service_chain
       register: nm_add_service_chain_again
 
-    - name: Replace service chain with 4 nodes to the existing service chain
-      cisco.mso.mso_schema_template_contract_service_chain:
-        <<: *mso_info
-        schema: ansible_test
-        template: ansible_template
-        contract: Contract1
-        service_nodes:
-          - device_type: load_balancer
-            consumer_interface_name: lb_interface1
-            provider_interface_name: lb_interface2
-            device:
-              name: load_balancer
-              template: ansible_device_template
-
-          - device_type: firewall
-            consumer_interface_name: fw_interface1
-            provider_interface_name: fw_interface2
-            device:
-              name: firewall
-              template: ansible_device_template
-
-          - device_type: other
-            consumer_interface_name: other_interface1
-            provider_interface_name: other_interface2
-            device:
-              name: other
-              template: ansible_device_template
-
-          - device_type: other
-            consumer_interface_name: other_interface1
-            provider_interface_name: other_interface2
-            device:
-              name: other
-              template: ansible_device_template
-        state: present
-      register: add_4_nodes
-
-    # QUERY
-    - name: Query contract service chain 1
-      cisco.mso.mso_schema_template_contract_service_chain:
-        <<: *mso_info
-        schema: ansible_test
-        template: ansible_template
-        contract: Contract1
-        state: query
-      register: query_service_chain_1
-
-    - name: Add service chain with one service node using uuid and template id
-      cisco.mso.mso_schema_template_contract_service_chain:
-        <<: *mso_info
-        schema: ansible_test
-        template: ansible_template
-        contract: Contract1
-        node_filter: "filters_from_contract"
-        service_nodes:
-          - device_type: load_balancer
-            device_uuid: "{{ add_firewall.current.uuid }}"
-            consumer_interface_name: fw_interface1
-            provider_interface_name: fw_interface2
-            consumer_redirect: true
-            provider_redirect: true
-        state: present
-      register: add_service_chain_with_one_node
-
-    - name: Assertion check for add service chain with different options
+    - name: Assertion check for create service chain
       ansible.builtin.assert:
         that:
           - cm_add_service_chain is changed
@@ -435,6 +361,44 @@
           - nm_add_service_chain_again.previous.serviceNodes.0.serviceNodeRef == ""
           - nm_add_service_chain_again.previous.serviceNodes.0.serviceNodeTypeId == ""
           - nm_add_service_chain_again.previous.serviceNodes.0.uuid is defined
+
+    - name: Replace service chain with 4 nodes to the existing service chain
+      cisco.mso.mso_schema_template_contract_service_chain:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        contract: Contract1
+        service_nodes:
+          - device_type: load_balancer
+            consumer_interface_name: lb_interface1
+            provider_interface_name: lb_interface2
+            device:
+              name: load_balancer
+              template: ansible_device_template
+          - device_type: firewall
+            consumer_interface_name: fw_interface1
+            provider_interface_name: fw_interface2
+            device:
+              name: firewall
+              template: ansible_device_template
+          - device_type: other
+            consumer_interface_name: other_interface1
+            provider_interface_name: other_interface2
+            device:
+              name: other
+              template: ansible_device_template
+          - device_type: other
+            consumer_interface_name: other_interface1
+            provider_interface_name: other_interface2
+            device:
+              name: other
+              template: ansible_device_template
+        state: present
+      register: add_4_nodes
+
+    - name: Assertion check for update service chain with 4 nodes
+      ansible.builtin.assert:
+        that:
           - add_4_nodes is changed
           - add_4_nodes.current.nodeFilter == "allow-all"
           - add_4_nodes.current.serviceNodes.0.consumerConnector.interfaceName == "lb_interface1"
@@ -508,6 +472,37 @@
           - add_4_nodes.previous.serviceNodes.0.serviceNodeRef == ""
           - add_4_nodes.previous.serviceNodes.0.serviceNodeTypeId == ""
           - add_4_nodes.previous.serviceNodes.0.uuid is defined
+
+    # QUERY
+    - name: Query contract service chain 1
+      cisco.mso.mso_schema_template_contract_service_chain:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        contract: Contract1
+        state: query
+      register: query_service_chain_1
+
+    - name: Add service chain with one service node using uuid and template id, schema id
+      cisco.mso.mso_schema_template_contract_service_chain:
+        <<: *mso_info
+        schema_id: "{{ nm_add_service_chain.current.schemaId }}"
+        template_id: "{{ nm_add_service_chain.current.templateId }}"
+        contract: Contract1
+        node_filter: "filters_from_contract"
+        service_nodes:
+          - device_type: load_balancer
+            device_uuid: "{{ add_firewall.current.uuid }}"
+            consumer_interface_name: fw_interface1
+            provider_interface_name: fw_interface2
+            consumer_redirect: true
+            provider_redirect: true
+        state: present
+      register: add_service_chain_with_one_node
+
+    - name: Assertion check for add service chain with different options
+      ansible.builtin.assert:
+        that:
           - add_service_chain_with_one_node is changed
           - add_service_chain_with_one_node.current.nodeFilter == "filters-from-contract"
           - add_service_chain_with_one_node.current.serviceNodes.0.consumerConnector.interfaceName == "fw_interface1"
@@ -728,6 +723,75 @@
       register: nt_service_chain_4
       ignore_errors: true
 
+    - name: Negative test add service chain when the schema, schema_id, template_id is not set and only template name is set
+      cisco.mso.mso_schema_template_contract_service_chain:
+        <<: *mso_info
+        template: ansible_template
+        contract: Contract1
+        node_filter: "allow_all"
+        service_nodes:
+          - device_type: load_balancer
+            consumer_interface_name: lb_interface1
+            provider_interface_name: lb_interface2
+            device:
+              name: load_balancer
+              template: ansible_device_template
+        state: present
+      register: nt_service_chain_5
+      ignore_errors: true
+
+    - name: Negative test add service chain when the contract, contract_uuid is None
+      cisco.mso.mso_schema_template_contract_service_chain:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        node_filter: "allow_all"
+        service_nodes:
+          - device_type: load_balancer
+            consumer_interface_name: lb_interface1
+            provider_interface_name: lb_interface2
+            device:
+              name: load_balancer
+              template: ansible_device_template
+        state: present
+      register: nt_service_chain_6
+      ignore_errors: true
+
+    - name: Negative test add service chain when the template, template_id is None
+      cisco.mso.mso_schema_template_contract_service_chain:
+        <<: *mso_info
+        schema: ansible_test
+        contract: Contract1
+        node_filter: "allow_all"
+        service_nodes:
+          - device_type: load_balancer
+            consumer_interface_name: lb_interface1
+            provider_interface_name: lb_interface2
+            device:
+              name: load_balancer
+              template: ansible_device_template
+        state: present
+      register: nt_service_chain_7
+      ignore_errors: true
+
+    - name: Negative test add service chain with invalid schema id
+      cisco.mso.mso_schema_template_contract_service_chain:
+        <<: *mso_info
+        schema_id: invalid
+        template: ansible_template
+        contract: Contract1
+        node_filter: "allow_all"
+        service_nodes:
+          - device_type: load_balancer
+            consumer_interface_name: lb_interface1
+            provider_interface_name: lb_interface2
+            device:
+              name: load_balancer
+              template: ansible_device_template
+        state: present
+      register: nt_service_chain_8
+      ignore_errors: true
+
     - name: Assertion check for negative tests
       ansible.builtin.assert:
         that:
@@ -736,9 +800,17 @@
           - nt_service_chain_2 is not changed
           - nt_service_chain_2.msg == "state is present but all of the following are missing{{':'}} service_nodes"
           - nt_service_chain_3 is not changed
-          - nt_service_chain_3.msg == "parameters are mutually exclusive{{':'}} device_uuid|device found in service_nodes"
+          - nt_service_chain_3.msg == "parameters are mutually exclusive{{':'}} uuid|device found in service_nodes"
           - nt_service_chain_4 is not changed
-          - nt_service_chain_4.msg == "one of the following is required{{':'}} device_uuid, device found in service_nodes"
+          - nt_service_chain_4.msg == "one of the following is required{{':'}} uuid, device found in service_nodes"
+          - nt_service_chain_5 is not changed
+          - nt_service_chain_5.msg == "The schema or schema_id is required when the template is set."
+          - nt_service_chain_6 is not changed
+          - nt_service_chain_6.msg == "one of the following is required{{':'}} contract, contract_uuid"
+          - nt_service_chain_7 is not changed
+          - nt_service_chain_7.msg == "one of the following is required{{':'}} template, template_id"
+          - nt_service_chain_8 is not changed
+          - nt_service_chain_8.msg == "Schema ID{{':'}} invalid is not associated with the template{{':'}} ansible_template"
 
     # DELETE
     - name: Remove contract service chain (check_mode)

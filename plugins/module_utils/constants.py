@@ -181,6 +181,13 @@ TEMPLATE_TYPES = {
         "site_amount": 2,
         "template_container": True,
     },
+    "application": {
+        "template_type": "application",
+        "template_type_container": "appTemplate",
+        "tenant": True,
+        "site_amount": 2,
+        "template_container": True,
+    },
 }
 
 TARGET_DSCP_MAP = {

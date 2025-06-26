@@ -25,6 +25,7 @@ class MSOTemplate:
         self.template_path = ""
         self.template_name = template_name
         self.template_id = template_id
+        self.schema_id = None
         self.template_type = template_type
         self.template_summary = {}
         self.template_objects_cache = {}
@@ -79,6 +80,8 @@ class MSOTemplate:
         if isinstance(self.template, dict):
             for key in ["_updateVersion", "version"]:
                 self.template.pop(key, None)
+
+        self.schema_id = self.template.get("schemaId")
 
     @staticmethod
     def get_object_from_list(search_list, kv_list):
@@ -649,6 +652,8 @@ class MSOTemplate:
                 config_data["templateId"] = self.template_id
             if self.template_name:
                 config_data["templateName"] = self.template_name
+            if self.schema_id:
+                config_data["schemaId"] = self.schema_id
 
         # Update config data with reference names if reference_collections is provided
         if reference_collections:
@@ -775,3 +780,22 @@ class MSOTemplate:
         if name and search_list:  # Query a specific object
             return self.get_object_by_key_value_pairs("SPAN Session Source", search_list, [KVPair("name", name)], fail_module)
         return search_list  # Query all objects
+
+    def get_application_template_contract(self, uuid=None, name=None, fail_module=False):
+        """
+        Get the Application Template Contract by uuid or name.
+        :param uuid: UUID of the Contract to search for -> Str
+        :param name: Name of the Contract to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        existing_objects = self.template.get("appTemplate", {}).get("template", {}).get("contracts", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs(
+                "Template Contract", existing_objects, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module
+            )
+        return existing_objects  # Query all objects

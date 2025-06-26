@@ -38,6 +38,7 @@ options:
     type: str
     aliases: [ type ]
     choices:
+      - application
       - tenant
       - l3out
       - fabric_policy

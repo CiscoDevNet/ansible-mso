@@ -25,18 +25,35 @@ options:
   schema:
     description:
     - The name of the schema.
+    - This parameter is mutually exclusive with O(schema_id).
+    - This parameter or O(schema_id) is required when O(template) is set.
     type: str
-    required: true
+  schema_id:
+    description:
+    - The ID of the schema.
+    - This parameter is mutually exclusive with O(schema).
+    - This parameter or O(schema) is required when O(template) is set.
+    type: str
   template:
     description:
     - The name of the template.
+    - This parameter is mutually exclusive with O(template_id).
     type: str
-    required: true
+  template_id:
+    description:
+    - The ID of the template.
+    - This parameter is mutually exclusive with O(template).
+    type: str
   contract:
     description:
     - The name of the contract.
+    - This parameter is mutually exclusive with O(contract_uuid).
     type: str
-    required: true
+  contract_uuid:
+    description:
+    - The UUID of the contract.
+    - This parameter is mutually exclusive with O(contract).
+    type: str
   node_filter:
     description:
     - The Filter After First Device option of the contract service chain.
@@ -62,6 +79,7 @@ options:
       uuid:
         description:
         - The UUID of the service device.
+        - This parameter is mutually exclusive with O(service_nodes.device).
         - This parameter or O(service_nodes.device) is required.
         type: str
         aliases: [ device_uuid ]
@@ -90,6 +108,7 @@ options:
       device:
         description:
         - The service device details for the contract service chain.
+        - This parameter is mutually exclusive with O(service_nodes.uuid).
         - This parameter or O(service_nodes.uuid) is required.
         type: dict
         suboptions:
@@ -101,11 +120,13 @@ options:
           template:
             description:
             - The template name of the service device.
+            - This parameter is mutually exclusive with O(service_nodes.device.template_id).
             - This parameter or O(service_nodes.device.template_id) is required.
             type: str
           template_id:
             description:
             - The template id of the service device.
+            - This parameter is mutually exclusive with O(service_nodes.device.template).
             - This parameter or O(service_nodes.device.template) is required.
             type: str
   state:
@@ -195,7 +216,6 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, ms
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
 from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
 from ansible_collections.cisco.mso.plugins.module_utils.template import KVPair
-from ansible_collections.cisco.mso.plugins.module_utils.schema import MSOSchema
 from ansible_collections.cisco.mso.plugins.module_utils.utils import snake_to_camel
 from ansible_collections.cisco.mso.plugins.module_utils.constants import CONTRACT_SERVICE_CHAIN_NODE_FILTER_MAP
 import copy
@@ -204,9 +224,12 @@ import copy
 def main():
     argument_spec = mso_argument_spec()
     argument_spec.update(
-        schema=dict(type="str", required=True),
-        template=dict(type="str", required=True),
-        contract=dict(type="str", required=True),
+        schema=dict(type="str"),
+        schema_id=dict(type="str"),
+        template=dict(type="str"),
+        template_id=dict(type="str"),
+        contract=dict(type="str"),
+        contract_uuid=dict(type="str"),
         node_filter=dict(type="str", choices=list(CONTRACT_SERVICE_CHAIN_NODE_FILTER_MAP), aliases=["filter_after_first_device"]),
         service_nodes=dict(
             type="list",
@@ -241,22 +264,44 @@ def main():
         required_if=[
             ["state", "present", ["service_nodes"]],
         ],
+        mutually_exclusive=[["schema", "schema_id"], ["template", "template_id"], ["contract", "contract_uuid"]],
+        required_one_of=[["contract", "contract_uuid"], ["template", "template_id"]],
     )
 
     schema = module.params.get("schema")
+    schema_id = module.params.get("schema_id")
     template = module.params.get("template")
+    template_id = module.params.get("template_id")
     contract = module.params.get("contract")
+    contract_uuid = module.params.get("contract_uuid")
     node_filter = CONTRACT_SERVICE_CHAIN_NODE_FILTER_MAP.get(module.params.get("node_filter"))
     service_nodes = module.params.get("service_nodes")
     state = module.params.get("state")
 
     mso = MSOModule(module)
-    mso_templates = MSOTemplates(mso)
-    ndo_template = MSOTemplate(mso, "", "")
 
-    mso_schema = MSOSchema(mso, schema, template)
-    mso_schema.set_template(template)
-    contract_match = mso_schema.set_template_contract(contract, None, fail_module=True)
+    if not template_id and not (schema or schema_id):
+        mso.fail_json(msg="The schema or schema_id is required when the template is set.")
+
+    mso_templates = MSOTemplates(mso)
+    mso_template = None
+
+    if template_id:
+        mso_template = MSOTemplate(mso, "application", template, template_id)
+        schema_id = mso_template.template.get("schemaId")
+    elif schema_id and template:
+        mso_template = MSOTemplate(mso, "application", template, template_id)
+    elif schema and template:
+        schema_id = mso.lookup_schema(schema)
+        mso_template = MSOTemplate(mso, "application", template, template_id)
+
+    if not template_id and schema_id != mso_template.template.get("schemaId"):
+        mso.fail_json(msg="Schema ID: {0} is not associated with the template: {1}".format(schema_id, template))
+
+    template_id = template_id or mso_template.template.get("templateId")
+    template = template or mso_template.template.get("appTemplate", {}).get("template", {}).get("name")
+    schema_path = "schemas/{0}".format(schema_id)
+    contract_match = mso_template.get_template_contract(contract_uuid, contract, fail_module=True)
     service_chain = contract_match.details.get("serviceChaining") if contract_match and contract_match.details.get("serviceChaining") else {}
 
     reference_collections = {
@@ -269,8 +314,8 @@ def main():
         },
     }
     if service_chain:
-        mso.existing = mso.previous = ndo_template.update_config_with_template_and_references(
-            service_chain, reference_collections, set_template=False, use_cache=True
+        mso.existing = mso.previous = mso_template.update_config_with_template_and_references(
+            service_chain, reference_collections, set_template=True, use_cache=True
         )  # Query a specific object
 
     service_chain_path = None
@@ -284,7 +329,7 @@ def main():
         service_nodes_config = []
         if service_nodes:
             for index, service_node in enumerate(service_nodes, start=1):
-                if not service_node.get("device_uuid"):
+                if not service_node.get("uuid"):
                     service_node_template = mso_templates.get_template(
                         "service_device", service_node.get("device").get("template"), service_node.get("device").get("template_id")
                     )
@@ -295,7 +340,7 @@ def main():
                         [KVPair("name", service_node.get("device").get("name"))],
                         fail_module=True,
                     )
-                    service_node["device_uuid"] = service_node_match.details.get("uuid")
+                    service_node["uuid"] = service_node_match.details.get("uuid")
 
                 service_nodes_config.append(
                     {
@@ -323,23 +368,22 @@ def main():
         ops.append(dict(op="remove", path=service_chain_path))
 
     if not module.check_mode and ops:
-        mso.request(mso_schema.path, method="PATCH", data=ops)
-        mso_schema = MSOSchema(mso, schema, template)
-        mso_schema.set_template(template)
-        contract_match = mso_schema.set_template_contract(contract, None, fail_module=True)
+        mso.request(schema_path, method="PATCH", data=ops)
+        mso_template = MSOTemplate(mso, "application", None, template_id)
+        contract_match = mso_template.get_template_contract(contract_uuid, contract, fail_module=True)
         service_chain = contract_match.details.get("serviceChaining") if contract_match and contract_match.details.get("serviceChaining") else {}
 
         if service_chain:
-            mso.existing = ndo_template.update_config_with_template_and_references(
-                service_chain, reference_collections, set_template=False, use_cache=True
+            mso.existing = mso_template.update_config_with_template_and_references(
+                service_chain, reference_collections, set_template=True, use_cache=True
             )  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
 
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
         if state == "present":
-            mso.existing = ndo_template.update_config_with_template_and_references(
-                copy.deepcopy(mso.proposed), reference_collections, set_template=False, use_cache=True
+            mso.existing = mso_template.update_config_with_template_and_references(
+                copy.deepcopy(mso.proposed), reference_collections, set_template=True, use_cache=True
             )
         else:
             mso.existing = {}

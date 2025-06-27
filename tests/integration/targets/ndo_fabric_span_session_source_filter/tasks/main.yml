@@ -1,0 +1,727 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: "{{ mso_output_level | default('debug') }}"
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 4.4
+  when: version.current.version is version('4.4', '>=')
+  block:
+    # CLEAN TEST ENVIRONMENT
+    - name: Ensure Fabric Monitoring Access Policy template does not exist
+      cisco.mso.ndo_template: &rm_monitoring_access_template
+        <<: *mso_info
+        template: ansible_test
+        template_type: monitoring_access
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+      register: rm_monitoring_access_template
+
+    - name: Ensure Fabric Resource Policy template does not exist
+      cisco.mso.ndo_template: &rm_fabric_resource_template
+        <<: *mso_info
+        template: ansible_test
+        template_type: fabric_resource
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+      register: rm_fabric_resource_template
+
+    - name: Ensure Fabric Policy template does not exist
+      cisco.mso.ndo_template: &rm_fabric_policy_template
+        <<: *mso_info
+        template: ansible_test
+        template_type: fabric_policy
+        state: absent
+      register: rm_fabric_policy_template
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: ansible_test
+        state: absent
+
+    - name: Ensure site exist
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ mso_site | default("ansible_test") }}'
+        apic_username: "{{ apic_username }}"
+        apic_password: "{{ apic_password }}"
+        apic_site_id: '{{ apic_site_id | default("101") }}'
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+
+    - name: Ensure Tenant exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: ansible_test
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+
+    - name: Ensure schema template exist
+      cisco.mso.mso_schema_template:
+        <<: *mso_info
+        schema: ansible_test
+        tenant: ansible_test
+        template: Template1
+        state: present
+      register: add_schema_template
+
+    - name: Ensure Anp1 exist
+      cisco.mso.mso_schema_template_anp:
+        <<: *mso_info
+        schema: ansible_test
+        template: Template1
+        anp: Anp1
+        state: present
+      register: add_anp1
+
+    - name: Ensure EPG1 exist
+      cisco.mso.mso_schema_template_anp_epg:
+        <<: *mso_info
+        schema: ansible_test
+        template: Template1
+        anp: Anp1
+        epg: EPG1
+        state: present
+      register: add_epg1
+
+    - name: Ensure Fabric Monitoring Access Policy template exist
+      cisco.mso.ndo_template:
+        <<: *rm_monitoring_access_template
+        state: present
+      register: add_monitoring_access_template
+
+    - name: Ensure Fabric Resource Policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_resource_template
+        state: present
+      register: add_fabric_resource_template
+
+    - name: Ensure Fabric Policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_policy_template
+        state: present
+      register: add_fabric_policy_template
+
+    - name: Create an Interface Policy group of interface_type 'port_channel'
+      cisco.mso.ndo_interface_setting:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_interface_pc_pol
+        interface_type: port_channel
+        state: present
+
+    - name: Create ansible_test_resource_pc_1 port channel interface
+      cisco.mso.ndo_port_channel_interface: &add_ansible_test_1_resource_pc_1
+        <<: *mso_info
+        template: ansible_test
+        port_channel_interface: ansible_test_resource_pc_1
+        node: 101
+        interfaces: 1/11
+        interface_policy_group:
+          name: ansible_test_interface_pc_pol
+          template: ansible_test
+        state: present
+      register: add_ansible_test_1_resource_pc_1
+
+    - name: Create ansible_test_resource_pc_2 port channel interface
+      cisco.mso.ndo_port_channel_interface:
+        <<: *add_ansible_test_1_resource_pc_1
+        port_channel_interface: ansible_test_resource_pc_2
+        node: 101
+        interfaces: 1/12
+        state: present
+      register: add_ansible_test_1_resource_pc_2
+
+    - name: Create Fabric SPAN Session with destination EPG
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test
+        name: ansible_test_span_session
+        destination_epg:
+          epg:
+            schema: ansible_test
+            template: Template1
+            anp: Anp1
+            name: EPG1
+          destination_ip: "1.1.1.1"
+          source_ip_prefix: "2.2.2.2"
+        state: present
+      register: nm_add_epg_span_session
+
+    - name: Create SPAN Session source
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        state: present
+
+    # CREATE
+    - name: Create SPAN Session source filter with default port and ip protocol values (check mode)
+      cisco.mso.ndo_fabric_span_session_source_filter: &cm_add_filter
+        <<: *mso_info
+        template: ansible_test
+        span_session_name: ansible_test_span_session
+        span_session_source_name: ansible_test_source_1
+        source_ip_prefix: 1.1.1.1
+        destination_ip_prefix: 2.2.2.2
+        state: present
+        output_level: debug
+      check_mode: true
+      register: cm_add_filter
+
+    - name: Create SPAN Session source filter with default port and ip protocol values
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *cm_add_filter
+      register: nm_add_filter
+
+    - name: Create SPAN Session source filter with default port and ip protocol values again
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *cm_add_filter
+      register: nm_add_filter_again
+
+    - name: Create SPAN Session source filter with full configuration using template_id and span_session_uuid
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *mso_info
+        template_id: "{{ nm_add_epg_span_session.current.templateId }}"
+        span_session_uuid: "{{ nm_add_epg_span_session.current.uuid }}"
+        span_session_source_name: ansible_test_source_1
+        source_ip_prefix: 1.1.1.1
+        destination_ip_prefix: 2.2.2.2
+        source_port_from: http
+        source_port_to: https
+        destination_port_from: http
+        destination_port_to: https
+        ip_protocol: tcp
+        state: present
+      register: add_filter_1
+
+    - name: Create SPAN Session source filter with full configuration with port and ip protocol number
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *mso_info
+        template_id: "{{ nm_add_epg_span_session.current.templateId }}"
+        span_session_uuid: "{{ nm_add_epg_span_session.current.uuid }}"
+        span_session_source_name: ansible_test_source_1
+        source_ip_prefix: 1.1.1.1
+        destination_ip_prefix: 2.2.2.2
+        source_port_from: 20
+        source_port_to: 22
+        destination_port_from: 25
+        destination_port_to: 110
+        ip_protocol: 6
+        state: present
+      register: add_filter_2
+
+    - name: Create SPAN Session source filter with full configuration with port and ip protocol number again
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *mso_info
+        template_id: "{{ nm_add_epg_span_session.current.templateId }}"
+        span_session_uuid: "{{ nm_add_epg_span_session.current.uuid }}"
+        span_session_source_name: ansible_test_source_1
+        source_ip_prefix: 1.1.1.1
+        destination_ip_prefix: 2.2.2.2
+        source_port_from: 20
+        source_port_to: 22
+        destination_port_from: 25
+        destination_port_to: 110
+        ip_protocol: 6
+        state: present
+      register: add_filter_2_again
+
+    - name: Create SPAN Session source filter with IPv6 source and destination IP prefix
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *mso_info
+        template_id: "{{ nm_add_epg_span_session.current.templateId }}"
+        span_session_uuid: "{{ nm_add_epg_span_session.current.uuid }}"
+        span_session_source_name: ansible_test_source_1
+        source_ip_prefix: 1::1
+        destination_ip_prefix: 2::2
+        source_port_from: 20
+        source_port_to: 22
+        destination_port_from: 25
+        destination_port_to: 110
+        ip_protocol: 6
+        state: present
+      register: add_filter_with_ipv6
+
+    - name: Assertion check for create SPAN Session source filter with different configuration
+      ansible.builtin.assert:
+        that:
+          - cm_add_filter is changed
+          - cm_add_filter.current.destIPPrefix == "2.2.2.2"
+          - cm_add_filter.current.destPortFrom == 0
+          - cm_add_filter.current.destPortTo == 0
+          - cm_add_filter.current.ipProtocol == "0"
+          - cm_add_filter.current.spanSessionName == "ansible_test_span_session"
+          - cm_add_filter.current.spanSessionSourceName == "ansible_test_source_1"
+          - cm_add_filter.current.spanSessionUUID != ""
+          - cm_add_filter.current.srcIPPrefix == "1.1.1.1"
+          - cm_add_filter.current.srcPortFrom == 0
+          - cm_add_filter.current.srcPortTo == 0
+          - cm_add_filter.current.templateId != ""
+          - cm_add_filter.current.templateName == "ansible_test"
+          - cm_add_filter.previous == {}
+          - cm_add_filter.proposed.destIPPrefix == "2.2.2.2"
+          - cm_add_filter.proposed.destPortFrom == 0
+          - cm_add_filter.proposed.destPortTo == 0
+          - cm_add_filter.proposed.ipProtocol == "0"
+          - cm_add_filter.proposed.srcIPPrefix == "1.1.1.1"
+          - cm_add_filter.proposed.srcPortFrom == 0
+          - cm_add_filter.proposed.srcPortTo == 0
+          - nm_add_filter is changed
+          - nm_add_filter.current.destIPPrefix == "2.2.2.2"
+          - nm_add_filter.current.destPortFrom == 0
+          - nm_add_filter.current.destPortTo == 0
+          - nm_add_filter.current.ipProtocol == "0"
+          - nm_add_filter.current.name == ""
+          - nm_add_filter.current.spanSessionName == "ansible_test_span_session"
+          - nm_add_filter.current.spanSessionSourceName == "ansible_test_source_1"
+          - nm_add_filter.current.spanSessionUUID != ""
+          - nm_add_filter.current.srcIPPrefix == "1.1.1.1"
+          - nm_add_filter.current.srcPortFrom == 0
+          - nm_add_filter.current.srcPortTo == 0
+          - nm_add_filter.current.templateId != ""
+          - nm_add_filter.current.templateName == "ansible_test"
+          - nm_add_filter.previous == {}
+          - nm_add_filter_again is not changed
+          - nm_add_filter_again.current.destIPPrefix == "2.2.2.2"
+          - nm_add_filter_again.current.destPortFrom == 0
+          - nm_add_filter_again.current.destPortTo == 0
+          - nm_add_filter_again.current.ipProtocol == "0"
+          - nm_add_filter_again.current.name == ""
+          - nm_add_filter_again.current.spanSessionName == "ansible_test_span_session"
+          - nm_add_filter_again.current.spanSessionSourceName == "ansible_test_source_1"
+          - nm_add_filter_again.current.spanSessionUUID != ""
+          - nm_add_filter_again.current.srcIPPrefix == "1.1.1.1"
+          - nm_add_filter_again.current.srcPortFrom == 0
+          - nm_add_filter_again.current.srcPortTo == 0
+          - nm_add_filter_again.current.templateId != ""
+          - nm_add_filter_again.current.templateName == "ansible_test"
+          - nm_add_filter_again.previous.destIPPrefix == "2.2.2.2"
+          - nm_add_filter_again.previous.destPortFrom == 0
+          - nm_add_filter_again.previous.destPortTo == 0
+          - nm_add_filter_again.previous.ipProtocol == "0"
+          - nm_add_filter_again.previous.name == ""
+          - nm_add_filter_again.previous.spanSessionName == "ansible_test_span_session"
+          - nm_add_filter_again.previous.spanSessionSourceName == "ansible_test_source_1"
+          - nm_add_filter_again.previous.spanSessionUUID != ""
+          - nm_add_filter_again.previous.srcIPPrefix == "1.1.1.1"
+          - nm_add_filter_again.previous.srcPortFrom == 0
+          - nm_add_filter_again.previous.srcPortTo == 0
+          - nm_add_filter_again.previous.templateId != ""
+          - nm_add_filter_again.previous.templateName == "ansible_test"
+          - add_filter_1 is changed
+          - add_filter_1.current.destIPPrefix == "2.2.2.2"
+          - add_filter_1.current.destPortFrom == 80
+          - add_filter_1.current.destPortTo == 443
+          - add_filter_1.current.ipProtocol == "6"
+          - add_filter_1.current.name == ""
+          - add_filter_1.current.spanSessionName == "ansible_test_span_session"
+          - add_filter_1.current.spanSessionSourceName == "ansible_test_source_1"
+          - add_filter_1.current.spanSessionUUID != ""
+          - add_filter_1.current.srcIPPrefix == "1.1.1.1"
+          - add_filter_1.current.srcPortFrom == 80
+          - add_filter_1.current.srcPortTo == 443
+          - add_filter_1.current.templateId != ""
+          - add_filter_1.current.templateName == "ansible_test"
+          - add_filter_1.previous == {}
+          - add_filter_2 is changed
+          - add_filter_2.current.destIPPrefix == "2.2.2.2"
+          - add_filter_2.current.destPortFrom == 25
+          - add_filter_2.current.destPortTo == 110
+          - add_filter_2.current.ipProtocol == "6"
+          - add_filter_2.current.name == ""
+          - add_filter_2.current.spanSessionName == "ansible_test_span_session"
+          - add_filter_2.current.spanSessionSourceName == "ansible_test_source_1"
+          - add_filter_2.current.spanSessionUUID != ""
+          - add_filter_2.current.srcIPPrefix == "1.1.1.1"
+          - add_filter_2.current.srcPortFrom == 20
+          - add_filter_2.current.srcPortTo == 22
+          - add_filter_2.current.templateId != ""
+          - add_filter_2.current.templateName == "ansible_test"
+          - add_filter_2.previous == {}
+          - add_filter_2_again is not changed
+          - add_filter_2.current == add_filter_2_again.current
+          - add_filter_2.current == add_filter_2_again.previous
+          - add_filter_with_ipv6 is changed
+          - add_filter_with_ipv6.current.destIPPrefix == "2::2"
+          - add_filter_with_ipv6.current.destPortFrom == 25
+          - add_filter_with_ipv6.current.destPortTo == 110
+          - add_filter_with_ipv6.current.ipProtocol == "6"
+          - add_filter_with_ipv6.current.name == ""
+          - add_filter_with_ipv6.current.spanSessionName == "ansible_test_span_session"
+          - add_filter_with_ipv6.current.spanSessionSourceName == "ansible_test_source_1"
+          - add_filter_with_ipv6.current.srcIPPrefix == "1::1"
+          - add_filter_with_ipv6.current.srcPortFrom == 20
+          - add_filter_with_ipv6.current.srcPortTo == 22
+          - add_filter_with_ipv6.current.templateId != ""
+          - add_filter_with_ipv6.current.templateName == "ansible_test"
+          - add_filter_with_ipv6.previous == {}
+
+    # ERROR
+    - name: Negative test Create SPAN Session source filter without source_ip_prefix and destination_ip_prefix
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *mso_info
+        template: ansible_test
+        span_session_name: ansible_test_span_session
+        span_session_source_name: ansible_test_source_1
+        source_port_from: 20
+        source_port_to: 22
+        destination_port_from: 25
+        destination_port_to: 110
+        ip_protocol: 6
+        state: present
+      register: nt_add_filter_3
+      ignore_errors: true
+
+    - name: Negative test Create SPAN Session source filter with invalid port configuration
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *mso_info
+        template: ansible_test
+        span_session_name: ansible_test_span_session
+        span_session_source_name: ansible_test_source_1
+        source_port_from: 22
+        source_port_to: 20
+        destination_port_from: 110
+        destination_port_to: 25
+        ip_protocol: 6
+        state: present
+      register: nt_add_filter_4
+      ignore_errors: true
+
+    - name: Negative test Create SPAN Session source filter with template and template_id
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *mso_info
+        template: ansible_test
+        template_id: "{{ nm_add_epg_span_session.current.templateId }}"
+        span_session_name: ansible_test_span_session
+        span_session_source_name: ansible_test_source_1
+        source_ip_prefix: 1.1.1.1
+        destination_ip_prefix: 2.2.2.2
+        source_port_from: 22
+        source_port_to: 20
+        destination_port_from: 110
+        destination_port_to: 25
+        ip_protocol: 6
+        state: present
+      register: nt_add_filter_5
+      ignore_errors: true
+
+    - name: Negative test Create SPAN Session source filter with span_session_name and span_session_uuid
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *mso_info
+        template: ansible_test
+        span_session_uuid: "{{ nm_add_epg_span_session.current.uuid }}"
+        span_session_name: ansible_test_span_session
+        span_session_source_name: ansible_test_source_1
+        source_ip_prefix: 1.1.1.1
+        destination_ip_prefix: 2.2.2.2
+        source_port_from: 22
+        source_port_to: 20
+        destination_port_from: 110
+        destination_port_to: 25
+        ip_protocol: 6
+        state: present
+      register: nt_add_filter_6
+      ignore_errors: true
+
+    - name: Negative test Create SPAN Session source filter without source name
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *mso_info
+        template: ansible_test
+        span_session_name: ansible_test_span_session
+        source_ip_prefix: 1.1.1.1
+        destination_ip_prefix: 2.2.2.2
+        source_port_from: 22
+        source_port_to: 20
+        destination_port_from: 110
+        destination_port_to: 25
+        ip_protocol: 6
+        state: present
+      register: nt_add_filter_7
+      ignore_errors: true
+
+    - name: Assertion check for create SPAN Session source filter with invalid configuration
+      ansible.builtin.assert:
+        that:
+          - nt_add_filter_3 is not changed
+          - nt_add_filter_3.msg == "state is present but all of the following are missing{{':'}} source_ip_prefix, destination_ip_prefix"
+          - nt_add_filter_4 is not changed
+          - nt_add_filter_4.msg == "state is present but all of the following are missing{{':'}} source_ip_prefix, destination_ip_prefix"
+          - nt_add_filter_5 is not changed
+          - nt_add_filter_5.msg == "parameters are mutually exclusive{{':'}} template|template_id"
+          - nt_add_filter_6 is not changed
+          - nt_add_filter_6.msg == "parameters are mutually exclusive{{':'}} span_session_name|span_session_uuid"
+          - nt_add_filter_7 is not changed
+          - nt_add_filter_7.msg == "state is present but all of the following are missing{{':'}} span_session_source_name"
+
+    # QUERY
+    - name: Query a specific SPAN Session source filter with source_ip_prefix and destination_ip_prefix
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *mso_info
+        template: ansible_test
+        span_session_name: ansible_test_span_session
+        span_session_source_name: ansible_test_source_1
+        source_ip_prefix: 1.1.1.1
+        destination_ip_prefix: 2.2.2.2
+        state: query
+      register: query_with_only_ip
+
+    - name: Query a specific SPAN Session source filter with full details
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *mso_info
+        template: ansible_test
+        span_session_name: ansible_test_span_session
+        span_session_source_name: ansible_test_source_1
+        source_ip_prefix: 1.1.1.1
+        destination_ip_prefix: 2.2.2.2
+        source_port_from: 20
+        source_port_to: 22
+        destination_port_from: 25
+        destination_port_to: 110
+        ip_protocol: 6
+        state: query
+      register: query_with_full_config_1
+
+    - name: Query a specific SPAN Session source filter with full details
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *mso_info
+        template: ansible_test
+        span_session_name: ansible_test_span_session
+        span_session_source_name: ansible_test_source_1
+        source_ip_prefix: 1.1.1.1
+        destination_ip_prefix: 2.2.2.2
+        source_port_from: "ftp_data"
+        source_port_to: "ssh"
+        destination_port_from: "smtp"
+        destination_port_to: "pop3"
+        ip_protocol: "tcp"
+        state: query
+      register: query_with_full_config_2
+
+    - name: Query all SPAN Session source filters
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *mso_info
+        template: ansible_test
+        span_session_name: ansible_test_span_session
+        span_session_source_name: ansible_test_source_1
+        state: query
+      register: query_all
+
+    - name: Assertion check for query SPAN Session source filters
+      ansible.builtin.assert:
+        that:
+          - query_with_only_ip is not changed
+          - query_with_only_ip.current.destIPPrefix == "2.2.2.2"
+          - query_with_only_ip.current.destPortFrom == 0
+          - query_with_only_ip.current.destPortTo == 0
+          - query_with_only_ip.current.ipProtocol == "0"
+          - query_with_only_ip.current.name == ""
+          - query_with_only_ip.current.spanSessionName == "ansible_test_span_session"
+          - query_with_only_ip.current.spanSessionSourceName == "ansible_test_source_1"
+          - query_with_only_ip.current.spanSessionUUID != ""
+          - query_with_only_ip.current.srcIPPrefix == "1.1.1.1"
+          - query_with_only_ip.current.srcPortFrom == 0
+          - query_with_only_ip.current.srcPortTo == 0
+          - query_with_only_ip.current.templateId != ""
+          - query_with_only_ip.current.templateName == "ansible_test"
+          - query_with_full_config_1 is not changed
+          - query_with_full_config_1.current.destIPPrefix == "2.2.2.2"
+          - query_with_full_config_1.current.destPortFrom == 25
+          - query_with_full_config_1.current.destPortTo == 110
+          - query_with_full_config_1.current.ipProtocol == "6"
+          - query_with_full_config_1.current.name == ""
+          - query_with_full_config_1.current.spanSessionName == "ansible_test_span_session"
+          - query_with_full_config_1.current.spanSessionSourceName == "ansible_test_source_1"
+          - query_with_full_config_1.current.spanSessionUUID != ""
+          - query_with_full_config_1.current.srcIPPrefix == "1.1.1.1"
+          - query_with_full_config_1.current.srcPortFrom == 20
+          - query_with_full_config_1.current.srcPortTo == 22
+          - query_with_full_config_1.current.templateId != ""
+          - query_with_full_config_1.current.templateName == "ansible_test"
+          - query_with_full_config_2 is not changed
+          - query_with_full_config_1.current == query_with_full_config_2.current
+          - query_with_full_config_2.current.destIPPrefix == "2.2.2.2"
+          - query_with_full_config_2.current.destPortFrom == 25
+          - query_with_full_config_2.current.destPortTo == 110
+          - query_with_full_config_2.current.ipProtocol == "6"
+          - query_with_full_config_2.current.name == ""
+          - query_with_full_config_2.current.spanSessionName == "ansible_test_span_session"
+          - query_with_full_config_2.current.spanSessionSourceName == "ansible_test_source_1"
+          - query_with_full_config_2.current.spanSessionUUID != ""
+          - query_with_full_config_2.current.srcIPPrefix == "1.1.1.1"
+          - query_with_full_config_2.current.srcPortFrom == 20
+          - query_with_full_config_2.current.srcPortTo == 22
+          - query_with_full_config_2.current.templateId != ""
+          - query_with_full_config_2.current.templateName == "ansible_test"
+          - query_all is not changed
+          - query_all.current.0.destIPPrefix == "2.2.2.2"
+          - query_all.current.0.destPortFrom == 0
+          - query_all.current.0.destPortTo == 0
+          - query_all.current.0.ipProtocol == "0"
+          - query_all.current.0.name == ""
+          - query_all.current.0.spanSessionName == "ansible_test_span_session"
+          - query_all.current.0.spanSessionSourceName == "ansible_test_source_1"
+          - query_all.current.0.spanSessionUUID != ""
+          - query_all.current.0.srcIPPrefix == "1.1.1.1"
+          - query_all.current.0.srcPortFrom == 0
+          - query_all.current.0.srcPortTo == 0
+          - query_all.current.0.templateId != ""
+          - query_all.current.0.templateName == "ansible_test"
+          - query_all.current.1.destIPPrefix == "2.2.2.2"
+          - query_all.current.1.destPortFrom == 80
+          - query_all.current.1.destPortTo == 443
+          - query_all.current.1.ipProtocol == "6"
+          - query_all.current.1.name == ""
+          - query_all.current.1.spanSessionName == "ansible_test_span_session"
+          - query_all.current.1.spanSessionSourceName == "ansible_test_source_1"
+          - query_all.current.1.spanSessionUUID != ""
+          - query_all.current.1.srcIPPrefix == "1.1.1.1"
+          - query_all.current.1.srcPortFrom == 80
+          - query_all.current.1.srcPortTo == 443
+          - query_all.current.1.templateId != ""
+          - query_all.current.1.templateName == "ansible_test"
+          - query_all.current.2.destIPPrefix == "2.2.2.2"
+          - query_all.current.2.destPortFrom == 25
+          - query_all.current.2.destPortTo == 110
+          - query_all.current.2.ipProtocol == "6"
+          - query_all.current.2.name == ""
+          - query_all.current.2.spanSessionName == "ansible_test_span_session"
+          - query_all.current.2.spanSessionSourceName == "ansible_test_source_1"
+          - query_all.current.2.spanSessionUUID != ""
+          - query_all.current.2.srcIPPrefix == "1.1.1.1"
+          - query_all.current.2.srcPortFrom == 20
+          - query_all.current.2.srcPortTo == 22
+          - query_all.current.2.templateId != ""
+          - query_all.current.2.templateName == "ansible_test"
+
+    # DELETE
+    - name: Delete a specific SPAN Session source filter with only source_ip_prefix and destination_ip_prefix (check mode)
+      cisco.mso.ndo_fabric_span_session_source_filter: &cm_rm_filter_with_only_ip
+        <<: *mso_info
+        template: ansible_test
+        span_session_name: ansible_test_span_session
+        span_session_source_name: ansible_test_source_1
+        source_ip_prefix: 1.1.1.1
+        destination_ip_prefix: 2.2.2.2
+        state: absent
+        output_level: debug
+      check_mode: true
+      register: cm_rm_filter_with_only_ip
+
+    - name: Delete a specific SPAN Session source filter with only source_ip_prefix and destination_ip_prefix
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *cm_rm_filter_with_only_ip
+      register: nm_rm_filter_with_only_ip
+
+    - name: Delete a specific SPAN Session source filter with only source_ip_prefix and destination_ip_prefix again
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *cm_rm_filter_with_only_ip
+      register: nm_rm_filter_with_only_ip_again
+
+    - name: Delete a specific SPAN Session source filter with full configuration
+      cisco.mso.ndo_fabric_span_session_source_filter: &rm_filter_with_full_config
+        <<: *mso_info
+        template: ansible_test
+        span_session_name: ansible_test_span_session
+        span_session_source_name: ansible_test_source_1
+        source_ip_prefix: 1.1.1.1
+        destination_ip_prefix: 2.2.2.2
+        source_port_from: 20
+        source_port_to: 22
+        destination_port_from: 25
+        destination_port_to: 110
+        ip_protocol: 6
+        state: absent
+      register: rm_filter_with_full_config
+
+    - name: Delete a specific SPAN Session source filter with full configuration again
+      cisco.mso.ndo_fabric_span_session_source_filter:
+        <<: *rm_filter_with_full_config
+      register: rm_filter_with_full_config_again
+
+    - name: Assertion check for delete SPAN Session source filter
+      ansible.builtin.assert:
+        that:
+          - cm_rm_filter_with_only_ip is changed
+          - cm_rm_filter_with_only_ip.current == {}
+          - cm_rm_filter_with_only_ip.previous.destIPPrefix == "2.2.2.2"
+          - cm_rm_filter_with_only_ip.previous.destPortFrom == 0
+          - cm_rm_filter_with_only_ip.previous.destPortTo == 0
+          - cm_rm_filter_with_only_ip.previous.ipProtocol == "0"
+          - cm_rm_filter_with_only_ip.previous.name == ""
+          - cm_rm_filter_with_only_ip.previous.spanSessionName == "ansible_test_span_session"
+          - cm_rm_filter_with_only_ip.previous.spanSessionSourceName == "ansible_test_source_1"
+          - cm_rm_filter_with_only_ip.previous.spanSessionUUID != ""
+          - cm_rm_filter_with_only_ip.previous.srcIPPrefix == "1.1.1.1"
+          - cm_rm_filter_with_only_ip.previous.srcPortFrom == 0
+          - cm_rm_filter_with_only_ip.previous.srcPortTo == 0
+          - cm_rm_filter_with_only_ip.previous.templateId != ""
+          - cm_rm_filter_with_only_ip.previous.templateName == "ansible_test"
+          - cm_rm_filter_with_only_ip.proposed == {}
+          - nm_rm_filter_with_only_ip is changed
+          - nm_rm_filter_with_only_ip.current == {}
+          - cm_rm_filter_with_only_ip.previous == nm_rm_filter_with_only_ip.previous
+          - nm_rm_filter_with_only_ip_again is not changed
+          - nm_rm_filter_with_only_ip_again.current == {}
+          - nm_rm_filter_with_only_ip_again.previous == {}
+          - rm_filter_with_full_config is changed
+          - rm_filter_with_full_config.current == {}
+          - rm_filter_with_full_config.previous.destIPPrefix == "2.2.2.2"
+          - rm_filter_with_full_config.previous.destPortFrom == 25
+          - rm_filter_with_full_config.previous.destPortTo == 110
+          - rm_filter_with_full_config.previous.ipProtocol == "6"
+          - rm_filter_with_full_config.previous.name == ""
+          - rm_filter_with_full_config.previous.spanSessionName == "ansible_test_span_session"
+          - rm_filter_with_full_config.previous.spanSessionSourceName == "ansible_test_source_1"
+          - rm_filter_with_full_config.previous.spanSessionUUID != ""
+          - rm_filter_with_full_config.previous.srcIPPrefix == "1.1.1.1"
+          - rm_filter_with_full_config.previous.srcPortFrom == 20
+          - rm_filter_with_full_config.previous.srcPortTo == 22
+          - rm_filter_with_full_config.previous.templateId != ""
+          - rm_filter_with_full_config.previous.templateName == "ansible_test"
+          - rm_filter_with_full_config_again is not changed
+          - rm_filter_with_full_config_again.current == {}
+          - rm_filter_with_full_config_again.previous == {}
+
+    # CLEAN TEST ENVIRONMENT
+    - name: Ensure Fabric Monitoring Access Policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *rm_monitoring_access_template
+
+    - name: Ensure Fabric Resource Policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_resource_template
+
+    - name: Ensure Fabric Policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_policy_template

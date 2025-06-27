@@ -792,6 +792,42 @@
       register: nt_service_chain_8
       ignore_errors: true
 
+    - name: Negative test add service chain with invalid schema name
+      cisco.mso.mso_schema_template_contract_service_chain:
+        <<: *mso_info
+        schema: invalid
+        template: ansible_template
+        contract: Contract1
+        node_filter: "allow_all"
+        service_nodes:
+          - device_type: load_balancer
+            consumer_interface_name: lb_interface1
+            provider_interface_name: lb_interface2
+            device:
+              name: load_balancer
+              template: ansible_device_template
+        state: present
+      register: nt_service_chain_9
+      ignore_errors: true
+
+    - name: Negative test add service chain with invalid template name
+      cisco.mso.mso_schema_template_contract_service_chain:
+        <<: *mso_info
+        schema: ansible_test
+        template: invalid
+        contract: Contract1
+        node_filter: "allow_all"
+        service_nodes:
+          - device_type: load_balancer
+            consumer_interface_name: lb_interface1
+            provider_interface_name: lb_interface2
+            device:
+              name: load_balancer
+              template: ansible_device_template
+        state: present
+      register: nt_service_chain_10
+      ignore_errors: true
+
     - name: Assertion check for negative tests
       ansible.builtin.assert:
         that:
@@ -810,7 +846,11 @@
           - nt_service_chain_7 is not changed
           - nt_service_chain_7.msg == "one of the following is required{{':'}} template, template_id"
           - nt_service_chain_8 is not changed
-          - nt_service_chain_8.msg == "Schema ID{{':'}} invalid is not associated with the template{{':'}} ansible_template"
+          - nt_service_chain_8.msg == "Failed to locate the template with the name{{':'}} ansible_template, using the schema{{':'}} None or schema ID{{':'}} invalid."
+          - nt_service_chain_9 is not changed
+          - nt_service_chain_9.msg == "Failed to locate the template with the name{{':'}} ansible_template, using the schema{{':'}} invalid or schema ID{{':'}} None."
+          - nt_service_chain_10 is not changed
+          - nt_service_chain_10.msg == "Failed to locate the template with the name{{':'}} invalid, using the schema{{':'}} ansible_test or schema ID{{':'}} None."
 
     # DELETE
     - name: Remove contract service chain (check_mode)

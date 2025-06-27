@@ -17,7 +17,7 @@ SearchQuery = namedtuple("SearchQuery", "key kv_pairs")
 
 
 class MSOTemplate:
-    def __init__(self, mso_module, template_type=None, template_name=None, template_id=None, fail_module=False):
+    def __init__(self, mso_module, template_type=None, template_name=None, template_id=None, schema_name=None, schema_id=None):
         self.mso = mso_module
         self.templates_path = "templates"
         self.summaries_path = "{0}/summaries".format(self.templates_path)
@@ -25,11 +25,12 @@ class MSOTemplate:
         self.template_path = ""
         self.template_name = template_name
         self.template_id = template_id
-        self.schema_id = None
         self.template_type = template_type
         self.template_summary = {}
         self.template_objects_cache = {}
         self.schema_path = None
+        self.schema_name = schema_name
+        self.schema_id = schema_id
 
         if template_id:
             # Checking if the template with id exists to avoid error: MSO Error 400: Template ID 665da24b95400f375928f195 invalid
@@ -53,7 +54,11 @@ class MSOTemplate:
             if not template_type:
                 self.mso.fail_json(msg="Template type must be provided when using template name.")
             self.template_summary = self.mso.get_obj(
-                self.summaries_path, templateName=self.template_name, templateType=TEMPLATE_TYPES[template_type]["template_type"]
+                self.summaries_path,
+                templateName=self.template_name,
+                templateType=TEMPLATE_TYPES[template_type]["template_type"],
+                schemaName=self.schema_name,
+                schemaId=self.schema_id,
             )
             if self.template_summary:
                 self.template_path = "{0}/{1}".format(self.templates_path, self.template_summary.get("templateId"))
@@ -82,8 +87,17 @@ class MSOTemplate:
             for key in ["_updateVersion", "version"]:
                 self.template.pop(key, None)
 
-        self.schema_id = self.template.get("schemaId")
-        self.schema_path = "schemas/{0}".format(self.schema_id)
+        if template_type == "application":
+            if not self.template_summary:
+                self.mso.fail_json(
+                    msg="Failed to locate the template with the name: {0}, using the schema: {1} or schema ID: {2}.".format(
+                        self.template_name, self.schema_name, self.schema_id
+                    )
+                )
+
+            self.schema_name = self.schema_name or self.template_summary.get("schemaName")
+            self.schema_id = self.schema_id or self.template_summary.get("schemaId")
+            self.schema_path = "schemas/{0}".format(self.schema_id)
 
     @staticmethod
     def get_object_from_list(search_list, kv_list):

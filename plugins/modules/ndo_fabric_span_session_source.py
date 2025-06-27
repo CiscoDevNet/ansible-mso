@@ -71,10 +71,10 @@ options:
       uuid:
         description:
         - The UUID of the EPG used to configure the Filter EPG.
-        - This parameter or O(filter_epg.epg) is required.
+        - This parameter or O(filter_epg.epg_reference) is required.
         type: str
         aliases: [ epg_uuid ]
-      epg:
+      epg_reference:
         description:
         - The EPG object detail used to configure the Filter EPG.
         - This parameter or O(filter_epg.uuid) is required.
@@ -88,32 +88,32 @@ options:
           template:
             description:
             - The name of the template that contains the EPG.
-            - This parameter or O(filter_epg.epg.template_id) is required.
+            - This parameter or O(filter_epg.epg_reference.template_id) is required.
             type: str
           template_id:
             description:
             - The ID of the template that contains the EPG.
-            - This parameter or O(filter_epg.epg.template) is required.
+            - This parameter or O(filter_epg.epg_reference.template) is required.
             type: str
           schema_id:
             description:
             - The ID of the schema that contains the EPG.
-            - This parameter or O(filter_epg.epg.schema) is required.
+            - This parameter or O(filter_epg.epg_reference.schema) is required.
             type: str
           schema:
             description:
             - The name of the schema that contains the EPG.
-            - This parameter or O(filter_epg.epg.schema_id) is required.
+            - This parameter or O(filter_epg.epg_reference.schema_id) is required.
             type: str
           anp:
             description:
             - The name of the ANP that contains the EPG.
-            - This parameter or O(filter_epg.epg.anp_uuid) is required.
+            - This parameter or O(filter_epg.epg_reference.anp_uuid) is required.
             type: str
           anp_uuid:
             description:
             - The UUID of the ANP that contains the EPG.
-            - This parameter or O(filter_epg.epg.anp) is required.
+            - This parameter or O(filter_epg.epg_reference.anp) is required.
             type: str
   filter_l3out:
     description:
@@ -125,7 +125,7 @@ options:
     - Providing an empty dictionary O(filter_l3out={}) will remove the filter l3out from the SPAN Session source.
     type: dict
     suboptions:
-      l3out:
+      l3out_reference:
         description:
         - The Filter L3Out object detail used to configure the Filter L3Out.
         - This parameter or O(filter_l3out.uuid) is required.
@@ -139,22 +139,22 @@ options:
           tenant:
             description:
             - The name of the tenant. This parameter is used to associate the L3Out from APIC.
-            - This parameter or O(filter_l3out.l3out.template), or O(filter_l3out.l3out.template_id) is required to associate the L3Out from L3Out template.
+            - This parameter or O(filter_l3out.l3out_reference.template), or O(filter_l3out.l3out_reference.template_id) is required.
             type: str
           template:
             description:
             - The name of the L3Out template.
-            - This parameter or O(filter_l3out.l3out.template_id), or O(filter_l3out.l3out.tenant) is required to associate the L3Out from L3Out template.
+            - This parameter or O(filter_l3out.l3out_reference.template_id), or O(filter_l3out.l3out_reference.tenant) is required.
             type: str
           template_id:
             description:
             - The ID of the L3Out template.
-            - This parameter or O(filter_l3out.l3out.template), or O(filter_l3out.l3out.tenant) is required to associate the L3Out from L3Out template.
+            - This parameter or O(filter_l3out.l3out_reference.template), or O(filter_l3out.l3out_reference.tenant) is required.
             type: str
       uuid:
         description:
         - The UUID of the L3Out.
-        - This parameter or O(filter_l3out.l3out) is required.
+        - This parameter or O(filter_l3out.l3out_reference) is required.
         type: str
         aliases: [ l3out_uuid ]
       vlan_id:
@@ -217,9 +217,9 @@ notes:
   Use M(cisco.mso.ndo_template) to create the Fabric Monitoring Access Policy template.
 - The O(span_session_name) must exist before using this module in your playbook.
   Use M(cisco.mso.ndo_fabric_span_session) to create the Fabric SPAN Session.
-- The O(filter_epg.epg) must exist before using it with this module in your playbook.
+- The O(filter_epg.epg_reference) must exist before using it with this module in your playbook.
   Use M(cisco.mso.mso_schema_template_anp_epg) to create the EPG.
-- The O(filter_l3out.l3out) must exist before using it with this module in your playbook.
+- The O(filter_l3out.l3out_reference) must exist before using it with this module in your playbook.
   Use M(cisco.mso.ndo_l3out_template) to create the L3Out.
 - The O(access_paths.name) must exist before using it with this module in your playbook.
   Use M(cisco.mso.ndo_port_channel_interface) to create the Fabric resource port channel interface.
@@ -276,7 +276,7 @@ EXAMPLES = r"""
         node: 101
         interface: eth1/6
     filter_epg:
-      epg:
+      epg_reference:
         schema: ansible_test_schema
         template: template1
         anp: ansible_test_anp
@@ -297,7 +297,7 @@ EXAMPLES = r"""
         node: 101
         interface: eth1/1
     filter_l3out:
-      l3out:
+      l3out_reference:
         name: ansible_test_l3out
         template: ansible_test_l3out_template
       vlan_id: 41
@@ -413,14 +413,14 @@ def main():
             type="dict",
             options=dict(
                 uuid=dict(type="str", aliases=["epg_uuid"]),
-                epg=epg_object_reference_spec(),
+                epg_reference=epg_object_reference_spec(),
             ),
-            mutually_exclusive=[("epg", "uuid")],
+            mutually_exclusive=[("epg_reference", "uuid")],
         ),
         filter_l3out=dict(
             type="dict",
             options=dict(
-                l3out=dict(
+                l3out_reference=dict(
                     type="dict",
                     options=dict(
                         name=dict(type="str", required=True),
@@ -434,9 +434,9 @@ def main():
                 uuid=dict(type="str", aliases=["l3out_uuid"]),
                 vlan_id=dict(type="int"),
             ),
-            mutually_exclusive=[("l3out", "uuid")],
+            mutually_exclusive=[("l3out_reference", "uuid")],
             required_by={
-                "l3out": "vlan_id",
+                "l3out_reference": "vlan_id",
                 "uuid": "vlan_id",
             },
         ),
@@ -527,21 +527,29 @@ def main():
             spanDropPackets=span_drop_packets,
         )
 
-        if filter_epg and (filter_epg.get("epg") or filter_epg.get("uuid")):
-            mso_values["epg"] = mso_schemas.get_epg_uuid(filter_epg.get("epg"), filter_epg.get("uuid"))
+        if filter_epg and (filter_epg.get("epg_reference") or filter_epg.get("uuid")):
+            mso_values["epg"] = mso_schemas.get_epg_uuid(filter_epg.get("epg_reference"), filter_epg.get("uuid"))
 
-        if filter_l3out and (filter_l3out.get("l3out") or filter_l3out.get("uuid")):
+        if filter_l3out and (filter_l3out.get("l3out_reference") or filter_l3out.get("uuid")):
             mso_values["l3out"] = dict(
                 encapType="vlan",
                 encapValue=filter_l3out.get("vlan_id"),
             )
             if filter_l3out.get("uuid"):
                 mso_values["l3out"]["ref"] = filter_l3out.get("uuid")
-            elif filter_l3out.get("l3out") and filter_l3out.get("l3out").get("tenant"):
-                mso_values["l3out"]["dn"] = "uni/tn-{0}/out-{1}".format(filter_l3out.get("l3out").get("tenant"), filter_l3out.get("l3out").get("name"))
-            elif filter_l3out.get("l3out") and (filter_l3out.get("l3out").get("template") or filter_l3out.get("l3out").get("template_id")):
-                l3out_template = mso_templates.get_template("l3out", filter_l3out.get("l3out").get("template"), filter_l3out.get("l3out").get("template_id"))
-                l3out_match = l3out_template.get_l3out_object(uuid=filter_l3out.get("uuid"), name=filter_l3out.get("l3out").get("name"), fail_module=True)
+            elif filter_l3out.get("l3out_reference") and filter_l3out.get("l3out_reference").get("tenant"):
+                mso_values["l3out"]["dn"] = "uni/tn-{0}/out-{1}".format(
+                    filter_l3out.get("l3out_reference").get("tenant"), filter_l3out.get("l3out_reference").get("name")
+                )
+            elif filter_l3out.get("l3out_reference") and (
+                filter_l3out.get("l3out_reference").get("template") or filter_l3out.get("l3out_reference").get("template_id")
+            ):
+                l3out_template = mso_templates.get_template(
+                    "l3out", filter_l3out.get("l3out_reference").get("template"), filter_l3out.get("l3out_reference").get("template_id")
+                )
+                l3out_match = l3out_template.get_l3out_object(
+                    uuid=filter_l3out.get("uuid"), name=filter_l3out.get("l3out_reference").get("name"), fail_module=True
+                )
                 if l3out_match:
                     mso_values["l3out"]["ref"] = l3out_match.details.get("uuid")
 

@@ -29,6 +29,7 @@ class MSOTemplate:
         self.template_type = template_type
         self.template_summary = {}
         self.template_objects_cache = {}
+        self.schema_path = None
 
         if template_id:
             # Checking if the template with id exists to avoid error: MSO Error 400: Template ID 665da24b95400f375928f195 invalid
@@ -82,6 +83,7 @@ class MSOTemplate:
                 self.template.pop(key, None)
 
         self.schema_id = self.template.get("schemaId")
+        self.schema_path = "schemas/{0}".format(self.schema_id)
 
     @staticmethod
     def get_object_from_list(search_list, kv_list):

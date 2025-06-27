@@ -284,15 +284,7 @@ def main():
         mso.fail_json(msg="The schema or schema_id is required when the template is set.")
 
     mso_templates = MSOTemplates(mso)
-    mso_template = MSOTemplate(mso, "application", template, template_id)
-
-    if template_id:
-        schema_id = mso_template.template.get("schemaId")
-    elif not schema_id:
-        schema_id = mso.lookup_schema(schema)
-
-    if not template_id and schema_id != mso_template.template.get("schemaId"):
-        mso.fail_json(msg="Schema ID: {0} is not associated with the template: {1}".format(schema_id, template))
+    mso_template = MSOTemplate(mso, "application", template, template_id, schema_name=schema, schema_id=schema_id)
 
     template_id = template_id or mso_template.template.get("templateId")
     template = template or mso_template.template.get("appTemplate", {}).get("template", {}).get("name")

@@ -619,7 +619,7 @@
             node: 101
             interface: eth1/6
         filter_epg:
-          epg:
+          epg_reference:
             schema: ansible_test_schema
             template: template1
             anp: ansible_test_anp
@@ -640,7 +640,7 @@
             interface: eth1/1
         filter_l3out:
           vlan_id: 41
-          l3out:
+          l3out_reference:
             name: ansible_test_l3out
             template: ansible_test_l3out_template
         state: present
@@ -733,7 +733,7 @@
             template: ansible_test_fabric_resource
         filter_l3out:
           vlan_id: 42
-          l3out:
+          l3out_reference:
             name: ansible_test_l3out
             template: ansible_test_l3out_template
         state: present
@@ -752,7 +752,7 @@
             template: ansible_test_fabric_resource
         filter_l3out:
           vlan_id: 45
-          l3out:
+          l3out_reference:
             name: ansible_test_l3out
             template: ansible_test_l3out_template
         state: present
@@ -826,7 +826,7 @@
             template: ansible_test_fabric_resource
         filter_l3out:
           vlan_id: 45
-          l3out:
+          l3out_reference:
             name: ansible_test_l3out
             template: ansible_test_l3out_template
         state: present
@@ -861,7 +861,7 @@
         name: ansible_test_source_1
         direction: outgoing
         filter_epg:
-          epg:
+          epg_reference:
             schema: ansible_test_schema
             template: template1
             anp: ansible_test_anp
@@ -877,7 +877,7 @@
         name: ansible_test_source_1
         direction: outgoing
         filter_epg:
-          epg:
+          epg_reference:
             schema: ansible_test_schema
             template: template1
             anp: ansible_test_anp
@@ -898,7 +898,7 @@
             interface: eth1/1
         filter_l3out:
           vlan_id: 41
-          l3out:
+          l3out_reference:
             name: ansible_test_l3out
             template: ansible_test_l3out_template
         state: present
@@ -917,7 +917,7 @@
             template: ansible_test_fabric_resource
         filter_l3out:
           vlan_id: 42
-          l3out:
+          l3out_reference:
             name: ansible_test_l3out
             template: ansible_test_l3out_template
         state: present
@@ -965,7 +965,7 @@
             interface: eth1/24
         filter_l3out:
           vlan_id: 24
-          l3out:
+          l3out_reference:
             name: apic_l3out
             tenant: apic_ansible_test_tenant
         state: present
@@ -1493,7 +1493,7 @@
         direction: outgoing
         span_drop_packets: true
         filter_epg:
-          epg:
+          epg_reference:
             schema: ansible_test_schema
             template: template1
             anp: ansible_test_anp
@@ -1510,14 +1510,14 @@
         name: ansible_test_source_2
         direction: outgoing
         filter_epg:
-          epg:
+          epg_reference:
             schema: ansible_test_schema
             template: template1
             anp: ansible_test_anp
             name: ansible_test_epg2
         filter_l3out:
           vlan_id: 13
-          l3out:
+          l3out_reference:
             name: ansible_test_l3out
             template: ansible_test_l3out_template
         state: present
@@ -1540,7 +1540,7 @@
             template: ansible_test_fabric_resource
         filter_l3out:
           vlan_id: 13
-          l3out:
+          l3out_reference:
             name: ansible_test_l3out
             template: ansible_test_l3out_template
         state: present
@@ -1646,7 +1646,7 @@
         name: ansible_test_source_2
         direction: outgoing
         filter_l3out:
-          l3out:
+          l3out_reference:
             name: l3out
         state: present
       register: nt_incomplete_l3out_2
@@ -1661,7 +1661,7 @@
         direction: outgoing
         filter_l3out:
           vlan_id: 10
-          l3out:
+          l3out_reference:
             name: l3out
         state: present
       register: nt_incomplete_l3out_3
@@ -1722,9 +1722,9 @@
           - nt_incomplete_l3out_1 is not changed
           - nt_incomplete_l3out_1.msg == "missing parameter(s) required by 'uuid'{{':'}} vlan_id found in filter_l3out"
           - nt_incomplete_l3out_2 is not changed
-          - nt_incomplete_l3out_2.msg == "missing parameter(s) required by 'l3out'{{':'}} vlan_id found in filter_l3out"
+          - nt_incomplete_l3out_2.msg == "missing parameter(s) required by 'l3out_reference'{{':'}} vlan_id found in filter_l3out"
           - nt_incomplete_l3out_3 is not changed
-          - nt_incomplete_l3out_3.msg == "one of the following is required{{':'}} tenant, template, template_id found in filter_l3out -> l3out"
+          - nt_incomplete_l3out_3.msg == "one of the following is required{{':'}} tenant, template, template_id found in filter_l3out -> l3out_reference"
           - nt_ansible_test_source_4_vpc_com_pc is not changed
           - nt_ansible_test_source_4_vpc_com_pc.msg is match("MSO Error 400{{':'}} .+span{{':'}} ansible_test_span_session, source ansible_test_source_4{{':'}} combination of access paths and L3Out is not correct, no common VLAN.+")
 

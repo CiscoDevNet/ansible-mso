@@ -284,23 +284,18 @@ def main():
         mso.fail_json(msg="The schema or schema_id is required when the template is set.")
 
     mso_templates = MSOTemplates(mso)
-    mso_template = None
+    mso_template = MSOTemplate(mso, "application", template, template_id)
 
     if template_id:
-        mso_template = MSOTemplate(mso, "application", template, template_id)
         schema_id = mso_template.template.get("schemaId")
-    elif schema_id and template:
-        mso_template = MSOTemplate(mso, "application", template, template_id)
-    elif schema and template:
+    elif not schema_id:
         schema_id = mso.lookup_schema(schema)
-        mso_template = MSOTemplate(mso, "application", template, template_id)
 
     if not template_id and schema_id != mso_template.template.get("schemaId"):
         mso.fail_json(msg="Schema ID: {0} is not associated with the template: {1}".format(schema_id, template))
 
     template_id = template_id or mso_template.template.get("templateId")
     template = template or mso_template.template.get("appTemplate", {}).get("template", {}).get("name")
-    schema_path = "schemas/{0}".format(schema_id)
     contract_match = mso_template.get_template_contract(contract_uuid, contract, fail_module=True)
     service_chain = contract_match.details.get("serviceChaining") if contract_match and contract_match.details.get("serviceChaining") else {}
 
@@ -368,7 +363,7 @@ def main():
         ops.append(dict(op="remove", path=service_chain_path))
 
     if not module.check_mode and ops:
-        mso.request(schema_path, method="PATCH", data=ops)
+        mso.request(mso_template.schema_path, method="PATCH", data=ops)
         mso_template = MSOTemplate(mso, "application", None, template_id)
         contract_match = mso_template.get_template_contract(contract_uuid, contract, fail_module=True)
         service_chain = contract_match.details.get("serviceChaining") if contract_match and contract_match.details.get("serviceChaining") else {}

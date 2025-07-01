@@ -132,7 +132,7 @@ options:
   ipv6_dad:
     description:
     - Whether to enable IPv6 Duplicate Address Detection (DAD).
-    - If this parameter is unspecified, NDO defaults to O(ipv6_dad=enabled).
+    - If this parameter is unspecified during create, NDO defaults to O(ipv6_dad=enabled).
     type: str
     choices: [ enabled, disabled ]
   mac:
@@ -143,12 +143,12 @@ options:
     description:
     - The Maximum Transmission Unit (MTU) of the interface.
     - Use O(mtu=inherit) to inherit the value configured under the fabric L2 MTU settings.
-    - The value must be 1, in the range 576 - 9216 or O(mtu=inherit).
+    - The value must be 1, or in the range 576 - 9216 or O(mtu=inherit).
     type: str
   target_dscp:
     description:
     - The target Differentiated Services Code Point (DSCP) of the interface.
-    - If this parameter is unspecified, NDO defaults to O(target_dscp=unspecified).
+    - If this parameter is unspecified during create, NDO defaults to O(target_dscp=unspecified).
     type: str
     choices:
     - af11

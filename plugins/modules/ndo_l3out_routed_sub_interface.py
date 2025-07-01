@@ -14,10 +14,10 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 
 DOCUMENTATION = r"""
 ---
-module: ndo_l3out_routed_interface
-short_description: Manage L3Out Routed Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).
+module: ndo_l3out_routed_sub_interface
+short_description: Manage L3Out Routed Sub-Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
-- Manage L3Out Routed Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).
+- Manage L3Out Routed Sub-Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).
 - This module is only supported on ND v3.1 (NDO v4.3) and later.
 author:
 - Akini Ross (@akinross)
@@ -50,7 +50,6 @@ options:
     description:
     - The ID of the node (border leaf switch) where to deploy the L3Out routing protocol and node-level protocol configurations.
     - This parameter is required when O(path) is specified.
-    - This parameter is required when the node configuration does not exist under the L3Out template.
     - The node configuration is created under the L3Out template when it does not exist.
     - The node configuration is updated under the L3Out template when it already exists.
     - The node configuration is deleted under the L3Out template when there are no interfaces referencing it.
@@ -59,7 +58,6 @@ options:
   node_router_id:
     description:
     - The router ID of the node.
-    - This parameter is required when the node configuration does not exist under the L3Out template.
     type: str
     aliases: [ router_id ]
   node_group_policy:
@@ -115,19 +113,6 @@ options:
             - The ID of the template that contains the port channel.
             - This parameter or O(port_channel.reference.template) is required.
             type: str
-      micro_bfd_enabled:
-        description:
-        - Whether to enable micro BFD (Bidirectional Forwarding Detection) on the interface.
-        type: bool
-      micro_bfd_address:
-        description:
-        - The address for micro BFD.
-        type: str
-      micro_bfd_start_timer:
-        description:
-        - The start timer for micro BFD.
-        - The value must be 0 or in the range 60 - 3600.
-        type: int
   interface_group_policy:
     description:
     - The name of the interface group policy.
@@ -147,7 +132,7 @@ options:
   ipv6_dad:
     description:
     - Whether to enable IPv6 Duplicate Address Detection (DAD).
-    - If this parameter is unspecified, NDO defaults to O(ipv6_dad=enabled).
+    - If this parameter is unspecified during create, NDO defaults to O(ipv6_dad=enabled).
     type: str
     choices: [ enabled, disabled ]
   mac:
@@ -158,12 +143,12 @@ options:
     description:
     - The Maximum Transmission Unit (MTU) of the interface.
     - Use O(mtu=inherit) to inherit the value configured under the fabric L2 MTU settings.
-    - The value must be 1, in the range 576 - 9216 or O(mtu=inherit).
+    - The value must be 1, or in the range 576 - 9216 or O(mtu=inherit).
     type: str
   target_dscp:
     description:
     - The target Differentiated Services Code Point (DSCP) of the interface.
-    - If this parameter is unspecified, NDO defaults to O(target_dscp=unspecified).
+    - If this parameter is unspecified during create, NDO defaults to O(target_dscp=unspecified).
     type: str
     choices:
     - af11
@@ -189,6 +174,19 @@ options:
     - expedited_forwarding
     - unspecified
     - voice_admit
+  encapsulation_type:
+    description:
+    - The encapsulation type of the interface.
+    type: str
+    aliases: [ encap_type ]
+    choices: [ vlan, vxlan ]
+  encapsulation_value:
+    description:
+    - The encapsulation value of the interface.
+    - If O(encapsulation_type=vlan), this is the VLAN ID which must be in the range 1 - 4094.
+    - If O(encapsulation_type=vxlan), this is the VXLAN Network Identifier (VNI) which must be in the range 5000 - 16777215.
+    type: int
+    aliases: [ encap, encapsulation, encapsulation_id ]
   state:
     description:
     - Determines the desired state of the resource.
@@ -203,18 +201,15 @@ notes:
   The M(cisco.mso.ndo_template) module can be used for this.
 - The O(l3out) or O(l3out_uuid) must exist before using this module in your playbook.
   The M(cisco.mso.ndo_l3out_template) module can be used for this.
-- The O(port_channel) must exist before using this module in your playbook.
-  The M(cisco.mso.ndo_port_channel_interface) module can be used for this.
 seealso:
 - module: cisco.mso.ndo_template
 - module: cisco.mso.ndo_l3out_template
-- module: cisco.mso.ndo_port_channel_interface
 extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-- name: Create a L3Out Routed Interface of type port with L3Out Node configuration
-  cisco.mso.ndo_l3out_routed_interface:
+- name: Create a L3Out Routed Sub-Interface of type port
+  cisco.mso.ndo_l3out_routed_sub_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -228,14 +223,16 @@ EXAMPLES = r"""
     mtu: inherit
     node_id: 101
     path: eth1/1
+    encapsulation_type: vlan
+    encapsulation_value: 100
     interface_group_policy: interface_group_policy_name
     node_router_id: 1.1.1.1
     node_group_policy: node_group_policy_name
     use_router_id_as_loopback: true
     state: present
 
-- name: Create a L3Out Routed Interface of type port_channel with reference and L3Out Node configuration
-  cisco.mso.ndo_l3out_routed_interface:
+- name: Create a L3Out Routed Sub-Interface of type port_channel with reference
+  cisco.mso.ndo_l3out_routed_sub_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -248,12 +245,11 @@ EXAMPLES = r"""
     mac: 00:22:BD:F8:19:EE
     mtu: 2000
     port_channel:
-      micro_bfd_enabled: true
-      micro_bfd_address: 1::110
-      micro_bfd_start_timer: 60
       reference:
         name: port_channel_interface_name
         template: fabric_resource_template_name
+    encapsulation_type: vlan
+    encapsulation_value: 100
     interface_group_policy: interface_group_policy_name
     node_router_id: 2.2.2.2
     node_group_policy: node_group_policy_name
@@ -261,8 +257,8 @@ EXAMPLES = r"""
     node_loopback_ip: 10.0.0.1
     state: present
 
-- name: Update a L3Out Routed Interface of type port_channel with uuid and L3Out Node configuration
-  cisco.mso.ndo_l3out_routed_interface:
+- name: Update a L3Out Routed Sub-Interface of type port_channel with uuid
+  cisco.mso.ndo_l3out_routed_sub_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -275,10 +271,9 @@ EXAMPLES = r"""
     mac: 00:22:BD:F8:19:EE
     mtu: 2000
     port_channel:
-      micro_bfd_enabled: true
-      micro_bfd_address: 1::110
-      micro_bfd_start_timer: 60
       uuid: "{{ port_channel_interface.current.uuid }}"
+    encapsulation_type: vlan
+    encapsulation_value: 100
     interface_group_policy: interface_group_policy_name
     node_router_id: 2.2.2.2
     node_group_policy: node_group_policy_name
@@ -286,8 +281,8 @@ EXAMPLES = r"""
     node_loopback_ip: 10.0.0.1
     state: present
 
-- name: Query an existing L3Out Routed Interface of type port with L3Out Node configuration
-  cisco.mso.ndo_l3out_routed_interface:
+- name: Query an existing L3Out Routed Sub-Interface of type port
+  cisco.mso.ndo_l3out_routed_sub_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -295,11 +290,13 @@ EXAMPLES = r"""
     l3out: l3out_name
     node_id: 101
     path: eth1/1
+    encapsulation_type: vlan
+    encapsulation_value: 100
     state: query
   register: query_with_name
 
-- name: Query an existing L3Out Routed Interface of type port_channel with L3Out Node configuration
-  cisco.mso.ndo_l3out_routed_interface:
+- name: Query an existing L3Out Routed Sub-Interface of type port_channel
+  cisco.mso.ndo_l3out_routed_sub_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -309,11 +306,13 @@ EXAMPLES = r"""
       reference:
         name: port_channel_interface_name
         template: fabric_resource_template_name
+    encapsulation_type: vlan
+    encapsulation_value: 100
     state: query
   register: query_with_name
 
-- name: Query all existing Routed Interfaces of a L3Out with L3Out Node configuration
-  cisco.mso.ndo_l3out_routed_interface:
+- name: Query all existing Routed Sub-Interfaces of a L3Out
+  cisco.mso.ndo_l3out_routed_sub_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -321,8 +320,8 @@ EXAMPLES = r"""
     l3out: l3out_name
     state: query
 
-- name: Delete an existing L3Out Routed Interface
-  cisco.mso.ndo_l3out_routed_interface:
+- name: Delete an existing L3Out Routed Sub-Interface
+  cisco.mso.ndo_l3out_routed_sub_interface:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -330,6 +329,8 @@ EXAMPLES = r"""
     l3out: l3out_name
     node_id: 101
     path: eth1/1
+    encapsulation_type: vlan
+    encapsulation_value: 100
     state: absent
 """
 
@@ -358,7 +359,7 @@ def main():
         use_router_id_as_loopback=dict(type="bool"),
         node_loopback_ip=dict(type="str", aliases=["loopback_ip"]),
         path=dict(type="str", aliases=["interface"]),
-        port_channel=ndo_l3out_port_channel_spec(),
+        port_channel=ndo_l3out_port_channel_spec(micro_bfd=False),
         interface_group_policy=dict(type="str"),
         ipv4_address=dict(type="str"),
         ipv6_address=dict(type="str"),
@@ -367,6 +368,8 @@ def main():
         mac=dict(type="str"),
         mtu=dict(type="str"),
         target_dscp=dict(type="str", choices=list(TARGET_DSCP_MAP)),
+        encapsulation_type=dict(type="str", choices=["vlan", "vxlan"], aliases=["encap_type"]),
+        encapsulation_value=dict(type="int", aliases=["encap", "encapsulation", "encapsulation_id"]),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
 
@@ -378,7 +381,8 @@ def main():
             ["state", "absent", ["path", "port_channel"], True],
         ],
         required_by={
-            "path": "node_id",
+            "path": ("node_id", "encapsulation_type", "encapsulation_value"),
+            "port_channel": ("encapsulation_type", "encapsulation_value"),
         },
         required_one_of=[
             ["template", "template_id"],
@@ -393,6 +397,7 @@ def main():
     )
 
     mso = MSOModule(module)
+    mso.stdout = ""
     mso_templates = MSOTemplates(mso)
 
     template_name = mso.params.get("template")
@@ -414,6 +419,11 @@ def main():
     mac = mso.params.get("mac")
     mtu = mso.params.get("mtu")
     target_dscp = mso.params.get("target_dscp")
+    encapsulation_type = mso.params.get("encapsulation_type")
+    encapsulation_value = mso.params.get("encapsulation_value")
+    encap = None
+    if encapsulation_type and encapsulation_value:
+        encap = {"encapType": encapsulation_type, "value": encapsulation_value}
     state = mso.params.get("state")
 
     mso_template = mso_templates.get_template("l3out", template_name, template_id)
@@ -449,14 +459,14 @@ def main():
             port_channel_uuid=port_channel_uuid,
         ).get("pod")
 
-    match = mso_template.get_l3out_routed_interface(l3out_object.details, pod_id, node_id, path, port_channel_uuid)
-    if (path or port_channel) and match:
-        set_routed_interface_details(mso_template, match.details, l3out_object)
+    match = mso_template.get_l3out_routed_sub_interface(l3out_object.details, pod_id, node_id, path, port_channel_uuid, encap)
+    if (path or port_channel) and encap and match:
+        set_routed_sub_interface_details(mso_template, match.details, l3out_object)
         mso.existing = mso.previous = copy.deepcopy(match.details)  # Query a specific object
     elif match:
-        mso.existing = [set_routed_interface_details(mso_template, obj, l3out_object) for obj in match]
+        mso.existing = [set_routed_sub_interface_details(mso_template, obj, l3out_object) for obj in match]
 
-    l3out_interface_path = "/l3outTemplate/l3outs/{0}/interfaces/{1}".format(l3out_object.index, match.index if match else "-")
+    l3out_sub_interface_path = "/l3outTemplate/l3outs/{0}/subInterfaces/{1}".format(l3out_object.index, match.index if match else "-")
 
     ops = []
 
@@ -473,6 +483,7 @@ def main():
             "mac": mac,
             "mtu": mtu,
             "targetDscp": target_dscp,
+            "encap": encap,
         }
 
         if path:
@@ -480,22 +491,13 @@ def main():
             mso_values["podID"] = pod_id
 
         if match:
-            remove_data = []
             mso_values[("addresses", "primaryV4")] = ipv4_address
             mso_values[("addresses", "primaryV6")] = ipv6_address
             mso_values[("addresses", "linkLocalV6")] = ipv6_link_local_address
             mso_values[("addresses", "ipV6DAD")] = ipv6_dad
 
-            if port_channel and port_channel.get("micro_bfd_enabled") is False:
-                remove_data.append("microBfd")
-            elif port_channel and port_channel.get("micro_bfd_enabled"):
-                if not match.details.get("microBfd"):
-                    mso_values["microBfd"] = {}
-                mso_values[("microBfd", "address")] = port_channel.get("micro_bfd_address")
-                mso_values[("microBfd", "startTimer")] = port_channel.get("micro_bfd_start_timer")
-
-            append_update_ops_data(ops, match.details, l3out_interface_path, mso_values, remove_data)
-            mso.sanitize(match.details, collate=True, unwanted=remove_data)
+            append_update_ops_data(ops, match.details, l3out_sub_interface_path, mso_values)
+            mso.sanitize(match.details, collate=True)
 
         else:
             mso_values["addresses"] = {
@@ -505,33 +507,27 @@ def main():
                 "ipV6DAD": ipv6_dad,
             }
 
-            if port_channel and port_channel.get("micro_bfd_enabled") is True:
-                mso_values["microBfd"] = {
-                    "address": port_channel.get("micro_bfd_address"),
-                    "startTimer": port_channel.get("micro_bfd_start_timer"),
-                }
-
             mso_values = delete_none_values(mso_values)
             mso.sanitize(mso_values)
-            ops.append(dict(op="add", path=l3out_interface_path, value=mso.sent))
+            ops.append(dict(op="add", path=l3out_sub_interface_path, value=mso.sent))
 
             # update mso.proposed with interface details that are not included in the interface payload and node details
             mso.proposed["node"] = l3out_node.construct_node_payload()
-            set_routed_interface_details(mso_template, mso.proposed, l3out_object)
 
+        set_routed_sub_interface_details(mso_template, mso.proposed, l3out_object)
         l3out_node.update_ops(ops)
 
     elif state == "absent":
         if match:
-            ops.append(dict(op="remove", path=l3out_interface_path))
+            ops.append(dict(op="remove", path=l3out_sub_interface_path))
 
     if not mso.module.check_mode and ops:
         ignore_errors = ["node {0}-{1} doesn't have an interface configured".format(pod_id, node_id)]
         response = mso.l3out_interface_request(mso_template, ops, ignore_errors, state, l3out_node.get_node_remove_op())
         l3out_object = mso_template.get_l3out_object(l3out_uuid, l3out, True, search_object=response)
-        match = mso_template.get_l3out_routed_interface(l3out_object.details, pod_id, node_id, path, port_channel_uuid)
+        match = mso_template.get_l3out_routed_sub_interface(l3out_object.details, pod_id, node_id, path, port_channel_uuid, encap)
         if match:
-            set_routed_interface_details(mso_template, match.details, l3out_object)
+            set_routed_sub_interface_details(mso_template, match.details, l3out_object)
             mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
@@ -540,10 +536,10 @@ def main():
     mso.exit_json()
 
 
-def set_routed_interface_details(mso_template, routed_interface, l3out_object):
-    mso_template.update_config_with_port_channel_references(routed_interface)
-    mso_template.update_config_with_node_references(routed_interface, l3out_object)
-    return routed_interface
+def set_routed_sub_interface_details(mso_template, routed_sub_interface, l3out_object):
+    mso_template.update_config_with_port_channel_references(routed_sub_interface)
+    mso_template.update_config_with_node_references(routed_sub_interface, l3out_object)
+    return routed_sub_interface
 
 
 if __name__ == "__main__":

@@ -178,6 +178,7 @@ options:
     description:
     - The encapsulation type of the interface.
     type: str
+    aliases: [ encap_type ]
     choices: [ vlan, vxlan ]
   encapsulation_value:
     description:
@@ -185,7 +186,7 @@ options:
     - If O(encapsulation_type=vlan), this is the VLAN ID which must be in the range 1 - 4094.
     - If O(encapsulation_type=vxlan), this is the VXLAN Network Identifier (VNI) which must be in the range 5000 - 16777215.
     type: int
-    aliases: [ encapsulation, encapsulation_id ]
+    aliases: [ encap, encapsulation, encapsulation_id ]
   state:
     description:
     - Determines the desired state of the resource.
@@ -367,8 +368,8 @@ def main():
         mac=dict(type="str"),
         mtu=dict(type="str"),
         target_dscp=dict(type="str", choices=list(TARGET_DSCP_MAP)),
-        encapsulation_type=dict(type="str", choices=["vlan", "vxlan"]),
-        encapsulation_value=dict(type="int", aliases=["encapsulation", "encapsulation_id"]),
+        encapsulation_type=dict(type="str", choices=["vlan", "vxlan"], aliases=["encap_type"]),
+        encapsulation_value=dict(type="int", aliases=["encap", "encapsulation", "encapsulation_id"]),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
 
@@ -490,14 +491,13 @@ def main():
             mso_values["podID"] = pod_id
 
         if match:
-            remove_data = []
             mso_values[("addresses", "primaryV4")] = ipv4_address
             mso_values[("addresses", "primaryV6")] = ipv6_address
             mso_values[("addresses", "linkLocalV6")] = ipv6_link_local_address
             mso_values[("addresses", "ipV6DAD")] = ipv6_dad
 
-            append_update_ops_data(ops, match.details, l3out_sub_interface_path, mso_values, remove_data)
-            mso.sanitize(match.details, collate=True, unwanted=remove_data)
+            append_update_ops_data(ops, match.details, l3out_sub_interface_path, mso_values)
+            mso.sanitize(match.details, collate=True)
 
         else:
             mso_values["addresses"] = {

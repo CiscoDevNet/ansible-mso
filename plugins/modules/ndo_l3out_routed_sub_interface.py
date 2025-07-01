@@ -96,6 +96,7 @@ options:
         - The reference details of the port channel.
         - This parameter or O(port_channel.uuid) is required.
         type: dict
+        aliases: [ ref ]
         suboptions:
           name:
             description:

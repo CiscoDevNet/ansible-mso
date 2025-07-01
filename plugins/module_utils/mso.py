@@ -305,6 +305,7 @@ def ndo_l3out_port_channel_spec(micro_bfd=True):
             uuid=dict(type="str"),
             reference=dict(
                 type="dict",
+                aliases=["ref"],
                 options=dict(
                     name=dict(type="str", required=True),
                     template=dict(type="str"),

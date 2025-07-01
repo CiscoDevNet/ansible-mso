@@ -1,0 +1,1838 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: "{{ mso_output_level | default('info') }}"
+    aci_info: &aci_info
+      host: "{{ apic_hostname }}"
+      username: "{{ apic_username }}"
+      password: "{{ apic_password }}"
+      validate_certs: "{{ apic_validate_certs | default(false) }}"
+      use_ssl: "{{ apic_use_ssl | default(true) }}"
+      use_proxy: "{{ apic_use_proxy | default(true) }}"
+      output_level: "{{ mso_output_level | default('info') }}"
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 4.4
+  when: version.current.version is version('4.4', '>=')
+  block:
+    - name: Ensure Tenant exist for the APIC L3Out configuration
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: apic_ansible_test_tenant
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+
+    - name: Set ansible_network_os to cisco.aci.aci and ansible_connection to local
+      ansible.builtin.set_fact:
+        ansible_connection: local
+        ansible_network_os: cisco.aci.aci
+
+    - name: Reset the ansible_connection to access the APIC
+      ansible.builtin.meta: reset_connection
+
+    - name: Add vrf directly on the APIC tenant
+      cisco.aci.aci_vrf:
+        <<: *aci_info
+        tenant: apic_ansible_test_tenant
+        name: apic_vrf
+        state: present
+      delegate_to: localhost
+
+    - name: Add L3 domain directly on the APIC
+      cisco.aci.aci_domain:
+        <<: *aci_info
+        domain: apic_l3_domain
+        domain_type: l3dom
+        state: present
+
+    - name: Add L3Out directly on the APIC tenant
+      cisco.aci.aci_l3out:
+        <<: *aci_info
+        tenant: apic_ansible_test_tenant
+        name: apic_l3out
+        domain: apic_l3_domain
+        vrf: apic_vrf
+        state: present
+
+    - name: Add logical node profile directly on the APIC tenant
+      cisco.aci.aci_l3out_logical_node_profile:
+        <<: *aci_info
+        tenant: apic_ansible_test_tenant
+        l3out: apic_l3out
+        node_profile: apic_l3out_node_profile
+        state: present
+
+    - name: Add logical node directly on the APIC tenant
+      cisco.aci.aci_l3out_logical_node:
+        <<: *aci_info
+        tenant: apic_ansible_test_tenant
+        l3out: apic_l3out
+        node_profile: apic_l3out_node_profile
+        pod_id: 1
+        node_id: 101
+        router_id: 3.3.3.3
+        loopback_address: 3.3.3.3
+        state: present
+
+    - name: Add logical interface profile directly on the APIC tenant
+      cisco.aci.aci_l3out_logical_interface_profile:
+        <<: *aci_info
+        tenant: apic_ansible_test_tenant
+        l3out: apic_l3out
+        node_profile: apic_l3out_node_profile
+        interface_profile: apic_l3out_interface_profile
+        state: present
+
+    - name: Add logical interface directly on the APIC tenant
+      cisco.aci.aci_l3out_interface:
+        <<: *aci_info
+        tenant: apic_ansible_test_tenant
+        l3out: apic_l3out
+        node_profile: apic_l3out_node_profile
+        interface_profile: apic_l3out_interface_profile
+        pod_id: 1
+        node_id: 101
+        path_ep: eth1/24
+        interface_type: sub-interface
+        encap: vlan-24
+        mode: regular
+        state: present
+
+    - name: Set ansible_network_os to cisco.nd.nd and ansible_connection to ansible.netcommon.httpapi
+      ansible.builtin.set_fact:
+        ansible_connection: ansible.netcommon.httpapi
+        ansible_network_os: cisco.nd.nd
+
+    - name: Reset the ansible_connection to access the MSO/NDO
+      ansible.builtin.meta: reset_connection
+
+    # CLEAN TEST ENVIRONMENT
+    - name: Ensure Fabric Monitoring Access Policy template does not exist
+      cisco.mso.ndo_template: &rm_monitoring_access_template
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        template_type: monitoring_access
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+      register: rm_monitoring_access_template
+
+    - name: Ensure L3Out template does not exist
+      cisco.mso.ndo_template: &rm_l3out_template
+        <<: *mso_info
+        template: ansible_test_l3out_template
+        template_type: l3out
+        state: absent
+      register: rm_l3out_template
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: ansible_test_schema
+        state: absent
+
+    - name: Ensure Fabric Resource Policy template does not exist
+      cisco.mso.ndo_template: &rm_fabric_resource_template
+        <<: *mso_info
+        template: ansible_test_fabric_resource
+        template_type: fabric_resource
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+      register: rm_fabric_resource_template
+
+    - name: Ensure Fabric Policy template does not exist
+      cisco.mso.ndo_template: &rm_fabric_policy_template
+        <<: *mso_info
+        template: ansible_test_fabric_pol
+        template_type: fabric_policy
+        state: absent
+      register: rm_fabric_policy_template
+
+    - name: Ensure site exist
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ mso_site | default("ansible_test") }}'
+        apic_username: "{{ apic_username }}"
+        apic_password: "{{ apic_password }}"
+        apic_site_id: '{{ apic_site_id | default("101") }}'
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+
+    - name: Ensure Tenant exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: ansible_test_tenant
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+
+    - name: Ensure Fabric Policy template exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_policy_template
+        sites:
+          - name: "{{ mso_site | default('ansible_test') }}"
+        state: present
+      register: add_fabric_policy_template
+
+    - name: Create vlan pool
+      cisco.mso.ndo_vlan_pool:
+        <<: *mso_info
+        template: ansible_test_fabric_pol
+        vlan_pool: ansible_test_vlan_pool
+        vlan_ranges:
+          - from_vlan: 40
+            to_vlan: 80
+        state: present
+      register: add_vlan_pool
+
+    - name: Create L3 domain
+      cisco.mso.ndo_l3_domain:
+        <<: *mso_info
+        template: ansible_test_fabric_pol
+        l3_domain: ansible_test_l3dom
+        pool: ansible_test_vlan_pool
+        state: present
+      register: add_l3_domain
+
+    - name: Create an interface settings of interface_type 'port_channel'
+      cisco.mso.ndo_interface_setting:
+        <<: *mso_info
+        template: ansible_test_fabric_pol
+        name: ansible_test_pc_vpc_inf
+        interface_type: port_channel
+        state: present
+      register: add_interface_settings
+
+    - name: Ensure Fabric Resource Policy template exist
+      cisco.mso.ndo_template:
+        <<: *rm_fabric_resource_template
+        sites:
+          - name: "{{ mso_site | default('ansible_test') }}"
+        state: present
+      register: add_fabric_resource_template
+
+    - name: Create port channel interface 1
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: ansible_test_fabric_resource
+        port_channel_interface: ansible_test_pc1
+        node: 101
+        interfaces: 1/1
+        interface_policy_group:
+          name: ansible_test_pc_vpc_inf
+          template: ansible_test_fabric_pol
+        state: present
+      register: add_ansible_test_1_resource_pc_1
+
+    - name: Create Virtual Port Channel Interface 1
+      cisco.mso.ndo_virtual_port_channel_interface:
+        <<: *mso_info
+        template: ansible_test_fabric_resource
+        name: ansible_test_vpc1
+        node_1: 101
+        node_2: 102
+        interfaces_node_1:
+          - 1/11
+        interfaces_node_2:
+          - 1/11
+        interface_policy_group:
+          name: ansible_test_pc_vpc_inf
+          template: ansible_test_fabric_pol
+        state: present
+      register: add_fabric_vpc1
+
+    - name: Ensure schema template1 exist
+      cisco.mso.mso_schema_template:
+        <<: *mso_info
+        schema: ansible_test_schema
+        tenant: ansible_test_tenant
+        template: template1
+        state: present
+      register: add_schema_template1
+
+    - name: Ensure ansible_test_anp exist
+      cisco.mso.mso_schema_template_anp:
+        <<: *mso_info
+        schema: ansible_test_schema
+        template: template1
+        anp: ansible_test_anp
+        state: present
+      register: add_anp1
+
+    - name: Ensure ansible_test_epg1 exist
+      cisco.mso.mso_schema_template_anp_epg:
+        <<: *mso_info
+        schema: ansible_test_schema
+        template: template1
+        anp: ansible_test_anp
+        epg: ansible_test_epg1
+        state: present
+      register: add_epg1
+
+    - name: Ensure ansible_test_epg2 exist
+      cisco.mso.mso_schema_template_anp_epg:
+        <<: *mso_info
+        schema: ansible_test_schema
+        template: template1
+        anp: ansible_test_anp
+        epg: ansible_test_epg2
+        state: present
+      register: add_epg2
+
+    - name: Add schema template VRF
+      cisco.mso.mso_schema_template_vrf:
+        <<: *mso_info
+        schema: ansible_test_schema
+        template: template1
+        vrf: ansible_test_vrf
+        state: present
+
+    - name: Ensure L3Out template exist
+      cisco.mso.ndo_template:
+        <<: *rm_l3out_template
+        tenant: ansible_test_tenant
+        sites:
+          - name: "{{ mso_site | default('ansible_test') }}"
+        state: present
+      register: add_l3out_template
+
+    - name: Create L3Out object
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: ansible_test_l3out_template
+        name: ansible_test_l3out
+        vrf:
+          name: ansible_test_vrf
+          schema: ansible_test_schema
+          template: template1
+        l3_domain: ansible_test_l3dom
+        state: present
+      register: add_l3out
+
+    - name: Ensure Fabric Monitoring Access Policy template exist
+      cisco.mso.ndo_template:
+        <<: *rm_monitoring_access_template
+        sites:
+          - name: "{{ mso_site | default('ansible_test') }}"
+        state: present
+      register: add_monitoring_access_template
+
+    - name: Create Fabric SPAN Session with destination EPG
+      cisco.mso.ndo_fabric_span_session:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        name: ansible_test_span_session
+        admin_state: enabled
+        destination_epg:
+          epg:
+            schema: ansible_test_schema
+            template: template1
+            anp: ansible_test_anp
+            name: ansible_test_epg1
+          destination_ip: "1.1.1.1"
+          source_ip_prefix: "2.2.2.2"
+        state: present
+      register: add_dest_epg_span_session
+
+    - name: Add nodes and interface to the L3Out object
+      cisco.mso.mso_rest:
+        <<: *mso_info
+        path: "/mso/api/v1/templates/{{add_l3out_template.current.templateId}}"
+        method: patch
+        content:
+          - op: add
+            path: /l3outTemplate/l3outs/0/nodes/-
+            value:
+              nodeID: "101"
+              podID: "1"
+              routerID: "1.1.1.1"
+
+          - op: add
+            path: /l3outTemplate/l3outs/0/nodes/-
+            value:
+              nodeID: "102"
+              podID: "1"
+              routerID: "2.2.2.2"
+
+          - op: add
+            path: /l3outTemplate/l3outs/0/subInterfaces/-
+            value:
+              interfaceType: routedSubInterface
+              pathType: port
+              podID: "1"
+              nodeID: "101"
+              path: eth1/1
+              addresses:
+                primaryV4: 1.1.1.1/24
+                isV4Enabled: true
+              mac: 00:22:BD:F8:19:FF
+              mtu: inherit
+              encap:
+                encapType: vlan
+                value: 41
+
+          - op: add
+            path: /l3outTemplate/l3outs/0/subInterfaces/-
+            value:
+              interfaceType: routedSubInterface
+              pathType: pc
+              pathRef: "{{ add_ansible_test_1_resource_pc_1.current.uuid }}"
+              addresses:
+                primaryV4: 1.1.2.1/24
+                isV4Enabled: true
+              mac: 00:22:BD:F8:19:FF
+              mtu: inherit
+              encap:
+                encapType: vlan
+                value: 42
+
+          - op: add
+            path: /l3outTemplate/l3outs/0/sviInterfaces/-
+            value:
+              interfaceType: svi
+              pathType: port
+              podID: "1"
+              nodeID: "101"
+              path: eth1/21
+              encap:
+                encapType: vlan
+                value: 44
+              mac: 00:22:BD:F8:19:FF
+              mtu: inherit
+              svi:
+                encapScope: local
+                autostate: disabled
+                mode: trunk
+              addresses:
+                primaryV4: 1.1.4.1/24
+                isV4Enabled: true
+
+          - op: add
+            path: /l3outTemplate/l3outs/0/sviInterfaces/-
+            value:
+              interfaceType: svi
+              pathType: vpc
+              pathRef: "{{ add_fabric_vpc1.current.uuid }}"
+              encap:
+                encapType: vlan
+                value: 45
+              addresses:
+                primaryV4: 1.1.5.1/24
+                isV4Enabled: true
+              mac: 00:22:BD:F8:19:FF
+              mtu: inherit
+              svi:
+                encapScope: local
+                autostate: disabled
+                mode: trunk
+              sideBAddresses:
+                primaryV4: 1.1.5.2/24
+                isV4Enabled: true
+
+    # CREATE
+    - name: Create SPAN Session source (check mode)
+      cisco.mso.ndo_fabric_span_session_source: &cm_add_ansible_test_source_1
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        state: present
+        output_level: debug
+      check_mode: true
+      register: cm_add_ansible_test_source_1
+
+    - name: Create SPAN Session source
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *cm_add_ansible_test_source_1
+      register: add_ansible_test_source_1
+
+    - name: Create SPAN Session source again
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *cm_add_ansible_test_source_1
+      register: add_ansible_test_source_1_again
+
+    - name: Assertion check for create SPAN Session source
+      ansible.builtin.assert:
+        that:
+          - cm_add_ansible_test_source_1 is changed
+          - cm_add_ansible_test_source_1.current.name == "ansible_test_source_1"
+          - cm_add_ansible_test_source_1.current.templateId != ""
+          - cm_add_ansible_test_source_1.current.templateName == "ansible_test_mon_pol"
+          - cm_add_ansible_test_source_1.previous == {}
+          - cm_add_ansible_test_source_1.proposed.name == "ansible_test_source_1"
+          - cm_add_ansible_test_source_1.proposed.templateId != ""
+          - cm_add_ansible_test_source_1.proposed.templateName == "ansible_test_mon_pol"
+          - add_ansible_test_source_1 is changed
+          - add_ansible_test_source_1.current.direction == "incoming"
+          - add_ansible_test_source_1.current.l3out == {}
+          - add_ansible_test_source_1.current.name == "ansible_test_source_1"
+          - add_ansible_test_source_1.current.spanDropPackets == false
+          - add_ansible_test_source_1.current.templateId != ""
+          - add_ansible_test_source_1.current.templateName == "ansible_test_mon_pol"
+          - add_ansible_test_source_1.previous == {}
+          - add_ansible_test_source_1_again is not changed
+          - add_ansible_test_source_1_again.current.direction == "incoming"
+          - add_ansible_test_source_1_again.current.l3out == {}
+          - add_ansible_test_source_1_again.current.name == "ansible_test_source_1"
+          - add_ansible_test_source_1_again.current.spanDropPackets == false
+          - add_ansible_test_source_1_again.current.templateId != ""
+          - add_ansible_test_source_1_again.current.templateName == "ansible_test_mon_pol"
+          - add_ansible_test_source_1_again.previous.direction == "incoming"
+          - add_ansible_test_source_1_again.previous.l3out == {}
+          - add_ansible_test_source_1_again.previous.name == "ansible_test_source_1"
+          - add_ansible_test_source_1_again.previous.spanDropPackets == false
+          - add_ansible_test_source_1_again.previous.templateId != ""
+          - add_ansible_test_source_1_again.previous.templateName == "ansible_test_mon_pol"
+
+    # UPDATE
+    - name: Update SPAN Session source (check mode)
+      cisco.mso.ndo_fabric_span_session_source: &cm_update_ansible_test_source_1
+        <<: *cm_add_ansible_test_source_1
+        direction: outgoing
+        output_level: debug
+      check_mode: true
+      register: cm_update_ansible_test_source_1
+
+    - name: Update SPAN Session source
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *cm_update_ansible_test_source_1
+      register: update_ansible_test_source_1
+
+    - name: Update SPAN Session source again
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *cm_update_ansible_test_source_1
+      register: update_ansible_test_source_1_again
+
+    - name: Assertion check for update SPAN Session source
+      ansible.builtin.assert:
+        that:
+          - cm_update_ansible_test_source_1 is changed
+          - cm_update_ansible_test_source_1.current.direction == "outgoing"
+          - cm_update_ansible_test_source_1.current.l3out == {}
+          - cm_update_ansible_test_source_1.current.name == "ansible_test_source_1"
+          - cm_update_ansible_test_source_1.current.spanDropPackets == false
+          - cm_update_ansible_test_source_1.current.templateId != ""
+          - cm_update_ansible_test_source_1.current.templateName == "ansible_test_mon_pol"
+          - cm_update_ansible_test_source_1.previous.direction == "incoming"
+          - cm_update_ansible_test_source_1.previous.l3out == {}
+          - cm_update_ansible_test_source_1.previous.name == "ansible_test_source_1"
+          - cm_update_ansible_test_source_1.previous.spanDropPackets == false
+          - cm_update_ansible_test_source_1.previous.templateId != ""
+          - cm_update_ansible_test_source_1.previous.templateName == "ansible_test_mon_pol"
+          - cm_update_ansible_test_source_1.proposed.direction == "outgoing"
+          - cm_update_ansible_test_source_1.proposed.l3out == {}
+          - cm_update_ansible_test_source_1.proposed.name == "ansible_test_source_1"
+          - cm_update_ansible_test_source_1.proposed.spanDropPackets == false
+          - cm_update_ansible_test_source_1.proposed.templateId != ""
+          - cm_update_ansible_test_source_1.proposed.templateName == "ansible_test_mon_pol"
+          - update_ansible_test_source_1 is changed
+          - update_ansible_test_source_1.current.direction == "outgoing"
+          - update_ansible_test_source_1.current.l3out == {}
+          - update_ansible_test_source_1.current.name == "ansible_test_source_1"
+          - update_ansible_test_source_1.current.spanDropPackets == false
+          - update_ansible_test_source_1.current.templateId != ""
+          - update_ansible_test_source_1.current.templateName == "ansible_test_mon_pol"
+          - update_ansible_test_source_1.previous.direction == "incoming"
+          - update_ansible_test_source_1.previous.l3out == {}
+          - update_ansible_test_source_1.previous.name == "ansible_test_source_1"
+          - update_ansible_test_source_1.previous.spanDropPackets == false
+          - update_ansible_test_source_1.previous.templateId != ""
+          - update_ansible_test_source_1.previous.templateName == "ansible_test_mon_pol"
+          - update_ansible_test_source_1_again is not changed
+          - update_ansible_test_source_1_again.current.direction == "outgoing"
+          - update_ansible_test_source_1_again.current.l3out == {}
+          - update_ansible_test_source_1_again.current.name == "ansible_test_source_1"
+          - update_ansible_test_source_1_again.current.spanDropPackets == false
+          - update_ansible_test_source_1_again.current.templateId != ""
+          - update_ansible_test_source_1_again.current.templateName == "ansible_test_mon_pol"
+          - update_ansible_test_source_1_again.previous.direction == "outgoing"
+          - update_ansible_test_source_1_again.previous.l3out == {}
+          - update_ansible_test_source_1_again.previous.name == "ansible_test_source_1"
+          - update_ansible_test_source_1_again.previous.spanDropPackets == false
+          - update_ansible_test_source_1_again.previous.templateId != ""
+          - update_ansible_test_source_1_again.previous.templateName == "ansible_test_mon_pol"
+
+    - name: Create SPAN Session source with access paths and span_drop_packets enabled
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_2
+        direction: outgoing
+        span_drop_packets: true
+        access_paths:
+          - access_path_type: port
+            node: 101
+            interface: eth1/6
+          - access_path_type: port_channel
+            name: ansible_test_pc1
+            template: ansible_test_fabric_resource
+          - access_path_type: virtual_port_channel
+            name: ansible_test_vpc1
+            template: ansible_test_fabric_resource
+          - access_path_type: vpc_component_pc
+            name: ansible_test_vpc1
+            template: ansible_test_fabric_resource
+            node: 101
+        state: present
+      register: add_ansible_test_source_2
+
+    - name: Create SPAN Session source with access path and filter EPG
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_3
+        direction: outgoing
+        access_paths:
+          - access_path_type: port
+            node: 101
+            interface: eth1/6
+        filter_epg:
+          reference:
+            schema: ansible_test_schema
+            template: template1
+            anp: ansible_test_anp
+            name: ansible_test_epg1
+        state: present
+      register: add_ansible_test_source_3_filter_epg
+
+    - name: Create SPAN Session source with access_path_type port and filter L3Out
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_4
+        direction: outgoing
+        access_paths:
+          - access_path_type: port
+            node: 101
+            interface: eth1/1
+        filter_l3out:
+          vlan_id: 41
+          reference:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
+        state: present
+      register: add_ansible_test_source_4_port
+
+    - name: Assertion check for create SPAN Session source with different options
+      ansible.builtin.assert:
+        that:
+          - add_ansible_test_source_2 is changed
+          - add_ansible_test_source_2.current.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - add_ansible_test_source_2.current.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/6]"
+          - add_ansible_test_source_2.current.accessPaths.0.accessInterfaces.0.node == "101"
+          - add_ansible_test_source_2.current.accessPaths.0.accessInterfaces.0.pod == "1"
+          - add_ansible_test_source_2.current.accessPaths.0.accessInterfaces.0.port == "eth1/6"
+          - add_ansible_test_source_2.current.accessPaths.0.accessInterfaces.0.portNum == "6"
+          - add_ansible_test_source_2.current.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - add_ansible_test_source_2.current.accessPaths.0.accessInterfaces.0.uuid is defined
+          - add_ansible_test_source_2.current.accessPaths.1.portChannels.0.portChannel is defined
+          - add_ansible_test_source_2.current.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
+          - add_ansible_test_source_2.current.accessPaths.1.portChannels.0.portChannelTemplateId != ""
+          - add_ansible_test_source_2.current.accessPaths.1.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - add_ansible_test_source_2.current.accessPaths.2.virtualPortChannels.0.virtualPortChannel is defined
+          - add_ansible_test_source_2.current.accessPaths.2.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
+          - add_ansible_test_source_2.current.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateId != ""
+          - add_ansible_test_source_2.current.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateName == "ansible_test_fabric_resource"
+          - add_ansible_test_source_2.current.accessPaths.3.vpcComponentPc.0.node == "101"
+          - add_ansible_test_source_2.current.accessPaths.3.vpcComponentPc.0.vpc is defined
+          - add_ansible_test_source_2.current.accessPaths.3.vpcComponentPc.0.vpcComponentPcName == "ansible_test_vpc1"
+          - add_ansible_test_source_2.current.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateId != ""
+          - add_ansible_test_source_2.current.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateName == "ansible_test_fabric_resource"
+          - add_ansible_test_source_2.current.direction == "outgoing"
+          - add_ansible_test_source_2.current.l3out == {}
+          - add_ansible_test_source_2.current.name == "ansible_test_source_2"
+          - add_ansible_test_source_2.current.spanDropPackets == true
+          - add_ansible_test_source_2.current.templateId != ""
+          - add_ansible_test_source_2.current.templateName == "ansible_test_mon_pol"
+          - add_ansible_test_source_2.previous == {}
+          - add_ansible_test_source_3_filter_epg is changed
+          - add_ansible_test_source_3_filter_epg.current.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - add_ansible_test_source_3_filter_epg.current.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/6]"
+          - add_ansible_test_source_3_filter_epg.current.accessPaths.0.accessInterfaces.0.node == "101"
+          - add_ansible_test_source_3_filter_epg.current.accessPaths.0.accessInterfaces.0.pod == "1"
+          - add_ansible_test_source_3_filter_epg.current.accessPaths.0.accessInterfaces.0.port == "eth1/6"
+          - add_ansible_test_source_3_filter_epg.current.accessPaths.0.accessInterfaces.0.portNum == "6"
+          - add_ansible_test_source_3_filter_epg.current.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - add_ansible_test_source_3_filter_epg.current.accessPaths.0.accessInterfaces.0.uuid is defined
+          - add_ansible_test_source_3_filter_epg.current.direction == "outgoing"
+          - add_ansible_test_source_3_filter_epg.current.epg is defined
+          - add_ansible_test_source_3_filter_epg.current.epgName == "ansible_test_epg1"
+          - add_ansible_test_source_3_filter_epg.current.epgSchemaId is defined
+          - add_ansible_test_source_3_filter_epg.current.epgSchemaName == "ansible_test_schema"
+          - add_ansible_test_source_3_filter_epg.current.epgTemplateId != ""
+          - add_ansible_test_source_3_filter_epg.current.epgTemplateName == "template1"
+          - add_ansible_test_source_3_filter_epg.current.l3out == {}
+          - add_ansible_test_source_3_filter_epg.current.name == "ansible_test_source_3"
+          - add_ansible_test_source_3_filter_epg.current.spanDropPackets == false
+          - add_ansible_test_source_3_filter_epg.current.templateName == "ansible_test_mon_pol"
+          - add_ansible_test_source_3_filter_epg.previous == {}
+          - add_ansible_test_source_4_port is changed
+          - add_ansible_test_source_4_port.current.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - add_ansible_test_source_4_port.current.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - add_ansible_test_source_4_port.current.accessPaths.0.accessInterfaces.0.node == "101"
+          - add_ansible_test_source_4_port.current.accessPaths.0.accessInterfaces.0.pod == "1"
+          - add_ansible_test_source_4_port.current.accessPaths.0.accessInterfaces.0.port == "eth1/1"
+          - add_ansible_test_source_4_port.current.accessPaths.0.accessInterfaces.0.portNum == "1"
+          - add_ansible_test_source_4_port.current.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - add_ansible_test_source_4_port.current.accessPaths.0.accessInterfaces.0.uuid is defined
+          - add_ansible_test_source_4_port.current.direction == "outgoing"
+          - add_ansible_test_source_4_port.current.l3out.encapType == "vlan"
+          - add_ansible_test_source_4_port.current.l3out.encapValue == 41
+          - add_ansible_test_source_4_port.current.l3out.ref is defined
+          - add_ansible_test_source_4_port.current.l3out.l3outName == "ansible_test_l3out"
+          - add_ansible_test_source_4_port.current.l3out.l3outTemplateId != ""
+          - add_ansible_test_source_4_port.current.l3out.l3outTemplateName == "ansible_test_l3out_template"
+          - add_ansible_test_source_4_port.current.name == "ansible_test_source_4"
+          - add_ansible_test_source_4_port.current.spanDropPackets == false
+          - add_ansible_test_source_4_port.current.templateName == "ansible_test_mon_pol"
+          - add_ansible_test_source_4_port.previous == {}
+
+    - name: Update SPAN Session source with access_path_type port_channel and filter L3Out
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_4
+        direction: outgoing
+        access_paths:
+          - access_path_type: port_channel
+            name: ansible_test_pc1
+            template: ansible_test_fabric_resource
+        filter_l3out:
+          vlan_id: 42
+          reference:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
+        state: present
+      register: update_ansible_test_source_4_pc
+
+    - name: Update SPAN Session source with access_path_type virtual_port_channel and filter L3Out
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_4
+        direction: outgoing
+        access_paths:
+          - access_path_type: virtual_port_channel
+            name: ansible_test_vpc1
+            template: ansible_test_fabric_resource
+        filter_l3out:
+          vlan_id: 45
+          reference:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
+        state: present
+      register: update_ansible_test_source_4_vpc
+
+    - name: Assertion check for update SPAN Session source with filter L3Outs
+      ansible.builtin.assert:
+        that:
+          - update_ansible_test_source_4_pc is changed
+          - update_ansible_test_source_4_pc.current.accessPaths.0.portChannels.0.portChannel is defined
+          - update_ansible_test_source_4_pc.current.accessPaths.0.portChannels.0.portChannelName == "ansible_test_pc1"
+          - update_ansible_test_source_4_pc.current.accessPaths.0.portChannels.0.portChannelTemplateId != ""
+          - update_ansible_test_source_4_pc.current.accessPaths.0.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - update_ansible_test_source_4_pc.current.direction == "outgoing"
+          - update_ansible_test_source_4_pc.current.l3out.encapType == "vlan"
+          - update_ansible_test_source_4_pc.current.l3out.encapValue == 42
+          - update_ansible_test_source_4_pc.current.l3out.ref is defined
+          - update_ansible_test_source_4_pc.current.name == "ansible_test_source_4"
+          - update_ansible_test_source_4_pc.current.spanDropPackets == false
+          - update_ansible_test_source_4_pc.current.templateName == "ansible_test_mon_pol"
+          - update_ansible_test_source_4_pc.previous.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - update_ansible_test_source_4_pc.previous.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - update_ansible_test_source_4_pc.previous.accessPaths.0.accessInterfaces.0.node == "101"
+          - update_ansible_test_source_4_pc.previous.accessPaths.0.accessInterfaces.0.pod == "1"
+          - update_ansible_test_source_4_pc.previous.accessPaths.0.accessInterfaces.0.port == "eth1/1"
+          - update_ansible_test_source_4_pc.previous.accessPaths.0.accessInterfaces.0.portNum == "1"
+          - update_ansible_test_source_4_pc.previous.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - update_ansible_test_source_4_pc.previous.accessPaths.0.accessInterfaces.0.uuid is defined
+          - update_ansible_test_source_4_pc.previous.direction == "outgoing"
+          - update_ansible_test_source_4_pc.previous.l3out.encapType == "vlan"
+          - update_ansible_test_source_4_pc.previous.l3out.encapValue == 41
+          - update_ansible_test_source_4_pc.previous.l3out.ref is defined
+          - update_ansible_test_source_4_pc.previous.name == "ansible_test_source_4"
+          - update_ansible_test_source_4_pc.previous.spanDropPackets == false
+          - update_ansible_test_source_4_pc.previous.templateName == "ansible_test_mon_pol"
+          - update_ansible_test_source_4_vpc is changed
+          - update_ansible_test_source_4_vpc.current.accessPaths.0.virtualPortChannels.0.virtualPortChannel is defined
+          - update_ansible_test_source_4_vpc.current.accessPaths.0.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
+          - update_ansible_test_source_4_vpc.current.accessPaths.0.virtualPortChannels.0.virtualPortChannelTemplateId != ""
+          - update_ansible_test_source_4_vpc.current.accessPaths.0.virtualPortChannels.0.virtualPortChannelTemplateName == "ansible_test_fabric_resource"
+          - update_ansible_test_source_4_vpc.current.direction == "outgoing"
+          - update_ansible_test_source_4_vpc.current.l3out.encapType == "vlan"
+          - update_ansible_test_source_4_vpc.current.l3out.encapValue == 45
+          - update_ansible_test_source_4_vpc.current.l3out.ref is defined
+          - update_ansible_test_source_4_vpc.current.name == "ansible_test_source_4"
+          - update_ansible_test_source_4_vpc.current.spanDropPackets == false
+          - update_ansible_test_source_4_vpc.current.templateName == "ansible_test_mon_pol"
+          - update_ansible_test_source_4_vpc.previous.accessPaths.0.portChannels.0.portChannel is defined
+          - update_ansible_test_source_4_vpc.previous.accessPaths.0.portChannels.0.portChannelName == "ansible_test_pc1"
+          - update_ansible_test_source_4_vpc.previous.accessPaths.0.portChannels.0.portChannelTemplateId != ""
+          - update_ansible_test_source_4_vpc.previous.accessPaths.0.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - update_ansible_test_source_4_vpc.previous.direction == "outgoing"
+          - update_ansible_test_source_4_vpc.previous.l3out.encapType == "vlan"
+          - update_ansible_test_source_4_vpc.previous.l3out.encapValue == 42
+          - update_ansible_test_source_4_vpc.previous.l3out.ref is defined
+          - update_ansible_test_source_4_vpc.previous.name == "ansible_test_source_4"
+          - update_ansible_test_source_4_vpc.previous.spanDropPackets == false
+          - update_ansible_test_source_4_vpc.previous.templateName == "ansible_test_mon_pol"
+
+    - name: Negative test update SPAN Session source with access_path_type vpc_component_pc and filter L3Out
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_4
+        direction: outgoing
+        access_paths:
+          - access_path_type: vpc_component_pc
+            name: ansible_test_vpc1
+            node: 101
+            template: ansible_test_fabric_resource
+        filter_l3out:
+          vlan_id: 45
+          reference:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
+        state: present
+      register: nt_ansible_test_source_4_vpc_com_pc
+      ignore_errors: true
+
+    - name: Add access paths to the existing SPAN Session source
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template_id: "{{ add_dest_epg_span_session.current.templateId }}"
+        span_session_uuid: "{{ add_dest_epg_span_session.current.uuid }}"
+        name: ansible_test_source_1
+        access_paths:
+          - access_path_type: port
+            node: 101
+            interface: eth1/1
+          - access_path_type: port_channel
+            uuid: "{{ add_ansible_test_1_resource_pc_1.current.uuid }}"
+          - access_path_type: virtual_port_channel
+            uuid: "{{ add_fabric_vpc1.current.uuid }}"
+          - access_path_type: vpc_component_pc
+            uuid: "{{ add_fabric_vpc1.current.uuid }}"
+            node: 101
+        state: present
+      register: add_access_paths_ansible_test_source_1
+
+    - name: Add filter EPG to the existing SPAN Session source
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        direction: outgoing
+        filter_epg:
+          reference:
+            schema: ansible_test_schema
+            template: template1
+            anp: ansible_test_anp
+            name: ansible_test_epg1
+        state: present
+      register: add_filter_epg_ansible_test_source_1
+
+    - name: Update existing filter EPG value in the SPAN Session source
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        direction: outgoing
+        filter_epg:
+          reference:
+            schema: ansible_test_schema
+            template: template1
+            anp: ansible_test_anp
+            name: ansible_test_epg2
+        state: present
+      register: update_filter_epg_ansible_test_source_1
+
+    - name: Add filter L3Out to the existing SPAN Session source
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        direction: outgoing
+        access_paths:
+          - access_path_type: port
+            node: 101
+            interface: eth1/1
+        filter_l3out:
+          vlan_id: 41
+          reference:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
+        state: present
+      register: add_filter_l3out_ansible_test_source_1
+
+    - name: Update existing L3Out value in the SPAN Session source
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        direction: outgoing
+        access_paths:
+          - access_path_type: port_channel
+            name: ansible_test_pc1
+            template: ansible_test_fabric_resource
+        filter_l3out:
+          vlan_id: 42
+          reference:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
+        state: present
+      register: update_filter_l3out_ansible_test_source_1
+
+    - name: Add EPG to the SPAN Session source again
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        direction: outgoing
+        filter_epg:
+          uuid: "{{ update_filter_epg_ansible_test_source_1.current.epg }}"
+        state: present
+      register: add_filter_epg_ansible_test_source_1_again
+
+    - name: Add L3Out to the SPAN Session source again with UUID
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        direction: outgoing
+        access_paths:
+          - access_path_type: port_channel
+            name: ansible_test_pc1
+            template: ansible_test_fabric_resource
+        filter_l3out:
+          uuid: "{{ add_l3out.current.uuid }}"
+          vlan_id: 42
+        state: present
+      register: add_filter_l3out_ansible_test_source_1_uuid
+
+    - name: Add L3Out to the SPAN Session source with APIC tenant
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        direction: outgoing
+        access_paths:
+          - access_path_type: port
+            node: 101
+            interface: eth1/24
+        filter_l3out:
+          vlan_id: 24
+          reference:
+            name: apic_l3out
+            tenant: apic_ansible_test_tenant
+        state: present
+      register: add_filter_l3out_ansible_test_source_1_tenant
+      ignore_errors: true
+
+    - name: Assertion check for update SPAN Session source with different options
+      ansible.builtin.assert:
+        that:
+          - add_access_paths_ansible_test_source_1 is changed
+          - add_access_paths_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - add_access_paths_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - add_access_paths_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.node == "101"
+          - add_access_paths_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.pod == "1"
+          - add_access_paths_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.port == "eth1/1"
+          - add_access_paths_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.portNum == "1"
+          - add_access_paths_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - add_access_paths_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.uuid is defined
+          - add_access_paths_ansible_test_source_1.current.accessPaths.1.portChannels.0.portChannel is defined
+          - add_access_paths_ansible_test_source_1.current.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
+          - add_access_paths_ansible_test_source_1.current.accessPaths.1.portChannels.0.portChannelTemplateId != ""
+          - add_access_paths_ansible_test_source_1.current.accessPaths.1.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - add_access_paths_ansible_test_source_1.current.accessPaths.2.virtualPortChannels.0.virtualPortChannel is defined
+          - add_access_paths_ansible_test_source_1.current.accessPaths.2.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
+          - add_access_paths_ansible_test_source_1.current.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateId != ""
+          - add_access_paths_ansible_test_source_1.current.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateName == "ansible_test_fabric_resource"
+          - add_access_paths_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.node == "101"
+          - add_access_paths_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.vpc is defined
+          - add_access_paths_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.vpcComponentPcName == "ansible_test_vpc1"
+          - add_access_paths_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateId != ""
+          - add_access_paths_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateName == "ansible_test_fabric_resource"
+          - add_access_paths_ansible_test_source_1.current.direction == "outgoing"
+          - add_access_paths_ansible_test_source_1.current.l3out == {}
+          - add_access_paths_ansible_test_source_1.current.name == "ansible_test_source_1"
+          - add_access_paths_ansible_test_source_1.current.spanDropPackets == false
+          - add_access_paths_ansible_test_source_1.current.templateName == "ansible_test_mon_pol"
+          - add_access_paths_ansible_test_source_1.previous.direction == "outgoing"
+          - add_access_paths_ansible_test_source_1.previous.l3out == {}
+          - add_access_paths_ansible_test_source_1.previous.name == "ansible_test_source_1"
+          - add_access_paths_ansible_test_source_1.previous.spanDropPackets == false
+          - add_access_paths_ansible_test_source_1.previous.templateName == "ansible_test_mon_pol"
+          - add_filter_epg_ansible_test_source_1 is changed
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.node == "101"
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.pod == "1"
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.port == "eth1/1"
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.portNum == "1"
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.uuid is defined
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.1.portChannels.0.portChannel is defined
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.1.portChannels.0.portChannelTemplateId != ""
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.1.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.2.virtualPortChannels.0.virtualPortChannel is defined
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.2.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateId != ""
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateName == "ansible_test_fabric_resource"
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.node == "101"
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.vpc is defined
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.vpcComponentPcName == "ansible_test_vpc1"
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateId != ""
+          - add_filter_epg_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateName == "ansible_test_fabric_resource"
+          - add_filter_epg_ansible_test_source_1.current.direction == "outgoing"
+          - add_filter_epg_ansible_test_source_1.current.epg is defined
+          - add_filter_epg_ansible_test_source_1.current.epgName == "ansible_test_epg1"
+          - add_filter_epg_ansible_test_source_1.current.epgSchemaId is defined
+          - add_filter_epg_ansible_test_source_1.current.epgSchemaName == "ansible_test_schema"
+          - add_filter_epg_ansible_test_source_1.current.epgTemplateId != ""
+          - add_filter_epg_ansible_test_source_1.current.epgTemplateName == "template1"
+          - add_filter_epg_ansible_test_source_1.current.l3out == {}
+          - add_filter_epg_ansible_test_source_1.current.name == "ansible_test_source_1"
+          - add_filter_epg_ansible_test_source_1.current.spanDropPackets == false
+          - add_filter_epg_ansible_test_source_1.current.templateName == "ansible_test_mon_pol"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.node == "101"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.pod == "1"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.port == "eth1/1"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.portNum == "1"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.uuid is defined
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.1.portChannels.0.portChannel is defined
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.1.portChannels.0.portChannelTemplateId != ""
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.1.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannel is defined
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateId != ""
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateName == "ansible_test_fabric_resource"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.node == "101"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.vpc is defined
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.vpcComponentPcName == "ansible_test_vpc1"
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateId != ""
+          - add_filter_epg_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateName == "ansible_test_fabric_resource"
+          - add_filter_epg_ansible_test_source_1.previous.direction == "outgoing"
+          - add_filter_epg_ansible_test_source_1.previous.l3out == {}
+          - add_filter_epg_ansible_test_source_1.previous.name == "ansible_test_source_1"
+          - add_filter_epg_ansible_test_source_1.previous.spanDropPackets == false
+          - add_filter_epg_ansible_test_source_1.previous.templateName == "ansible_test_mon_pol"
+          - update_filter_epg_ansible_test_source_1 is changed
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.node == "101"
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.pod == "1"
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.port == "eth1/1"
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.portNum == "1"
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.uuid is defined
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.1.portChannels.0.portChannel is defined
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.1.portChannels.0.portChannelTemplateId != ""
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.1.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.2.virtualPortChannels.0.virtualPortChannel is defined
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.2.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateId != ""
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateName == "ansible_test_fabric_resource"
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.node == "101"
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.vpc is defined
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.vpcComponentPcName == "ansible_test_vpc1"
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateId != ""
+          - update_filter_epg_ansible_test_source_1.current.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateName == "ansible_test_fabric_resource"
+          - update_filter_epg_ansible_test_source_1.current.direction == "outgoing"
+          - update_filter_epg_ansible_test_source_1.current.epg is defined
+          - update_filter_epg_ansible_test_source_1.current.epgName == "ansible_test_epg2"
+          - update_filter_epg_ansible_test_source_1.current.epgSchemaId is defined
+          - update_filter_epg_ansible_test_source_1.current.epgSchemaName == "ansible_test_schema"
+          - update_filter_epg_ansible_test_source_1.current.epgTemplateId != ""
+          - update_filter_epg_ansible_test_source_1.current.epgTemplateName == "template1"
+          - update_filter_epg_ansible_test_source_1.current.l3out == {}
+          - update_filter_epg_ansible_test_source_1.current.name == "ansible_test_source_1"
+          - update_filter_epg_ansible_test_source_1.current.spanDropPackets == false
+          - update_filter_epg_ansible_test_source_1.current.templateName == "ansible_test_mon_pol"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.node == "101"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.pod == "1"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.port == "eth1/1"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.portNum == "1"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.uuid is defined
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.1.portChannels.0.portChannel is defined
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.1.portChannels.0.portChannelTemplateId != ""
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.1.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannel is defined
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateId != ""
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateName == "ansible_test_fabric_resource"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.node == "101"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.vpc is defined
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.vpcComponentPcName == "ansible_test_vpc1"
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateId != ""
+          - update_filter_epg_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateName == "ansible_test_fabric_resource"
+          - update_filter_epg_ansible_test_source_1.previous.direction == "outgoing"
+          - update_filter_epg_ansible_test_source_1.previous.epg is defined
+          - update_filter_epg_ansible_test_source_1.previous.epgName == "ansible_test_epg1"
+          - update_filter_epg_ansible_test_source_1.previous.epgSchemaId is defined
+          - update_filter_epg_ansible_test_source_1.previous.epgSchemaName == "ansible_test_schema"
+          - update_filter_epg_ansible_test_source_1.previous.epgTemplateId != ""
+          - update_filter_epg_ansible_test_source_1.previous.epgTemplateName == "template1"
+          - update_filter_epg_ansible_test_source_1.previous.l3out == {}
+          - update_filter_epg_ansible_test_source_1.previous.name == "ansible_test_source_1"
+          - update_filter_epg_ansible_test_source_1.previous.spanDropPackets == false
+          - update_filter_epg_ansible_test_source_1.previous.templateName == "ansible_test_mon_pol"
+          - add_filter_l3out_ansible_test_source_1 is changed
+          - add_filter_l3out_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - add_filter_l3out_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - add_filter_l3out_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.node == "101"
+          - add_filter_l3out_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.pod == "1"
+          - add_filter_l3out_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.port == "eth1/1"
+          - add_filter_l3out_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.portNum == "1"
+          - add_filter_l3out_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - add_filter_l3out_ansible_test_source_1.current.accessPaths.0.accessInterfaces.0.uuid is defined
+          - add_filter_l3out_ansible_test_source_1.current.direction == "outgoing"
+          - add_filter_l3out_ansible_test_source_1.current.l3out.encapType == "vlan"
+          - add_filter_l3out_ansible_test_source_1.current.l3out.encapValue == 41
+          - add_filter_l3out_ansible_test_source_1.current.l3out.ref is defined
+          - add_filter_l3out_ansible_test_source_1.current.name == "ansible_test_source_1"
+          - add_filter_l3out_ansible_test_source_1.current.spanDropPackets == false
+          - add_filter_l3out_ansible_test_source_1.current.templateName == "ansible_test_mon_pol"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.node == "101"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.pod == "1"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.port == "eth1/1"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.portNum == "1"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.uuid is defined
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.1.portChannels.0.portChannel is defined
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.1.portChannels.0.portChannelTemplateId != ""
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.1.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannel is defined
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateId != ""
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateName == "ansible_test_fabric_resource"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.node == "101"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.vpc is defined
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.vpcComponentPcName == "ansible_test_vpc1"
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateId != ""
+          - add_filter_l3out_ansible_test_source_1.previous.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateName == "ansible_test_fabric_resource"
+          - add_filter_l3out_ansible_test_source_1.previous.direction == "outgoing"
+          - add_filter_l3out_ansible_test_source_1.previous.epg is defined
+          - add_filter_l3out_ansible_test_source_1.previous.epgName == "ansible_test_epg2"
+          - add_filter_l3out_ansible_test_source_1.previous.epgSchemaId is defined
+          - add_filter_l3out_ansible_test_source_1.previous.epgSchemaName == "ansible_test_schema"
+          - add_filter_l3out_ansible_test_source_1.previous.epgTemplateId != ""
+          - add_filter_l3out_ansible_test_source_1.previous.epgTemplateName == "template1"
+          - add_filter_l3out_ansible_test_source_1.previous.l3out == {}
+          - add_filter_l3out_ansible_test_source_1.previous.name == "ansible_test_source_1"
+          - add_filter_l3out_ansible_test_source_1.previous.spanDropPackets == false
+          - add_filter_l3out_ansible_test_source_1.previous.templateName == "ansible_test_mon_pol"
+          - update_filter_l3out_ansible_test_source_1 is changed
+          - update_filter_l3out_ansible_test_source_1.current.accessPaths.0.portChannels.0.portChannel is defined
+          - update_filter_l3out_ansible_test_source_1.current.accessPaths.0.portChannels.0.portChannelName == "ansible_test_pc1"
+          - update_filter_l3out_ansible_test_source_1.current.accessPaths.0.portChannels.0.portChannelTemplateId != ""
+          - update_filter_l3out_ansible_test_source_1.current.accessPaths.0.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - update_filter_l3out_ansible_test_source_1.current.direction == "outgoing"
+          - update_filter_l3out_ansible_test_source_1.current.l3out.encapType == "vlan"
+          - update_filter_l3out_ansible_test_source_1.current.l3out.encapValue == 42
+          - update_filter_l3out_ansible_test_source_1.current.l3out.ref is defined
+          - update_filter_l3out_ansible_test_source_1.current.name == "ansible_test_source_1"
+          - update_filter_l3out_ansible_test_source_1.current.spanDropPackets == false
+          - update_filter_l3out_ansible_test_source_1.current.templateName == "ansible_test_mon_pol"
+          - update_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - update_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/1]"
+          - update_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.node == "101"
+          - update_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.pod == "1"
+          - update_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.port == "eth1/1"
+          - update_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.portNum == "1"
+          - update_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - update_filter_l3out_ansible_test_source_1.previous.accessPaths.0.accessInterfaces.0.uuid is defined
+          - update_filter_l3out_ansible_test_source_1.previous.direction == "outgoing"
+          - update_filter_l3out_ansible_test_source_1.previous.l3out.encapType == "vlan"
+          - update_filter_l3out_ansible_test_source_1.previous.l3out.encapValue == 41
+          - update_filter_l3out_ansible_test_source_1.previous.l3out.ref is defined
+          - update_filter_l3out_ansible_test_source_1.previous.name == "ansible_test_source_1"
+          - update_filter_l3out_ansible_test_source_1.previous.spanDropPackets == false
+          - update_filter_l3out_ansible_test_source_1.previous.templateName == "ansible_test_mon_pol"
+          - add_filter_epg_ansible_test_source_1_again is changed
+          - add_filter_epg_ansible_test_source_1_again.current.accessPaths.0.portChannels.0.portChannel is defined
+          - add_filter_epg_ansible_test_source_1_again.current.accessPaths.0.portChannels.0.portChannelName == "ansible_test_pc1"
+          - add_filter_epg_ansible_test_source_1_again.current.accessPaths.0.portChannels.0.portChannelTemplateId != ""
+          - add_filter_epg_ansible_test_source_1_again.current.accessPaths.0.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - add_filter_epg_ansible_test_source_1_again.current.direction == "outgoing"
+          - add_filter_epg_ansible_test_source_1_again.current.epg is defined
+          - add_filter_epg_ansible_test_source_1_again.current.epgName == "ansible_test_epg2"
+          - add_filter_epg_ansible_test_source_1_again.current.epgSchemaId is defined
+          - add_filter_epg_ansible_test_source_1_again.current.epgSchemaName == "ansible_test_schema"
+          - add_filter_epg_ansible_test_source_1_again.current.epgTemplateId != ""
+          - add_filter_epg_ansible_test_source_1_again.current.epgTemplateName == "template1"
+          - add_filter_epg_ansible_test_source_1_again.current.l3out == {}
+          - add_filter_epg_ansible_test_source_1_again.current.name == "ansible_test_source_1"
+          - add_filter_epg_ansible_test_source_1_again.current.spanDropPackets == false
+          - add_filter_epg_ansible_test_source_1_again.current.templateName == "ansible_test_mon_pol"
+          - add_filter_epg_ansible_test_source_1_again.previous.accessPaths.0.portChannels.0.portChannel is defined
+          - add_filter_epg_ansible_test_source_1_again.previous.accessPaths.0.portChannels.0.portChannelName == "ansible_test_pc1"
+          - add_filter_epg_ansible_test_source_1_again.previous.accessPaths.0.portChannels.0.portChannelTemplateId != ""
+          - add_filter_epg_ansible_test_source_1_again.previous.accessPaths.0.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - add_filter_epg_ansible_test_source_1_again.previous.direction == "outgoing"
+          - add_filter_epg_ansible_test_source_1_again.previous.l3out.encapType == "vlan"
+          - add_filter_epg_ansible_test_source_1_again.previous.l3out.encapValue == 42
+          - add_filter_epg_ansible_test_source_1_again.previous.l3out.ref is defined
+          - add_filter_epg_ansible_test_source_1_again.previous.name == "ansible_test_source_1"
+          - add_filter_epg_ansible_test_source_1_again.previous.spanDropPackets == false
+          - add_filter_epg_ansible_test_source_1_again.previous.templateName == "ansible_test_mon_pol"
+          - add_filter_l3out_ansible_test_source_1_uuid is changed
+          - add_filter_l3out_ansible_test_source_1_uuid.current.accessPaths.0.portChannels.0.portChannel is defined
+          - add_filter_l3out_ansible_test_source_1_uuid.current.accessPaths.0.portChannels.0.portChannelName == "ansible_test_pc1"
+          - add_filter_l3out_ansible_test_source_1_uuid.current.accessPaths.0.portChannels.0.portChannelTemplateId != ""
+          - add_filter_l3out_ansible_test_source_1_uuid.current.accessPaths.0.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - add_filter_l3out_ansible_test_source_1_uuid.current.direction == "outgoing"
+          - add_filter_l3out_ansible_test_source_1_uuid.current.l3out.encapType == "vlan"
+          - add_filter_l3out_ansible_test_source_1_uuid.current.l3out.encapValue == 42
+          - add_filter_l3out_ansible_test_source_1_uuid.current.l3out.ref is defined
+          - add_filter_l3out_ansible_test_source_1_uuid.current.name == "ansible_test_source_1"
+          - add_filter_l3out_ansible_test_source_1_uuid.current.spanDropPackets == false
+          - add_filter_l3out_ansible_test_source_1_uuid.current.templateName == "ansible_test_mon_pol"
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.accessPaths.0.portChannels.0.portChannel is defined
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.accessPaths.0.portChannels.0.portChannelName == "ansible_test_pc1"
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.accessPaths.0.portChannels.0.portChannelTemplateId != ""
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.accessPaths.0.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.direction == "outgoing"
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.epg is defined
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.epgName == "ansible_test_epg2"
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.epgSchemaId is defined
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.epgSchemaName == "ansible_test_schema"
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.epgTemplateId != ""
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.epgTemplateName == "template1"
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.l3out == {}
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.name == "ansible_test_source_1"
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.spanDropPackets == false
+          - add_filter_l3out_ansible_test_source_1_uuid.previous.templateName == "ansible_test_mon_pol"
+          - add_filter_l3out_ansible_test_source_1_tenant is changed
+          - add_filter_l3out_ansible_test_source_1_tenant.current.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - add_filter_l3out_ansible_test_source_1_tenant.current.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/24]"
+          - add_filter_l3out_ansible_test_source_1_tenant.current.accessPaths.0.accessInterfaces.0.node == "101"
+          - add_filter_l3out_ansible_test_source_1_tenant.current.accessPaths.0.accessInterfaces.0.pod == "1"
+          - add_filter_l3out_ansible_test_source_1_tenant.current.accessPaths.0.accessInterfaces.0.port == "eth1/24"
+          - add_filter_l3out_ansible_test_source_1_tenant.current.accessPaths.0.accessInterfaces.0.portNum == "24"
+          - add_filter_l3out_ansible_test_source_1_tenant.current.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - add_filter_l3out_ansible_test_source_1_tenant.current.accessPaths.0.accessInterfaces.0.uuid is defined
+          - add_filter_l3out_ansible_test_source_1_tenant.current.direction == "outgoing"
+          - add_filter_l3out_ansible_test_source_1_tenant.current.l3out.dn == "uni/tn-apic_ansible_test_tenant/out-apic_l3out"
+          - add_filter_l3out_ansible_test_source_1_tenant.current.l3out.encapType == "vlan"
+          - add_filter_l3out_ansible_test_source_1_tenant.current.l3out.encapValue == 24
+          - add_filter_l3out_ansible_test_source_1_tenant.current.name == "ansible_test_source_1"
+          - add_filter_l3out_ansible_test_source_1_tenant.current.spanDropPackets == false
+          - add_filter_l3out_ansible_test_source_1_tenant.current.templateName == "ansible_test_mon_pol"
+          - add_filter_l3out_ansible_test_source_1_tenant.previous.accessPaths.0.portChannels.0.portChannel is defined
+          - add_filter_l3out_ansible_test_source_1_tenant.previous.accessPaths.0.portChannels.0.portChannelName == "ansible_test_pc1"
+          - add_filter_l3out_ansible_test_source_1_tenant.previous.accessPaths.0.portChannels.0.portChannelTemplateId != ""
+          - add_filter_l3out_ansible_test_source_1_tenant.previous.accessPaths.0.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - add_filter_l3out_ansible_test_source_1_tenant.previous.direction == "outgoing"
+          - add_filter_l3out_ansible_test_source_1_tenant.previous.l3out.encapType == "vlan"
+          - add_filter_l3out_ansible_test_source_1_tenant.previous.l3out.encapValue == 42
+          - add_filter_l3out_ansible_test_source_1_tenant.previous.l3out.ref is defined
+          - add_filter_l3out_ansible_test_source_1_tenant.previous.name == "ansible_test_source_1"
+          - add_filter_l3out_ansible_test_source_1_tenant.previous.spanDropPackets == false
+          - add_filter_l3out_ansible_test_source_1_tenant.previous.templateName == "ansible_test_mon_pol"
+
+    - name: Remove filter EPG and access paths from SPAN Session source
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_3
+        direction: outgoing
+        access_paths: []
+        filter_epg: {}
+        state: present
+      register: rm_ansible_test_source_3_filter_epg
+
+    - name: Remove L3Out and access paths from the SPAN Session source
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        direction: outgoing
+        access_paths: []
+        filter_l3out: {}
+        state: present
+      register: rm_ansible_test_source_1_filter_l3out
+
+    - name: Assertion check for remove SPAN Session sources filter L3Out, EPG and access paths
+      ansible.builtin.assert:
+        that:
+          - rm_ansible_test_source_1_filter_l3out is changed
+          - rm_ansible_test_source_1_filter_l3out.current.direction == "outgoing"
+          - rm_ansible_test_source_1_filter_l3out.current.l3out == {}
+          - rm_ansible_test_source_1_filter_l3out.current.name == "ansible_test_source_1"
+          - rm_ansible_test_source_1_filter_l3out.current.spanDropPackets == false
+          - rm_ansible_test_source_1_filter_l3out.current.templateName == "ansible_test_mon_pol"
+          - rm_ansible_test_source_1_filter_l3out.previous.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - rm_ansible_test_source_1_filter_l3out.previous.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/24]"
+          - rm_ansible_test_source_1_filter_l3out.previous.accessPaths.0.accessInterfaces.0.node == "101"
+          - rm_ansible_test_source_1_filter_l3out.previous.accessPaths.0.accessInterfaces.0.pod == "1"
+          - rm_ansible_test_source_1_filter_l3out.previous.accessPaths.0.accessInterfaces.0.port == "eth1/24"
+          - rm_ansible_test_source_1_filter_l3out.previous.accessPaths.0.accessInterfaces.0.portNum == "24"
+          - rm_ansible_test_source_1_filter_l3out.previous.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - rm_ansible_test_source_1_filter_l3out.previous.accessPaths.0.accessInterfaces.0.uuid is defined
+          - rm_ansible_test_source_1_filter_l3out.previous.direction == "outgoing"
+          - rm_ansible_test_source_1_filter_l3out.previous.l3out.dn == "uni/tn-apic_ansible_test_tenant/out-apic_l3out"
+          - rm_ansible_test_source_1_filter_l3out.previous.l3out.encapType == "vlan"
+          - rm_ansible_test_source_1_filter_l3out.previous.l3out.encapValue == 24
+          - rm_ansible_test_source_1_filter_l3out.previous.name == "ansible_test_source_1"
+          - rm_ansible_test_source_1_filter_l3out.previous.spanDropPackets == false
+          - rm_ansible_test_source_1_filter_l3out.previous.templateName == "ansible_test_mon_pol"
+          - rm_ansible_test_source_3_filter_epg is changed
+          - rm_ansible_test_source_3_filter_epg.current.direction == "outgoing"
+          - rm_ansible_test_source_3_filter_epg.current.l3out == {}
+          - rm_ansible_test_source_3_filter_epg.current.name == "ansible_test_source_3"
+          - rm_ansible_test_source_3_filter_epg.current.spanDropPackets == false
+          - rm_ansible_test_source_3_filter_epg.current.templateName == "ansible_test_mon_pol"
+          - rm_ansible_test_source_3_filter_epg.previous.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - rm_ansible_test_source_3_filter_epg.previous.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/6]"
+          - rm_ansible_test_source_3_filter_epg.previous.accessPaths.0.accessInterfaces.0.node == "101"
+          - rm_ansible_test_source_3_filter_epg.previous.accessPaths.0.accessInterfaces.0.pod == "1"
+          - rm_ansible_test_source_3_filter_epg.previous.accessPaths.0.accessInterfaces.0.port == "eth1/6"
+          - rm_ansible_test_source_3_filter_epg.previous.accessPaths.0.accessInterfaces.0.portNum == "6"
+          - rm_ansible_test_source_3_filter_epg.previous.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - rm_ansible_test_source_3_filter_epg.previous.accessPaths.0.accessInterfaces.0.uuid is defined
+          - rm_ansible_test_source_3_filter_epg.previous.direction == "outgoing"
+          - rm_ansible_test_source_3_filter_epg.previous.epg is defined
+          - rm_ansible_test_source_3_filter_epg.previous.epgName == "ansible_test_epg1"
+          - rm_ansible_test_source_3_filter_epg.previous.epgSchemaId is defined
+          - rm_ansible_test_source_3_filter_epg.previous.epgSchemaName == "ansible_test_schema"
+          - rm_ansible_test_source_3_filter_epg.previous.epgTemplateId != ""
+          - rm_ansible_test_source_3_filter_epg.previous.epgTemplateName == "template1"
+          - rm_ansible_test_source_3_filter_epg.previous.l3out == {}
+          - rm_ansible_test_source_3_filter_epg.previous.name == "ansible_test_source_3"
+          - rm_ansible_test_source_3_filter_epg.previous.spanDropPackets == false
+          - rm_ansible_test_source_3_filter_epg.previous.templateName == "ansible_test_mon_pol"
+
+    # QUERY
+    - name: Query a specific SPAN Session source
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        state: query
+      register: query_one_span_source
+
+    - name: Query all SPAN Session sources
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        state: query
+      register: query_all_span_source
+
+    - name: Assertion check for query SPAN Session sources
+      ansible.builtin.assert:
+        that:
+          - query_one_span_source is not changed
+          - query_one_span_source.current.direction == "outgoing"
+          - query_one_span_source.current.l3out == {}
+          - query_one_span_source.current.name == "ansible_test_source_1"
+          - query_one_span_source.current.spanDropPackets == false
+          - query_one_span_source.current.templateName == "ansible_test_mon_pol"
+          - query_all_span_source is not changed
+          - query_all_span_source.current.0.direction == "outgoing"
+          - query_all_span_source.current.0.l3out == {}
+          - query_all_span_source.current.0.name == "ansible_test_source_1"
+          - query_all_span_source.current.0.spanDropPackets == false
+          - query_all_span_source.current.0.templateId != ""
+          - query_all_span_source.current.0.templateName == "ansible_test_mon_pol"
+          - query_all_span_source.current.1.accessPaths.0.accessInterfaces.0.cardNum == "1"
+          - query_all_span_source.current.1.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/6]"
+          - query_all_span_source.current.1.accessPaths.0.accessInterfaces.0.node == "101"
+          - query_all_span_source.current.1.accessPaths.0.accessInterfaces.0.pod == "1"
+          - query_all_span_source.current.1.accessPaths.0.accessInterfaces.0.port == "eth1/6"
+          - query_all_span_source.current.1.accessPaths.0.accessInterfaces.0.portNum == "6"
+          - query_all_span_source.current.1.accessPaths.0.accessInterfaces.0.portType == "leaf"
+          - query_all_span_source.current.1.accessPaths.0.accessInterfaces.0.uuid is defined
+          - query_all_span_source.current.1.accessPaths.1.portChannels.0.portChannel is defined
+          - query_all_span_source.current.1.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
+          - query_all_span_source.current.1.accessPaths.1.portChannels.0.portChannelTemplateId != ""
+          - query_all_span_source.current.1.accessPaths.1.portChannels.0.portChannelTemplateName == "ansible_test_fabric_resource"
+          - query_all_span_source.current.1.accessPaths.2.virtualPortChannels.0.virtualPortChannel is defined
+          - query_all_span_source.current.1.accessPaths.2.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
+          - query_all_span_source.current.1.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateId != ""
+          - query_all_span_source.current.1.accessPaths.2.virtualPortChannels.0.virtualPortChannelTemplateName == "ansible_test_fabric_resource"
+          - query_all_span_source.current.1.accessPaths.3.vpcComponentPc.0.node == "101"
+          - query_all_span_source.current.1.accessPaths.3.vpcComponentPc.0.vpc is defined
+          - query_all_span_source.current.1.accessPaths.3.vpcComponentPc.0.vpcComponentPcName == "ansible_test_vpc1"
+          - query_all_span_source.current.1.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateId != ""
+          - query_all_span_source.current.1.accessPaths.3.vpcComponentPc.0.vpcComponentPcTemplateName == "ansible_test_fabric_resource"
+          - query_all_span_source.current.1.direction == "outgoing"
+          - query_all_span_source.current.1.l3out == {}
+          - query_all_span_source.current.1.name == "ansible_test_source_2"
+          - query_all_span_source.current.1.spanDropPackets == true
+          - query_all_span_source.current.1.templateId != ""
+          - query_all_span_source.current.1.templateName == "ansible_test_mon_pol"
+          - query_all_span_source.current.2.direction == "outgoing"
+          - query_all_span_source.current.2.l3out == {}
+          - query_all_span_source.current.2.name == "ansible_test_source_3"
+          - query_all_span_source.current.2.spanDropPackets == false
+          - query_all_span_source.current.2.templateId != ""
+          - query_all_span_source.current.2.templateName == "ansible_test_mon_pol"
+          - query_all_span_source.current.3.accessPaths.0.virtualPortChannels.0.virtualPortChannel is defined
+          - query_all_span_source.current.3.accessPaths.0.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
+          - query_all_span_source.current.3.accessPaths.0.virtualPortChannels.0.virtualPortChannelTemplateId != ""
+          - query_all_span_source.current.3.accessPaths.0.virtualPortChannels.0.virtualPortChannelTemplateName == "ansible_test_fabric_resource"
+          - query_all_span_source.current.3.direction == "outgoing"
+          - query_all_span_source.current.3.l3out.encapType == "vlan"
+          - query_all_span_source.current.3.l3out.encapValue == 45
+          - query_all_span_source.current.3.l3out.ref is defined
+          - query_all_span_source.current.3.name == "ansible_test_source_4"
+          - query_all_span_source.current.3.spanDropPackets == false
+          - query_all_span_source.current.3.templateId != ""
+          - query_all_span_source.current.3.templateName == "ansible_test_mon_pol"
+
+    # ERROR
+    - name: Negative test add port channel access path with template and template_id
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        access_paths:
+          - access_path_type: port_channel
+            name: ansible_test_pc1
+            template: ansible_test_fabric_resource
+            template_id: template_id
+        state: present
+      register: nt_access_path_with_invalid_config
+      ignore_errors: true
+
+    - name: Negative test add port channel access path with name and UUID
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        access_paths:
+          - access_path_type: port_channel
+            uuid: port_channel_uuid
+            name: ansible_test_pc1
+        state: present
+      register: nt_access_path_with_invalid_pc_config
+      ignore_errors: true
+
+    - name: Negative test add port channel access path with empty access path config
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        access_paths:
+          - access_path_type: port_channel
+        state: present
+      register: nt_access_path_with_empty_pc_config
+      ignore_errors: true
+
+    - name: Negative test add filter_epg when the span_drop_packets is enabled in the SPAN Session source
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_2
+        direction: outgoing
+        span_drop_packets: true
+        filter_epg:
+          reference:
+            schema: ansible_test_schema
+            template: template1
+            anp: ansible_test_anp
+            name: ansible_test_epg2
+        state: present
+      register: nt_epg_with_span_drop_packets
+      ignore_errors: true
+
+    - name: Negative test create SPAN Session source with filter_epg and filter_l3out
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_2
+        direction: outgoing
+        filter_epg:
+          reference:
+            schema: ansible_test_schema
+            template: template1
+            anp: ansible_test_anp
+            name: ansible_test_epg2
+        filter_l3out:
+          vlan_id: 13
+          reference:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
+        state: present
+      register: nt_add_filter_epg_and_l3out
+      ignore_errors: true
+
+    - name: Negative test create SPAN Session source with filter_l3out and more than one access path
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_6
+        direction: outgoing
+        access_paths:
+          - access_path_type: port
+            node: 101
+            interface: eth1/3
+          - access_path_type: port_channel
+            name: ansible_test_pc1
+            template: ansible_test_fabric_resource
+        filter_l3out:
+          vlan_id: 13
+          reference:
+            name: ansible_test_l3out
+            template: ansible_test_l3out_template
+        state: present
+      register: nt_l3out_with_multiple_access_paths
+      ignore_errors: true
+
+    # Expecting one port_channel access path in the response, as per the current behavior the task will not fail
+    - name: Negative test add duplicate access paths
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_2
+        direction: outgoing
+        access_paths:
+          - access_path_type: port
+            node: 101
+            interface: eth1/3
+          - access_path_type: port_channel
+            name: ansible_test_pc1
+            template: ansible_test_fabric_resource
+          - access_path_type: port_channel
+            name: ansible_test_pc1
+            template: ansible_test_fabric_resource
+        state: present
+      register: nt_duplicate_access_paths
+      ignore_errors: true
+
+    - name: Negative test add port access path with incomplete config
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_2
+        direction: outgoing
+        access_paths:
+          - access_path_type: port
+            interface: eth1/3
+        state: present
+      register: nt_incomplete_port
+      ignore_errors: true
+
+    - name: Negative test add port channel access path with incomplete config
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_2
+        direction: outgoing
+        access_paths:
+          - access_path_type: port_channel
+            name: ansible_test_pc1
+        state: present
+      register: nt_incomplete_pc
+      ignore_errors: true
+
+    - name: Negative test add virtual port channel access path with incomplete config
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_2
+        direction: outgoing
+        access_paths:
+          - access_path_type: virtual_port_channel
+            name: ansible_test_vpc1
+        state: present
+      register: nt_incomplete_vpc
+      ignore_errors: true
+
+    - name: Negative test add vpc_component_pc access path with incomplete config
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_2
+        direction: outgoing
+        access_paths:
+          - access_path_type: vpc_component_pc
+            uuid: vpc_uuid
+        state: present
+      register: nt_incomplete_vpc_pc
+      ignore_errors: true
+
+    - name: Negative test add filter l3out with incomplete config with only UUID
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_2
+        direction: outgoing
+        filter_l3out:
+          uuid: l3out_uuid
+        state: present
+      register: nt_incomplete_l3out_1
+      ignore_errors: true
+
+    - name: Negative test add filter l3out with incomplete config with only l3out name
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_2
+        direction: outgoing
+        filter_l3out:
+          reference:
+            name: l3out
+        state: present
+      register: nt_incomplete_l3out_2
+      ignore_errors: true
+
+    - name: Negative test add filter l3out with incomplete config with only l3out name
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_2
+        direction: outgoing
+        filter_l3out:
+          vlan_id: 10
+          reference:
+            name: l3out
+        state: present
+      register: nt_incomplete_l3out_3
+      ignore_errors: true
+
+    - name: Assertion check for negative test for the SPAN Session sources with invalid and incomplete configuration
+      ansible.builtin.assert:
+        that:
+          - nt_l3out_with_multiple_access_paths is not changed
+          - nt_l3out_with_multiple_access_paths.current == {}
+          - nt_l3out_with_multiple_access_paths.msg is match("MSO Error 400{{':'}}.+SPAN session ansible_test_span_session{{':'}} source ansible_test_source_6{{':'}} only 1 Access Path must be present if an L3Out filter is selected.+")
+          - nt_l3out_with_multiple_access_paths.previous == {}
+          - nt_access_path_with_invalid_config is not changed
+          - nt_access_path_with_invalid_config.msg == "parameters are mutually exclusive{{':'}} template|template_id found in access_paths"
+          - nt_access_path_with_invalid_pc_config is not changed
+          - nt_access_path_with_invalid_pc_config.msg == "parameters are mutually exclusive{{':'}} uuid|interface|name found in access_paths"
+          - nt_access_path_with_empty_pc_config is not changed
+          - nt_access_path_with_empty_pc_config.current == {}
+          - nt_access_path_with_empty_pc_config.msg == "Access path 1{{':'}} when the access_path_type='port_channel', either 'uuid', or both 'name' and 'template', or both 'name' and 'template_id' must be provided."
+          - nt_epg_with_span_drop_packets is not changed
+          - nt_epg_with_span_drop_packets.current.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/6]"
+          - nt_epg_with_span_drop_packets.current.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
+          - nt_epg_with_span_drop_packets.current.accessPaths.2.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
+          - nt_epg_with_span_drop_packets.current.accessPaths.3.vpcComponentPc.0.node == "101"
+          - nt_epg_with_span_drop_packets.current.accessPaths.3.vpcComponentPc.0.vpcComponentPcName == "ansible_test_vpc1"
+          - nt_epg_with_span_drop_packets.current.direction == "outgoing"
+          - nt_epg_with_span_drop_packets.current.l3out == {}
+          - nt_epg_with_span_drop_packets.current.name == "ansible_test_source_2"
+          - nt_epg_with_span_drop_packets.current.spanDropPackets == true
+          - nt_epg_with_span_drop_packets.current.templateName == "ansible_test_mon_pol"
+          - nt_epg_with_span_drop_packets.msg is match("MSO Error 400{{':'}}.+SPAN session ansible_test_span_session{{':'}} source ansible_test_source_2{{':'}} invalid access span source - source ansible_test_source_2 has Span Drop Packets enabled but also has EPG filter.+")
+          - nt_epg_with_span_drop_packets.previous.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/6]"
+          - nt_epg_with_span_drop_packets.previous.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
+          - nt_epg_with_span_drop_packets.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
+          - nt_epg_with_span_drop_packets.previous.accessPaths.3.vpcComponentPc.0.node == "101"
+          - nt_epg_with_span_drop_packets.previous.accessPaths.3.vpcComponentPc.0.vpcComponentPcName == "ansible_test_vpc1"
+          - nt_epg_with_span_drop_packets.previous.direction == "outgoing"
+          - nt_epg_with_span_drop_packets.previous.l3out == {}
+          - nt_epg_with_span_drop_packets.previous.name == "ansible_test_source_2"
+          - nt_epg_with_span_drop_packets.previous.spanDropPackets == true
+          - nt_epg_with_span_drop_packets.previous.templateName == "ansible_test_mon_pol"
+          - nt_add_filter_epg_and_l3out is not changed
+          - nt_add_filter_epg_and_l3out.msg == "parameters are mutually exclusive{{':'}} filter_epg|filter_l3out"
+          - nt_duplicate_access_paths is not changed
+          - nt_duplicate_access_paths.msg is match("Remove duplicate entries from the access_paths.+")
+          - nt_incomplete_port is not changed
+          - nt_incomplete_port.current == {}
+          - nt_incomplete_port.msg == "Access path 1{{':'}} when the access_path_type='port', either 'uuid' or both 'node' and 'interface' must be provided."
+          - nt_incomplete_pc is not changed
+          - nt_incomplete_pc.current == {}
+          - nt_incomplete_pc.msg == "Access path 1{{':'}} when the access_path_type='port_channel', either 'uuid', or both 'name' and 'template', or both 'name' and 'template_id' must be provided."
+          - nt_incomplete_vpc is not changed
+          - nt_incomplete_vpc.current == {}
+          - nt_incomplete_vpc.msg == "Access path 1{{':'}} when the access_path_type 'virtual_port_channel', either 'uuid', or both 'name' and 'template', or both 'name' and 'template_id' must be provided."
+          - nt_incomplete_vpc_pc is not changed
+          - nt_incomplete_vpc_pc.current == {}
+          - nt_incomplete_vpc_pc.msg == "Access path 1{{':'}} when the access_path_type 'vpc_component_pc', either both 'uuid' and 'node', or all of 'name', 'template', and 'node', or all of 'name', 'template_id', and 'node' must be provided."
+          - nt_incomplete_l3out_1 is not changed
+          - nt_incomplete_l3out_1.msg == "missing parameter(s) required by 'uuid'{{':'}} vlan_id found in filter_l3out"
+          - nt_incomplete_l3out_2 is not changed
+          - nt_incomplete_l3out_2.msg == "missing parameter(s) required by 'reference'{{':'}} vlan_id found in filter_l3out"
+          - nt_incomplete_l3out_3 is not changed
+          - nt_incomplete_l3out_3.msg == "one of the following is required{{':'}} tenant, template, template_id found in filter_l3out -> reference"
+          - nt_ansible_test_source_4_vpc_com_pc is not changed
+          - nt_ansible_test_source_4_vpc_com_pc.msg is match("MSO Error 400{{':'}} .+span{{':'}} ansible_test_span_session, source ansible_test_source_4{{':'}} combination of access paths and L3Out is not correct, no common VLAN.+")
+
+    # DELETE
+    - name: Delete SPAN Session source (check mode)
+      cisco.mso.ndo_fabric_span_session_source: &cm_rm_ansible_test_source_1
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        span_session_name: ansible_test_span_session
+        name: ansible_test_source_1
+        state: absent
+        output_level: debug
+      check_mode: true
+      register: cm_rm_ansible_test_source_1
+
+    - name: Delete SPAN Session source
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *cm_rm_ansible_test_source_1
+      register: rm_ansible_test_source_1
+
+    - name: Delete SPAN Session source again
+      cisco.mso.ndo_fabric_span_session_source:
+        <<: *cm_rm_ansible_test_source_1
+      register: rm_ansible_test_source_1_again
+
+    - name: Assertion check for delete SPAN Session source
+      ansible.builtin.assert:
+        that:
+          - cm_rm_ansible_test_source_1 is changed
+          - cm_rm_ansible_test_source_1.current == {}
+          - cm_rm_ansible_test_source_1.previous.direction == "outgoing"
+          - cm_rm_ansible_test_source_1.previous.l3out == {}
+          - cm_rm_ansible_test_source_1.previous.name == "ansible_test_source_1"
+          - cm_rm_ansible_test_source_1.previous.spanDropPackets == false
+          - cm_rm_ansible_test_source_1.previous.templateName == "ansible_test_mon_pol"
+          - cm_rm_ansible_test_source_1.proposed == {}
+          - rm_ansible_test_source_1 is changed
+          - rm_ansible_test_source_1.current == {}
+          - rm_ansible_test_source_1.previous.direction == "outgoing"
+          - rm_ansible_test_source_1.previous.l3out == {}
+          - rm_ansible_test_source_1.previous.name == "ansible_test_source_1"
+          - rm_ansible_test_source_1.previous.spanDropPackets == false
+          - rm_ansible_test_source_1.previous.templateName == "ansible_test_mon_pol"
+          - rm_ansible_test_source_1_again is not changed
+          - rm_ansible_test_source_1_again.current == {}
+          - rm_ansible_test_source_1_again.previous == {}
+
+    # CLEAN TEST ENVIRONMENT
+    - name: Ensure Fabric Monitoring Access Policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        template: ansible_test_mon_pol
+        template_type: monitoring_access
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+      register: rm_monitoring_access_template
+
+    - name: Ensure L3Out template does not exist
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        template: ansible_test_l3out_template
+        template_type: l3out
+        state: absent
+      register: rm_l3out_template
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: ansible_test_schema
+        state: absent
+
+    - name: Ensure Fabric Resource Policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        template: ansible_test_fabric_resource
+        template_type: fabric_resource
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+      register: rm_fabric_resource_template
+
+    - name: Ensure Fabric Policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        template: ansible_test_fabric_pol
+        template_type: fabric_policy
+        state: absent
+      register: rm_fabric_policy_template
+
+    - name: Ensure Tenant does not exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: apic_ansible_test_tenant
+        orchestrator_only: no # To delete tenant from both MSO and APIC
+        state: absent
+
+    - name: Set ansible_network_os to cisco.aci.aci and ansible_connection to local
+      ansible.builtin.set_fact:
+        ansible_connection: local
+        ansible_network_os: cisco.aci.aci
+
+    - name: Reset the ansible_connection to access the APIC
+      ansible.builtin.meta: reset_connection
+
+    - name: Ensure L3 domain does not exist
+      cisco.aci.aci_domain:
+        <<: *aci_info
+        domain: apic_l3_domain
+        domain_type: l3dom
+        state: absent

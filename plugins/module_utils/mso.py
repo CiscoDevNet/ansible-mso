@@ -1891,8 +1891,8 @@ def listener_rules_spec():
     )
 
 
-def epg_object_reference_spec():
-    return dict(
+def epg_object_reference_spec(aliases=None):
+    epg_reference_spec = dict(
         type="dict",
         options=dict(
             name=dict(type="str", required=True),
@@ -1914,3 +1914,6 @@ def epg_object_reference_spec():
             ("anp", "anp_uuid"),
         ],
     )
+    if aliases:
+        epg_reference_spec["aliases"] = [aliases]
+    return epg_reference_spec

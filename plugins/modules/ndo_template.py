@@ -35,7 +35,7 @@ options:
   template_type:
     description:
     - The type of the template.
-    - The O(template_type=application) is only intended for retrieving the Application template and does not support template creation.
+    - The O(template_type=application) is only intended for retrieving the Application template using O(template_id) and does not support template creation.
     type: str
     aliases: [ type ]
     choices:

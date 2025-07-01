@@ -414,6 +414,41 @@
           - query_all is not changed
           - query_all.current | length >= 8
 
+    # Add Schema Template
+    - name: Add an application template
+      cisco.mso.mso_schema_template: &add_application_template
+        <<: *mso_info
+        schema: ansible_test
+        template: application_template_test
+        tenant: ansible_test
+        state: present
+      register: application_template
+
+    - name: Query an application template to get the template_id
+      cisco.mso.mso_schema_template:
+        <<: *mso_info
+        schema: ansible_test
+        template: application_template_test
+        state: query
+      register: query_schema_template
+
+    - name: Query an application template using template_id
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        template_type: application
+        template_id: "{{ query_schema_template.current.templateID }}"
+        state: query
+      register: query_application_template
+
+    - name: Assert query application template using template_id
+      assert:
+        that:
+          - query_schema_template is not changed
+          - query_application_template is not changed
+          - query_schema_template.current.templateID == query_application_template.current.templateId
+          - query_application_template.current.templateType == "application"
+          - query_application_template.current.displayName == "application_template_test"
+
     # ERRORS
 
     - name: Error on unknown template
@@ -496,6 +531,15 @@
       register: err_no_template_type_query
       ignore_errors: true
 
+    - name: Error on template type application
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        template: application_template
+        template_type: application
+        state: present
+      register: err_no_template_type_application
+      ignore_errors: true
+
     - name: Assert errors
       assert:
         that:
@@ -517,6 +561,8 @@
           - err_not_allowed_tenant.msg == "Tenant cannot be attached to template of type monitoring_access."
           - err_no_template_type_query is failed
           - err_no_template_type_query.msg == "Template type must be provided when using template name."
+          - err_no_template_type_application is failed
+          - err_no_template_type_application.msg == "The template_type{{':'}} application is only intended for retrieving the Application template."
 
     # DELETE
 
@@ -588,3 +634,8 @@
         - { name: ansible_service_device_template, type: service_device }
         - { name: ansible_monitoring_tenant_template, type: monitoring_tenant }
         - { name: ansible_monitoring_access_template, type: monitoring_access }
+
+    - name: Delete an application template
+      cisco.mso.mso_schema_template:
+        <<: *add_application_template
+        state: absent

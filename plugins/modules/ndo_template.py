@@ -35,6 +35,7 @@ options:
   template_type:
     description:
     - The type of the template.
+    - The O(template_type=application) is only intended for retrieving the Application template and does not support template creation.
     type: str
     aliases: [ type ]
     choices:
@@ -176,6 +177,9 @@ def main():
     tenant_id = mso.lookup_tenant(module.params.get("tenant"))
     site_ids = [mso.lookup_site(site.get("name")) for site in module.params.get("sites", [])] if module.params.get("sites") else []
     state = module.params.get("state")
+
+    if state != "query" and template_type == "application":
+        mso.fail_json(msg="The template_type: application is only intended for retrieving the Application template.")
 
     mso_template = MSOTemplate(mso, template_type, template, template_id)
 

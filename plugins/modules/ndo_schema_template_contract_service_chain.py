@@ -12,13 +12,13 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 
 DOCUMENTATION = r"""
 ---
-module: mso_schema_template_contract_service_chain
-short_description: Manage the service chain association with a contract in schema template
+module: ndo_schema_template_contract_service_chain
+short_description: Manage the Schema Template Contract Service Chaining workflow on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
-- Manage the service chain association with a contract in schema template on Cisco Nexus Dashboard Orchestrator (NDO).
-- This module is only supported on ND v3.1 (NDO v4.3) and later.
+- Manage the Schema Template Contract Service Chaining workflow on Cisco Nexus Dashboard Orchestrator (NDO).
+- This module is only supported on ND v3.1 (NDO v4.2.3) and later.
+- This module is the recommended approach for Service Chaining over the previous solution using M(cisco.mso.mso_schema_template_contract_service_graph).
 - This module is incompatible with M(cisco.mso.mso_schema_template_contract_service_graph).
-- This module offers an alternative solution to the Schema Template Contract Service Graph.
 author:
 - Sabari Jaganathan (@sajagana)
 options:
@@ -65,6 +65,7 @@ options:
   service_nodes:
     description:
     - The list of service nodes for the contract service chain.
+    - This parameter is required for creating the contract service chain.
     - Providing a new list of O(service_nodes) will completely replace an existing one from the contract service chain.
     type: list
     elements: dict
@@ -143,7 +144,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r"""
 - name: Add schema template contract service chain
-  cisco.mso.mso_schema_template_contract_service_chain:
+  cisco.mso.ndo_schema_template_contract_service_chain:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -163,7 +164,7 @@ EXAMPLES = r"""
     state: present
 
 - name: Update schema template contract service chain with multiple nodes
-  cisco.mso.mso_schema_template_contract_service_chain:
+  cisco.mso.ndo_schema_template_contract_service_chain:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -187,7 +188,7 @@ EXAMPLES = r"""
     state: present
 
 - name: Query schema template contract service chain
-  cisco.mso.mso_schema_template_contract_service_chain:
+  cisco.mso.ndo_schema_template_contract_service_chain:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -198,7 +199,7 @@ EXAMPLES = r"""
   register: query_service_chain
 
 - name: Delete schema template contract service chain
-  cisco.mso.mso_schema_template_contract_service_chain:
+  cisco.mso.ndo_schema_template_contract_service_chain:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -218,6 +219,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTempl
 from ansible_collections.cisco.mso.plugins.module_utils.template import KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.utils import snake_to_camel
 from ansible_collections.cisco.mso.plugins.module_utils.constants import CONTRACT_SERVICE_CHAIN_NODE_FILTER_MAP
+from ansible_collections.cisco.mso.plugins.module_utils.utils import delete_none_values
 import copy
 
 
@@ -288,7 +290,7 @@ def main():
 
     template_id = template_id or mso_template.template.get("templateId")
     template = template or mso_template.template.get("appTemplate", {}).get("template", {}).get("name")
-    contract_match = mso_template.get_template_contract(contract_uuid, contract, fail_module=True)
+    contract_match = mso_template.get_application_template_contract(contract_uuid, contract, fail_module=True)
     service_chain = contract_match.details.get("serviceChaining") if contract_match and contract_match.details.get("serviceChaining") else {}
 
     reference_collections = {
@@ -305,9 +307,7 @@ def main():
             service_chain, reference_collections, set_template=True, use_cache=True
         )  # Query a specific object
 
-    service_chain_path = None
-    if state != "query":
-        service_chain_path = "/templates/{0}/contracts/{1}/serviceChaining".format(template, contract_match.index)
+    service_chain_path = "/templates/{0}/contracts/{1}/serviceChaining".format(template, contract_match.details.get("name"))
 
     ops = []
 
@@ -336,19 +336,18 @@ def main():
                         "deviceRef": service_node.get("uuid"),
                         "deviceType": snake_to_camel(service_node.get("device_type")),
                         "providerConnector": {
-                            "interfaceName": service_node.get("provider_interface_name") or "one-arm",
-                            "isRedirect": service_node.get("provider_redirect") or False,
+                            "interfaceName": service_node.get("provider_interface_name"),
+                            "isRedirect": service_node.get("provider_redirect"),
                         },
                         "consumerConnector": {
-                            "interfaceName": service_node.get("consumer_interface_name") or "one-arm",
-                            "isRedirect": service_node.get("consumer_redirect") or False,
+                            "interfaceName": service_node.get("consumer_interface_name"),
+                            "isRedirect": service_node.get("consumer_redirect"),
                         },
                     }
                 )
 
         mso_values["serviceNodes"] = service_nodes_config
-        mso.sanitize(mso_values)
-
+        mso.sanitize(delete_none_values(mso_values))
         ops.append(dict(op="replace" if mso.existing else "add", path=service_chain_path, value=mso.sent))
 
     elif state == "absent" and mso.existing:
@@ -357,7 +356,7 @@ def main():
     if not module.check_mode and ops:
         mso.request(mso_template.schema_path, method="PATCH", data=ops)
         mso_template = MSOTemplate(mso, "application", None, template_id)
-        contract_match = mso_template.get_template_contract(contract_uuid, contract, fail_module=True)
+        contract_match = mso_template.get_application_template_contract(contract_uuid, contract, fail_module=True)
         service_chain = contract_match.details.get("serviceChaining") if contract_match and contract_match.details.get("serviceChaining") else {}
 
         if service_chain:

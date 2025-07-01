@@ -40,6 +40,8 @@ class MSOTemplate:
                 self.template = self.mso.query_obj(self.template_path)
                 self.template_name = self.template.get("displayName")
                 self.template_type = self.template.get("templateType")
+                if template_type == "application":
+                    self._set_schema_properties()
             else:
                 self.mso.fail_json(
                     msg="Provided template id '{0}' does not exist. Existing templates: {1}".format(
@@ -65,6 +67,8 @@ class MSOTemplate:
                 self.template = self.mso.query_obj(self.template_path)
                 self.template_id = self.template.get("templateId")
                 self.template_type = self.template.get("templateType")
+                if template_type == "application":
+                    self._set_schema_properties()
 
         elif template_type:
             self.template = self.mso.query_objs(self.summaries_path, templateType=TEMPLATE_TYPES[template_type]["template_type"])
@@ -76,17 +80,10 @@ class MSOTemplate:
             for key in ["_updateVersion", "version"]:
                 self.template.pop(key, None)
 
-        if template_type == "application":
-            if not self.template_summary:
-                self.mso.fail_json(
-                    msg="Failed to locate the template with the name: {0}, using the schema: {1} or schema ID: {2}.".format(
-                        self.template_name, self.schema_name, self.schema_id
-                    )
-                )
-
-            self.schema_name = self.schema_name or self.template_summary.get("schemaName")
-            self.schema_id = self.schema_id or self.template_summary.get("schemaId")
-            self.schema_path = "schemas/{0}".format(self.schema_id)
+    def _set_schema_properties(self):
+        self.schema_name = self.template_summary.get("schemaName")
+        self.schema_id = self.template_summary.get("schemaId")
+        self.schema_path = "schemas/{0}".format(self.schema_id)
 
     @staticmethod
     def get_object_from_list(search_list, kv_list):
@@ -620,6 +617,8 @@ class MSOTemplate:
                 config_data["templateName"] = self.template_name
             if self.schema_id:
                 config_data["schemaId"] = self.schema_id
+            if self.schema_name:
+                config_data["schemaName"] = self.schema_name
 
         # Update config data with reference names if reference_collections is provided
         if reference_collections:
@@ -715,7 +714,7 @@ class MSOTemplate:
         if match:
             return match.details
 
-    def get_template_contract(self, uuid=None, name=None, fail_module=False):
+    def get_application_template_contract(self, uuid=None, name=None, fail_module=False):
         """
         Get the Application Template Contract by uuid or name.
         :param uuid: UUID of the Contract to search for -> Str

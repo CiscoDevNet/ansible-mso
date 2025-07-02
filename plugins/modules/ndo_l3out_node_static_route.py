@@ -48,7 +48,7 @@ options:
     type: str
   pod_id:
     description:
-    - The ID of the pod of the node (border leaf switch).
+    - The pod ID of the node (border leaf switch).
     type: str
     required: true
     aliases: [ pod ]
@@ -80,7 +80,7 @@ options:
     type: bool
   next_hop_null:
     description:
-    - Create a static route to Null0.
+    - Create a static route to Null0 interface.
     - This is used to drop traffic for the specified prefix.
     - Defaults to O(next_hop_null=false) when unset during creation.
     type: bool

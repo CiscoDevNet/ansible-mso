@@ -331,6 +331,8 @@
       - cm_add_service_chain.proposed.serviceNodes.0.providerConnector.isRedirect is not defined
       - cm_add_service_chain.current.schemaId is defined
       - cm_add_service_chain.current.schemaName == "ansible_test"
+      - cm_add_service_chain.current.templateId != ""
+      - cm_add_service_chain.current.templateName == "ansible_template"
       - nm_add_service_chain is changed
       - nm_add_service_chain.current.nodeFilter == "allow-all"
       - nm_add_service_chain.current.serviceNodes.0.consumerConnector.interfaceName == "lb_interface1"
@@ -350,6 +352,8 @@
       - nm_add_service_chain.previous == {}
       - nm_add_service_chain.current.schemaId is defined
       - nm_add_service_chain.current.schemaName == "ansible_test"
+      - nm_add_service_chain.current.templateId != ""
+      - nm_add_service_chain.current.templateName == "ansible_template"
       - nm_add_service_chain_again is not changed
       - nm_add_service_chain_again.current.nodeFilter == "allow-all"
       - nm_add_service_chain_again.current.serviceNodes.0.consumerConnector.interfaceName == "lb_interface1"
@@ -383,6 +387,10 @@
       - nm_add_service_chain_again.previous.serviceNodes.0.uuid is defined
       - nm_add_service_chain_again.current.schemaId is defined
       - nm_add_service_chain_again.current.schemaName == "ansible_test"
+      - nm_add_service_chain_again.current.templateId != ""
+      - nm_add_service_chain_again.current.templateName == "ansible_template"
+      - nm_add_service_chain_again.previous.templateId != ""
+      - nm_add_service_chain_again.previous.templateName == "ansible_template"
 
 - name: Replace service chain with 4 nodes to the existing service chain - $add_4_nodes
   cisco.mso.ndo_schema_template_contract_service_chain:
@@ -479,6 +487,8 @@
       - add_4_nodes.current.serviceNodes.3.serviceNodeRef == ""
       - add_4_nodes.current.serviceNodes.3.serviceNodeTypeId == ""
       - add_4_nodes.current.serviceNodes.3.uuid is defined
+      - add_4_nodes.current.templateId != ""
+      - add_4_nodes.current.templateName == "ansible_template"
       - add_4_nodes.previous.nodeFilter == "allow-all"
       - add_4_nodes.previous.serviceNodes.0.consumerConnector.interfaceName == "lb_interface1"
       - add_4_nodes.previous.serviceNodes.0.consumerConnector.isRedirect == false
@@ -494,6 +504,8 @@
       - add_4_nodes.previous.serviceNodes.0.serviceNodeRef == ""
       - add_4_nodes.previous.serviceNodes.0.serviceNodeTypeId == ""
       - add_4_nodes.previous.serviceNodes.0.uuid is defined
+      - add_4_nodes.proposed.templateId != ""
+      - add_4_nodes.proposed.templateName == "ansible_template"
 
 # QUERY
 - name: Query contract service chain 1 - $query_service_chain_1
@@ -602,6 +614,10 @@
       - add_service_chain_with_one_node.previous.serviceNodes.3.serviceNodeRef == ""
       - add_service_chain_with_one_node.previous.serviceNodes.3.serviceNodeTypeId == ""
       - add_service_chain_with_one_node.previous.serviceNodes.3.uuid is defined
+      - add_service_chain_with_one_node.previous.templateId != ""
+      - add_service_chain_with_one_node.previous.templateName == "ansible_template"
+      - add_service_chain_with_one_node.current.templateId != ""
+      - add_service_chain_with_one_node.current.templateName == "ansible_template"
 
 - name: Query contract service chain 2 - $query_service_chain_2
   cisco.mso.ndo_schema_template_contract_service_chain:
@@ -673,6 +689,8 @@
       - query_service_chain_1.current.serviceNodes.3.serviceNodeRef == ""
       - query_service_chain_1.current.serviceNodes.3.serviceNodeTypeId == ""
       - query_service_chain_1.current.serviceNodes.3.uuid is defined
+      - query_service_chain_1.current.templateId != ""
+      - query_service_chain_1.current.templateName == "ansible_template"
       - query_service_chain_2 is not changed
       - query_service_chain_2.current.nodeFilter == "filters-from-contract"
       - query_service_chain_2.current.serviceNodes.0.consumerConnector.interfaceName == "fw_interface1"
@@ -689,6 +707,8 @@
       - query_service_chain_2.current.serviceNodes.0.serviceNodeRef == ""
       - query_service_chain_2.current.serviceNodes.0.serviceNodeTypeId == ""
       - query_service_chain_2.current.serviceNodes.0.uuid is defined
+      - query_service_chain_2.current.templateId != ""
+      - query_service_chain_2.current.templateName == "ansible_template"
 
 - name: Add service chain with one arm service node - $add_one_arm_service_node
   cisco.mso.ndo_schema_template_contract_service_chain:
@@ -736,6 +756,8 @@
       - add_one_arm_service_node.previous.serviceNodes.0.consumerConnector.interfaceName == "fw_interface1"
       - add_one_arm_service_node.previous.serviceNodes.0.providerConnector.interfaceName == "fw_interface2"
       - add_one_arm_service_node.previous.serviceNodes.0.providerConnector.isRedirect == true
+      - add_one_arm_service_node.previous.templateId != ""
+      - add_one_arm_service_node.previous.templateName == "ansible_template"
 
 # ERROR
 - name: Negative test add service chain without device_type, provider and consumer interface_name
@@ -929,6 +951,8 @@
       - cm_rm_service_chain.proposed == {}
       - cm_rm_service_chain.previous.schemaId is defined
       - cm_rm_service_chain.previous.schemaName == "ansible_test"
+      - cm_rm_service_chain.previous.templateName == "ansible_template"
+      - cm_rm_service_chain.proposed == {}
       - rm_service_chain is changed
       - rm_service_chain.current == {}
       - rm_service_chain.previous.nodeFilter == "allow-all"
@@ -948,6 +972,8 @@
       - rm_service_chain.previous.serviceNodes.0.uuid is defined
       - rm_service_chain.previous.schemaId is defined
       - rm_service_chain.previous.schemaName == "ansible_test"
+      - rm_service_chain.previous.templateId != ""
+      - rm_service_chain.previous.templateName == "ansible_template"
       - rm_service_chain_again is not changed
       - rm_service_chain_again.current == {}
       - rm_service_chain_again.previous == {}

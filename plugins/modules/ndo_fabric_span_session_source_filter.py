@@ -63,28 +63,28 @@ options:
   source_port_from:
     description:
     - The starting source port number for the SPAN Session source filter.
-    - This parameter is required to query/delete a specific SPAN session source filter when it is configured with a non-default value.
+    - This parameter is required to query/delete a specific SPAN session source filter when not configured with "unspecified".
     type: str
     default: unspecified
     choices: ['53', 'dns', '20', 'ftp_data', '80', 'http', '443', 'https', '110', 'pop3', '554', 'rtsp', '25', 'smtp', '22', 'ssh', '0', 'unspecified']
   source_port_to:
     description:
     - The ending source port number for the SPAN Session source filter.
-    - This parameter is required to query/delete a specific SPAN session source filter when it is configured with a non-default value.
+    - This parameter is required to query/delete a specific SPAN session source filter when not configured with "unspecified".
     type: str
     default: unspecified
     choices: ['53', 'dns', '20', 'ftp_data', '80', 'http', '443', 'https', '110', 'pop3', '554', 'rtsp', '25', 'smtp', '22', 'ssh', '0', 'unspecified']
   destination_port_from:
     description:
     - The starting destination port number for the SPAN Session source filter.
-    - This parameter is required to query/delete a specific SPAN session source filter when it is configured with a non-default value.
+    - This parameter is required to query/delete a specific SPAN session source filter when not configured with "unspecified".
     type: str
     default: unspecified
     choices: ['53', 'dns', '20', 'ftp_data', '80', 'http', '443', 'https', '110', 'pop3', '554', 'rtsp', '25', 'smtp', '22', 'ssh', '0', 'unspecified']
   destination_port_to:
     description:
     - The ending destination port number for the SPAN Session source filter.
-    - This parameter is required to query/delete a specific SPAN session source filter when it is configured with a non-default value.
+    - This parameter is required to query/delete a specific SPAN session source filter when not configured with "unspecified".
     type: str
     default: unspecified
     choices: ['53', 'dns', '20', 'ftp_data', '80', 'http', '443', 'https', '110', 'pop3', '554', 'rtsp', '25', 'smtp', '22', 'ssh', '0', 'unspecified']
@@ -92,7 +92,7 @@ options:
     description:
     - The IP protocol for the SPAN Session source filter.
     - This filters traffic based on the Layer 3 or Layer 4 protocol.
-    - This parameter is required to query/delete a specific SPAN session source filter when it is configured with a non-default value.
+    - This parameter is required to query/delete a specific SPAN session source filter when not configured with "unspecified".
     type: str
     choices:
       - '0'

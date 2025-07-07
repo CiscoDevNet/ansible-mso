@@ -844,6 +844,46 @@
           - nm_update_routed_interface_port_channel_router_id_as_loopback.current.node.useRouteIDAsLoopback == true
           - nm_update_routed_interface_port_channel_router_id_as_loopback.current.node.loopbackIPs is not defined
 
+    # ERROR HANDLING
+
+    - name: Create a L3out routed interface of type port channel with invalid port channel template
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface_port_channel_reference
+        port_channel:
+          reference:
+            name: '{{ port_channel_interface_2.current.name }}'
+            template: invalid_template
+      register: error_create_routed_interface_port_channel_invalid_template
+      ignore_errors: true
+
+    - name: Create a L3out routed interface of type port channel with invalid port channel name
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface_port_channel_reference
+        port_channel:
+          reference:
+            name: invalid_name
+            template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+      register: error_create_routed_interface_port_channel_invalid_name
+      ignore_errors: true
+
+    - name: Create a L3out routed interface of type port channel with invalid port channel uuid
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_routed_interface_port_channel_reference
+        port_channel:
+          uuid: invalid_uuid
+      register: error_create_routed_interface_port_channel_invalid_uuid
+      ignore_errors: true
+
+    - name: Assert that the errors were raised
+      ansible.builtin.assert:
+        that:
+          - error_create_routed_interface_port_channel_invalid_template is failed
+          - error_create_routed_interface_port_channel_invalid_template.msg == "Provided Port Channel with '[KVPair(key='name', value='ansible_port_channel_interface_2')]' not matching existing object(s){{":"}} "
+          - error_create_routed_interface_port_channel_invalid_name is failed
+          - error_create_routed_interface_port_channel_invalid_name.msg == "Provided Port Channel with '[KVPair(key='name', value='invalid_name')]' not matching existing object(s){{":"}} ansible_port_channel_interface_1, ansible_port_channel_interface_2"
+          - error_create_routed_interface_port_channel_invalid_uuid is failed
+          - error_create_routed_interface_port_channel_invalid_uuid.msg == "MSO Error 404{{":"}} policy not found"
+
     # QUERY
 
     - name: Get a L3out routed interface of type port
@@ -1029,8 +1069,3 @@
     - name: Remove ansible_fabric_policy_template fabric_policy template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_policy_template_absent
-
-    - name: Remove tenant
-      cisco.mso.mso_tenant:
-        <<: *mso_tenant_present
-        state: absent

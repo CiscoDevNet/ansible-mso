@@ -418,7 +418,7 @@ def main():
             aliases=["epg"],
             options=dict(
                 uuid=dict(type="str", aliases=["epg_uuid"]),
-                reference=epg_object_reference_spec(aliases="ref"),
+                reference=epg_object_reference_spec(aliases=["ref"]),
             ),
             mutually_exclusive=[("reference", "uuid")],
         ),

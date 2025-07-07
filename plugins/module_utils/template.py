@@ -17,7 +17,7 @@ SearchQuery = namedtuple("SearchQuery", "key kv_pairs")
 
 
 class MSOTemplate:
-    def __init__(self, mso_module, template_type=None, template_name=None, template_id=None):
+    def __init__(self, mso_module, template_type=None, template_name=None, template_id=None, fail_module=False):
         self.mso = mso_module
         self.templates_path = "templates"
         self.summaries_path = "{0}/summaries".format(self.templates_path)
@@ -58,6 +58,17 @@ class MSOTemplate:
                 self.template = self.mso.query_obj(self.template_path)
                 self.template_id = self.template.get("templateId")
                 self.template_type = self.template.get("templateType")
+
+            if fail_module and not self.template:
+                self.mso.fail_json(
+                    msg="Provided template name '{0}' does not exist. Existing templates: {1}".format(
+                        self.template_name,
+                        [
+                            "Template '{0}' with id '{1}'".format(template.get("templateName"), template.get("templateId"))
+                            for template in self.mso.query_objs(self.summaries_path, templateType=TEMPLATE_TYPES[template_type]["template_type"])
+                        ],
+                    )
+                )
 
         elif template_type:
             self.template = self.mso.query_objs(self.summaries_path, templateType=TEMPLATE_TYPES[template_type]["template_type"])

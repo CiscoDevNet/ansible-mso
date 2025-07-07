@@ -1915,5 +1915,5 @@ def epg_object_reference_spec(aliases=None):
         ],
     )
     if aliases:
-        epg_reference_spec["aliases"] = [aliases]
+        epg_reference_spec["aliases"] = aliases
     return epg_reference_spec

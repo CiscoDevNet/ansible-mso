@@ -431,6 +431,7 @@ def main():
                 "fabric_resource",
                 port_channel.get("reference").get("template"),
                 port_channel.get("reference").get("template_id"),
+                fail_module=True,
             )
             port_channel_match = fabric_resource_mso_template.get_port_channel(
                 port_channel_uuid,

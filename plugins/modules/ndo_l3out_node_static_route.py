@@ -73,6 +73,7 @@ options:
     - The value must be in the range 1 - 255.
     - Defaults to O(administrative_distance=1) when unset during creation.
     type: int
+    aliases: [ admin_distance ]
   bfd_tracking:
     description:
     - Enable BFD tracking for the static route.
@@ -224,7 +225,7 @@ def main():
         node_id=dict(type="str", aliases=["node", "border_leaf"], required=True),
         prefix=dict(type="str"),
         description=dict(type="str"),
-        administrative_distance=dict(type="int"),
+        administrative_distance=dict(type="int", aliases=["admin_distance"]),
         bfd_tracking=dict(type="bool"),
         next_hop_null=dict(type="bool"),
         track_policy_uuid=dict(type="str", aliases=["ipsla_track_list_uuid"]),

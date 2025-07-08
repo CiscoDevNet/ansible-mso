@@ -366,7 +366,7 @@
         <<: *create_node_static_route
         track_policy:
           name: '{{ ipsla_track_list.current.name }}'
-          template: invalid_template
+          template: invalid_template_name
       register: nm_create_node_static_route_invalid_track_policy_template_name
       ignore_errors: true
 
@@ -413,7 +413,7 @@
           - nm_create_node_static_route_invalid_track_policy_name is failed
           - nm_create_node_static_route_invalid_track_policy_name.msg == "Provided IPSLA Track List with '[KVPair(key='name', value='invalid_name')]' not matching existing object(s){{':'}} ansible_test_ipsla_track_list"
           - nm_create_node_static_route_invalid_track_policy_template_name is failed
-          - nm_create_node_static_route_invalid_track_policy_template_name.msg == "Provided IPSLA Track List with '[KVPair(key='name', value='ansible_test_ipsla_track_list')]' not matching existing object(s){{':'}} "
+          - nm_create_node_static_route_invalid_track_policy_template_name.msg.startswith("Provided template name 'invalid_template_name' does not exist. Existing templates")
           - nm_create_node_static_route_invalid_track_policy_template_id is failed
           - nm_create_node_static_route_invalid_track_policy_template_id.msg.startswith("Provided template id 'invalid_template_id' does not exist. Existing templates")
           - nm_create_node_static_route_missing_track_policy_name is failed
@@ -542,8 +542,3 @@
     - name: Remove ansible_tenant_policy_template tenant template
       cisco.mso.ndo_template:
         <<: *ndo_tenant_policy_template_absent
-
-    - name: Remove tenant
-      cisco.mso.mso_tenant:
-        <<: *mso_tenant_present
-        state: absent

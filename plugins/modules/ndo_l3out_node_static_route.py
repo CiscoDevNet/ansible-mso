@@ -299,6 +299,7 @@ def main():
                 "tenant",
                 track_policy.get("template"),
                 track_policy.get("template_id"),
+                fail_module=True,
             )
             track_policy_match = track_policy_mso_template.get_ipsla_track_list(
                 uuid=track_policy_uuid,

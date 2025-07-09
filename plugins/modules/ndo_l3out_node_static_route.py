@@ -240,6 +240,9 @@ def main():
                 "template": "name",
                 "template_id": "name",
             },
+            mutually_exclusive=[
+                ["template", "template_id"],
+            ],
         ),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )

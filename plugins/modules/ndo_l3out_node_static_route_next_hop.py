@@ -317,7 +317,6 @@ def main():
     ops = []
 
     if state == "present":
-
         mso_values = {
             "nextHopIP": ip,
             "description": description if description else None,
@@ -364,7 +363,6 @@ def main():
 
 
 def set_node_static_route_next_hop_details(mso_template, next_hop):
-
     if next_hop:
         reference_details = None
         if next_hop.get("monitoringPolicyRef"):

@@ -352,6 +352,25 @@ class MSOTemplate:
             return self.get_object_by_key_value_pairs("L3Out Node Static Route", existing_l3out_static_routes, [KVPair("prefix", prefix)], fail_module)
         return existing_l3out_static_routes  # Query all objects
 
+    def get_l3out_node_static_route_next_hop(self, static_route_object, ip, fail_module=False):
+        """
+        Get the L3Out Node Static Route Next Hop by IP.
+        :param static_route_object: L3Out Node Static Route object to search for the Next Hop -> Dict
+        :param ip: IP of the Static Route Next Hop to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the IP is existing in the search list -> Dict
+                 When the IP is not existing in the search list -> None
+                 When the IP is None, and the search list is not empty -> List[Dict]
+                 When the IP is None, and the search list is empty -> List[]
+        """
+        existing_l3out_static_route_next_hops = static_route_object.get("nextHops", [])
+        if ip:  # Query a specific object
+            return self.get_object_by_key_value_pairs(
+                "L3Out Node Static Route Next Hop", existing_l3out_static_route_next_hops, [KVPair("nextHopIP", ip)], fail_module
+            )
+        return existing_l3out_static_route_next_hops  # Query all objects
+
     def get_ipsla_track_list(self, uuid=None, name=None, fail_module=False):
         """
         Get the IPSLA Track List by uuid or name.

@@ -1,0 +1,537 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 4.3
+  when: version.current.version is version('4.3', '>=')
+  block:
+    
+    # CLEAN ENVIRONMENT - ENSURE CLEAN ENVIRONMENT FOR TESTS
+
+    - name: Ensure ansible_test tenant exist
+      cisco.mso.mso_tenant: &mso_tenant_present
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+
+    - name: Ensure L3out template does not exist
+      cisco.mso.ndo_template: &ndo_l3out_template_absent
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template_type: l3out
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_test schema does not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        template: template_1
+        state: absent
+
+    - name: Ensure ansible_fabric_policy_template does not exist
+      cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
+        <<: *mso_info
+        name: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template_type: fabric_policy
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_tenant_policy_template does not exist
+      cisco.mso.ndo_template: &ndo_tenant_policy_template_absent
+        <<: *mso_info
+        name: '{{ mso_tenant_policy_template | default("ansible_test") }}'
+        template_type: tenant
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        state: absent
+
+    # CLEAN ENVIRONMENT - REQUIRED FOR TESTS
+
+    - name: Create a fabric_policy template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_policy_template_absent
+        state: present
+
+    - name: Create a VLAN pool in the fabric_policy template
+      cisco.mso.ndo_vlan_pool:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        vlan_pool: ansible_test_vlan_pool_1
+        vlan_ranges:
+          - from_vlan: 100
+            to_vlan: 200
+        state: present
+
+    - name: Create a L3 domain in the fabric_policy template
+      cisco.mso.ndo_l3_domain:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        l3_domain: ansible_test_l3_domain
+        pool: ansible_test_vlan_pool_1
+        state: present
+
+    - name: Create a tenant_policy template
+      cisco.mso.ndo_template:
+        <<: *ndo_tenant_policy_template_absent
+        state: present
+
+    - name: Create a new monitoring policy in the fabric_policy template
+      cisco.mso.ndo_ipsla_monitoring_policy:
+        <<: *mso_info
+        template: '{{ mso_tenant_policy_template | default("ansible_test") }}'
+        ipsla_monitoring_policy: ansible_test_monitoring_policy
+        state: present
+      register: monitoring_policy
+
+    - name: Create a schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+        state: present
+
+    - name: Create a VRF in the schema template
+      cisco.mso.mso_schema_template_vrf:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: template_1
+        vrf: vrf_1
+        state: present
+
+    - name: Create a new L3Out template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+        state: present
+
+    - name: Create L3Out object in the L3Out template
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+        name: l3out_1
+        vrf:
+          name: vrf_1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+          template: template_1
+        l3_domain: ansible_test_l3_domain
+        state: present
+
+    - name: Create a L3out node and routed interface
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        path: eth1/1
+        ipv4_address: 10.0.0.1/24
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        state: present
+
+    - name: Create a L3out node static
+      cisco.mso.ndo_l3out_node_static_route:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        pod_id: 1
+        node_id: 101
+        prefix: 10.0.0.0/24
+        state: present
+
+    # CREATE
+
+    - name: Create a L3out node static route next hop (check mode)
+      cisco.mso.ndo_l3out_node_static_route_next_hop: &create_node_static_route_next_hop
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        pod_id: 1
+        node_id: 101
+        prefix: 10.0.0.0/24
+        ip: 10.0.0.2
+        state: present
+      check_mode: true
+      register: cm_create_node_static_route_next_hop
+
+    - name: Create a L3out node static route next hop
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        state: present
+      register: nm_create_node_static_route_next_hop
+
+    - name: Create a L3out node static route next hop again
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        state: present
+      register: nm_create_node_static_route_next_hop_again
+
+    - name: Assert that the L3out node static route next hop was created
+      ansible.builtin.assert:
+        that:
+          - cm_create_node_static_route_next_hop is changed
+          - cm_create_node_static_route_next_hop.previous == {}
+          - cm_create_node_static_route_next_hop.proposed == cm_create_node_static_route_next_hop.current
+          - cm_create_node_static_route_next_hop.current.nextHopIP == "10.0.0.2"
+          - cm_create_node_static_route_next_hop.current.templateId is defined
+          - cm_create_node_static_route_next_hop.current.templateName is defined
+          - nm_create_node_static_route_next_hop is changed
+          - nm_create_node_static_route_next_hop.previous == {}
+          - nm_create_node_static_route_next_hop.proposed != nm_create_node_static_route_next_hop.current
+          - nm_create_node_static_route_next_hop.proposed.preference is not defined
+          - nm_create_node_static_route_next_hop.current.nextHopIP == "10.0.0.2"
+          - nm_create_node_static_route_next_hop.current.preference == 0
+          - nm_create_node_static_route_next_hop.current.templateId is defined
+          - nm_create_node_static_route_next_hop.current.templateName is defined
+          - nm_create_node_static_route_next_hop_again is not changed
+          - nm_create_node_static_route_next_hop_again.previous == nm_create_node_static_route_next_hop_again.proposed == nm_create_node_static_route_next_hop_again.current == nm_create_node_static_route_next_hop.current
+
+    # UPDATE
+
+    - name: Update a L3out node static route next hop (check mode)
+      cisco.mso.ndo_l3out_node_static_route_next_hop: &update_node_static_route_next_hop
+        <<: *create_node_static_route_next_hop
+        description: "Static route next hop for 10.0.0.2"
+        administrative_distance: 10
+        monitoring_policy:
+          name: '{{ monitoring_policy.current.name }}'
+          template: '{{ mso_tenant_policy_template | default("ansible_test") }}'
+      check_mode: true
+      register: cm_update_node_static_route_next_hop
+
+    - name: Update a L3out node static route next hop
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *update_node_static_route_next_hop
+      register: nm_update_node_static_route_next_hop
+
+    - name: Update a L3out node static route next hop again
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *update_node_static_route_next_hop
+      register: nm_update_node_static_route_next_hop_again
+
+    - name: Assert that the L3out node static route next hop was updated
+      ansible.builtin.assert:
+        that:
+          - cm_update_node_static_route_next_hop is changed
+          - cm_update_node_static_route_next_hop.previous == nm_create_node_static_route_next_hop_again.current
+          - cm_update_node_static_route_next_hop.proposed == cm_update_node_static_route_next_hop.current
+          - cm_update_node_static_route_next_hop.current.nextHopIP == "10.0.0.2"
+          - cm_update_node_static_route_next_hop.current.description == "Static route next hop for 10.0.0.2"
+          - cm_update_node_static_route_next_hop.current.preference == 10
+          - cm_update_node_static_route_next_hop.current.templateId is defined
+          - cm_update_node_static_route_next_hop.current.templateName is defined
+          - cm_update_node_static_route_next_hop.current.monitoringPolicyRef is defined
+          - cm_update_node_static_route_next_hop.current.monitoringPolicyName == "ansible_test_monitoring_policy"
+          - cm_update_node_static_route_next_hop.current.monitoringPolicyTemplateName is defined
+          - cm_update_node_static_route_next_hop.current.monitoringPolicyTemplateId is defined
+          - nm_update_node_static_route_next_hop is changed
+          - nm_update_node_static_route_next_hop.previous == nm_create_node_static_route_next_hop_again.current
+          - nm_update_node_static_route_next_hop.proposed == cm_update_node_static_route_next_hop.current
+          - nm_update_node_static_route_next_hop.current.nextHopIP == "10.0.0.2"
+          - nm_update_node_static_route_next_hop.current.description == "Static route next hop for 10.0.0.2"
+          - nm_update_node_static_route_next_hop.current.preference == 10
+          - nm_update_node_static_route_next_hop.current.templateId is defined
+          - nm_update_node_static_route_next_hop.current.templateName is defined
+          - nm_update_node_static_route_next_hop.current.monitoringPolicyRef is defined
+          - nm_update_node_static_route_next_hop.current.monitoringPolicyName == "ansible_test_monitoring_policy"
+          - nm_update_node_static_route_next_hop.current.monitoringPolicyTemplateName is defined
+          - nm_update_node_static_route_next_hop.current.monitoringPolicyTemplateId is defined
+          - nm_update_node_static_route_next_hop_again is not changed
+          - nm_update_node_static_route_next_hop_again.previous == nm_update_node_static_route_next_hop_again.proposed == nm_update_node_static_route_next_hop_again.current == nm_update_node_static_route_next_hop.current
+
+    - name: Remove a L3out node static route next hop monitoring policy
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        monitoring_policy: {}
+      register: nm_update_node_static_route_next_hop_monitoring_policy_removed
+
+    - name: Update a L3out node static route next hop monitoring policy with monitoring policy uuid
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        monitoring_policy_uuid: '{{ monitoring_policy.current.uuid }}'
+      register: nm_update_node_static_route_next_hop_monitoring_policy_uuid
+
+    - name: Remove a L3out node static route next hop monitoring policy with monitoring policy uuid
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        monitoring_policy_uuid: ""
+      register: nm_update_node_static_route_next_hop_monitoring_policy_uuid_removed
+
+    - name: Assert that the L3out node static route next hop was updated with monitoring policy
+      ansible.builtin.assert:
+        that:
+          - nm_update_node_static_route_next_hop_monitoring_policy_removed is changed
+          - nm_update_node_static_route_next_hop_monitoring_policy_removed.previous == nm_update_node_static_route_next_hop_again.current
+          - nm_update_node_static_route_next_hop_monitoring_policy_removed.proposed == nm_update_node_static_route_next_hop_monitoring_policy_removed.current
+          - nm_update_node_static_route_next_hop_monitoring_policy_removed.current.monitoringPolicyRef is not defined
+          - nm_update_node_static_route_next_hop_monitoring_policy_removed.current.monitoringPolicyName is not defined
+          - nm_update_node_static_route_next_hop_monitoring_policy_removed.current.monitoringPolicyTemplateName is not defined
+          - nm_update_node_static_route_next_hop_monitoring_policy_removed.current.monitoringPolicyTemplateId is not defined
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid is changed
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid.previous == nm_update_node_static_route_next_hop_monitoring_policy_removed.current
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid.proposed == nm_update_node_static_route_next_hop_monitoring_policy_uuid.current
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid.current.monitoringPolicyRef is defined
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid.current.monitoringPolicyName == "ansible_test_monitoring_policy"
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid.current.monitoringPolicyTemplateName is defined
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid.current.monitoringPolicyTemplateId is defined
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid_removed is changed
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid_removed.previous == nm_update_node_static_route_next_hop_monitoring_policy_uuid.current
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid_removed.proposed == nm_update_node_static_route_next_hop_monitoring_policy_uuid_removed.current
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid_removed.current.monitoringPolicyRef is not defined
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid_removed.current.monitoringPolicyName is not defined
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid_removed.current.monitoringPolicyTemplateName is not defined
+          - nm_update_node_static_route_next_hop_monitoring_policy_uuid_removed.current.monitoringPolicyTemplateId is not defined
+
+    - name: Update a L3out node static route description to empty string
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        description: ""
+      register: nm_update_node_static_route_next_hop_description_empty_string
+
+    - name: Update a L3out node static route description to empty string again
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        description: ""
+      register: nm_update_node_static_route_next_hop_description_empty_string_again
+
+    - name: Update a L3out node static route description to back to string
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        description: "Static route next hop for 10.0.0.2"
+      register: nm_update_node_static_route_next_hop_description_back_to_string
+
+    - name: Assert that the L3out node static route description was updated
+      ansible.builtin.assert:
+        that:
+          - nm_update_node_static_route_next_hop_description_empty_string is changed
+          - nm_update_node_static_route_next_hop_description_empty_string.previous.description == "Static route next hop for 10.0.0.2"
+          - nm_update_node_static_route_next_hop_description_empty_string.proposed.description is not defined
+          - nm_update_node_static_route_next_hop_description_empty_string.current.description is not defined
+          - nm_update_node_static_route_next_hop_description_empty_string_again is not changed
+          - nm_update_node_static_route_next_hop_description_empty_string_again.previous == nm_update_node_static_route_next_hop_description_empty_string_again.proposed == nm_update_node_static_route_next_hop_description_empty_string_again.current == nm_update_node_static_route_next_hop_description_empty_string.current
+          - nm_update_node_static_route_next_hop_description_back_to_string is changed
+          - nm_update_node_static_route_next_hop_description_back_to_string.previous.description is not defined
+          - nm_update_node_static_route_next_hop_description_back_to_string.proposed == nm_update_node_static_route_next_hop_description_back_to_string.current
+          - nm_update_node_static_route_next_hop_description_back_to_string.current.description == "Static route next hop for 10.0.0.2"
+
+    # ERROR HANDLING
+
+    - name: Create a L3out node static route next hop with an invalid monitoring policy uuid (error)
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        monitoring_policy_uuid: 'invalid-uuid'
+      register: nm_create_node_static_route_next_hop_invalid_monitoring_policy_uuid
+      ignore_errors: true
+
+    - name: Create a L3out node static route next hop with an invalid monitoring policy name (error)
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        monitoring_policy:
+          name: invalid_name
+          template: '{{ mso_tenant_policy_template | default("ansible_test") }}'
+      register: nm_create_node_static_route_next_hop_invalid_monitoring_policy_name
+      ignore_errors: true
+
+    - name: Create a L3out node static route next hop with an invalid monitoring policy template name (error)
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        monitoring_policy:
+          name: '{{ monitoring_policy.current.name }}'
+          template: invalid_template_name
+      register: nm_create_node_static_route_next_hop_invalid_monitoring_policy_template_name
+      ignore_errors: true
+
+    - name: Create a L3out node static route next hop with an invalid monitoring policy template id (error)
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        monitoring_policy:
+          name: '{{ monitoring_policy.current.name }}'
+          template_id: invalid_template_id
+      register: nm_create_node_static_route_next_hop_invalid_monitoring_policy_template_id
+      ignore_errors: true
+
+    - name: Create a L3out node static route next hop with an a missing monitoring policy name (error)
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        monitoring_policy:
+          template: '{{ mso_tenant_policy_template | default("ansible_test") }}'
+      register: nm_create_node_static_route_next_hop_missing_monitoring_policy_name
+      ignore_errors: true
+
+    - name: Create a L3out node static route next hop with an a missing monitoring policy template name and id (error)
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        monitoring_policy:
+          name: '{{ mso_tenant_policy_template | default("ansible_test") }}'
+      register: nm_create_node_static_route_next_hop_missing_monitoring_policy_template_and_template_id
+      ignore_errors: true
+
+    - name: Create a L3out node static route next hop with mutually exclusive monitoring policy uuid and monitoring policy (error)
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        monitoring_policy_uuid: '{{ monitoring_policy.current.uuid }}'
+        monitoring_policy:
+          name: '{{ monitoring_policy.current.name }}'
+          template: '{{ mso_tenant_policy_template | default("ansible_test") }}'
+      register: nm_create_node_static_route_next_hop_mutually_exclusive_monitoring_policy
+      ignore_errors: true
+
+    - name: Assert that the L3out node static route next hop errors
+      ansible.builtin.assert:
+        that:
+          - nm_create_node_static_route_next_hop_invalid_monitoring_policy_uuid is failed
+          - nm_create_node_static_route_next_hop_invalid_monitoring_policy_uuid.msg == "MSO Error 404{{':'}} policy not found"
+          - nm_create_node_static_route_next_hop_invalid_monitoring_policy_name is failed
+          - nm_create_node_static_route_next_hop_invalid_monitoring_policy_name.msg == "Provided IPSLA Monitoring Policy with '[KVPair(key='name', value='invalid_name')]' not matching existing object(s){{':'}} ansible_test_monitoring_policy"
+          - nm_create_node_static_route_next_hop_invalid_monitoring_policy_template_name is failed
+          - nm_create_node_static_route_next_hop_invalid_monitoring_policy_template_name.msg.startswith("Provided template name 'invalid_template_name' does not exist. Existing templates")
+          - nm_create_node_static_route_next_hop_invalid_monitoring_policy_template_id is failed
+          - nm_create_node_static_route_next_hop_invalid_monitoring_policy_template_id.msg.startswith("Provided template id 'invalid_template_id' does not exist. Existing templates")
+          - nm_create_node_static_route_next_hop_missing_monitoring_policy_name is failed
+          - nm_create_node_static_route_next_hop_missing_monitoring_policy_name.msg == "missing parameter(s) required by 'template'{{':'}} name found in monitoring_policy"
+          - nm_create_node_static_route_next_hop_missing_monitoring_policy_template_and_template_id is failed
+          - nm_create_node_static_route_next_hop_missing_monitoring_policy_template_and_template_id.msg == "monitoring_policy.name and one of the following are required{{':'}} monitoring_policy.template, monitoring_policy.template_id"
+          - nm_create_node_static_route_next_hop_mutually_exclusive_monitoring_policy is failed
+          - nm_create_node_static_route_next_hop_mutually_exclusive_monitoring_policy.msg == "parameters are mutually exclusive{{':'}} monitoring_policy_uuid|monitoring_policy"
+
+    # QUERY
+
+    - name: Create another L3out node static route next hop
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        ip: 10.0.0.3
+        monitoring_policy_uuid: '{{ monitoring_policy.current.uuid }}'
+        description: "Static route next hop for 10.0.0.3"
+        administrative_distance: 20
+        state: present
+
+    - name: Query a L3out node static route next hop
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        state: query
+      register: query_node_static_route_next_hop
+
+    - name: Query all L3out node static route next hops in a L3out node static route
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        pod_id: 1
+        node_id: 101
+        prefix: 10.0.0.0/24
+        state: query
+      register: query_all_node_static_route_next_hops
+
+    - name: Assert that the L3out node static route next hop was queried
+      ansible.builtin.assert:
+        that:
+          - query_node_static_route_next_hop is not changed
+          - query_node_static_route_next_hop.current.nextHopIP == "10.0.0.2"
+          - query_node_static_route_next_hop.current.description == "Static route next hop for 10.0.0.2"
+          - query_node_static_route_next_hop.current.preference == 10
+          - query_node_static_route_next_hop.current.templateId is defined
+          - query_node_static_route_next_hop.current.templateName is defined
+          - query_node_static_route_next_hop.current.monitoringPolicyName is not defined
+          - query_node_static_route_next_hop.current.monitoringPolicyRef is not defined
+          - query_node_static_route_next_hop.current.monitoringPolicyTemplateId is not defined
+          - query_node_static_route_next_hop.current.monitoringPolicyTemplateName is not defined
+          - query_all_node_static_route_next_hops is not changed
+          - query_all_node_static_route_next_hops.current | length == 2
+          - query_all_node_static_route_next_hops.current.0.nextHopIP == "10.0.0.2"
+          - query_all_node_static_route_next_hops.current.0.description == "Static route next hop for 10.0.0.2"
+          - query_all_node_static_route_next_hops.current.0.preference == 10
+          - query_all_node_static_route_next_hops.current.0.templateId is defined
+          - query_all_node_static_route_next_hops.current.0.templateName is defined
+          - query_all_node_static_route_next_hops.current.0.monitoringPolicyName is not defined
+          - query_all_node_static_route_next_hops.current.0.monitoringPolicyRef is not defined
+          - query_all_node_static_route_next_hops.current.0.monitoringPolicyTemplateId is not defined
+          - query_all_node_static_route_next_hops.current.0.monitoringPolicyTemplateName is not defined
+          - query_all_node_static_route_next_hops.current.1.nextHopIP == "10.0.0.3"
+          - query_all_node_static_route_next_hops.current.1.description == "Static route next hop for 10.0.0.3"
+          - query_all_node_static_route_next_hops.current.1.preference == 20
+          - query_all_node_static_route_next_hops.current.1.templateId is defined
+          - query_all_node_static_route_next_hops.current.1.templateName is defined
+          - query_all_node_static_route_next_hops.current.1.monitoringPolicyName == "ansible_test_monitoring_policy"
+          - query_all_node_static_route_next_hops.current.1.monitoringPolicyRef is defined
+          - query_all_node_static_route_next_hops.current.1.monitoringPolicyTemplateId is defined
+          - query_all_node_static_route_next_hops.current.1.monitoringPolicyTemplateName is defined
+
+    # DELETE
+
+    - name: Delete a L3out node static route next hop (check mode)
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        state: absent
+      check_mode: true
+      register: cm_delete_node_static_route_next_hop
+
+    - name: Delete a L3out node static route next hop
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        state: absent
+      register: nm_delete_node_static_route_next_hop
+
+    - name: Delete a L3out node static route next hop again
+      cisco.mso.ndo_l3out_node_static_route_next_hop:
+        <<: *create_node_static_route_next_hop
+        state: absent
+      register: nm_delete_node_static_route_next_hop_again
+
+    - name: Assert that the L3out node static route next hop was deleted
+      ansible.builtin.assert:
+        that:
+          - cm_delete_node_static_route_next_hop is changed
+          - cm_delete_node_static_route_next_hop.previous == query_node_static_route_next_hop.current
+          - cm_delete_node_static_route_next_hop.proposed == cm_delete_node_static_route_next_hop.current == {}
+          - nm_delete_node_static_route_next_hop is changed
+          - nm_delete_node_static_route_next_hop.previous == query_node_static_route_next_hop.current
+          - nm_delete_node_static_route_next_hop.proposed == nm_delete_node_static_route_next_hop.current == {}
+          - nm_delete_node_static_route_next_hop_again is not changed
+          - nm_delete_node_static_route_next_hop_again.previous == nm_delete_node_static_route_next_hop_again.proposed == nm_delete_node_static_route_next_hop_again.current == {}
+
+    # CLEANUP TEMPLATE
+
+    - name: Remove l3out template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+
+    - name: Remove ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+
+    - name: Remove ansible_fabric_policy_template fabric_policy template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_policy_template_absent
+
+    - name: Remove ansible_tenant_policy_template tenant template
+      cisco.mso.ndo_template:
+        <<: *ndo_tenant_policy_template_absent

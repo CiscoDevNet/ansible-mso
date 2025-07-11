@@ -48,7 +48,7 @@ options:
     type: str
   pod_id:
     description:
-    - The ID of the pod of the node (border leaf switch).
+    - The pod ID of the node (border leaf switch).
     type: str
     required: true
     aliases: [ pod ]
@@ -149,7 +149,6 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template_id: "{{ l3out_template.current.templateId }}"
     l3out_uuid: "{{ l3out.current.uuid }}"
-    l3out: l3out_name
     pod_id: 1
     node_id: 101
     prefix: 10.0.0.0/24

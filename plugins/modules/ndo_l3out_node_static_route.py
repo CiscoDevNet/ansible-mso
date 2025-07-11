@@ -324,7 +324,6 @@ def main():
     ops = []
 
     if state == "present":
-
         mso_values = {
             "prefix": prefix,
             "description": description if description else None,
@@ -372,7 +371,6 @@ def main():
 
 
 def set_node_static_route_details(mso_template, node_static_route):
-
     if node_static_route:
         reference_details = None
         if node_static_route.get("trackPolicyRef"):

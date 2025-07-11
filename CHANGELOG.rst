@@ -6,6 +6,36 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.11.0
+=======
+
+Release Summary
+---------------
+
+Release v2.11.0 of the ``ansible-mso`` collection on 2025-07-11.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.10.0.
+
+Minor Changes
+-------------
+
+- Add admin_state attribute to module mso_schema_site_anp_epg.
+- Add module ndo_l3out_node_static_route to static routes for nodes in l3out templates
+- Add module ndo_l3out_routed_interface to configure nodes, routed port and port-channel interfaces in l3out templates [ignore] add return docstring for get_port_channel function [ignore] change variable assignment to be more consistent with other modules [ignore] change documentation docs string [ignore] remove redundant delete_none_values function [ignore] rename the template get functions to be non plural
+- Add module ndo_pod_profile for pod profiles in fabric resource templates
+- Add module ndo_pod_settings for pod settings in fabric policy templates
+- Add ndo_qos_class_policy as a new Module to manage QoS Class Policy on NDO.
+- Added ndo_fabric_span_session module for the Fabric Monitoring Access Policy template
+- Added ndo_l3out_bgp_peer module to manage L3Out Node/Interface Group Policy - BGP Peer objects
+- Added new module for Tenant SPAN Session.
+- Added testing support for Ansible Core 2.19
+- Addition of new module ndo_service_device_cluster and its test file
+- Replaced the ndo modules current value with actual API response value (DCNE-185) (#589)
+
+Bugfixes
+--------
+
+- Fix API endpoint to query local and remote users in ND4.0
+
 v2.10.0
 =======
 

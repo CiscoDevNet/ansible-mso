@@ -17,7 +17,7 @@ SearchQuery = namedtuple("SearchQuery", "key kv_pairs")
 
 
 class MSOTemplate:
-    def __init__(self, mso_module, template_type=None, template_name=None, template_id=None, schema_name=None, schema_id=None):
+    def __init__(self, mso_module, template_type=None, template_name=None, template_id=None, schema_name=None, schema_id=None, fail_module=False):
         self.mso = mso_module
         self.templates_path = "templates"
         self.summaries_path = "{0}/summaries".format(self.templates_path)

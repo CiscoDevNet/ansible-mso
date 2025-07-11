@@ -294,6 +294,7 @@ def main():
                 "tenant",
                 monitoring_policy.get("template"),
                 monitoring_policy.get("template_id"),
+                fail_module=True,
             )
             monitoring_policy_match = monitoring_policy_mso_template.get_ipsla_monitoring_policy(
                 uuid=monitoring_policy_uuid,

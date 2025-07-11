@@ -302,6 +302,7 @@ def main():
             "templateId": "deviceTemplateId",
         },
     }
+
     if service_chain:
         mso.existing = mso.previous = mso_template.update_config_with_template_and_references(
             service_chain, reference_collections, set_template=True, use_cache=True

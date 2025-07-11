@@ -1,0 +1,1014 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: "{{ mso_output_level | default('debug') }}"
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 4.2.3
+  when: version.current.version is version('4.2.3', '>=')
+  block:
+    # CLEAN TEST ENVIRONMENT
+    - name: Ensure ansible_test site exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: query
+      register: ansible_test_site
+
+    - name: Ensure ansible_test tenant exists
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: ansible_test_tenant
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+      register: ansible_test_tenant
+      when: ansible_test_site.current.common.name == 'ansible_test'
+
+    - name: Remove site from the ansible_template
+      cisco.mso.mso_schema_site:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+      ignore_errors: true
+
+    - name: Ensure Contract_1 contract does not exist
+      cisco.mso.mso_schema_template_contract_filter:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        contract: Contract1
+        filter: Filter1
+        state: absent
+      ignore_errors: true
+
+    - name: Ensure ansible_device_template does not exist
+      cisco.mso.ndo_template: &device_template_absent
+        <<: *mso_info
+        name: ansible_device_template
+        template_type: service_device
+        tenant: ansible_test_tenant
+        state: absent
+
+    - name: Ensure ansible_test schema template does not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        state: absent
+
+    # Schema Template Setup
+    - name: Add an ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+        tenant: ansible_test_tenant
+        state: present
+      register: schema
+
+    - name: Add a new ansible_test_vrf
+      cisco.mso.mso_schema_template_vrf:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        vrf: ansible_test_vrf
+        layer3_multicast: true
+        state: present
+
+    - name: Add a new ansible_test_l3out
+      cisco.mso.mso_schema_template_l3out:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        l3out: ansible_test_l3out
+        vrf:
+          name: ansible_test_vrf
+        state: present
+
+    - name: Ensure BD exists
+      cisco.mso.mso_schema_template_bd:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        bd: ansible_test_bd
+        vrf:
+          name: ansible_test_vrf
+        state: present
+      register: ansible_test_bd
+
+    - name: Ensure external EPG exists
+      cisco.mso.mso_schema_template_external_epg:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        external_epg: ansible_test_device_ext_epg
+        vrf:
+          name: ansible_test_vrf
+        l3out:
+          name: ansible_test_l3out
+        state: present
+      register: ansible_test_epg
+
+    - name: Ensure external EPG exists
+      cisco.mso.mso_schema_template_external_epg:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        external_epg: ansible_test_contract_ext_epg
+        vrf:
+          name: ansible_test_vrf
+        l3out:
+          name: ansible_test_l3out
+        state: present
+      register: ansible_test_epg
+
+    - name: Ensure Filter1 exist
+      cisco.mso.mso_schema_template_filter_entry:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        filter: Filter1
+        entry: Filter1Entry
+        state: present
+
+    - name: Ensure Contract_1 contract exist
+      cisco.mso.mso_schema_template_contract_filter:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        contract: Contract1
+        filter: Filter1
+        state: present
+
+    - name: Add a consumer contract to an Ext EPG
+      cisco.mso.mso_schema_template_external_epg_contract:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        external_epg: ansible_test_contract_ext_epg
+        contract:
+          name: Contract1
+          type: consumer
+        state: present
+
+    - name: Add a provider contract to an Ext EPG
+      cisco.mso.mso_schema_template_external_epg_contract:
+        <<: *mso_info
+        schema: ansible_test
+        template: ansible_template
+        external_epg: ansible_test_contract_ext_epg
+        contract:
+          name: Contract1
+          type: provider
+        state: present
+
+    # Service Device Template Setup
+    - name: Create a new service device template
+      cisco.mso.ndo_template:
+        <<: *device_template_absent
+        state: present
+      register: create_new_device_template
+
+    - name: Add service device cluster firewall
+      cisco.mso.ndo_service_device_cluster:
+        <<: *mso_info
+        template: ansible_device_template
+        name: firewall
+        device_mode: layer3
+        device_type: firewall
+        interface_properties:
+          - name: "fw_interface1"
+            external_epg:
+              name: ansible_test_device_ext_epg
+              template: ansible_template
+              schema: ansible_test
+          - name: "fw_interface2"
+            external_epg:
+              name: ansible_test_device_ext_epg
+              template: ansible_template
+              schema: ansible_test
+        state: present
+      register: add_firewall
+
+    - name: Add service device cluster other
+      cisco.mso.ndo_service_device_cluster:
+        <<: *mso_info
+        template: ansible_device_template
+        name: other
+        device_mode: layer3
+        device_type: other
+        interface_properties:
+          - name: "other_interface1"
+            external_epg:
+              name: ansible_test_device_ext_epg
+              template: ansible_template
+              schema: ansible_test
+          - name: "other_interface2"
+            external_epg:
+              name: ansible_test_device_ext_epg
+              template: ansible_template
+              schema: ansible_test
+        state: present
+      register: add_other_device
+
+    - name: Add service device cluster load_balancer
+      cisco.mso.ndo_service_device_cluster:
+        <<: *mso_info
+        template: ansible_device_template
+        name: load_balancer
+        device_mode: layer3
+        device_type: load_balancer
+        interface_properties:
+          - name: "lb_interface1"
+            bd:
+              name: ansible_test_bd
+              template: ansible_template
+              schema_id: "{{ ansible_test_bd.current.vrfRef.schemaId }}"
+          - name: "lb_interface2"
+            bd:
+              name: ansible_test_bd
+              template: ansible_template
+              schema_id: "{{ ansible_test_bd.current.vrfRef.schemaId }}"
+        state: present
+      register: add_load_balancer
+
+    - name: Add one arm service device cluster firewall
+      cisco.mso.ndo_service_device_cluster:
+        <<: *mso_info
+        template: ansible_device_template
+        name: one_arm_firewall
+        device_mode: layer3
+        device_type: firewall
+        interface_properties:
+          - name: "fw_interface1"
+            bd:
+              name: ansible_test_bd
+              template: ansible_template
+              schema_id: "{{ ansible_test_bd.current.vrfRef.schemaId }}"
+        state: present
+      register: add_one_arm_firewall
+
+# CREATE AND UPDATE
+- name: Create contract service chain (check_mode) - $cm_add_service_chain
+  cisco.mso.ndo_schema_template_contract_service_chain: &cm_add_service_chain
+    <<: *mso_info
+    schema: ansible_test
+    template: ansible_template
+    contract: Contract1
+    node_filter: "allow_all"
+    service_nodes:
+      - device_type: load_balancer
+        consumer_interface_name: lb_interface1
+        provider_interface_name: lb_interface2
+        device:
+          name: load_balancer
+          template: ansible_device_template
+    state: present
+  check_mode: true
+  register: cm_add_service_chain
+
+- name: Create contract service chain - $nm_add_service_chain
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *cm_add_service_chain
+  register: nm_add_service_chain
+
+- name: Create contract service chain again - $nm_add_service_chain_again
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *cm_add_service_chain
+  register: nm_add_service_chain_again
+
+- name: Assertion check for create service chain
+  ansible.builtin.assert:
+    that:
+      - cm_add_service_chain is changed
+      - cm_add_service_chain.current.nodeFilter == "allow-all"
+      - cm_add_service_chain.current.serviceNodes.0.consumerConnector.interfaceName == "lb_interface1"
+      - cm_add_service_chain.current.serviceNodes.0.consumerConnector.isRedirect is not defined
+      - cm_add_service_chain.current.serviceNodes.0.deviceName == "load_balancer"
+      - cm_add_service_chain.current.serviceNodes.0.deviceRef != ""
+      - cm_add_service_chain.current.serviceNodes.0.deviceTemplateId != ""
+      - cm_add_service_chain.current.serviceNodes.0.deviceTemplateName == "ansible_device_template"
+      - cm_add_service_chain.current.serviceNodes.0.deviceType == "loadBalancer"
+      - cm_add_service_chain.current.serviceNodes.0.index == 1
+      - cm_add_service_chain.current.serviceNodes.0.name == "node-1"
+      - cm_add_service_chain.current.serviceNodes.0.providerConnector.interfaceName == "lb_interface2"
+      - cm_add_service_chain.current.serviceNodes.0.providerConnector.isRedirect is not defined
+      - cm_add_service_chain.previous == {}
+      - cm_add_service_chain.proposed.nodeFilter == "allow-all"
+      - cm_add_service_chain.proposed.serviceNodes.0.consumerConnector.interfaceName == "lb_interface1"
+      - cm_add_service_chain.proposed.serviceNodes.0.consumerConnector.isRedirect is not defined
+      - cm_add_service_chain.proposed.serviceNodes.0.deviceRef != ""
+      - cm_add_service_chain.proposed.serviceNodes.0.deviceType == "loadBalancer"
+      - cm_add_service_chain.proposed.serviceNodes.0.index == 1
+      - cm_add_service_chain.proposed.serviceNodes.0.name == "node-1"
+      - cm_add_service_chain.proposed.serviceNodes.0.providerConnector.interfaceName == "lb_interface2"
+      - cm_add_service_chain.proposed.serviceNodes.0.providerConnector.isRedirect is not defined
+      - cm_add_service_chain.current.schemaId is defined
+      - cm_add_service_chain.current.schemaName == "ansible_test"
+      - cm_add_service_chain.current.templateId != ""
+      - cm_add_service_chain.current.templateName == "ansible_template"
+      - nm_add_service_chain is changed
+      - nm_add_service_chain.current.nodeFilter == "allow-all"
+      - nm_add_service_chain.current.serviceNodes.0.consumerConnector.interfaceName == "lb_interface1"
+      - nm_add_service_chain.current.serviceNodes.0.consumerConnector.isRedirect == false
+      - nm_add_service_chain.current.serviceNodes.0.deviceName == "load_balancer"
+      - nm_add_service_chain.current.serviceNodes.0.deviceRef != ""
+      - nm_add_service_chain.current.serviceNodes.0.deviceTemplateId != ""
+      - nm_add_service_chain.current.serviceNodes.0.deviceTemplateName == "ansible_device_template"
+      - nm_add_service_chain.current.serviceNodes.0.deviceType == "loadBalancer"
+      - nm_add_service_chain.current.serviceNodes.0.index == 1
+      - nm_add_service_chain.current.serviceNodes.0.name == "node-1"
+      - nm_add_service_chain.current.serviceNodes.0.providerConnector.interfaceName == "lb_interface2"
+      - nm_add_service_chain.current.serviceNodes.0.providerConnector.isRedirect == false
+      - nm_add_service_chain.current.serviceNodes.0.serviceNodeRef == ""
+      - nm_add_service_chain.current.serviceNodes.0.serviceNodeTypeId == ""
+      - nm_add_service_chain.current.serviceNodes.0.uuid is defined
+      - nm_add_service_chain.previous == {}
+      - nm_add_service_chain.current.schemaId is defined
+      - nm_add_service_chain.current.schemaName == "ansible_test"
+      - nm_add_service_chain.current.templateId != ""
+      - nm_add_service_chain.current.templateName == "ansible_template"
+      - nm_add_service_chain_again is not changed
+      - nm_add_service_chain_again.current.nodeFilter == "allow-all"
+      - nm_add_service_chain_again.current.serviceNodes.0.consumerConnector.interfaceName == "lb_interface1"
+      - nm_add_service_chain_again.current.serviceNodes.0.consumerConnector.isRedirect == false
+      - nm_add_service_chain_again.current.serviceNodes.0.deviceName == "load_balancer"
+      - nm_add_service_chain_again.current.serviceNodes.0.deviceRef != ""
+      - nm_add_service_chain_again.current.serviceNodes.0.deviceTemplateId != ""
+      - nm_add_service_chain_again.current.serviceNodes.0.deviceTemplateName == "ansible_device_template"
+      - nm_add_service_chain_again.current.serviceNodes.0.deviceType == "loadBalancer"
+      - nm_add_service_chain_again.current.serviceNodes.0.index == 1
+      - nm_add_service_chain_again.current.serviceNodes.0.name == "node-1"
+      - nm_add_service_chain_again.current.serviceNodes.0.providerConnector.interfaceName == "lb_interface2"
+      - nm_add_service_chain_again.current.serviceNodes.0.providerConnector.isRedirect == false
+      - nm_add_service_chain_again.current.serviceNodes.0.serviceNodeRef == ""
+      - nm_add_service_chain_again.current.serviceNodes.0.serviceNodeTypeId == ""
+      - nm_add_service_chain_again.current.serviceNodes.0.uuid is defined
+      - nm_add_service_chain_again.previous.nodeFilter == "allow-all"
+      - nm_add_service_chain_again.previous.serviceNodes.0.consumerConnector.interfaceName == "lb_interface1"
+      - nm_add_service_chain_again.previous.serviceNodes.0.consumerConnector.isRedirect == false
+      - nm_add_service_chain_again.previous.serviceNodes.0.deviceName == "load_balancer"
+      - nm_add_service_chain_again.previous.serviceNodes.0.deviceRef != ""
+      - nm_add_service_chain_again.previous.serviceNodes.0.deviceTemplateId != ""
+      - nm_add_service_chain_again.previous.serviceNodes.0.deviceTemplateName == "ansible_device_template"
+      - nm_add_service_chain_again.previous.serviceNodes.0.deviceType == "loadBalancer"
+      - nm_add_service_chain_again.previous.serviceNodes.0.index == 1
+      - nm_add_service_chain_again.previous.serviceNodes.0.name == "node-1"
+      - nm_add_service_chain_again.previous.serviceNodes.0.providerConnector.interfaceName == "lb_interface2"
+      - nm_add_service_chain_again.previous.serviceNodes.0.providerConnector.isRedirect == false
+      - nm_add_service_chain_again.previous.serviceNodes.0.serviceNodeRef == ""
+      - nm_add_service_chain_again.previous.serviceNodes.0.serviceNodeTypeId == ""
+      - nm_add_service_chain_again.previous.serviceNodes.0.uuid is defined
+      - nm_add_service_chain_again.current.schemaId is defined
+      - nm_add_service_chain_again.current.schemaName == "ansible_test"
+      - nm_add_service_chain_again.current.templateId != ""
+      - nm_add_service_chain_again.current.templateName == "ansible_template"
+      - nm_add_service_chain_again.previous.templateId != ""
+      - nm_add_service_chain_again.previous.templateName == "ansible_template"
+
+- name: Replace service chain with 4 nodes to the existing service chain - $add_4_nodes
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *mso_info
+    schema: ansible_test
+    template: ansible_template
+    contract: Contract1
+    service_nodes:
+      - device_type: load_balancer
+        consumer_interface_name: lb_interface1
+        provider_interface_name: lb_interface2
+        device:
+          name: load_balancer
+          template: ansible_device_template
+      - device_type: firewall
+        consumer_interface_name: fw_interface1
+        provider_interface_name: fw_interface2
+        device:
+          name: firewall
+          template: ansible_device_template
+      - device_type: other
+        consumer_interface_name: other_interface1
+        provider_interface_name: other_interface2
+        device:
+          name: other
+          template: ansible_device_template
+      - device_type: other
+        consumer_interface_name: other_interface1
+        provider_interface_name: other_interface2
+        device:
+          name: other
+          template: ansible_device_template
+    state: present
+  register: add_4_nodes
+
+- name: Assertion check for update service chain with 4 nodes
+  ansible.builtin.assert:
+    that:
+      - add_4_nodes is changed
+      - add_4_nodes.current.nodeFilter == "allow-all"
+      - add_4_nodes.current.serviceNodes.0.consumerConnector.interfaceName == "lb_interface1"
+      - add_4_nodes.current.serviceNodes.0.consumerConnector.isRedirect == false
+      - add_4_nodes.current.serviceNodes.0.deviceName == "load_balancer"
+      - add_4_nodes.current.serviceNodes.0.deviceRef != ""
+      - add_4_nodes.current.serviceNodes.0.deviceTemplateId != ""
+      - add_4_nodes.current.serviceNodes.0.deviceTemplateName == "ansible_device_template"
+      - add_4_nodes.current.serviceNodes.0.deviceType == "loadBalancer"
+      - add_4_nodes.current.serviceNodes.0.index == 1
+      - add_4_nodes.current.serviceNodes.0.name == "node-1"
+      - add_4_nodes.current.serviceNodes.0.providerConnector.interfaceName == "lb_interface2"
+      - add_4_nodes.current.serviceNodes.0.providerConnector.isRedirect == false
+      - add_4_nodes.current.serviceNodes.0.serviceNodeRef == ""
+      - add_4_nodes.current.serviceNodes.0.serviceNodeTypeId == ""
+      - add_4_nodes.current.serviceNodes.0.uuid is defined
+      - add_4_nodes.current.serviceNodes.1.consumerConnector.interfaceName == "fw_interface1"
+      - add_4_nodes.current.serviceNodes.1.consumerConnector.isRedirect == false
+      - add_4_nodes.current.serviceNodes.1.deviceName == "firewall"
+      - add_4_nodes.current.serviceNodes.1.deviceRef != ""
+      - add_4_nodes.current.serviceNodes.1.deviceTemplateId != ""
+      - add_4_nodes.current.serviceNodes.1.deviceTemplateName == "ansible_device_template"
+      - add_4_nodes.current.serviceNodes.1.deviceType == "firewall"
+      - add_4_nodes.current.serviceNodes.1.index == 2
+      - add_4_nodes.current.serviceNodes.1.name == "node-2"
+      - add_4_nodes.current.serviceNodes.1.providerConnector.interfaceName == "fw_interface2"
+      - add_4_nodes.current.serviceNodes.1.providerConnector.isRedirect == false
+      - add_4_nodes.current.serviceNodes.1.serviceNodeRef == ""
+      - add_4_nodes.current.serviceNodes.1.serviceNodeTypeId == ""
+      - add_4_nodes.current.serviceNodes.1.uuid is defined
+      - add_4_nodes.current.serviceNodes.2.consumerConnector.interfaceName == "other_interface1"
+      - add_4_nodes.current.serviceNodes.2.consumerConnector.isRedirect == false
+      - add_4_nodes.current.serviceNodes.2.deviceName == "other"
+      - add_4_nodes.current.serviceNodes.2.deviceRef != ""
+      - add_4_nodes.current.serviceNodes.2.deviceTemplateId != ""
+      - add_4_nodes.current.serviceNodes.2.deviceTemplateName == "ansible_device_template"
+      - add_4_nodes.current.serviceNodes.2.deviceType == "other"
+      - add_4_nodes.current.serviceNodes.2.index == 3
+      - add_4_nodes.current.serviceNodes.2.name == "node-3"
+      - add_4_nodes.current.serviceNodes.2.providerConnector.interfaceName == "other_interface2"
+      - add_4_nodes.current.serviceNodes.2.providerConnector.isRedirect == false
+      - add_4_nodes.current.serviceNodes.2.serviceNodeRef == ""
+      - add_4_nodes.current.serviceNodes.2.serviceNodeTypeId == ""
+      - add_4_nodes.current.serviceNodes.2.uuid is defined
+      - add_4_nodes.current.serviceNodes.3.consumerConnector.interfaceName == "other_interface1"
+      - add_4_nodes.current.serviceNodes.3.consumerConnector.isRedirect == false
+      - add_4_nodes.current.serviceNodes.3.deviceName == "other"
+      - add_4_nodes.current.serviceNodes.3.deviceRef != ""
+      - add_4_nodes.current.serviceNodes.3.deviceTemplateId != ""
+      - add_4_nodes.current.serviceNodes.3.deviceTemplateName == "ansible_device_template"
+      - add_4_nodes.current.serviceNodes.3.deviceType == "other"
+      - add_4_nodes.current.serviceNodes.3.index == 4
+      - add_4_nodes.current.serviceNodes.3.name == "node-4"
+      - add_4_nodes.current.serviceNodes.3.providerConnector.interfaceName == "other_interface2"
+      - add_4_nodes.current.serviceNodes.3.providerConnector.isRedirect == false
+      - add_4_nodes.current.serviceNodes.3.serviceNodeRef == ""
+      - add_4_nodes.current.serviceNodes.3.serviceNodeTypeId == ""
+      - add_4_nodes.current.serviceNodes.3.uuid is defined
+      - add_4_nodes.current.templateId != ""
+      - add_4_nodes.current.templateName == "ansible_template"
+      - add_4_nodes.previous.nodeFilter == "allow-all"
+      - add_4_nodes.previous.serviceNodes.0.consumerConnector.interfaceName == "lb_interface1"
+      - add_4_nodes.previous.serviceNodes.0.consumerConnector.isRedirect == false
+      - add_4_nodes.previous.serviceNodes.0.deviceName == "load_balancer"
+      - add_4_nodes.previous.serviceNodes.0.deviceRef != ""
+      - add_4_nodes.previous.serviceNodes.0.deviceTemplateId != ""
+      - add_4_nodes.previous.serviceNodes.0.deviceTemplateName == "ansible_device_template"
+      - add_4_nodes.previous.serviceNodes.0.deviceType == "loadBalancer"
+      - add_4_nodes.previous.serviceNodes.0.index == 1
+      - add_4_nodes.previous.serviceNodes.0.name == "node-1"
+      - add_4_nodes.previous.serviceNodes.0.providerConnector.interfaceName == "lb_interface2"
+      - add_4_nodes.previous.serviceNodes.0.providerConnector.isRedirect == false
+      - add_4_nodes.previous.serviceNodes.0.serviceNodeRef == ""
+      - add_4_nodes.previous.serviceNodes.0.serviceNodeTypeId == ""
+      - add_4_nodes.previous.serviceNodes.0.uuid is defined
+      - add_4_nodes.proposed.templateId != ""
+      - add_4_nodes.proposed.templateName == "ansible_template"
+
+# QUERY
+- name: Query contract service chain 1 - $query_service_chain_1
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *mso_info
+    schema: ansible_test
+    template: ansible_template
+    contract: Contract1
+    state: query
+  register: query_service_chain_1
+
+- name: Add service chain with one service node using uuid and template id, schema id - $add_service_chain_with_one_node
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *mso_info
+    schema_id: "{{ nm_add_service_chain.current.schemaId }}"
+    template_id: "{{ nm_add_service_chain.current.templateId }}"
+    contract: Contract1
+    node_filter: "filters_from_contract"
+    service_nodes:
+      - device_type: firewall
+        device_uuid: "{{ add_firewall.current.uuid }}"
+        consumer_interface_name: fw_interface1
+        provider_interface_name: fw_interface2
+        consumer_redirect: true
+        provider_redirect: true
+    state: present
+  register: add_service_chain_with_one_node
+
+- name: Assertion check for add service chain with different options
+  ansible.builtin.assert:
+    that:
+      - add_service_chain_with_one_node is changed
+      - add_service_chain_with_one_node.current.nodeFilter == "filters-from-contract"
+      - add_service_chain_with_one_node.current.serviceNodes.0.consumerConnector.interfaceName == "fw_interface1"
+      - add_service_chain_with_one_node.current.serviceNodes.0.consumerConnector.isRedirect == true
+      - add_service_chain_with_one_node.current.serviceNodes.0.deviceName == "firewall"
+      - add_service_chain_with_one_node.current.serviceNodes.0.deviceRef != ""
+      - add_service_chain_with_one_node.current.serviceNodes.0.deviceTemplateId != ""
+      - add_service_chain_with_one_node.current.serviceNodes.0.deviceTemplateName == "ansible_device_template"
+      - add_service_chain_with_one_node.current.serviceNodes.0.deviceType == "firewall"
+      - add_service_chain_with_one_node.current.serviceNodes.0.index == 1
+      - add_service_chain_with_one_node.current.serviceNodes.0.name == "node-1"
+      - add_service_chain_with_one_node.current.serviceNodes.0.providerConnector.interfaceName == "fw_interface2"
+      - add_service_chain_with_one_node.current.serviceNodes.0.providerConnector.isRedirect == true
+      - add_service_chain_with_one_node.current.serviceNodes.0.serviceNodeRef == ""
+      - add_service_chain_with_one_node.current.serviceNodes.0.serviceNodeTypeId == ""
+      - add_service_chain_with_one_node.current.serviceNodes.0.uuid is defined
+      - add_service_chain_with_one_node.current.schemaId is defined
+      - add_service_chain_with_one_node.current.schemaName == "ansible_test"
+      - add_service_chain_with_one_node.previous.nodeFilter == "allow-all"
+      - add_service_chain_with_one_node.previous.serviceNodes.0.consumerConnector.interfaceName == "lb_interface1"
+      - add_service_chain_with_one_node.previous.serviceNodes.0.consumerConnector.isRedirect == false
+      - add_service_chain_with_one_node.previous.serviceNodes.0.deviceName == "load_balancer"
+      - add_service_chain_with_one_node.previous.serviceNodes.0.deviceRef != ""
+      - add_service_chain_with_one_node.previous.serviceNodes.0.deviceTemplateId != ""
+      - add_service_chain_with_one_node.previous.serviceNodes.0.deviceTemplateName == "ansible_device_template"
+      - add_service_chain_with_one_node.previous.serviceNodes.0.deviceType == "loadBalancer"
+      - add_service_chain_with_one_node.previous.serviceNodes.0.index == 1
+      - add_service_chain_with_one_node.previous.serviceNodes.0.name == "node-1"
+      - add_service_chain_with_one_node.previous.serviceNodes.0.providerConnector.interfaceName == "lb_interface2"
+      - add_service_chain_with_one_node.previous.serviceNodes.0.providerConnector.isRedirect == false
+      - add_service_chain_with_one_node.previous.serviceNodes.0.serviceNodeRef == ""
+      - add_service_chain_with_one_node.previous.serviceNodes.0.serviceNodeTypeId == ""
+      - add_service_chain_with_one_node.previous.serviceNodes.0.uuid is defined
+      - add_service_chain_with_one_node.previous.schemaId is defined
+      - add_service_chain_with_one_node.previous.schemaName == "ansible_test"
+      - add_service_chain_with_one_node.previous.serviceNodes.1.consumerConnector.interfaceName == "fw_interface1"
+      - add_service_chain_with_one_node.previous.serviceNodes.1.consumerConnector.isRedirect == false
+      - add_service_chain_with_one_node.previous.serviceNodes.1.deviceName == "firewall"
+      - add_service_chain_with_one_node.previous.serviceNodes.1.deviceRef != ""
+      - add_service_chain_with_one_node.previous.serviceNodes.1.deviceTemplateId != ""
+      - add_service_chain_with_one_node.previous.serviceNodes.1.deviceTemplateName == "ansible_device_template"
+      - add_service_chain_with_one_node.previous.serviceNodes.1.deviceType == "firewall"
+      - add_service_chain_with_one_node.previous.serviceNodes.1.index == 2
+      - add_service_chain_with_one_node.previous.serviceNodes.1.name == "node-2"
+      - add_service_chain_with_one_node.previous.serviceNodes.1.providerConnector.interfaceName == "fw_interface2"
+      - add_service_chain_with_one_node.previous.serviceNodes.1.providerConnector.isRedirect == false
+      - add_service_chain_with_one_node.previous.serviceNodes.1.serviceNodeRef == ""
+      - add_service_chain_with_one_node.previous.serviceNodes.1.serviceNodeTypeId == ""
+      - add_service_chain_with_one_node.previous.serviceNodes.1.uuid is defined
+      - add_service_chain_with_one_node.previous.serviceNodes.2.consumerConnector.interfaceName == "other_interface1"
+      - add_service_chain_with_one_node.previous.serviceNodes.2.consumerConnector.isRedirect == false
+      - add_service_chain_with_one_node.previous.serviceNodes.2.deviceName == "other"
+      - add_service_chain_with_one_node.previous.serviceNodes.2.deviceRef != ""
+      - add_service_chain_with_one_node.previous.serviceNodes.2.deviceTemplateId != ""
+      - add_service_chain_with_one_node.previous.serviceNodes.2.deviceTemplateName == "ansible_device_template"
+      - add_service_chain_with_one_node.previous.serviceNodes.2.deviceType == "other"
+      - add_service_chain_with_one_node.previous.serviceNodes.2.index == 3
+      - add_service_chain_with_one_node.previous.serviceNodes.2.name == "node-3"
+      - add_service_chain_with_one_node.previous.serviceNodes.2.providerConnector.interfaceName == "other_interface2"
+      - add_service_chain_with_one_node.previous.serviceNodes.2.providerConnector.isRedirect == false
+      - add_service_chain_with_one_node.previous.serviceNodes.2.serviceNodeRef == ""
+      - add_service_chain_with_one_node.previous.serviceNodes.2.serviceNodeTypeId == ""
+      - add_service_chain_with_one_node.previous.serviceNodes.2.uuid is defined
+      - add_service_chain_with_one_node.previous.serviceNodes.3.consumerConnector.interfaceName == "other_interface1"
+      - add_service_chain_with_one_node.previous.serviceNodes.3.consumerConnector.isRedirect == false
+      - add_service_chain_with_one_node.previous.serviceNodes.3.deviceName == "other"
+      - add_service_chain_with_one_node.previous.serviceNodes.3.deviceRef != ""
+      - add_service_chain_with_one_node.previous.serviceNodes.3.deviceTemplateId != ""
+      - add_service_chain_with_one_node.previous.serviceNodes.3.deviceTemplateName == "ansible_device_template"
+      - add_service_chain_with_one_node.previous.serviceNodes.3.deviceType == "other"
+      - add_service_chain_with_one_node.previous.serviceNodes.3.index == 4
+      - add_service_chain_with_one_node.previous.serviceNodes.3.name == "node-4"
+      - add_service_chain_with_one_node.previous.serviceNodes.3.providerConnector.interfaceName == "other_interface2"
+      - add_service_chain_with_one_node.previous.serviceNodes.3.providerConnector.isRedirect == false
+      - add_service_chain_with_one_node.previous.serviceNodes.3.serviceNodeRef == ""
+      - add_service_chain_with_one_node.previous.serviceNodes.3.serviceNodeTypeId == ""
+      - add_service_chain_with_one_node.previous.serviceNodes.3.uuid is defined
+      - add_service_chain_with_one_node.previous.templateId != ""
+      - add_service_chain_with_one_node.previous.templateName == "ansible_template"
+      - add_service_chain_with_one_node.current.templateId != ""
+      - add_service_chain_with_one_node.current.templateName == "ansible_template"
+
+- name: Query contract service chain 2 - $query_service_chain_2
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *mso_info
+    schema: ansible_test
+    template: ansible_template
+    contract: Contract1
+    state: query
+  register: query_service_chain_2
+
+- name: Assertion check for query contract service chain
+  ansible.builtin.assert:
+    that:
+      - query_service_chain_1 is not changed
+      - query_service_chain_1.current.nodeFilter == "allow-all"
+      - query_service_chain_1.current.serviceNodes.0.consumerConnector.interfaceName == "lb_interface1"
+      - query_service_chain_1.current.serviceNodes.0.consumerConnector.isRedirect == false
+      - query_service_chain_1.current.serviceNodes.0.deviceName == "load_balancer"
+      - query_service_chain_1.current.serviceNodes.0.deviceRef != ""
+      - query_service_chain_1.current.serviceNodes.0.deviceTemplateId != ""
+      - query_service_chain_1.current.serviceNodes.0.deviceTemplateName == "ansible_device_template"
+      - query_service_chain_1.current.serviceNodes.0.deviceType == "loadBalancer"
+      - query_service_chain_1.current.serviceNodes.0.index == 1
+      - query_service_chain_1.current.serviceNodes.0.name == "node-1"
+      - query_service_chain_1.current.serviceNodes.0.providerConnector.interfaceName == "lb_interface2"
+      - query_service_chain_1.current.serviceNodes.0.providerConnector.isRedirect == false
+      - query_service_chain_1.current.serviceNodes.0.serviceNodeRef == ""
+      - query_service_chain_1.current.serviceNodes.0.serviceNodeTypeId == ""
+      - query_service_chain_1.current.serviceNodes.0.uuid is defined
+      - query_service_chain_1.current.serviceNodes.1.consumerConnector.interfaceName == "fw_interface1"
+      - query_service_chain_1.current.serviceNodes.1.consumerConnector.isRedirect == false
+      - query_service_chain_1.current.serviceNodes.1.deviceName == "firewall"
+      - query_service_chain_1.current.serviceNodes.1.deviceRef != ""
+      - query_service_chain_1.current.serviceNodes.1.deviceTemplateId != ""
+      - query_service_chain_1.current.serviceNodes.1.deviceTemplateName == "ansible_device_template"
+      - query_service_chain_1.current.serviceNodes.1.deviceType == "firewall"
+      - query_service_chain_1.current.serviceNodes.1.index == 2
+      - query_service_chain_1.current.serviceNodes.1.name == "node-2"
+      - query_service_chain_1.current.serviceNodes.1.providerConnector.interfaceName == "fw_interface2"
+      - query_service_chain_1.current.serviceNodes.1.providerConnector.isRedirect == false
+      - query_service_chain_1.current.serviceNodes.1.serviceNodeRef == ""
+      - query_service_chain_1.current.serviceNodes.1.serviceNodeTypeId == ""
+      - query_service_chain_1.current.serviceNodes.1.uuid is defined
+      - query_service_chain_1.current.serviceNodes.2.consumerConnector.interfaceName == "other_interface1"
+      - query_service_chain_1.current.serviceNodes.2.consumerConnector.isRedirect == false
+      - query_service_chain_1.current.serviceNodes.2.deviceName == "other"
+      - query_service_chain_1.current.serviceNodes.2.deviceRef != ""
+      - query_service_chain_1.current.serviceNodes.2.deviceTemplateId != ""
+      - query_service_chain_1.current.serviceNodes.2.deviceTemplateName == "ansible_device_template"
+      - query_service_chain_1.current.serviceNodes.2.deviceType == "other"
+      - query_service_chain_1.current.serviceNodes.2.index == 3
+      - query_service_chain_1.current.serviceNodes.2.name == "node-3"
+      - query_service_chain_1.current.serviceNodes.2.providerConnector.interfaceName == "other_interface2"
+      - query_service_chain_1.current.serviceNodes.2.providerConnector.isRedirect == false
+      - query_service_chain_1.current.serviceNodes.2.serviceNodeRef == ""
+      - query_service_chain_1.current.serviceNodes.2.serviceNodeTypeId == ""
+      - query_service_chain_1.current.serviceNodes.2.uuid is defined
+      - query_service_chain_1.current.serviceNodes.3.consumerConnector.interfaceName == "other_interface1"
+      - query_service_chain_1.current.serviceNodes.3.consumerConnector.isRedirect == false
+      - query_service_chain_1.current.serviceNodes.3.deviceName == "other"
+      - query_service_chain_1.current.serviceNodes.3.deviceRef != ""
+      - query_service_chain_1.current.serviceNodes.3.deviceTemplateId != ""
+      - query_service_chain_1.current.serviceNodes.3.deviceTemplateName == "ansible_device_template"
+      - query_service_chain_1.current.serviceNodes.3.deviceType == "other"
+      - query_service_chain_1.current.serviceNodes.3.index == 4
+      - query_service_chain_1.current.serviceNodes.3.name == "node-4"
+      - query_service_chain_1.current.serviceNodes.3.providerConnector.interfaceName == "other_interface2"
+      - query_service_chain_1.current.serviceNodes.3.providerConnector.isRedirect == false
+      - query_service_chain_1.current.serviceNodes.3.serviceNodeRef == ""
+      - query_service_chain_1.current.serviceNodes.3.serviceNodeTypeId == ""
+      - query_service_chain_1.current.serviceNodes.3.uuid is defined
+      - query_service_chain_1.current.templateId != ""
+      - query_service_chain_1.current.templateName == "ansible_template"
+      - query_service_chain_2 is not changed
+      - query_service_chain_2.current.nodeFilter == "filters-from-contract"
+      - query_service_chain_2.current.serviceNodes.0.consumerConnector.interfaceName == "fw_interface1"
+      - query_service_chain_2.current.serviceNodes.0.consumerConnector.isRedirect == true
+      - query_service_chain_2.current.serviceNodes.0.deviceName == "firewall"
+      - query_service_chain_2.current.serviceNodes.0.deviceRef != ""
+      - query_service_chain_2.current.serviceNodes.0.deviceTemplateId != ""
+      - query_service_chain_2.current.serviceNodes.0.deviceTemplateName == "ansible_device_template"
+      - query_service_chain_2.current.serviceNodes.0.deviceType == "firewall"
+      - query_service_chain_2.current.serviceNodes.0.index == 1
+      - query_service_chain_2.current.serviceNodes.0.name == "node-1"
+      - query_service_chain_2.current.serviceNodes.0.providerConnector.interfaceName == "fw_interface2"
+      - query_service_chain_2.current.serviceNodes.0.providerConnector.isRedirect == true
+      - query_service_chain_2.current.serviceNodes.0.serviceNodeRef == ""
+      - query_service_chain_2.current.serviceNodes.0.serviceNodeTypeId == ""
+      - query_service_chain_2.current.serviceNodes.0.uuid is defined
+      - query_service_chain_2.current.templateId != ""
+      - query_service_chain_2.current.templateName == "ansible_template"
+
+- name: Add service chain with one arm service node - $add_one_arm_service_node
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *mso_info
+    schema_id: "{{ nm_add_service_chain.current.schemaId }}"
+    template_id: "{{ nm_add_service_chain.current.templateId }}"
+    contract: Contract1
+    node_filter: "filters_from_contract"
+    service_nodes:
+      - device_type: firewall
+        device_uuid: "{{ add_one_arm_firewall.current.uuid }}"
+        consumer_interface_name: fw_interface1
+        provider_interface_name: fw_interface1
+        consumer_redirect: true
+        provider_redirect: true
+    state: present
+  register: add_one_arm_service_node
+
+- name: Assertion check for add service chain with one arm service node
+  ansible.builtin.assert:
+    that:
+      - add_one_arm_service_node is changed
+      - add_one_arm_service_node.current.nodeFilter == "allow-all"
+      - add_one_arm_service_node.current.schemaId is defined
+      - add_one_arm_service_node.current.schemaName == "ansible_test"
+      - add_one_arm_service_node.current.serviceNodes.0.consumerConnector.interfaceName == "fw_interface1"
+      - add_one_arm_service_node.current.serviceNodes.0.consumerConnector.isRedirect == true
+      - add_one_arm_service_node.current.serviceNodes.0.deviceName == "one_arm_firewall"
+      - add_one_arm_service_node.current.serviceNodes.0.deviceRef != ""
+      - add_one_arm_service_node.current.serviceNodes.0.deviceTemplateId != ""
+      - add_one_arm_service_node.current.serviceNodes.0.deviceTemplateName == "ansible_device_template"
+      - add_one_arm_service_node.current.serviceNodes.0.deviceType == "firewall"
+      - add_one_arm_service_node.current.serviceNodes.0.index == 1
+      - add_one_arm_service_node.current.serviceNodes.0.name == "node-1"
+      - add_one_arm_service_node.current.serviceNodes.0.providerConnector.interfaceName == "fw_interface1"
+      - add_one_arm_service_node.current.serviceNodes.0.providerConnector.isRedirect == true
+      - add_one_arm_service_node.current.serviceNodes.0.serviceNodeRef == ""
+      - add_one_arm_service_node.current.serviceNodes.0.serviceNodeTypeId == ""
+      - add_one_arm_service_node.current.serviceNodes.0.uuid is defined
+      - add_one_arm_service_node.current.templateId != ""
+      - add_one_arm_service_node.current.templateName == "ansible_template"
+      - add_one_arm_service_node.previous.nodeFilter == "filters-from-contract"
+      - add_one_arm_service_node.previous.schemaId is defined
+      - add_one_arm_service_node.previous.schemaName == "ansible_test"
+      - add_one_arm_service_node.previous.serviceNodes.0.consumerConnector.interfaceName == "fw_interface1"
+      - add_one_arm_service_node.previous.serviceNodes.0.providerConnector.interfaceName == "fw_interface2"
+      - add_one_arm_service_node.previous.serviceNodes.0.providerConnector.isRedirect == true
+      - add_one_arm_service_node.previous.templateId != ""
+      - add_one_arm_service_node.previous.templateName == "ansible_template"
+
+# ERROR
+- name: Negative test add service chain without device_type, provider and consumer interface_name
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *mso_info
+    schema: ansible_test
+    template: ansible_template
+    contract: Contract1
+    node_filter: "filters_from_contract"
+    service_nodes:
+      - device_uuid: "{{ add_firewall.current.uuid }}"
+        consumer_redirect: true
+        provider_redirect: true
+    state: present
+  register: nt_service_chain_1
+  ignore_errors: true
+
+- name: Negative test add service chain without service_nodes
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *mso_info
+    schema: ansible_test
+    template: ansible_template
+    contract: Contract1
+    node_filter: "filters_from_contract"
+    state: present
+  register: nt_service_chain_2
+  ignore_errors: true
+
+- name: Negative test add service chain with device name and UUID
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *mso_info
+    schema: ansible_test
+    template: ansible_template
+    contract: Contract1
+    service_nodes:
+      - device_type: firewall
+        device_uuid: "{{ add_firewall.current.uuid }}"
+        device:
+          name: firewall
+          template_id: "{{ add_firewall.current.templateId }}"
+    state: present
+  register: nt_service_chain_3
+  ignore_errors: true
+
+- name: Negative test add service chain without device name and UUID
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *mso_info
+    schema: ansible_test
+    template: ansible_template
+    contract: Contract1
+    service_nodes:
+      - device_type: load_balancer
+        consumer_interface_name: lb_interface1
+        provider_interface_name: lb_interface2
+        consumer_redirect: true
+        provider_redirect: true
+    state: present
+  register: nt_service_chain_4
+  ignore_errors: true
+
+- name: Negative test add service chain when the schema, schema_id, template_id is not set and only template name is set
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *mso_info
+    template: ansible_template
+    contract: Contract1
+    node_filter: "allow_all"
+    service_nodes:
+      - device_type: load_balancer
+        consumer_interface_name: lb_interface1
+        provider_interface_name: lb_interface2
+        device:
+          name: load_balancer
+          template: ansible_device_template
+    state: present
+  register: nt_service_chain_5
+  ignore_errors: true
+
+- name: Negative test add service chain when the contract, contract_uuid is None
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *mso_info
+    schema: ansible_test
+    template: ansible_template
+    node_filter: "allow_all"
+    service_nodes:
+      - device_type: load_balancer
+        consumer_interface_name: lb_interface1
+        provider_interface_name: lb_interface2
+        device:
+          name: load_balancer
+          template: ansible_device_template
+    state: present
+  register: nt_service_chain_6
+  ignore_errors: true
+
+- name: Negative test add service chain when the template, template_id is None
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *mso_info
+    schema: ansible_test
+    contract: Contract1
+    node_filter: "allow_all"
+    service_nodes:
+      - device_type: load_balancer
+        consumer_interface_name: lb_interface1
+        provider_interface_name: lb_interface2
+        device:
+          name: load_balancer
+          template: ansible_device_template
+    state: present
+  register: nt_service_chain_7
+  ignore_errors: true
+
+- name: Negative test add service chain with invalid schema id
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *mso_info
+    schema_id: invalid
+    template: ansible_template
+    contract: Contract1
+    node_filter: "allow_all"
+    service_nodes:
+      - device_type: load_balancer
+        consumer_interface_name: lb_interface1
+        provider_interface_name: lb_interface2
+        device:
+          name: load_balancer
+          template: ansible_device_template
+    state: present
+  register: nt_service_chain_8
+  ignore_errors: true
+
+- name: Assertion check for negative tests
+  ansible.builtin.assert:
+    that:
+      - nt_service_chain_1 is not changed
+      - nt_service_chain_1.msg == "missing required arguments{{':'}} consumer_interface_name, device_type, provider_interface_name found in service_nodes"
+      - nt_service_chain_2 is not changed
+      - nt_service_chain_2.msg == "state is present but all of the following are missing{{':'}} service_nodes"
+      - nt_service_chain_3 is not changed
+      - nt_service_chain_3.msg == "parameters are mutually exclusive{{':'}} uuid|device found in service_nodes"
+      - nt_service_chain_4 is not changed
+      - nt_service_chain_4.msg == "one of the following is required{{':'}} uuid, device found in service_nodes"
+      - nt_service_chain_5 is not changed
+      - nt_service_chain_5.msg == "The schema or schema_id is required when the template is set."
+      - nt_service_chain_6 is not changed
+      - nt_service_chain_6.msg == "one of the following is required{{':'}} contract, contract_uuid"
+      - nt_service_chain_7 is not changed
+      - nt_service_chain_7.msg == "one of the following is required{{':'}} template, template_id"
+      - nt_service_chain_8 is not changed
+      - nt_service_chain_8.msg == "Provided Template Contract with '[KVPair(key='name', value='Contract1')]' not matching existing object(s){{':'}} "
+
+# DELETE
+- name: Remove contract service chain (check_mode) - $cm_rm_service_chain
+  cisco.mso.ndo_schema_template_contract_service_chain: &cm_rm_service_chain
+    <<: *mso_info
+    schema: ansible_test
+    template: ansible_template
+    contract: Contract1
+    state: absent
+  check_mode: true
+  register: cm_rm_service_chain
+
+- name: Remove contract service chain - $rm_service_chain
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *cm_rm_service_chain
+  register: rm_service_chain
+
+- name: Remove contract service chain again - $rm_service_chain_again
+  cisco.mso.ndo_schema_template_contract_service_chain:
+    <<: *cm_rm_service_chain
+  register: rm_service_chain_again
+
+- name: Assertion check for remove contract service chain
+  ansible.builtin.assert:
+    that:
+      - cm_rm_service_chain is changed
+      - cm_rm_service_chain.current == {}
+      - cm_rm_service_chain.previous.nodeFilter == "allow-all"
+      - cm_rm_service_chain.previous.serviceNodes.0.consumerConnector.interfaceName == "fw_interface1"
+      - cm_rm_service_chain.previous.serviceNodes.0.consumerConnector.isRedirect == true
+      - cm_rm_service_chain.previous.serviceNodes.0.deviceName == "one_arm_firewall"
+      - cm_rm_service_chain.previous.serviceNodes.0.deviceRef != ""
+      - cm_rm_service_chain.previous.serviceNodes.0.deviceTemplateId != ""
+      - cm_rm_service_chain.previous.serviceNodes.0.deviceTemplateName == "ansible_device_template"
+      - cm_rm_service_chain.previous.serviceNodes.0.deviceType == "firewall"
+      - cm_rm_service_chain.previous.serviceNodes.0.index == 1
+      - cm_rm_service_chain.previous.serviceNodes.0.name == "node-1"
+      - cm_rm_service_chain.previous.serviceNodes.0.providerConnector.interfaceName == "fw_interface1"
+      - cm_rm_service_chain.previous.serviceNodes.0.providerConnector.isRedirect == true
+      - cm_rm_service_chain.previous.serviceNodes.0.serviceNodeRef == ""
+      - cm_rm_service_chain.previous.serviceNodes.0.serviceNodeTypeId == ""
+      - cm_rm_service_chain.previous.serviceNodes.0.uuid is defined
+      - cm_rm_service_chain.proposed == {}
+      - cm_rm_service_chain.previous.schemaId is defined
+      - cm_rm_service_chain.previous.schemaName == "ansible_test"
+      - cm_rm_service_chain.previous.templateName == "ansible_template"
+      - cm_rm_service_chain.proposed == {}
+      - rm_service_chain is changed
+      - rm_service_chain.current == {}
+      - rm_service_chain.previous.nodeFilter == "allow-all"
+      - rm_service_chain.previous.serviceNodes.0.consumerConnector.interfaceName == "fw_interface1"
+      - rm_service_chain.previous.serviceNodes.0.consumerConnector.isRedirect == true
+      - rm_service_chain.previous.serviceNodes.0.deviceName == "one_arm_firewall"
+      - rm_service_chain.previous.serviceNodes.0.deviceRef != ""
+      - rm_service_chain.previous.serviceNodes.0.deviceTemplateId != ""
+      - rm_service_chain.previous.serviceNodes.0.deviceTemplateName == "ansible_device_template"
+      - rm_service_chain.previous.serviceNodes.0.deviceType == "firewall"
+      - rm_service_chain.previous.serviceNodes.0.index == 1
+      - rm_service_chain.previous.serviceNodes.0.name == "node-1"
+      - rm_service_chain.previous.serviceNodes.0.providerConnector.interfaceName == "fw_interface1"
+      - rm_service_chain.previous.serviceNodes.0.providerConnector.isRedirect == true
+      - rm_service_chain.previous.serviceNodes.0.serviceNodeRef == ""
+      - rm_service_chain.previous.serviceNodes.0.serviceNodeTypeId == ""
+      - rm_service_chain.previous.serviceNodes.0.uuid is defined
+      - rm_service_chain.previous.schemaId is defined
+      - rm_service_chain.previous.schemaName == "ansible_test"
+      - rm_service_chain.previous.templateId != ""
+      - rm_service_chain.previous.templateName == "ansible_template"
+      - rm_service_chain_again is not changed
+      - rm_service_chain_again.current == {}
+      - rm_service_chain_again.previous == {}
+
+# CLEAN TEST ENVIRONMENT
+- name: Remove site from the ansible_template
+  cisco.mso.mso_schema_site:
+    <<: *mso_info
+    schema: ansible_test
+    template: ansible_template
+    site: '{{ mso_site | default("ansible_test") }}'
+    state: absent
+  ignore_errors: true
+
+- name: Ensure Contract_1 contract does not exist
+  cisco.mso.mso_schema_template_contract_filter:
+    <<: *mso_info
+    schema: ansible_test
+    template: ansible_template
+    contract: Contract1
+    filter: Filter1
+    state: absent
+  ignore_errors: true
+
+- name: Ensure ansible_device_template does not exist
+  cisco.mso.ndo_template:
+    <<: *mso_info
+    name: ansible_device_template
+    template_type: service_device
+    tenant: ansible_test_tenant
+    state: absent
+
+- name: Ensure ansible_test schema template does not exist
+  cisco.mso.mso_schema_template:
+    <<: *mso_info
+    schema: ansible_test
+    template: ansible_template
+    state: absent

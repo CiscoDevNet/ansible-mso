@@ -181,6 +181,13 @@ TEMPLATE_TYPES = {
         "site_amount": 2,
         "template_container": True,
     },
+    "application": {
+        "template_type": "application",
+        "template_type_container": "appTemplate",
+        "tenant": True,
+        "site_amount": 2,
+        "template_container": True,
+    },
 }
 
 TARGET_DSCP_MAP = {
@@ -271,3 +278,5 @@ IP_PROTOCOL_MAPPING = {
     "tcp": "6",
     "udp": "17",
 }
+
+CONTRACT_SERVICE_CHAIN_NODE_FILTER_MAP = {"allow_all": "allow-all", "filters_from_contract": "filters-from-contract"}

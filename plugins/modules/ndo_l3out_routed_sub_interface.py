@@ -183,8 +183,8 @@ options:
   encapsulation_value:
     description:
     - The encapsulation value of the interface.
-    - If O(encapsulation_type=vlan), this is the VLAN ID which must be in the range 1 - 4094.
-    - If O(encapsulation_type=vxlan), this is the VXLAN Network Identifier (VNI) which must be in the range 5000 - 16777215.
+    - The option O(encapsulation_type=vlan), specifies VLAN ID which must be in the range 1 - 4094.
+    - The option O(encapsulation_type=vxlan), specifies VXLAN Network Identifier (VNI) which must be in the range 5000 - 16777215.
     type: int
     aliases: [ encap, encapsulation, encapsulation_id ]
   state:

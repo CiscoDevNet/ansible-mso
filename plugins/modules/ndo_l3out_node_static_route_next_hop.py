@@ -123,9 +123,12 @@ notes:
   The M(cisco.mso.ndo_template) module can be used for this.
 - The O(l3out) or O(l3out_uuid) must exist before using this module in your playbook.
   The M(cisco.mso.ndo_l3out_template) module can be used for this.
+- The O(monitoring_policy) or O(monitoring_policy_uuid) must exist before using this module in your playbook.
+  The M(cisco.mso.ndo_ipsla_monitoring_policy) module can be used for this.
 seealso:
 - module: cisco.mso.ndo_template
 - module: cisco.mso.ndo_l3out_template
+- module: cisco.mso.ndo_ipsla_monitoring_policy
 extends_documentation_fragment: cisco.mso.modules
 """
 

@@ -79,6 +79,7 @@ options:
     - The value must be in the range 0 - 255.
     - Defaults to O(administrative_distance=0) when unset during creation.
     type: int
+    aliases: [ admin_distance ]
   monitoring_policy_uuid:
     description:
     - The UUID of the Monitoring Policy to be used.
@@ -222,7 +223,7 @@ def main():
         prefix=dict(type="str", required=True),
         ip=dict(type="str", aliases=["ip_address", "next_hop"]),
         description=dict(type="str"),
-        administrative_distance=dict(type="int"),
+        administrative_distance=dict(type="int", aliases=["admin_distance"]),
         monitoring_policy_uuid=dict(type="str", aliases=["ipsla_monitoring_policy_uuid"]),
         monitoring_policy=dict(
             type="dict",

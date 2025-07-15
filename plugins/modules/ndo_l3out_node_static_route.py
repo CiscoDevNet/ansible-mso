@@ -88,14 +88,12 @@ options:
   track_policy_uuid:
     description:
     - The UUID of the track policy to be used.
-    - This parameter or O(track_policy) is required.
     - Providing an empty string O(track_policy="") will remove the track policy from the static route.
     type: str
     aliases: [ ipsla_track_list_uuid ]
   track_policy:
     description:
     - The track policy to be used.
-    - This parameter or O(track_policy_uuid) is required.
     - Providing an empty dictionary O(track_policy={}) will remove the track policy from the static route.
     type: dict
     aliases: [ ipsla_track_list ]

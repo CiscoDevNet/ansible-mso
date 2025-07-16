@@ -17,6 +17,9 @@ short_description: Manage the service graph association with a contract in schem
 description:
 - Manage the service graph association with a contract in schema template on Cisco ACI Multi-Site.
 - The Contract Service Graph parameter is supported on versions of MSO/NDO that are 3.3 or greater.
+- The recommended approach is to use M(cisco.mso.ndo_schema_template_contract_service_chain) rather than the Contract Service Graph.
+- Service Chaining is supported only on ND v3.1 (NDO v4.2.3) and later versions.
+
 author:
 - Akini Ross (@akinross)
 options:

@@ -18,6 +18,7 @@ ANSIBLE_METADATA = {
 DOCUMENTATION = r"""
 ---
 module: ndo_qos_class_policy
+version_added: "2.11.0"
 short_description: Manage QoS Class Policies on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage Quality of Service (QoS) Class Policies.

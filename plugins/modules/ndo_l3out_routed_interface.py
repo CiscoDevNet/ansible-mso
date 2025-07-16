@@ -15,6 +15,7 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_l3out_routed_interface
+version_added: "2.11.0"
 short_description: Manage L3Out Routed Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage L3Out Routed Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).

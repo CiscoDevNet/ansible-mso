@@ -18,6 +18,7 @@ ANSIBLE_METADATA = {
 DOCUMENTATION = r"""
 ---
 module: ndo_tenant_span_session
+version_added: "2.11.0"
 short_description: Manage Tenant SPAN Sessions on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage Switched Port Analyzer (SPAN) Sessions on Cisco Nexus Dashboard Orchestrator (NDO).

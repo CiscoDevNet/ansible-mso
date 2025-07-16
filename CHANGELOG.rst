@@ -6,6 +6,44 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.11.0
+=======
+
+Release Summary
+---------------
+
+Release v2.11.0 of the ``ansible-mso`` collection on 2025-07-17.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.10.0.
+
+Minor Changes
+-------------
+
+- Add admin_state attribute to mso_schema_site_anp_epg module.
+- Improved ndo modules returned current value with actual API response.
+
+Bugfixes
+--------
+
+- Fix API endpoint to query local and remote users in ND4.0
+
+New Modules
+-----------
+
+- cisco.mso.ndo_fabric_span_session - Manage Fabric SPAN Sessions on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_fabric_span_session_source - Manage Fabric SPAN Sessions Source on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_fabric_span_session_source_filter - Manage Fabric SPAN Sessions Source Filter on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_l3out_bgp_peer - Manage L3Out BGP Peer on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_l3out_node_static_route - Manage L3Out Node Static Routes on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_l3out_node_static_route_next_hop - Manage L3Out Node Static Route Next Hops on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_l3out_routed_interface - Manage L3Out Routed Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_l3out_routed_sub_interface - Manage L3Out Routed Sub-Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_pod_profile - Manage Pod Profiles on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_pod_settings - Manage Pod Settings on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_qos_class_policy - Manage QoS Class Policies on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_schema_template_contract_service_chain - Manage the Schema Template Contract Service Chaining workflow on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_service_device_cluster - Manage Service Device Clusters on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_tenant_span_session - Manage Tenant SPAN Sessions on Cisco Nexus Dashboard Orchestrator (NDO).
+
 v2.10.0
 =======
 

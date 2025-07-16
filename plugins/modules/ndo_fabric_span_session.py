@@ -14,6 +14,7 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_fabric_span_session
+version_added: "2.11.0"
 short_description: Manage Fabric SPAN Sessions on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage Switched Port Analyzer (SPAN) Sessions on Cisco Nexus Dashboard Orchestrator (NDO).

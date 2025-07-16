@@ -14,6 +14,7 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_service_device_cluster
+version_added: "2.11.0"
 short_description: Manage Service Device Clusters on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage Service Device Clusters on Cisco Nexus Dashboard Orchestrator (NDO).

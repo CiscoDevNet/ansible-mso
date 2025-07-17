@@ -531,7 +531,8 @@ def main():
 
     if not mso.module.check_mode and ops:
         ignore_errors = ["node {0}-{1} doesn't have an interface configured".format(pod_id, node_id)]
-        response = mso.l3out_interface_request(mso_template, ops, ignore_errors, state, l3out_node.get_node_remove_op())
+        remove_ops = {ignore_errors[0]: l3out_node.get_node_remove_op()}
+        response = mso.l3out_interface_request(mso_template, ops, ignore_errors, state, remove_ops)
         l3out_object = mso_template.get_l3out_object(l3out_uuid, l3out, True, search_object=response)
         match = mso_template.get_l3out_routed_sub_interface(l3out_object.details, pod_id, node_id, path, port_channel_uuid, encap)
         if match:

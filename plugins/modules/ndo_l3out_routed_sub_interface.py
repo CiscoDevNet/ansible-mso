@@ -77,13 +77,11 @@ options:
     description:
     - The path of the interface.
     - The path is an existing physical port (eth1/1).
-    - This parameter or O(port_channel) is required.
     type: str
     aliases: [ interface ]
   port_channel:
     description:
     - The port channel details.
-    - This parameter or O(path) is required.
     type: dict
     suboptions:
       uuid:
@@ -201,9 +199,18 @@ notes:
   The M(cisco.mso.ndo_template) module can be used for this.
 - The O(l3out) or O(l3out_uuid) must exist before using this module in your playbook.
   The M(cisco.mso.ndo_l3out_template) module can be used for this.
+- The O(node_group_policy) must exist before using this module in your playbook.
+  The M(cisco.mso.ndo_l3out_node_group_policy) module can be used for this.
+- The O(interface_group_policy) must exist before using this module in your playbook.
+  The M(cisco.mso.ndo_l3out_interface_group_policy) module can be used for this.
+- The O(port_channel) must exist before using this module in your playbook.
+  The M(cisco.mso.ndo_port_channel_interface) module can be used for this.
 seealso:
 - module: cisco.mso.ndo_template
 - module: cisco.mso.ndo_l3out_template
+- module: cisco.mso.ndo_l3out_node_group_policy
+- module: cisco.mso.ndo_l3out_interface_group_policy
+- module: cisco.mso.ndo_port_channel_interface
 extends_documentation_fragment: cisco.mso.modules
 """
 

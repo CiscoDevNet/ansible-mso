@@ -51,9 +51,9 @@ options:
     description:
     - The ID of the node (border leaf switch) where to deploy the L3Out routing protocol and node-level protocol configurations.
     - This parameter is required when O(path) is specified.
-    - The node configuration is created under the L3Out template when it does not exist.
-    - The node configuration is updated under the L3Out template when it already exists.
-    - The node configuration is deleted under the L3Out template when there are no interfaces referencing it.
+    - When specified, the node configuration is created under the L3Out template when it does not exist.
+    - When specified, the node configuration is updated under the L3Out template when it already exists.
+    - When specified, the node configuration is deleted under the L3Out template when there are no interfaces referencing it.
     type: str
     aliases: [ node, border_leaf ]
   node_router_id:

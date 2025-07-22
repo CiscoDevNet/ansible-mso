@@ -444,7 +444,6 @@ def main():
         if port_channel.get("uuid"):
             port_channel_uuid = port_channel.get("uuid")
             port_channel_match = mso_template.get_template_object_by_uuid("portChannel", port_channel_uuid, True)
-            node_id = port_channel_match.get("node")
         else:
             fabric_resource_mso_template = mso_templates.get_template(
                 "fabric_resource",
@@ -456,9 +455,9 @@ def main():
                 port_channel_uuid,
                 port_channel.get("reference").get("name"),
                 fail_module=True,
-            )
-            port_channel_uuid = port_channel_match.details.get("uuid")
-            node_id = port_channel_match.details.get("node")
+            ).details
+            port_channel_uuid = port_channel_match.get("uuid")
+        node_id = port_channel_match.get("node")
 
     pod_id = None
     if path or port_channel:

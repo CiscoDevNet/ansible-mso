@@ -662,7 +662,6 @@ def main():
         if port_channel.get("uuid"):
             port_channel_uuid = port_channel.get("uuid")
             port_channel_match = mso_template.get_template_object_by_uuid("portChannel", port_channel_uuid, True)
-            node_id = port_channel_match.get("node")
         else:
             fabric_resource_mso_template = mso_templates.get_template(
                 "fabric_resource",
@@ -674,9 +673,9 @@ def main():
                 port_channel_uuid,
                 port_channel.get("reference").get("name"),
                 fail_module=True,
-            )
-            port_channel_uuid = port_channel_match.details.get("uuid")
-            node_id = port_channel_match.details.get("node")
+            ).details
+            port_channel_uuid = port_channel_match.get("uuid")
+        node_id = port_channel_match.get("node")
 
     virtual_port_channel_uuid = None
     node_id_side_b = None
@@ -684,8 +683,6 @@ def main():
         if virtual_port_channel.get("uuid"):
             virtual_port_channel_uuid = virtual_port_channel.get("uuid")
             virtual_port_channel_match = mso_template.get_template_object_by_uuid("virtualPortChannel", virtual_port_channel_uuid, True)
-            node_id = virtual_port_channel_match.get("node1Details", {}).get("node")
-            node_id_side_b = virtual_port_channel_match.get("node2Details", {}).get("node")
         else:
             fabric_resource_mso_template = mso_templates.get_template(
                 "fabric_resource",
@@ -697,10 +694,10 @@ def main():
                 virtual_port_channel_uuid,
                 virtual_port_channel.get("reference").get("name"),
                 fail_module=True,
-            )
-            virtual_port_channel_uuid = virtual_port_channel_match.details.get("uuid")
-            node_id = virtual_port_channel_match.details.get("node1Details", {}).get("node")
-            node_id_side_b = virtual_port_channel_match.details.get("node2Details", {}).get("node")
+            ).details
+            virtual_port_channel_uuid = virtual_port_channel_match.get("uuid")
+        node_id = virtual_port_channel_match.get("node1Details", {}).get("node")
+        node_id_side_b = virtual_port_channel_match.get("node2Details", {}).get("node")
 
     pod_id = None
     if path or port_channel or virtual_port_channel:

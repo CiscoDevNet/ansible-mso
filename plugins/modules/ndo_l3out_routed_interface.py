@@ -443,9 +443,9 @@ def main():
                 port_channel_uuid,
                 port_channel.get("reference").get("name"),
                 fail_module=True,
-            )
-            port_channel_uuid = port_channel_match.details.get("uuid")
-            node_id = port_channel_match.details.get("node")
+            ).details
+            port_channel_uuid = port_channel_match.get("uuid")
+        node_id = port_channel_match.get("node")
 
     pod_id = None
     if path or port_channel:

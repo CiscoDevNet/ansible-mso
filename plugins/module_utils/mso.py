@@ -1814,13 +1814,15 @@ class MSOModule(object):
             except ValueError:
                 return self.fail_json(msg="ERROR: The time must be in 'YYYY-MM-DD HH:MM:SS' format.")
 
-    def get_site_interface_details(self, site_id=None, uuid=None, node=None, port=None, port_channel_uuid=None):
+    def get_site_interface_details(self, site_id=None, uuid=None, node=None, port=None, port_channel_uuid=None, virtual_port_channel_uuid=None):
         if node and port:
             path = "/sitephysifsummary/site/{0}?node={1}".format(site_id, node)
         elif uuid:
             path = "/sitephysifsummary/site/{0}?uuid={1}".format(site_id, uuid)
         elif port_channel_uuid:
             path = "/pcsummary/site/{0}?uuid={1}".format(site_id, port_channel_uuid)
+        elif virtual_port_channel_uuid:
+            path = "/vpcsummary/site/{0}?uuid={1}".format(site_id, virtual_port_channel_uuid)
 
         site_data = self.request(path, method="GET")
 
@@ -1839,6 +1841,10 @@ class MSOModule(object):
             if site_data.get("spec", {}).get("pcs"):
                 return site_data.get("spec", {}).get("pcs")[0]
             self.fail_json(msg="The site port channel interface not found. Site ID: {0} and UUID: {1}".format(site_id, port_channel_uuid))
+        elif virtual_port_channel_uuid:
+            if site_data.get("spec", {}).get("vpcs"):
+                return site_data.get("spec", {}).get("vpcs")[0]
+            self.fail_json(msg="The site virtual port channel interface not found. Site ID: {0} and UUID: {1}".format(site_id, virtual_port_channel_uuid))
         return {}
 
 

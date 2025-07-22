@@ -333,6 +333,25 @@ class MSOTemplate:
             )
         return existing_port_channels
 
+    def get_virtual_port_channel(self, uuid=None, name=None, fail_module=False):
+        """
+        Get the virtual port channel by uuid or name.
+        :param uuid: UUID of the Virtual Port Channel to search for -> Str
+        :param name: Name of the Virtual Port Channel to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        existing_virtual_port_channels = self.template.get("fabricResourceTemplate", {}).get("template", {}).get("virtualPortChannels", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs(
+                "Virtual Port Channel", existing_virtual_port_channels, [KVPair("uuid", uuid)] if uuid else [KVPair("name", name)], fail_module=fail_module
+            )
+        return existing_virtual_port_channels
+
     def get_l3out_node(self, l3out_object, pod_id, node_id, fail_module=False):
         """
         Get the L3Out Node by pod_id and node_id.
@@ -459,6 +478,31 @@ class MSOTemplate:
 
             return self.get_object_by_key_value_pairs("L3Out Sub-Interface", existing_l3out_interfaces, kv_list, fail_module)
         return existing_l3out_interfaces  # Query all objects
+
+    def get_l3out_svi_interface(self, l3out_object, pod_id, node_id, path, path_ref, fail_module=False):
+        """
+        Get the L3Out SVI Interface by pod_id, node_id, path, and path_ref.
+        :param l3out_object: L3Out object to search for the SVI Interface -> Dict
+        :param pod_id: Pod ID of the SVI Interface to search for -> Str
+        :param node_id: Node ID of the SVI Interface to search for -> Str
+        :param path: Path of the SVI Interface to search for -> Str
+        :param path_ref: Path reference of the SVI Interface to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the pod_id, node_id, path | path_ref is existing in the search list -> Dict
+                 When the pod_id, node_id, path | path_ref is not existing in the search list -> None
+                 When both pod_id, node_id, path and path_ref are None, and the search list is not empty -> List[Dict]
+                 When both pod_id, node_id, path and path_ref are None, and the search list is empty -> List[]
+        """
+        existing_l3out_svi_interfaces = l3out_object.get("sviInterfaces", [])
+        if (pod_id and node_id and path) or path_ref:  # Query a specific object
+            if path_ref:
+                kv_list = [KVPair("pathRef", path_ref)]
+            else:
+                kv_list = [KVPair("podID", pod_id), KVPair("nodeID", node_id), KVPair("path", path)]
+
+            return self.get_object_by_key_value_pairs("L3Out SVI Interface", existing_l3out_svi_interfaces, kv_list, fail_module)
+        return existing_l3out_svi_interfaces  # Query all objects
 
     def get_node_settings_object(self, uuid=None, name=None, fail_module=False):
         """
@@ -744,15 +788,26 @@ class MSOTemplate:
         if update_object:
             reference_details = None
             if update_object.get("pathRef"):
-                reference_details = {
-                    "port_channel_reference": {
-                        "name": "portChannelName",
-                        "reference": "pathRef",
-                        "type": "portChannel",
-                        "template": "portChannelTemplateName",
-                        "templateId": "portChannelTemplateId",
+                if update_object.get("pathType") == "vpc":
+                    reference_details = {
+                        "virtual_port_channel_reference": {
+                            "name": "virtualPortChannelName",
+                            "reference": "pathRef",
+                            "type": "virtualPortChannel",
+                            "template": "virtualPortChannelTemplateName",
+                            "templateId": "virtualPortChannelTemplateId",
+                        }
                     }
-                }
+                elif update_object.get("pathType") == "pc":
+                    reference_details = {
+                        "port_channel_reference": {
+                            "name": "portChannelName",
+                            "reference": "pathRef",
+                            "type": "portChannel",
+                            "template": "portChannelTemplateName",
+                            "templateId": "portChannelTemplateId",
+                        }
+                    }
             self.update_config_with_template_and_references(
                 update_object,
                 reference_details,
@@ -763,6 +818,7 @@ class MSOTemplate:
 
         pod_id = interface.get("podID")
         node_id = interface.get("nodeID")
+        node_id_2 = None
 
         if interface.get("pathType") == "pc":
             interface_details = self.mso.get_site_interface_details(
@@ -771,10 +827,23 @@ class MSOTemplate:
             )
             pod_id = interface_details.get("pod")
             node_id = interface_details.get("node")
+        elif interface.get("pathType") == "vpc":
+            interface_details = self.mso.get_site_interface_details(
+                self.template.get("l3outTemplate", {}).get("siteId"),
+                virtual_port_channel_uuid=interface.get("pathRef"),
+            )
+            pod_id = interface_details.get("pod")
+            node_id = interface_details.get("node1")
+            node_id_2 = interface_details.get("node2")
 
         node = self.get_l3out_node(l3out_object.details, pod_id, node_id)
         if node and not isinstance(node, list):
             interface["node"] = node.details
+
+        if node_id_2:
+            node_2 = self.get_l3out_node(l3out_object.details, pod_id, node_id_2)
+            if node_2 and not isinstance(node_2, list):
+                interface["sideBNode"] = node_2.details
 
     def check_template_when_name_is_provided(self, parameter):
         if parameter and parameter.get("name") and not (parameter.get("template") or parameter.get("template_id")):

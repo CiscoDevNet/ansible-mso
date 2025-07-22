@@ -301,6 +301,7 @@ def ndo_template_object_spec(aliases=None):
 def ndo_l3out_port_channel_spec(micro_bfd=True):
     portchannel_spec = dict(
         type="dict",
+        aliases=["pc"],
         options=dict(
             uuid=dict(type="str"),
             reference=dict(

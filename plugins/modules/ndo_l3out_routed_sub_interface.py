@@ -83,6 +83,7 @@ options:
     description:
     - The port channel details.
     type: dict
+    aliases: [ pc ]
     suboptions:
       uuid:
         description:

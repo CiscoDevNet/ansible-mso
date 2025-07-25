@@ -193,7 +193,13 @@ def main():
             if rp_type != mso.existing.get("rpType"):
                 ops.append(dict(op="replace", path=rp_path + "/rpType", value=rp_type))
             if multicast_route_map_policy and payload.get("mcastRtMapPolicyRef") != mso.existing.get("mcastRtMapPolicyRef"):
-                ops.append(dict(op="replace", path=rp_path + "/mcastRtMapPolicyRef", value=payload.get("mcastRtMapPolicyRef")))
+                ops.append(
+                    dict(
+                        op="replace" if mso.existing.get("mcastRtMapPolicyRef") else "add",
+                        path=rp_path + "/mcastRtMapPolicyRef",
+                        value=payload.get("mcastRtMapPolicyRef"),
+                    )
+                )
             if multicast_route_map_policy == "":
                 ops.append(dict(op="remove", path=rp_path + "/mcastRtMapPolicyRef"))
         else:

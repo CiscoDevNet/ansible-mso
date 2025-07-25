@@ -7,20 +7,19 @@
 
 - name: Test that we have an ACI MultiSite host, username and password
   ansible.builtin.fail:
-    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
-
 
 # CLEAN ENVIRONMENT
 - name: Set vars
   ansible.builtin.set_fact:
     mso_info: &mso_info
-      host: '{{ mso_hostname }}'
-      username: '{{ mso_username }}'
-      password: '{{ mso_password }}'
-      validate_certs: '{{ mso_validate_certs | default(false) }}'
-      use_ssl: '{{ mso_use_ssl | default(true) }}'
-      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
@@ -38,58 +37,58 @@
   cisco.mso.mso_site: &site_present
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ apic_username }}'
-    apic_password: '{{ apic_password }}'
-    apic_site_id: '{{ apic_site_id | default(101) }}'
+    apic_username: "{{ apic_username }}"
+    apic_password: "{{ apic_password }}"
+    apic_site_id: "{{ apic_site_id | default(101) }}"
     urls:
-    - https://{{ apic_hostname }}
+      - https://{{ apic_hostname }}
     state: present
 
 - name: Remove schemas
   cisco.mso.mso_schema:
     <<: *mso_info
-    schema: '{{ item }}'
+    schema: "{{ item }}"
     state: absent
   loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
+    - '{{ mso_schema | default("ansible_test") }}_2'
+    - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Remove DHCP policies
   cisco.mso.mso_dhcp_relay_policy:
     <<: *mso_info
-    dhcp_relay_policy: '{{ item }}'
+    dhcp_relay_policy: "{{ item }}"
     tenant: ansible_test
     state: absent
   loop:
-  - 'ansible_test_dhcp_policy1'
-  - 'ansible_test_dhcp_policy2'
-  - 'ansible_test_dhcp_policy3'
+    - "ansible_test_dhcp_policy1"
+    - "ansible_test_dhcp_policy2"
+    - "ansible_test_dhcp_policy3"
   when:
-  # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
-  - version.current.version is version('4.0', '<')
+    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
+    - version.current.version is version('4.0', '<')
 
 - name: Remove DHCP option policies
   cisco.mso.mso_dhcp_option_policy:
     <<: *mso_info
-    dhcp_option_policy: '{{ item }}'
+    dhcp_option_policy: "{{ item }}"
     tenant: ansible_test
     state: absent
   loop:
-  - 'ansible_test_dhcp_policy_option1'
-  - 'ansible_test_dhcp_policy_option2'
-  - 'ansible_test_dhcp_policy_option3'
+    - "ansible_test_dhcp_policy_option1"
+    - "ansible_test_dhcp_policy_option2"
+    - "ansible_test_dhcp_policy_option3"
   when:
-  # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
-  - version.current.version is version('4.0', '<')
+    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
+    - version.current.version is version('4.0', '<')
 
 - name: Ensure tenant ansible_test exist
   cisco.mso.mso_tenant: &tenant_present
     <<: *mso_info
     tenant: ansible_test
     users:
-    - '{{ mso_username }}'
+      - "{{ mso_username }}"
     sites:
-    - '{{ mso_site | default("ansible_test") }}'
+      - '{{ mso_site | default("ansible_test") }}'
     state: present
 
 - name: Ensure schema 1 with Template1 exist
@@ -202,76 +201,76 @@
 - name: Ensure multiple DHCP policies exist
   cisco.mso.mso_dhcp_relay_policy:
     <<: *mso_info
-    dhcp_relay_policy: '{{ item }}'
+    dhcp_relay_policy: "{{ item }}"
     description: "My Test DHCP Policies"
     tenant: ansible_test
     state: present
   loop:
-  - 'ansible_test_dhcp_policy1'
-  - 'ansible_test_dhcp_policy2'
-  - 'ansible_test_dhcp_policy3'
+    - "ansible_test_dhcp_policy1"
+    - "ansible_test_dhcp_policy2"
+    - "ansible_test_dhcp_policy3"
   when:
-  # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
-  - version.current.version is version('4.0', '<')
+    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
+    - version.current.version is version('4.0', '<')
 
 - name: Ensure multiple DHCP option policies exist
   cisco.mso.mso_dhcp_option_policy:
     <<: *mso_info
-    dhcp_option_policy: '{{ item }}'
+    dhcp_option_policy: "{{ item }}"
     description: "My Test DHCP Policy Options"
     tenant: ansible_test
     state: present
   loop:
-  - 'ansible_test_dhcp_policy_option1'
-  - 'ansible_test_dhcp_policy_option2'
-  - 'ansible_test_dhcp_policy_option3'
+    - "ansible_test_dhcp_policy_option1"
+    - "ansible_test_dhcp_policy_option2"
+    - "ansible_test_dhcp_policy_option3"
   when:
-  # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
-  - version.current.version is version('4.0', '<')
+    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
+    - version.current.version is version('4.0', '<')
 
 # Tenant templates are created only for 4.3+ versions
 # PATCH was introduced in 4.3 which allows for adding the route-map policies that are required for the tests
 - name: Execute tasks only for MSO version > 4.3
   when: version.current.version is version('4.3', '>=')
   block:
-  - name: Remove tenant templates
-    cisco.mso.ndo_template:
-      <<: *mso_info
-      name: "{{ item }}"
-      template_type: tenant
-      tenant: ansible_test
-      state: absent
-    loop:
-    - 'ansible_tenant_template_1'
-    - 'ansible_tenant_template_2'
+    - name: Remove tenant templates
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: "{{ item }}"
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+      loop:
+        - "ansible_tenant_template_1"
+        - "ansible_tenant_template_2"
 
-  - name: Ensure tenant templates exist
-    cisco.mso.ndo_template: &template_absent
-      <<: *mso_info
-      name: "{{item}}"
-      template_type: tenant
-      tenant: ansible_test
-      state: present
-    loop:
-    - 'ansible_tenant_template_1'
-    - 'ansible_tenant_template_2'
+    - name: Ensure tenant templates exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: "{{item}}"
+        template_type: tenant
+        tenant: ansible_test
+        state: present
+      loop:
+        - "ansible_tenant_template_1"
+        - "ansible_tenant_template_2"
 
-  - name: Create a new route map policies in templates
-    cisco.mso.ndo_route_map_policy_multicast:
-      <<: *mso_info
-      template: "{{ item.template }}"
-      route_map_policy: "{{ item.route_map_policy }}"
-      entries:
-        - order: "{{ item.order }}"
-          group: "{{ item.group }}"
-          source: "{{ item.source }}"
-          action: permit
-      state: present
-    loop:
-    - {template: ansible_tenant_template_1, route_map_policy: ansible_test_route_map_policy_1, order: 1, group: 226.1.1.0/24, source: 1.1.1.1/24}
-    - {template: ansible_tenant_template_1, route_map_policy: ansible_test_route_map_policy_2, order: 2, group: 226.2.2.0/24, source: 2.1.1.1/24}
-    - {template: ansible_tenant_template_2, route_map_policy: ansible_test_route_map_policy_3, order: 1, group: 226.3.3.0/24, source: 3.1.1.1/24}
-    - {template: ansible_tenant_template_2, route_map_policy: ansible_test_route_map_policy_4, order: 2, group: 226.4.4.0/24, source: 4.1.1.1/24}
+    - name: Create a new route map policies in templates
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *mso_info
+        template: "{{ item.template }}"
+        route_map_policy: "{{ item.route_map_policy }}"
+        entries:
+          - order: "{{ item.order }}"
+            group: "{{ item.group }}"
+            source: "{{ item.source }}"
+            action: permit
+        state: present
+      loop:
+        - { template: ansible_tenant_template_1, route_map_policy: ansible_test_route_map_policy_1, order: 1, group: 226.1.1.0/24, source: 1.1.1.1/24 }
+        - { template: ansible_tenant_template_1, route_map_policy: ansible_test_route_map_policy_2, order: 2, group: 226.2.2.0/24, source: 2.1.1.1/24 }
+        - { template: ansible_tenant_template_2, route_map_policy: ansible_test_route_map_policy_3, order: 1, group: 226.3.3.0/24, source: 3.1.1.1/24 }
+        - { template: ansible_tenant_template_2, route_map_policy: ansible_test_route_map_policy_4, order: 2, group: 226.4.4.0/24, source: 4.1.1.1/24 }
 
 # ADD BD
 - name: Add bd (check_mode)
@@ -289,11 +288,11 @@
 - name: Verify cm_add_bd
   ansible.builtin.assert:
     that:
-    - cm_add_bd is changed
-    - cm_add_bd.previous == {}
-    - cm_add_bd.current.name == "ansible_test_1"
-    - cm_add_bd.current.vrfRef.templateName == "Template1"
-    - cm_add_bd.current.vrfRef.vrfName == "VRF"
+      - cm_add_bd is changed
+      - cm_add_bd.previous == {}
+      - cm_add_bd.current.name == "ansible_test_1"
+      - cm_add_bd.current.vrfRef.templateName == "Template1"
+      - cm_add_bd.current.vrfRef.vrfName == "VRF"
 
 - name: Add bd (normal mode)
   cisco.mso.mso_schema_template_bd:
@@ -303,12 +302,12 @@
 - name: Verify nm_add_bd
   ansible.builtin.assert:
     that:
-    - nm_add_bd is changed
-    - nm_add_bd.previous == {}
-    - nm_add_bd.current.name == "ansible_test_1"
-    - nm_add_bd.current.vrfRef.templateName == "Template1"
-    - nm_add_bd.current.vrfRef.vrfName == "VRF"
-    - cm_add_bd.current.vrfRef.schemaId ==  nm_add_bd.current.vrfRef.schemaId
+      - nm_add_bd is changed
+      - nm_add_bd.previous == {}
+      - nm_add_bd.current.name == "ansible_test_1"
+      - nm_add_bd.current.vrfRef.templateName == "Template1"
+      - nm_add_bd.current.vrfRef.vrfName == "VRF"
+      - cm_add_bd.current.vrfRef.schemaId ==  nm_add_bd.current.vrfRef.schemaId
 
 - name: Add bd again (check_mode)
   cisco.mso.mso_schema_template_bd:
@@ -319,14 +318,14 @@
 - name: Verify cm_add_bd_again
   ansible.builtin.assert:
     that:
-    - cm_add_bd_again is not changed
-    - cm_add_bd_again.previous.name == "ansible_test_1"
-    - cm_add_bd_again.current.name == "ansible_test_1"
-    - cm_add_bd_again.previous.vrfRef.templateName == "Template1"
-    - cm_add_bd_again.current.vrfRef.templateName == "Template1"
-    - cm_add_bd_again.previous.vrfRef.vrfName == "VRF"
-    - cm_add_bd_again.current.vrfRef.vrfName == "VRF"
-    - cm_add_bd_again.previous.vrfRef.schemaId ==  cm_add_bd_again.current.vrfRef.schemaId
+      - cm_add_bd_again is not changed
+      - cm_add_bd_again.previous.name == "ansible_test_1"
+      - cm_add_bd_again.current.name == "ansible_test_1"
+      - cm_add_bd_again.previous.vrfRef.templateName == "Template1"
+      - cm_add_bd_again.current.vrfRef.templateName == "Template1"
+      - cm_add_bd_again.previous.vrfRef.vrfName == "VRF"
+      - cm_add_bd_again.current.vrfRef.vrfName == "VRF"
+      - cm_add_bd_again.previous.vrfRef.schemaId ==  cm_add_bd_again.current.vrfRef.schemaId
 
 - name: Add bd again (normal mode)
   cisco.mso.mso_schema_template_bd:
@@ -336,14 +335,14 @@
 - name: Verify nm_add_bd_again
   ansible.builtin.assert:
     that:
-    - nm_add_bd_again is not changed
-    - nm_add_bd_again.previous.name == "ansible_test_1"
-    - nm_add_bd_again.current.name == "ansible_test_1"
-    - nm_add_bd_again.previous.vrfRef.templateName == "Template1"
-    - nm_add_bd_again.current.vrfRef.templateName == "Template1"
-    - nm_add_bd_again.previous.vrfRef.vrfName == "VRF"
-    - nm_add_bd_again.current.vrfRef.vrfName == "VRF"
-    - nm_add_bd_again.previous.vrfRef.schemaId ==  nm_add_bd_again.current.vrfRef.schemaId
+      - nm_add_bd_again is not changed
+      - nm_add_bd_again.previous.name == "ansible_test_1"
+      - nm_add_bd_again.current.name == "ansible_test_1"
+      - nm_add_bd_again.previous.vrfRef.templateName == "Template1"
+      - nm_add_bd_again.current.vrfRef.templateName == "Template1"
+      - nm_add_bd_again.previous.vrfRef.vrfName == "VRF"
+      - nm_add_bd_again.current.vrfRef.vrfName == "VRF"
+      - nm_add_bd_again.previous.vrfRef.schemaId ==  nm_add_bd_again.current.vrfRef.schemaId
 
 - name: Add bd 2 (normal mode)
   cisco.mso.mso_schema_template_bd:
@@ -357,20 +356,20 @@
     layer2_unknown_unicast: flood
     layer3_multicast: true
     subnets:
-    - subnet: 10.0.0.128/24
-    - subnet: 10.0.1.254/24
-      description: 1234567890
-    - subnet: 172.16.0.1/24
-      description: "My description for a subnet"
-      scope: public
-      shared: true
-      no_default_gateway: false
-      querier: true
-    - ip: 192.168.0.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: true
+      - subnet: 10.0.0.128/24
+      - subnet: 10.0.1.254/24
+        description: 1234567890
+      - subnet: 172.16.0.1/24
+        description: "My description for a subnet"
+        scope: public
+        shared: true
+        no_default_gateway: false
+        querier: true
+      - ip: 192.168.0.254/24
+        description: "My description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: true
     vrf:
       name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -426,49 +425,49 @@
 - name: Verify nm_add_bd_2 and nm_add_bd_3
   ansible.builtin.assert:
     that:
-    - nm_add_bd_2 is changed
-    - nm_add_bd_3 is changed
-    - nm_add_bd_4 is changed
-    - nm_update_bd_4_no_ep is changed
-    - nm_add_bd_2.current.name == "ansible_test_2"
-    - nm_add_bd_3.current.name == "ansible_test_3"
-    - nm_add_bd_2.current.vrfRef.templateName == "Template2"
-    - nm_add_bd_3.current.vrfRef.templateName == "Template3"
-    - nm_add_bd_2.current.vrfRef.vrfName == "VRF3"
-    - nm_add_bd_3.current.vrfRef.vrfName == "VRF4"
-    - nm_add_bd_2.current.vrfRef.schemaId == nm_add_bd.current.vrfRef.schemaId
-    - nm_add_bd_2.current.intersiteBumTrafficAllow == true
-    - nm_add_bd_2.current.optimizeWanBandwidth == true
-    - nm_add_bd_2.current.l2Stretch == true
-    - nm_add_bd_2.current.l2UnknownUnicast == "flood"
-    - nm_add_bd_2.current.l3MCast == true
-    - nm_add_bd_2.current.subnets[0].description == "10.0.0.128/24"
-    - nm_add_bd_2.current.subnets[0].ip == "10.0.0.128/24"
-    - nm_add_bd_2.current.subnets[0].noDefaultGateway == false
-    - nm_add_bd_2.current.subnets[0].scope == "private"
-    - nm_add_bd_2.current.subnets[0].shared == false
-    - nm_add_bd_2.current.subnets[0].querier == false
-    - nm_add_bd_2.current.subnets[1].description == "1234567890"
-    - nm_add_bd_2.current.subnets[1].ip == "10.0.1.254/24"
-    - nm_add_bd_2.current.subnets[1].noDefaultGateway == false
-    - nm_add_bd_2.current.subnets[1].scope == "private"
-    - nm_add_bd_2.current.subnets[1].shared == false
-    - nm_add_bd_2.current.subnets[1].querier == false
-    - nm_add_bd_2.current.subnets[2].description == "My description for a subnet"
-    - nm_add_bd_2.current.subnets[2].ip == "172.16.0.1/24"
-    - nm_add_bd_2.current.subnets[2].noDefaultGateway == false
-    - nm_add_bd_2.current.subnets[2].scope == "public"
-    - nm_add_bd_2.current.subnets[2].shared == true
-    - nm_add_bd_2.current.subnets[2].querier == true
-    - nm_add_bd_2.current.subnets[3].description == "My description for a subnet"
-    - nm_add_bd_2.current.subnets[3].ip == "192.168.0.254/24"
-    - nm_add_bd_2.current.subnets[3].noDefaultGateway == true
-    - nm_add_bd_2.current.subnets[3].scope == "private"
-    - nm_add_bd_2.current.subnets[3].shared == false
-    - nm_add_bd_2.current.subnets[3].querier == false
-    - nm_add_bd_4.current.epMoveDetectMode == "garp"
-    - nm_update_bd_4_no_ep.current.epMoveDetectMode == "none"
-    - nm_update_bd_4_no_ep.previous.epMoveDetectMode == "garp"
+      - nm_add_bd_2 is changed
+      - nm_add_bd_3 is changed
+      - nm_add_bd_4 is changed
+      - nm_update_bd_4_no_ep is changed
+      - nm_add_bd_2.current.name == "ansible_test_2"
+      - nm_add_bd_3.current.name == "ansible_test_3"
+      - nm_add_bd_2.current.vrfRef.templateName == "Template2"
+      - nm_add_bd_3.current.vrfRef.templateName == "Template3"
+      - nm_add_bd_2.current.vrfRef.vrfName == "VRF3"
+      - nm_add_bd_3.current.vrfRef.vrfName == "VRF4"
+      - nm_add_bd_2.current.vrfRef.schemaId == nm_add_bd.current.vrfRef.schemaId
+      - nm_add_bd_2.current.intersiteBumTrafficAllow == true
+      - nm_add_bd_2.current.optimizeWanBandwidth == true
+      - nm_add_bd_2.current.l2Stretch == true
+      - nm_add_bd_2.current.l2UnknownUnicast == "flood"
+      - nm_add_bd_2.current.l3MCast == true
+      - nm_add_bd_2.current.subnets[0].description == "10.0.0.128/24"
+      - nm_add_bd_2.current.subnets[0].ip == "10.0.0.128/24"
+      - nm_add_bd_2.current.subnets[0].noDefaultGateway == false
+      - nm_add_bd_2.current.subnets[0].scope == "private"
+      - nm_add_bd_2.current.subnets[0].shared == false
+      - nm_add_bd_2.current.subnets[0].querier == false
+      - nm_add_bd_2.current.subnets[1].description == "1234567890"
+      - nm_add_bd_2.current.subnets[1].ip == "10.0.1.254/24"
+      - nm_add_bd_2.current.subnets[1].noDefaultGateway == false
+      - nm_add_bd_2.current.subnets[1].scope == "private"
+      - nm_add_bd_2.current.subnets[1].shared == false
+      - nm_add_bd_2.current.subnets[1].querier == false
+      - nm_add_bd_2.current.subnets[2].description == "My description for a subnet"
+      - nm_add_bd_2.current.subnets[2].ip == "172.16.0.1/24"
+      - nm_add_bd_2.current.subnets[2].noDefaultGateway == false
+      - nm_add_bd_2.current.subnets[2].scope == "public"
+      - nm_add_bd_2.current.subnets[2].shared == true
+      - nm_add_bd_2.current.subnets[2].querier == true
+      - nm_add_bd_2.current.subnets[3].description == "My description for a subnet"
+      - nm_add_bd_2.current.subnets[3].ip == "192.168.0.254/24"
+      - nm_add_bd_2.current.subnets[3].noDefaultGateway == true
+      - nm_add_bd_2.current.subnets[3].scope == "private"
+      - nm_add_bd_2.current.subnets[3].shared == false
+      - nm_add_bd_2.current.subnets[3].querier == false
+      - nm_add_bd_4.current.epMoveDetectMode == "garp"
+      - nm_update_bd_4_no_ep.current.epMoveDetectMode == "none"
+      - nm_update_bd_4_no_ep.previous.epMoveDetectMode == "garp"
 
 - name: Add bd 5 (normal mode)
   cisco.mso.mso_schema_template_bd:
@@ -501,34 +500,34 @@
 - name: Verify nm_add_bd_5 for a version that's before 3.1
   ansible.builtin.assert:
     that:
-    - nm_add_bd_5 is changed
-    - nm_add_bd_5.current.name == "ansible_test_5"
-    - nm_add_bd_5.current.vrfRef.templateName == "Template5"
-    - nm_add_bd_5.current.vrfRef.vrfName == "VRF5"
-    - nm_add_bd_5.current.intersiteBumTrafficAllow == true
-    - nm_add_bd_5.current.optimizeWanBandwidth == true
-    - nm_add_bd_5.current.l2Stretch == true
-    - nm_add_bd_5.current.l2UnknownUnicast == "flood"
-    - nm_add_bd_5.current.l3MCast == false
+      - nm_add_bd_5 is changed
+      - nm_add_bd_5.current.name == "ansible_test_5"
+      - nm_add_bd_5.current.vrfRef.templateName == "Template5"
+      - nm_add_bd_5.current.vrfRef.vrfName == "VRF5"
+      - nm_add_bd_5.current.intersiteBumTrafficAllow == true
+      - nm_add_bd_5.current.optimizeWanBandwidth == true
+      - nm_add_bd_5.current.l2Stretch == true
+      - nm_add_bd_5.current.l2UnknownUnicast == "flood"
+      - nm_add_bd_5.current.l3MCast == false
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_add_bd_5 for a version that's 3.1
   ansible.builtin.assert:
     that:
-    - nm_add_bd_5 is changed
-    - nm_add_bd_5.current.name == "ansible_test_5"
-    - nm_add_bd_5.current.vrfRef.templateName == "Template5"
-    - nm_add_bd_5.current.vrfRef.vrfName == "VRF5"
-    - nm_add_bd_5.current.intersiteBumTrafficAllow == true
-    - nm_add_bd_5.current.optimizeWanBandwidth == true
-    - nm_add_bd_5.current.l2Stretch == true
-    - nm_add_bd_5.current.l2UnknownUnicast == "flood"
-    - nm_add_bd_5.current.l3MCast == false
-    - nm_add_bd_5.current.unkMcastAct == "flood"
-    - nm_add_bd_5.current.v6unkMcastAct == "flood"
-    - nm_add_bd_5.current.vmac == "00:00:5E:00:01:3C"
-    - nm_add_bd_5.current.multiDstPktAct == "drop"
-    - nm_add_bd_5.current.arpFlood == true
+      - nm_add_bd_5 is changed
+      - nm_add_bd_5.current.name == "ansible_test_5"
+      - nm_add_bd_5.current.vrfRef.templateName == "Template5"
+      - nm_add_bd_5.current.vrfRef.vrfName == "VRF5"
+      - nm_add_bd_5.current.intersiteBumTrafficAllow == true
+      - nm_add_bd_5.current.optimizeWanBandwidth == true
+      - nm_add_bd_5.current.l2Stretch == true
+      - nm_add_bd_5.current.l2UnknownUnicast == "flood"
+      - nm_add_bd_5.current.l3MCast == false
+      - nm_add_bd_5.current.unkMcastAct == "flood"
+      - nm_add_bd_5.current.v6unkMcastAct == "flood"
+      - nm_add_bd_5.current.vmac == "00:00:5E:00:01:3C"
+      - nm_add_bd_5.current.multiDstPktAct == "drop"
+      - nm_add_bd_5.current.arpFlood == true
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Add bd 5 again (normal mode)
@@ -562,13 +561,13 @@
 - name: Verify nm_add_again_bd_5 for a version that's before 3.1
   ansible.builtin.assert:
     that:
-    - nm_add_again_bd_5 is not changed
+      - nm_add_again_bd_5 is not changed
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_add_again_bd_5 for a version that's between 3.1 and 4.0
   ansible.builtin.assert:
     that:
-    - nm_add_again_bd_5 is not changed
+      - nm_add_again_bd_5 is not changed
   when:
     - version.current.version is version('3.1.1g', '>=')
 
@@ -603,17 +602,17 @@
 - name: Verify nm_bd_5_options for a version that's before 3.1
   ansible.builtin.assert:
     that:
-    - nm_bd_5_options is not changed
+      - nm_bd_5_options is not changed
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_bd_5_options for a version that's 3.1
   ansible.builtin.assert:
     that:
-    - nm_bd_5_options is changed
-    - nm_bd_5_options.current.unkMcastAct == "opt-flood"
-    - nm_bd_5_options.current.v6unkMcastAct == "opt-flood"
-    - nm_bd_5_options.current.multiDstPktAct == "bd-flood"
-    - nm_bd_5_options.current.vmac == "00:00:5E:00:02:3C"
+      - nm_bd_5_options is changed
+      - nm_bd_5_options.current.unkMcastAct == "opt-flood"
+      - nm_bd_5_options.current.v6unkMcastAct == "opt-flood"
+      - nm_bd_5_options.current.multiDstPktAct == "bd-flood"
+      - nm_bd_5_options.current.vmac == "00:00:5E:00:02:3C"
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd 5_1 (normal mode)
@@ -647,14 +646,14 @@
 - name: Verify nm_change_bd_5_1 for a version that's before 3.1
   ansible.builtin.assert:
     that:
-    - nm_change_bd_5_1 is changed
+      - nm_change_bd_5_1 is changed
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_change_bd_5_1 for a version that's 3.1
   ansible.builtin.assert:
     that:
-    - nm_change_bd_5_1 is changed
-    - nm_change_bd_5_1.current.arpFlood == true
+      - nm_change_bd_5_1 is changed
+      - nm_change_bd_5_1.current.arpFlood == true
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd 5_2 (normal mode)
@@ -689,15 +688,15 @@
 - name: Verify nm_change_bd_5_2 for a version that's before 3.1
   ansible.builtin.assert:
     that:
-    - nm_change_bd_5_2 is changed
-    - nm_change_bd_5_2.current.l2UnknownUnicast == "flood"
+      - nm_change_bd_5_2 is changed
+      - nm_change_bd_5_2.current.l2UnknownUnicast == "flood"
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_change_bd_5_2 for a version that's after 3.1
   ansible.builtin.assert:
     that:
-    - nm_change_bd_5_2 is changed
-    - nm_change_bd_5_2.current.arpFlood == true
+      - nm_change_bd_5_2 is changed
+      - nm_change_bd_5_2.current.arpFlood == true
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Change bd 5_3 (normal mode)
@@ -732,14 +731,14 @@
 - name: Verify nm_change_bd_5_3 for a version that's before 3.1
   ansible.builtin.assert:
     that:
-    - nm_change_bd_5_3 is changed
-    - nm_change_bd_5_3.msg is match ("MSO Error 143{{':'}} Invalid Field{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
+      - nm_change_bd_5_3 is changed
+      - nm_change_bd_5_3.msg is match ("MSO Error 143{{':'}} Invalid Field{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_change_bd_5_3 for a version that's after 3.1 and before 3.3
   ansible.builtin.assert:
     that:
-    - nm_change_bd_5_3 is changed
+      - nm_change_bd_5_3 is changed
     # Inconsistency shown in returned error messages for v3.1.1
     # Below variants of the message output have occurred randomly, thus commenting out the specific error messages below.
     # Would need further investigation in to the cause, but due to old version decided to skip this investigation and do skip the message skip.
@@ -747,25 +746,25 @@
     # - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} BD 'ansible_test_5' {{':'}} ARP Flooding has to be disabled if L2 Stretch enabled and BUM traffic disabled exception while trying to update schema")
     # - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template5', BD 'ansible_test_5' {{':'}} ARP Flooding has to be disabled if L2 Stretch enabled and BUM traffic disabled exception while trying to update schema")
   when:
-  - version.current.version is version('3.3', '<')
-  - version.current.version is version('3.1.1g', '>=')
+    - version.current.version is version('3.3', '<')
+    - version.current.version is version('3.1.1g', '>=')
 
 - name: Verify nm_change_bd_5_3 for a version that's after 4.0 and before 4.3
   ansible.builtin.assert:
     that:
-    - nm_change_bd_5_3 is changed
-    - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} BD{{':'}} ansible_test_5 in Schema{{':'}} ansible_test_2 , Template{{':'}} Template5 BD ansible_test_5 l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
+      - nm_change_bd_5_3 is changed
+      - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} BD{{':'}} ansible_test_5 in Schema{{':'}} ansible_test_2 , Template{{':'}} Template5 BD ansible_test_5 l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
   when:
-  - version.current.version is version('4.3', '<')
-  - version.current.version is version('4.0', '>=')
+    - version.current.version is version('4.3', '<')
+    - version.current.version is version('4.0', '>=')
 
 - name: Verify nm_change_bd_5_3 for a version that's after 4.3
   ansible.builtin.assert:
     that:
-    - nm_change_bd_5_3 is changed
-    - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} BD{{':'}} ansible_test_5 in Schema{{':'}} ansible_test_2, Template{{':'}} Template5, BD ansible_test_5 l2UnknownUnicast cannot be set to flood when intersiteBumTrafficAllow is off")
+      - nm_change_bd_5_3 is changed
+      - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} BD{{':'}} ansible_test_5 in Schema{{':'}} ansible_test_2, Template{{':'}} Template5, BD ansible_test_5 l2UnknownUnicast cannot be set to flood when intersiteBumTrafficAllow is off")
   when:
-  - version.current.version is version('4.3', '>=')
+    - version.current.version is version('4.3', '>=')
 
 - name: Get Validation status
   cisco.mso.mso_schema_validate:
@@ -775,17 +774,17 @@
   ignore_errors: true
   register: query_validate
   when:
-  - version.current.version is version('3.3', '>=')
-  - version.current.version is version('4.0', '<') # mso_schema_validate not needed after 4.0 because validation is done upon request
+    - version.current.version is version('3.3', '>=')
+    - version.current.version is version('4.0', '<') # mso_schema_validate not needed after 4.0 because validation is done upon request
 
 - name: Verify query_validate for a version that's after 3.3
   ansible.builtin.assert:
     that:
-    - query_validate is not changed
-    - query_validate.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template5', BD 'ansible_test_5' {{':'}} ARP Flooding has to be disabled if L2 Stretch enabled and BUM traffic disabled exception while trying to update schema")
+      - query_validate is not changed
+      - query_validate.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template5', BD 'ansible_test_5' {{':'}} ARP Flooding has to be disabled if L2 Stretch enabled and BUM traffic disabled exception while trying to update schema")
   when:
-  - version.current.version is version('3.3', '>=')
-  - version.current.version is version('3.7', '<')
+    - version.current.version is version('3.3', '>=')
+    - version.current.version is version('3.7', '<')
 
 # Reverting back to bd 5_2
 - name: Change bd 5_3 (normal mode)
@@ -843,11 +842,11 @@
 - name: Verify cm_change_bd
   ansible.builtin.assert:
     that:
-    - cm_change_bd is changed
-    - cm_change_bd.current.name == 'ansible_test_1'
-    - cm_change_bd.current.vrfRef.vrfName == 'VRF2'
-    - cm_change_bd.current.vrfRef.templateName == "Template1"
-    - cm_change_bd.current.vrfRef.schemaId == cm_change_bd.previous.vrfRef.schemaId
+      - cm_change_bd is changed
+      - cm_change_bd.current.name == 'ansible_test_1'
+      - cm_change_bd.current.vrfRef.vrfName == 'VRF2'
+      - cm_change_bd.current.vrfRef.templateName == "Template1"
+      - cm_change_bd.current.vrfRef.schemaId == cm_change_bd.previous.vrfRef.schemaId
 
 - name: Change bd (normal mode)
   cisco.mso.mso_schema_template_bd:
@@ -860,11 +859,11 @@
 - name: Verify nm_change_bd
   ansible.builtin.assert:
     that:
-    - nm_change_bd is changed
-    - nm_change_bd.current.name == 'ansible_test_1'
-    - nm_change_bd.current.vrfRef.vrfName == 'VRF2'
-    - nm_change_bd.current.vrfRef.templateName == "Template1"
-    - nm_change_bd.current.vrfRef.schemaId == nm_change_bd.previous.vrfRef.schemaId
+      - nm_change_bd is changed
+      - nm_change_bd.current.name == 'ansible_test_1'
+      - nm_change_bd.current.vrfRef.vrfName == 'VRF2'
+      - nm_change_bd.current.vrfRef.templateName == "Template1"
+      - nm_change_bd.current.vrfRef.schemaId == nm_change_bd.previous.vrfRef.schemaId
 
 - name: Change bd again (check_mode)
   cisco.mso.mso_schema_template_bd:
@@ -877,11 +876,11 @@
 - name: Verify cm_change_bd_again
   ansible.builtin.assert:
     that:
-    - cm_change_bd_again is not changed
-    - cm_change_bd_again.current.name == 'ansible_test_1'
-    - cm_change_bd_again.current.vrfRef.vrfName == 'VRF2'
-    - cm_change_bd_again.current.vrfRef.templateName == "Template1"
-    - cm_change_bd_again.current.vrfRef.schemaId == cm_change_bd_again.previous.vrfRef.schemaId
+      - cm_change_bd_again is not changed
+      - cm_change_bd_again.current.name == 'ansible_test_1'
+      - cm_change_bd_again.current.vrfRef.vrfName == 'VRF2'
+      - cm_change_bd_again.current.vrfRef.templateName == "Template1"
+      - cm_change_bd_again.current.vrfRef.schemaId == cm_change_bd_again.previous.vrfRef.schemaId
 
 - name: Change bd again (normal mode)
   cisco.mso.mso_schema_template_bd:
@@ -893,11 +892,11 @@
 - name: Verify nm_change_bd_again
   ansible.builtin.assert:
     that:
-    - nm_change_bd_again is not changed
-    - nm_change_bd_again.current.name == 'ansible_test_1'
-    - nm_change_bd_again.current.vrfRef.vrfName == 'VRF2'
-    - nm_change_bd_again.current.vrfRef.templateName == "Template1"
-    - nm_change_bd_again.current.vrfRef.schemaId == nm_change_bd_again.previous.vrfRef.schemaId
+      - nm_change_bd_again is not changed
+      - nm_change_bd_again.current.name == 'ansible_test_1'
+      - nm_change_bd_again.current.vrfRef.vrfName == 'VRF2'
+      - nm_change_bd_again.current.vrfRef.templateName == "Template1"
+      - nm_change_bd_again.current.vrfRef.schemaId == nm_change_bd_again.previous.vrfRef.schemaId
 
 - name: Change bd to VRF3 in other template (normal mode)
   cisco.mso.mso_schema_template_bd:
@@ -919,12 +918,12 @@
 - name: Verify nm_change_bd_vrf3 and nm_change_bd_vrf4
   ansible.builtin.assert:
     that:
-    - nm_change_bd_vrf3 is changed
-    - nm_change_bd_vrf3.current.name == nm_change_bd_vrf4.current.name == 'ansible_test_1'
-    - nm_change_bd_vrf3.current.vrfRef.vrfName == 'VRF3'
-    - nm_change_bd_vrf3.current.vrfRef.templateName == "Template2"
-    - nm_change_bd_vrf4.current.vrfRef.vrfName == 'VRF4'
-    - nm_change_bd_vrf4.current.vrfRef.templateName == "Template3"
+      - nm_change_bd_vrf3 is changed
+      - nm_change_bd_vrf3.current.name == nm_change_bd_vrf4.current.name == 'ansible_test_1'
+      - nm_change_bd_vrf3.current.vrfRef.vrfName == 'VRF3'
+      - nm_change_bd_vrf3.current.vrfRef.templateName == "Template2"
+      - nm_change_bd_vrf4.current.vrfRef.vrfName == 'VRF4'
+      - nm_change_bd_vrf4.current.vrfRef.templateName == "Template3"
 
 - name: Change bd 1 settings(normal mode)
   cisco.mso.mso_schema_template_bd:
@@ -936,22 +935,22 @@
     optimize_wan_bandwidth: true
     layer2_stretch: true
     layer2_unknown_unicast: flood
-    layer3_multicast: '{{ mso_l3mcast | default(true) }}'
+    layer3_multicast: "{{ mso_l3mcast | default(true) }}"
     subnets:
-    - subnet: 10.1.0.128/24
-    - subnet: 10.1.1.254/24
-      description: 1234567890
-    - subnet: 172.17.0.1/24
-      description: "My description for a subnet"
-      scope: public
-      shared: true
-      no_default_gateway: false
-      querier: true
-    - ip: 192.168.1.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: true
+      - subnet: 10.1.0.128/24
+      - subnet: 10.1.1.254/24
+        description: 1234567890
+      - subnet: 172.17.0.1/24
+        description: "My description for a subnet"
+        scope: public
+        shared: true
+        no_default_gateway: false
+        querier: true
+      - ip: 192.168.1.254/24
+        description: "My description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: true
     vrf:
       name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -968,21 +967,21 @@
     optimize_wan_bandwidth: true
     layer2_stretch: true
     layer2_unknown_unicast: flood
-    layer3_multicast: '{{ mso_l3mcast | default(true) }}'
+    layer3_multicast: "{{ mso_l3mcast | default(true) }}"
     subnets:
-    - subnet: 10.1.0.127/24
-    - subnet: 172.17.0.1/24
-      description: "New description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: false
-      querier: false
-    - ip: 192.168.1.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: false
-      querier: true
+      - subnet: 10.1.0.127/24
+      - subnet: 172.17.0.1/24
+        description: "New description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: false
+        querier: false
+      - ip: 192.168.1.254/24
+        description: "My description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: false
+        querier: true
     vrf:
       name: VRF3
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -992,78 +991,78 @@
 - name: Verify nm_change_bd_1_subnets
   ansible.builtin.assert:
     that:
-    - nm_change_bd_1_settings is changed
-    - nm_change_bd_1_settings.current.name == "ansible_test_1"
-    - nm_change_bd_1_settings.current.vrfRef.templateName == "Template2"
-    - nm_change_bd_1_settings.current.vrfRef.vrfName == "VRF3"
-    - nm_change_bd_1_settings.current.intersiteBumTrafficAllow == true
-    - nm_change_bd_1_settings.current.optimizeWanBandwidth == true
-    - nm_change_bd_1_settings.current.l2Stretch == true
-    - nm_change_bd_1_settings.current.l2UnknownUnicast == "flood"
-    - nm_change_bd_1_settings.current.subnets[0].description == "10.1.0.128/24"
-    - nm_change_bd_1_settings.current.subnets[0].ip == "10.1.0.128/24"
-    - nm_change_bd_1_settings.current.subnets[0].noDefaultGateway == false
-    - nm_change_bd_1_settings.current.subnets[0].scope == "private"
-    - nm_change_bd_1_settings.current.subnets[0].shared == false
-    - nm_change_bd_1_settings.current.subnets[0].querier == false
-    - nm_change_bd_1_settings.current.subnets[1].description == "1234567890"
-    - nm_change_bd_1_settings.current.subnets[1].ip == "10.1.1.254/24"
-    - nm_change_bd_1_settings.current.subnets[1].noDefaultGateway == false
-    - nm_change_bd_1_settings.current.subnets[1].scope == "private"
-    - nm_change_bd_1_settings.current.subnets[1].shared == false
-    - nm_change_bd_1_settings.current.subnets[1].querier == false
-    - nm_change_bd_1_settings.current.subnets[2].description == "My description for a subnet"
-    - nm_change_bd_1_settings.current.subnets[2].ip == "172.17.0.1/24"
-    - nm_change_bd_1_settings.current.subnets[2].noDefaultGateway == false
-    - nm_change_bd_1_settings.current.subnets[2].scope == "public"
-    - nm_change_bd_1_settings.current.subnets[2].shared == true
-    - nm_change_bd_1_settings.current.subnets[2].querier == true
-    - nm_change_bd_1_settings.current.subnets[3].description == "My description for a subnet"
-    - nm_change_bd_1_settings.current.subnets[3].ip == "192.168.1.254/24"
-    - nm_change_bd_1_settings.current.subnets[3].noDefaultGateway == true
-    - nm_change_bd_1_settings.current.subnets[3].scope == "private"
-    - nm_change_bd_1_settings.current.subnets[3].shared == false
-    - nm_change_bd_1_settings.current.subnets[3].querier == false
-    - nm_change_bd_1_settings is changed
-    - nm_change_bd_1_subnets.current.subnets | length == 3
-    - nm_change_bd_1_subnets.current.name == "ansible_test_1"
-    - nm_change_bd_1_subnets.current.vrfRef.templateName == "Template2"
-    - nm_change_bd_1_subnets.current.vrfRef.vrfName == "VRF3"
-    - nm_change_bd_1_subnets.current.intersiteBumTrafficAllow == true
-    - nm_change_bd_1_subnets.current.optimizeWanBandwidth == true
-    - nm_change_bd_1_subnets.current.l2Stretch == true
-    - nm_change_bd_1_subnets.current.l2UnknownUnicast == "flood"
-    - nm_change_bd_1_subnets.current.subnets[0].description == "10.1.0.127/24"
-    - nm_change_bd_1_subnets.current.subnets[0].ip == "10.1.0.127/24"
-    - nm_change_bd_1_subnets.current.subnets[0].noDefaultGateway == false
-    - nm_change_bd_1_subnets.current.subnets[0].scope == "private"
-    - nm_change_bd_1_subnets.current.subnets[0].shared == false
-    - nm_change_bd_1_subnets.current.subnets[0].querier == false
-    - nm_change_bd_1_subnets.current.subnets[1].description == "New description for a subnet"
-    - nm_change_bd_1_subnets.current.subnets[1].ip == "172.17.0.1/24"
-    - nm_change_bd_1_subnets.current.subnets[1].noDefaultGateway == false
-    - nm_change_bd_1_subnets.current.subnets[1].scope == "private"
-    - nm_change_bd_1_subnets.current.subnets[1].shared == false
-    - nm_change_bd_1_subnets.current.subnets[1].querier == false
-    - nm_change_bd_1_subnets.current.subnets[2].description == "My description for a subnet"
-    - nm_change_bd_1_subnets.current.subnets[2].ip == "192.168.1.254/24"
-    - nm_change_bd_1_subnets.current.subnets[2].noDefaultGateway == false
-    - nm_change_bd_1_subnets.current.subnets[2].scope == "private"
-    - nm_change_bd_1_subnets.current.subnets[2].shared == false
-    - nm_change_bd_1_subnets.current.subnets[2].querier == true
+      - nm_change_bd_1_settings is changed
+      - nm_change_bd_1_settings.current.name == "ansible_test_1"
+      - nm_change_bd_1_settings.current.vrfRef.templateName == "Template2"
+      - nm_change_bd_1_settings.current.vrfRef.vrfName == "VRF3"
+      - nm_change_bd_1_settings.current.intersiteBumTrafficAllow == true
+      - nm_change_bd_1_settings.current.optimizeWanBandwidth == true
+      - nm_change_bd_1_settings.current.l2Stretch == true
+      - nm_change_bd_1_settings.current.l2UnknownUnicast == "flood"
+      - nm_change_bd_1_settings.current.subnets[0].description == "10.1.0.128/24"
+      - nm_change_bd_1_settings.current.subnets[0].ip == "10.1.0.128/24"
+      - nm_change_bd_1_settings.current.subnets[0].noDefaultGateway == false
+      - nm_change_bd_1_settings.current.subnets[0].scope == "private"
+      - nm_change_bd_1_settings.current.subnets[0].shared == false
+      - nm_change_bd_1_settings.current.subnets[0].querier == false
+      - nm_change_bd_1_settings.current.subnets[1].description == "1234567890"
+      - nm_change_bd_1_settings.current.subnets[1].ip == "10.1.1.254/24"
+      - nm_change_bd_1_settings.current.subnets[1].noDefaultGateway == false
+      - nm_change_bd_1_settings.current.subnets[1].scope == "private"
+      - nm_change_bd_1_settings.current.subnets[1].shared == false
+      - nm_change_bd_1_settings.current.subnets[1].querier == false
+      - nm_change_bd_1_settings.current.subnets[2].description == "My description for a subnet"
+      - nm_change_bd_1_settings.current.subnets[2].ip == "172.17.0.1/24"
+      - nm_change_bd_1_settings.current.subnets[2].noDefaultGateway == false
+      - nm_change_bd_1_settings.current.subnets[2].scope == "public"
+      - nm_change_bd_1_settings.current.subnets[2].shared == true
+      - nm_change_bd_1_settings.current.subnets[2].querier == true
+      - nm_change_bd_1_settings.current.subnets[3].description == "My description for a subnet"
+      - nm_change_bd_1_settings.current.subnets[3].ip == "192.168.1.254/24"
+      - nm_change_bd_1_settings.current.subnets[3].noDefaultGateway == true
+      - nm_change_bd_1_settings.current.subnets[3].scope == "private"
+      - nm_change_bd_1_settings.current.subnets[3].shared == false
+      - nm_change_bd_1_settings.current.subnets[3].querier == false
+      - nm_change_bd_1_settings is changed
+      - nm_change_bd_1_subnets.current.subnets | length == 3
+      - nm_change_bd_1_subnets.current.name == "ansible_test_1"
+      - nm_change_bd_1_subnets.current.vrfRef.templateName == "Template2"
+      - nm_change_bd_1_subnets.current.vrfRef.vrfName == "VRF3"
+      - nm_change_bd_1_subnets.current.intersiteBumTrafficAllow == true
+      - nm_change_bd_1_subnets.current.optimizeWanBandwidth == true
+      - nm_change_bd_1_subnets.current.l2Stretch == true
+      - nm_change_bd_1_subnets.current.l2UnknownUnicast == "flood"
+      - nm_change_bd_1_subnets.current.subnets[0].description == "10.1.0.127/24"
+      - nm_change_bd_1_subnets.current.subnets[0].ip == "10.1.0.127/24"
+      - nm_change_bd_1_subnets.current.subnets[0].noDefaultGateway == false
+      - nm_change_bd_1_subnets.current.subnets[0].scope == "private"
+      - nm_change_bd_1_subnets.current.subnets[0].shared == false
+      - nm_change_bd_1_subnets.current.subnets[0].querier == false
+      - nm_change_bd_1_subnets.current.subnets[1].description == "New description for a subnet"
+      - nm_change_bd_1_subnets.current.subnets[1].ip == "172.17.0.1/24"
+      - nm_change_bd_1_subnets.current.subnets[1].noDefaultGateway == false
+      - nm_change_bd_1_subnets.current.subnets[1].scope == "private"
+      - nm_change_bd_1_subnets.current.subnets[1].shared == false
+      - nm_change_bd_1_subnets.current.subnets[1].querier == false
+      - nm_change_bd_1_subnets.current.subnets[2].description == "My description for a subnet"
+      - nm_change_bd_1_subnets.current.subnets[2].ip == "192.168.1.254/24"
+      - nm_change_bd_1_subnets.current.subnets[2].noDefaultGateway == false
+      - nm_change_bd_1_subnets.current.subnets[2].scope == "private"
+      - nm_change_bd_1_subnets.current.subnets[2].shared == false
+      - nm_change_bd_1_subnets.current.subnets[2].querier == true
 
 - name: Verify l3MCast nm_change_bd_1_subnets (version == 2.2.4)
   ansible.builtin.assert:
     that:
-    - nm_change_bd_1_settings.current.l3MCast == false
-    - nm_change_bd_1_subnets.current.l3MCast == false
+      - nm_change_bd_1_settings.current.l3MCast == false
+      - nm_change_bd_1_subnets.current.l3MCast == false
   when: version.current.version is version('2.2.4', '=')
 
 - name: Verify l3MCast nm_change_bd_1_subnets (version != 2.2.4)
   ansible.builtin.assert:
     that:
-    - nm_change_bd_1_settings.current.l3MCast == true
-    - nm_change_bd_1_subnets.current.l3MCast == true
+      - nm_change_bd_1_settings.current.l3MCast == true
+      - nm_change_bd_1_subnets.current.l3MCast == true
   when: version.current.version is version('2.2.4', '!=')
 
 - name: Add bd with multiple dhcp policies for mso version > 3.1.1g
@@ -1083,14 +1082,14 @@
     arp_flooding: false
     virtual_mac_address: 00:00:5E:00:01:3C
     subnets:
-    - subnet: 10.0.0.128/24
-    - subnet: 10.0.1.254/24
-      description: 1234567890
-    - ip: 192.168.0.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: true
+      - subnet: 10.0.0.128/24
+      - subnet: 10.0.1.254/24
+        description: 1234567890
+      - ip: 192.168.0.254/24
+        description: "My description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: true
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -1114,27 +1113,27 @@
     state: present
   register: nm_bd_dhcp_policies
   when:
-  - version.current.version is version('3.1.1g', '>')
-  # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
-  - version.current.version is version('4.0', '<')
+    - version.current.version is version('3.1.1g', '>')
+    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
+    - version.current.version is version('4.0', '<')
 
 - name: Verify addition of DHCP policies for mso version > 3.1.1g
   ansible.builtin.assert:
     that:
-    - nm_bd_dhcp_policies is changed
-    - nm_bd_dhcp_policies.current.dhcpLabels | length == 3
-    - nm_bd_dhcp_policies.current.dhcpLabels[0].name == 'ansible_test_dhcp_policy1'
-    - nm_bd_dhcp_policies.current.dhcpLabels[1].name == 'ansible_test_dhcp_policy2'
-    - nm_bd_dhcp_policies.current.dhcpLabels[2].name == 'ansible_test_dhcp_policy3'
-    - nm_bd_dhcp_policies.current.dhcpLabels[0].version == 1
-    - nm_bd_dhcp_policies.current.dhcpLabels[1].version == 1
-    - nm_bd_dhcp_policies.current.dhcpLabels[2].version == 1
-    - nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
-    - nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
-    - nm_bd_dhcp_policies.current.dhcpLabels[2].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option2'
-    - nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.version == 1
-    - nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.version == 1
-    - nm_bd_dhcp_policies.current.dhcpLabels[2].dhcpOptionLabel.version == 1
+      - nm_bd_dhcp_policies is changed
+      - nm_bd_dhcp_policies.current.dhcpLabels | length == 3
+      - nm_bd_dhcp_policies.current.dhcpLabels[0].name == 'ansible_test_dhcp_policy1'
+      - nm_bd_dhcp_policies.current.dhcpLabels[1].name == 'ansible_test_dhcp_policy2'
+      - nm_bd_dhcp_policies.current.dhcpLabels[2].name == 'ansible_test_dhcp_policy3'
+      - nm_bd_dhcp_policies.current.dhcpLabels[0].version == 1
+      - nm_bd_dhcp_policies.current.dhcpLabels[1].version == 1
+      - nm_bd_dhcp_policies.current.dhcpLabels[2].version == 1
+      - nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+      - nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+      - nm_bd_dhcp_policies.current.dhcpLabels[2].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option2'
+      - nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.version == 1
+      - nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.version == 1
+      - nm_bd_dhcp_policies.current.dhcpLabels[2].dhcpOptionLabel.version == 1
   when:
     - version.current.version is version('3.1.1g', '>')
     # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
@@ -1157,14 +1156,14 @@
     arp_flooding: false
     virtual_mac_address: 00:00:5E:00:01:3C
     subnets:
-    - subnet: 10.0.0.128/24
-    - subnet: 10.0.1.254/24
-      description: 1234567890
-    - ip: 192.168.0.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: true
+      - subnet: 10.0.0.128/24
+      - subnet: 10.0.1.254/24
+        description: 1234567890
+      - ip: 192.168.0.254/24
+        description: "My description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: true
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -1190,16 +1189,16 @@
 - name: Verify change in DHCP policies for mso version > 3.1.1g
   ansible.builtin.assert:
     that:
-    - change_nm_bd_dhcp_policies is changed
-    - change_nm_bd_dhcp_policies.current.dhcpLabels | length == 2
-    - change_nm_bd_dhcp_policies.current.dhcpLabels[0].name == 'ansible_test_dhcp_policy1'
-    - change_nm_bd_dhcp_policies.current.dhcpLabels[1].name == 'ansible_test_dhcp_policy2'
-    - change_nm_bd_dhcp_policies.current.dhcpLabels[0].version == 1
-    - change_nm_bd_dhcp_policies.current.dhcpLabels[1].version == 1
-    - change_nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
-    - change_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
-    - change_nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.version == 1
-    - change_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.version == 1
+      - change_nm_bd_dhcp_policies is changed
+      - change_nm_bd_dhcp_policies.current.dhcpLabels | length == 2
+      - change_nm_bd_dhcp_policies.current.dhcpLabels[0].name == 'ansible_test_dhcp_policy1'
+      - change_nm_bd_dhcp_policies.current.dhcpLabels[1].name == 'ansible_test_dhcp_policy2'
+      - change_nm_bd_dhcp_policies.current.dhcpLabels[0].version == 1
+      - change_nm_bd_dhcp_policies.current.dhcpLabels[1].version == 1
+      - change_nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+      - change_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+      - change_nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.version == 1
+      - change_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.version == 1
   when:
     - version.current.version is version('3.1.1g', '>')
     # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
@@ -1224,16 +1223,16 @@
     virtual_mac_address: 00:00:5E:00:01:3C
     unicast_routing: true
     subnets:
-    - subnet: 10.0.0.128/24
-    - subnet: 10.0.1.254/24
-      description: 1234567890
-    - ip: 192.168.0.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: true
-      virtual: true
-      primary: true
+      - subnet: 10.0.0.128/24
+      - subnet: 10.0.1.254/24
+        description: 1234567890
+      - ip: 192.168.0.254/24
+        description: "My description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: true
+        virtual: true
+        primary: true
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -1245,25 +1244,25 @@
 - name: Verify subnets in nm_bd_new_subnet_options
   ansible.builtin.assert:
     that:
-    - nm_bd_new_subnet_options is changed
-    - nm_bd_new_subnet_options.current.name == 'ansible_test_new_options'
-    - nm_bd_new_subnet_options.current.vrfRef.templateName == "Template1"
-    - nm_bd_new_subnet_options.current.vrfRef.vrfName == "VRF"
-    - nm_bd_new_subnet_options.current.intersiteBumTrafficAllow == true
-    - nm_bd_new_subnet_options.current.optimizeWanBandwidth == false
-    - nm_bd_new_subnet_options.current.l2Stretch == true
-    - nm_bd_new_subnet_options.current.l2UnknownUnicast == "flood"
-    - nm_bd_new_subnet_options.current.unkMcastAct == "flood"
-    - nm_bd_new_subnet_options.current.multiDstPktAct == "drop"
-    - nm_bd_new_subnet_options.current.l3MCast == false
-    - nm_bd_new_subnet_options.current.arpFlood == true
-    - nm_bd_new_subnet_options.current.v6unkMcastAct == "flood"
-    - nm_bd_new_subnet_options.current.vmac == "00:00:5E:00:01:3C"
-    - nm_bd_new_subnet_options.current.unicastRouting == true
-    - nm_bd_new_subnet_options.current.subnets[1].primary == false
-    - nm_bd_new_subnet_options.current.subnets[0].virtual == false
-    - nm_bd_new_subnet_options.current.subnets[2].primary == true
-    - nm_bd_new_subnet_options.current.subnets[2].virtual == true
+      - nm_bd_new_subnet_options is changed
+      - nm_bd_new_subnet_options.current.name == 'ansible_test_new_options'
+      - nm_bd_new_subnet_options.current.vrfRef.templateName == "Template1"
+      - nm_bd_new_subnet_options.current.vrfRef.vrfName == "VRF"
+      - nm_bd_new_subnet_options.current.intersiteBumTrafficAllow == true
+      - nm_bd_new_subnet_options.current.optimizeWanBandwidth == false
+      - nm_bd_new_subnet_options.current.l2Stretch == true
+      - nm_bd_new_subnet_options.current.l2UnknownUnicast == "flood"
+      - nm_bd_new_subnet_options.current.unkMcastAct == "flood"
+      - nm_bd_new_subnet_options.current.multiDstPktAct == "drop"
+      - nm_bd_new_subnet_options.current.l3MCast == false
+      - nm_bd_new_subnet_options.current.arpFlood == true
+      - nm_bd_new_subnet_options.current.v6unkMcastAct == "flood"
+      - nm_bd_new_subnet_options.current.vmac == "00:00:5E:00:01:3C"
+      - nm_bd_new_subnet_options.current.unicastRouting == true
+      - nm_bd_new_subnet_options.current.subnets[1].primary == false
+      - nm_bd_new_subnet_options.current.subnets[0].virtual == false
+      - nm_bd_new_subnet_options.current.subnets[2].primary == true
+      - nm_bd_new_subnet_options.current.subnets[2].virtual == true
   when: version.current.version is version('3.1.1g', '>')
 
 # Change BD with new options for mso version > 3.1.1g
@@ -1285,17 +1284,17 @@
     virtual_mac_address: 00:00:5E:00:01:3C
     unicast_routing: true
     subnets:
-    - subnet: 10.0.0.128/24
-    - subnet: 10.0.1.254/24
-      description: 1234567890
-      primary: true
-    - ip: 192.168.0.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: true
-      virtual: true
-      primary: true
+      - subnet: 10.0.0.128/24
+      - subnet: 10.0.1.254/24
+        description: 1234567890
+        primary: true
+      - ip: 192.168.0.254/24
+        description: "My description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: true
+        virtual: true
+        primary: true
     vrf:
       name: VRF
       schema: '{{ mso_schema | default("ansible_test") }}'
@@ -1308,10 +1307,10 @@
 - name: Verify subnets in nm_bd_subnet_second_primary
   ansible.builtin.assert:
     that:
-    - nm_bd_subnet_second_primary.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Only one preferred subnet per address family is allowed under BD ansible_test_new_options of Template Template1 exception while trying to update schema")
+      - nm_bd_subnet_second_primary.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Only one preferred subnet per address family is allowed under BD ansible_test_new_options of Template Template1 exception while trying to update schema")
   when:
-  - version.current.version is version('3.1.1g', '>')
-  - version.current.version is version('3.3', '<')
+    - version.current.version is version('3.1.1g', '>')
+    - version.current.version is version('3.3', '<')
 
 - name: Add bd with new option flood in encap available in mso versions > 3.1.1g with l2 set to true
   cisco.mso.mso_schema_template_bd:
@@ -1340,10 +1339,10 @@
 - name: Verify nm_bd_new_encap_flood_non
   ansible.builtin.assert:
     that:
-    - nm_bd_new_encap_flood_non.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template1', BD 'ansible_test_flood_encap' {{':'}} Multi destination flood in encapsulation is only supported when l2Stretch is disabled exception while trying to update schema")
+      - nm_bd_new_encap_flood_non.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template1', BD 'ansible_test_flood_encap' {{':'}} Multi destination flood in encapsulation is only supported when l2Stretch is disabled exception while trying to update schema")
   when:
-  - version.current.version is version('3.1.1g', '>')
-  - version.current.version is version('3.3', '<')
+    - version.current.version is version('3.1.1g', '>')
+    - version.current.version is version('3.3', '<')
 
 - name: Add bd with new option flood in encap available in mso versions > 3.1.1g l2 set to false
   cisco.mso.mso_schema_template_bd:
@@ -1369,7 +1368,7 @@
 - name: Verify nm_bd_new_encap_flood
   ansible.builtin.assert:
     that:
-    - nm_bd_new_encap_flood.current.multiDstPktAct == "encap-flood"
+      - nm_bd_new_encap_flood.current.multiDstPktAct == "encap-flood"
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Add bd with new option description in mso versions >= 3.3
@@ -1395,7 +1394,7 @@
 - name: Verify nm_bd_desc
   ansible.builtin.assert:
     that:
-    - nm_bd_desc.current.description == "ansible_test_bd"
+      - nm_bd_desc.current.description == "ansible_test_bd"
   when: version.current.version is version('3.3', '>=')
 
 - name: Add bd with change in description in mso versions >= 3.3
@@ -1421,7 +1420,7 @@
 - name: Verify nm_bd_desc_2
   ansible.builtin.assert:
     that:
-    - nm_bd_desc_2.current.description == "ansible_test_bd_again"
+      - nm_bd_desc_2.current.description == "ansible_test_bd_again"
   when: version.current.version is version('3.3', '>=')
 
 - name: Ensure bd ansible_test_unicast_false is removed >= 3.1.1g
@@ -1562,37 +1561,37 @@
 - name: Verify query_all_bds for version < 3.1.1g
   ansible.builtin.assert:
     that:
-    - cm_query_all_bds is not changed
-    - nm_query_all_bds is not changed
-    - cm_query_all_bds.current | length == nm_query_all_bds.current | length == 2
+      - cm_query_all_bds is not changed
+      - nm_query_all_bds is not changed
+      - cm_query_all_bds.current | length == nm_query_all_bds.current | length == 2
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify query_all_bds for version > 3.1.1g and version < 3.3
   ansible.builtin.assert:
     that:
-    - cm_query_all_bds is not changed
-    - nm_query_all_bds is not changed
-    - cm_query_all_bds.current | length == nm_query_all_bds.current | length == 5
+      - cm_query_all_bds is not changed
+      - nm_query_all_bds is not changed
+      - cm_query_all_bds.current | length == nm_query_all_bds.current | length == 5
   when:
-  - version.current.version is version('3.1.1g', '>')
-  - version.current.version is version('3.3', '<')
+    - version.current.version is version('3.1.1g', '>')
+    - version.current.version is version('3.3', '<')
 
 - name: Verify query_all_bds for version >= 3.3 and < 4.0
   ansible.builtin.assert:
     that:
-    - cm_query_all_bds is not changed
-    - nm_query_all_bds is not changed
-    - cm_query_all_bds.current | length == nm_query_all_bds.current | length == 6
-  when: 
+      - cm_query_all_bds is not changed
+      - nm_query_all_bds is not changed
+      - cm_query_all_bds.current | length == nm_query_all_bds.current | length == 6
+  when:
     - version.current.version is version('3.3', '>=')
     - version.current.version is version('3.7', '<')
 
 - name: Verify query_all_bds for version >= 4.0
   ansible.builtin.assert:
     that:
-    - cm_query_all_bds is not changed
-    - nm_query_all_bds is not changed
-    - cm_query_all_bds.current | length == nm_query_all_bds.current | length == 5
+      - cm_query_all_bds is not changed
+      - nm_query_all_bds is not changed
+      - cm_query_all_bds.current | length == nm_query_all_bds.current | length == 5
   when: version.current.version is version('4.0', '>=')
 
 # QUERY A BD
@@ -1635,65 +1634,65 @@
 - name: Verify query_bd
   ansible.builtin.assert:
     that:
-    - cm_query_bd is not changed
-    - nm_query_bd is not changed
-    - cm_query_bd.current.name == nm_query_bd.current.name == "ansible_test_1"
-    - cm_query_bd == nm_query_bd
-    - nm_query_bd_2.current.name == "ansible_test_2"
-    - nm_query_bd_3.current.name == "ansible_test_3"
-    - nm_query_bd_2.current.intersiteBumTrafficAllow == true
-    - nm_query_bd_2.current.optimizeWanBandwidth == true
-    - nm_query_bd_2.current.l2Stretch == true
-    - nm_query_bd_2.current.l2UnknownUnicast == "flood"
-    - nm_query_bd_2.current.l3MCast == true
-    - nm_query_bd_2.current.subnets[0].description == "10.0.0.128/24"
-    - nm_query_bd_2.current.subnets[0].ip == "10.0.0.128/24"
-    - nm_query_bd_2.current.subnets[0].noDefaultGateway == false
-    - nm_query_bd_2.current.subnets[0].scope == "private"
-    - nm_query_bd_2.current.subnets[0].shared == false
-    - nm_query_bd_2.current.subnets[1].description == "1234567890"
-    - nm_query_bd_2.current.subnets[1].ip == "10.0.1.254/24"
-    - nm_query_bd_2.current.subnets[1].noDefaultGateway == false
-    - nm_query_bd_2.current.subnets[1].scope == "private"
-    - nm_query_bd_2.current.subnets[1].shared == false
-    - nm_query_bd_2.current.subnets[2].description == "My description for a subnet"
-    - nm_query_bd_2.current.subnets[2].ip == "172.16.0.1/24"
-    - nm_query_bd_2.current.subnets[2].noDefaultGateway == false
-    - nm_query_bd_2.current.subnets[2].scope == "public"
-    - nm_query_bd_2.current.subnets[2].shared == true
-    - nm_query_bd_2.current.subnets[3].description == "My description for a subnet"
-    - nm_query_bd_2.current.subnets[3].ip == "192.168.0.254/24"
-    - nm_query_bd_2.current.subnets[3].noDefaultGateway == true
-    - nm_query_bd_2.current.subnets[3].scope == "private"
-    - nm_query_bd_2.current.subnets[3].shared == false
+      - cm_query_bd is not changed
+      - nm_query_bd is not changed
+      - cm_query_bd.current.name == nm_query_bd.current.name == "ansible_test_1"
+      - cm_query_bd == nm_query_bd
+      - nm_query_bd_2.current.name == "ansible_test_2"
+      - nm_query_bd_3.current.name == "ansible_test_3"
+      - nm_query_bd_2.current.intersiteBumTrafficAllow == true
+      - nm_query_bd_2.current.optimizeWanBandwidth == true
+      - nm_query_bd_2.current.l2Stretch == true
+      - nm_query_bd_2.current.l2UnknownUnicast == "flood"
+      - nm_query_bd_2.current.l3MCast == true
+      - nm_query_bd_2.current.subnets[0].description == "10.0.0.128/24"
+      - nm_query_bd_2.current.subnets[0].ip == "10.0.0.128/24"
+      - nm_query_bd_2.current.subnets[0].noDefaultGateway == false
+      - nm_query_bd_2.current.subnets[0].scope == "private"
+      - nm_query_bd_2.current.subnets[0].shared == false
+      - nm_query_bd_2.current.subnets[1].description == "1234567890"
+      - nm_query_bd_2.current.subnets[1].ip == "10.0.1.254/24"
+      - nm_query_bd_2.current.subnets[1].noDefaultGateway == false
+      - nm_query_bd_2.current.subnets[1].scope == "private"
+      - nm_query_bd_2.current.subnets[1].shared == false
+      - nm_query_bd_2.current.subnets[2].description == "My description for a subnet"
+      - nm_query_bd_2.current.subnets[2].ip == "172.16.0.1/24"
+      - nm_query_bd_2.current.subnets[2].noDefaultGateway == false
+      - nm_query_bd_2.current.subnets[2].scope == "public"
+      - nm_query_bd_2.current.subnets[2].shared == true
+      - nm_query_bd_2.current.subnets[3].description == "My description for a subnet"
+      - nm_query_bd_2.current.subnets[3].ip == "192.168.0.254/24"
+      - nm_query_bd_2.current.subnets[3].noDefaultGateway == true
+      - nm_query_bd_2.current.subnets[3].scope == "private"
+      - nm_query_bd_2.current.subnets[3].shared == false
 
 - name: Verify nm_query_bd_5 for a version that's before 3.1
   ansible.builtin.assert:
     that:
-    - nm_query_bd_5 is not changed
-    - nm_query_bd_5.current.name == "ansible_test_5"
-    - nm_query_bd_5.current.intersiteBumTrafficAllow == true
-    - nm_query_bd_5.current.optimizeWanBandwidth == true
-    - nm_query_bd_5.current.l2Stretch == true
-    - nm_query_bd_5.current.l2UnknownUnicast == "flood"
-    - nm_query_bd_5.current.l3MCast == false
+      - nm_query_bd_5 is not changed
+      - nm_query_bd_5.current.name == "ansible_test_5"
+      - nm_query_bd_5.current.intersiteBumTrafficAllow == true
+      - nm_query_bd_5.current.optimizeWanBandwidth == true
+      - nm_query_bd_5.current.l2Stretch == true
+      - nm_query_bd_5.current.l2UnknownUnicast == "flood"
+      - nm_query_bd_5.current.l3MCast == false
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_query_bd_5 for a version that's 3.1
   ansible.builtin.assert:
     that:
-    - nm_query_bd_5 is not changed
-    - nm_query_bd_5.current.name == "ansible_test_5"
-    - nm_query_bd_5.current.intersiteBumTrafficAllow == true
-    - nm_query_bd_5.current.optimizeWanBandwidth == true
-    - nm_query_bd_5.current.l2Stretch == true
-    - nm_query_bd_5.current.l2UnknownUnicast == "flood"
-    - nm_query_bd_5.current.l3MCast == false
-    - nm_query_bd_5.current.unkMcastAct == "flood"
-    - nm_query_bd_5.current.v6unkMcastAct == "flood"
-    - nm_query_bd_5.current.vmac == "00:00:5E:00:01:3C"
-    - nm_query_bd_5.current.multiDstPktAct == "drop"
-    - nm_query_bd_5.current.arpFlood == true
+      - nm_query_bd_5 is not changed
+      - nm_query_bd_5.current.name == "ansible_test_5"
+      - nm_query_bd_5.current.intersiteBumTrafficAllow == true
+      - nm_query_bd_5.current.optimizeWanBandwidth == true
+      - nm_query_bd_5.current.l2Stretch == true
+      - nm_query_bd_5.current.l2UnknownUnicast == "flood"
+      - nm_query_bd_5.current.l3MCast == false
+      - nm_query_bd_5.current.unkMcastAct == "flood"
+      - nm_query_bd_5.current.v6unkMcastAct == "flood"
+      - nm_query_bd_5.current.vmac == "00:00:5E:00:01:3C"
+      - nm_query_bd_5.current.multiDstPktAct == "drop"
+      - nm_query_bd_5.current.arpFlood == true
   when: version.current.version is version('3.1.1g', '>=')
 
 - name: Query bd with multiple dhcp policies for mso version > 3.1.1g
@@ -1703,28 +1702,28 @@
     state: query
   register: query_nm_bd_dhcp_policies
   when:
-  - version.current.version is version('3.1.1g', '>')
-  # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
-  - version.current.version is version('4.0', '<')
+    - version.current.version is version('3.1.1g', '>')
+    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
+    - version.current.version is version('4.0', '<')
 
 - name: Verify query of DHCP policies for mso version > 3.1.1g
   ansible.builtin.assert:
     that:
-    - query_nm_bd_dhcp_policies is not changed
-    - query_nm_bd_dhcp_policies.current.name == 'ansible_test_multiple_dhcp'
-    - query_nm_bd_dhcp_policies.current.dhcpLabels | length == 2
-    - query_nm_bd_dhcp_policies.current.dhcpLabels[0].name == 'ansible_test_dhcp_policy1'
-    - query_nm_bd_dhcp_policies.current.dhcpLabels[1].name == 'ansible_test_dhcp_policy2'
-    - query_nm_bd_dhcp_policies.current.dhcpLabels[0].version == 1
-    - query_nm_bd_dhcp_policies.current.dhcpLabels[1].version == 1
-    - query_nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
-    - query_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
-    - query_nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.version == 1
-    - query_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.version == 1
+      - query_nm_bd_dhcp_policies is not changed
+      - query_nm_bd_dhcp_policies.current.name == 'ansible_test_multiple_dhcp'
+      - query_nm_bd_dhcp_policies.current.dhcpLabels | length == 2
+      - query_nm_bd_dhcp_policies.current.dhcpLabels[0].name == 'ansible_test_dhcp_policy1'
+      - query_nm_bd_dhcp_policies.current.dhcpLabels[1].name == 'ansible_test_dhcp_policy2'
+      - query_nm_bd_dhcp_policies.current.dhcpLabels[0].version == 1
+      - query_nm_bd_dhcp_policies.current.dhcpLabels[1].version == 1
+      - query_nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+      - query_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.name == 'ansible_test_dhcp_policy_option1'
+      - query_nm_bd_dhcp_policies.current.dhcpLabels[0].dhcpOptionLabel.version == 1
+      - query_nm_bd_dhcp_policies.current.dhcpLabels[1].dhcpOptionLabel.version == 1
   when:
-  - version.current.version is version('3.1.1g', '>')
-  # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
-  - version.current.version is version('4.0', '<')
+    - version.current.version is version('3.1.1g', '>')
+    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
+    - version.current.version is version('4.0', '<')
 
 # Query BD with new options for mso version > 3.1.1g
 - name: Query bd with new option flood in encap available in mso versions > 3.1.1g with l2 set to false
@@ -1738,23 +1737,23 @@
 - name: Verify query_bd_new_encap_flood
   ansible.builtin.assert:
     that:
-    - query_bd_new_encap_flood is not changed
-    - query_bd_new_encap_flood.current.name == 'ansible_test_flood_encap'
-    - query_bd_new_encap_flood.current.intersiteBumTrafficAllow == false
-    - query_bd_new_encap_flood.current.optimizeWanBandwidth == false
-    - query_bd_new_encap_flood.current.l2Stretch == false
-    - query_bd_new_encap_flood.current.l2UnknownUnicast == "flood"
-    - query_bd_new_encap_flood.current.unkMcastAct == "flood"
-    - query_bd_new_encap_flood.current.multiDstPktAct == "encap-flood"
-    - query_bd_new_encap_flood.current.arpFlood == true
-    - query_bd_new_encap_flood.current.v6unkMcastAct == "flood"
-    - query_bd_new_encap_flood.current.unicastRouting == true
+      - query_bd_new_encap_flood is not changed
+      - query_bd_new_encap_flood.current.name == 'ansible_test_flood_encap'
+      - query_bd_new_encap_flood.current.intersiteBumTrafficAllow == false
+      - query_bd_new_encap_flood.current.optimizeWanBandwidth == false
+      - query_bd_new_encap_flood.current.l2Stretch == false
+      - query_bd_new_encap_flood.current.l2UnknownUnicast == "flood"
+      - query_bd_new_encap_flood.current.unkMcastAct == "flood"
+      - query_bd_new_encap_flood.current.multiDstPktAct == "encap-flood"
+      - query_bd_new_encap_flood.current.arpFlood == true
+      - query_bd_new_encap_flood.current.v6unkMcastAct == "flood"
+      - query_bd_new_encap_flood.current.unicastRouting == true
   when: version.current.version is version('3.1.1g', '>')
 
 - name: Verify query_bd_new_encap_flood
   ansible.builtin.assert:
     that:
-    - query_bd_new_encap_flood.current.l3MCast == false
+      - query_bd_new_encap_flood.current.l3MCast == false
   when: version.current.version is version('3.2', '>=')
 
 # CREATE BD WITH MULTICAST ROUTE-MAP FILTERS
@@ -1762,164 +1761,349 @@
 - name: Execute tasks only for MSO version > 4.3
   when: version.current.version is version('4.3', '>=')
   block:
-  - name: Create BD with multicast route-map filters (check_mode)
-    cisco.mso.mso_schema_template_bd: &bd_multicast_route_map
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template1
-      bd: ansible_test_multicast_route_map
-      vrf:
-        name: VRF
+    - name: Create BD with multicast route-map filters (check_mode)
+      cisco.mso.mso_schema_template_bd: &bd_multicast_route_map
+        <<: *mso_info
         schema: '{{ mso_schema | default("ansible_test") }}'
         template: Template1
-      layer3_multicast: true
-      multicast_route_map_source_filter: ansible_test_route_map_policy_1
-      multicast_route_map_destination_filter: ansible_test_route_map_policy_2
-      state: present
-    check_mode: true
-    register: cm_create_bd_multicast_route_map
-  
-  - name: Create BD with multicast route-map filters
-    cisco.mso.mso_schema_template_bd:
-      <<: *bd_multicast_route_map
-    register: nm_create_bd_multicast_route_map
+        bd: ansible_test_multicast_route_map
+        vrf:
+          name: VRF
+          schema: '{{ mso_schema | default("ansible_test") }}'
+          template: Template1
+        layer3_multicast: true
+        multicast_route_map_source_filter: ansible_test_route_map_policy_1
+        multicast_route_map_destination_filter: ansible_test_route_map_policy_2
+        state: present
+      check_mode: true
+      register: cm_create_bd_multicast_route_map
 
-  - name: Create BD with multicast route-map filters again
-    cisco.mso.mso_schema_template_bd:
-      <<: *bd_multicast_route_map
-    register: nm_create_bd_multicast_route_map_again
+    - name: Create BD with multicast route-map filters
+      cisco.mso.mso_schema_template_bd:
+        <<: *bd_multicast_route_map
+      register: nm_create_bd_multicast_route_map
 
-  # Add a subnet to BD with multicast route-map filters to ensure that changes made after to the BD do not remove the existing subnet
-  - name: Add a subnet to BD with multicast route-map filters
-    cisco.mso.mso_schema_template_bd_subnet:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template1
-      bd: ansible_test_multicast_route_map
-      subnet: 10.1.1.1/24
+    - name: Create BD with multicast route-map filters again
+      cisco.mso.mso_schema_template_bd:
+        <<: *bd_multicast_route_map
+      register: nm_create_bd_multicast_route_map_again
 
-  - name: Update BD with a destination multicast route-map filter from different template
-    cisco.mso.mso_schema_template_bd:
-      <<: *bd_multicast_route_map
-      multicast_route_map_destination_filter: ansible_test_route_map_policy_3
-    register: nm_update_bd_multicast_route_map
-
-  - name: Update BD with only a source multicast route-map filters
-    cisco.mso.mso_schema_template_bd:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template1
-      bd: ansible_test_multicast_route_map
-      vrf:
-        name: VRF
+    # Add a subnet to BD with multicast route-map filters to ensure that changes made after to the BD do not remove the existing subnet
+    - name: Add a subnet to BD with multicast route-map filters
+      cisco.mso.mso_schema_template_bd_subnet:
+        <<: *mso_info
         schema: '{{ mso_schema | default("ansible_test") }}'
         template: Template1
-      layer3_multicast: true
-      multicast_route_map_source_filter: ansible_test_route_map_policy_4
-      state: present
-    register: nm_update_bd_multicast_route_map_source_only
+        bd: ansible_test_multicast_route_map
+        subnet: 10.1.1.1/24
 
-  - name: Update BD with only a destination multicast route-map filters
-    cisco.mso.mso_schema_template_bd:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template1
-      bd: ansible_test_multicast_route_map
-      vrf:
-        name: VRF
+    - name: Update BD with a destination multicast route-map filter from different template
+      cisco.mso.mso_schema_template_bd:
+        <<: *bd_multicast_route_map
+        multicast_route_map_destination_filter: ansible_test_route_map_policy_3
+      register: nm_update_bd_multicast_route_map
+
+    - name: Update BD with only a source multicast route-map filters
+      cisco.mso.mso_schema_template_bd:
+        <<: *mso_info
         schema: '{{ mso_schema | default("ansible_test") }}'
         template: Template1
-      layer3_multicast: true
-      multicast_route_map_destination_filter: ansible_test_route_map_policy_4
-      state: present
-    register: nm_update_bd_multicast_route_map_destination_only
+        bd: ansible_test_multicast_route_map
+        vrf:
+          name: VRF
+          schema: '{{ mso_schema | default("ansible_test") }}'
+          template: Template1
+        layer3_multicast: true
+        multicast_route_map_source_filter: ansible_test_route_map_policy_4
+        state: present
+      register: nm_update_bd_multicast_route_map_source_only
 
-  - name: Error when providing route-map filter for a BD with layer3_multicast set to false
-    cisco.mso.mso_schema_template_bd:
-      <<: *bd_multicast_route_map
-      layer3_multicast: false
-      state: present
-    register: error_layer_3_multicast_false
-    ignore_errors: true
+    - name: Update BD with only a destination multicast route-map filters
+      cisco.mso.mso_schema_template_bd:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template1
+        bd: ansible_test_multicast_route_map
+        vrf:
+          name: VRF
+          schema: '{{ mso_schema | default("ansible_test") }}'
+          template: Template1
+        layer3_multicast: true
+        multicast_route_map_destination_filter: ansible_test_route_map_policy_4
+        state: present
+      register: nm_update_bd_multicast_route_map_destination_only
 
-  - name: Error when non existing source route-map filter
-    cisco.mso.mso_schema_template_bd:
-      <<: *bd_multicast_route_map
-      multicast_route_map_source_filter: non_existing_source
-      state: present
-    register: error_layer_3_multicast_non_existing_source
-    ignore_errors: true
+    - name: Error when providing route-map filter for a BD with layer3_multicast set to false
+      cisco.mso.mso_schema_template_bd:
+        <<: *bd_multicast_route_map
+        layer3_multicast: false
+        state: present
+      register: error_layer_3_multicast_false
+      ignore_errors: true
 
-  - name: Error when non existing destination route-map filter
-    cisco.mso.mso_schema_template_bd:
-      <<: *bd_multicast_route_map
-      multicast_route_map_destination_filter: non_existing_destination
-      state: present
-    register: error_layer_3_multicast_non_existing_destination
-    ignore_errors: true
+    - name: Error when non existing source route-map filter
+      cisco.mso.mso_schema_template_bd:
+        <<: *bd_multicast_route_map
+        multicast_route_map_source_filter: non_existing_source
+        state: present
+      register: error_layer_3_multicast_non_existing_source
+      ignore_errors: true
 
-  - name: Error when non existing source and destination route-map filter
-    cisco.mso.mso_schema_template_bd:
-      <<: *bd_multicast_route_map
-      multicast_route_map_source_filter: non_existing_source
-      multicast_route_map_destination_filter: non_existing_destination
-      state: present
-    register: error_layer_3_multicast_non_existing_both
-    ignore_errors: true
+    - name: Error when non existing destination route-map filter
+      cisco.mso.mso_schema_template_bd:
+        <<: *bd_multicast_route_map
+        multicast_route_map_destination_filter: non_existing_destination
+        state: present
+      register: error_layer_3_multicast_non_existing_destination
+      ignore_errors: true
 
-  - name: Assert multicast route-map filters
-    ansible.builtin.assert:
-      that:
-      - cm_create_bd_multicast_route_map is changed
-      - cm_create_bd_multicast_route_map.previous == {}
-      - cm_create_bd_multicast_route_map.current.displayName == "ansible_test_multicast_route_map"
-      - cm_create_bd_multicast_route_map.current.name == "ansible_test_multicast_route_map"
-      - cm_create_bd_multicast_route_map.current.l3MCast
-      - cm_create_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapDestRef is defined
-      - cm_create_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapSourceRef is defined
-      - cm_create_bd_multicast_route_map.current.vrfRef.vrfName == "VRF"
-      - nm_create_bd_multicast_route_map is changed
-      - nm_create_bd_multicast_route_map.previous == {}
-      - nm_create_bd_multicast_route_map.current.displayName == "ansible_test_multicast_route_map"
-      - nm_create_bd_multicast_route_map.current.name == "ansible_test_multicast_route_map"
-      - nm_create_bd_multicast_route_map.current.l3MCast
-      - nm_create_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapDestRef is defined
-      - nm_create_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapSourceRef is defined
-      - nm_create_bd_multicast_route_map.current.vrfRef.vrfName == "VRF"
-      - nm_create_bd_multicast_route_map_again is not changed
-      - nm_create_bd_multicast_route_map_again.previous.displayName == "ansible_test_multicast_route_map"
-      - nm_create_bd_multicast_route_map_again.previous.name == "ansible_test_multicast_route_map"
-      - nm_create_bd_multicast_route_map_again.previous.l3MCast
-      - nm_create_bd_multicast_route_map_again.previous.mcastRtMapFilter.mcastRtMapDestRef is defined
-      - nm_create_bd_multicast_route_map_again.previous.mcastRtMapFilter.mcastRtMapSourceRef is defined
-      - nm_create_bd_multicast_route_map_again.previous.vrfRef.vrfName == "VRF"
-      - nm_create_bd_multicast_route_map_again.current.displayName == "ansible_test_multicast_route_map"
-      - nm_create_bd_multicast_route_map_again.current.name == "ansible_test_multicast_route_map"
-      - nm_create_bd_multicast_route_map_again.current.l3MCast
-      - nm_create_bd_multicast_route_map_again.current.mcastRtMapFilter.mcastRtMapDestRef is defined
-      - nm_create_bd_multicast_route_map_again.current.mcastRtMapFilter.mcastRtMapSourceRef is defined
-      - nm_create_bd_multicast_route_map_again.current.vrfRef.vrfName == "VRF"
-      - nm_update_bd_multicast_route_map is changed
-      - nm_update_bd_multicast_route_map.current.displayName == "ansible_test_multicast_route_map"
-      - nm_update_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapDestRef != nm_update_bd_multicast_route_map.previous.mcastRtMapFilter.mcastRtMapDestRef
-      - nm_update_bd_multicast_route_map.previous.subnets[0].ip == "10.1.1.1/24"
-      - nm_update_bd_multicast_route_map.current.subnets[0].ip == "10.1.1.1/24"
-      - nm_update_bd_multicast_route_map_source_only is changed
-      - nm_update_bd_multicast_route_map_source_only.current.displayName == "ansible_test_multicast_route_map"
-      - nm_update_bd_multicast_route_map_source_only.current.mcastRtMapFilter.mcastRtMapDestRef is not defined
-      - nm_update_bd_multicast_route_map_source_only.current.mcastRtMapFilter.mcastRtMapSourceRef is defined  
-      - nm_update_bd_multicast_route_map_destination_only is changed
-      - nm_update_bd_multicast_route_map_destination_only.current.displayName == "ansible_test_multicast_route_map"
-      - nm_update_bd_multicast_route_map_destination_only.current.mcastRtMapFilter.mcastRtMapSourceRef is not defined
-      - nm_update_bd_multicast_route_map_destination_only.current.mcastRtMapFilter.mcastRtMapDestRef is defined 
-      - error_layer_3_multicast_false is failed
-      - error_layer_3_multicast_false.msg == "Layer 3 Multicast must be enabled to use Multicast Route Map Filters."
-      - error_layer_3_multicast_non_existing_source is failed
-      - error_layer_3_multicast_non_existing_source.msg == "Route Map Source Filter 'non_existing_source' not found."
-      - error_layer_3_multicast_non_existing_destination is failed
-      - error_layer_3_multicast_non_existing_destination.msg == "Route Map Destination Filter 'non_existing_destination' not found."
-      - error_layer_3_multicast_non_existing_both is failed
-      - error_layer_3_multicast_non_existing_both.msg == "Route Map Source Filter 'non_existing_source' not found.\nRoute Map Destination Filter 'non_existing_destination' not found."
+    - name: Error when non existing source and destination route-map filter
+      cisco.mso.mso_schema_template_bd:
+        <<: *bd_multicast_route_map
+        multicast_route_map_source_filter: non_existing_source
+        multicast_route_map_destination_filter: non_existing_destination
+        state: present
+      register: error_layer_3_multicast_non_existing_both
+      ignore_errors: true
+
+    - name: Assert multicast route-map filters
+      ansible.builtin.assert:
+        that:
+          - cm_create_bd_multicast_route_map is changed
+          - cm_create_bd_multicast_route_map.previous == {}
+          - cm_create_bd_multicast_route_map.current.displayName == "ansible_test_multicast_route_map"
+          - cm_create_bd_multicast_route_map.current.name == "ansible_test_multicast_route_map"
+          - cm_create_bd_multicast_route_map.current.l3MCast
+          - cm_create_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapDestRef is defined
+          - cm_create_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapSourceRef is defined
+          - cm_create_bd_multicast_route_map.current.vrfRef.vrfName == "VRF"
+          - nm_create_bd_multicast_route_map is changed
+          - nm_create_bd_multicast_route_map.previous == {}
+          - nm_create_bd_multicast_route_map.current.displayName == "ansible_test_multicast_route_map"
+          - nm_create_bd_multicast_route_map.current.name == "ansible_test_multicast_route_map"
+          - nm_create_bd_multicast_route_map.current.l3MCast
+          - nm_create_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapDestRef is defined
+          - nm_create_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapSourceRef is defined
+          - nm_create_bd_multicast_route_map.current.vrfRef.vrfName == "VRF"
+          - nm_create_bd_multicast_route_map_again is not changed
+          - nm_create_bd_multicast_route_map_again.previous.displayName == "ansible_test_multicast_route_map"
+          - nm_create_bd_multicast_route_map_again.previous.name == "ansible_test_multicast_route_map"
+          - nm_create_bd_multicast_route_map_again.previous.l3MCast
+          - nm_create_bd_multicast_route_map_again.previous.mcastRtMapFilter.mcastRtMapDestRef is defined
+          - nm_create_bd_multicast_route_map_again.previous.mcastRtMapFilter.mcastRtMapSourceRef is defined
+          - nm_create_bd_multicast_route_map_again.previous.vrfRef.vrfName == "VRF"
+          - nm_create_bd_multicast_route_map_again.current.displayName == "ansible_test_multicast_route_map"
+          - nm_create_bd_multicast_route_map_again.current.name == "ansible_test_multicast_route_map"
+          - nm_create_bd_multicast_route_map_again.current.l3MCast
+          - nm_create_bd_multicast_route_map_again.current.mcastRtMapFilter.mcastRtMapDestRef is defined
+          - nm_create_bd_multicast_route_map_again.current.mcastRtMapFilter.mcastRtMapSourceRef is defined
+          - nm_create_bd_multicast_route_map_again.current.vrfRef.vrfName == "VRF"
+          - nm_update_bd_multicast_route_map is changed
+          - nm_update_bd_multicast_route_map.current.displayName == "ansible_test_multicast_route_map"
+          - nm_update_bd_multicast_route_map.current.mcastRtMapFilter.mcastRtMapDestRef != nm_update_bd_multicast_route_map.previous.mcastRtMapFilter.mcastRtMapDestRef
+          - nm_update_bd_multicast_route_map.previous.subnets[0].ip == "10.1.1.1/24"
+          - nm_update_bd_multicast_route_map.current.subnets[0].ip == "10.1.1.1/24"
+          - nm_update_bd_multicast_route_map_source_only is changed
+          - nm_update_bd_multicast_route_map_source_only.current.displayName == "ansible_test_multicast_route_map"
+          - nm_update_bd_multicast_route_map_source_only.current.mcastRtMapFilter.mcastRtMapDestRef is not defined
+          - nm_update_bd_multicast_route_map_source_only.current.mcastRtMapFilter.mcastRtMapSourceRef is defined
+          - nm_update_bd_multicast_route_map_destination_only is changed
+          - nm_update_bd_multicast_route_map_destination_only.current.displayName == "ansible_test_multicast_route_map"
+          - nm_update_bd_multicast_route_map_destination_only.current.mcastRtMapFilter.mcastRtMapSourceRef is not defined
+          - nm_update_bd_multicast_route_map_destination_only.current.mcastRtMapFilter.mcastRtMapDestRef is defined
+          - error_layer_3_multicast_false is failed
+          - error_layer_3_multicast_false.msg == "Layer 3 Multicast must be enabled to use Multicast Route Map Filters."
+          - error_layer_3_multicast_non_existing_source is failed
+          - error_layer_3_multicast_non_existing_source.msg == "Route Map Source Filter 'non_existing_source' not found."
+          - error_layer_3_multicast_non_existing_destination is failed
+          - error_layer_3_multicast_non_existing_destination.msg == "Route Map Destination Filter 'non_existing_destination' not found."
+          - error_layer_3_multicast_non_existing_both is failed
+          - error_layer_3_multicast_non_existing_both.msg == "Route Map Source Filter 'non_existing_source' not found.\nRoute Map Destination Filter 'non_existing_destination' not found."
+
+    - name: Create BD without multicast route-map filters (check_mode)
+      cisco.mso.mso_schema_template_bd: &add_bd_without_multicast_route_map
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template1
+        bd: multicast_route_map_test
+        vrf:
+          name: VRF
+          schema: '{{ mso_schema | default("ansible_test") }}'
+          template: Template1
+        layer3_multicast: false
+        state: present
+      check_mode: true
+      register: cm_add_bd_without_multicast_route_map
+
+    - name: Create BD without multicast route-map filters
+      cisco.mso.mso_schema_template_bd:
+        <<: *add_bd_without_multicast_route_map
+      register: nm_add_bd_without_multicast_route_map
+
+    - name: Create BD without multicast route-map filters again
+      cisco.mso.mso_schema_template_bd:
+        <<: *add_bd_without_multicast_route_map
+      register: nm_add_bd_without_multicast_route_map_again
+
+    - name: Assertion check for create BD without multicast route-map filters
+      ansible.builtin.assert:
+        that:
+          - cm_add_bd_without_multicast_route_map is changed
+          - cm_add_bd_without_multicast_route_map.current.displayName == "multicast_route_map_test"
+          - cm_add_bd_without_multicast_route_map.current.l2Stretch == true
+          - cm_add_bd_without_multicast_route_map.current.l3MCast == false
+          - cm_add_bd_without_multicast_route_map.current.name == "multicast_route_map_test"
+          - cm_add_bd_without_multicast_route_map.current.subnets == []
+          - cm_add_bd_without_multicast_route_map.current.vrfRef.templateName == "Template1"
+          - cm_add_bd_without_multicast_route_map.current.vrfRef.vrfName == "VRF"
+          - cm_add_bd_without_multicast_route_map.previous == {}
+          - cm_add_bd_without_multicast_route_map.proposed.displayName == "multicast_route_map_test"
+          - cm_add_bd_without_multicast_route_map.proposed.l2Stretch == true
+          - cm_add_bd_without_multicast_route_map.proposed.l3MCast == false
+          - cm_add_bd_without_multicast_route_map.proposed.name == "multicast_route_map_test"
+          - cm_add_bd_without_multicast_route_map.proposed.subnets == []
+          - cm_add_bd_without_multicast_route_map.proposed.vrfRef.templateName == "Template1"
+          - cm_add_bd_without_multicast_route_map.proposed.vrfRef.vrfName == "VRF"
+          - nm_add_bd_without_multicast_route_map is changed
+          - nm_add_bd_without_multicast_route_map.current.displayName == "multicast_route_map_test"
+          - nm_add_bd_without_multicast_route_map.current.l2Stretch == true
+          - nm_add_bd_without_multicast_route_map.current.l3MCast == false
+          - nm_add_bd_without_multicast_route_map.current.name == "multicast_route_map_test"
+          - nm_add_bd_without_multicast_route_map.current.subnets == []
+          - nm_add_bd_without_multicast_route_map.current.vrfRef.templateName == "Template1"
+          - nm_add_bd_without_multicast_route_map.current.vrfRef.vrfName == "VRF"
+          - nm_add_bd_without_multicast_route_map.previous == {}
+          - nm_add_bd_without_multicast_route_map_again is not changed
+          - nm_add_bd_without_multicast_route_map_again.current.name == "multicast_route_map_test"
+          - nm_add_bd_without_multicast_route_map_again.current.mcastRtMapFilter is not defined
+          - nm_add_bd_without_multicast_route_map_again.previous.name == "multicast_route_map_test"
+          - nm_add_bd_without_multicast_route_map_again.previous.mcastRtMapFilter is not defined
+
+    - name: Update BD with multicast route-map filters (check_mode)
+      cisco.mso.mso_schema_template_bd: &update_bd_with_multicast_route_map
+        <<: *add_bd_without_multicast_route_map
+        layer3_multicast: true
+        multicast_route_map_source_filter: ansible_test_route_map_policy_1
+        multicast_route_map_destination_filter: ansible_test_route_map_policy_2
+        state: present
+      check_mode: true
+      register: cm_update_bd_with_multicast_route_map
+
+    - name: Update BD with multicast route-map filters
+      cisco.mso.mso_schema_template_bd:
+        <<: *update_bd_with_multicast_route_map
+      register: nm_update_bd_with_multicast_route_map
+
+    - name: Update BD with multicast route-map filters again
+      cisco.mso.mso_schema_template_bd:
+        <<: *update_bd_with_multicast_route_map
+      register: nm_update_bd_with_multicast_route_map_again
+
+    - name: Change BD multicast route-map filters
+      cisco.mso.mso_schema_template_bd:
+        <<: *add_bd_without_multicast_route_map
+        layer3_multicast: true
+        multicast_route_map_source_filter: ansible_test_route_map_policy_2
+        multicast_route_map_destination_filter: ansible_test_route_map_policy_1
+        state: present
+      register: change_multicast_route_map_values
+
+    - name: Remove multicast route-map filters from BD
+      cisco.mso.mso_schema_template_bd:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template1
+        bd: multicast_route_map_test
+        vrf:
+          name: VRF
+          schema: '{{ mso_schema | default("ansible_test") }}'
+          template: Template1
+        layer3_multicast: false
+        multicast_route_map_source_filter: ""
+        multicast_route_map_destination_filter: ""
+        state: present
+      register: rm_multicast_route_map_from_bd
+
+    - name: Assertion check for update BD with multicast route-map filters
+      ansible.builtin.assert:
+        that:
+          - cm_update_bd_with_multicast_route_map is changed
+          - cm_update_bd_with_multicast_route_map.current.l3MCast == true
+          - cm_update_bd_with_multicast_route_map.current.mcastRtMapFilter.mcastRtMapDestRef != ""
+          - cm_update_bd_with_multicast_route_map.current.mcastRtMapFilter.mcastRtMapSourceRef != ""
+          - cm_update_bd_with_multicast_route_map.current.multiDstPktAct == "bd-flood"
+          - cm_update_bd_with_multicast_route_map.current.name == "multicast_route_map_test"
+          - cm_update_bd_with_multicast_route_map.previous.displayName == "multicast_route_map_test"
+          - cm_update_bd_with_multicast_route_map.previous.epMoveDetectMode == "none"
+          - cm_update_bd_with_multicast_route_map.previous.intersiteBumTrafficAllow == false
+          - cm_update_bd_with_multicast_route_map.previous.l2Stretch == true
+          - cm_update_bd_with_multicast_route_map.previous.l2UnknownUnicast == "proxy"
+          - cm_update_bd_with_multicast_route_map.previous.l3MCast == false
+          - cm_update_bd_with_multicast_route_map.previous.multiDstPktAct == "bd-flood"
+          - cm_update_bd_with_multicast_route_map.previous.name == "multicast_route_map_test"
+          - cm_update_bd_with_multicast_route_map.proposed.mcastRtMapFilter.mcastRtMapDestRef != ""
+          - cm_update_bd_with_multicast_route_map.proposed.mcastRtMapFilter.mcastRtMapSourceRef != ""
+          - cm_update_bd_with_multicast_route_map.proposed.multiDstPktAct == "bd-flood"
+          - cm_update_bd_with_multicast_route_map.proposed.name == "multicast_route_map_test"
+          - nm_update_bd_with_multicast_route_map is changed
+          - nm_update_bd_with_multicast_route_map.current.mcastRtMapFilter.mcastRtMapDestRef != ""
+          - nm_update_bd_with_multicast_route_map.current.mcastRtMapFilter.mcastRtMapSourceRef != ""
+          - nm_update_bd_with_multicast_route_map.current.multiDstPktAct == "bd-flood"
+          - nm_update_bd_with_multicast_route_map.current.name == "multicast_route_map_test"
+          - nm_update_bd_with_multicast_route_map.previous.arpFlood == false
+          - nm_update_bd_with_multicast_route_map.previous.description == ""
+          - nm_update_bd_with_multicast_route_map.previous.dhcpLabels == []
+          - nm_update_bd_with_multicast_route_map.previous.displayName == "multicast_route_map_test"
+          - nm_update_bd_with_multicast_route_map.previous.epMoveDetectMode == "none"
+          - nm_update_bd_with_multicast_route_map.previous.intersiteBumTrafficAllow == false
+          - nm_update_bd_with_multicast_route_map.previous.l2Stretch == true
+          - nm_update_bd_with_multicast_route_map.previous.l2UnknownUnicast == "proxy"
+          - nm_update_bd_with_multicast_route_map.previous.l3MCast == false
+          - nm_update_bd_with_multicast_route_map.previous.multiDstPktAct == "bd-flood"
+          - nm_update_bd_with_multicast_route_map.previous.name == "multicast_route_map_test"
+          - nm_update_bd_with_multicast_route_map.previous.mcastRtMapFilter not defined
+          - nm_update_bd_with_multicast_route_map_again is not changed
+          - nm_update_bd_with_multicast_route_map_again.current.mcastRtMapFilter.mcastRtMapDestRef != ""
+          - nm_update_bd_with_multicast_route_map_again.current.mcastRtMapFilter.mcastRtMapSourceRef != ""
+          - nm_update_bd_with_multicast_route_map_again.current.multiDstPktAct == "bd-flood"
+          - nm_update_bd_with_multicast_route_map_again.current.name == "multicast_route_map_test"
+          - nm_update_bd_with_multicast_route_map_again.previous.mcastRtMapFilter.mcastRtMapDestRef != ""
+          - nm_update_bd_with_multicast_route_map_again.previous.mcastRtMapFilter.mcastRtMapDestVersion == 0
+          - nm_update_bd_with_multicast_route_map_again.previous.mcastRtMapFilter.mcastRtMapSourceRef != ""
+          - nm_update_bd_with_multicast_route_map_again.previous.mcastRtMapFilter.version == 0
+          - nm_update_bd_with_multicast_route_map_again.previous.multiDstPktAct == "bd-flood"
+          - nm_update_bd_with_multicast_route_map_again.previous.name == "multicast_route_map_test"
+          - change_multicast_route_map_values is changed
+          - change_multicast_route_map_values.current.mcastRtMapFilter.mcastRtMapDestRef != change_multicast_route_map_values.previous.mcastRtMapFilter.mcastRtMapDestRef
+          - change_multicast_route_map_values.current.mcastRtMapFilter.mcastRtMapSourceRef != change_multicast_route_map_values.previous.mcastRtMapFilter.mcastRtMapSourceRef
+          - change_multicast_route_map_values.current.multiDstPktAct == "bd-flood"
+          - change_multicast_route_map_values.current.name == "multicast_route_map_test"
+          - rm_multicast_route_map_from_bd is changed
+          - rm_multicast_route_map_from_bd.current.arpFlood == false
+          - rm_multicast_route_map_from_bd.current.description == ""
+          - rm_multicast_route_map_from_bd.current.dhcpLabels == []
+          - rm_multicast_route_map_from_bd.current.displayName == "multicast_route_map_test"
+          - rm_multicast_route_map_from_bd.current.epMoveDetectMode == "none"
+          - rm_multicast_route_map_from_bd.current.intersiteBumTrafficAllow == false
+          - rm_multicast_route_map_from_bd.current.l2Stretch == true
+          - rm_multicast_route_map_from_bd.current.l2UnknownUnicast == "proxy"
+          - rm_multicast_route_map_from_bd.current.l3MCast == false
+          - rm_multicast_route_map_from_bd.current.mcastRtMapFilter is not defined
+          - rm_multicast_route_map_from_bd.current.name == "multicast_route_map_test"
+          - rm_multicast_route_map_from_bd.previous.mcastRtMapFilter.mcastRtMapDestRef != ""
+          - rm_multicast_route_map_from_bd.previous.mcastRtMapFilter.mcastRtMapDestVersion == 0
+          - rm_multicast_route_map_from_bd.previous.mcastRtMapFilter.mcastRtMapSourceRef != ""
+          - rm_multicast_route_map_from_bd.previous.mcastRtMapFilter.version == 0
+          - rm_multicast_route_map_from_bd.previous.multiDstPktAct == "bd-flood"
+          - rm_multicast_route_map_from_bd.previous.name == "multicast_route_map_test"
+
+    - name: Delete the multicast_route_map_test BD
+      cisco.mso.mso_schema_template_bd:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template1
+        bd: multicast_route_map_test
+        state: absent
 
 # REMOVE BD
 - name: Remove bd (check_mode)
@@ -1935,8 +2119,8 @@
 - name: Verify cm_remove_bd
   ansible.builtin.assert:
     that:
-    - cm_remove_bd is changed
-    - cm_remove_bd.current == {}
+      - cm_remove_bd is changed
+      - cm_remove_bd.current == {}
 
 - name: Remove bd (normal mode)
   cisco.mso.mso_schema_template_bd:
@@ -1946,8 +2130,8 @@
 - name: Verify nm_remove_bd
   ansible.builtin.assert:
     that:
-    - nm_remove_bd is changed
-    - nm_remove_bd.current == {}
+      - nm_remove_bd is changed
+      - nm_remove_bd.current == {}
 
 - name: Remove bd again (check_mode)
   cisco.mso.mso_schema_template_bd:
@@ -1958,8 +2142,8 @@
 - name: Verify cm_remove_bd_again
   ansible.builtin.assert:
     that:
-    - cm_remove_bd_again is not changed
-    - cm_remove_bd_again.current == {}
+      - cm_remove_bd_again is not changed
+      - cm_remove_bd_again.current == {}
 
 - name: Remove bd again (normal mode)
   cisco.mso.mso_schema_template_bd:
@@ -1969,8 +2153,8 @@
 - name: Verify nm_remove_bd_again
   ansible.builtin.assert:
     that:
-    - nm_remove_bd_again is not changed
-    - nm_remove_bd_again.current == {}
+      - nm_remove_bd_again is not changed
+      - nm_remove_bd_again.current == {}
 
 - name: Remove bd 5 (normal mode)
   cisco.mso.mso_schema_template_bd:
@@ -1983,8 +2167,8 @@
 - name: Verify nm_remove_bd_5
   ansible.builtin.assert:
     that:
-    - nm_remove_bd_5 is changed
-    - nm_remove_bd_5.current == {}
+      - nm_remove_bd_5 is changed
+      - nm_remove_bd_5.current == {}
 
 - name: Remove bd ansible_test_multiple_dhcp (normal mode)
   cisco.mso.mso_schema_template_bd:
@@ -1994,19 +2178,19 @@
     bd: ansible_test_multiple_dhcp
   register: nm_remove_ansible_test_multiple_dhcp
   when:
-  - version.current.version is version('3.1.1g', '>')
-  # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
-  - version.current.version is version('4.0', '<')
+    - version.current.version is version('3.1.1g', '>')
+    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
+    - version.current.version is version('4.0', '<')
 
 - name: Verify nm_remove_ansible_test_multiple_dhcp
   ansible.builtin.assert:
     that:
-    - nm_remove_ansible_test_multiple_dhcp is changed
-    - nm_remove_ansible_test_multiple_dhcp.current == {}
+      - nm_remove_ansible_test_multiple_dhcp is changed
+      - nm_remove_ansible_test_multiple_dhcp.current == {}
   when:
-  - version.current.version is version('3.1.1g', '>')
-  # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
-  - version.current.version is version('4.0', '<')
+    - version.current.version is version('3.1.1g', '>')
+    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
+    - version.current.version is version('4.0', '<')
 
 # QUERY NON-EXISTING BD
 - name: Query non-existing bd (check_mode)
@@ -2027,11 +2211,10 @@
 - name: Verify query_non_bd
   ansible.builtin.assert:
     that:
-    - cm_query_non_bd is not changed
-    - nm_query_non_bd is not changed
-    - cm_query_non_bd == nm_query_non_bd
-    - cm_query_non_bd.msg == nm_query_non_bd.msg == "BD 'ansible_test_1' not found"
-
+      - cm_query_non_bd is not changed
+      - nm_query_non_bd is not changed
+      - cm_query_non_bd == nm_query_non_bd
+      - cm_query_non_bd.msg == nm_query_non_bd.msg == "BD 'ansible_test_1' not found"
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for bd (check_mode)
@@ -2052,10 +2235,10 @@
 - name: Verify non_existing_state
   ansible.builtin.assert:
     that:
-    - cm_non_existing_state is not changed
-    - nm_non_existing_state is not changed
-    - cm_non_existing_state == nm_non_existing_state
-    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+      - cm_non_existing_state is not changed
+      - nm_non_existing_state is not changed
+      - cm_non_existing_state == nm_non_existing_state
+      - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for bd (check_mode)
@@ -2076,10 +2259,10 @@
 - name: Verify non_existing_schema
   ansible.builtin.assert:
     that:
-    - cm_non_existing_schema is not changed
-    - nm_non_existing_schema is not changed
-    - cm_non_existing_schema == nm_non_existing_schema
-    - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
+      - cm_non_existing_schema is not changed
+      - nm_non_existing_schema is not changed
+      - cm_non_existing_schema == nm_non_existing_schema
+      - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template for bd (check_mode)
@@ -2100,61 +2283,61 @@
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
-    - cm_non_existing_template is not changed
-    - nm_non_existing_template is not changed
-    - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
+      - cm_non_existing_template is not changed
+      - nm_non_existing_template is not changed
+      - cm_non_existing_template == nm_non_existing_template
+      - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
 
 # CLEAN UP DHCP Policies
 - name: Ensure DHCP policies are removed
   cisco.mso.mso_dhcp_relay_policy:
     <<: *mso_info
-    dhcp_relay_policy: '{{ item }}'
+    dhcp_relay_policy: "{{ item }}"
     tenant: ansible_test
     state: absent
   loop:
-  - 'ansible_test_dhcp_policy1'
-  - 'ansible_test_dhcp_policy2'
-  - 'ansible_test_dhcp_policy3'
+    - "ansible_test_dhcp_policy1"
+    - "ansible_test_dhcp_policy2"
+    - "ansible_test_dhcp_policy3"
   when:
-  # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
-  - version.current.version is version('4.0', '<')
+    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
+    - version.current.version is version('4.0', '<')
 
 - name: Ensure DHCP option policies are removed
   cisco.mso.mso_dhcp_option_policy:
     <<: *mso_info
-    dhcp_option_policy: '{{ item }}'
+    dhcp_option_policy: "{{ item }}"
     tenant: ansible_test
     state: absent
   loop:
-  - 'ansible_test_dhcp_policy_option1'
-  - 'ansible_test_dhcp_policy_option2'
-  - 'ansible_test_dhcp_policy_option3'
+    - "ansible_test_dhcp_policy_option1"
+    - "ansible_test_dhcp_policy_option2"
+    - "ansible_test_dhcp_policy_option3"
   when:
-  # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
-  - version.current.version is version('4.0', '<')
+    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
+    - version.current.version is version('4.0', '<')
 
 # REMOVE Schemas for next CI Run
 - name: Remove schemas for next ci test
   cisco.mso.mso_schema:
     <<: *mso_info
-    schema: '{{ item }}'
+    schema: "{{ item }}"
     state: absent
   loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
+    - '{{ mso_schema | default("ansible_test") }}_2'
+    - '{{ mso_schema | default("ansible_test") }}'
 
 # CLEAN UP Tenant Templates
 - name: Execute tasks only for MSO version > 4.3
   when: version.current.version is version('4.3', '>=')
   block:
-  - name: Remove tenant templates for next ci test
-    cisco.mso.ndo_template:
-      <<: *mso_info
-      name: "{{item}}"
-      template_type: tenant
-      tenant: ansible_test
-      state: absent
-    loop:
-    - 'ansible_tenant_template_1'
-    - 'ansible_tenant_template_2'
+    - name: Remove tenant templates for next ci test
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: "{{item}}"
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+      loop:
+        - "ansible_tenant_template_1"
+        - "ansible_tenant_template_2"

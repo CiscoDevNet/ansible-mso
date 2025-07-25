@@ -233,12 +233,14 @@ options:
     - The name of the Route Map Source Filter.
     - The Route Map Source Filter must reside in the same tenant as the tenant associated to the schema.
     - This option can only be used when the BD has Layer 3 Multicast enabled.
+    - Providing an empty string O(multicast_route_map_source_filter="") will remove the Route Map Source Filter from the BD.
     type: str
   multicast_route_map_destination_filter:
     description:
     - The name of the Route Map Destination Filter.
     - The Route Map Destination Filter must reside in the same tenant as the tenant associated to the schema.
     - This option can only be used when the BD has Layer 3 Multicast enabled.
+    - Providing an empty string O(multicast_route_map_destination_filter="") will remove the Route Map Destination Filter from the BD.
     type: str
   ep_move_detection_mode:
     description:
@@ -527,7 +529,7 @@ def main():
     bd_path = "/templates/{0}/bds/{1}".format(template, bd)
     ops = []
 
-    mso.previous = mso.existing
+    mso.previous = copy.deepcopy(mso.existing)
     if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
@@ -543,7 +545,7 @@ def main():
             display_name = bd
         if subnets is None and not mso.existing:
             subnets = []
-
+        mso_remove_values = []
         payload = dict(
             name=bd,
             displayName=display_name,
@@ -583,6 +585,9 @@ def main():
             if destination_id:
                 route_map_filter["mcastRtMapDestRef"] = destination_id
             payload.update(mcastRtMapFilter=route_map_filter)
+        elif multicast_route_map_source_filter == "" and multicast_route_map_destination_filter == "" and mso.existing.get("mcastRtMapFilter"):
+            mso_remove_values.append("mcastRtMapFilter")
+            mso.existing.pop("mcastRtMapFilter")
 
         if ep_move_detection_mode:
             payload.update(epMoveDetectMode="garp")
@@ -594,7 +599,7 @@ def main():
         if mso.existing:
             # When updating an existing BD, replace operation for each attribute to avoid existing configuration being replaced
             # This case is specifically important for subnet and dhcp policy which can be configured as a child module
-            append_update_ops_data(ops, copy.deepcopy(mso.existing), bd_path, payload)
+            append_update_ops_data(ops, copy.deepcopy(mso.existing), bd_path, payload, mso_remove_values)
         else:
             ops.append(dict(op="add", path=bds_path + "/-", value=mso.sent))
 

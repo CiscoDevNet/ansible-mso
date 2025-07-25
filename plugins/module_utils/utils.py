@@ -96,10 +96,11 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
         if len(keys) == 1:
             # Update the existing configuration
             if new_value is not None and data.get(key) != new_value:
+                operation = "replace" if data.get(key) is not None else "add"
                 data[key] = new_value
                 ops.append(
                     dict(
-                        op="replace",
+                        op=operation,
                         path="{}/{}".format(path, key),
                         value=copy.deepcopy(new_value),
                     )

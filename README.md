@@ -180,7 +180,9 @@ Certain modules and options in the collection are only available from specific v
 
 To find EOL announcements for MSO/NDO versions, refer to the [End-of-Life and End-of-Sale Notices](https://www.cisco.com/c/en/us/products/cloud-systems-management/multi-site-orchestrator/eos-eol-notice-listing.html) page.
 
-As a Red Hat Ansible [Certified Content](https://catalog.redhat.com/software/search?target_platforms=Red%20Hat%20Ansible%20Automation%20Platform), this collection is entitled to [support](https://access.redhat.com/support/) through [Ansible Automation Platform](https://www.redhat.com/en/technologies/management/ansible)(AAP).
+As a Red Hat Ansible [Certified Content](https://catalog.redhat.com/software/search?target_platforms=Red%20Hat%20Ansible%20Automation%20Platform), this collection is entitled to [support](https://access.redhat.com/support/) through [Ansible Automation Platform](https://www.redhat.com/en/technologies/management/ansible) (AAP).
+
+If a support case cannot be opened with Red Hat and the collection has been obtained either from [Galaxy](https://galaxy.ansible.com/ui/) or [GitHub](https://github.com/CiscoDevNet/ansible-mso), there is community support available at no charge. Please open an issue in the [Cisco MSO collection repository](https://github.com/CiscoDevNet/ansible-mso/issues).
 
 ## Release Notes
 

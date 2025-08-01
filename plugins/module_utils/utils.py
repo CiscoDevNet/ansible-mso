@@ -91,7 +91,7 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
     ]
     """
 
-    def recursive_replace(data, path, keys, new_value):
+    def recursive_add_replace(data, path, keys, new_value):
         key = keys[0]
         if len(keys) == 1:
             # Update the existing configuration
@@ -106,7 +106,7 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
                     )
                 )
         elif key in data:
-            recursive_replace(data[key], "{}/{}".format(path, key), keys[1:], new_value)
+            recursive_add_replace(data[key], "{}/{}".format(path, key), keys[1:], new_value)
 
     def recursive_delete(data, path, keys):
         key = keys[0]
@@ -128,7 +128,7 @@ def append_update_ops_data(ops, existing_data, update_path, replace_data=None, r
             raise TypeError("replace_data must be a dict")
 
         for key, value in replace_data.items():
-            recursive_replace(existing_data, update_path, key if isinstance(key, tuple) else (key,), value)
+            recursive_add_replace(existing_data, update_path, key if isinstance(key, tuple) else (key,), value)
 
     if remove_data:
         if not isinstance(remove_data, list):

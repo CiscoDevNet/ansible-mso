@@ -5,18 +5,18 @@
 
 - name: Test that we have an ACI MultiSite host, username and password
   ansible.builtin.fail:
-    msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 - name: Set vars
-  ansible.builtin.set_fact: 
+  ansible.builtin.set_fact:
     mso_info: &mso_info
-      host: '{{ mso_hostname }}'
-      username: '{{ mso_username }}'
-      password: '{{ mso_password }}'
-      validate_certs: '{{ mso_validate_certs | default(false) }}'
-      use_ssl: '{{ mso_use_ssl | default(true) }}'
-      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("info") }}'
 
 - name: Query MSO version
@@ -30,304 +30,378 @@
 - name: Execute tasks only for MSO version > 4.3
   when: version.current.version is version('4.3', '>=')
   block:
-  
-  # CLEAN ENVIRONMENT
+    # CLEAN ENVIRONMENT
 
-  - name: Remove schemas
-    cisco.mso.mso_schema:
-      <<: *mso_info
-      schema: '{{ item }}'
-      state: absent
-    loop:
-    - '{{ mso_schema | default("ansible_test") }}_2'
-    - '{{ mso_schema | default("ansible_test") }}'
+    - name: Remove schemas
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ item }}"
+        state: absent
+      loop:
+        - '{{ mso_schema | default("ansible_test") }}_2'
+        - '{{ mso_schema | default("ansible_test") }}'
 
-  - name: Ensure tenant ansible_test exist
-    cisco.mso.mso_tenant: 
-      <<: *mso_info
-      tenant: ansible_test
-      users:
-      - '{{ mso_username }}'
-      state: present
+    - name: Ensure tenant ansible_test exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: ansible_test
+        users:
+          - "{{ mso_username }}"
+        state: present
 
-  - name: Remove tenant templates
-    cisco.mso.ndo_template:
-      <<: *mso_info
-      name: "{{ item }}"
-      template_type: tenant
-      tenant: ansible_test
-      state: absent
-    loop:
-    - 'ansible_tenant_template_1'
-    - 'ansible_tenant_template_2'
+    - name: Remove tenant templates
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: "{{ item }}"
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+      loop:
+        - "ansible_tenant_template_1"
+        - "ansible_tenant_template_2"
 
-  - name: Ensure tenant templates exist
-    cisco.mso.ndo_template:
-      <<: *mso_info
-      name: "{{item}}"
-      template_type: tenant
-      tenant: ansible_test
-      state: present
-    loop:
-    - 'ansible_tenant_template_1'
-    - 'ansible_tenant_template_2'
+    - name: Ensure tenant templates exist
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: "{{item}}"
+        template_type: tenant
+        tenant: ansible_test
+        state: present
+      loop:
+        - "ansible_tenant_template_1"
+        - "ansible_tenant_template_2"
 
-  - name: Create a new route map policies in templates
-    cisco.mso.ndo_route_map_policy_multicast:
-      <<: *mso_info
-      template: "{{ item.template }}"
-      route_map_policy: "{{ item.route_map_policy }}"
-      entries:
-        - order: "{{ item.order }}"
-          group: "{{ item.group }}"
-          source: "{{ item.source }}"
-          action: permit
-      state: present
-    loop:
-    - {template: ansible_tenant_template_1, route_map_policy: ansible_test_route_map_policy_1, order: 1, group: 226.1.1.0/24, source: 1.1.1.1/24}
-    - {template: ansible_tenant_template_1, route_map_policy: ansible_test_route_map_policy_2, order: 2, group: 226.2.2.0/24, source: 2.1.1.1/24}
-  
-  - name: Ensure schema with template exist
-    cisco.mso.mso_schema_template: 
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      tenant: ansible_test
-      template: ansible_test_template
-      state: present
+    - name: Create a new route map policies in templates
+      cisco.mso.ndo_route_map_policy_multicast:
+        <<: *mso_info
+        template: "{{ item.template }}"
+        route_map_policy: "{{ item.route_map_policy }}"
+        entries:
+          - order: "{{ item.order }}"
+            group: "{{ item.group }}"
+            source: "{{ item.source }}"
+            action: permit
+        state: present
+      loop:
+        - { template: ansible_tenant_template_1, route_map_policy: ansible_test_route_map_policy_1, order: 1, group: 226.1.1.0/24, source: 1.1.1.1/24 }
+        - { template: ansible_tenant_template_1, route_map_policy: ansible_test_route_map_policy_2, order: 2, group: 226.2.2.0/24, source: 2.1.1.1/24 }
 
-  - name: Ensure multicast VRF exist
-    cisco.mso.mso_schema_template_vrf: &create_vrf
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: ansible_test_template
-      vrf: ansible_test_vrf_multicast
-      layer3_multicast: true
-      state: present
-  
-  # CREATE VRF RP TESTS
+    - name: Ensure schema with template exist
+      cisco.mso.mso_schema_template:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: ansible_test
+        template: ansible_test_template
+        state: present
 
-  - name: Create a new template VRF RP (check_mode)
-    cisco.mso.mso_schema_template_vrf_rp: &create_vrf_rp
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: ansible_test_template
-      vrf: ansible_test_vrf_multicast
-      ip: 1.1.1.1
-      type: static
-      multicast_route_map_policy: ansible_test_route_map_policy_1
-      state: present
-    check_mode: true
-    register: cm_create_vrf_rp
-  
-  - name: Create a new template VRF RP
-    cisco.mso.mso_schema_template_vrf_rp:
-      <<: *create_vrf_rp
-    register: nm_create_vrf_rp
-  
-  - name: Create a new template VRF RP again
-    cisco.mso.mso_schema_template_vrf_rp:
-      <<: *create_vrf_rp
-    register: nm_create_vrf_rp_again
+    - name: Ensure multicast VRF exist
+      cisco.mso.mso_schema_template_vrf: &create_vrf
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_test_template
+        vrf: ansible_test_vrf_multicast
+        layer3_multicast: true
+        state: present
 
-  - name: Assert that the VRF RP is created
-    ansible.builtin.assert:
-      that:
-      - cm_create_vrf_rp is changed
-      - cm_create_vrf_rp.previous == {}
-      - cm_create_vrf_rp.current.ipAddress == "1.1.1.1"
-      - cm_create_vrf_rp.current.mcastRtMapPolicyRef is defined
-      - cm_create_vrf_rp.current.rpType == "static"
-      - nm_create_vrf_rp is changed
-      - nm_create_vrf_rp.previous == {}
-      - nm_create_vrf_rp.current.ipAddress == "1.1.1.1"
-      - nm_create_vrf_rp.current.mcastRtMapPolicyRef is defined
-      - nm_create_vrf_rp.current.rpType == "static"
-      - nm_create_vrf_rp_again is not changed
-      - nm_create_vrf_rp_again.previous.ipAddress == "1.1.1.1"
-      - nm_create_vrf_rp_again.previous.mcastRtMapPolicyRef is defined
-      - nm_create_vrf_rp_again.previous.rpType == "static"
-      - nm_create_vrf_rp_again.current.ipAddress == "1.1.1.1"
-      - nm_create_vrf_rp_again.current.mcastRtMapPolicyRef is defined
-      - nm_create_vrf_rp_again.current.rpType == "static"
-  
-  # CREATE VRF RP TESTS
+    - name: Ensure ansible_test_vrf exist
+      cisco.mso.mso_schema_template_vrf:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_test_template
+        vrf: ansible_test_vrf
+        layer3_multicast: true
+        state: present
+    # CREATE VRF RP TESTS
 
-  - name: Update the VRF RP (check_mode)
-    cisco.mso.mso_schema_template_vrf_rp: &update_vrf_rp
-      <<: *create_vrf_rp
-      type: fabric
-      multicast_route_map_policy: ansible_test_route_map_policy_2
-    check_mode: true
-    register: cm_update_vrf_rp
+    - name: Create a new template VRF RP (check_mode)
+      cisco.mso.mso_schema_template_vrf_rp: &create_vrf_rp
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_test_template
+        vrf: ansible_test_vrf_multicast
+        ip: 1.1.1.1
+        type: static
+        multicast_route_map_policy: ansible_test_route_map_policy_1
+        state: present
+      check_mode: true
+      register: cm_create_vrf_rp
 
-  - name: Update the VRF RP
-    cisco.mso.mso_schema_template_vrf_rp:
-      <<: *update_vrf_rp
-    register: nm_update_vrf_rp
+    - name: Create a new template VRF RP
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *create_vrf_rp
+      register: nm_create_vrf_rp
 
-  - name: Update the VRF RP again
-    cisco.mso.mso_schema_template_vrf_rp:
-      <<: *update_vrf_rp
-    register: nm_update_vrf_rp_again
-  
-  - name: Assert that the VRF RP is updated
-    ansible.builtin.assert:
-      that:
-      - cm_update_vrf_rp is changed
-      - cm_update_vrf_rp.previous.ipAddress == "1.1.1.1"
-      - cm_update_vrf_rp.previous.mcastRtMapPolicyRef is defined
-      - cm_update_vrf_rp.previous.rpType == "static"
-      - cm_update_vrf_rp.current.ipAddress == "1.1.1.1"
-      - cm_update_vrf_rp.current.mcastRtMapPolicyRef is defined
-      - cm_update_vrf_rp.current.rpType == "fabric"
-      - nm_update_vrf_rp is changed
-      - nm_update_vrf_rp.previous.ipAddress == "1.1.1.1"
-      - nm_update_vrf_rp.previous.mcastRtMapPolicyRef is defined
-      - nm_update_vrf_rp.previous.rpType == "static"
-      - nm_update_vrf_rp.current.ipAddress == "1.1.1.1"
-      - nm_update_vrf_rp.current.mcastRtMapPolicyRef is defined
-      - nm_update_vrf_rp.current.rpType == "fabric"
-      - nm_update_vrf_rp_again is not changed
-      - nm_update_vrf_rp_again.previous.ipAddress == "1.1.1.1"
-      - nm_update_vrf_rp_again.previous.mcastRtMapPolicyRef is defined
-      - nm_update_vrf_rp_again.previous.rpType == "fabric"
-      - nm_update_vrf_rp_again.current.ipAddress == "1.1.1.1"
-      - nm_update_vrf_rp_again.current.mcastRtMapPolicyRef is defined
-      - nm_update_vrf_rp_again.current.rpType == "fabric"
+    - name: Create a new template VRF RP again
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *create_vrf_rp
+      register: nm_create_vrf_rp_again
 
-  - name: Remove a route map policy
-    cisco.mso.mso_schema_template_vrf_rp:
-      <<: *update_vrf_rp
-      multicast_route_map_policy: ""
-    register: nm_update_vrf_rp_remove_route_policy
-  
-  - name: Assert that the multicast route map policy is removed from RP
-    ansible.builtin.assert:
-      that:
-      - nm_update_vrf_rp_remove_route_policy.current.ipAddress == "1.1.1.1"
-      - nm_update_vrf_rp_remove_route_policy.current.mcastRtMapPolicyRef is not defined
-      - nm_update_vrf_rp_remove_route_policy.current.rpType == "fabric"
+    - name: Create a new template VRF RP without multicast_route_map_policy
+      cisco.mso.mso_schema_template_vrf_rp: &add_vrf_without_route_map_policy
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_test_template
+        vrf: ansible_test_vrf
+        ip: 1.1.1.1
+        type: static
+        state: present
+      register: add_vrf_without_route_map_policy
 
-  # ERROR VRF RP TESTS
-  - name: Create a new template VRF RP with unknown multicast_route_map_policy
-    cisco.mso.mso_schema_template_vrf_rp:
-      <<: *create_vrf_rp
-      multicast_route_map_policy: "unknown"
-    register: err_create_vrf_rp_unknown_multicast_route_map_policy
-    ignore_errors: true
-  
-  - name: Assert that the VRF RP creation with unknown multicast_route_map_policy fails
-    ansible.builtin.assert:
-      that:
-      - err_create_vrf_rp_unknown_multicast_route_map_policy.failed
-      - err_create_vrf_rp_unknown_multicast_route_map_policy.msg == "Multicast Route Map Policy 'unknown' not found."
+    - name: Assert that the VRF RP is created
+      ansible.builtin.assert:
+        that:
+          - cm_create_vrf_rp is changed
+          - cm_create_vrf_rp.previous == {}
+          - cm_create_vrf_rp.current.ipAddress == "1.1.1.1"
+          - cm_create_vrf_rp.current.mcastRtMapPolicyRef is defined
+          - cm_create_vrf_rp.current.rpType == "static"
+          - nm_create_vrf_rp is changed
+          - nm_create_vrf_rp.previous == {}
+          - nm_create_vrf_rp.current.ipAddress == "1.1.1.1"
+          - nm_create_vrf_rp.current.mcastRtMapPolicyRef is defined
+          - nm_create_vrf_rp.current.rpType == "static"
+          - nm_create_vrf_rp_again is not changed
+          - nm_create_vrf_rp_again.previous.ipAddress == "1.1.1.1"
+          - nm_create_vrf_rp_again.previous.mcastRtMapPolicyRef is defined
+          - nm_create_vrf_rp_again.previous.rpType == "static"
+          - nm_create_vrf_rp_again.current.ipAddress == "1.1.1.1"
+          - nm_create_vrf_rp_again.current.mcastRtMapPolicyRef is defined
+          - nm_create_vrf_rp_again.current.rpType == "static"
 
-  # QUERY VRF RP TESTS
+    # CREATE VRF RP TESTS
 
-  - name: Create a new template VRF RP for query
-    cisco.mso.mso_schema_template_vrf_rp:
-      <<: *create_vrf_rp
-      ip: 2.2.2.2
-  
-  - name: Update a vrf to ensure changes to vrf are not affecting the RPs
-    cisco.mso.mso_schema_template_vrf:
-      <<: *create_vrf
-      display_name: "changed_vrf_name"
-      state: present
+    - name: Update the VRF RP (check_mode)
+      cisco.mso.mso_schema_template_vrf_rp: &update_vrf_rp
+        <<: *create_vrf_rp
+        type: fabric
+        multicast_route_map_policy: ansible_test_route_map_policy_2
+      check_mode: true
+      register: cm_update_vrf_rp
 
-  - name: Query the VRF RP
-    cisco.mso.mso_schema_template_vrf_rp:
-      <<: *create_vrf_rp
-      state: query
-    register: nm_query_vrf_rp
-  
-  - name: Query all VRF RPs 
-    cisco.mso.mso_schema_template_vrf_rp:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: ansible_test_template
-      vrf: ansible_test_vrf_multicast
-      state: query
-    register: nm_query_all_vrf_rps
-  
-  - name: Assert that the VRF RPs are queried
-    ansible.builtin.assert:
-      that:
-      - nm_query_vrf_rp is not changed
-      - nm_query_vrf_rp.current.ipAddress == "1.1.1.1"
-      - nm_query_all_vrf_rps is not changed
-      - nm_query_all_vrf_rps.current | length == 2
-  
-  # DELETE VRF RP TESTS
+    - name: Update the VRF RP
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *update_vrf_rp
+      register: nm_update_vrf_rp
 
-  - name: Delete the VRF RP (check_mode)
-    cisco.mso.mso_schema_template_vrf_rp: &delete_vrf_rp
-      <<: *create_vrf_rp
-      state: absent
-    check_mode: true
-    register: cm_delete_vrf_rp
-  
-  - name: Delete the VRF RP
-    cisco.mso.mso_schema_template_vrf_rp:
-      <<: *delete_vrf_rp
-    register: nm_delete_vrf_rp
-  
-  - name: Delete the VRF RP again
-    cisco.mso.mso_schema_template_vrf_rp:
-      <<: *delete_vrf_rp
-    register: nm_delete_vrf_rp_again
+    - name: Update the VRF RP again
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *update_vrf_rp
+      register: nm_update_vrf_rp_again
 
-  - name: Assert that the VRF RP is deleted
-    ansible.builtin.assert:
-      that:
-      - cm_delete_vrf_rp is changed
-      - cm_delete_vrf_rp.previous.ipAddress == "1.1.1.1"
-      - cm_delete_vrf_rp.previous.mcastRtMapPolicyRef is not defined
-      - cm_delete_vrf_rp.previous.rpType == "fabric"
-      - cm_delete_vrf_rp.current == {}
-      - nm_delete_vrf_rp is changed
-      - nm_delete_vrf_rp.previous.ipAddress == "1.1.1.1"
-      - nm_delete_vrf_rp.previous.mcastRtMapPolicyRef is not defined
-      - nm_delete_vrf_rp.previous.rpType == "fabric"
-      - nm_delete_vrf_rp.current == {}
-      - nm_delete_vrf_rp_again is not changed
-      - nm_delete_vrf_rp_again.previous == {}
-      - nm_delete_vrf_rp_again.current == {}
+    - name: Assert that the VRF RP is updated
+      ansible.builtin.assert:
+        that:
+          - cm_update_vrf_rp is changed
+          - cm_update_vrf_rp.previous.ipAddress == "1.1.1.1"
+          - cm_update_vrf_rp.previous.mcastRtMapPolicyRef is defined
+          - cm_update_vrf_rp.previous.rpType == "static"
+          - cm_update_vrf_rp.current.ipAddress == "1.1.1.1"
+          - cm_update_vrf_rp.current.mcastRtMapPolicyRef is defined
+          - cm_update_vrf_rp.current.rpType == "fabric"
+          - nm_update_vrf_rp is changed
+          - nm_update_vrf_rp.previous.ipAddress == "1.1.1.1"
+          - nm_update_vrf_rp.previous.mcastRtMapPolicyRef is defined
+          - nm_update_vrf_rp.previous.rpType == "static"
+          - nm_update_vrf_rp.current.ipAddress == "1.1.1.1"
+          - nm_update_vrf_rp.current.mcastRtMapPolicyRef is defined
+          - nm_update_vrf_rp.current.rpType == "fabric"
+          - nm_update_vrf_rp_again is not changed
+          - nm_update_vrf_rp_again.previous.ipAddress == "1.1.1.1"
+          - nm_update_vrf_rp_again.previous.mcastRtMapPolicyRef is defined
+          - nm_update_vrf_rp_again.previous.rpType == "fabric"
+          - nm_update_vrf_rp_again.current.ipAddress == "1.1.1.1"
+          - nm_update_vrf_rp_again.current.mcastRtMapPolicyRef is defined
+          - nm_update_vrf_rp_again.current.rpType == "fabric"
 
-  - name: Query all VRF RPs after delete
-    cisco.mso.mso_schema_template_vrf_rp:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: ansible_test_template
-      vrf: ansible_test_vrf_multicast
-      state: query
-    register: nm_query_all_vrf_rps_after_delete
-  
-  - name: Assert that the only the first VRF RP is deleted
-    ansible.builtin.assert:
-      that:
-      - nm_query_all_vrf_rps_after_delete is not changed
-      - nm_query_all_vrf_rps_after_delete.current | length == 1
-      - nm_query_all_vrf_rps_after_delete.current.0.ipAddress == "2.2.2.2"
-  
-  # CLEAN ENVIRONMENT
-  
-  - name: Remove schemas after tests
-    cisco.mso.mso_schema:
-      <<: *mso_info
-      schema: '{{ item }}'
-      state: absent
-    loop:
-    - '{{ mso_schema | default("ansible_test") }}_2'
-    - '{{ mso_schema | default("ansible_test") }}'
-  
-  - name: Remove tenant templates after tests
-    cisco.mso.ndo_template:
-      <<: *mso_info
-      name: "{{ item }}"
-      template_type: tenant
-      tenant: ansible_test
-      state: absent
-    loop:
-    - 'ansible_tenant_template_1'
-    - 'ansible_tenant_template_2'
+    - name: Remove a route map policy
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *update_vrf_rp
+        multicast_route_map_policy: ""
+      register: nm_update_vrf_rp_remove_route_policy
+
+    - name: Assert that the multicast route map policy is removed from RP
+      ansible.builtin.assert:
+        that:
+          - nm_update_vrf_rp_remove_route_policy.current.ipAddress == "1.1.1.1"
+          - nm_update_vrf_rp_remove_route_policy.current.mcastRtMapPolicyRef is not defined
+          - nm_update_vrf_rp_remove_route_policy.current.rpType == "fabric"
+
+    - name: Add multicast_route_map_policy to the ansible_test_vrf
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *add_vrf_without_route_map_policy
+        multicast_route_map_policy: ansible_test_route_map_policy_1
+        state: present
+      register: update_vrf_with_route_map_policy_1
+
+    - name: Change multicast_route_map_policy value of the ansible_test_vrf
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *add_vrf_without_route_map_policy
+        multicast_route_map_policy: ansible_test_route_map_policy_2
+        state: present
+      register: update_vrf_with_route_map_policy_2
+
+    - name: Remove multicast_route_map_policy from ansible_test_vrf
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *add_vrf_without_route_map_policy
+        multicast_route_map_policy: ""
+        state: present
+      register: rm_vrf_route_map_policy
+
+    - name: Assertion check for add multicast_route_map_policy to the ansible_test_vrf
+      ansible.builtin.assert:
+        that:
+          - add_vrf_without_route_map_policy is changed
+          - add_vrf_without_route_map_policy.current.ipAddress == "1.1.1.1"
+          - add_vrf_without_route_map_policy.current.rpType == "static"
+          - add_vrf_without_route_map_policy.current.mcastRtMapPolicyRef is not defined
+          - add_vrf_without_route_map_policy.previous == {}
+          - update_vrf_with_route_map_policy_1 is changed
+          - update_vrf_with_route_map_policy_1.current.ipAddress == "1.1.1.1"
+          - update_vrf_with_route_map_policy_1.current.mcastRtMapPolicyRef != ""
+          - update_vrf_with_route_map_policy_1.current.rpType == "static"
+          - update_vrf_with_route_map_policy_1.current.version == 0
+          - update_vrf_with_route_map_policy_1.previous.ipAddress == "1.1.1.1"
+          - update_vrf_with_route_map_policy_1.previous.rpType == "static"
+          - update_vrf_with_route_map_policy_1.previous.version == 0
+          - update_vrf_with_route_map_policy_2 is changed
+          - update_vrf_with_route_map_policy_2.current.ipAddress == "1.1.1.1"
+          - update_vrf_with_route_map_policy_2.current.mcastRtMapPolicyRef != ""
+          - update_vrf_with_route_map_policy_2.current.rpType == "static"
+          - update_vrf_with_route_map_policy_2.current.version == 0
+          - update_vrf_with_route_map_policy_2.previous.ipAddress == "1.1.1.1"
+          - update_vrf_with_route_map_policy_2.current.mcastRtMapPolicyRef != update_vrf_with_route_map_policy_2.previous.mcastRtMapPolicyRef
+          - update_vrf_with_route_map_policy_2.previous.rpType == "static"
+          - update_vrf_with_route_map_policy_2.previous.version == 0
+          - rm_vrf_route_map_policy is changed
+          - rm_vrf_route_map_policy.current.ipAddress == "1.1.1.1"
+          - rm_vrf_route_map_policy.current.rpType == "static"
+          - rm_vrf_route_map_policy.current.version == 0
+          - rm_vrf_route_map_policy.current.mcastRtMapPolicyRef is not defined
+          - rm_vrf_route_map_policy.previous.ipAddress == "1.1.1.1"
+          - rm_vrf_route_map_policy.previous.mcastRtMapPolicyRef != ""
+          - rm_vrf_route_map_policy.previous.rpType == "static"
+          - rm_vrf_route_map_policy.previous.version == 0
+
+    # ERROR VRF RP TESTS
+    - name: Create a new template VRF RP with unknown multicast_route_map_policy
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *create_vrf_rp
+        multicast_route_map_policy: "unknown"
+      register: err_create_vrf_rp_unknown_multicast_route_map_policy
+      ignore_errors: true
+
+    - name: Assert that the VRF RP creation with unknown multicast_route_map_policy fails
+      ansible.builtin.assert:
+        that:
+          - err_create_vrf_rp_unknown_multicast_route_map_policy.failed
+          - err_create_vrf_rp_unknown_multicast_route_map_policy.msg == "Multicast Route Map Policy 'unknown' not found."
+
+    # QUERY VRF RP TESTS
+
+    - name: Create a new template VRF RP for query
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *create_vrf_rp
+        ip: 2.2.2.2
+
+    - name: Update a vrf to ensure changes to vrf are not affecting the RPs
+      cisco.mso.mso_schema_template_vrf:
+        <<: *create_vrf
+        display_name: "changed_vrf_name"
+        state: present
+
+    - name: Query the VRF RP
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *create_vrf_rp
+        state: query
+      register: nm_query_vrf_rp
+
+    - name: Query all VRF RPs
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_test_template
+        vrf: ansible_test_vrf_multicast
+        state: query
+      register: nm_query_all_vrf_rps
+
+    - name: Assert that the VRF RPs are queried
+      ansible.builtin.assert:
+        that:
+          - nm_query_vrf_rp is not changed
+          - nm_query_vrf_rp.current.ipAddress == "1.1.1.1"
+          - nm_query_all_vrf_rps is not changed
+          - nm_query_all_vrf_rps.current | length == 2
+
+    # DELETE VRF RP TESTS
+
+    - name: Delete the VRF RP (check_mode)
+      cisco.mso.mso_schema_template_vrf_rp: &delete_vrf_rp
+        <<: *create_vrf_rp
+        state: absent
+      check_mode: true
+      register: cm_delete_vrf_rp
+
+    - name: Delete the VRF RP
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *delete_vrf_rp
+      register: nm_delete_vrf_rp
+
+    - name: Delete the VRF RP again
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *delete_vrf_rp
+      register: nm_delete_vrf_rp_again
+
+    - name: Assert that the VRF RP is deleted
+      ansible.builtin.assert:
+        that:
+          - cm_delete_vrf_rp is changed
+          - cm_delete_vrf_rp.previous.ipAddress == "1.1.1.1"
+          - cm_delete_vrf_rp.previous.mcastRtMapPolicyRef is not defined
+          - cm_delete_vrf_rp.previous.rpType == "fabric"
+          - cm_delete_vrf_rp.current == {}
+          - nm_delete_vrf_rp is changed
+          - nm_delete_vrf_rp.previous.ipAddress == "1.1.1.1"
+          - nm_delete_vrf_rp.previous.mcastRtMapPolicyRef is not defined
+          - nm_delete_vrf_rp.previous.rpType == "fabric"
+          - nm_delete_vrf_rp.current == {}
+          - nm_delete_vrf_rp_again is not changed
+          - nm_delete_vrf_rp_again.previous == {}
+          - nm_delete_vrf_rp_again.current == {}
+
+    - name: Query all VRF RPs after delete
+      cisco.mso.mso_schema_template_vrf_rp:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: ansible_test_template
+        vrf: ansible_test_vrf_multicast
+        state: query
+      register: nm_query_all_vrf_rps_after_delete
+
+    - name: Assert that the only the first VRF RP is deleted
+      ansible.builtin.assert:
+        that:
+          - nm_query_all_vrf_rps_after_delete is not changed
+          - nm_query_all_vrf_rps_after_delete.current | length == 1
+          - nm_query_all_vrf_rps_after_delete.current.0.ipAddress == "2.2.2.2"
+
+    # CLEAN ENVIRONMENT
+
+    - name: Remove schemas after tests
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ item }}"
+        state: absent
+      loop:
+        - '{{ mso_schema | default("ansible_test") }}_2'
+        - '{{ mso_schema | default("ansible_test") }}'
+
+    - name: Remove tenant templates after tests
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: "{{ item }}"
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+      loop:
+        - "ansible_tenant_template_1"
+        - "ansible_tenant_template_2"

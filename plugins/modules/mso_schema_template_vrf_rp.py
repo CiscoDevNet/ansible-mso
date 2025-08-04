@@ -195,7 +195,7 @@ def main():
             if multicast_route_map_policy and payload.get("mcastRtMapPolicyRef") != mso.existing.get("mcastRtMapPolicyRef"):
                 ops.append(
                     dict(
-                        op="replace" if mso.existing.get("mcastRtMapPolicyRef") else "add",
+                        op="replace" if mso.existing.get("mcastRtMapPolicyRef") is not None else "add",
                         path=rp_path + "/mcastRtMapPolicyRef",
                         value=payload.get("mcastRtMapPolicyRef"),
                     )

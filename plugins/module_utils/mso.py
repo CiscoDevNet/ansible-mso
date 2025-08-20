@@ -1815,7 +1815,7 @@ class MSOModule(object):
                 return self.fail_json(msg="ERROR: The time must be in 'YYYY-MM-DD HH:MM:SS' format.")
 
     def get_site_interface_details(self, site_id=None, uuid=None, node=None, port=None, port_channel_uuid=None, virtual_port_channel_uuid=None):
-        if node and port:
+        if node:
             path = "/sitephysifsummary/site/{0}?node={1}".format(site_id, node)
         elif uuid:
             path = "/sitephysifsummary/site/{0}?uuid={1}".format(site_id, uuid)
@@ -1837,6 +1837,17 @@ class MSOModule(object):
                 if interface.get("port") == port and str(interface.get("node")) == str(node):
                     return interface
             self.fail_json(msg="The site port interface not found. Site ID: {0}, Node: {1} and Path: {2}".format(site_id, node, port))
+        elif node:
+            pod_ids = list(set([interface.get("pod") for interface in site_data.get("spec", {}).get("interfaces", [])]))
+            if len(pod_ids) == 1:
+                # All physical interfaces of a node should belong to the same POD.
+                return pod_ids[0]
+            elif len(pod_ids) == 0:
+                self.fail_json(msg="The site and node not found. Site ID: {0} and Node: {1}".format(site_id, node))
+            elif len(pod_ids) > 1:
+                # This scenario should never be possible but is added in case of faulty return data.
+                self.fail_json(msg="The site and node are found with multiple POD IDs. Site ID: {0}, Node: {1}, POD IDs: {2}".format(site_id, node, pod_ids))
+
         elif port_channel_uuid:
             if site_data.get("spec", {}).get("pcs"):
                 return site_data.get("spec", {}).get("pcs")[0]

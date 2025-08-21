@@ -217,7 +217,6 @@ EXAMPLES = r"""
     auto_state: enabled
     state: present
 
-
 - name: Update a L3Out Floating SVI Interface and L3Out Node configuration
   cisco.mso.ndo_l3out_floating_svi_interface:
     host: mso_host

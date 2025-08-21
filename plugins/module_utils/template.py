@@ -504,6 +504,27 @@ class MSOTemplate:
             return self.get_object_by_key_value_pairs("L3Out SVI Interface", existing_l3out_svi_interfaces, kv_list, fail_module)
         return existing_l3out_svi_interfaces  # Query all objects
 
+    def get_l3out_floating_svi_interface(self, l3out_object, pod_id, node_id, encap, fail_module=False):
+        """
+        Get the L3Out Floating SVI Interface by pod_id and node_id.
+        :param l3out_object: L3Out object to search for the Floating SVI Interface -> Dict
+        :param pod_id: Pod ID of the Floating SVI Interface to search for -> Str
+        :param node_id: Node ID of the Floating SVI Interface to search for -> Str
+        :param encap: Encapsulation details of the Floating SVI Interface to search for -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the pod_id, node_id and encap are existing in the search list -> Dict
+                 When the pod_id, node_id and encap are not existing in the search list -> None
+                 When both pod_id, node_id, and encap are None, and the search list is not empty -> List[Dict]
+                 When both pod_id, node_id, and encap are None, and the search list is empty -> List[]
+        """
+        existing_l3out_floating_svi_interfaces = l3out_object.get("floatingSviInterfaces", [])
+        if pod_id and node_id and encap:  # Query a specific object
+            kv_list = [KVPair("podID", pod_id), KVPair("nodeID", node_id), KVPair("encap", encap)]
+
+            return self.get_object_by_key_value_pairs("L3Out Floating SVI Interface", existing_l3out_floating_svi_interfaces, kv_list, fail_module)
+        return existing_l3out_floating_svi_interfaces  # Query all objects
+
     def get_node_settings_object(self, uuid=None, name=None, fail_module=False):
         """
         Get the Fabric Node Settings by uuid or name.

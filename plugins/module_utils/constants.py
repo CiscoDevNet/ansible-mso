@@ -280,3 +280,5 @@ IP_PROTOCOL_MAPPING = {
 }
 
 CONTRACT_SERVICE_CHAIN_NODE_FILTER_MAP = {"allow_all": "allow-all", "filters_from_contract": "filters-from-contract"}
+
+PTP_MODES = {"multicast_dynamic": "multicast", "multicast_master": "multicastMaster", "unicast_master": "unicastMaster"}

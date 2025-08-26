@@ -603,6 +603,26 @@ class MSOTemplate:
             return self.get_object_by_key_value_pairs("NTP Policy", existing_objects, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
         return existing_objects  # Query all objects
 
+    def get_ptp_policy_profile_object(self, uuid=None, name=None, fail_module=False):
+        # This object is an exception where the template can only contain a single PTP Policy, thus an additional layer of nested query is done
+        """
+        Get the PTP Policy Profile by UUID or Name.
+        :param uuid: UUID of the PTP Profile to search for -> Str
+        :param name: Name of the PTP Profile to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        existing_ptp_profile = self.template.get("fabricPolicyTemplate", {}).get("template", {}).get("ptpPolicy", {}).get("profiles", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs(
+                "PTP Policy Profile", existing_ptp_profile, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module
+            )
+        return existing_ptp_profile  # Query all objects
+
     def get_macsec_policy_object(self, uuid=None, name=None, search_object=None, fail_module=False):
         """
         Get the MACsec Policy by uuid or name.
@@ -866,6 +886,40 @@ class MSOTemplate:
             node_2 = self.get_l3out_node(l3out_object.details, pod_id, node_id_2)
             if node_2 and not isinstance(node_2, list):
                 interface["sideBNode"] = node_2.details
+
+    def update_config_with_ptp_references(self, routed_interface, mso_templates):
+        ptp = routed_interface.get("ptpConfig")
+        if ptp:
+            reference_details = {
+                "ptp_profile_reference": {
+                    "name": "ptpProfileName",
+                    "reference": "ptpProfileRef",
+                    "type": "ptpProfile",
+                    "template": "ptpProfileTemplateName",
+                    "templateId": "ptpProfileTemplateId",
+                }
+            }
+            self.update_config_with_template_and_references(
+                ptp,
+                reference_details,
+                False,
+            )
+            # The PTP policy details cannot be updated via update_config_with_template_and_references because the object type is not supported.
+            # The PTP policy details cannot be updated because the uuid is unknown and can only be retrieved from the template.
+            # Adding additional logic to populate the parent details in output.
+            ptpPolicy = (
+                mso_templates.get_template(
+                    "fabric_policy",
+                    ptp.get("ptpProfileTemplateName"),
+                    ptp.get("ptpProfileTemplateId"),
+                    fail_module=True,
+                )
+                .template.get("fabricPolicyTemplate", {})
+                .get("template", {})
+                .get("ptpPolicy", {})
+            )
+            routed_interface["ptpConfig"]["ptpPolicyName"] = ptpPolicy.get("name")
+            routed_interface["ptpConfig"]["ptpPolicyRef"] = ptpPolicy.get("uuid")
 
     def check_template_when_name_is_provided(self, parameter):
         if parameter and parameter.get("name") and not (parameter.get("template") or parameter.get("template_id")):

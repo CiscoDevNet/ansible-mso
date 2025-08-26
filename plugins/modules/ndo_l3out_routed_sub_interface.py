@@ -406,7 +406,6 @@ def main():
     )
 
     mso = MSOModule(module)
-    mso.stdout = ""
     mso_templates = MSOTemplates(mso)
 
     template_name = mso.params.get("template")

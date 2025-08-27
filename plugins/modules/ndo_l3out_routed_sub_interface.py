@@ -187,6 +187,60 @@ options:
     - The option O(encapsulation_type=vxlan), specifies VXLAN Network Identifier (VNI) which must be in the range 5000 - 16777215.
     type: int
     aliases: [ encap, encapsulation, encapsulation_id ]
+  ptp:
+    description:
+    - The Precision Time Protocol (PTP) configuration for the interface.
+    - Providing an empty dictionary O(ptp={}) will remove the PTP configuration from the interface.
+    type: dict
+    suboptions:
+      mode:
+        description:
+        - The PTP mode.
+        - If this parameter is unspecified, NDO defaults to O(ptp.mode=multicast_dynamic).
+        type: str
+        choices: [ multicast_dynamic, multicast_master, unicast_master ]
+      source_address:
+        description:
+        - The PTP source address.
+        - If this parameter is unspecified, NDO defaults to O(ptp.source_address=0.0.0.0).
+        type: str
+      user_profile:
+        description:
+        - The PTP user profile.
+        type: dict
+        suboptions:
+          uuid:
+            description:
+            - The UUID of the PTP user profile.
+            type: str
+          reference:
+            description:
+            - The reference details of the PTP user profile.
+            type: dict
+            aliases: [ ref ]
+            suboptions:
+              name:
+                description:
+                - The name of the PTP user profile.
+                type: str
+                required: true
+              template:
+                description:
+                - The name of the template that contains the PTP user profile.
+                - This parameter or O(ptp.user_profile.reference.template_id) is required.
+                type: str
+              template_id:
+                description:
+                - The ID of the template that contains the PTP user profile.
+                - This parameter or O(ptp.user_profile.reference.template) is required.
+                type: str
+      unicast_destinations:
+        description:
+        - The PTP unicast destination IP addresses.
+        - The old O(ptp.unicast_destinations) will be replaced with the new O(ptp.unicast_destinations) during an update.
+        - The PTP unicast destinations IP addresses can only be configured if O(ptp.mode=unicast_master).
+        type: list
+        elements: str
   state:
     description:
     - Determines the desired state of the resource.
@@ -207,12 +261,15 @@ notes:
   The M(cisco.mso.ndo_l3out_interface_group_policy) module can be used for this.
 - The O(port_channel) must exist before using this module in your playbook.
   The M(cisco.mso.ndo_port_channel_interface) module can be used for this.
+- The O(ptp.user_profile) must exist before using this module in your playbook.
+  The M(cisco.mso.ndo_ptp_policy_profiles) module can be used for this.
 seealso:
 - module: cisco.mso.ndo_template
 - module: cisco.mso.ndo_l3out_template
 - module: cisco.mso.ndo_l3out_node_group_policy
 - module: cisco.mso.ndo_l3out_interface_group_policy
 - module: cisco.mso.ndo_port_channel_interface
+- module: cisco.mso.ndo_ptp_policy_profiles
 extends_documentation_fragment: cisco.mso.modules
 """
 
@@ -238,6 +295,9 @@ EXAMPLES = r"""
     node_router_id: 1.1.1.1
     node_group_policy: node_group_policy_name
     use_router_id_as_loopback: true
+    ptp:
+      user_profile:
+        uuid: '{{ ptp_profile.current.uuid }}'
     state: present
 
 - name: Create a L3Out Routed Sub-Interface of type port_channel with reference
@@ -264,6 +324,16 @@ EXAMPLES = r"""
     node_group_policy: node_group_policy_name
     use_router_id_as_loopback: false
     node_loopback_ip: 10.0.0.1
+    ptp:
+      mode: unicast_master
+      user_profile:
+        reference:
+          name: ptp_profile_name
+          template: fabric_policy_template_name
+      source_address: 12.0.0.1
+      unicast_destinations:
+        - 12.0.0.2
+        - 12.0.0.3
     state: present
 
 - name: Update a L3Out Routed Sub-Interface of type port_channel with uuid
@@ -288,6 +358,20 @@ EXAMPLES = r"""
     node_group_policy: node_group_policy_name
     use_router_id_as_loopback: false
     node_loopback_ip: 10.0.0.1
+    state: present
+
+- name: Remove PTP configuration from a L3Out Routed Sub-Interface of type port
+  cisco.mso.ndo_l3out_routed_sub_interface:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: l3out_template
+    l3out: l3out_name
+    node_id: 101
+    path: eth1/1
+    encapsulation_type: vlan
+    encapsulation_value: 100
+    ptp: {}
     state: present
 
 - name: Query an existing L3Out Routed Sub-Interface of type port
@@ -347,10 +431,10 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, ndo_l3out_port_channel_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, ndo_l3out_port_channel_spec, ndo_l3out_ptp_spec
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
-from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP
-from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, delete_none_values
+from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP, PTP_MODES
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, delete_none_values, check_if_all_elements_are_none
 from ansible_collections.cisco.mso.plugins.module_utils.l3out_node import L3OutNode
 import copy
 
@@ -379,6 +463,7 @@ def main():
         target_dscp=dict(type="str", choices=list(TARGET_DSCP_MAP)),
         encapsulation_type=dict(type="str", choices=["vlan", "vxlan"], aliases=["encap_type"]),
         encapsulation_value=dict(type="int", aliases=["encap", "encapsulation", "encapsulation_id"]),
+        ptp=ndo_l3out_ptp_spec(),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
 
@@ -432,6 +517,10 @@ def main():
     encap = None
     if encapsulation_type and encapsulation_value:
         encap = {"encapType": encapsulation_type, "value": encapsulation_value}
+    ptp = mso.params.get("ptp")
+    if ptp is not None and check_if_all_elements_are_none(ptp.values()):
+        ptp = {}
+
     state = mso.params.get("state")
 
     mso_template = mso_templates.get_template("l3out", template_name, template_id)
@@ -469,10 +558,10 @@ def main():
 
     match = mso_template.get_l3out_routed_sub_interface(l3out_object.details, pod_id, node_id, path, port_channel_uuid, encap)
     if (path or port_channel) and encap and match:
-        set_routed_sub_interface_details(mso_template, match.details, l3out_object)
+        set_routed_sub_interface_details(mso_template, match.details, l3out_object, mso_templates)
         mso.existing = mso.previous = copy.deepcopy(match.details)  # Query a specific object
     elif match:
-        mso.existing = [set_routed_sub_interface_details(mso_template, obj, l3out_object) for obj in match]
+        mso.existing = [set_routed_sub_interface_details(mso_template, obj, l3out_object, mso_templates) for obj in match]
 
     l3out_sub_interface_path = "/l3outTemplate/l3outs/{0}/subInterfaces/{1}".format(l3out_object.index, match.index if match else "-")
 
@@ -494,18 +583,53 @@ def main():
             "encap": encap,
         }
 
+        ptp_policy_profile_uuid = None
+        if ptp and ptp.get("user_profile") is not None:
+            ptp_user_profile = ptp.get("user_profile")
+            if ptp_user_profile.get("uuid"):
+                ptp_policy_profile_uuid = ptp_user_profile.get("uuid")
+            else:
+                ptp_policy_profile_uuid = (
+                    mso_templates.get_template(
+                        "fabric_policy",
+                        ptp_user_profile.get("reference").get("template"),
+                        ptp_user_profile.get("reference").get("template_id"),
+                        fail_module=True,
+                    )
+                    .get_ptp_policy_profile_object(
+                        ptp_policy_profile_uuid,
+                        ptp_user_profile.get("reference").get("name"),
+                        fail_module=True,
+                    )
+                    .details.get("uuid")
+                )
+
         if path:
             mso_values["nodeID"] = node_id
             mso_values["podID"] = pod_id
 
         if match:
+            remove_data = []
             mso_values[("addresses", "primaryV4")] = ipv4_address
             mso_values[("addresses", "primaryV6")] = ipv6_address
             mso_values[("addresses", "linkLocalV6")] = ipv6_link_local_address
             mso_values[("addresses", "ipV6DAD")] = ipv6_dad
 
-            append_update_ops_data(ops, match.details, l3out_sub_interface_path, mso_values)
-            mso.sanitize(match.details, collate=True)
+            if ptp == {}:
+                remove_data.append("ptpConfig")
+            elif ptp:
+                if not match.details.get("ptpConfig"):
+                    mso_values["ptpConfig"] = {}
+                if ptp.get("unicast_destinations") == []:
+                    remove_data.append(("ptpConfig", "destIPs"))
+                elif ptp.get("unicast_destinations"):
+                    mso_values[("ptpConfig", "destIPs")] = ptp.get("unicast_destinations")
+                mso_values[("ptpConfig", "mode")] = PTP_MODES.get(ptp.get("mode"))
+                mso_values[("ptpConfig", "srcIP")] = ptp.get("source_address")
+                mso_values[("ptpConfig", "ptpProfileRef")] = ptp_policy_profile_uuid
+
+            append_update_ops_data(ops, match.details, l3out_sub_interface_path, mso_values, remove_data)
+            mso.sanitize(match.details, collate=True, unwanted=remove_data)
 
         else:
             mso_values["addresses"] = {
@@ -515,6 +639,14 @@ def main():
                 "ipV6DAD": ipv6_dad,
             }
 
+            if ptp:
+                mso_values["ptpConfig"] = {
+                    "mode": PTP_MODES.get(ptp.get("mode")),
+                    "ptpProfileRef": ptp_policy_profile_uuid,
+                    "srcIP": ptp.get("source_address"),
+                    "destIPs": ptp.get("unicast_destinations"),
+                }
+
             mso_values = delete_none_values(mso_values)
             mso.sanitize(mso_values)
             ops.append(dict(op="add", path=l3out_sub_interface_path, value=mso.sent))
@@ -522,7 +654,7 @@ def main():
             # update mso.proposed with interface details that are not included in the interface payload and node details
             mso.proposed["node"] = l3out_node.construct_node_payload()
 
-        set_routed_sub_interface_details(mso_template, mso.proposed, l3out_object)
+        set_routed_sub_interface_details(mso_template, mso.proposed, l3out_object, mso_templates)
         l3out_node.update_ops(ops)
 
     elif state == "absent":
@@ -536,7 +668,7 @@ def main():
         l3out_object = mso_template.get_l3out_object(l3out_uuid, l3out, True, search_object=response)
         match = mso_template.get_l3out_routed_sub_interface(l3out_object.details, pod_id, node_id, path, port_channel_uuid, encap)
         if match:
-            set_routed_sub_interface_details(mso_template, match.details, l3out_object)
+            set_routed_sub_interface_details(mso_template, match.details, l3out_object, mso_templates)
             mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
@@ -545,9 +677,10 @@ def main():
     mso.exit_json()
 
 
-def set_routed_sub_interface_details(mso_template, routed_sub_interface, l3out_object):
+def set_routed_sub_interface_details(mso_template, routed_sub_interface, l3out_object, mso_templates):
     mso_template.update_config_with_port_channel_references(routed_sub_interface)
     mso_template.update_config_with_node_references(routed_sub_interface, l3out_object)
+    mso_template.update_config_with_ptp_references(routed_sub_interface, mso_templates)
     return routed_sub_interface
 
 

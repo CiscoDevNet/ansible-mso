@@ -6,6 +6,26 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.12.0
+=======
+
+Release Summary
+---------------
+
+Release v2.12.0 of the ``ansible-mso`` collection on 2025-08-27.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.11.0.
+
+Minor Changes
+-------------
+
+- Add support for Floating SVI Interface configuration in l3out templates with the ndo_l3out_floating_svi_interface module
+- Add support for SVI interfaces configuration in l3out templates with the ndo_l3out_svi_interface module
+
+Bugfixes
+--------
+
+- Changed the update logic of the mso_schema_template_bd and mso_schema_template_vrf_rp modules and added additional tests
+
 v2.11.0
 =======
 

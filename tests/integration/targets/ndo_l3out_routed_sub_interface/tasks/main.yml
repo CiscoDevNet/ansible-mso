@@ -111,6 +111,48 @@
         interface_type: port_channel
         state: present
 
+    - name: Create a PTP policy
+      cisco.mso.ndo_ptp_policy:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        ptp_policy: ansible_test_ptp_policy
+        admin_state: enabled
+        fabric_sync_interval: -3
+        global_domain: 0
+        fabric_delay_interval: -2
+        global_priority1: 255
+        global_priority2: 255
+        fabric_announce_timeout: 3
+        fabric_announce_interval: 1
+        fabric_profile_template: aes67_2015
+        state: present
+
+    - name: Create PTP profile ptp_profile_1
+      cisco.mso.ndo_ptp_policy_profiles:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        ptp_policy_profile_name: ptp_profile_1
+        delay_interval: 2
+        sync_interval: 1
+        announce_timeout: 3
+        announce_interval: 4
+        profile_template: aes67_2015
+        state: present
+      register: ptp_profile_1
+
+    - name: Create PTP profile ptp_profile_2
+      cisco.mso.ndo_ptp_policy_profiles:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        ptp_policy_profile_name: ptp_profile_2
+        delay_interval: 2
+        sync_interval: 1
+        announce_timeout: 3
+        announce_interval: 4
+        profile_template: aes67_2015
+        state: present
+      register: ptp_profile_2
+
     - name: Create a fabric_resource template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_resource_template_absent
@@ -209,6 +251,9 @@
         mac: 00:22:BD:F8:19:FF
         mtu: inherit
         node_router_id: 1.1.1.1
+        ptp:
+          user_profile:
+            uuid: '{{ ptp_profile_1.current.uuid }}'
         state: present
       check_mode: true
       register: cm_create_routed_sub_interface
@@ -254,6 +299,12 @@
           - cm_create_routed_sub_interface.current.targetDscp is not defined
           - cm_create_routed_sub_interface.current.templateId is defined
           - cm_create_routed_sub_interface.current.templateName is defined
+          - cm_create_routed_sub_interface.current.ptpConfig.ptpPolicyName is defined
+          - cm_create_routed_sub_interface.current.ptpConfig.ptpPolicyRef is defined
+          - cm_create_routed_sub_interface.current.ptpConfig.ptpProfileName == "ptp_profile_1"
+          - cm_create_routed_sub_interface.current.ptpConfig.ptpProfileRef is defined
+          - cm_create_routed_sub_interface.current.ptpConfig.ptpProfileTemplateId is defined
+          - cm_create_routed_sub_interface.current.ptpConfig.ptpProfileTemplateName is defined
           - nm_create_routed_sub_interface is changed
           - nm_create_routed_sub_interface.previous == {}
           - nm_create_routed_sub_interface.proposed == cm_create_routed_sub_interface.current
@@ -281,6 +332,15 @@
           - nm_create_routed_sub_interface.current.targetDscp == "unspecified"
           - nm_create_routed_sub_interface.current.templateId is defined
           - nm_create_routed_sub_interface.current.templateName is defined
+          - nm_create_routed_sub_interface.current.ptpConfig.mode == "multicast"
+          - nm_create_routed_sub_interface.current.ptpConfig.ptpPolicyName is defined
+          - nm_create_routed_sub_interface.current.ptpConfig.ptpPolicyRef is defined
+          - nm_create_routed_sub_interface.current.ptpConfig.ptpProfileName == "ptp_profile_1"
+          - nm_create_routed_sub_interface.current.ptpConfig.ptpProfileRef is defined
+          - nm_create_routed_sub_interface.current.ptpConfig.ptpProfileTemplateId is defined
+          - nm_create_routed_sub_interface.current.ptpConfig.ptpProfileTemplateName is defined
+          - nm_create_routed_sub_interface.current.ptpConfig.srcIP == "0.0.0.0"
+          - nm_create_routed_sub_interface.current.ptpConfig.destIPs is not defined
           - nm_create_routed_sub_interface_again is not changed
           - nm_create_routed_sub_interface_again.previous == nm_create_routed_sub_interface_again.proposed == nm_create_routed_sub_interface_again.current == nm_create_routed_sub_interface.current
 
@@ -444,6 +504,7 @@
         node_group_policy: node_group_policy_1
         interface_group_policy: interface_group_policy_1
         target_dscp: af11
+        ptp: {}
       check_mode: true
       register: cm_update_routed_sub_interface_port
 
@@ -487,6 +548,7 @@
           - cm_update_routed_sub_interface_port.current.targetDscp == "af11"
           - cm_update_routed_sub_interface_port.current.templateId is defined
           - cm_update_routed_sub_interface_port.current.templateName is defined
+          - cm_update_routed_sub_interface_port.current.ptpConfig is not defined
           - nm_update_routed_sub_interface_port is changed
           - nm_update_routed_sub_interface_port.previous == nm_create_routed_sub_interface_again.current
           - nm_update_routed_sub_interface_port.previous != nm_update_routed_sub_interface_port.current
@@ -506,6 +568,16 @@
         node_group_policy: node_group_policy_1
         interface_group_policy: interface_group_policy_1
         target_dscp: cs5
+        ptp:
+          mode: unicast_master
+          user_profile:
+            reference:
+              name: ptp_profile_2
+              template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          source_address: 12.0.0.1
+          unicast_destinations:
+            - 12.0.0.2
+            - 12.0.0.3
       check_mode: true
       register: cm_update_routed_sub_interface_port_channel_uuid
 
@@ -552,12 +624,79 @@
           - cm_update_routed_sub_interface_port_channel_uuid.current.targetDscp == "cs5"
           - cm_update_routed_sub_interface_port_channel_uuid.current.templateId is defined
           - cm_update_routed_sub_interface_port_channel_uuid.current.templateName is defined
+          - cm_update_routed_sub_interface_port_channel_uuid.current.ptpConfig.mode == "unicastMaster"
+          - cm_update_routed_sub_interface_port_channel_uuid.current.ptpConfig.ptpPolicyName is defined
+          - cm_update_routed_sub_interface_port_channel_uuid.current.ptpConfig.ptpPolicyRef is defined
+          - cm_update_routed_sub_interface_port_channel_uuid.current.ptpConfig.ptpProfileName == "ptp_profile_2"
+          - cm_update_routed_sub_interface_port_channel_uuid.current.ptpConfig.ptpProfileRef is defined
+          - cm_update_routed_sub_interface_port_channel_uuid.current.ptpConfig.ptpProfileTemplateId is defined
+          - cm_update_routed_sub_interface_port_channel_uuid.current.ptpConfig.ptpProfileTemplateName is defined
+          - cm_update_routed_sub_interface_port_channel_uuid.current.ptpConfig.srcIP == "12.0.0.1"
+          - cm_update_routed_sub_interface_port_channel_uuid.current.ptpConfig.destIPs.0 == "12.0.0.2"
+          - cm_update_routed_sub_interface_port_channel_uuid.current.ptpConfig.destIPs.1 == "12.0.0.3"
           - nm_update_routed_sub_interface_port_channel_uuid is changed
           - nm_update_routed_sub_interface_port_channel_uuid.previous != nm_create_routed_sub_interface_port_channel_uuid_again.current
           - nm_update_routed_sub_interface_port_channel_uuid.previous != nm_update_routed_sub_interface_port_channel_uuid.current
           - nm_update_routed_sub_interface_port_channel_uuid.proposed == nm_update_routed_sub_interface_port_channel_uuid.current == cm_update_routed_sub_interface_port_channel_uuid.current
           - nm_update_routed_sub_interface_port_channel_uuid_again is not changed
           - nm_update_routed_sub_interface_port_channel_uuid_again.previous == nm_update_routed_sub_interface_port_channel_uuid_again.proposed == nm_update_routed_sub_interface_port_channel_uuid_again.current == nm_update_routed_sub_interface_port_channel_uuid.current
+
+    - name: Remove destination IPs from PTP configuration
+      cisco.mso.ndo_l3out_routed_sub_interface: &remove_ptp_dest_ips
+        <<: *update_routed_sub_interface_port_channel_uuid
+        ptp:
+          unicast_destinations: []
+      register: nm_update_routed_sub_interface_port_channel_ptp_remove_destinations
+
+    - name: Remove destination IPs from PTP configuration again
+      cisco.mso.ndo_l3out_routed_sub_interface: 
+        <<: *remove_ptp_dest_ips
+      register: nm_update_routed_sub_interface_port_channel_ptp_remove_destinations_again
+
+    - name: Assert that the destination IPs were removed from PTP configuration
+      ansible.builtin.assert:
+        that:
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations is changed
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations.previous == nm_update_routed_sub_interface_port_channel_uuid_again.current
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations.current.ptpConfig.mode == "unicastMaster"
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations.current.ptpConfig.ptpPolicyName is defined
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations.current.ptpConfig.ptpPolicyRef is defined
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations.current.ptpConfig.ptpProfileName == "ptp_profile_2"
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations.current.ptpConfig.ptpProfileRef is defined
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations.current.ptpConfig.ptpProfileTemplateId is defined
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations.current.ptpConfig.ptpProfileTemplateName is defined
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations.current.ptpConfig.srcIP == "12.0.0.1"
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations.current.ptpConfig.destIPs is not defined
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations_again is not changed
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations_again.previous == nm_update_routed_sub_interface_port_channel_ptp_remove_destinations_again.current == nm_update_routed_sub_interface_port_channel_ptp_remove_destinations.current
+
+    - name: Remove PTP configuration
+      cisco.mso.ndo_l3out_routed_sub_interface: &remove_ptp
+        <<: *update_routed_sub_interface_port_channel_uuid
+        ptp: {}
+      register: nm_update_routed_sub_interface_port_channel_ptp_remove
+
+    - name: Remove PTP configuration again
+      cisco.mso.ndo_l3out_routed_sub_interface:
+        <<: *remove_ptp
+      register: nm_update_routed_sub_interface_port_channel_ptp_remove_again
+  
+    - name: Remove destination IPs from PTP configuration when ptp configuration is not present
+      cisco.mso.ndo_l3out_routed_sub_interface: 
+        <<: *remove_ptp_dest_ips
+      register: nm_update_routed_sub_interface_port_channel_ptp_remove_destinations_without_ptp_config
+      ignore_errors: true
+
+    - name: Assert that the PTP configuration was removed
+      ansible.builtin.assert:
+        that:
+          - nm_update_routed_sub_interface_port_channel_ptp_remove is changed
+          - nm_update_routed_sub_interface_port_channel_ptp_remove.previous == nm_update_routed_sub_interface_port_channel_ptp_remove_destinations_again.current
+          - nm_update_routed_sub_interface_port_channel_ptp_remove.current.ptpConfig is not defined
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_again is not changed
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_again.previous == nm_update_routed_sub_interface_port_channel_ptp_remove_again.current == nm_update_routed_sub_interface_port_channel_ptp_remove.current
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations_without_ptp_config is failed
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations_without_ptp_config.msg == "MSO Error 400{{":"}} Invalid configuration in L3Out 'l3out_1'{{":"}} subInterface-1/101/ansible_port_channel_interface_1(vxlan-50001){{":"}} Invalid PTP profile reference{{":"}} , policy not found"
 
     - name: Remove the ipv4_address from a L3out routed sub-interface
       cisco.mso.ndo_l3out_routed_sub_interface: &removed_ipv4_address
@@ -655,6 +794,83 @@
           - error_create_routed_sub_interface_port_channel_invalid_name.msg == "Provided Port Channel with '[KVPair(key='name', value='invalid_name')]' not matching existing object(s){{":"}} ansible_port_channel_interface_1, ansible_port_channel_interface_2"
           - error_create_routed_sub_interface_port_channel_invalid_uuid is failed
           - error_create_routed_sub_interface_port_channel_invalid_uuid.msg == "MSO Error 404{{":"}} policy not found"
+
+    - name: Create a L3out routed sub-interface with invalid ptp user_profile name
+      cisco.mso.ndo_l3out_routed_sub_interface:
+        <<: *create_routed_sub_interface_port_channel_reference
+        ptp:
+          user_profile:
+            reference:
+              name: invalid_name
+              template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+      register: error_create_routed_sub_interface_port_channel_invalid_user_profile_name
+      ignore_errors: true
+    
+    - name: Create a L3out routed sub-interface with invalid ptp user_profile template
+      cisco.mso.ndo_l3out_routed_sub_interface:
+        <<: *create_routed_sub_interface_port_channel_reference
+        ptp:
+          user_profile:
+            reference:
+              name: '{{ ptp_profile_1.current.name }}'
+              template: invalid_template
+      register: error_create_routed_sub_interface_port_channel_invalid_user_profile_template
+      ignore_errors: true
+    
+    - name: Create a L3out routed sub-interface with invalid ptp user_profile uuid
+      cisco.mso.ndo_l3out_routed_sub_interface:
+        <<: *create_routed_sub_interface_port_channel_reference
+        ptp:
+          user_profile:
+            uuid: invalid_uuid
+      register: error_create_routed_sub_interface_port_channel_invalid_user_profile_uuid
+      ignore_errors: true
+
+    - name: Create a L3out routed sub-interface with invalid empty ptp user_profile
+      cisco.mso.ndo_l3out_routed_sub_interface:
+        <<: *create_routed_sub_interface_port_channel_reference
+        ptp:
+          user_profile: {}
+      register: error_create_routed_sub_interface_port_channel_invalid_user_profile_empty
+      ignore_errors: true
+    
+    - name: Create a L3out routed sub-interface with ptp user_profile reference without template
+      cisco.mso.ndo_l3out_routed_sub_interface:
+        <<: *create_routed_sub_interface_port_channel_reference
+        ptp:
+          user_profile:
+            reference:
+              name: '{{ ptp_profile_1.current.name }}'
+      register: error_create_routed_sub_interface_port_channel_invalid_user_profile_without_template
+      ignore_errors: true
+    
+    - name: Create a L3out routed sub-interface with ptp user_profile reference without both template_id and template
+      cisco.mso.ndo_l3out_routed_sub_interface:
+        <<: *create_routed_sub_interface_port_channel_reference
+        ptp:
+          user_profile:
+            reference:
+              name: '{{ ptp_profile_1.current.name }}'
+              template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+              template_id: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+      register: error_create_routed_sub_interface_port_channel_invalid_user_profile_with_both_templates
+      ignore_errors: true
+
+    - name: Assert that the errors were raised
+      ansible.builtin.assert:
+        that:
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_name is failed
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_name.msg == "Provided PTP Policy Profile with '[KVPair(key='name', value='invalid_name')]' not matching existing object(s){{":"}} ptp_profile_1, ptp_profile_2"
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_template is failed
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_template.msg.startswith("Provided template name 'invalid_template' does not exist. Existing templates{{":"}}")
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_uuid is failed
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_uuid.msg == "MSO Error 404{{":"}} policy not found"
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_empty is failed
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_empty.msg == "one of the following is required{{":"}} reference, uuid found in ptp -> user_profile"
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_without_template is failed
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_without_template.msg == "one of the following is required{{":"}} template, template_id found in ptp -> user_profile -> reference"
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_with_both_templates is failed
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_with_both_templates.msg == "parameters are mutually exclusive{{":"}} template|template_id found in ptp -> user_profile -> reference"
 
     # QUERY
 

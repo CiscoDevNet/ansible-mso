@@ -298,6 +298,44 @@ def ndo_template_object_spec(aliases=None):
     )
 
 
+def ndo_l3out_ptp_spec(aliases=None):
+    return dict(
+        type="dict",
+        options=dict(
+            mode=dict(type="str", choices=["multicast_dynamic", "multicast_master", "unicast_master"]),
+            source_address=dict(type="str"),
+            unicast_destinations=dict(type="list", elements="str"),
+            user_profile=dict(
+                type="dict",
+                options=dict(
+                    uuid=dict(type="str"),
+                    reference=dict(
+                        type="dict",
+                        aliases=["ref"],
+                        options=dict(
+                            name=dict(type="str", required=True),
+                            template=dict(type="str"),
+                            template_id=dict(type="str"),
+                        ),
+                        required_one_of=[
+                            ["template", "template_id"],
+                        ],
+                        mutually_exclusive=[
+                            ("template", "template_id"),
+                        ],
+                    ),
+                ),
+                required_one_of=[
+                    ["reference", "uuid"],
+                ],
+                mutually_exclusive=[
+                    ("reference", "uuid"),
+                ],
+            ),
+        ),
+    )
+
+
 def ndo_l3out_port_channel_spec(micro_bfd=True):
     portchannel_spec = dict(
         type="dict",

@@ -479,13 +479,14 @@ class MSOTemplate:
             return self.get_object_by_key_value_pairs("L3Out Sub-Interface", existing_l3out_interfaces, kv_list, fail_module)
         return existing_l3out_interfaces  # Query all objects
 
-    def get_l3out_svi_interface(self, l3out_object, pod_id, node_id, path, path_ref, fail_module=False):
+    def get_l3out_svi_interface(self, l3out_object, pod_id, node_id, path, encap, path_ref, fail_module=False):
         """
         Get the L3Out SVI Interface by pod_id, node_id, path, and path_ref.
         :param l3out_object: L3Out object to search for the SVI Interface -> Dict
         :param pod_id: Pod ID of the SVI Interface to search for -> Str
         :param node_id: Node ID of the SVI Interface to search for -> Str
         :param path: Path of the SVI Interface to search for -> Str
+        :param encap: Encapsulation details of the Floating SVI Interface to search for -> Dict
         :param path_ref: Path reference of the SVI Interface to search for -> Str
         :param fail_module: When match is not found fail the ansible module -> Bool
         :return: Dict | None | List[Dict] | List[]: The processed result which could be:
@@ -495,11 +496,11 @@ class MSOTemplate:
                  When both pod_id, node_id, path and path_ref are None, and the search list is empty -> List[]
         """
         existing_l3out_svi_interfaces = l3out_object.get("sviInterfaces", [])
-        if (pod_id and node_id and path) or path_ref:  # Query a specific object
+        if encap and ((pod_id and node_id and path) or path_ref):  # Query a specific object
             if path_ref:
-                kv_list = [KVPair("pathRef", path_ref)]
+                kv_list = [KVPair("pathRef", path_ref), KVPair("encap", encap)]
             else:
-                kv_list = [KVPair("podID", pod_id), KVPair("nodeID", node_id), KVPair("path", path)]
+                kv_list = [KVPair("podID", pod_id), KVPair("nodeID", node_id), KVPair("path", path), KVPair("encap", encap)]
 
             return self.get_object_by_key_value_pairs("L3Out SVI Interface", existing_l3out_svi_interfaces, kv_list, fail_module)
         return existing_l3out_svi_interfaces  # Query all objects

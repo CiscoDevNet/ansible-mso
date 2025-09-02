@@ -539,12 +539,10 @@
     - name: Update a L3out svi interface of type port (check mode)
       cisco.mso.ndo_l3out_svi_interface: &update_svi_interface_type_port
         <<: *create_svi_interface_type_port
-        ipv4_address: 10.0.0.2/24
+        ipv4_address: 10.20.0.2/24
         ipv6_address: 2::101/16
         ipv6_link_local_address: FE80::10
         ipv6_dad: disabled
-        encapsulation_type: vxlan
-        encapsulation_value: 5100
         mac: 00:22:BD:F8:19:FE
         mtu: 1000
         interface_group_policy: interface_group_policy_1
@@ -572,12 +570,12 @@
           - cm_update_svi_interface_type_port.previous == nm_create_svi_interface_type_port_again.current
           - cm_update_svi_interface_type_port.previous != cm_update_svi_interface_type_port.current
           - cm_update_svi_interface_type_port.proposed == cm_update_svi_interface_type_port.current
-          - cm_update_svi_interface_type_port.current.addresses.primaryV4 == "10.0.0.2/24"
+          - cm_update_svi_interface_type_port.current.addresses.primaryV4 == "10.20.0.2/24"
           - cm_update_svi_interface_type_port.current.addresses.primaryV6 == "2::101/16"
           - cm_update_svi_interface_type_port.current.addresses.linkLocalV6 == "FE80::10"
           - cm_update_svi_interface_type_port.current.addresses.ipV6DAD == "disabled"
-          - cm_update_svi_interface_type_port.current.encap.encapType == "vxlan"
-          - cm_update_svi_interface_type_port.current.encap.value == 5100
+          - cm_update_svi_interface_type_port.current.encap.encapType == "vlan"
+          - cm_update_svi_interface_type_port.current.encap.value == 100
           - cm_update_svi_interface_type_port.current.group == "interface_group_policy_1"
           - cm_update_svi_interface_type_port.current.mac == "00:22:BD:F8:19:FE"
           - cm_update_svi_interface_type_port.current.mtu == "1000"
@@ -612,8 +610,6 @@
           reference:
             name: '{{ port_channel_interface_1.current.name }}'
             template_id: '{{ port_channel_interface_1.current.templateId }}'
-        encapsulation_type: vlan
-        encapsulation_value: 1200
         ipv4_address: 10.0.1.1/24
         ipv6_address: 1::102/16
         ipv6_dad: disabled
@@ -649,8 +645,8 @@
           - cm_update_svi_interface_type_port_channel.current.addresses.primaryV6 == "1::102/16"
           - cm_update_svi_interface_type_port_channel.current.addresses.linkLocalV6 == "FE80::12"
           - cm_update_svi_interface_type_port_channel.current.addresses.ipV6DAD == "disabled"
-          - cm_update_svi_interface_type_port_channel.current.encap.encapType == "vlan"
-          - cm_update_svi_interface_type_port_channel.current.encap.value == 1200
+          - cm_update_svi_interface_type_port_channel.current.encap.encapType == "vxlan"
+          - cm_update_svi_interface_type_port_channel.current.encap.value == 50001
           - cm_update_svi_interface_type_port_channel.current.group == "interface_group_policy_1"
           - cm_update_svi_interface_type_port_channel.current.mac == "00:22:BD:F8:19:CC"
           - cm_update_svi_interface_type_port_channel.current.mtu == "1800"
@@ -682,8 +678,8 @@
           - nm_update_svi_interface_type_port_channel.current.addresses.primaryV6 == "1::102/16"
           - nm_update_svi_interface_type_port_channel.current.addresses.linkLocalV6 == "FE80::12"
           - nm_update_svi_interface_type_port_channel.current.addresses.ipV6DAD == "disabled"
-          - nm_update_svi_interface_type_port_channel.current.encap.encapType == "vlan"
-          - nm_update_svi_interface_type_port_channel.current.encap.value == 1200
+          - nm_update_svi_interface_type_port_channel.current.encap.encapType == "vxlan"
+          - nm_update_svi_interface_type_port_channel.current.encap.value == 50001
           - nm_update_svi_interface_type_port_channel.current.group == "interface_group_policy_1"
           - nm_update_svi_interface_type_port_channel.current.mac == "00:22:BD:F8:19:CC"
           - nm_update_svi_interface_type_port_channel.current.mtu == "1800"
@@ -715,8 +711,8 @@
         <<: *mso_info
         template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: l3out_1
-        encapsulation_type: vxlan
-        encapsulation_value: 51000
+        encapsulation_type: vlan
+        encapsulation_value: 1000
         node_router_id: 1.1.1.1
         ipv4_address: 10.0.2.4/24
         ipv6_address: 10::105/16
@@ -767,8 +763,8 @@
           - cm_update_svi_interface_type_virtual_port_channel.current.sideBAddresses.primaryV6 == "10::106/16"
           - cm_update_svi_interface_type_virtual_port_channel.current.sideBAddresses.linkLocalV6 == "FE80::15"
           - cm_update_svi_interface_type_virtual_port_channel.current.sideBAddresses.ipV6DAD == "disabled"
-          - cm_update_svi_interface_type_virtual_port_channel.current.encap.encapType == "vxlan"
-          - cm_update_svi_interface_type_virtual_port_channel.current.encap.value == 51000
+          - cm_update_svi_interface_type_virtual_port_channel.current.encap.encapType == "vlan"
+          - cm_update_svi_interface_type_virtual_port_channel.current.encap.value == 1000
           - cm_update_svi_interface_type_virtual_port_channel.current.group == "interface_group_policy_1"
           - cm_update_svi_interface_type_virtual_port_channel.current.mac == "00:22:BD:F8:19:AD"
           - cm_update_svi_interface_type_virtual_port_channel.current.mtu == "9216"
@@ -810,8 +806,8 @@
           - nm_update_svi_interface_type_virtual_port_channel.current.sideBAddresses.primaryV6 == "10::106/16"
           - nm_update_svi_interface_type_virtual_port_channel.current.sideBAddresses.linkLocalV6 == "FE80::15"
           - nm_update_svi_interface_type_virtual_port_channel.current.sideBAddresses.ipV6DAD == "disabled"
-          - nm_update_svi_interface_type_virtual_port_channel.current.encap.encapType == "vxlan"
-          - nm_update_svi_interface_type_virtual_port_channel.current.encap.value == 51000
+          - nm_update_svi_interface_type_virtual_port_channel.current.encap.encapType == "vlan"
+          - nm_update_svi_interface_type_virtual_port_channel.current.encap.value == 1000
           - nm_update_svi_interface_type_virtual_port_channel.current.group == "interface_group_policy_1"
           - nm_update_svi_interface_type_virtual_port_channel.current.mac == "00:22:BD:F8:19:AD"
           - nm_update_svi_interface_type_virtual_port_channel.current.mtu == "9216"
@@ -1222,6 +1218,33 @@
 
     # QUERY
 
+    - name: Create another L3out svi interface of type port
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *create_svi_interface_type_port
+        encapsulation_type: vlan
+        encapsulation_value: 200
+        ipv4_address: 10.30.0.1/24
+
+    - name: Create another L3out svi interface of type port channel
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *create_svi_interface_type_port_channel
+        encapsulation_type: vlan
+        encapsulation_value: 2000
+        ipv4_address: 10.70.0.1/24
+        ipv6_address: 7::107/16
+
+    - name: Create another L3out svi interface of type virtual port channel
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *create_svi_interface_type_virtual_port_channel
+        encapsulation_type: vxlan
+        encapsulation_value: 60000
+        ipv4_address: 10.80.0.1/24
+        virtual_port_channel: 
+          reference:
+            name: ansible_virtual_port_channel_interface_1
+            template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+          side_b_ipv4_address: 10.80.0.2/24
+
     - name: Get a L3out svi interface of type port
       cisco.mso.ndo_l3out_svi_interface:
         <<: *create_svi_interface_type_port
@@ -1276,7 +1299,7 @@
           - query_svi_interface_type_virtual_port_channel.current.virtualPortChannelTemplateId is defined
           - query_svi_interface_type_virtual_port_channel.current.virtualPortChannelTemplateName is defined
           - query_all_svi_interfaces is not changed
-          - query_all_svi_interfaces.current | length == 3
+          - query_all_svi_interfaces.current | length == 6
 
     # DELETE
 

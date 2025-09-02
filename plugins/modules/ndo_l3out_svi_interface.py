@@ -709,7 +709,7 @@ def main():
             virtual_port_channel_uuid=virtual_port_channel_uuid,
         ).get("pod")
 
-    match = mso_template.get_l3out_svi_interface(l3out_object.details, pod_id, node_id, path, port_channel_uuid or virtual_port_channel_uuid)
+    match = mso_template.get_l3out_svi_interface(l3out_object.details, pod_id, node_id, path, encap, port_channel_uuid or virtual_port_channel_uuid)
     if (path or port_channel or virtual_port_channel) and match:
         set_svi_interface_details(mso_template, match.details, l3out_object)
         mso.existing = mso.previous = copy.deepcopy(match.details)  # Query a specific object
@@ -822,7 +822,7 @@ def main():
 
         response = mso.l3out_interface_request(mso_template, ops, ignore_errors, state, remove_ops)
         l3out_object = mso_template.get_l3out_object(l3out_uuid, l3out, True, search_object=response)
-        match = mso_template.get_l3out_svi_interface(l3out_object.details, pod_id, node_id, path, port_channel_uuid or virtual_port_channel_uuid)
+        match = mso_template.get_l3out_svi_interface(l3out_object.details, pod_id, node_id, path, encap, port_channel_uuid or virtual_port_channel_uuid)
         if match:
             set_svi_interface_details(mso_template, match.details, l3out_object)
             mso.existing = match.details  # When the state is present

@@ -336,8 +336,53 @@ def ndo_l3out_ptp_spec(aliases=None):
     )
 
 
+def ndo_l3out_virtual_port_channel_spec(side_b=True):
+    virtual_port_channel_spec = dict(
+        dict(
+            type="dict",
+            aliases=["vpc"],
+            options=dict(
+                uuid=dict(type="str"),
+                reference=dict(
+                    type="dict",
+                    aliases=["ref"],
+                    options=dict(
+                        name=dict(type="str", required=True),
+                        template=dict(type="str"),
+                        template_id=dict(type="str"),
+                    ),
+                    required_one_of=[
+                        ["template", "template_id"],
+                    ],
+                    mutually_exclusive=[
+                        ("template", "template_id"),
+                    ],
+                ),
+            ),
+            required_one_of=[
+                ["reference", "uuid"],
+            ],
+            mutually_exclusive=[
+                ("reference", "uuid"),
+            ],
+        ),
+    )
+
+    if side_b:
+        virtual_port_channel_spec["options"]["side_b_ipv4_address"] = dict(type="str")
+        virtual_port_channel_spec["options"]["side_b_ipv6_address"] = dict(type="str")
+        virtual_port_channel_spec["options"]["side_b_ipv6_link_local_address"] = dict(type="str")
+        virtual_port_channel_spec["options"]["side_b_ipv6_dad"] = dict(type="str", choices=["enabled", "disabled"])
+        virtual_port_channel_spec["options"]["side_b_node_group_policy"] = dict(type="str")
+        virtual_port_channel_spec["options"]["side_b_node_router_id"] = dict(type="str", aliases=["router_id"])
+        virtual_port_channel_spec["options"]["side_b_use_router_id_as_loopback"] = dict(type="bool")
+        virtual_port_channel_spec["options"]["side_b_node_loopback_ip"] = dict(type="str", aliases=["loopback_ip"])
+
+    return virtual_port_channel_spec
+
+
 def ndo_l3out_port_channel_spec(micro_bfd=True):
-    portchannel_spec = dict(
+    port_channel_spec = dict(
         type="dict",
         aliases=["pc"],
         options=dict(
@@ -367,11 +412,11 @@ def ndo_l3out_port_channel_spec(micro_bfd=True):
     )
 
     if micro_bfd:
-        portchannel_spec["options"]["micro_bfd_enabled"] = dict(type="bool")
-        portchannel_spec["options"]["micro_bfd_address"] = dict(type="str")
-        portchannel_spec["options"]["micro_bfd_start_timer"] = dict(type="int")
+        port_channel_spec["options"]["micro_bfd_enabled"] = dict(type="bool")
+        port_channel_spec["options"]["micro_bfd_address"] = dict(type="str")
+        port_channel_spec["options"]["micro_bfd_start_timer"] = dict(type="int")
 
-    return portchannel_spec
+    return port_channel_spec
 
 
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py

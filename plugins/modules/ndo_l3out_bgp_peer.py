@@ -43,11 +43,106 @@ options:
     - The UUID of the L3Out.
     - This parameter or O(l3out) is required.
     type: str
+  parent_type:
+    description:
+    - The parent type of the L3Out.
+    type: str
+    default: node_group
+    choices: [ floating_svi, node_group, routed, routed_sub, svi ]
   node_group:
     description:
     - The name of the Node Group Policy.
     type: str
-    required: true
+  node_id:
+    description:
+    - The ID of the node (border leaf switch).
+    type: str
+    aliases: [ node, border_leaf, anchor_node ]
+  path:
+    description:
+    - The path of the interface.
+    - The path is an existing physical port (eth1/1).
+    type: str
+    aliases: [ interface ]
+  port_channel:
+    description:
+    - The port channel details.
+    type: dict
+    aliases: [ pc ]
+    suboptions:
+      uuid:
+        description:
+        - The UUID of the port channel.
+        - This parameter or O(port_channel.reference) is required.
+        type: str
+      reference:
+        description:
+        - The reference details of the port channel.
+        - This parameter or O(port_channel.uuid) is required.
+        type: dict
+        aliases: [ ref ]
+        suboptions:
+          name:
+            description:
+            - The name of the port channel.
+            type: str
+            required: true
+          template:
+            description:
+            - The name of the template that contains the port channel.
+            - This parameter or O(port_channel.reference.template_id) is required.
+            type: str
+          template_id:
+            description:
+            - The ID of the template that contains the port channel.
+            - This parameter or O(port_channel.reference.template) is required.
+            type: str
+  virtual_port_channel:
+    description:
+    - The virtual port channel details.
+    type: dict
+    aliases: [ vpc ]
+    suboptions:
+      uuid:
+        description:
+        - The UUID of the virtual port channel.
+        - This parameter or O(virtual_port_channel.reference) is required.
+        type: str
+      reference:
+        description:
+        - The reference details of the virtual port channel.
+        - This parameter or O(virtual_port_channel.uuid) is required.
+        type: dict
+        aliases: [ ref ]
+        suboptions:
+          name:
+            description:
+            - The name of the virtual port channel.
+            type: str
+            required: true
+          template:
+            description:
+            - The name of the template that contains the virtual port channel.
+            - This parameter or O(virtual_port_channel.reference.template_id) is required.
+            type: str
+          template_id:
+            description:
+            - The ID of the template that contains the virtual port channel.
+            - This parameter or O(virtual_port_channel.reference.template) is required.
+            type: str
+  encapsulation_type:
+    description:
+    - The encapsulation type of the interface.
+    type: str
+    aliases: [ encap_type ]
+    choices: [ vlan, vxlan ]
+  encapsulation_value:
+    description:
+    - The encapsulation value of the interface.
+    - The option O(encapsulation_type=vlan), specifies VLAN ID which must be in the range 1 - 4094.
+    - The option O(encapsulation_type=vxlan), specifies VXLAN Network Identifier (VNI) which must be in the range 5000 - 16777215.
+    type: int
+    aliases: [ encap, encapsulation, encapsulation_id ]
   ipv4_address:
     description:
     - The IPv4 address of the L3Out BGP Peer.
@@ -326,6 +421,63 @@ EXAMPLES = r"""
     auth_password: 123
     state: present
 
+- name: Create L3Out BGP Peer on a L3out routed interface of type port
+  cisco.mso.ndo_l3out_bgp_peer:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: l3out_template
+    l3out: l3out_1
+    ipv4_address: 5.5.5.5
+    parent_type: routed
+    node_id: 101
+    path: eth1/1
+    state: present
+
+- name: Create a L3out routed sub-interface of type port channel
+  cisco.mso.ndo_l3out_routed_sub_interface:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: l3out_template
+    l3out: l3out_1
+    ipv4_address: 5.5.5.5
+    parent_type: routed_sub
+    port_channel:
+      uuid: '{{ port_channel_interface_1.current.uuid }}'
+    encapsulation_type: vlan
+    encapsulation_value: 100
+    state: present
+
+- name: Create L3Out BGP Peer on a L3out svi interface of type virtual port channel
+  cisco.mso.ndo_l3out_bgp_peer:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: l3out_template
+    l3out: l3out_1
+    ipv4_address: 5.5.5.5
+    parent_type: svi
+    virtual_port_channel:
+      uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
+    encapsulation_type: vlan
+    encapsulation_value: 100
+    state: present
+
+- name: Create L3Out BGP Peer on a L3out floating svi interface
+  cisco.mso.ndo_l3out_bgp_peer:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: l3out_template
+    l3out: l3out_1
+    ipv4_address: "1.1.1.1"
+    parent_type: floating_svi
+    node_id: 101
+    encapsulation_type: vlan
+    encapsulation_value: 100
+    state: present
+
 - name: Update an L3Out BGP Peer with full configuration
   cisco.mso.ndo_l3out_bgp_peer:
     host: mso_host
@@ -462,8 +614,14 @@ RETURN = r"""
 
 import copy
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, ndo_template_object_spec
-from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate, KVPair
+from ansible_collections.cisco.mso.plugins.module_utils.mso import (
+    MSOModule,
+    mso_argument_spec,
+    ndo_template_object_spec,
+    ndo_l3out_port_channel_spec,
+    ndo_l3out_virtual_port_channel_spec,
+)
+from ansible_collections.cisco.mso.plugins.module_utils.template import KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
 from ansible_collections.cisco.mso.plugins.module_utils.constants import LOCAL_ASN_CONFIG
 from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, check_if_all_elements_are_none
@@ -476,7 +634,16 @@ def main():
         template_id=dict(type="str", aliases=["l3out_template_id"]),
         l3out=dict(type="str"),
         l3out_uuid=dict(type="str"),
-        node_group=dict(type="str", required=True),
+        # Default is use because the first release of the module only supported node_group type
+        # This way no changes are needed for existing playbooks
+        parent_type=dict(type="str", choices=["floating_svi", "node_group", "routed", "routed_sub", "svi"], default="node_group"),
+        node_group=dict(type="str"),
+        node_id=dict(type="str", aliases=["node", "border_leaf", "anchor_node"]),
+        path=dict(type="str", aliases=["interface"]),
+        port_channel=ndo_l3out_port_channel_spec(micro_bfd=False),
+        virtual_port_channel=ndo_l3out_virtual_port_channel_spec(side_b=False),
+        encapsulation_type=dict(type="str", choices=["vlan", "vxlan"], aliases=["encap_type"]),
+        encapsulation_value=dict(type="int", aliases=["encap", "encapsulation", "encapsulation_id"]),
         ipv4_address=dict(type="str", aliases=["peer_address_ipv4"]),
         ipv6_address=dict(type="str", aliases=["peer_address_ipv6"]),
         remote_asn=dict(type="str"),
@@ -540,13 +707,26 @@ def main():
         required_if=[
             ["state", "present", ["ipv4_address", "ipv6_address"], True],
             ["state", "absent", ["ipv4_address", "ipv6_address"], True],
+            ["parent_type", "node_group", ["node_group"]],
+            ["parent_type", "routed", ["path", "port_channel"], True],
+            ["parent_type", "routed_sub", ["path", "port_channel"], True],
+            ["parent_type", "routed_sub", ["encapsulation_type", "encapsulation_value"]],
+            ["parent_type", "svi", ["path", "port_channel", "virtual_port_channel"], True],
+            ["parent_type", "svi", ["encapsulation_type", "encapsulation_value"]],
+            ["parent_type", "floating_svi", ["node_id", "encapsulation_type", "encapsulation_value"]],
         ],
+        required_by={"path": ("node_id")},
         mutually_exclusive=[
             ("template", "template_id"),
             ("l3out", "l3out_uuid"),
             ("import_route_map", "import_route_map_uuid"),
             ("export_route_map", "export_route_map_uuid"),
             ("peer_prefix", "peer_prefix_uuid"),
+            ("port_channel", "path"),
+            ("port_channel", "node_id"),
+            ("port_channel", "virtual_port_channel"),
+            ("virtual_port_channel", "path"),
+            ("virtual_port_channel", "node_id"),
         ],
         required_one_of=[
             ["template", "template_id"],
@@ -555,12 +735,13 @@ def main():
     )
 
     mso = MSOModule(module)
+    mso_templates = MSOTemplates(mso)
 
     template = module.params.get("template")
     template_id = module.params.get("template_id")
     l3out = module.params.get("l3out")
     l3out_uuid = module.params.get("l3out_uuid")
-    node_group = module.params.get("node_group")
+    parent_type = module.params.get("parent_type")
     ipv4_addr = module.params.get("ipv4_address")
     ipv6_addr = module.params.get("ipv6_address")
     remote_asn = module.params.get("remote_asn")
@@ -586,54 +767,26 @@ def main():
     private_as_controls = module.params.get("private_as_controls")
     state = module.params.get("state")
 
-    mso_template = MSOTemplate(mso, "l3out", template, template_id)
+    mso_template = mso_templates.get_template("l3out", template, template_id)
     mso_template.validate_template("l3out")
     mso_template.check_template_when_name_is_provided(import_route_map)
     mso_template.check_template_when_name_is_provided(export_route_map)
     mso_template.check_template_when_name_is_provided(peer_prefix)
 
     l3out_object = mso_template.get_l3out_object(uuid=l3out_uuid, name=l3out, fail_module=True)
-    node_group_object = mso_template.get_l3out_node_group(node_group, l3out_object.details, fail_module=True)
+    parent_object, parent_path = mso_template.get_parent_details_for_nested_object_in_l3out(mso_templates, l3out_object)
 
-    bgp_peer_objects = get_bgp_peer_by_address(mso_template, node_group_object.details.get("bgpPeers", []), ipv4_addr=ipv4_addr, ipv6_addr=ipv6_addr)
-
-    reference_dict = {
-        "peerPrefix": {
-            "name": "peerPrefixName",
-            "reference": "peerPrefixRef",
-            "type": "bgpPeerPrefixPol",
-            "template": "peerPrefixTemplateName",
-            "templateId": "peerPrefixTemplateId",
-        },
-        "importRouteMap": {
-            "name": "importRouteMapName",
-            "reference": "importRouteMapRef",
-            "type": "routeMap",
-            "template": "importRouteMapTemplateName",
-            "templateId": "importRouteMapTemplateId",
-        },
-        "exportRouteMap": {
-            "name": "exportRouteMapName",
-            "reference": "exportRouteMapRef",
-            "type": "routeMap",
-            "template": "exportRouteMapTemplateName",
-            "templateId": "exportRouteMapTemplateId",
-        },
-    }
+    bgp_peer_objects = get_bgp_peer_by_address(mso_template, parent_object.details.get("bgpPeers", []), ipv4_addr=ipv4_addr, ipv6_addr=ipv6_addr)
 
     if bgp_peer_objects and (ipv4_addr or ipv6_addr):
-        mso_template.update_config_with_template_and_references(bgp_peer_objects.details, reference_dict)
+        set_bgp_peer_details(mso_template, parent_type, parent_object.details, bgp_peer_objects.details)
         mso.existing = copy.deepcopy(bgp_peer_objects.details)  # Query a specific object
         mso.previous = copy.deepcopy(bgp_peer_objects.details)  # Query a specific object
     elif bgp_peer_objects:
-        mso.existing = [
-            mso_template.update_config_with_template_and_references(bgp_peer, reference_dict) for bgp_peer in bgp_peer_objects
-        ]  # Query all objects
+        mso.existing = [set_bgp_peer_details(mso_template, parent_type, parent_object.details, bgp_peer) for bgp_peer in bgp_peer_objects]  # Query all objects
 
     if state != "query":
-        bgp_peer_path = "/l3outTemplate/l3outs/{0}/nodeGroups/{1}/bgpPeers/{2}".format(
-            l3out_object.index, node_group_object.index, bgp_peer_objects.index if bgp_peer_objects else "-"
-        )
+        bgp_peer_path = "{0}/bgpPeers/{1}".format(parent_path, bgp_peer_objects.index if bgp_peer_objects else "-")
 
     ops = []
 
@@ -871,26 +1024,18 @@ def main():
 
     if not module.check_mode and ops:
         mso_template.template = mso.request(mso_template.template_path, method="PATCH", data=ops)
-        match = get_bgp_peer_by_address(
-            mso_template,
-            mso_template.get_l3out_node_group(
-                node_group,
-                mso_template.get_l3out_object(uuid=l3out_uuid, name=l3out, fail_module=True).details,
-                fail_module=True,
-            ).details.get("bgpPeers", []),
-            ipv4_addr=ipv4_addr,
-            ipv6_addr=ipv6_addr,
-        )
+        l3out_object = mso_template.get_l3out_object(uuid=l3out_uuid, name=l3out, fail_module=True)
+        parent_object = mso_template.get_parent_details_for_nested_object_in_l3out(mso_templates, l3out_object)
+        match = get_bgp_peer_by_address(mso_template, parent_object[0].details.get("bgpPeers", []), ipv4_addr=ipv4_addr, ipv6_addr=ipv6_addr)
         if match:
             if match.details.get("password", {}).get("ref"):
                 match.details["password"].pop("ref", None)
-
-            mso_template.update_config_with_template_and_references(match.details, reference_dict)
+            set_bgp_peer_details(mso_template, parent_type, parent_object[0].details, match.details)
             mso.existing = match.details  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
-        mso_template.update_config_with_template_and_references(mso.proposed, reference_dict)
+        set_bgp_peer_details(mso_template, parent_type, parent_object.details, mso.proposed)
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
@@ -903,9 +1048,38 @@ def get_bgp_peer_by_address(mso_template, bgp_peers, ipv4_addr=None, ipv6_addr=N
             kv_list.append(KVPair("peerAddressV4", ipv4_addr))
         if ipv6_addr:
             kv_list.append(KVPair("peerAddressV6", ipv6_addr))
-
         return mso_template.get_object_by_key_value_pairs("L3Out BGP Peer", bgp_peers, kv_list, fail_module)
     return bgp_peers  # Query all objects
+
+
+def set_bgp_peer_details(mso_template, parent_type, parent_object, match):
+    reference_dict = {
+        "peerPrefix": {
+            "name": "peerPrefixName",
+            "reference": "peerPrefixRef",
+            "type": "bgpPeerPrefixPol",
+            "template": "peerPrefixTemplateName",
+            "templateId": "peerPrefixTemplateId",
+        },
+        "importRouteMap": {
+            "name": "importRouteMapName",
+            "reference": "importRouteMapRef",
+            "type": "routeMap",
+            "template": "importRouteMapTemplateName",
+            "templateId": "importRouteMapTemplateId",
+        },
+        "exportRouteMap": {
+            "name": "exportRouteMapName",
+            "reference": "exportRouteMapRef",
+            "type": "routeMap",
+            "template": "exportRouteMapTemplateName",
+            "templateId": "exportRouteMapTemplateId",
+        },
+    }
+
+    mso_template.update_config_with_template_and_references(match, reference_dict)
+    mso_template.set_parent_details_for_nested_object_in_l3out(parent_type, parent_object, match)
+    return match
 
 
 if __name__ == "__main__":

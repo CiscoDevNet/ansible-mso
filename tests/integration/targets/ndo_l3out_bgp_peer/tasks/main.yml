@@ -58,6 +58,24 @@
           - name: '{{ mso_site | default("ansible_test") }}'
         state: absent
 
+    - name: Ensure ansible_fabric_resource_template does not exist
+      cisco.mso.ndo_template: &ndo_fabric_resource_template_absent
+        <<: *mso_info
+        name: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template_type: fabric_resource
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_fabric_policy_template does not exist
+      cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
+        <<: *mso_info
+        name: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template_type: fabric_policy
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
     - name: Ensure ansible_test_policy tenant policy template not exists
       cisco.mso.ndo_template: &tenant_pol_template_absent
         <<: *mso_info
@@ -107,6 +125,74 @@
         - ansible_test_bgp_peer_prefix_policy
         - ansible_test_bgp_peer_prefix_policy_1
 
+    # Fabric Policy Template Setup
+    - name: Create a fabric_policy template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_policy_template_absent
+        state: present
+
+    - name: Create a VLAN pool in the fabric_policy template
+      cisco.mso.ndo_vlan_pool:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        vlan_pool: ansible_test_vlan_pool_1
+        vlan_ranges:
+          - from_vlan: 100
+            to_vlan: 200
+        state: present
+
+    - name: Create a L3 domain in the fabric_policy template
+      cisco.mso.ndo_l3_domain:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        l3_domain: ansible_test_l3_domain
+        pool: ansible_test_vlan_pool_1
+        state: present
+
+    - name: Create a interface policy group of type port channel
+      cisco.mso.ndo_interface_setting:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        name: ansible_test_interface_policy_group_port_channel
+        interface_type: port_channel
+        state: present
+
+    # Tenant Resource Template Setup
+    - name: Create a fabric_resource template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_resource_template_absent
+        state: present
+
+    - name: Create port_channel_interface_1 in the fabric_resource template
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        port_channel_interface: ansible_port_channel_interface_1
+        node: 101
+        interfaces: 1/20
+        interface_policy_group:
+          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          name: ansible_test_interface_policy_group_port_channel
+        state: present
+      register: port_channel_interface_1
+
+    - name: Create ansible_virtual_port_channel_interface_1 in the fabric_resource template
+      cisco.mso.ndo_virtual_port_channel_interface:
+        <<: *mso_info
+        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        name: ansible_virtual_port_channel_interface_1
+        node_1: 101
+        node_2: 102
+        interfaces_node_1:
+          - 1/21
+        interfaces_node_2:
+          - 1/21
+        interface_policy_group:
+          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          name: ansible_test_interface_policy_group_port_channel
+        state: present
+      register: virtual_port_channel_interface_1
+
     # L3Out Template Setup
     - name: Create a new l3out template
       cisco.mso.ndo_template:
@@ -129,6 +215,7 @@
           name: "VRF1"
           schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
+        l3_domain: ansible_test_l3_domain
         bgp:
           state: enabled
         state: "present"
@@ -202,13 +289,15 @@
           - cm_bgp_peer_ipv4_present.current.password.value == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
           - cm_bgp_peer_ipv4_present.current.peerAddressV4 == "1.1.1.1"
           - cm_bgp_peer_ipv4_present.current.templateId != ""
-          - cm_bgp_peer_ipv4_present.current.templateName == "ansible_test"
+          - cm_bgp_peer_ipv4_present.current.templateName is defined
+          - cm_bgp_peer_ipv4_present.current.nodeGroupName == "node_group_policy_1"
           - cm_bgp_peer_ipv4_present.previous == {}
           - cm_bgp_peer_ipv4_present.proposed.authEnabled == true
           - cm_bgp_peer_ipv4_present.proposed.password.value == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
           - cm_bgp_peer_ipv4_present.proposed.peerAddressV4 == "1.1.1.1"
           - cm_bgp_peer_ipv4_present.proposed.templateId != ""
-          - cm_bgp_peer_ipv4_present.proposed.templateName == "ansible_test"
+          - cm_bgp_peer_ipv4_present.proposed.templateName is defined
+          - cm_bgp_peer_ipv4_present.proposed.nodeGroupName == "node_group_policy_1"
           - nm_bgp_peer_ipv4_present is changed
           - nm_bgp_peer_ipv4_present.current.adminState == "enabled"
           - nm_bgp_peer_ipv4_present.current.allowedSelfASCount == 3
@@ -216,7 +305,8 @@
           - nm_bgp_peer_ipv4_present.current.ebpgMultiHopTTL == 1
           - nm_bgp_peer_ipv4_present.current.peerAddressV4 == "1.1.1.1"
           - nm_bgp_peer_ipv4_present.current.templateId != ""
-          - nm_bgp_peer_ipv4_present.current.templateName == "ansible_test"
+          - nm_bgp_peer_ipv4_present.current.templateName is defined
+          - nm_bgp_peer_ipv4_present.current.nodeGroupName == "node_group_policy_1"
           - nm_bgp_peer_ipv4_present.previous == {}
           - nm_bgp_peer_ipv4_present_again is not changed
           - nm_bgp_peer_ipv4_present_again.current.adminState == "enabled"
@@ -225,14 +315,16 @@
           - nm_bgp_peer_ipv4_present_again.current.ebpgMultiHopTTL == 1
           - nm_bgp_peer_ipv4_present_again.current.peerAddressV4 == "1.1.1.1"
           - nm_bgp_peer_ipv4_present_again.current.templateId != ""
-          - nm_bgp_peer_ipv4_present_again.current.templateName == "ansible_test"
+          - nm_bgp_peer_ipv4_present_again.current.templateName is defined
+          - nm_bgp_peer_ipv4_present_again.current.nodeGroupName == "node_group_policy_1"
           - nm_bgp_peer_ipv4_present_again.previous.adminState == "enabled"
           - nm_bgp_peer_ipv4_present_again.previous.allowedSelfASCount == 3
           - nm_bgp_peer_ipv4_present_again.previous.authEnabled == true
           - nm_bgp_peer_ipv4_present_again.previous.ebpgMultiHopTTL == 1
           - nm_bgp_peer_ipv4_present_again.previous.peerAddressV4 == "1.1.1.1"
           - nm_bgp_peer_ipv4_present_again.previous.templateId != ""
-          - nm_bgp_peer_ipv4_present_again.previous.templateName == "ansible_test"
+          - nm_bgp_peer_ipv4_present_again.previous.templateName is defined
+          - nm_bgp_peer_ipv4_present_again.previous.nodeGroupName is defined
 
     # CREATE WITH DIFFERENT COMBINATIONS
     - name: Create L3Out BGP Peer full config using only ipv6
@@ -408,7 +500,7 @@
           - add_ipv6_bgp_peer.current.privateASControls.replaceWithLocalAS == true
           - add_ipv6_bgp_peer.current.siteOfOrigin == "extended:as2-nn2:1000:65534"
           - add_ipv6_bgp_peer.current.templateId != ""
-          - add_ipv6_bgp_peer.current.templateName == "ansible_test"
+          - add_ipv6_bgp_peer.current.templateName is defined
           - add_ipv6_bgp_peer.current.weight == 2
           - add_ipv6_bgp_peer.previous == {}
           - add_ipv4_ipv6_addr is changed
@@ -419,7 +511,7 @@
           - add_ipv4_ipv6_addr.current.peerAddressV4 == "5.5.5.5"
           - add_ipv4_ipv6_addr.current.peerAddressV6 == "1::19/16"
           - add_ipv4_ipv6_addr.current.templateId != ""
-          - add_ipv4_ipv6_addr.current.templateName == "ansible_test"
+          - add_ipv4_ipv6_addr.current.templateName is defined
           - add_ipv4_ipv6_addr.previous == {}
           - cm_add_ipv6_bgp_peer_with_obj_uuid is changed
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.authEnabled == false
@@ -437,7 +529,7 @@
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateId != ""
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateName == "ansible_test_policy"
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.templateId != ""
-          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.templateName == "ansible_test"
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.templateName is defined
           - cm_add_ipv6_bgp_peer_with_obj_uuid.previous == {}
           - add_ipv6_bgp_peer_with_obj_uuid is changed
           - add_ipv6_bgp_peer_with_obj_uuid.current.adminState == "enabled"
@@ -458,7 +550,7 @@
           - add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateId != ""
           - add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateName == "ansible_test_policy"
           - add_ipv6_bgp_peer_with_obj_uuid.current.templateId != ""
-          - add_ipv6_bgp_peer_with_obj_uuid.current.templateName == "ansible_test"
+          - add_ipv6_bgp_peer_with_obj_uuid.current.templateName is defined
           - add_ipv6_bgp_peer_with_obj_uuid.previous == {}
           - add_bgp_peer_with_default_ctrl is changed
           - add_bgp_peer_with_default_ctrl.current.addressTypeControls.afMast == false
@@ -482,10 +574,10 @@
           - add_bgp_peer_with_default_ctrl.current.privateASControls.removeExclusive == false
           - add_bgp_peer_with_default_ctrl.current.privateASControls.replaceWithLocalAS == false
           - add_bgp_peer_with_default_ctrl.current.templateId != ""
-          - add_bgp_peer_with_default_ctrl.current.templateName == "ansible_test"
+          - add_bgp_peer_with_default_ctrl.current.templateName is defined
           - add_bgp_peer_with_default_ctrl.previous == {}
 
-    # # UPDATE
+    # UPDATE
     - name: Clear route map and peer prefix config from the L3Out BGP Peer using UUID with empty string (check_mode)
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
@@ -548,7 +640,7 @@
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateId != ""
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateName == "ansible_test_policy"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.templateId != ""
-          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.templateName == "ansible_test"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.templateName is defined
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.adminState == "enabled"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.allowedSelfASCount == 3
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.authEnabled == false
@@ -567,7 +659,7 @@
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateId != ""
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateName == "ansible_test_policy"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateId != ""
-          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateName == "ansible_test"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateName is defined
           - nm_update_ipv6_bgp_peer_with_obj_uuid is changed
           - nm_update_ipv6_bgp_peer_with_obj_uuid.current.adminState == "enabled"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.current.allowedSelfASCount == 3
@@ -575,7 +667,7 @@
           - nm_update_ipv6_bgp_peer_with_obj_uuid.current.ebpgMultiHopTTL == 1
           - nm_update_ipv6_bgp_peer_with_obj_uuid.current.peerAddressV6 == "1::20/16"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.current.templateId != ""
-          - nm_update_ipv6_bgp_peer_with_obj_uuid.current.templateName == "ansible_test"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.current.templateName is defined
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.adminState == "enabled"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.allowedSelfASCount == 3
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.authEnabled == false
@@ -594,7 +686,7 @@
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateId != ""
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateName == "ansible_test_policy"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateId != ""
-          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateName == "ansible_test"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateName is defined
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again is not changed
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.adminState == "enabled"
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.allowedSelfASCount == 3
@@ -602,14 +694,14 @@
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.ebpgMultiHopTTL == 1
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.peerAddressV6 == "1::20/16"
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.templateId != ""
-          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.templateName == "ansible_test"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.current.templateName is defined
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.adminState == "enabled"
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.allowedSelfASCount == 3
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.authEnabled == false
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.ebpgMultiHopTTL == 1
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.peerAddressV6 == "1::20/16"
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.templateId != ""
-          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.templateName == "ansible_test"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid_again.previous.templateName is defined
 
     - name: Change additional attribute values of an existing L3Out BGP Peer object
       cisco.mso.ndo_l3out_bgp_peer:
@@ -745,7 +837,7 @@
           - update_ipv6_bgp_peer.current.privateASControls.removeExclusive == true
           - update_ipv6_bgp_peer.current.privateASControls.replaceWithLocalAS == true
           - update_ipv6_bgp_peer.current.templateId != ""
-          - update_ipv6_bgp_peer.current.templateName == "ansible_test"
+          - update_ipv6_bgp_peer.current.templateName is defined
           - update_ipv6_bgp_peer.previous.addressTypeControls.afMast == true
           - update_ipv6_bgp_peer.previous.addressTypeControls.afUcast == true
           - update_ipv6_bgp_peer.previous.adminState == "enabled"
@@ -783,7 +875,7 @@
           - update_ipv6_bgp_peer.previous.privateASControls.replaceWithLocalAS == true
           - update_ipv6_bgp_peer.previous.siteOfOrigin == "extended:as2-nn2:1000:65534"
           - update_ipv6_bgp_peer.previous.templateId != ""
-          - update_ipv6_bgp_peer.previous.templateName == "ansible_test"
+          - update_ipv6_bgp_peer.previous.templateName is defined
           - update_ipv6_bgp_peer.previous.weight == 2
           - clear_ctrl_attr is changed
           - clear_ctrl_attr.current.adminState == "enabled"
@@ -793,7 +885,7 @@
           - clear_ctrl_attr.current.localAsnConfig == "none"
           - clear_ctrl_attr.current.peerAddressV6 == "1::8/16"
           - clear_ctrl_attr.current.templateId != ""
-          - clear_ctrl_attr.current.templateName == "ansible_test"
+          - clear_ctrl_attr.current.templateName is defined
           - clear_ctrl_attr.previous.addressTypeControls.afMast == true
           - clear_ctrl_attr.previous.addressTypeControls.afUcast == false
           - clear_ctrl_attr.previous.adminState == "enabled"
@@ -827,7 +919,7 @@
           - clear_ctrl_attr.previous.privateASControls.removeExclusive == true
           - clear_ctrl_attr.previous.privateASControls.replaceWithLocalAS == true
           - clear_ctrl_attr.previous.templateId != ""
-          - clear_ctrl_attr.previous.templateName == "ansible_test"
+          - clear_ctrl_attr.previous.templateName is defined
           - add_ctrl_attr_again is changed
           - add_ctrl_attr_again.current.addressTypeControls.afMast == false
           - add_ctrl_attr_again.current.addressTypeControls.afUcast == false
@@ -850,7 +942,7 @@
           - add_ctrl_attr_again.current.privateASControls.removeExclusive == false
           - add_ctrl_attr_again.current.privateASControls.replaceWithLocalAS == false
           - add_ctrl_attr_again.current.templateId != ""
-          - add_ctrl_attr_again.current.templateName == "ansible_test"
+          - add_ctrl_attr_again.current.templateName is defined
           - add_ctrl_attr_again.previous.adminState == "enabled"
           - add_ctrl_attr_again.previous.allowedSelfASCount == 3
           - add_ctrl_attr_again.previous.authEnabled == false
@@ -858,7 +950,7 @@
           - add_ctrl_attr_again.previous.localAsnConfig == "none"
           - add_ctrl_attr_again.previous.peerAddressV6 == "1::8/16"
           - add_ctrl_attr_again.previous.templateId != ""
-          - add_ctrl_attr_again.previous.templateName == "ansible_test"
+          - add_ctrl_attr_again.previous.templateName is defined
           - enable_pvt_as_ctrl_remove_all is changed
           - enable_pvt_as_ctrl_remove_all.current.peerAddressV4 == "3.3.3.3"
           - enable_pvt_as_ctrl_remove_all.current.peerAddressV6 == "1::9/16"
@@ -868,7 +960,7 @@
           - enable_pvt_as_ctrl_remove_all.current.privateASControls.removeExclusive == true
           - enable_pvt_as_ctrl_remove_all.current.privateASControls.replaceWithLocalAS == false
           - enable_pvt_as_ctrl_remove_all.current.templateId != ""
-          - enable_pvt_as_ctrl_remove_all.current.templateName == "ansible_test"
+          - enable_pvt_as_ctrl_remove_all.current.templateName is defined
           - enable_pvt_as_ctrl_remove_all.previous.peerAddressV4 == "3.3.3.3"
           - enable_pvt_as_ctrl_remove_all.previous.peerAddressV6 == "1::9/16"
           - enable_pvt_as_ctrl_remove_all.previous.peerControls.bfd == false
@@ -877,7 +969,7 @@
           - enable_pvt_as_ctrl_remove_all.previous.privateASControls.removeExclusive == false
           - enable_pvt_as_ctrl_remove_all.previous.privateASControls.replaceWithLocalAS == false
           - enable_pvt_as_ctrl_remove_all.previous.templateId != ""
-          - enable_pvt_as_ctrl_remove_all.previous.templateName == "ansible_test"
+          - enable_pvt_as_ctrl_remove_all.previous.templateName is defined
 
     # Errors and no policies found
     - name: Invalid test - create L3Out BGP Peer config without IPv4, IPv6 address
@@ -918,7 +1010,7 @@
           - nt_change_allowed_self_as_count.current.peerAddressV4 == "3.3.3.3"
           - nt_change_allowed_self_as_count.current.peerAddressV6 == "1::9/16"
           - nt_change_allowed_self_as_count.current.templateId != ""
-          - nt_change_allowed_self_as_count.current.templateName == "ansible_test"
+          - nt_change_allowed_self_as_count.current.templateName is defined
           - nt_change_allowed_self_as_count.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 3.3.3.3-1::9/16 allowedSelfASCount value is set to 4, but AllowSelfAS is false"
           - nt_change_allowed_self_as_count.previous.addressTypeControls.afMast == false
           - nt_change_allowed_self_as_count.previous.addressTypeControls.afUcast == false
@@ -1126,7 +1218,7 @@
           - query_ipv4_addr.current.peerAddressV4 == "5.5.5.5"
           - query_ipv4_addr.current.peerAddressV6 == "1::19/16"
           - query_ipv4_addr.current.templateId != ""
-          - query_ipv4_addr.current.templateName == "ansible_test"
+          - query_ipv4_addr.current.templateName is defined
           - query_all_l3out_bgp_peers_again is not changed
           - query_all_l3out_bgp_peers_again.current | length >= 5
           - query_all_l3out_bgp_peers_again.current.0.peerAddressV4 == "1.1.1.1"
@@ -1192,7 +1284,7 @@
           - nm_rm_ipv6_bgp_peer.current == {}
           - nm_rm_ipv6_bgp_peer.previous.peerAddressV6 == "1::8/16"
           - nm_rm_ipv6_bgp_peer.previous.templateId != ""
-          - nm_rm_ipv6_bgp_peer.previous.templateName == "ansible_test"
+          - nm_rm_ipv6_bgp_peer.previous.templateName is defined
           - nm_rm_ipv4_bgp_peer is changed
           - nm_rm_ipv4_bgp_peer.current == {}
           - nm_rm_ipv4_bgp_peer.previous.adminState == "enabled"
@@ -1201,7 +1293,902 @@
           - nm_rm_ipv4_bgp_peer.previous.ebpgMultiHopTTL == 1
           - nm_rm_ipv4_bgp_peer.previous.peerAddressV4 == "5.5.5.5"
           - nm_rm_ipv4_bgp_peer.previous.templateId != ""
-          - nm_rm_ipv4_bgp_peer.previous.templateName == "ansible_test"
+          - nm_rm_ipv4_bgp_peer.previous.templateName is defined
+
+    # ROUTED INTERFACES
+
+    - name: Create a L3out routed interface of type port
+      cisco.mso.ndo_l3out_routed_interface: &create_l3out_routed_interface_port
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        path: eth1/1
+        ipv4_address: 10.0.0.1/24
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        state: present
+
+    - name: Create L3Out BGP Peer on a L3out routed interface of type port
+      cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_routed_interface_port
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: "routed"
+        node_id: 101
+        path: eth1/1
+        state: present
+      register: create_bgp_peer_for_l3out_routed_interface_port
+
+    - name: Create L3Out BGP Peer on a L3out routed interface of type port again
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_routed_interface_port
+      register: create_bgp_peer_for_l3out_routed_interface_port_again
+
+    - name: Remove L3Out BGP Peer on a L3out routed interface of type port
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_routed_interface_port
+        state: absent
+      register: remove_bgp_peer_for_l3out_routed_interface_port
+
+    - name: Remove a L3out routed interface of type port
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_l3out_routed_interface_port
+        state: absent
+    
+    - name: Assert L3Out BGP Peer on a L3out routed interface of type port
+      ansible.builtin.assert:
+        that:
+          - create_bgp_peer_for_l3out_routed_interface_port is changed
+          - create_bgp_peer_for_l3out_routed_interface_port.previous == {}
+          - create_bgp_peer_for_l3out_routed_interface_port.current.peerAddressV4 == "5.5.5.5"
+          - create_bgp_peer_for_l3out_routed_interface_port.current.templateId is defined
+          - create_bgp_peer_for_l3out_routed_interface_port.current.templateName is defined
+          - create_bgp_peer_for_l3out_routed_interface_port.current.routedInterfaceNodeID == "101"
+          - create_bgp_peer_for_l3out_routed_interface_port.current.routedInterfacePath == "eth1/1"
+          - create_bgp_peer_for_l3out_routed_interface_port.current.routedInterfacePathType == "port"
+          - create_bgp_peer_for_l3out_routed_interface_port.current.routedInterfacePodID == "1"
+          - create_bgp_peer_for_l3out_routed_interface_port_again is not changed
+          - create_bgp_peer_for_l3out_routed_interface_port_again.current == create_bgp_peer_for_l3out_routed_interface_port_again.previous == create_bgp_peer_for_l3out_routed_interface_port.current
+          - remove_bgp_peer_for_l3out_routed_interface_port is changed
+          - remove_bgp_peer_for_l3out_routed_interface_port.previous.peerAddressV4 == "5.5.5.5"
+          - remove_bgp_peer_for_l3out_routed_interface_port.previous.templateId is defined
+          - remove_bgp_peer_for_l3out_routed_interface_port.previous.templateName is defined
+          - remove_bgp_peer_for_l3out_routed_interface_port.previous.routedInterfaceNodeID == "101"
+          - remove_bgp_peer_for_l3out_routed_interface_port.previous.routedInterfacePath == "eth1/1"
+          - remove_bgp_peer_for_l3out_routed_interface_port.previous.routedInterfacePathType == "port"
+          - remove_bgp_peer_for_l3out_routed_interface_port.previous.routedInterfacePodID == "1"
+          - remove_bgp_peer_for_l3out_routed_interface_port.current == {}
+
+    - name: Create a L3out routed interface of type port channel with uuid
+      cisco.mso.ndo_l3out_routed_interface: &create_l3out_routed_interface_port_channel
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        port_channel:
+          uuid: '{{ port_channel_interface_1.current.uuid }}'
+        ipv4_address: 10.0.0.1/24
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        state: present
+    
+    - name: Create L3Out BGP Peer on a L3out routed interface of type port channel
+      cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_routed_interface_port_channel
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: "routed"
+        port_channel:
+          uuid: '{{ port_channel_interface_1.current.uuid }}'
+        state: present
+      register: create_bgp_peer_for_l3out_routed_interface_port_channel
+
+    - name: Create L3Out BGP Peer on a L3out routed interface of type port channel again
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_routed_interface_port_channel
+      register: create_bgp_peer_for_l3out_routed_interface_port_channel_again
+
+    - name: Remove L3Out BGP Peer on a L3out routed interface of type port channel
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_routed_interface_port_channel
+        state: absent
+      register: remove_bgp_peer_for_l3out_routed_interface_port_channel
+
+    - name: Remove a L3out routed interface of type port channel
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *create_l3out_routed_interface_port_channel
+        state: absent
+
+    - name: Assert L3Out BGP Peer on a L3out routed interface of type port channel
+      ansible.builtin.assert:
+        that:
+          - create_bgp_peer_for_l3out_routed_interface_port_channel is changed
+          - create_bgp_peer_for_l3out_routed_interface_port_channel.previous == {}
+          - create_bgp_peer_for_l3out_routed_interface_port_channel.current.peerAddressV4 == "5.5.5.5"
+          - create_bgp_peer_for_l3out_routed_interface_port_channel.current.templateId is defined
+          - create_bgp_peer_for_l3out_routed_interface_port_channel.current.templateName is defined
+          - create_bgp_peer_for_l3out_routed_interface_port_channel.current.portChannelName == "ansible_port_channel_interface_1"
+          - create_bgp_peer_for_l3out_routed_interface_port_channel.current.portChannelTemplateId is defined
+          - create_bgp_peer_for_l3out_routed_interface_port_channel.current.portChannelTemplateName is defined
+          - create_bgp_peer_for_l3out_routed_interface_port_channel.current.routedInterfacePathRef is defined
+          - create_bgp_peer_for_l3out_routed_interface_port_channel.current.routedInterfacePathType == "pc"
+          - create_bgp_peer_for_l3out_routed_interface_port_channel_again is not changed
+          - create_bgp_peer_for_l3out_routed_interface_port_channel_again.previous == create_bgp_peer_for_l3out_routed_interface_port_channel_again.current == create_bgp_peer_for_l3out_routed_interface_port_channel.current
+          - remove_bgp_peer_for_l3out_routed_interface_port_channel is changed
+          - remove_bgp_peer_for_l3out_routed_interface_port_channel.previous.peerAddressV4 == "5.5.5.5"
+          - remove_bgp_peer_for_l3out_routed_interface_port_channel.previous.templateId is defined
+          - remove_bgp_peer_for_l3out_routed_interface_port_channel.previous.templateName is defined
+          - remove_bgp_peer_for_l3out_routed_interface_port_channel.previous.portChannelName == "ansible_port_channel_interface_1"
+          - remove_bgp_peer_for_l3out_routed_interface_port_channel.previous.portChannelTemplateId is defined
+          - remove_bgp_peer_for_l3out_routed_interface_port_channel.previous.portChannelTemplateName is defined
+          - remove_bgp_peer_for_l3out_routed_interface_port_channel.previous.routedInterfacePathRef is defined
+          - remove_bgp_peer_for_l3out_routed_interface_port_channel.previous.routedInterfacePathType == "pc"
+          - remove_bgp_peer_for_l3out_routed_interface_port_channel.current == {}
+
+    # ROUTED SUB-INTERFACES
+
+    - name: Create a L3out routed sub-interface of type port
+      cisco.mso.ndo_l3out_routed_sub_interface: &create_l3out_routed_sub_interface_port
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        path: eth1/1
+        ipv4_address: 10.0.0.1/24
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+
+    - name: Create L3Out BGP Peer on a L3out routed sub-interface of type port
+      cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_routed_sub_interface_port
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: "routed_sub"
+        node_id: 101
+        path: eth1/1
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      register: create_bgp_peer_for_l3out_routed_sub_interface_port
+
+    - name: Create L3Out BGP Peer on a L3out routed sub-interface of type port again
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_routed_sub_interface_port
+      register: create_bgp_peer_for_l3out_routed_sub_interface_port_again
+
+    - name: Remove L3Out BGP Peer on a L3out routed sub-interface of type port
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_routed_sub_interface_port
+        state: absent
+      register: remove_bgp_peer_for_l3out_routed_sub_interface_port
+
+    - name: Remove a L3out routed sub-interface of type port
+      cisco.mso.ndo_l3out_routed_sub_interface:
+        <<: *create_l3out_routed_sub_interface_port
+        state: absent
+    
+    - name: Assert L3Out BGP Peer on a L3out routed sub-interface of type port
+      ansible.builtin.assert:
+        that:
+          - create_bgp_peer_for_l3out_routed_sub_interface_port is changed
+          - create_bgp_peer_for_l3out_routed_sub_interface_port.previous == {}
+          - create_bgp_peer_for_l3out_routed_sub_interface_port.current.peerAddressV4 == "5.5.5.5"
+          - create_bgp_peer_for_l3out_routed_sub_interface_port.current.templateId is defined
+          - create_bgp_peer_for_l3out_routed_sub_interface_port.current.templateName is defined
+          - create_bgp_peer_for_l3out_routed_sub_interface_port.current.routedSubInterfaceNodeID == "101"
+          - create_bgp_peer_for_l3out_routed_sub_interface_port.current.routedSubInterfacePath == "eth1/1"
+          - create_bgp_peer_for_l3out_routed_sub_interface_port.current.routedSubInterfacePathType == "port"
+          - create_bgp_peer_for_l3out_routed_sub_interface_port.current.routedSubInterfacePodID == "1"
+          - create_bgp_peer_for_l3out_routed_sub_interface_port.current.routedSubInterfaceEncap.encapType == "vlan"
+          - create_bgp_peer_for_l3out_routed_sub_interface_port.current.routedSubInterfaceEncap.value == 100
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_again is not changed
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_again.current == create_bgp_peer_for_l3out_routed_sub_interface_port_again.previous == create_bgp_peer_for_l3out_routed_sub_interface_port.current
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port is changed
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port.previous.peerAddressV4 == "5.5.5.5"
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port.previous.templateId is defined
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port.previous.templateName is defined
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port.previous.routedSubInterfaceNodeID == "101"
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port.previous.routedSubInterfacePath == "eth1/1"
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port.previous.routedSubInterfacePathType == "port"
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port.previous.routedSubInterfacePodID == "1"
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port.previous.routedSubInterfaceEncap.encapType == "vlan"
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port.previous.routedSubInterfaceEncap.value == 100
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port.current == {}
+
+    - name: Create a L3out routed sub-interface of type port channel with uuid
+      cisco.mso.ndo_l3out_routed_sub_interface: &create_l3out_routed_sub_interface_port_channel
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        port_channel:
+          uuid: '{{ port_channel_interface_1.current.uuid }}'
+        ipv4_address: 10.0.0.1/24
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+
+    - name: Create L3Out BGP Peer on a L3out routed sub-interface of type port channel
+      cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_routed_sub_interface_port_channel
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: "routed_sub"
+        port_channel:
+          uuid: '{{ port_channel_interface_1.current.uuid }}'
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      register: create_bgp_peer_for_l3out_routed_sub_interface_port_channel
+
+    - name: Create L3Out BGP Peer on a L3out routed sub-interface of type port channel again
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_routed_sub_interface_port_channel
+      register: create_bgp_peer_for_l3out_routed_sub_interface_port_channel_again
+
+    - name: Remove L3Out BGP Peer on a L3out routed sub-interface of type port channel
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_routed_sub_interface_port_channel
+        state: absent
+      register: remove_bgp_peer_for_l3out_routed_sub_interface_port_channel
+
+    - name: Remove a L3out routed sub-interface of type port channel
+      cisco.mso.ndo_l3out_routed_sub_interface:
+        <<: *create_l3out_routed_sub_interface_port_channel
+        state: absent
+
+    - name: Assert L3Out BGP Peer on a L3out routed sub-interface of type port channel
+      ansible.builtin.assert:
+        that:
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel is changed
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel.previous == {}
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel.current.peerAddressV4 == "5.5.5.5"
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel.current.templateId is defined
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel.current.templateName is defined
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel.current.portChannelName == "ansible_port_channel_interface_1"
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel.current.portChannelTemplateId is defined
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel.current.portChannelTemplateName is defined
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel.current.routedSubInterfacePathRef is defined
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel.current.routedSubInterfacePathType == "pc"
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel.current.routedSubInterfaceEncap.encapType == "vlan"
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel.current.routedSubInterfaceEncap.value == 100
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel_again is not changed
+          - create_bgp_peer_for_l3out_routed_sub_interface_port_channel_again.previous == create_bgp_peer_for_l3out_routed_sub_interface_port_channel_again.current == create_bgp_peer_for_l3out_routed_sub_interface_port_channel.current
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port_channel is changed
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port_channel.previous.peerAddressV4 == "5.5.5.5"
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port_channel.previous.templateId is defined
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port_channel.previous.templateName is defined
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port_channel.previous.portChannelName == "ansible_port_channel_interface_1"
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port_channel.previous.portChannelTemplateId is defined
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port_channel.previous.portChannelTemplateName is defined
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port_channel.previous.routedSubInterfacePathRef is defined
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port_channel.previous.routedSubInterfacePathType == "pc"
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port_channel.previous.routedSubInterfaceEncap.encapType == "vlan"
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port_channel.previous.routedSubInterfaceEncap.value == 100
+          - remove_bgp_peer_for_l3out_routed_sub_interface_port_channel.current == {}
+
+    # SVI INTERFACES
+
+    - name: Create a L3out svi interface of type port
+      cisco.mso.ndo_l3out_svi_interface: &create_l3out_svi_interface_port
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        path: eth1/1
+        ipv4_address: 10.0.0.1/24
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+
+    - name: Create L3Out BGP Peer on a L3out svi interface of type port
+      cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_svi_interface_port
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: "svi"
+        node_id: 101
+        path: eth1/1
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      register: create_bgp_peer_for_l3out_svi_interface_port
+
+    - name: Create L3Out BGP Peer on a L3out svi interface of type port again
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_svi_interface_port
+      register: create_bgp_peer_for_l3out_svi_interface_port_again
+    
+    - name: Remove L3Out BGP Peer on a L3out svi interface of type port
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_svi_interface_port
+        state: absent
+      register: remove_bgp_peer_for_l3out_svi_interface_port
+
+    - name: Remove a L3out svi interface of type port
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *create_l3out_svi_interface_port
+        state: absent
+
+    - name: Assert L3Out BGP Peer on a L3out svi interface of type port
+      ansible.builtin.assert:
+        that:
+          - create_bgp_peer_for_l3out_svi_interface_port is changed
+          - create_bgp_peer_for_l3out_svi_interface_port.previous == {}
+          - create_bgp_peer_for_l3out_svi_interface_port.current.peerAddressV4 == "5.5.5.5"
+          - create_bgp_peer_for_l3out_svi_interface_port.current.templateId is defined
+          - create_bgp_peer_for_l3out_svi_interface_port.current.templateName is defined
+          - create_bgp_peer_for_l3out_svi_interface_port.current.sviInterfaceNodeID == "101"
+          - create_bgp_peer_for_l3out_svi_interface_port.current.sviInterfacePath == "eth1/1"
+          - create_bgp_peer_for_l3out_svi_interface_port.current.sviInterfacePathType == "port"
+          - create_bgp_peer_for_l3out_svi_interface_port.current.sviInterfacePodID == "1"
+          - create_bgp_peer_for_l3out_svi_interface_port.current.sviInterfaceEncap.encapType == "vlan"
+          - create_bgp_peer_for_l3out_svi_interface_port.current.sviInterfaceEncap.value == 100
+          - create_bgp_peer_for_l3out_svi_interface_port_again is not changed
+          - create_bgp_peer_for_l3out_svi_interface_port_again.previous == create_bgp_peer_for_l3out_svi_interface_port_again.current == create_bgp_peer_for_l3out_svi_interface_port.current
+          - remove_bgp_peer_for_l3out_svi_interface_port is changed
+          - remove_bgp_peer_for_l3out_svi_interface_port.previous.peerAddressV4 == "5.5.5.5"
+          - remove_bgp_peer_for_l3out_svi_interface_port.previous.templateId is defined
+          - remove_bgp_peer_for_l3out_svi_interface_port.previous.templateName is defined
+          - remove_bgp_peer_for_l3out_svi_interface_port.previous.sviInterfaceNodeID == "101"
+          - remove_bgp_peer_for_l3out_svi_interface_port.previous.sviInterfacePath == "eth1/1"
+          - remove_bgp_peer_for_l3out_svi_interface_port.previous.sviInterfacePathType == "port"
+          - remove_bgp_peer_for_l3out_svi_interface_port.previous.sviInterfacePodID == "1"
+          - remove_bgp_peer_for_l3out_svi_interface_port.previous.sviInterfaceEncap.encapType == "vlan"
+          - remove_bgp_peer_for_l3out_svi_interface_port.previous.sviInterfaceEncap.value == 100
+          - remove_bgp_peer_for_l3out_svi_interface_port.current == {}
+
+    - name: Create a L3out svi interface of type port channel with uuid
+      cisco.mso.ndo_l3out_svi_interface: &create_l3out_svi_interface_port_channel
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        port_channel:
+          uuid: '{{ port_channel_interface_1.current.uuid }}'
+        ipv4_address: 10.0.0.1/24
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+
+    - name: Create L3Out BGP Peer on a L3out svi interface of type port channel
+      cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_svi_interface_port_channel
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: "svi"
+        port_channel:
+          uuid: '{{ port_channel_interface_1.current.uuid }}'
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      register: create_bgp_peer_for_l3out_svi_interface_port_channel
+
+    - name: Create L3Out BGP Peer on a L3out svi interface of type port channel again
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_svi_interface_port_channel
+      register: create_bgp_peer_for_l3out_svi_interface_port_channel_again
+
+    - name: Remove L3Out BGP Peer on a L3out svi interface of type port channel
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_svi_interface_port_channel
+        state: absent
+      register: remove_bgp_peer_for_l3out_svi_interface_port_channel
+
+    - name: Remove a L3out svi interface of type port channel
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *create_l3out_svi_interface_port_channel
+        state: absent
+
+    - name: Assert L3Out BGP Peer on a L3out svi interface of type port channel
+      ansible.builtin.assert:
+        that:
+          - create_bgp_peer_for_l3out_svi_interface_port_channel is changed
+          - create_bgp_peer_for_l3out_svi_interface_port_channel.previous == {}
+          - create_bgp_peer_for_l3out_svi_interface_port_channel.current.peerAddressV4 == "5.5.5.5"
+          - create_bgp_peer_for_l3out_svi_interface_port_channel.current.templateId is defined
+          - create_bgp_peer_for_l3out_svi_interface_port_channel.current.templateName is defined
+          - create_bgp_peer_for_l3out_svi_interface_port_channel.current.portChannelName == "ansible_port_channel_interface_1"
+          - create_bgp_peer_for_l3out_svi_interface_port_channel.current.portChannelTemplateId is defined
+          - create_bgp_peer_for_l3out_svi_interface_port_channel.current.portChannelTemplateName is defined
+          - create_bgp_peer_for_l3out_svi_interface_port_channel.current.sviInterfacePathRef is defined
+          - create_bgp_peer_for_l3out_svi_interface_port_channel.current.sviInterfacePathType == "pc"
+          - create_bgp_peer_for_l3out_svi_interface_port_channel.current.sviInterfaceEncap.encapType == "vlan"
+          - create_bgp_peer_for_l3out_svi_interface_port_channel.current.sviInterfaceEncap.value == 100
+          - create_bgp_peer_for_l3out_svi_interface_port_channel_again is not changed
+          - create_bgp_peer_for_l3out_svi_interface_port_channel_again.previous == create_bgp_peer_for_l3out_svi_interface_port_channel_again.current == create_bgp_peer_for_l3out_svi_interface_port_channel.current
+          - remove_bgp_peer_for_l3out_svi_interface_port_channel is changed
+          - remove_bgp_peer_for_l3out_svi_interface_port_channel.previous.peerAddressV4 == "5.5.5.5"
+          - remove_bgp_peer_for_l3out_svi_interface_port_channel.previous.templateId is defined
+          - remove_bgp_peer_for_l3out_svi_interface_port_channel.previous.templateName is defined
+          - remove_bgp_peer_for_l3out_svi_interface_port_channel.previous.portChannelName == "ansible_port_channel_interface_1"
+          - remove_bgp_peer_for_l3out_svi_interface_port_channel.previous.portChannelTemplateId is defined
+          - remove_bgp_peer_for_l3out_svi_interface_port_channel.previous.portChannelTemplateName is defined
+          - remove_bgp_peer_for_l3out_svi_interface_port_channel.previous.sviInterfacePathRef is defined
+          - remove_bgp_peer_for_l3out_svi_interface_port_channel.previous.sviInterfacePathType == "pc"
+          - remove_bgp_peer_for_l3out_svi_interface_port_channel.previous.sviInterfaceEncap.encapType == "vlan"
+          - remove_bgp_peer_for_l3out_svi_interface_port_channel.previous.sviInterfaceEncap.value == 100
+          - remove_bgp_peer_for_l3out_svi_interface_port_channel.current == {}
+
+    - name: Create a L3out svi interface of type virtual port channel with uuid
+      cisco.mso.ndo_l3out_svi_interface: &create_l3out_svi_interface_virtual_port_channel
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        virtual_port_channel:
+          uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
+          side_b_ipv4_address: 10.0.2.2/24
+          side_b_node_router_id: 2.2.2.2
+        ipv4_address: 10.0.2.1/24
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+
+    - name: Create L3Out BGP Peer on a L3out svi interface of type virtual port channel
+      cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_svi_interface_virtual_port_channel
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: "svi"
+        virtual_port_channel:
+          uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      register: create_bgp_peer_for_l3out_svi_interface_virtual_port_channel
+
+    - name: Create L3Out BGP Peer on a L3out svi interface of type virtual port channel again
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_svi_interface_virtual_port_channel
+      register: create_bgp_peer_for_l3out_svi_interface_virtual_port_channel_again
+
+    - name: Remove L3Out BGP Peer on a L3out svi interface of type virtual port channel
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_svi_interface_virtual_port_channel
+        state: absent
+      register: remove_bgp_peer_for_l3out_svi_interface_virtual_port_channel
+
+    - name: Remove a L3out svi interface of type virtual port channel
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *create_l3out_svi_interface_virtual_port_channel
+        state: absent
+
+    - name: Assert L3Out BGP Peer on a L3out svi interface of type virtual port channel
+      ansible.builtin.assert:
+        that:
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel is changed
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel.previous == {}
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel.current.peerAddressV4 == "5.5.5.5"
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel.current.templateId is defined
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel.current.templateName is defined
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel.current.virtualPortChannelName == "ansible_virtual_port_channel_interface_1"
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel.current.virtualPortChannelTemplateId is defined
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel.current.virtualPortChannelTemplateName is defined
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel.current.sviInterfacePathRef is defined
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel.current.sviInterfacePathType == "vpc"
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel.current.sviInterfaceEncap.encapType == "vlan"
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel.current.sviInterfaceEncap.value == 100
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel_again is not changed
+          - create_bgp_peer_for_l3out_svi_interface_virtual_port_channel_again.previous == create_bgp_peer_for_l3out_svi_interface_virtual_port_channel_again.current == create_bgp_peer_for_l3out_svi_interface_virtual_port_channel.current
+          - remove_bgp_peer_for_l3out_svi_interface_virtual_port_channel is changed
+          - remove_bgp_peer_for_l3out_svi_interface_virtual_port_channel.previous.peerAddressV4 == "5.5.5.5"
+          - remove_bgp_peer_for_l3out_svi_interface_virtual_port_channel.previous.templateId is defined
+          - remove_bgp_peer_for_l3out_svi_interface_virtual_port_channel.previous.templateName is defined
+          - remove_bgp_peer_for_l3out_svi_interface_virtual_port_channel.previous.virtualPortChannelName == "ansible_virtual_port_channel_interface_1"
+          - remove_bgp_peer_for_l3out_svi_interface_virtual_port_channel.previous.virtualPortChannelTemplateId is defined
+          - remove_bgp_peer_for_l3out_svi_interface_virtual_port_channel.previous.virtualPortChannelTemplateName is defined
+          - remove_bgp_peer_for_l3out_svi_interface_virtual_port_channel.previous.sviInterfacePathRef is defined
+          - remove_bgp_peer_for_l3out_svi_interface_virtual_port_channel.previous.sviInterfacePathType == "vpc"
+          - remove_bgp_peer_for_l3out_svi_interface_virtual_port_channel.previous.sviInterfaceEncap.encapType == "vlan"
+          - remove_bgp_peer_for_l3out_svi_interface_virtual_port_channel.previous.sviInterfaceEncap.value == 100
+          - remove_bgp_peer_for_l3out_svi_interface_virtual_port_channel.current == {}
+
+    # FLOATING SVI INTERFACES
+
+    - name: Create a L3out floating svi interface
+      cisco.mso.ndo_l3out_floating_svi_interface: &create_l3out_floating_svi_interface
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        ipv4_address: 10.0.0.1/24
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+
+    - name: Create L3Out BGP Peer on a L3out floating svi interface
+      cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_floating_svi_interface
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: "floating_svi"
+        node_id: 101
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      register: create_bgp_peer_for_l3out_floating_svi_interface_port
+
+    - name: Create L3Out BGP Peer on a L3out floating svi interface again
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_floating_svi_interface
+      register: create_bgp_peer_for_l3out_floating_svi_interface_port_again
+
+    - name: Remove L3Out BGP Peer on a L3out floating svi interface
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *create_bgp_peer_for_l3out_floating_svi_interface
+        state: absent
+      register: remove_bgp_peer_for_l3out_floating_svi_interface_port
+
+    - name: Remove a L3out floating svi interface
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *create_l3out_floating_svi_interface
+        state: absent
+
+    - name: Assert L3Out BGP Peer on a L3out floating svi interface
+      ansible.builtin.assert:
+        that:
+          - create_bgp_peer_for_l3out_floating_svi_interface_port is changed
+          - create_bgp_peer_for_l3out_floating_svi_interface_port.previous == {}
+          - create_bgp_peer_for_l3out_floating_svi_interface_port.current.peerAddressV4 == "5.5.5.5"
+          - create_bgp_peer_for_l3out_floating_svi_interface_port.current.templateId is defined
+          - create_bgp_peer_for_l3out_floating_svi_interface_port.current.templateName is defined
+          - create_bgp_peer_for_l3out_floating_svi_interface_port.current.floatingSviInterfaceNodeID == "101"
+          - create_bgp_peer_for_l3out_floating_svi_interface_port.current.floatingSviInterfacePathType == "anchorNode"
+          - create_bgp_peer_for_l3out_floating_svi_interface_port.current.floatingSviInterfacePodID == "1"
+          - create_bgp_peer_for_l3out_floating_svi_interface_port.current.floatingSviInterfaceEncap.encapType == "vlan"
+          - create_bgp_peer_for_l3out_floating_svi_interface_port.current.floatingSviInterfaceEncap.value == 100
+          - create_bgp_peer_for_l3out_floating_svi_interface_port_again is not changed
+          - create_bgp_peer_for_l3out_floating_svi_interface_port_again.previous == create_bgp_peer_for_l3out_floating_svi_interface_port_again.current == create_bgp_peer_for_l3out_floating_svi_interface_port.current
+          - remove_bgp_peer_for_l3out_floating_svi_interface_port is changed
+          - remove_bgp_peer_for_l3out_floating_svi_interface_port.previous.peerAddressV4 == "5.5.5.5"
+          - remove_bgp_peer_for_l3out_floating_svi_interface_port.previous.templateId is defined
+          - remove_bgp_peer_for_l3out_floating_svi_interface_port.previous.templateName is defined
+          - remove_bgp_peer_for_l3out_floating_svi_interface_port.previous.floatingSviInterfaceNodeID == "101"
+          - remove_bgp_peer_for_l3out_floating_svi_interface_port.previous.floatingSviInterfacePathType == "anchorNode"
+          - remove_bgp_peer_for_l3out_floating_svi_interface_port.previous.floatingSviInterfacePodID == "1"
+          - remove_bgp_peer_for_l3out_floating_svi_interface_port.previous.floatingSviInterfaceEncap.encapType == "vlan"
+          - remove_bgp_peer_for_l3out_floating_svi_interface_port.previous.floatingSviInterfaceEncap.value == 100
+          - remove_bgp_peer_for_l3out_floating_svi_interface_port.current == {}
+
+    # PARENT TYPE INPUT ERRORS
+
+    - name: Error creating L3Out BGP Peer with parent_type node_group without node_group
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        # parent_type: "floating_svi"
+        state: present
+      ignore_errors: true
+      register: err_node_group_without_node_group
+
+    - name: Error creating L3Out BGP Peer with parent_type routed without path or port_channel
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: routed
+        state: present
+      ignore_errors: true
+      register: err_routed_without_path_or_port_channel
+
+    - name: Error creating L3Out BGP Peer with parent_type routed_sub without path or port_channel
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: routed_sub
+        state: present
+      ignore_errors: true
+      register: err_routed_sub_without_path_or_port_channel
+
+    - name: Error creating L3Out BGP Peer with parent_type routed_sub with path without encapsulation_type and encapsulation_value
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: routed_sub
+        path: eth1/1
+        state: present
+      ignore_errors: true
+      register: err_routed_sub_with_path
+
+    - name: Error creating L3Out BGP Peer with parent_type routed_sub with path and encapsulation_type but without encapsulation_value
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: routed_sub
+        path: eth1/1
+        encapsulation_type: vlan
+        state: present
+      ignore_errors: true
+      register: err_routed_sub_with_path_and_encapsulation_type
+
+    - name: Error creating L3Out BGP Peer with parent_type routed_sub with path and encapsulation_value but without encapsulation_type
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: routed_sub
+        path: eth1/1
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_routed_sub_with_path_and_encapsulation_value
+
+    - name: Error creating L3Out BGP Peer with parent_type routed_sub with path without node_id
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: routed_sub
+        path: eth1/1
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_routed_sub_with_path_without_node_id
+
+    - name: Error creating L3Out BGP Peer with parent_type svi without path, port_channel or vitrual_port_channel
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: svi
+        state: present
+      ignore_errors: true
+      register: err_svi_without_path_or_port_channel_or_virtual_port_channel
+
+    - name: Error creating L3Out BGP Peer with parent_type routed_sub with path without encapsulation_type and encapsulation_value
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: svi
+        path: eth1/1
+        state: present
+      ignore_errors: true
+      register: err_svi_with_path
+
+    - name: Error creating L3Out BGP Peer with parent_type routed_sub with path and encapsulation_type but without encapsulation_value
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: svi
+        path: eth1/1
+        encapsulation_type: vlan
+        state: present
+      ignore_errors: true
+      register: err_svi_with_path_and_encapsulation_type
+
+    - name: Error creating L3Out BGP Peer with parent_type routed_sub with path and encapsulation_value but without encapsulation_type
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: svi
+        path: eth1/1
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_svi_with_path_and_encapsulation_value
+
+    - name: Error creating L3Out BGP Peer with parent_type floating_svi without node_id, encapsulation_type or encapsulation_value
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: floating_svi
+        state: present
+      ignore_errors: true
+      register: err_floating_svi_without_node_id_or_encapsulation_type_or_encapsulation_value
+
+    - name: Error creating L3Out BGP Peer with parent_type floating_svi without node_id
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: floating_svi
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_floating_svi_without_node_id
+
+    - name: Error creating L3Out BGP Peer with parent_type floating_svi without encapsulation_type
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: floating_svi
+        node_id: 101
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_floating_svi_without_encapsulation_type
+
+    - name: Error creating L3Out BGP Peer with parent_type floating_svi without encapsulation_value
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: floating_svi
+        node_id: 101
+        encapsulation_type: vlan
+        state: present
+      ignore_errors: true
+      register: err_floating_svi_without_encapsulation_value
+
+    - name: Error mutually exclusive parameters port_channel and path
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: svi
+        path: eth1/1
+        node_id: 101
+        port_channel:
+          uuid: some_value
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_mutually_exclusive_port_channel_path
+
+    - name: Error mutually exclusive parameters port_channel and node_id
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: svi
+        node_id: 101
+        port_channel:
+          uuid: some_value
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_mutually_exclusive_port_channel_node_id
+
+    - name: Error mutually exclusive parameters port_channel and virtual_port_channel
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: svi
+        port_channel:
+          uuid: some_value
+        virtual_port_channel:
+          uuid: some_value
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_mutually_exclusive_port_channel_virtual_port_channel
+
+    - name: Error mutually exclusive parameters virtual_port_channel and path
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: svi
+        path: eth1/1
+        node_id: 101
+        virtual_port_channel:
+          uuid: some_value
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_mutually_exclusive_virtual_port_channel_path
+
+    - name: Error mutually exclusive parameters virtual_port_channel and node_id
+      cisco.mso.ndo_l3out_bgp_peer:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        ipv4_address: 5.5.5.5
+        parent_type: svi
+        node_id: 101
+        virtual_port_channel:
+          uuid: some_value
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_mutually_exclusive_virtual_port_channel_node_id
+
+    - name: Assert input errors for creating L3Out BGP Peer
+      ansible.builtin.assert:
+        that:
+          - err_node_group_without_node_group.failed
+          - err_node_group_without_node_group.msg == "parent_type is node_group but all of the following are missing{{":"}} node_group"
+          - err_routed_without_path_or_port_channel.failed
+          - err_routed_without_path_or_port_channel.msg == "parent_type is routed but any of the following are missing{{":"}} path, port_channel"
+          - err_routed_sub_without_path_or_port_channel.failed
+          - err_routed_sub_without_path_or_port_channel.msg == "parent_type is routed_sub but any of the following are missing{{":"}} path, port_channel"
+          - err_routed_sub_with_path.failed
+          - err_routed_sub_with_path.msg == "parent_type is routed_sub but all of the following are missing{{":"}} encapsulation_type, encapsulation_value"
+          - err_routed_sub_with_path_and_encapsulation_type.failed
+          - err_routed_sub_with_path_and_encapsulation_type.msg == "parent_type is routed_sub but all of the following are missing{{":"}} encapsulation_value"
+          - err_routed_sub_with_path_and_encapsulation_value.failed
+          - err_routed_sub_with_path_and_encapsulation_value.msg == "parent_type is routed_sub but all of the following are missing{{":"}} encapsulation_type"
+          - err_routed_sub_with_path_without_node_id.failed
+          - err_routed_sub_with_path_without_node_id.msg == "missing parameter(s) required by 'path'{{":"}} node_id"
+          - err_svi_without_path_or_port_channel_or_virtual_port_channel.failed
+          - err_svi_without_path_or_port_channel_or_virtual_port_channel.msg == "parent_type is svi but any of the following are missing{{":"}} path, port_channel, virtual_port_channel"
+          - err_svi_with_path.failed
+          - err_svi_with_path.msg == "parent_type is svi but all of the following are missing{{":"}} encapsulation_type, encapsulation_value"
+          - err_svi_with_path_and_encapsulation_type.failed
+          - err_svi_with_path_and_encapsulation_type.msg == "parent_type is svi but all of the following are missing{{":"}} encapsulation_value"
+          - err_svi_with_path_and_encapsulation_value.failed
+          - err_svi_with_path_and_encapsulation_value.msg == "parent_type is svi but all of the following are missing{{":"}} encapsulation_type"
+          - err_floating_svi_without_node_id_or_encapsulation_type_or_encapsulation_value.failed
+          - err_floating_svi_without_node_id_or_encapsulation_type_or_encapsulation_value.msg == "parent_type is floating_svi but all of the following are missing{{":"}} node_id, encapsulation_type, encapsulation_value"
+          - err_floating_svi_without_node_id.failed
+          - err_floating_svi_without_node_id.msg == "parent_type is floating_svi but all of the following are missing{{":"}} node_id"
+          - err_floating_svi_without_encapsulation_type.failed
+          - err_floating_svi_without_encapsulation_type.msg == "parent_type is floating_svi but all of the following are missing{{":"}} encapsulation_type"
+          - err_floating_svi_without_encapsulation_value.failed
+          - err_floating_svi_without_encapsulation_value.msg == "parent_type is floating_svi but all of the following are missing{{":"}} encapsulation_value"
+          - err_mutually_exclusive_port_channel_path.failed
+          - err_mutually_exclusive_port_channel_path.msg == "parameters are mutually exclusive{{":"}} port_channel|path, port_channel|node_id"
+          - err_mutually_exclusive_port_channel_node_id.failed
+          - err_mutually_exclusive_port_channel_node_id.msg == "parameters are mutually exclusive{{":"}} port_channel|node_id"
+          - err_mutually_exclusive_port_channel_virtual_port_channel.failed
+          - err_mutually_exclusive_port_channel_virtual_port_channel.msg == "parameters are mutually exclusive{{":"}} port_channel|virtual_port_channel"
+          - err_mutually_exclusive_virtual_port_channel_path.failed
+          - err_mutually_exclusive_virtual_port_channel_path.msg == "parameters are mutually exclusive{{":"}} virtual_port_channel|path, virtual_port_channel|node_id"
+          - err_mutually_exclusive_virtual_port_channel_node_id.failed
+          - err_mutually_exclusive_virtual_port_channel_node_id.msg == "parameters are mutually exclusive{{":"}} virtual_port_channel|node_id"
 
     # CLEANUP TEMPLATE
     - name: Ensure l3out template not exist
@@ -1211,6 +2198,14 @@
     - name: Ensure ansible_test_policy tenant policy template not exists
       cisco.mso.ndo_template:
         <<: *tenant_pol_template_absent
+
+    - name: Remove ansible_fabric_resource_template fabric_resource template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_resource_template_absent
+
+    - name: Remove ansible_fabric_policy_template fabric_policy template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_policy_template_absent
 
     - name: Ensure ansible_test schema template not exist
       cisco.mso.mso_schema_template:

@@ -314,6 +314,32 @@ class MSOTemplate:
             return self.get_object_by_key_value_pairs("L3Out Node Group Policy", existing_l3out_node_groups, [KVPair("name", name)], fail_module)
         return existing_l3out_node_groups  # Query all objects
 
+    def get_port_channel_match(self, port_channel, mso_templates):
+        """
+        Get the port channel from the provided port channel reference or uuid.
+        :param port_channel: The port channel object containing reference or uuid to search for -> ndo_l3out_port_channel_spec
+        :param mso_templates: MSO Templates object to search for referenced templates -> MSOTemplates
+        :return: The matched port channel object or None if not found -> Dict | None
+        """
+        port_channel_match = None
+        if port_channel:
+            port_channel_uuid = port_channel.get("uuid")
+            if port_channel_uuid:
+                port_channel_match = self.get_template_object_by_uuid("portChannel", port_channel_uuid, True)
+            else:
+                fabric_resource_mso_template = mso_templates.get_template(
+                    "fabric_resource",
+                    port_channel.get("reference").get("template"),
+                    port_channel.get("reference").get("template_id"),
+                    fail_module=True,
+                )
+                port_channel_match = fabric_resource_mso_template.get_port_channel(
+                    None,
+                    port_channel.get("reference").get("name"),
+                    fail_module=True,
+                ).details
+        return port_channel_match
+
     def get_port_channel(self, uuid=None, name=None, fail_module=False):
         """
         Get the port channel by uuid or name.
@@ -332,6 +358,32 @@ class MSOTemplate:
                 "Port Channel", existing_port_channels, [KVPair("uuid", uuid)] if uuid else [KVPair("name", name)], fail_module=fail_module
             )
         return existing_port_channels
+
+    def get_virtual_port_channel_match(self, virtual_port_channel, mso_templates):
+        """
+        Get the virtual port channel from the provided virtual port channel reference or uuid.
+        :param virtual_port_channel: The virtual port channel object containing reference or uuid to search for -> ndo_l3out_virtual_port_channel_spec
+        :param mso_templates: MSO Templates object to search for referenced templates -> MSOTemplates
+        :return: The matched virtual port channel object or None if not found -> Dict | None
+        """
+        virtual_port_channel_match = None
+        if virtual_port_channel:
+            virtual_port_channel_uuid = virtual_port_channel.get("uuid")
+            if virtual_port_channel_uuid:
+                virtual_port_channel_match = self.get_template_object_by_uuid("virtualPortChannel", virtual_port_channel_uuid, True)
+            else:
+                fabric_resource_mso_template = mso_templates.get_template(
+                    "fabric_resource",
+                    virtual_port_channel.get("reference").get("template"),
+                    virtual_port_channel.get("reference").get("template_id"),
+                    fail_module=True,
+                )
+                virtual_port_channel_match = fabric_resource_mso_template.get_virtual_port_channel(
+                    virtual_port_channel_uuid,
+                    virtual_port_channel.get("reference").get("name"),
+                    fail_module=True,
+                ).details
+        return virtual_port_channel_match
 
     def get_virtual_port_channel(self, uuid=None, name=None, fail_module=False):
         """
@@ -1004,3 +1056,111 @@ class MSOTemplate:
                 "Template Contract", existing_objects, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module
             )
         return existing_objects  # Query all objects
+
+    def get_parent_details_for_nested_object_in_l3out(self, mso_templates, l3out_object):
+        """
+        Get the parent details for a nested object in the L3Out object.
+        :param mso_templates: The MSO templates to search through -> List[Dict]
+        :param l3out_object: The L3Out object to find the parent for -> Dict
+        :return: The parent details for the nested object -> Dict, Str | None, None
+        """
+        port_channel_uuid = virtual_port_channel_uuid = pod_id = encap = parent_match = parent_path = None
+        parent_type = self.mso.params.get("parent_type")
+        node_group = self.mso.params.get("node_group")
+        node_id = self.mso.params.get("node_id")
+        path = self.mso.params.get("path")
+        port_channel = self.get_port_channel_match(self.mso.params.get("port_channel"), mso_templates)
+        if port_channel:
+            port_channel_uuid = port_channel.get("uuid")
+        virtual_port_channel = self.get_virtual_port_channel_match(self.mso.params.get("virtual_port_channel"), mso_templates)
+        if virtual_port_channel:
+            virtual_port_channel_uuid = virtual_port_channel.get("uuid")
+        encapsulation_type = self.mso.params.get("encapsulation_type")
+        encapsulation_value = self.mso.params.get("encapsulation_value")
+
+        if node_id or path or port_channel or virtual_port_channel:
+            pod_id = self.mso.get_site_interface_details(
+                site_id=self.template.get("l3outTemplate", {}).get("siteId"),
+                node=node_id,
+                port=path,
+                port_channel_uuid=port_channel_uuid,
+                virtual_port_channel_uuid=virtual_port_channel_uuid,
+            )
+            if path or port_channel or virtual_port_channel:
+                pod_id = pod_id.get("pod")
+
+        if encapsulation_type and encapsulation_value:
+            encap = {"encapType": encapsulation_type, "value": encapsulation_value}
+
+        if parent_type == "node_group":
+            parent_match = self.get_l3out_node_group(node_group, l3out_object.details, fail_module=True)
+            parent_path = "/l3outTemplate/l3outs/{0}/nodeGroups/{1}".format(l3out_object.index, parent_match.index if parent_match else "-")
+        elif parent_type == "floating_svi":
+            parent_match = self.get_l3out_floating_svi_interface(l3out_object.details, pod_id, node_id, encap, fail_module=True)
+            parent_path = "/l3outTemplate/l3outs/{0}/floatingSviInterfaces/{1}".format(l3out_object.index, parent_match.index if parent_match else "-")
+        elif parent_type == "routed":
+            parent_match = self.get_l3out_routed_interface(l3out_object.details, pod_id, node_id, path, port_channel_uuid, fail_module=True)
+            parent_path = "/l3outTemplate/l3outs/{0}/interfaces/{1}".format(l3out_object.index, parent_match.index if parent_match else "-")
+        elif parent_type == "routed_sub":
+            parent_match = self.get_l3out_routed_sub_interface(l3out_object.details, pod_id, node_id, path, port_channel_uuid, encap, fail_module=True)
+            parent_path = "/l3outTemplate/l3outs/{0}/subInterfaces/{1}".format(l3out_object.index, parent_match.index if parent_match else "-")
+        elif parent_type == "svi":
+            parent_match = self.get_l3out_svi_interface(
+                l3out_object.details, pod_id, node_id, path, encap, port_channel_uuid or virtual_port_channel_uuid, fail_module=True
+            )
+            parent_path = "/l3outTemplate/l3outs/{0}/sviInterfaces/{1}".format(l3out_object.index, parent_match.index if parent_match else "-")
+
+        return parent_match, parent_path
+
+    def set_parent_details_for_nested_object_in_l3out(self, parent_type, parent_object, update_object):
+        """
+        Set the parent details for a nested object in the L3Out object.
+        :param parent_type: The type of the parent object -> Str
+        :param parent_object: The parent object details -> Dict
+        :param update_object: The object to update with parent details -> Dict
+        """
+        parent_output_prepend = ""
+        if parent_type == "node_group":
+            parent_output_prepend = "nodeGroup"
+        elif parent_type == "floating_svi":
+            parent_output_prepend = "floatingSviInterface"
+        elif parent_type == "routed":
+            parent_output_prepend = "routedInterface"
+        elif parent_type == "routed_sub":
+            parent_output_prepend = "routedSubInterface"
+        elif parent_type == "svi":
+            parent_output_prepend = "sviInterface"
+
+        pod_id = parent_object.get("podID")
+        if pod_id:
+            update_object["{0}PodID".format(parent_output_prepend)] = pod_id
+
+        node_id = parent_object.get("nodeID")
+        if node_id:
+            update_object["{0}NodeID".format(parent_output_prepend)] = node_id
+
+        path_type = parent_object.get("pathType")
+        if path_type:
+            update_object["{0}PathType".format(parent_output_prepend)] = path_type
+
+        encap = parent_object.get("encap")
+        if encap:
+            update_object["{0}Encap".format(parent_output_prepend)] = encap
+
+        path_ref = parent_object.get("pathRef")
+        if path_ref:
+            # Add pathType and pathRef to the update_object in order to resolve the port_channel or virtual_port_channel
+            update_object["pathType"] = path_type
+            update_object["pathRef"] = path_ref
+            self.update_config_with_port_channel_references(update_object)
+            update_object.pop("pathType", None)
+            update_object.pop("pathRef", None)
+            update_object["{0}PathRef".format(parent_output_prepend)] = path_ref
+
+        path = parent_object.get("path")
+        if path:
+            update_object["{0}Path".format(parent_output_prepend)] = path
+
+        name = parent_object.get("name")
+        if name:
+            update_object["{0}Name".format(parent_output_prepend)] = name

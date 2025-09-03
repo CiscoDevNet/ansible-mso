@@ -1458,14 +1458,14 @@ class MSOModule(object):
                 if key.endswith("Ref"):
                     if key in required:
                         continue
-                    del self.proposed[key]
-                    del self.sent[key]
+                    self.proposed.pop(key, None)
+                    self.sent.pop(key, None)
                     continue
 
                 # Removed unwanted keys
                 elif key in unwanted:
-                    del self.proposed[key]
-                    del self.sent[key]
+                    self.proposed.pop(key, None)
+                    self.sent.pop(key, None)
                     continue
 
         if isinstance(updates, dict):
@@ -1480,12 +1480,12 @@ class MSOModule(object):
                 # Remove unspecified values
                 elif not collate and updates.get(key) is None:
                     if key in self.existing:
-                        del self.sent[key]
+                        self.sent.pop(key, None)
                     continue
 
                 # Remove identical values
                 elif not collate and updates.get(key) == self.existing.get(key):
-                    del self.sent[key]
+                    self.sent.pop(key, None)
                     continue
 
                 # Add everything else

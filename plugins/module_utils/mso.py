@@ -1941,6 +1941,10 @@ class MSOModule(object):
 
         return {}
 
+    def check_template_when_name_is_provided(self, parameter):
+        if parameter and parameter.get("name") and not (parameter.get("template") or parameter.get("template_id")):
+            self.fail_json(msg="Either 'template' or 'template_id' associated with '{}' must be provided".format(parameter.get("name")))
+
 
 def service_node_ref_str_to_dict(serviceNodeRefStr):
     serviceNodeRefTokens = serviceNodeRefStr.split("/")

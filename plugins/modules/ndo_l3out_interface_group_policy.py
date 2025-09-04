@@ -402,8 +402,8 @@ def main():
 
     l3out_object = mso_template.get_l3out_object(l3out_uuid, l3out, True)
     existing_interface_groups = l3out_object.details.get("interfaceGroups", [])
-    mso_template.check_template_when_name_is_provided(interface_routing_policy)
-    mso_template.check_template_when_name_is_provided(custom_qos_policy)
+    mso.check_template_when_name_is_provided(interface_routing_policy)
+    mso.check_template_when_name_is_provided(custom_qos_policy)
     reference_dict = {
         "qos": {
             "name": "qosName",

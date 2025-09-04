@@ -992,10 +992,6 @@ class MSOTemplate:
             routed_interface["ptpConfig"]["ptpPolicyName"] = ptpPolicy.get("name")
             routed_interface["ptpConfig"]["ptpPolicyRef"] = ptpPolicy.get("uuid")
 
-    def check_template_when_name_is_provided(self, parameter):
-        if parameter and parameter.get("name") and not (parameter.get("template") or parameter.get("template_id")):
-            self.mso.fail_json(msg="Either 'template' or 'template_id' associated with '{}' must be provided".format(parameter.get("name")))
-
     def get_route_map_policy_for_multicast_uuid(self, route_map_policy_for_multicast_name):
         """
         Get the UUID of an Route Map Policy for Multicast by name.

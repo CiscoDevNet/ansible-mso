@@ -769,9 +769,9 @@ def main():
 
     mso_template = mso_templates.get_template("l3out", template, template_id)
     mso_template.validate_template("l3out")
-    mso_template.check_template_when_name_is_provided(import_route_map)
-    mso_template.check_template_when_name_is_provided(export_route_map)
-    mso_template.check_template_when_name_is_provided(peer_prefix)
+    mso.check_template_when_name_is_provided(import_route_map)
+    mso.check_template_when_name_is_provided(export_route_map)
+    mso.check_template_when_name_is_provided(peer_prefix)
 
     l3out_object = mso_template.get_l3out_object(uuid=l3out_uuid, name=l3out, fail_module=True)
     parent_object, parent_path = mso_template.get_parent_details_for_nested_object_in_l3out(mso_templates, l3out_object)

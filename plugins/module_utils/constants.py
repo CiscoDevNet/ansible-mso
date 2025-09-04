@@ -19,6 +19,7 @@ SERVICE_NODE_CONNECTOR_MAP = {
 YES_OR_NO_TO_BOOL_STRING_MAP = {"yes": "true", "no": "false", True: "yes", False: "no"}
 
 ENABLED_OR_DISABLED_TO_BOOL_STRING_MAP = {"enabled": True, "disabled": False}
+BOOL_TO_ENABLED_OR_DISABLED_STRING_MAP = {True: "enabled", False: "disabled"}
 
 NDO_4_UNIQUE_IDENTIFIERS = ["templateID", "autoRouteTargetImport", "autoRouteTargetExport"]
 
@@ -282,3 +283,16 @@ IP_PROTOCOL_MAPPING = {
 CONTRACT_SERVICE_CHAIN_NODE_FILTER_MAP = {"allow_all": "allow-all", "filters_from_contract": "filters-from-contract"}
 
 PTP_MODES = {"multicast_dynamic": "multicast", "multicast_master": "multicastMaster", "unicast_master": "unicastMaster"}
+
+DOMAIN_TYPE_MAP = {"vmm": "vmmDomain", "physical": "physicalDomain"}
+
+VM_DOMAIN_PROVIDER_MAP = {
+    "cloudfoundry": "CloudFoundry",
+    "kubernetes": "Kubernetes",
+    "microsoft": "Microsoft",
+    "openshift": "OpenShift",
+    "openstack": "OpenStack",
+    "redhat": "Redhat",
+    "vmware": "VMware",
+    "nutanix": "Nutanix",
+}

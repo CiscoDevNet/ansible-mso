@@ -1,0 +1,598 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
+    aci_info: &aci_info
+      host: "{{ apic_hostname }}"
+      username: "{{ apic_username }}"
+      password: "{{ apic_password }}"
+      validate_certs: "{{ apic_validate_certs | default(false) }}"
+      use_ssl: "{{ apic_use_ssl | default(true) }}"
+      use_proxy: "{{ apic_use_proxy | default(true) }}"
+      output_level: '{{ apic_output_level | default("debug") }}'
+
+# QUERY VERSION
+
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 4.4
+  when: version.current.version is version('4.4', '>=')
+  block:
+    
+    # CLEAN ENVIRONMENT - ENSURE CLEAN ENVIRONMENT FOR TESTS
+
+    - name: Ensure ansible_test tenant exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+
+    - name: Ensure L3out template does not exist
+      cisco.mso.ndo_template: &ndo_l3out_template_absent
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template_type: l3out
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_test schema does not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        template: template_1
+        state: absent
+
+    - name: Ensure ansible_fabric_resource_template does not exist
+      cisco.mso.ndo_template:
+        <<: *mso_info
+        name: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template_type: fabric_resource
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_fabric_policy_template does not exist
+      cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
+        <<: *mso_info
+        name: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template_type: fabric_policy
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    # APIC CONFIGURATION
+
+    - name: Set ansible_network_os to cisco.aci.aci
+      ansible.builtin.set_fact:
+        ansible_network_os: cisco.aci.aci
+
+    - name: Reset the ansible_connection to access the APIC
+      ansible.builtin.meta: reset_connection
+
+    - name: Add physical domain
+      cisco.aci.aci_domain: &phys_domain_present
+        <<: *aci_info
+        domain: ansible_test_phys
+        domain_type: phys
+        state: present
+
+    - name: Add VMM domain
+      cisco.aci.aci_domain: &vmm_domain_present
+        <<: *aci_info
+        domain: ansible_test_vmm
+        domain_type: vmm
+        vm_provider: vmware
+        state: present
+
+    - name: Add a vSwitch policy to vmware domain
+      cisco.aci.aci_vmm_vswitch_policy:
+        <<: *aci_info
+        domain: ansible_test_vmm
+        vm_provider: vmware
+        lldp_policy: default
+        cdp_policy: default
+        port_channel_policy: default
+        state: present
+
+    - name: Create Enhanced LAG policy in check mode
+      cisco.aci.aci_vmm_enhanced_lag_policy:
+        <<: *aci_info
+        name: test_lag
+        domain: ansible_test_vmm
+        vm_provider: vmware
+        lacp_mode: active
+        load_balancing_mode: src-dst-ip
+        number_uplinks: 2
+        state: present
+
+    - name: Set ansible_network_os to cisco.nd.nd
+      ansible.builtin.set_fact:
+        ansible_network_os: cisco.nd.nd
+
+    - name: Reset the ansible_connection to access the MSO/NDO
+      ansible.builtin.meta: reset_connection
+
+    # CLEAN ENVIRONMENT - REQUIRED FOR TESTS
+
+    - name: Create a fabric_policy template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_policy_template_absent
+        state: present
+
+    - name: Create a VLAN pool in the fabric_policy template
+      cisco.mso.ndo_vlan_pool:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        vlan_pool: ansible_test_vlan_pool_1
+        vlan_ranges:
+          - from_vlan: 100
+            to_vlan: 200
+        state: present
+
+    - name: Create a L3 domain in the fabric_policy template
+      cisco.mso.ndo_l3_domain:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        l3_domain: ansible_test_l3_domain
+        pool: ansible_test_vlan_pool_1
+        state: present
+
+    - name: Create a schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+        state: present
+
+    - name: Create a VRF in the schema template
+      cisco.mso.mso_schema_template_vrf:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: template_1
+        vrf: vrf_1
+        state: present
+
+    - name: Create a new L3Out template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+        state: present
+      register: l3out_template
+
+    - name: Create L3Out object in the L3Out template
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+        name: l3out_1
+        vrf:
+          name: vrf_1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+          template: template_1
+        l3_domain: ansible_test_l3_domain
+        ospf:
+          state: enabled
+          area_id: 0.0.0.1
+          area_type: regular
+        bgp:
+          state: enabled
+        state: present
+      register: mso_l3out
+
+    - name: Create a L3out floating svi interface
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        ipv4_address: 10.0.0.1/24
+        ipv6_address: 2::101/16
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        state: present
+      register: floating_svi_interface_1
+
+    # CREATE
+
+    - name: Create Path Attributes for a L3Out Floating SVI Interface (check mode)
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes: &create_floating_svi_interface_path_attributes
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        domain_type: vmm
+        domain_provider: vmware
+        domain: ansible_test_vmm
+        primary_ipv4_address: 10.0.0.2/24
+        state: present
+      check_mode: true
+      register: cm_create_floating_svi_interface_path_attributes
+    
+    - name: Create Path Attributes for a L3Out Floating SVI Interface
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *create_floating_svi_interface_path_attributes
+      register: nm_create_floating_svi_interface_path_attributes
+
+    - name: Create Path Attributes for a L3Out Floating SVI Interface again
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *create_floating_svi_interface_path_attributes
+      register: nm_create_floating_svi_interface_path_attributes_again
+
+    - name: Assert that the L3out floating svi interface was created
+      ansible.builtin.assert:
+        that:
+          - cm_create_floating_svi_interface_path_attributes is changed
+          - cm_create_floating_svi_interface_path_attributes.previous == {}
+          - cm_create_floating_svi_interface_path_attributes.proposed == cm_create_floating_svi_interface_path_attributes.current
+          - cm_create_floating_svi_interface_path_attributes.current.domain == "uni/vmmp-VMware/dom-ansible_test_vmm"
+          - cm_create_floating_svi_interface_path_attributes.current.domainType == "vmmDomain"
+          - cm_create_floating_svi_interface_path_attributes.current.encap.encapType == "vlan"
+          - cm_create_floating_svi_interface_path_attributes.current.encap.value == 100
+          - cm_create_floating_svi_interface_path_attributes.current.l3outName == "l3out_1"
+          - cm_create_floating_svi_interface_path_attributes.current.l3outUUID is defined
+          - cm_create_floating_svi_interface_path_attributes.current.nodeID == "101"
+          - cm_create_floating_svi_interface_path_attributes.current.podID == "1"
+          - cm_create_floating_svi_interface_path_attributes.current.primaryAddressV4 == "10.0.0.2/24"
+          - cm_create_floating_svi_interface_path_attributes.current.templateId is defined
+          - cm_create_floating_svi_interface_path_attributes.current.templateName is defined
+          - nm_create_floating_svi_interface_path_attributes is changed
+          - nm_create_floating_svi_interface_path_attributes.previous == {}
+          - nm_create_floating_svi_interface_path_attributes.proposed == cm_create_floating_svi_interface_path_attributes.current
+          - nm_create_floating_svi_interface_path_attributes.current != cm_create_floating_svi_interface_path_attributes.current
+          - nm_create_floating_svi_interface_path_attributes.current.domain == "uni/vmmp-VMware/dom-ansible_test_vmm"
+          - nm_create_floating_svi_interface_path_attributes.current.domainType == "vmmDomain"
+          - nm_create_floating_svi_interface_path_attributes.current.encap.encapType == "vlan"
+          - nm_create_floating_svi_interface_path_attributes.current.encap.value == 100
+          - nm_create_floating_svi_interface_path_attributes.current.forgedTransmit == "disabled"
+          - nm_create_floating_svi_interface_path_attributes.current.l3outName == "l3out_1"
+          - nm_create_floating_svi_interface_path_attributes.current.l3outUUID is defined
+          - nm_create_floating_svi_interface_path_attributes.current.macAddrChange == "disabled"
+          - nm_create_floating_svi_interface_path_attributes.current.nodeID == "101"
+          - nm_create_floating_svi_interface_path_attributes.current.podID == "1"
+          - nm_create_floating_svi_interface_path_attributes.current.primaryAddressV4 == "10.0.0.2/24"
+          - nm_create_floating_svi_interface_path_attributes.current.primaryAddressV6 is not defined
+          - nm_create_floating_svi_interface_path_attributes.current.promiscuousMode == "disabled"
+          - nm_create_floating_svi_interface_path_attributes.current.templateId is defined
+          - nm_create_floating_svi_interface_path_attributes.current.templateName is defined
+          - nm_create_floating_svi_interface_path_attributes_again is not changed
+          - nm_create_floating_svi_interface_path_attributes_again.previous == nm_create_floating_svi_interface_path_attributes_again.current == nm_create_floating_svi_interface_path_attributes.current
+
+    # UPDATE
+
+    - name: Update Path Attributes of a L3Out Floating SVI Interface (check mode)
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes: &update_floating_svi_interface_path_attributes
+        <<: *create_floating_svi_interface_path_attributes
+        primary_ipv4_address: 10.0.0.3/24
+        primary_ipv6_address: 2::102/16
+        forged_transmit: true
+        mac_address_change: true
+        promiscuous_mode: true
+      check_mode: true
+      register: cm_update_floating_svi_interface_path_attributes
+
+    - name: Update Path Attributes of a L3Out Floating SVI Interface
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *update_floating_svi_interface_path_attributes
+      register: nm_update_floating_svi_interface_path_attributes
+
+    - name: Update Path Attributes of a L3Out Floating SVI Interface again
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *update_floating_svi_interface_path_attributes
+      register: nm_update_floating_svi_interface_path_attributes_again
+
+    - name: Assert that the L3out floating svi interface was updated
+      ansible.builtin.assert:
+        that:
+          - cm_update_floating_svi_interface_path_attributes is changed
+          - cm_update_floating_svi_interface_path_attributes.previous == nm_create_floating_svi_interface_path_attributes_again.current
+          - cm_update_floating_svi_interface_path_attributes.previous != cm_update_floating_svi_interface_path_attributes.current
+          - cm_update_floating_svi_interface_path_attributes.proposed == cm_update_floating_svi_interface_path_attributes.current
+          - cm_update_floating_svi_interface_path_attributes.current.domain == "uni/vmmp-VMware/dom-ansible_test_vmm"
+          - cm_update_floating_svi_interface_path_attributes.current.domainType == "vmmDomain"
+          - cm_update_floating_svi_interface_path_attributes.current.encap.encapType == "vlan"
+          - cm_update_floating_svi_interface_path_attributes.current.encap.value == 100
+          - cm_update_floating_svi_interface_path_attributes.current.forgedTransmit == "enabled"
+          - cm_update_floating_svi_interface_path_attributes.current.l3outName == "l3out_1"
+          - cm_update_floating_svi_interface_path_attributes.current.l3outUUID is defined
+          - cm_update_floating_svi_interface_path_attributes.current.macAddrChange == "enabled"
+          - cm_update_floating_svi_interface_path_attributes.current.nodeID == "101"
+          - cm_update_floating_svi_interface_path_attributes.current.podID == "1"
+          - cm_update_floating_svi_interface_path_attributes.current.primaryAddressV4 == "10.0.0.3/24"
+          - cm_update_floating_svi_interface_path_attributes.current.primaryAddressV6 == "2::102/16"
+          - cm_update_floating_svi_interface_path_attributes.current.promiscuousMode == "enabled"
+          - cm_update_floating_svi_interface_path_attributes.current.templateId is defined
+          - cm_update_floating_svi_interface_path_attributes.current.templateName is defined
+          - nm_update_floating_svi_interface_path_attributes is changed
+          - nm_update_floating_svi_interface_path_attributes is changed
+          - nm_update_floating_svi_interface_path_attributes.previous == nm_create_floating_svi_interface_path_attributes_again.current
+          - nm_update_floating_svi_interface_path_attributes.previous != nm_update_floating_svi_interface_path_attributes.current
+          - nm_update_floating_svi_interface_path_attributes.proposed == nm_update_floating_svi_interface_path_attributes.current == cm_update_floating_svi_interface_path_attributes.current
+          - nm_update_floating_svi_interface_path_attributes_again is not changed
+          - nm_update_floating_svi_interface_path_attributes_again.previous == nm_update_floating_svi_interface_path_attributes_again.current == nm_update_floating_svi_interface_path_attributes.current
+
+    # ERROR HANDLING
+
+    - name: Create Path Attributes of a L3Out Floating SVI Interface with template and template_id
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *create_floating_svi_interface_path_attributes
+        template: l3out_template.current.name
+        template_id: l3out_template.current.templateId
+      register: error_floating_svi_interface_path_attributes_template_and_template_id
+      ignore_errors: true
+
+    - name: Create Path Attributes of a L3Out Floating SVI Interface with l3out and l3out_uuid
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *create_floating_svi_interface_path_attributes
+        l3out: mso_l3out.current.name
+        l3out_uuid: mso_l3out.current.uuid
+      register: error_floating_svi_interface_path_attributes_l3out_and_l3out_uuid
+      ignore_errors: true
+
+    - name: Create Path Attributes of a L3Out Floating SVI Interface without template or template_id
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *mso_info
+        l3out: l3out_1
+        node_id: 101
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        domain_type: vmm
+        domain_provider: vmware
+        domain: ansible_test_vmm
+        state: present
+      register: error_floating_svi_interface_path_attributes_without_template_or_template_id
+      ignore_errors: true
+
+    - name: Create Path Attributes of a L3Out Floating SVI Interface without l3out or l3out_uuid
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        node_id: 101
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        domain_type: vmm
+        domain_provider: vmware
+        domain: ansible_test_vmm
+        state: present
+      register: error_floating_svi_interface_path_attributes_without_l3out_or_l3out_uuid
+      ignore_errors: true
+
+    - name: Create Path Attributes of a L3Out Floating SVI Interface without node_id
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        domain_type: vmm
+        domain_provider: vmware
+        domain: ansible_test_vmm
+        state: present
+      register: error_floating_svi_interface_path_attributes_without_node_id
+      ignore_errors: true
+
+    - name: Create Path Attributes of a L3Out Floating SVI Interface without encapsulation_type
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        encapsulation_value: 100
+        domain_type: vmm
+        domain_provider: vmware
+        domain: ansible_test_vmm
+        state: present
+      register: error_floating_svi_interface_path_attributes_without_encapsulation_type
+      ignore_errors: true
+
+    - name: Create Path Attributes of a L3Out Floating SVI Interface without encapsulation_value
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        encapsulation_type: vlan
+        domain_type: vmm
+        domain_provider: vmware
+        domain: ansible_test_vmm
+        state: present
+      register: error_floating_svi_interface_path_attributes_without_encapsulation_value
+      ignore_errors: true
+
+    - name: Create Path Attributes of a L3Out Floating SVI Interface with domain_type vmm without provider
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        domain_type: vmm
+        domain: ansible_test_vmm
+        state: present
+      register: error_floating_svi_interface_path_attributes_without_provider
+      ignore_errors: true
+
+    - name: Assert that the error handling for svi interface creation works
+      ansible.builtin.assert:
+        that:
+          - error_floating_svi_interface_path_attributes_template_and_template_id is failed
+          - error_floating_svi_interface_path_attributes_template_and_template_id.msg == "parameters are mutually exclusive{{":"}} template|template_id"
+          - error_floating_svi_interface_path_attributes_l3out_and_l3out_uuid is failed
+          - error_floating_svi_interface_path_attributes_l3out_and_l3out_uuid.msg == "parameters are mutually exclusive{{":"}} l3out|l3out_uuid"
+          - error_floating_svi_interface_path_attributes_without_template_or_template_id is failed
+          - error_floating_svi_interface_path_attributes_without_template_or_template_id.msg == "one of the following is required{{":"}} template, template_id"
+          - error_floating_svi_interface_path_attributes_without_l3out_or_l3out_uuid is failed
+          - error_floating_svi_interface_path_attributes_without_l3out_or_l3out_uuid.msg == "one of the following is required{{":"}} l3out, l3out_uuid"
+          - error_floating_svi_interface_path_attributes_without_node_id is failed
+          - error_floating_svi_interface_path_attributes_without_node_id.msg == "missing required arguments{{":"}} node_id" 
+          - error_floating_svi_interface_path_attributes_without_encapsulation_type is failed
+          - error_floating_svi_interface_path_attributes_without_encapsulation_type.msg == "missing required arguments{{":"}} encapsulation_type"
+          - error_floating_svi_interface_path_attributes_without_encapsulation_value is failed
+          - error_floating_svi_interface_path_attributes_without_encapsulation_value.msg == "missing required arguments{{":"}} encapsulation_value"
+          - error_floating_svi_interface_path_attributes_without_provider is failed
+          - error_floating_svi_interface_path_attributes_without_provider.msg == "domain_type is vmm but all of the following are missing{{":"}} domain_provider"
+
+    # QUERY
+
+    - name: Create another Path Attributes for a L3Out Floating SVI Interface
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes: &create_floating_svi_interface_path_attributes_2
+        <<: *create_floating_svi_interface_path_attributes
+        domain_type: physical
+        domain: ansible_test_phys
+        primary_ipv4_address: 10.0.0.3/24
+        primary_ipv6_address: 2::102/16
+        forged_transmit: false
+        mac_address_change: false
+        promiscuous_mode: false
+      register: create_floating_svi_interface_2
+
+    - name: Query Path Attributes for L3Out Floating SVI Interface
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *create_floating_svi_interface_path_attributes
+        state: query
+      register: query_floating_svi_interface_path_attributes
+
+    - name: Query Path Attributes for L3Out Floating SVI Interface 2
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *create_floating_svi_interface_path_attributes_2
+        state: query
+      register: query_floating_svi_interface_path_attributes_2
+
+    - name: Query all Path Attributes for a L3Out Floating SVI Interface
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: query
+      register: query_all_floating_svi_interface_path_attributes
+
+    - name: Assert that the Path Attributes for a L3Out Floating SVI Interface are queried
+      ansible.builtin.assert:
+        that:
+          - query_floating_svi_interface_path_attributes is not changed
+          - query_floating_svi_interface_path_attributes.current.domain == "uni/vmmp-VMware/dom-ansible_test_vmm"
+          - query_floating_svi_interface_path_attributes.current.domainType == "vmmDomain"
+          - query_floating_svi_interface_path_attributes.current.encap.encapType == "vlan"
+          - query_floating_svi_interface_path_attributes.current.encap.value == 100
+          - query_floating_svi_interface_path_attributes.current.forgedTransmit == "enabled"
+          - query_floating_svi_interface_path_attributes.current.l3outName == "l3out_1"
+          - query_floating_svi_interface_path_attributes.current.l3outUUID is defined
+          - query_floating_svi_interface_path_attributes.current.macAddrChange == "enabled"
+          - query_floating_svi_interface_path_attributes.current.nodeID == "101"
+          - query_floating_svi_interface_path_attributes.current.podID == "1"
+          - query_floating_svi_interface_path_attributes.current.primaryAddressV4 == "10.0.0.3/24"
+          - query_floating_svi_interface_path_attributes.current.primaryAddressV6 == "2::102/16"
+          - query_floating_svi_interface_path_attributes.current.promiscuousMode == "enabled"
+          - query_floating_svi_interface_path_attributes.current.templateId is defined
+          - query_floating_svi_interface_path_attributes.current.templateName is defined
+          - query_floating_svi_interface_path_attributes_2 is not changed
+          - query_floating_svi_interface_path_attributes_2.current.domain == "uni/phys-ansible_test_phys"
+          - query_floating_svi_interface_path_attributes_2.current.domainType == "physicalDomain"
+          - query_floating_svi_interface_path_attributes_2.current.encap.encapType == "vlan"
+          - query_floating_svi_interface_path_attributes_2.current.encap.value == 100
+          - query_floating_svi_interface_path_attributes_2.current.forgedTransmit == "disabled"
+          - query_floating_svi_interface_path_attributes_2.current.l3outName == "l3out_1"
+          - query_floating_svi_interface_path_attributes_2.current.l3outUUID is defined
+          - query_floating_svi_interface_path_attributes_2.current.macAddrChange == "disabled"
+          - query_floating_svi_interface_path_attributes_2.current.nodeID == "101"
+          - query_floating_svi_interface_path_attributes_2.current.podID == "1"
+          - query_floating_svi_interface_path_attributes_2.current.primaryAddressV4 == "10.0.0.3/24"
+          - query_floating_svi_interface_path_attributes_2.current.primaryAddressV6 == "2::102/16"
+          - query_floating_svi_interface_path_attributes_2.current.promiscuousMode == "disabled"
+          - query_floating_svi_interface_path_attributes_2.current.templateId is defined
+          - query_floating_svi_interface_path_attributes_2.current.templateName is defined
+          - query_all_floating_svi_interface_path_attributes is not changed
+          - query_all_floating_svi_interface_path_attributes.current | length == 2
+
+    # DELETE
+
+    - name: Delete Path Attributes of a L3Out Floating SVI Interface (check mode)
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes: &delete_floating_svi_interface_path_attributes
+        <<: *create_floating_svi_interface_path_attributes
+        state: absent
+      check_mode: true
+      register: cm_delete_floating_svi_interface_path_attributes
+
+    - name: Delete Path Attributes of a L3Out Floating SVI Interface
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *delete_floating_svi_interface_path_attributes
+      register: nm_delete_floating_svi_interface_path_attributes
+
+    - name: Delete Path Attributes of a L3Out Floating SVI Interface again
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *delete_floating_svi_interface_path_attributes
+      register: nm_delete_floating_svi_interface_path_attributes_again
+
+    - name: Assert that the L3out floating svi interface was deleted
+      ansible.builtin.assert:
+        that:
+          - cm_delete_floating_svi_interface_path_attributes is changed
+          - cm_delete_floating_svi_interface_path_attributes.previous == query_floating_svi_interface_path_attributes.current
+          - cm_delete_floating_svi_interface_path_attributes.proposed == cm_delete_floating_svi_interface_path_attributes.current == {}
+          - nm_delete_floating_svi_interface_path_attributes is changed
+          - nm_delete_floating_svi_interface_path_attributes.previous == query_floating_svi_interface_path_attributes.current
+          - nm_delete_floating_svi_interface_path_attributes.proposed == nm_delete_floating_svi_interface_path_attributes.current == {}
+          - nm_delete_floating_svi_interface_path_attributes_again is not changed
+          - nm_delete_floating_svi_interface_path_attributes_again.previous == nm_delete_floating_svi_interface_path_attributes_again.proposed == nm_delete_floating_svi_interface_path_attributes_again.current == {}
+
+    # CLEANUP TEMPLATE
+
+    - name: Remove l3out template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+
+    - name: Remove ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+
+    - name: Remove ansible_fabric_policy_template fabric_policy template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_policy_template_absent
+
+    - name: Set ansible_network_os to cisco.aci.aci
+      ansible.builtin.set_fact:
+        ansible_network_os: cisco.aci.aci
+
+    - name: Reset the ansible_connection to access the APIC
+      ansible.builtin.meta: reset_connection
+
+    - name: Remove the VMM domain
+      cisco.aci.aci_domain:
+        <<: *vmm_domain_present
+        state: absent
+
+    - name: Remove the physical domain
+      cisco.aci.aci_domain:
+        <<: *phys_domain_present
+        state: absent

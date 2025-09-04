@@ -526,6 +526,25 @@ class MSOTemplate:
             return self.get_object_by_key_value_pairs("L3Out Floating SVI Interface", existing_l3out_floating_svi_interfaces, kv_list, fail_module)
         return existing_l3out_floating_svi_interfaces  # Query all objects
 
+    def get_l3out_floating_svi_interface_path_attributes(self, l3out_floating_svi_interface_object, domain_type, domain, fail_module=False):
+        """
+        Get the L3Out Floating SVI Interface Path Attributes by domain_type and domain.
+        :param l3out_floating_svi_interface_object: L3Out Floating SVI Interface object to search for the Path Attributes -> Dict
+        :param domain_type: Domain type of the Path Attributes to search for -> Str
+        :param domain: Domain of the Path Attributes to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the domain_type and domain are existing in the search list -> Dict
+                 When the domain_type and domain are not existing in the search list -> None
+                 When both domain_type and domain are None, and the search list is not empty -> List[Dict]
+                 When both domain_type and domain are None, and the search list is empty -> List[]
+        """
+        existing_path_attributes = l3out_floating_svi_interface_object.get("svi", {}).get("floatingPathAttributes", [])
+        if domain_type and domain:  # Query a specific object
+            kv_list = [KVPair("domainType", domain_type), KVPair("domain", domain)]
+            return self.get_object_by_key_value_pairs("L3Out Floating SVI Interface Path Attributes", existing_path_attributes, kv_list, fail_module)
+        return existing_path_attributes  # Query all objects
+
     def get_node_settings_object(self, uuid=None, name=None, fail_module=False):
         """
         Get the Fabric Node Settings by uuid or name.

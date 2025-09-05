@@ -517,7 +517,12 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, ndo_l3out_port_channel_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import (
+    MSOModule,
+    mso_argument_spec,
+    ndo_l3out_port_channel_spec,
+    ndo_l3out_virtual_port_channel_spec,
+)
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
 from ansible_collections.cisco.mso.plugins.module_utils.constants import TARGET_DSCP_MAP
 from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, delete_none_values
@@ -539,42 +544,7 @@ def main():
         node_loopback_ip=dict(type="str", aliases=["loopback_ip"]),
         path=dict(type="str", aliases=["interface"]),
         port_channel=ndo_l3out_port_channel_spec(micro_bfd=False),
-        virtual_port_channel=dict(
-            type="dict",
-            aliases=["vpc"],
-            options=dict(
-                uuid=dict(type="str"),
-                reference=dict(
-                    type="dict",
-                    aliases=["ref"],
-                    options=dict(
-                        name=dict(type="str", required=True),
-                        template=dict(type="str"),
-                        template_id=dict(type="str"),
-                    ),
-                    required_one_of=[
-                        ["template", "template_id"],
-                    ],
-                    mutually_exclusive=[
-                        ("template", "template_id"),
-                    ],
-                ),
-                side_b_ipv4_address=dict(type="str"),
-                side_b_ipv6_address=dict(type="str"),
-                side_b_ipv6_link_local_address=dict(type="str"),
-                side_b_ipv6_dad=dict(type="str", choices=["enabled", "disabled"]),
-                side_b_node_group_policy=dict(type="str"),
-                side_b_node_router_id=dict(type="str", aliases=["router_id"]),
-                side_b_use_router_id_as_loopback=dict(type="bool"),
-                side_b_node_loopback_ip=dict(type="str", aliases=["loopback_ip"]),
-            ),
-            required_one_of=[
-                ["reference", "uuid"],
-            ],
-            mutually_exclusive=[
-                ("reference", "uuid"),
-            ],
-        ),
+        virtual_port_channel=ndo_l3out_virtual_port_channel_spec(),
         interface_group_policy=dict(type="str"),
         ipv4_address=dict(type="str"),
         ipv6_address=dict(type="str"),

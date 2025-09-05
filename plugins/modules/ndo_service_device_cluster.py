@@ -659,8 +659,8 @@ def get_interfaces_payload(mso, mso_template, interfaces, reference_dict):
 
     payload = []
     for interface in interfaces:
-        mso_template.check_template_when_name_is_provided(interface.get("ipsla_monitoring_policy"))
-        mso_template.check_template_when_name_is_provided(interface.get("qos_policy"))
+        mso.check_template_when_name_is_provided(interface.get("ipsla_monitoring_policy"))
+        mso.check_template_when_name_is_provided(interface.get("qos_policy"))
 
         interface_payload = {
             "name": interface.get("name"),

@@ -226,7 +226,6 @@
         template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: l3out_1
         node_id: 101
-        encapsulation_type: vlan
         encapsulation_value: 100
         domain_type: vmm
         domain_provider: vmware
@@ -398,20 +397,6 @@
       register: error_floating_svi_interface_path_attributes_without_node_id
       ignore_errors: true
 
-    - name: Create Path Attributes of a L3Out Floating SVI Interface without encapsulation_type
-      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
-        <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
-        l3out: l3out_1
-        node_id: 101
-        encapsulation_value: 100
-        domain_type: vmm
-        domain_provider: vmware
-        domain: ansible_test_vmm
-        state: present
-      register: error_floating_svi_interface_path_attributes_without_encapsulation_type
-      ignore_errors: true
-
     - name: Create Path Attributes of a L3Out Floating SVI Interface without encapsulation_value
       cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
         <<: *mso_info
@@ -453,8 +438,6 @@
           - error_floating_svi_interface_path_attributes_without_l3out_or_l3out_uuid.msg == "one of the following is required{{":"}} l3out, l3out_uuid"
           - error_floating_svi_interface_path_attributes_without_node_id is failed
           - error_floating_svi_interface_path_attributes_without_node_id.msg == "missing required arguments{{":"}} node_id" 
-          - error_floating_svi_interface_path_attributes_without_encapsulation_type is failed
-          - error_floating_svi_interface_path_attributes_without_encapsulation_type.msg == "missing required arguments{{":"}} encapsulation_type"
           - error_floating_svi_interface_path_attributes_without_encapsulation_value is failed
           - error_floating_svi_interface_path_attributes_without_encapsulation_value.msg == "missing required arguments{{":"}} encapsulation_value"
           - error_floating_svi_interface_path_attributes_without_provider is failed

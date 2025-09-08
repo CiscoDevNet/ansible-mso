@@ -56,7 +56,7 @@ options:
     description:
     - The encapsulation type of the interface.
     type: str
-    required: true
+    default: vlan
     aliases: [ encap_type ]
     choices: [ vlan, vxlan ]
   encapsulation_value:
@@ -245,7 +245,7 @@ def main():
         l3out=dict(type="str", aliases=["l3out_name"]),
         l3out_uuid=dict(type="str"),
         node_id=dict(type="str", aliases=["node", "anchor_node_id"], required=True),
-        encapsulation_type=dict(type="str", choices=["vlan", "vxlan"], aliases=["encap_type"], required=True),
+        encapsulation_type=dict(type="str", choices=["vlan", "vxlan"], aliases=["encap_type"], default="vlan"),
         encapsulation_value=dict(type="int", aliases=["encap", "encapsulation", "encapsulation_id"], required=True),
         domain_type=dict(type="str", choices=list(DOMAIN_TYPE_MAP)),
         domain_provider=dict(type="str", choices=list(VM_DOMAIN_PROVIDER_MAP)),

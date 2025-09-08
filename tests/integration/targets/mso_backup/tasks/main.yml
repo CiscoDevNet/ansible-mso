@@ -19,7 +19,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -309,202 +309,211 @@
   ignore_errors: true
   register: download_non_existent_backup
 
-- name: Download ansibleBackupRemote1 in check mode
-  cisco.mso.mso_backup: &download_ab1_cm
-    <<: *mso_info
-    backup: ansibleBackupRemote1
-    destination: './{{mso_hostname}}'
-    state: download
-  check_mode: true
-  register: download_ab1_cm
-
-- name: Download ansibleBackupRemote1 in normal mode
-  cisco.mso.mso_backup:
-    <<: *download_ab1_cm
-  register: download_ab1_nm
-
-- name: Assertions check for download a backup form MSO/NDO
+- name: Assertions check for non existing backup
   ansible.builtin.assert:
     that:
-    - download_ab1_cm is changed
-    - download_ab1_nm is changed
     - download_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
 
-# Find Backup
-- name: Find backup
-  ansible.builtin.find:
-    paths: './{{mso_hostname}}'
-    patterns: "*.tar.gz"
-  register: backup_match
-
-# Upload a backup from local machine to local location only for MSO - version < 3.2
-- name: Execute tasks only for MSO version < 3.2
-  when: version.current.version is version('3.2', '<')
+# Adding generic block to allow tests to pass for versions above NDO4.1
+- name: Execute tasks only for MSO version < 4.0
+  when: version.current.version is version('4.0', '<')
   block:
-    - name: Upload a backup from local machine to local location in check mode
-      cisco.mso.mso_backup: &upload_backup_to_local_cm
-        <<: *mso_info
-        backup: "{{ backup_match.files[0].path }}"
-        state: upload
-      register: upload_backup_to_local_cm
-      check_mode: true
 
-    - name: Upload a backup from local machine to local location in normal mode
-      cisco.mso.mso_backup:
-        <<: *upload_backup_to_local_cm
-      register: upload_backup_to_local_nm
+  - name: Download ansibleBackupRemote1 in check mode
+    cisco.mso.mso_backup: &download_ab1_cm
+      <<: *mso_info
+      backup: ansibleBackupRemote1
+      destination: './{{mso_hostname}}'
+      state: download
+    check_mode: true
+    register: download_ab1_cm
 
-    - name: Upload a non existent backup from local machine to local location
-      cisco.mso.mso_backup:
-        <<: *mso_info
-        backup: non_existent_backup
-        state: upload
-      register: upload_non_existent_backup
-      ignore_errors: true
+  - name: Download ansibleBackupRemote1 in normal mode
+    cisco.mso.mso_backup:
+      <<: *download_ab1_cm
+    register: download_ab1_nm
 
-    - name: Assertions check for the upload a backup form local machine to local location
-      ansible.builtin.assert:
-        that:
-          - upload_backup_to_local_cm is changed
-          - upload_backup_to_local_nm is changed
-          - "{{ 'Upload failed due to' in upload_non_existent_backup.msg }}"
+  - name: Assertions check for download a backup form MSO/NDO
+    ansible.builtin.assert:
+      that:
+      - download_ab1_cm is changed
+      - download_ab1_nm is changed
 
-# Upload backup to remote location for all platforms
-# To Support NDO Backup upload
-- name: Check present working directory with Shell command
-  ansible.builtin.shell:
-     "pwd"
-  register: present_working_directory
+  # Find Backup
+  - name: Find backup
+    ansible.builtin.find:
+      paths: './{{mso_hostname}}'
+      patterns: "*.tar.gz"
+    register: backup_match
 
-- name: Upload an existing backup from local machine to remote location - check mode
-  cisco.mso.mso_backup: &upload_backup_cm
-    <<: *mso_info
-    backup: "{{present_working_directory.stdout}}/{{ backup_match.files[0].path }}"
-    location_type: remote
-    remote_location: ansible_test
-    remote_path: "tmp"
-    state: upload
-  check_mode: true
-  register: upload_backup_cm
+  # Upload a backup from local machine to local location only for MSO - version < 3.2
+  - name: Execute tasks only for MSO version < 3.2
+    when: version.current.version is version('3.2', '<')
+    block:
+      - name: Upload a backup from local machine to local location in check mode
+        cisco.mso.mso_backup: &upload_backup_to_local_cm
+          <<: *mso_info
+          backup: "{{ backup_match.files[0].path }}"
+          state: upload
+        register: upload_backup_to_local_cm
+        check_mode: true
 
-- name: Upload an existing backup from local machine to remote location - normal mode
-  cisco.mso.mso_backup:
-    <<: *upload_backup_cm
-  register: upload_backup_nm
-  ignore_errors: true
+      - name: Upload a backup from local machine to local location in normal mode
+        cisco.mso.mso_backup:
+          <<: *upload_backup_to_local_cm
+        register: upload_backup_to_local_nm
 
-# Block to handle "Backup already existing issue"
-- name: Upload backup from local machine to remote again
-  when:
-    - upload_backup_nm is not changed
-    - upload_backup_nm.current == []
-  block:
-    - name: Query all backups - clear existing backups before uploading - to handle "Backup already existing issue"
-      cisco.mso.mso_backup:
-        <<: *mso_info
-        state: query
-      register: query_ansibleBackup_for_delete
+      - name: Upload a non existent backup from local machine to local location
+        cisco.mso.mso_backup:
+          <<: *mso_info
+          backup: non_existent_backup
+          state: upload
+        register: upload_non_existent_backup
+        ignore_errors: true
 
-    - name: Delete all backups from MSO/NDO before uploading the backup form local machine
-      cisco.mso.mso_backup:
-        <<: *mso_info
-        backup_id:  '{{ item.id }}'
-        state: absent
-      loop: '{{ query_ansibleBackup_for_delete.current | list | sort(attribute="name", reverse=True) }}'
+      - name: Assertions check for the upload a backup form local machine to local location
+        ansible.builtin.assert:
+          that:
+            - upload_backup_to_local_cm is changed
+            - upload_backup_to_local_nm is changed
+            - "{{ 'Upload failed due to' in upload_non_existent_backup.msg }}"
 
-    - name: Upload an existing backup from local machine to remote location - normal mode - after removing existing backups
-      cisco.mso.mso_backup:
-        <<: *upload_backup_cm
-      register: upload_backup_nm
+  # Upload backup to remote location for all platforms
+  # To Support NDO Backup upload
+  - name: Check present working directory with Shell command
+    ansible.builtin.shell:
+      "pwd"
+    register: present_working_directory
 
-- name: Upload a non existent backup from local location
-  cisco.mso.mso_backup:
-    <<: *mso_info
-    backup: non_existent_backup
-    location_type: remote
-    remote_location: ansible_test
-    remote_path: "tmp"
-    state: upload
-  register: upload_non_existent_backup
-  ignore_errors: true
+  - name: Upload an existing backup from local machine to remote location - check mode
+    cisco.mso.mso_backup: &upload_backup_cm
+      <<: *mso_info
+      backup: "{{present_working_directory.stdout}}/{{ backup_match.files[0].path }}"
+      location_type: remote
+      remote_location: ansible_test
+      remote_path: "tmp"
+      state: upload
+    check_mode: true
+    register: upload_backup_cm
 
-- name: Assertions check for the upload a backup form local machine to remote location
-  ansible.builtin.assert:
-    that:
-      - upload_non_existent_backup is not changed
-      - "{{ 'Upload failed due to' in upload_non_existent_backup.msg }}"
-      - upload_backup_cm is changed
-      - upload_backup_cm.current == {}
-      - upload_backup_nm is changed
-      - upload_backup_nm.current != {}
+  - name: Upload an existing backup from local machine to remote location - normal mode
+    cisco.mso.mso_backup:
+      <<: *upload_backup_cm
+    register: upload_backup_nm
+    ignore_errors: true
 
-- name: Set Uploaded Backup Name for MSO
-  when:
-    - version.current.version is version('2.2.4e', '!=')
-    - version.current.version is version('3.2', '<')
-  ansible.builtin.set_fact:
-    uploaded_backup_name: '{{ upload_backup_nm.current.backupEntry.metadata.name.split("_") | first }}'
+  # Block to handle "Backup already existing issue"
+  - name: Upload backup from local machine to remote again
+    when:
+      - upload_backup_nm is not changed
+      - upload_backup_nm.current == []
+    block:
+      - name: Query all backups - clear existing backups before uploading - to handle "Backup already existing issue"
+        cisco.mso.mso_backup:
+          <<: *mso_info
+          state: query
+        register: query_ansibleBackup_for_delete
 
-- name: Set Uploaded Backup Name for NDO
-  when:
-    - version.current.version is version('2.2.4e', '!=')
-    - version.current.version is version('3.2', '>=')
-  ansible.builtin.set_fact:
-    uploaded_backup_name: '{{ upload_backup_nm.current.body.backupEntry.metadata.name.split("_") | first }}'
+      - name: Delete all backups from MSO/NDO before uploading the backup form local machine
+        cisco.mso.mso_backup:
+          <<: *mso_info
+          backup_id:  '{{ item.id }}'
+          state: absent
+        loop: '{{ query_ansibleBackup_for_delete.current | list | sort(attribute="name", reverse=True) }}'
 
-- name: Restore backup check
-  when: version.current.version is version('2.2.4e', '!=')
-  block:
-    - name: Restore non existent backup
-      cisco.mso.mso_backup:
-        <<: *mso_info
-        backup: non_existent_backup
-        state: restore
-        timeout: 1000
-      ignore_errors: true
-      register: restore_non_existent_backup
+      - name: Upload an existing backup from local machine to remote location - normal mode - after removing existing backups
+        cisco.mso.mso_backup:
+          <<: *upload_backup_cm
+        register: upload_backup_nm
 
-    - name: Add a new tenant
-      cisco.mso.mso_tenant:
-        <<: *tenant1_absent
-        state: present
-      register: tenant1_present
+  - name: Upload a non existent backup from local location
+    cisco.mso.mso_backup:
+      <<: *mso_info
+      backup: non_existent_backup
+      location_type: remote
+      remote_location: ansible_test
+      remote_path: "tmp"
+      state: upload
+    register: upload_non_existent_backup
+    ignore_errors: true
 
-    - name: Restore {{ uploaded_backup_name }} in check mode
-      cisco.mso.mso_backup: &restore_backup_cm
-        <<: *mso_info
-        backup: '{{ uploaded_backup_name }}'
-        state: restore
-        timeout: 1000
-      check_mode: true
-      register: restore_backup_cm
+  - name: Assertions check for the upload a backup form local machine to remote location
+    ansible.builtin.assert:
+      that:
+        - upload_non_existent_backup is not changed
+        - "{{ 'Upload failed due to' in upload_non_existent_backup.msg }}"
+        - upload_backup_cm is changed
+        - upload_backup_cm.current == {}
+        - upload_backup_nm is changed
+        - upload_backup_nm.current != {}
 
-    - name: Restore {{ uploaded_backup_name }} in normal mode
-      cisco.mso.mso_backup:
-        <<: *restore_backup_cm
-      register: restore_backup_nm
+  - name: Set Uploaded Backup Name for MSO
+    when:
+      - version.current.version is version('2.2.4e', '!=')
+      - version.current.version is version('3.2', '<')
+    ansible.builtin.set_fact:
+      uploaded_backup_name: '{{ upload_backup_nm.current.backupEntry.metadata.name.split("_") | first }}'
 
-    - name: Query Tenant1 after restoring the backup
-      cisco.mso.mso_tenant:
-        <<: *tenant1_absent
-        state: query
-      register: query_tenant1
+  - name: Set Uploaded Backup Name for NDO
+    when:
+      - version.current.version is version('2.2.4e', '!=')
+      - version.current.version is version('3.2', '>=')
+    ansible.builtin.set_fact:
+      uploaded_backup_name: '{{ upload_backup_nm.current.body.backupEntry.metadata.name.split("_") | first }}'
 
-    - name: Restore {{ uploaded_backup_name }} in normal mode - idempotency check
-      cisco.mso.mso_backup:
-        <<: *restore_backup_cm
-      register: idm_restore_backup_nm
+  - name: Restore backup check
+    when: version.current.version is version('2.2.4e', '!=')
+    block:
+      - name: Restore non existent backup
+        cisco.mso.mso_backup:
+          <<: *mso_info
+          backup: non_existent_backup
+          state: restore
+          timeout: 1000
+        ignore_errors: true
+        register: restore_non_existent_backup
 
-    - name: Assertions check for the backup restore
-      ansible.builtin.assert:
-        that:
-          - restore_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
-          - restore_backup_cm is changed
-          - restore_backup_nm is changed
-          - idm_restore_backup_nm is changed
-          - tenant1_present.current != {}
-          - query_tenant1 is not changed
-          - query_tenant1.current == {}
+      - name: Add a new tenant
+        cisco.mso.mso_tenant:
+          <<: *tenant1_absent
+          state: present
+        register: tenant1_present
+
+      - name: Restore {{ uploaded_backup_name }} in check mode
+        cisco.mso.mso_backup: &restore_backup_cm
+          <<: *mso_info
+          backup: '{{ uploaded_backup_name }}'
+          state: restore
+          timeout: 1000
+        check_mode: true
+        register: restore_backup_cm
+
+      - name: Restore {{ uploaded_backup_name }} in normal mode
+        cisco.mso.mso_backup:
+          <<: *restore_backup_cm
+        register: restore_backup_nm
+
+      - name: Query Tenant1 after restoring the backup
+        cisco.mso.mso_tenant:
+          <<: *tenant1_absent
+          state: query
+        register: query_tenant1
+
+      - name: Restore {{ uploaded_backup_name }} in normal mode - idempotency check
+        cisco.mso.mso_backup:
+          <<: *restore_backup_cm
+        register: idm_restore_backup_nm
+
+      - name: Assertions check for the backup restore
+        ansible.builtin.assert:
+          that:
+            - restore_non_existent_backup.msg is match ("Backup 'non_existent_backup' does not exist")
+            - restore_backup_cm is changed
+            - restore_backup_nm is changed
+            - idm_restore_backup_nm is changed
+            - tenant1_present.current != {}
+            - query_tenant1 is not changed
+            - query_tenant1.current == {}
 
 # Cleaning part
 # Remove all other backups

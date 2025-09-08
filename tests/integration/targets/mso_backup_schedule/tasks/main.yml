@@ -21,229 +21,239 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
 
-- name: Delete existing backup schedule
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    state: absent
-
-- name: Ensure remote location is present
-  cisco.mso.mso_remote_location:
-    <<: *mso_info
-    remote_location: ansible_test
-    remote_protocol: scp
-    remote_host: '{{ mso_remote_location }}'
-    remote_path: '{{ mso_remote_location_path | default("/tmp") }}'
-    authentication_type: password
-    remote_username: '{{ mso_remote_location_user | default(mso_username) }}'
-    remote_password: '{{ mso_remote_location_password | default(mso_password) }}'
-    state: present
-
-# TESTS
-
-- name: Get empty backup schedule
-  cisco.mso.mso_backup_schedule:
+- name: Query MSO version
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
-  register: no_schedule
+  register: version
 
-- name: Verify empty backup schedule
-  ansible.builtin.assert:
-    that:
-      - no_schedule is not changed
-      - no_schedule.current == {}
+# Adding generic block to allow tests to pass for versions above NDO4.1
+- name: Execute tasks only for MSO version < 4.0
+  when: version.current.version is version('4.0', '<')
+  block:
+  - name: Delete existing backup schedule
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      state: absent
 
-- name: Set backup schedule (check mode)
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    frequency_unit: hours
-    frequency_length: 7
-    remote_location: ansible_test
-    state: present
-  check_mode: true
-  register: cm_schedule_create
+  - name: Ensure remote location is present
+    cisco.mso.mso_remote_location:
+      <<: *mso_info
+      remote_location: ansible_test
+      remote_protocol: scp
+      remote_host: '{{ mso_remote_location }}'
+      remote_path: '{{ mso_remote_location_path | default("/tmp") }}'
+      authentication_type: password
+      remote_username: '{{ mso_remote_location_user | default(mso_username) }}'
+      remote_password: '{{ mso_remote_location_password | default(mso_password) }}'
+      state: present
 
-- name: Set backup schedule (normal mode)
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    frequency_unit: hours
-    frequency_length: 7
-    remote_location: ansible_test
-    state: present
-  register: nm_schedule_create
+  # TESTS
 
-# add date tests
-- name: Verify success set backup schedule
-  ansible.builtin.assert:
-    that:
-      - cm_schedule_create is changed
-      - cm_schedule_create.current.intervalLength == 7
-      - cm_schedule_create.current.intervalTimeUnit == "HOURS"
-      - cm_schedule_create.current.locationType == "remote"
-      - nm_schedule_create is changed
-      - nm_schedule_create.current.timeInterval.length == 7
-      - nm_schedule_create.current.timeInterval.unit == "HOURS"
-      - nm_schedule_create.current.callbackWSRequest.methodBody.locationType == "remote"
-      - "'00:00:00' in nm_schedule_create.current.firstScheduledAt"
+  - name: Get empty backup schedule
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      state: query
+    register: no_schedule
 
-- name: Adjust backup schedule (check mode)
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    frequency_unit: days
-    frequency_length: 1
-    remote_location: ansible_test
-    state: present
-  check_mode: true
-  register: cm_schedule_adjust
+  - name: Verify empty backup schedule
+    ansible.builtin.assert:
+      that:
+        - no_schedule is not changed
+        - no_schedule.current == {}
 
-- name: Adjust backup schedule (normal mode)
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    frequency_unit: days
-    frequency_length: 1
-    remote_location: ansible_test
-    state: present
-  register: nm_schedule_adjust
+  - name: Set backup schedule (check mode)
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      frequency_unit: hours
+      frequency_length: 7
+      remote_location: ansible_test
+      state: present
+    check_mode: true
+    register: cm_schedule_create
 
-- name: Verify success set backup schedule
-  ansible.builtin.assert:
-    that:
-      - cm_schedule_adjust is changed
-      - cm_schedule_adjust.current.intervalLength == 1
-      - cm_schedule_adjust.current.intervalTimeUnit == "DAYS"
-      - cm_schedule_adjust.current.locationType == "remote"
-      - nm_schedule_adjust is changed
-      - nm_schedule_adjust.current.timeInterval.length == 1
-      - nm_schedule_adjust.current.timeInterval.unit == "DAYS"
-      - nm_schedule_adjust.current.callbackWSRequest.methodBody.locationType == "remote"
+  - name: Set backup schedule (normal mode)
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      frequency_unit: hours
+      frequency_length: 7
+      remote_location: ansible_test
+      state: present
+    register: nm_schedule_create
 
-- name: Get backup schedule
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    state: query
-  register: schedule
+  # add date tests
+  - name: Verify success set backup schedule
+    ansible.builtin.assert:
+      that:
+        - cm_schedule_create is changed
+        - cm_schedule_create.current.intervalLength == 7
+        - cm_schedule_create.current.intervalTimeUnit == "HOURS"
+        - cm_schedule_create.current.locationType == "remote"
+        - nm_schedule_create is changed
+        - nm_schedule_create.current.timeInterval.length == 7
+        - nm_schedule_create.current.timeInterval.unit == "HOURS"
+        - nm_schedule_create.current.callbackWSRequest.methodBody.locationType == "remote"
+        - "'00:00:00' in nm_schedule_create.current.firstScheduledAt"
 
-- name: Verify success get backup schedule
-  ansible.builtin.assert:
-    that:
-      - schedule is not changed
-      - nm_schedule_adjust.current.timeInterval.length == 1
-      - nm_schedule_adjust.current.timeInterval.unit == "DAYS"
-      - nm_schedule_adjust.current.callbackWSRequest.methodBody.locationType == "remote"
+  - name: Adjust backup schedule (check mode)
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      frequency_unit: days
+      frequency_length: 1
+      remote_location: ansible_test
+      state: present
+    check_mode: true
+    register: cm_schedule_adjust
 
-- name: Delete backup schedule (check mode)
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    state: absent
-  check_mode: true
+  - name: Adjust backup schedule (normal mode)
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      frequency_unit: days
+      frequency_length: 1
+      remote_location: ansible_test
+      state: present
+    register: nm_schedule_adjust
 
-- name: Delete backup schedule (normal mode)
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    state: absent
+  - name: Verify success set backup schedule
+    ansible.builtin.assert:
+      that:
+        - cm_schedule_adjust is changed
+        - cm_schedule_adjust.current.intervalLength == 1
+        - cm_schedule_adjust.current.intervalTimeUnit == "DAYS"
+        - cm_schedule_adjust.current.locationType == "remote"
+        - nm_schedule_adjust is changed
+        - nm_schedule_adjust.current.timeInterval.length == 1
+        - nm_schedule_adjust.current.timeInterval.unit == "DAYS"
+        - nm_schedule_adjust.current.callbackWSRequest.methodBody.locationType == "remote"
 
-- name: Get empty backup schedule
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    state: query
-  register: no_schedule
+  - name: Get backup schedule
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      state: query
+    register: schedule
 
-- name: Verify empty backup schedule
-  ansible.builtin.assert:
-    that:
-      - no_schedule is not changed
-      - no_schedule.current == {}
+  - name: Verify success get backup schedule
+    ansible.builtin.assert:
+      that:
+        - schedule is not changed
+        - nm_schedule_adjust.current.timeInterval.length == 1
+        - nm_schedule_adjust.current.timeInterval.unit == "DAYS"
+        - nm_schedule_adjust.current.callbackWSRequest.methodBody.locationType == "remote"
 
-- name: Set backup schedule incorrect time to parse (normal mode)
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    start_time: no_time
-    frequency_unit: hours
-    frequency_length: 7
-    remote_location: ansible_test
-    state: present
-  register: nm_schedule_incorrect_time
-  ignore_errors: true
+  - name: Delete backup schedule (check mode)
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      state: absent
+    check_mode: true
 
-- name: Set backup schedule incorrect date to parse (normal mode)
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    start_date: no_date
-    frequency_unit: hours
-    frequency_length: 7
-    remote_location: ansible_test
-    state: present
-  register: nm_schedule_incorrect_date
-  ignore_errors: true
+  - name: Delete backup schedule (normal mode)
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      state: absent
 
-- name: Set backup schedule incorrect date object create from start_date (normal mode)
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    start_date: "2030-15-45"
-    frequency_unit: hours
-    frequency_length: 7
-    remote_location: ansible_test
-    state: present
-  register: nm_schedule_incorrect_date_from_start_date
-  ignore_errors: true
+  - name: Get empty backup schedule
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      state: query
+    register: no_schedule
 
-- name: Set backup schedule incorrect date object create from start_time (normal mode)
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    start_time: "2030:15:45"
-    frequency_unit: hours
-    frequency_length: 7
-    remote_location: ansible_test
-    state: present
-  register: nm_schedule_incorrect_time_from_start_time
-  ignore_errors: true
+  - name: Verify empty backup schedule
+    ansible.builtin.assert:
+      that:
+        - no_schedule is not changed
+        - no_schedule.current == {}
 
-- name: Verify error messages
-  ansible.builtin.assert:
-    that:
-      - nm_schedule_incorrect_time is failed
-      - nm_schedule_incorrect_time.msg.startswith("Failed to parse time format")
-      - nm_schedule_incorrect_date is failed
-      - nm_schedule_incorrect_date.msg.startswith("Failed to parse date format")
-      - nm_schedule_incorrect_date_from_start_date is failed
-      - nm_schedule_incorrect_date_from_start_date.msg.startswith("Failed to create datetime object")
-      - nm_schedule_incorrect_time_from_start_time is failed
-      - nm_schedule_incorrect_time_from_start_time.msg.startswith("Failed to create datetime object")
+  - name: Set backup schedule incorrect time to parse (normal mode)
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      start_time: no_time
+      frequency_unit: hours
+      frequency_length: 7
+      remote_location: ansible_test
+      state: present
+    register: nm_schedule_incorrect_time
+    ignore_errors: true
 
-- name: Set backup schedule full (normal mode)
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    start_date: "2030-11-12"
-    start_time: "00:00:01"
-    frequency_unit: days
-    frequency_length: 1
-    remote_location: ansible_test
-    remote_path: remote_add
-    state: present
-  register: nm_schedule_full
+  - name: Set backup schedule incorrect date to parse (normal mode)
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      start_date: no_date
+      frequency_unit: hours
+      frequency_length: 7
+      remote_location: ansible_test
+      state: present
+    register: nm_schedule_incorrect_date
+    ignore_errors: true
 
-- name: Verify success set backup schedule
-  ansible.builtin.assert:
-    that:
-      - nm_schedule_full is changed
-      - nm_schedule_full.current.timeInterval.length == 1
-      - nm_schedule_full.current.timeInterval.unit == "DAYS"
-      - nm_schedule_full.current.callbackWSRequest.methodBody.locationType == "remote"
-      - nm_schedule_full.current.firstScheduledAt == "2030-11-12T00:00:01.000Z"
-      - nm_schedule_full.current.nextScheduleAt == "2030-11-13T00:00:01.000Z"
+  - name: Set backup schedule incorrect date object create from start_date (normal mode)
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      start_date: "2030-15-45"
+      frequency_unit: hours
+      frequency_length: 7
+      remote_location: ansible_test
+      state: present
+    register: nm_schedule_incorrect_date_from_start_date
+    ignore_errors: true
 
-- name: Delete backup schedule (normal mode)
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    state: absent
+  - name: Set backup schedule incorrect date object create from start_time (normal mode)
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      start_time: "2030:15:45"
+      frequency_unit: hours
+      frequency_length: 7
+      remote_location: ansible_test
+      state: present
+    register: nm_schedule_incorrect_time_from_start_time
+    ignore_errors: true
 
-- name: Get empty backup schedule
-  cisco.mso.mso_backup_schedule:
-    <<: *mso_info
-    state: query
-  register: no_schedule
+  - name: Verify error messages
+    ansible.builtin.assert:
+      that:
+        - nm_schedule_incorrect_time is failed
+        - nm_schedule_incorrect_time.msg.startswith("Failed to parse time format")
+        - nm_schedule_incorrect_date is failed
+        - nm_schedule_incorrect_date.msg.startswith("Failed to parse date format")
+        - nm_schedule_incorrect_date_from_start_date is failed
+        - nm_schedule_incorrect_date_from_start_date.msg.startswith("Failed to create datetime object")
+        - nm_schedule_incorrect_time_from_start_time is failed
+        - nm_schedule_incorrect_time_from_start_time.msg.startswith("Failed to create datetime object")
 
-- name: Verify empty backup schedule
-  ansible.builtin.assert:
-    that:
-      - no_schedule is not changed
-      - no_schedule.current == {}
+  - name: Set backup schedule full (normal mode)
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      start_date: "2030-11-12"
+      start_time: "00:00:01"
+      frequency_unit: days
+      frequency_length: 1
+      remote_location: ansible_test
+      remote_path: remote_add
+      state: present
+    register: nm_schedule_full
+
+  - name: Verify success set backup schedule
+    ansible.builtin.assert:
+      that:
+        - nm_schedule_full is changed
+        - nm_schedule_full.current.timeInterval.length == 1
+        - nm_schedule_full.current.timeInterval.unit == "DAYS"
+        - nm_schedule_full.current.callbackWSRequest.methodBody.locationType == "remote"
+        - nm_schedule_full.current.firstScheduledAt == "2030-11-12T00:00:01.000Z"
+        - nm_schedule_full.current.nextScheduleAt == "2030-11-13T00:00:01.000Z"
+
+  - name: Delete backup schedule (normal mode)
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      state: absent
+
+  - name: Get empty backup schedule
+    cisco.mso.mso_backup_schedule:
+      <<: *mso_info
+      state: query
+    register: no_schedule
+
+  - name: Verify empty backup schedule
+    ansible.builtin.assert:
+      that:
+        - no_schedule is not changed
+        - no_schedule.current == {}

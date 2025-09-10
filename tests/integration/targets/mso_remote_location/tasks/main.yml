@@ -20,6 +20,14 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("info") }}'
+    aci_info: &aci_info
+      host: "{{ apic_hostname }}"
+      username: "{{ apic_username }}"
+      password: "{{ apic_password }}"
+      validate_certs: "{{ apic_validate_certs | default(false) }}"
+      use_ssl: "{{ apic_use_ssl | default(true) }}"
+      use_proxy: "{{ apic_use_proxy | default(true) }}"
+      output_level: '{{ apic_output_level | default("debug") }}'
 
 - name: Query all backups
   cisco.mso.mso_backup:
@@ -71,17 +79,17 @@
       - cm_config_remote.current.credential.authType == "password"
       - cm_config_remote.current.credential.port == 22
       - cm_config_remote.current.credential.protocolType == "scp"
-      - cm_config_remote.current.credential.hostname == '{{ mso_remote_location }}'
+      - cm_config_remote.current.credential.hostname == mso_remote_location
       - cm_config_remote.current.credential.remotePath == '/tmp'
-      - cm_config_remote.current.credential.username == '{{ mso_remote_location_user | default(mso_username) }}'
+      - cm_config_remote.current.credential.username == mso_remote_location_user|default(mso_username)
       - nm_config_remote is changed
       - nm_config_remote.current.name == "ansible_test"
       - nm_config_remote.current.credential.authType == "password"
       - nm_config_remote.current.credential.port == 22
       - nm_config_remote.current.credential.protocolType == "scp"
-      - nm_config_remote.current.credential.hostname == '{{ mso_remote_location }}'
+      - nm_config_remote.current.credential.hostname == mso_remote_location
       - nm_config_remote.current.credential.remotePath == '/tmp'
-      - nm_config_remote.current.credential.username == '{{ mso_remote_location_user | default(mso_username) }}'
+      - nm_config_remote.current.credential.username == mso_remote_location_user|default(mso_username)
       - nm_config_remote.current.id is defined
 
 - name: Configure remote location again
@@ -189,9 +197,9 @@
   ansible.builtin.assert:
     that:
       - cm_config_remote_different_path is changed
-      - cm_config_remote_different_path.current.credential.remotePath == '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
+      - cm_config_remote_different_path.current.credential.remotePath == mso_remote_location_alternate_path|default("/home/"~mso_username)
       - nm_config_remote_different_path is changed
-      - nm_config_remote_different_path.current.credential.remotePath == '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
+      - nm_config_remote_different_path.current.credential.remotePath == mso_remote_location_alternate_path|default("/home/"~mso_username)
 
 - name: Remove remote location
   cisco.mso.mso_remote_location:
@@ -224,6 +232,38 @@
     <<: *remote_location
     state: absent
 
+- name: Set ansible_network_os to cisco.aci.aci
+  ansible.builtin.set_fact:
+    ansible_network_os: cisco.aci.aci
+
+- name: Reset the ansible_connection to access the APIC
+  ansible.builtin.meta: reset_connection
+
+# Ensure the ssh pub keys are set for the user
+# When this task fails ensure that the user is present on APIC and that it has correct write permissions / domains configured
+- name: Ensure SSH key exists on apic
+  cisco.aci.aci_aaa_ssh_auth:
+    <<: *aci_info
+    aaa_user: '{{ mso_username }}'
+    auth_name: ndo-rsa
+    data: "{{ lookup('file', 'pki/rsa.pub') }}"
+    state: present
+
+- name: Ensure SSH key exists on apic
+  cisco.aci.aci_aaa_ssh_auth:
+    <<: *aci_info
+    aaa_user: '{{ mso_username }}'
+    auth_name: ndo-rsa-pass
+    data: "{{ lookup('file', 'pki/rsa-passphrase.pub') }}"
+    state: present
+
+- name: Set ansible_network_os to cisco.nd.nd
+  ansible.builtin.set_fact:
+    ansible_network_os: cisco.nd.nd
+
+- name: Reset the ansible_connection to access the MSO/NDO
+  ansible.builtin.meta: reset_connection
+
 - name: Configure remote location ssh (check mode)
   cisco.mso.mso_remote_location: &remote_location_ssh
     <<: *remote_location
@@ -255,7 +295,7 @@
     <<: *remote_location
     authentication_type: ssh
     remote_ssh_key: "{{ lookup('file', 'pki/rsa-passphrase') }}"
-    remote_ssh_passphrase: '{{ mso_output_level | default("ansible") }}'
+    remote_ssh_passphrase: '{{ mso_ssh_passphrase | default("ansible") }}'
   check_mode: true
   register: cm_config_remote_ssh_pass
 

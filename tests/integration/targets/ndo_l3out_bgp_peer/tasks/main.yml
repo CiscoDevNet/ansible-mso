@@ -18,7 +18,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -43,7 +43,7 @@
         <<: *mso_info
         tenant: '{{ mso_tenant | default("ansible_test") }}'
         users:
-          - "{{ mso_username }}"
+          - '{{ mso_username }}'
         sites:
           - '{{ mso_site | default("ansible_test") }}'
         state: present
@@ -1016,11 +1016,15 @@
       register: nt_change_allowed_self_as_count
       ignore_errors: true
 
+    - name: Set errors message to handle quotes in string
+      ansible.builtin.set_fact:
+        error_change_allowed_self_as_count: "MSO Error 400: Invalid configuration in L3Out 'l3out_1': node group 'node_group_policy_1': BgpPeer 3.3.3.3-1::9/16 allowedSelfASCount value is set to 4, but AllowSelfAS is false"
+
     - name: Assertion check for invalid test - L3Out BGP Peer with different options
       ansible.builtin.assert:
         that:
           - nt_add_bgp_peer_without_ip is not changed
-          - nt_add_bgp_peer_without_ip.msg == "state is present but any of the following are missing{{':'}} ipv4_address, ipv6_address"
+          - 'nt_add_bgp_peer_without_ip.msg == "state is present but any of the following are missing: ipv4_address, ipv6_address"'
           - nt_change_allowed_self_as_count is not changed
           - nt_change_allowed_self_as_count.current.addressTypeControls.afMast == false
           - nt_change_allowed_self_as_count.current.addressTypeControls.afUcast == false
@@ -1032,7 +1036,7 @@
           - nt_change_allowed_self_as_count.current.peerAddressV6 == "1::9/16"
           - nt_change_allowed_self_as_count.current.templateId != ""
           - nt_change_allowed_self_as_count.current.templateName is defined
-          - nt_change_allowed_self_as_count.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 3.3.3.3-1::9/16 allowedSelfASCount value is set to 4, but AllowSelfAS is false"
+          - nt_change_allowed_self_as_count.msg == error_change_allowed_self_as_count
           - nt_change_allowed_self_as_count.previous.addressTypeControls.afMast == false
           - nt_change_allowed_self_as_count.previous.addressTypeControls.afUcast == false
           - nt_change_allowed_self_as_count.previous.adminState == "enabled"
@@ -1191,29 +1195,35 @@
       register: nt_create_with_peer_prefix
       ignore_errors: true
 
+    - name: Set errors message to handle quotes in string
+      ansible.builtin.set_fact:
+        error_update_ipv4_addr: "MSO Error 400: Invalid configuration in L3Out 'l3out_1': node group 'node_group_policy_1': BgpPeer 5.5.5.6-1::19/16 is duplicated. Please delete one"
+        error_add_same_ipv4_addr: "MSO Error 400: Invalid configuration in L3Out 'l3out_1': node group 'node_group_policy_1': BgpPeer 3.3.3.3-1::9/16 is duplicated. Please delete one"
+        error_update_ipv6_addr: "MSO Error 400: Invalid configuration in L3Out 'l3out_1': node group 'node_group_policy_1': BgpPeer 5.5.5.5-1::20/16 is duplicated. Please delete one"
+
     - name: Assertion check for invalid test - L3Out BGP Peer with different options 1
       ansible.builtin.assert:
         that:
           - nt_update_ipv4_addr is not changed
           - nt_update_ipv4_addr.current == {}
-          - nt_update_ipv4_addr.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 5.5.5.6-1::19/16 is duplicated. Please delete one"
+          - nt_update_ipv4_addr.msg == error_update_ipv4_addr
           - nt_update_ipv4_addr.previous == {}
           - nt_add_same_ipv4_addr is not changed
           - nt_add_same_ipv4_addr.current == {}
-          - nt_add_same_ipv4_addr.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 3.3.3.3-1::9/16 is duplicated. Please delete one"
+          - nt_add_same_ipv4_addr.msg == error_add_same_ipv4_addr
           - nt_add_same_ipv4_addr.previous == {}
           - nt_update_ipv6_addr is not changed
           - nt_update_ipv6_addr.current == {}
-          - nt_update_ipv6_addr.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_1'{{':'}} BgpPeer 5.5.5.5-1::20/16 is duplicated. Please delete one"
+          - nt_update_ipv6_addr.msg == error_update_ipv6_addr
           - nt_update_ipv6_addr.previous == {}
           - nt_create_without_template is not changed
-          - nt_create_without_template.msg == "one of the following is required{{':'}} template, template_id"
+          - 'nt_create_without_template.msg == "one of the following is required: template, template_id"'
           - nt_create_with_import_route_map is not changed
-          - nt_create_with_import_route_map.msg == "parameters are mutually exclusive{{':'}} import_route_map|import_route_map_uuid"
+          - 'nt_create_with_import_route_map.msg == "parameters are mutually exclusive: import_route_map|import_route_map_uuid"'
           - nt_create_with_export_route_map is not changed
-          - nt_create_with_export_route_map.msg == "parameters are mutually exclusive{{':'}} export_route_map|export_route_map_uuid"
+          - 'nt_create_with_export_route_map.msg == "parameters are mutually exclusive: export_route_map|export_route_map_uuid"'
           - nt_create_with_peer_prefix is not changed
-          - nt_create_with_peer_prefix.msg == "parameters are mutually exclusive{{':'}} peer_prefix|peer_prefix_uuid"
+          - 'nt_create_with_peer_prefix.msg == "parameters are mutually exclusive: peer_prefix|peer_prefix_uuid"'
 
     # QUERY
     - name: Query all L3Out BGP Peer
@@ -2167,49 +2177,53 @@
       ignore_errors: true
       register: err_mutually_exclusive_virtual_port_channel_node_id
 
+    - name: Set errors message to handle quotes in string
+      ansible.builtin.set_fact:
+        error_missing_node_id: "missing parameter(s) required by 'path': node_id"
+
     - name: Assert input errors for creating L3Out BGP Peer
       ansible.builtin.assert:
         that:
           - err_node_group_without_node_group.failed
-          - err_node_group_without_node_group.msg == "parent_type is node_group but all of the following are missing{{":"}} node_group"
+          - 'err_node_group_without_node_group.msg == "parent_type is node_group but all of the following are missing: node_group"'
           - err_routed_without_path_or_port_channel.failed
-          - err_routed_without_path_or_port_channel.msg == "parent_type is routed but any of the following are missing{{":"}} path, port_channel"
+          - 'err_routed_without_path_or_port_channel.msg == "parent_type is routed but any of the following are missing: path, port_channel"'
           - err_routed_sub_without_path_or_port_channel.failed
-          - err_routed_sub_without_path_or_port_channel.msg == "parent_type is routed_sub but any of the following are missing{{":"}} path, port_channel"
+          - 'err_routed_sub_without_path_or_port_channel.msg == "parent_type is routed_sub but any of the following are missing: path, port_channel"'
           - err_routed_sub_with_path.failed
-          - err_routed_sub_with_path.msg == "parent_type is routed_sub but all of the following are missing{{":"}} encapsulation_type, encapsulation_value"
+          - 'err_routed_sub_with_path.msg == "parent_type is routed_sub but all of the following are missing: encapsulation_type, encapsulation_value"'
           - err_routed_sub_with_path_and_encapsulation_type.failed
-          - err_routed_sub_with_path_and_encapsulation_type.msg == "parent_type is routed_sub but all of the following are missing{{":"}} encapsulation_value"
+          - 'err_routed_sub_with_path_and_encapsulation_type.msg == "parent_type is routed_sub but all of the following are missing: encapsulation_value"'
           - err_routed_sub_with_path_and_encapsulation_value.failed
-          - err_routed_sub_with_path_and_encapsulation_value.msg == "parent_type is routed_sub but all of the following are missing{{":"}} encapsulation_type"
+          - 'err_routed_sub_with_path_and_encapsulation_value.msg == "parent_type is routed_sub but all of the following are missing: encapsulation_type"'
           - err_routed_sub_with_path_without_node_id.failed
-          - err_routed_sub_with_path_without_node_id.msg == "missing parameter(s) required by 'path'{{":"}} node_id"
+          - err_routed_sub_with_path_without_node_id.msg == error_missing_node_id
           - err_svi_without_path_or_port_channel_or_virtual_port_channel.failed
-          - err_svi_without_path_or_port_channel_or_virtual_port_channel.msg == "parent_type is svi but any of the following are missing{{":"}} path, port_channel, virtual_port_channel"
+          - 'err_svi_without_path_or_port_channel_or_virtual_port_channel.msg == "parent_type is svi but any of the following are missing: path, port_channel, virtual_port_channel"'
           - err_svi_with_path.failed
-          - err_svi_with_path.msg == "parent_type is svi but all of the following are missing{{":"}} encapsulation_type, encapsulation_value"
+          - 'err_svi_with_path.msg == "parent_type is svi but all of the following are missing: encapsulation_type, encapsulation_value"'
           - err_svi_with_path_and_encapsulation_type.failed
-          - err_svi_with_path_and_encapsulation_type.msg == "parent_type is svi but all of the following are missing{{":"}} encapsulation_value"
+          - 'err_svi_with_path_and_encapsulation_type.msg == "parent_type is svi but all of the following are missing: encapsulation_value"'
           - err_svi_with_path_and_encapsulation_value.failed
-          - err_svi_with_path_and_encapsulation_value.msg == "parent_type is svi but all of the following are missing{{":"}} encapsulation_type"
+          - 'err_svi_with_path_and_encapsulation_value.msg == "parent_type is svi but all of the following are missing: encapsulation_type"'
           - err_floating_svi_without_node_id_or_encapsulation_type_or_encapsulation_value.failed
-          - err_floating_svi_without_node_id_or_encapsulation_type_or_encapsulation_value.msg == "parent_type is floating_svi but all of the following are missing{{":"}} node_id, encapsulation_type, encapsulation_value"
+          - 'err_floating_svi_without_node_id_or_encapsulation_type_or_encapsulation_value.msg == "parent_type is floating_svi but all of the following are missing: node_id, encapsulation_type, encapsulation_value"'
           - err_floating_svi_without_node_id.failed
-          - err_floating_svi_without_node_id.msg == "parent_type is floating_svi but all of the following are missing{{":"}} node_id"
+          - 'err_floating_svi_without_node_id.msg == "parent_type is floating_svi but all of the following are missing: node_id"'
           - err_floating_svi_without_encapsulation_type.failed
-          - err_floating_svi_without_encapsulation_type.msg == "parent_type is floating_svi but all of the following are missing{{":"}} encapsulation_type"
+          - 'err_floating_svi_without_encapsulation_type.msg == "parent_type is floating_svi but all of the following are missing: encapsulation_type"'
           - err_floating_svi_without_encapsulation_value.failed
-          - err_floating_svi_without_encapsulation_value.msg == "parent_type is floating_svi but all of the following are missing{{":"}} encapsulation_value"
+          - 'err_floating_svi_without_encapsulation_value.msg == "parent_type is floating_svi but all of the following are missing: encapsulation_value"'
           - err_mutually_exclusive_port_channel_path.failed
-          - err_mutually_exclusive_port_channel_path.msg == "parameters are mutually exclusive{{":"}} port_channel|path, port_channel|node_id"
+          - 'err_mutually_exclusive_port_channel_path.msg == "parameters are mutually exclusive: port_channel|path, port_channel|node_id"'
           - err_mutually_exclusive_port_channel_node_id.failed
-          - err_mutually_exclusive_port_channel_node_id.msg == "parameters are mutually exclusive{{":"}} port_channel|node_id"
+          - 'err_mutually_exclusive_port_channel_node_id.msg == "parameters are mutually exclusive: port_channel|node_id"'
           - err_mutually_exclusive_port_channel_virtual_port_channel.failed
-          - err_mutually_exclusive_port_channel_virtual_port_channel.msg == "parameters are mutually exclusive{{":"}} port_channel|virtual_port_channel"
+          - 'err_mutually_exclusive_port_channel_virtual_port_channel.msg == "parameters are mutually exclusive: port_channel|virtual_port_channel"'
           - err_mutually_exclusive_virtual_port_channel_path.failed
-          - err_mutually_exclusive_virtual_port_channel_path.msg == "parameters are mutually exclusive{{":"}} virtual_port_channel|path, virtual_port_channel|node_id"
+          - 'err_mutually_exclusive_virtual_port_channel_path.msg == "parameters are mutually exclusive: virtual_port_channel|path, virtual_port_channel|node_id"'
           - err_mutually_exclusive_virtual_port_channel_node_id.failed
-          - err_mutually_exclusive_virtual_port_channel_node_id.msg == "parameters are mutually exclusive{{":"}} virtual_port_channel|node_id"
+          - 'err_mutually_exclusive_virtual_port_channel_node_id.msg == "parameters are mutually exclusive: virtual_port_channel|node_id"'
 
     # CLEANUP TEMPLATE
     - name: Ensure l3out template not exist

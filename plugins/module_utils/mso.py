@@ -338,34 +338,32 @@ def ndo_l3out_ptp_spec(aliases=None):
 
 def ndo_l3out_virtual_port_channel_spec(side_b=True):
     virtual_port_channel_spec = dict(
-        dict(
-            type="dict",
-            aliases=["vpc"],
-            options=dict(
-                uuid=dict(type="str"),
-                reference=dict(
-                    type="dict",
-                    aliases=["ref"],
-                    options=dict(
-                        name=dict(type="str", required=True),
-                        template=dict(type="str"),
-                        template_id=dict(type="str"),
-                    ),
-                    required_one_of=[
-                        ["template", "template_id"],
-                    ],
-                    mutually_exclusive=[
-                        ("template", "template_id"),
-                    ],
+        type="dict",
+        aliases=["vpc"],
+        options=dict(
+            uuid=dict(type="str"),
+            reference=dict(
+                type="dict",
+                aliases=["ref"],
+                options=dict(
+                    name=dict(type="str", required=True),
+                    template=dict(type="str"),
+                    template_id=dict(type="str"),
                 ),
+                required_one_of=[
+                    ["template", "template_id"],
+                ],
+                mutually_exclusive=[
+                    ("template", "template_id"),
+                ],
             ),
-            required_one_of=[
-                ["reference", "uuid"],
-            ],
-            mutually_exclusive=[
-                ("reference", "uuid"),
-            ],
         ),
+        required_one_of=[
+            ["reference", "uuid"],
+        ],
+        mutually_exclusive=[
+            ("reference", "uuid"),
+        ],
     )
 
     if side_b:

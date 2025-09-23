@@ -6,6 +6,33 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.12.0
+=======
+
+Release Summary
+---------------
+
+Release v2.12.0 of the ``ansible-mso`` collection on 2025-09-23.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.11.0.
+
+Minor Changes
+-------------
+
+- Add PTP configuration option for l3out routed interfaces in the ndo_l3out_routed_interface module
+- Add PTP configuration option for l3out routed sub interfaces in the ndo_l3out_routed_sub_interface module
+- Add support for Floating SVI Interface configuration in l3out templates with the ndo_l3out_floating_svi_interface module
+- Add support for Path Attributes in Floating SVI Interface configuration in l3out templates with the ndo_l3out_floating_svi_interface_path_attributes module
+- Add support for SVI interfaces configuration in l3out templates with the ndo_l3out_svi_interface module
+- Allow bgp peer configuration for all l3out interface types in the ndo_l3out_bgp_peer module
+
+Bugfixes
+--------
+
+- Changed the update logic of the mso_schema_template_bd and mso_schema_template_vrf_rp modules and added additional tests
+- Fix error where lookup functionality did not take encapsulation into consideration for ndo_l3out_svi_interface
+- Fix key error in sanitize function when key is not present in sent dictionary
+- Fix order of operation error in conditional for site interface detail retrieval in ndo_l3out_svi_interface
+
 v2.11.0
 =======
 

@@ -344,11 +344,15 @@
       ignore_errors: true
       register: validate_invalid_time
 
+    - name: Set error message for invalid time
+      ansible.builtin.set_fact:
+        error_message_invalid_time: "ERROR: The time must be in 'YYYY-MM-DD HH:MM:SS' format."
+
     - name: Assert that the MACsec policy interface_type cannot be updated
       assert:
         that:
           - validate_invalid_time is failed
-          - validate_invalid_time.msg == "ERROR{{":"}} The time must be in 'YYYY-MM-DD HH:MM:SS' format."
+          - validate_invalid_time.msg == error_message_invalid_time
 
     # DELETE
     - name: Delete a MACsec policy with name (check mode)

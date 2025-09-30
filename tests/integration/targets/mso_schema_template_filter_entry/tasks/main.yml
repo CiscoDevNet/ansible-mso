@@ -18,24 +18,13 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
-
-- name: Ensure site exist
-  cisco.mso.mso_site: &site_present
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ apic_username }}'
-    apic_password: '{{ apic_password }}'
-    apic_site_id: '{{ apic_site_id | default(101) }}'
-    urls:
-    - https://{{ apic_hostname }}
-    state: present
 
 - name: Remove schemas
   cisco.mso.mso_schema:
@@ -47,17 +36,15 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  cisco.mso.mso_tenant: &tenant_present
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
     - '{{ mso_username }}'
-    sites:
-    - '{{ mso_site | default("ansible_test") }}'
     state: present
 
 - name: Ensure schema 1 with Template1 exist
-  cisco.mso.mso_schema_template: &schema_present
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
@@ -65,35 +52,26 @@
     state: present
 
 - name: Create filter with filter entry (check_model)
-  cisco.mso.mso_schema_template_filter_entry:
+  cisco.mso.mso_schema_template_filter_entry: &entry_1
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     filter: filter1
     filter_display_name: filter1
     entry: filter_entry1
+    ethertype: ip
     state: present
   check_mode: true
   register: cm_add_filter
 
 - name: Create filter with filter entry (normal mode)
   cisco.mso.mso_schema_template_filter_entry:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template1
-    filter: filter1
-    entry: filter_entry1
-    state: present
+    <<: *entry_1
   register: nm_add_filter
 
 - name: Create filter with filter entry again
   cisco.mso.mso_schema_template_filter_entry:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template1
-    filter: filter1
-    entry: filter_entry1
-    state: present
+    <<: *entry_1
   register: add_filter_again
 
 - name: Verify add_filter
@@ -111,14 +89,9 @@
 
 - name: Add description to filter and filter entry for version greater than 3.3
   cisco.mso.mso_schema_template_filter_entry:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template1
-    filter: filter1
+    <<: *entry_1
     filter_description: "filter description"
-    entry: filter_entry1
     filter_entry_description: "filter entry description"
-    state: present
   register: add_filter_descr
   when: version.current.version is version('3.3', '>=')
 
@@ -143,7 +116,7 @@
   ansible.builtin.assert:
     that:
     - add_filter_only is not changed
-    - add_filter_only.msg == "state is present but all of the following are missing{{':'}} entry"
+    - 'add_filter_only.msg == "state is present but all of the following are missing: entry"'
 
 - name: Create filter with multiple filter entries
   cisco.mso.mso_schema_template_filter_entry:
@@ -153,24 +126,14 @@
     filter: filter1
     filter_display_name: filter1
     display_name: '{{ item }}'
-    ethertype: ip
-    ip_protocol: tcp
-    tcp_session_rules:
-    - acknowledgement
-    - established
-    source_from: 22
-    source_to: 22
-    destination_from: 22
-    destination_to: 22
-    arp_flag: request
-    stateful: true
-    fragments_only: false
-    entry: '{{ item }}'
+    ethertype: arp
+    arp_flag: '{{ item.flag }}'
+    entry: '{{ item.entry }}'
     state: present
   register: add_multiple_entries
   loop:
-  - 'filter_entry2'
-  - 'filter_entry3'
+  - { 'entry': 'filter_entry2', 'flag': 'request' }
+  - { 'entry': 'filter_entry3', 'flag': 'reply' }
 
 # QUERY the filters
 - name: Query a particular filter entry 1
@@ -257,11 +220,15 @@
   ignore_errors: true
   register: nm_non_existing_template
 
+- name: Set error message for non_existing_template
+  ansible.builtin.set_fact:
+    error_message_non_existing_template: "Provided template 'non_existing_template' does not exist. Existing templates: Template1"
+
 - name: Verify nm_non_existing_template
   ansible.builtin.assert:
     that:
     - nm_non_existing_template is not changed
-    - nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1"
+    - nm_non_existing_template.msg == error_message_non_existing_template
 
 - name: Query non_existing_filter
   cisco.mso.mso_schema_template_filter_entry:
@@ -302,7 +269,7 @@
     - query_non_existing_filter.msg == "Filter 'non_existing_filter' not found"
     - remove_non_existing_filter is not changed
     - remove_non_existing_entry is not changed
-    - nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1"
+    - nm_non_existing_template.msg == error_message_non_existing_template
 
 # Delete filter entries
 - name: Delete filter entry 3

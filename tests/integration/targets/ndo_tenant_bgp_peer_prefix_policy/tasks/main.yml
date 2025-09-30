@@ -18,7 +18,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -326,13 +326,17 @@
       ignore_errors: true
       register: update_non_existing_uuid
 
+    - name: Set error message for non_existing_uuid
+      ansible.builtin.set_fact:
+        error_message_non_existing_uuid: "BGP Peer Prefix Policy with the UUID: 'non-existing-uuid' not found"
+
     - name: Assert no BGP Peer Prefix Policy found
       assert:
         that:
           - query_all_none is not changed
           - query_all_none.current == {}
           - update_non_existing_uuid is failed
-          - update_non_existing_uuid.msg == "BGP Peer Prefix Policy with the UUID{{":"}} 'non-existing-uuid' not found"
+          - update_non_existing_uuid.msg == error_message_non_existing_uuid
   
     # CLEANUP TEMPLATE
 

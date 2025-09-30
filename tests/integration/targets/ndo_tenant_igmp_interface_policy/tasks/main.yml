@@ -18,7 +18,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -455,7 +455,7 @@
           - query_all_igmp_interface_policies.current[0].templateName == 'ansible_tenant_template'
           - query_all_igmp_interface_policies.current[1].name == 'ansible_igmp_interface_policy_2_updated'
           - query_all_igmp_interface_policies.current[1].templateName == 'ansible_tenant_template'
-          - - query_all_igmp_interface_policies.current[0].templateId == query_all_igmp_interface_policies.current[1].templateId
+          - query_all_igmp_interface_policies.current[0].templateId == query_all_igmp_interface_policies.current[1].templateId
 
     # DELETE
     - name: Delete an IGMP Interface Policy (check mode)
@@ -546,13 +546,17 @@
       ignore_errors: true
       register: update_non_existing_uuid
 
-    - name: Assert no IGMP Snooping Policy found
+    - name: Set error message for non_existing_uuid
+      ansible.builtin.set_fact:
+        error_message_non_existing_uuid: "IGMP Interface Policy with the UUID: 'non-existing-uuid' not found"
+
+    - name: Assert no IGMP Interface Policy found
       assert:
         that:
           - query_all_none is not changed
           - query_all_none.current == []
           - update_non_existing_uuid is failed
-          - update_non_existing_uuid.msg == "IGMP Interface Policy with the UUID{{":"}} 'non-existing-uuid' not found"
+          - update_non_existing_uuid.msg == error_message_non_existing_uuid
 
     # CLEANUP TEMPLATE
 

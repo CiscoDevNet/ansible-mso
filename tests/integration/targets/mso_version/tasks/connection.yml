@@ -108,6 +108,17 @@
     - nm_query_login_new_validate_certs_true.msg is search("certificate verify failed")
     - nm_query_login_new_wrong_host.current == {}
 
+- name: Set ansible connection search queries and error message for failed authentication
+  ansible.builtin.set_fact:
+    search_username: "'username': 'r_ansible_github_ci'"
+    search_login_domain: "'login_domain': 'test'"
+    search_proxy_true: "'use_proxy': True"
+    search_ssl: "'use_ssl': True"
+    search_timeout_300: "'timeout': 300"
+    search_validate_certs: "'validate_certs': False"
+    search_timeout_10: "'timeout': 10"
+    search_proxy_false: "'use_proxy': False"
+
 - name: Verify httpapi plugin tests
   ansible.builtin.assert:
     that:
@@ -116,20 +127,20 @@
     - nm_query_login_domain_overwrite.httpapi_logs | length == 8
     - nm_query_login_domain_overwrite.httpapi_logs.1.1.startswith("set_connection_parameters() - resetting connection due to 'username' change")
     - nm_query_login_domain_overwrite.httpapi_logs.2.1.startswith("set_connection_parameters() - resetting connection due to 'login_domain' change")
-    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search("'username'{{':'}} 'r_ansible_github_ci'")
-    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search("'login_domain'{{':'}} 'test'")
-    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search("'use_proxy'{{':'}} True")
-    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search("'use_ssl'{{':'}} True")
-    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search("'timeout'{{':'}} 300")
-    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search("'validate_certs'{{':'}} False")
+    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search(search_username)
+    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search(search_login_domain)
+    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search(search_proxy_true)
+    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search(search_ssl)
+    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search(search_timeout_300)
+    - nm_query_login_domain_overwrite.httpapi_logs.3.1 is search(search_validate_certs)
     - nm_query_skip_login.httpapi_logs | length == 2
     - nm_query_skip_login.httpapi_logs.1.1.startswith("send_request() - connection.send(/api/v1/platform/version")
-    - nm_query_wrong_username_password_overwrite.msg == "Authentication failed{{':'}} Request failed{{':'}} HTTP Error 401{{':'}} Unauthorized"
+    - 'nm_query_wrong_username_password_overwrite.msg == "Authentication failed: Request failed: HTTP Error 401: Unauthorized"'
     - nm_query_login_new_username_password.httpapi_logs | length == 8
     - nm_query_login_new_username_password.httpapi_logs.1.1.startswith("set_connection_parameters() - resetting connection due to 'username' change")
     - nm_query_login_new_username_password.httpapi_logs.2.1.startswith("set_connection_parameters() - resetting connection due to 'password' change")
     - nm_query_login_new_username_password_again.httpapi_logs | length == 2
     - nm_query_login_new_username_password_again.httpapi_logs.1.1.startswith("send_request() - connection.send(/api/v1/platform/version")
     - nm_query_login_new_timeout.httpapi_logs | length == 3
-    - nm_query_login_new_timeout.httpapi_logs.1.1 is search("'timeout'{{':'}} 10")
-    - nm_query_login_new_use_proxy_false.httpapi_logs.1.1 is search("'use_proxy'{{':'}} False")
+    - nm_query_login_new_timeout.httpapi_logs.1.1 is search(search_timeout_10)
+    - nm_query_login_new_use_proxy_false.httpapi_logs.1.1 is search(search_proxy_false)

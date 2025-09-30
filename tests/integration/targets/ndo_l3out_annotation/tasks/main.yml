@@ -18,7 +18,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -44,7 +44,7 @@
     - name: Ensure ansible_test schema template not exist
       cisco.mso.mso_schema_template: &mso_schema_template_absent
         <<: *mso_info
-        schema: '{{ ansible_schema | default("ansible_test") }}'
+        schema: '{{ mso_schema | default("ansible_test") }}'
         tenant: '{{ ansible_tenant | default("ansible_test") }}'
         template: "Template1"
         state: absent
@@ -65,7 +65,6 @@
         sites:
           - '{{ mso_site | default("ansible_test") }}'
         state: present
-      register: ansible_test_tenant
       when: ansible_test_site.current.common.name == 'ansible_test'
 
     # Schema Template Setup for the VRF
@@ -77,7 +76,7 @@
     - name: Add a new VRF1
       cisco.mso.mso_schema_template_vrf: &vrf1_present
         <<: *mso_info
-        schema: '{{ ansible_schema | default("ansible_test") }}'
+        schema: '{{ mso_schema | default("ansible_test") }}'
         template: "Template1"
         vrf: VRF1
         state: present
@@ -113,7 +112,7 @@
         name: "L3OutAnnotation"
         vrf:
           name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
         state: "present"
 
@@ -162,7 +161,7 @@
       ansible.builtin.assert:
         that:
           - nt_add_without_value is not changed
-          - nt_add_without_value.msg == "state is present but all of the following are missing{{':'}} annotation_value"
+          - 'nt_add_without_value.msg == "state is present but all of the following are missing: annotation_value"'
 
     - name: Add an annotation without key
       cisco.mso.ndo_l3out_annotation:
@@ -178,7 +177,7 @@
       ansible.builtin.assert:
         that:
           - nt_add_without_key is not changed
-          - nt_add_without_key.msg == "state is present but all of the following are missing{{':'}} annotation_key"
+          - 'nt_add_without_key.msg == "state is present but all of the following are missing: annotation_key"'
 
     - name: Add an annotation with key and value - check_mode
       cisco.mso.ndo_l3out_annotation:

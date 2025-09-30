@@ -19,7 +19,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(false) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Remove schema 2
   cisco.mso.mso_schema:
@@ -297,8 +297,8 @@
     - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
     - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
     - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
-    - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "firewall"
-    - cm_add_sg1_to_c1.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
+    - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - cm_add_sg1_to_c1.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
     - nm_add_sg1_to_c1 is changed
     - nm_add_sg1_to_c1.previous == {}
     - nm_add_sg1_to_c1.current.serviceGraphRef.serviceGraphName == "SG1"
@@ -308,8 +308,8 @@
     - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
     - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
     - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
-    - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "firewall"
-    - nm_add_sg1_to_c1.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
+    - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - nm_add_sg1_to_c1.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
 
 - name: Add service graph 1 to Contract1 again (check_mode)
   cisco.mso.mso_schema_template_contract_service_graph:
@@ -353,8 +353,8 @@
     - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
     - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
     - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
-    - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "firewall"
-    - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
+    - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
     - nm_add_sg1_to_c1_again is not changed
     - nm_add_sg1_to_c1_again.previous.serviceGraphRef.serviceGraphName == "SG1"
     - nm_add_sg1_to_c1_again.previous.serviceGraphRef.templateName == "Template1"
@@ -363,8 +363,8 @@
     - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
     - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
     - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
-    - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "firewall"
-    - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
+    - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
 
 - name: Change service graph 1 node to Contract1 (check_mode)
   cisco.mso.mso_schema_template_contract_service_graph:
@@ -490,8 +490,8 @@
     - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
     - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
     - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
-    - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "firewall"
-    - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
+    - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
     - nm_remove_sg1_from_c1 is changed
     - nm_remove_sg1_from_c1.current == {}
     - nm_remove_sg1_from_c1.previous.serviceGraphRef.serviceGraphName == "SG1"
@@ -501,8 +501,8 @@
     - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
     - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
     - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
-    - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "firewall"
-    - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
+    - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
 
 - name: Add service graph 2 to Contract2 with BD in other schema (check_mode)
   cisco.mso.mso_schema_template_contract_service_graph:
@@ -555,8 +555,8 @@
     - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD3"
     - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
     - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG2"
-    - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "firewall"
-    - cm_add_sg2_to_c2.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
+    - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - cm_add_sg2_to_c2.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
     - nm_add_sg2_to_c2 is changed
     - nm_add_sg2_to_c2.previous == {}
     - nm_add_sg2_to_c2.current.serviceGraphRef.serviceGraphName == "SG2"
@@ -566,8 +566,8 @@
     - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD3"
     - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
     - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG2"
-    - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "firewall"
-    - nm_add_sg2_to_c2.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "load-balancer"
+    - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
+    - nm_add_sg2_to_c2.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
 
 - name: Query service graph 2 to Contract2 (check_mode)
   cisco.mso.mso_schema_template_contract_service_graph:

@@ -18,7 +18,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -31,19 +31,16 @@
     <<: *mso_info
     schema: '{{ item }}'
     state: absent
-  ignore_errors: true
   loop:
-  - Schema1
-  - Schema2
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
 
-- name: Ensure tenant ansible_test exists
+- name: Ensure tenant ansible_test exist
   cisco.mso.mso_tenant:
     <<: *mso_info
-    tenant: ansible_test
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
     users:
-    - '{{ mso_username }}'
-    sites:
-    - '{{ mso_site | default("ansible_test") }}'
+      - '{{ mso_username }}'
     state: present
 
 - name: Ensure user is defined under common tenant
@@ -53,12 +50,11 @@
     users:
     - '{{ mso_username }}'
     state: present
-  when: version.current.version is version('3.2', '<')
 
 - name: Create Schema1 with Template 1, and Template 2 exist
   cisco.mso.mso_schema_template:
     <<: *mso_info
-    schema: Schema1
+    schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
     template: '{{ item }}'
     state: present
@@ -69,7 +65,7 @@
 - name: Create Schema2 with Template 3 exist
   cisco.mso.mso_schema_template:
     <<: *mso_info
-    schema: Schema2
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
     tenant: ansible_test
     template: Template3
     state: present
@@ -82,9 +78,9 @@
     anp: ANP
     state: present
   loop:
-  - { schema: 'Schema1', template: 'Template1' }
-  - { schema: 'Schema1', template: 'Template2' }
-  - { schema: 'Schema2', template: 'Template3' }
+  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template1' }
+  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template2' }
+  - { schema: '{{ mso_schema | default("ansible_test") }}_2', template: 'Template3' }
 
 - name: Ensure EPGs exist
   cisco.mso.mso_schema_template_anp_epg:
@@ -95,14 +91,14 @@
     epg: '{{ item.epg }}'
     state: present
   loop:
-  - { schema: 'Schema1', template: 'Template1', epg: 'ansible_test_1' }
-  - { schema: 'Schema1', template: 'Template2', epg: 'ansible_test_2' }
-  - { schema: 'Schema2', template: 'Template3', epg: 'ansible_test_3' }
+  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template1', epg: 'ansible_test_1' }
+  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template2', epg: 'ansible_test_2' }
+  - { schema: '{{ mso_schema | default("ansible_test") }}_2', template: 'Template3', epg: 'ansible_test_3' }
 
 - name: Add Selector to EPG (normal_mode)
   cisco.mso.mso_schema_template_anp_epg_selector:
     <<: *mso_info
-    schema: 'Schema1'
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template1
     anp: ANP
     epg: ansible_test_1
@@ -112,8 +108,8 @@
 - name: Clone template in the same schema (check_mode)
   cisco.mso.mso_schema_template_clone:
     <<: *mso_info
-    source_schema: Schema1
-    destination_schema: Schema1
+    source_schema: '{{ mso_schema | default("ansible_test") }}'
+    destination_schema: '{{ mso_schema | default("ansible_test") }}'
     destination_tenant: ansible_test
     source_template_name: Template1
     destination_template_name: Template1_clone
@@ -125,8 +121,8 @@
 - name: Clone template in the same schema (normal mode)
   cisco.mso.mso_schema_template_clone:
     <<: *mso_info
-    source_schema: Schema1
-    destination_schema: Schema1
+    source_schema: '{{ mso_schema | default("ansible_test") }}'
+    destination_schema: '{{ mso_schema | default("ansible_test") }}'
     destination_tenant: ansible_test
     source_template_name: Template1
     destination_template_name: Template1_clone
@@ -137,7 +133,7 @@
 - name: Clone template in the same schema without destination_schema being specified
   cisco.mso.mso_schema_template_clone:
     <<: *mso_info
-    source_schema: Schema1
+    source_schema: '{{ mso_schema | default("ansible_test") }}'
     source_template_name: Template1
     destination_template_name: Template1_clone_nodestschema
     state: clone
@@ -146,8 +142,8 @@
 - name: Clone template to different schema
   cisco.mso.mso_schema_template_clone:
     <<: *mso_info
-    source_schema: Schema1
-    destination_schema: Schema2
+    source_schema: '{{ mso_schema | default("ansible_test") }}'
+    destination_schema: '{{ mso_schema | default("ansible_test") }}_2'
     destination_tenant: ansible_test
     source_template_name: Template2
     destination_template_name: Cloned_template_1
@@ -158,8 +154,8 @@
 - name: Clone template to different schema but keep template name
   cisco.mso.mso_schema_template_clone:
     <<: *mso_info
-    source_schema: Schema1
-    destination_schema: Schema2
+    source_schema: '{{ mso_schema | default("ansible_test") }}'
+    destination_schema: '{{ mso_schema | default("ansible_test") }}_2'
     source_template_name: Template2
     state: clone
   register: add_template_schema_2
@@ -167,8 +163,8 @@
 - name: Clone template in the same schema but different tenant attached
   cisco.mso.mso_schema_template_clone:
     <<: *mso_info
-    source_schema: Schema1
-    destination_schema: Schema1
+    source_schema: '{{ mso_schema | default("ansible_test") }}'
+    destination_schema: '{{ mso_schema | default("ansible_test") }}'
     destination_tenant: common
     source_template_name: Template1_clone
     destination_template_name: Template1_clone_2
@@ -194,8 +190,8 @@
 - name: Clone non existing template
   cisco.mso.mso_schema_template_clone:
     <<: *mso_info
-    source_schema: Schema2
-    destination_schema: Schema2
+    source_schema: '{{ mso_schema | default("ansible_test") }}_2'
+    destination_schema: '{{ mso_schema | default("ansible_test") }}_2'
     destination_tenant: common
     source_template_name: non_existing_template
     destination_template_name: Cloned_template_2
@@ -214,7 +210,7 @@
   cisco.mso.mso_schema_template_clone:
     <<: *mso_info
     source_schema: non_existing_schema
-    destination_schema: Schema2
+    destination_schema: '{{ mso_schema | default("ansible_test") }}_2'
     source_template_name: Template2
     destination_template_name: NewTemplate2
     state: clone
@@ -230,7 +226,7 @@
 - name: Clone non existing destination schema
   cisco.mso.mso_schema_template_clone:
     <<: *mso_info
-    source_schema: Schema1
+    source_schema: '{{ mso_schema | default("ansible_test") }}'
     destination_schema: non_existing_schema
     destination_tenant: common
     source_template_name: Template2
@@ -249,7 +245,7 @@
 - name: Clone to same schema with same template name
   cisco.mso.mso_schema_template_clone:
     <<: *mso_info
-    source_schema: Schema1
+    source_schema: '{{ mso_schema | default("ansible_test") }}'
     source_template_name: Template1
     state: clone
   ignore_errors: true
@@ -264,8 +260,8 @@
 - name: Clone schema to schema with existing template with same name
   cisco.mso.mso_schema_template_clone:
     <<: *mso_info
-    source_schema: Schema1
-    destination_schema: Schema2
+    source_schema: '{{ mso_schema | default("ansible_test") }}'
+    destination_schema: '{{ mso_schema | default("ansible_test") }}_2'
     source_template_name: Template2
     state: clone
   ignore_errors: true
@@ -276,18 +272,3 @@
     that:
     - template_already_exist is not changed
     - template_already_exist.msg == "Template with the name 'Template2' already exists. Please use another name."
-
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  register: rm_schema
-  loop:
-  - Schema2
-  - Schema1
-
-- name: Verify rm_schema
-  ansible.builtin.assert:
-    that:
-    - rm_schema is changed

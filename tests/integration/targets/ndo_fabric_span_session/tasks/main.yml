@@ -17,7 +17,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -856,21 +856,27 @@
         state: query
       register: nt_query_one_object
 
+    - name: Set error messages for Fabric SPAN Session
+      ansible.builtin.set_fact:
+        error_message_nt_add_without_destination: "MSO Error 400: {\"errors\":[\"SPAN session nt_span_session: invalid access span destination - no destination provided\"]}"
+        error_message_nt_update_port_channel_with_uuid: "SPAN Session with the UUID: 'invalid_uuid' not found"
+        error_message_invalid_destination_port: "The site port interface not found. Site ID: [a-zA-z0-9]*, Node: 1011 and Path: eth1/1"
+
     - name: Assertion check for invalid checks for the Fabric SPAN Session
       ansible.builtin.assert:
         that:
           - nt_add_with_all_destination is not changed
-          - nt_add_with_all_destination.msg == "parameters are mutually exclusive{{':'}} destination_epg|destination_port_channel|destination_port"
+          - 'nt_add_with_all_destination.msg == "parameters are mutually exclusive: destination_epg|destination_port_channel|destination_port"'
           - nt_add_without_destination is not changed
-          - nt_add_without_destination.msg == "MSO Error 400{{':'}} {\"errors\"{{':'}}[\"SPAN session nt_span_session{{':'}} invalid access span destination - no destination provided\"]}"
+          - nt_add_without_destination.msg == error_message_nt_add_without_destination
           - nt_update_port_channel_with_uuid is not changed
           - nt_update_port_channel_with_uuid.current == {}
-          - nt_update_port_channel_with_uuid.msg == "SPAN Session with the UUID{{':'}} 'invalid_uuid' not found"
+          - nt_update_port_channel_with_uuid.msg == error_message_nt_update_port_channel_with_uuid
           - nt_update_port_channel_with_uuid.previous == {}
           - nt_query_one_object is not changed
           - nt_query_one_object.current == {}
           - nt_add_with_invalid_destination_port is not changed
-          - nt_add_with_invalid_destination_port.msg is match("The site port interface not found. Site ID{{':'}} [a-zA-z0-9]*, Node{{':'}} 1011 and Path{{':'}} eth1/1")
+          - nt_add_with_invalid_destination_port.msg is match(error_message_invalid_destination_port)
 
     # DELETE
     - name: Delete a specific SPAN Session using Name (check_mode)

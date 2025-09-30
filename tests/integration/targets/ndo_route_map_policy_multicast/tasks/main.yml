@@ -18,7 +18,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -289,14 +289,14 @@
 
     - name: Create another route map policy multicast
       cisco.mso.ndo_route_map_policy_multicast:
-        &create_route_map_policy_multicast_2
+        &create_route_map_policy_multicast_for_query
         <<: *create_route_map_policy_multicast
-        route_map_policy: ansible_test_route_map_policy_2
+        route_map_policy: ansible_test_route_map_policy_query
         description: "This is a test route map policy multicast 2"
 
     - name: Query a route map policy multicast with template_name
       cisco.mso.ndo_route_map_policy_multicast:
-        <<: *create_route_map_policy_multicast_2
+        <<: *create_route_map_policy_multicast_for_query
         state: query
       register: query_one
 
@@ -320,7 +320,7 @@
         that:
           - query_one is not changed
           - query_with_uuid is not changed
-          - query_one.current.name == query_with_uuid.current.name == "ansible_test_route_map_policy_2"
+          - query_one.current.name == query_with_uuid.current.name == "ansible_test_route_map_policy_query"
           - query_one.current.uuid == query_with_uuid.current.uuid
           - query_all is not changed
           - query_all.current | length == 2

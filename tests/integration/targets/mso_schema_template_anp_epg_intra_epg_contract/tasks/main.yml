@@ -18,24 +18,23 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
-# Setup part
 - name: Remove schemas
   cisco.mso.mso_schema:
     <<: *mso_info
-    schema: "{{ item }}"
+    schema: '{{ item }}'
     state: absent
   loop:
-    - '{{ mso_schema | default("ansible_test") }}'
-    - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
   cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: '{{ mso_tenant | default("ansible_test") }}'
     users:
-      - "{{ mso_username }}"
+      - '{{ mso_username }}'
     state: present
 
 - name: Ensure schemas exist with Templates
@@ -74,6 +73,10 @@
     - {
         schema: '{{ mso_schema | default("ansible_test") }}',
         template: "Template 2",
+      }
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}_2',
+        template: "Template 1",
       }
 
 - name: Ensure Filters exist
@@ -159,11 +162,20 @@
 - name: Ensure EPGs exist
   cisco.mso.mso_schema_template_anp_epg:
     <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: "Template 1"
+    schema: '{{ item.schema }}'
+    template: '{{ item.template }}'
     anp: ANP
     epg: ansible_test_1
     state: present
+  loop:
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}',
+        template: "Template 1",
+      }
+    - {
+        schema: '{{ mso_schema | default("ansible_test") }}_2',
+        template: "Template 1",
+      }
 
 # Test Part
 - name: Query all Intra-EPG Contracts when it is empty
@@ -292,21 +304,21 @@
       - t1_contract3_present.current.contractRef is match ("/schemas/.+/templates/Template1/contracts/T1_Contract3")
       - t1_contract3_present.previous == {}
 
-- name: Bind a ansible_test_2 common_contract with ansible_test_1 Intra-EPG Contracts
+- name: Bind a ansible_test_1 common_contract with ansible_test_2 Intra-EPG Contracts
   cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
     <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: "Template 1"
     anp: ANP
     epg: ansible_test_1
     contract:
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      schema: '{{ mso_schema | default("ansible_test") }}'
       template: "Template 1"
       name: common_contract
     state: present
   register: t1_common_contract
 
-- name: Assertion check for bind a ansible_test_2 common_contract with ansible_test_1 Intra-EPG Contracts
+- name: Assertion check for bind a ansible_test_1 common_contract with ansible_test_2 Intra-EPG Contracts
   ansible.builtin.assert:
     that:
       - t1_common_contract is changed
@@ -373,14 +385,14 @@
 - name: Query a specific Intra-EPG Contracts with name, template and schema
   cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
     <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: "Template 1"
     anp: ANP
     epg: ansible_test_1
     contract:
       name: common_contract
       template: "Template 1"
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      schema: '{{ mso_schema | default("ansible_test") }}'
     state: query
   register: query_common_contract_from_diff_schema
 
@@ -404,12 +416,12 @@
   ansible.builtin.assert:
     that:
       - query_all is not changed
-      - query_all.current | length == 5
+      - query_all.current | length == 4
       - query_all.current.0.contractRef is match ('/schemas/.+/templates/Template1/contracts/T1_Contract1')
       - query_all.current.1.contractRef is match ('/schemas/.+/templates/Template1/contracts/common_contract')
       - query_all.current.2.contractRef is match ('/schemas/.+/templates/Template2/contracts/common_contract')
       - query_all.current.3.contractRef is match ('/schemas/.+/templates/Template1/contracts/T1_Contract3')
-      - query_all.current.4.contractRef is match ('/schemas/.+/templates/Template1/contracts/common_contract')
+
 - name: Remove T1_Contract1 with ansible_test_1 Intra-EPG Contracts - check_mode
   cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
     <<: *cm_t1_contract1_present
@@ -468,24 +480,12 @@
   register: invalid_contract
   ignore_errors: true
 
+- name: Set regex error message for invalid contract
+  ansible.builtin.set_fact:
+    regex_error_message_invalid_contract: "MSO Error 400: Err Missing Ref: /schemas/.+/templates/Template1/contracts/InvalidContract"
+
 - name: Assertion check for query all Intra-EPG Contracts when it is empty
   ansible.builtin.assert:
     that:
       - invalid_contract is not changed
-      - invalid_contract.msg is match ("MSO Error 400{{':'}} Err Missing Ref{{':'}} /schemas/.+/templates/Template1/contracts/InvalidContract")
-
-# Cleanup part
-- name: Remove schemas - cleanup part
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: "{{ item }}"
-    state: absent
-  loop:
-    - '{{ mso_schema | default("ansible_test") }}'
-    - '{{ mso_schema | default("ansible_test") }}_2'
-
-- name: Remove tenant ansible_test exist - cleanup part
-  cisco.mso.mso_tenant:
-    <<: *mso_info
-    tenant: '{{ mso_tenant | default("ansible_test") }}'
-    state: absent
+      - invalid_contract.msg is match (regex_error_message_invalid_contract)

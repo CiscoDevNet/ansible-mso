@@ -444,23 +444,28 @@
       ignore_errors: true
       register: error_floating_svi_interface_without_encapsulation_value
 
+    - name: Set error message for svi interfaces
+      ansible.builtin.set_fact:
+        error_message_floating_svi_interface_without_encapsulation_type: "missing parameter(s) required by 'node_id': encapsulation_type"
+        error_message_floating_svi_interface_without_encapsulation_value: "missing parameter(s) required by 'node_id': encapsulation_value" 
+
     - name: Assert that the error handling for svi interface creation works
       ansible.builtin.assert:
         that:
           - error_floating_svi_interface_template_and_template_id is failed
-          - error_floating_svi_interface_template_and_template_id.msg == "parameters are mutually exclusive{{":"}} template|template_id"
+          - 'error_floating_svi_interface_template_and_template_id.msg == "parameters are mutually exclusive: template|template_id"'
           - error_floating_svi_interface_l3out_and_l3out_uuid is failed
-          - error_floating_svi_interface_l3out_and_l3out_uuid.msg == "parameters are mutually exclusive{{":"}} l3out|l3out_uuid"
+          - 'error_floating_svi_interface_l3out_and_l3out_uuid.msg == "parameters are mutually exclusive: l3out|l3out_uuid"'
           - error_floating_svi_interface_without_template_or_template_id is failed
-          - error_floating_svi_interface_without_template_or_template_id.msg == "one of the following is required{{":"}} template, template_id"
+          - 'error_floating_svi_interface_without_template_or_template_id.msg == "one of the following is required: template, template_id"'
           - error_floating_svi_interface_without_l3out_or_l3out_uuid is failed
-          - error_floating_svi_interface_without_l3out_or_l3out_uuid.msg == "one of the following is required{{":"}} l3out, l3out_uuid"
+          - 'error_floating_svi_interface_without_l3out_or_l3out_uuid.msg == "one of the following is required: l3out, l3out_uuid"'
           - error_floating_svi_interface_without_node_id is failed
-          - error_floating_svi_interface_without_node_id.msg == "state is present but all of the following are missing{{":"}} node_id"
+          - 'error_floating_svi_interface_without_node_id.msg == "state is present but all of the following are missing: node_id"'
           - error_floating_svi_interface_without_encapsulation_type is failed
-          - error_floating_svi_interface_without_encapsulation_type.msg == "missing parameter(s) required by 'node_id'{{":"}} encapsulation_type"
+          - error_floating_svi_interface_without_encapsulation_type.msg == error_message_floating_svi_interface_without_encapsulation_type
           - error_floating_svi_interface_without_encapsulation_value is failed
-          - error_floating_svi_interface_without_encapsulation_value.msg == "missing parameter(s) required by 'node_id'{{":"}} encapsulation_value"
+          - error_floating_svi_interface_without_encapsulation_value.msg == error_message_floating_svi_interface_without_encapsulation_value
 
     # QUERY
 

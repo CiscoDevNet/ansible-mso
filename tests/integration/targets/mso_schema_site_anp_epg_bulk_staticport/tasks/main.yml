@@ -20,15 +20,6 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
 
-- name: Remove Schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
-
 - name: Ensure site exists
   cisco.mso.mso_site:
     <<: *mso_info
@@ -37,25 +28,27 @@
     apic_password: '{{ apic_password }}'
     apic_site_id: '{{ apic_site_id | default(101) }}'
     urls:
-    - https://{{ apic_hostname }}
+      - https://{{ apic_hostname }}
     state: present
 
-- name: Ensure sites removed from tenant ansible_test
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: absent
-
-- name: Ensure tenant ansible_test exist
-  cisco.mso.mso_tenant: 
+- name: Ensure tenant ansible_test exists
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
-    - '{{ mso_username }}'
+      - '{{ mso_username }}'
     sites:
-    - '{{ mso_site | default("ansible_test") }}'
+      - '{{ mso_site | default("ansible_test") }}'
     state: present
+
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure schema 1 with Template 1 and 2 exists
   cisco.mso.mso_schema_template: 
@@ -523,7 +516,7 @@
   ansible.builtin.assert:
     that:
     - nm_add_stat_no_req is not changed
-    - nm_add_stat_no_req.msg == "state is present but all of the following are missing{{':'}} pod, leaf, path, vlan."
+    - 'nm_add_stat_no_req.msg == "state is present but all of the following are missing: pod, leaf, path, vlan."'
 
 # VERIFY path in each leaf within a pod is unique (pod->leaf->path)
 - name: Add static port 1 to site EPG4 with AP2 with missing required values (normal mode)
@@ -605,11 +598,15 @@
   ignore_errors: true
   register: nm_non_existing_template
 
+- name: Set assert message for verification of non_existing_site_template
+  ansible.builtin.set_fact:
+    assert_message_non_existing_site_template: "Provided template 'non_existing_template' not matching existing template(s): Template1, Template2"
+
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
     - nm_non_existing_template is not changed
-    - nm_non_existing_template.msg == "Provided template 'non_existing_template' not matching existing template(s){{':'}} Template1, Template2"
+    - nm_non_existing_template.msg == assert_message_non_existing_site_template
 
 # USE A NON-EXISTING SITE
 - name: Non-existing site for static port (normal_mode)
@@ -767,4 +764,4 @@
   ansible.builtin.assert:
     that:
     - nm_add_no_static_port is not changed
-    - nm_add_no_static_port.msg == "state is present but all of the following are missing{{':'}} static_ports"
+    - 'nm_add_no_static_port.msg == "state is present but all of the following are missing: static_ports"'

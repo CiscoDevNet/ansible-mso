@@ -19,7 +19,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
     aci_info: &aci_info
       host: "{{ apic_hostname }}"
       username: "{{ apic_username }}"
@@ -29,290 +29,299 @@
       use_proxy: "{{ apic_use_proxy | default(true) }}"
       output_level: '{{ apic_output_level | default("debug") }}'
 
-- name: Query all backups
-  cisco.mso.mso_backup:
+- name: Query MSO version
+  cisco.mso.mso_version:
     <<: *mso_info
     state: query
-  register: backups
+  register: version
 
-- name: Ensure all backups with link to remote location ansible_test are removed
-  cisco.mso.mso_backup:
-    <<: *mso_info
-    backup_id: "{{ item.id }}"
-    state: absent
-  when:
-    - item.location is defined
-    - item.location.locationType is defined
-    - item.location.locationType == "remote"
-  loop: "{{ backups.current | sort(attribute='name', reverse=True) }}"
+- name: Execute tasks only for MSO version < 5.0
+  when: version.current.version is version('5.0', '<')
+  block:
+    - name: Query all backups
+      cisco.mso.mso_backup:
+        <<: *mso_info
+        state: query
+      register: backups
 
-- name: Ensure remote location ansible_test is removed
-  cisco.mso.mso_remote_location:
-    <<: *mso_info
-    remote_location: ansible_test
-    state: absent
+    - name: Ensure all backups with link to remote location ansible_test are removed
+      cisco.mso.mso_backup:
+        <<: *mso_info
+        backup_id: "{{ item.id }}"
+        state: absent
+      when:
+        - item.location is defined
+        - item.location.locationType is defined
+        - item.location.locationType == "remote"
+      loop: "{{ backups.current | sort(attribute='name', reverse=True) }}"
 
-- name: Configure remote location scp (check mode)
-  cisco.mso.mso_remote_location: &remote_location
-    <<: *mso_info
-    remote_location: ansible_test
-    remote_protocol: scp
-    remote_host: '{{ mso_remote_location }}'
-    remote_path: '{{ mso_remote_location_path | default("/tmp") }}'
-    authentication_type: password
-    remote_username: '{{ mso_remote_location_user | default(mso_username) }}'
-    remote_password: '{{ mso_remote_location_password | default(mso_password) }}'
-    state: present
-  check_mode: true
-  register: cm_config_remote
+    - name: Ensure remote location ansible_test is removed
+      cisco.mso.mso_remote_location:
+        <<: *mso_info
+        remote_location: ansible_test
+        state: absent
 
-- name: Configure remote location scp
-  cisco.mso.mso_remote_location:
-    <<: *remote_location
-  register: nm_config_remote
+    - name: Configure remote location scp (check mode)
+      cisco.mso.mso_remote_location: &remote_location
+        <<: *mso_info
+        remote_location: ansible_test
+        remote_protocol: scp
+        remote_host: '{{ mso_remote_location }}'
+        remote_path: '{{ mso_remote_location_path | default("/tmp") }}'
+        authentication_type: password
+        remote_username: '{{ mso_remote_location_user | default(mso_username) }}'
+        remote_password: '{{ mso_remote_location_password | default(mso_password) }}'
+        state: present
+      check_mode: true
+      register: cm_config_remote
 
-- name: Verify configuration
-  ansible.builtin.assert:
-    that:
-      - cm_config_remote is changed
-      - cm_config_remote.current.name == "ansible_test"
-      - cm_config_remote.current.credential.authType == "password"
-      - cm_config_remote.current.credential.port == 22
-      - cm_config_remote.current.credential.protocolType == "scp"
-      - cm_config_remote.current.credential.hostname == mso_remote_location
-      - cm_config_remote.current.credential.remotePath == '/tmp'
-      - cm_config_remote.current.credential.username == mso_remote_location_user|default(mso_username)
-      - nm_config_remote is changed
-      - nm_config_remote.current.name == "ansible_test"
-      - nm_config_remote.current.credential.authType == "password"
-      - nm_config_remote.current.credential.port == 22
-      - nm_config_remote.current.credential.protocolType == "scp"
-      - nm_config_remote.current.credential.hostname == mso_remote_location
-      - nm_config_remote.current.credential.remotePath == '/tmp'
-      - nm_config_remote.current.credential.username == mso_remote_location_user|default(mso_username)
-      - nm_config_remote.current.id is defined
+    - name: Configure remote location scp
+      cisco.mso.mso_remote_location:
+        <<: *remote_location
+      register: nm_config_remote
 
-- name: Configure remote location again
-  cisco.mso.mso_remote_location:
-    <<: *remote_location
-  register: nm_config_remote_again
+    - name: Verify configuration
+      ansible.builtin.assert:
+        that:
+          - cm_config_remote is changed
+          - cm_config_remote.current.name == "ansible_test"
+          - cm_config_remote.current.credential.authType == "password"
+          - cm_config_remote.current.credential.port == 22
+          - cm_config_remote.current.credential.protocolType == "scp"
+          - cm_config_remote.current.credential.hostname == mso_remote_location
+          - cm_config_remote.current.credential.remotePath == '/tmp'
+          - cm_config_remote.current.credential.username == mso_remote_location_user|default(mso_username)
+          - nm_config_remote is changed
+          - nm_config_remote.current.name == "ansible_test"
+          - nm_config_remote.current.credential.authType == "password"
+          - nm_config_remote.current.credential.port == 22
+          - nm_config_remote.current.credential.protocolType == "scp"
+          - nm_config_remote.current.credential.hostname == mso_remote_location
+          - nm_config_remote.current.credential.remotePath == '/tmp'
+          - nm_config_remote.current.credential.username == mso_remote_location_user|default(mso_username)
+          - nm_config_remote.current.id is defined
 
-- name: Verify configuration after again
-  ansible.builtin.assert:
-    that:
-      - nm_config_remote_again is not changed
+    - name: Configure remote location again
+      cisco.mso.mso_remote_location:
+        <<: *remote_location
+      register: nm_config_remote_again
 
-- name: Change remote location description (check mode)
-  cisco.mso.mso_remote_location:
-    <<: *remote_location
-    description: changed_description
-  check_mode: true
-  register: cm_change_config_remote_description
+    - name: Verify configuration after again
+      ansible.builtin.assert:
+        that:
+          - nm_config_remote_again is not changed
 
-- name: Change remote location description
-  cisco.mso.mso_remote_location:
-    <<: *remote_location
-    description: changed_description
-  register: nm_change_config_remote_description
+    - name: Change remote location description (check mode)
+      cisco.mso.mso_remote_location:
+        <<: *remote_location
+        description: changed_description
+      check_mode: true
+      register: cm_change_config_remote_description
 
-- name: Verify configuration change
-  ansible.builtin.assert:
-    that:
-      - cm_change_config_remote_description is changed
-      - cm_change_config_remote_description.current.description == "changed_description"
-      - nm_change_config_remote_description is changed
-      - nm_change_config_remote_description.current.description == "changed_description"
+    - name: Change remote location description
+      cisco.mso.mso_remote_location:
+        <<: *remote_location
+        description: changed_description
+      register: nm_change_config_remote_description
 
-- name: Query remote location
-  cisco.mso.mso_remote_location:
-    <<: *remote_location
-    state: query
-  register: nm_query_remote
+    - name: Verify configuration change
+      ansible.builtin.assert:
+        that:
+          - cm_change_config_remote_description is changed
+          - cm_change_config_remote_description.current.description == "changed_description"
+          - nm_change_config_remote_description is changed
+          - nm_change_config_remote_description.current.description == "changed_description"
 
-- name: Query all remote locations
-  cisco.mso.mso_remote_location:
-    <<: *mso_info
-    state: query
-  register: nm_query_all_remotes
+    - name: Query remote location
+      cisco.mso.mso_remote_location:
+        <<: *remote_location
+        state: query
+      register: nm_query_remote
 
-- name: Query non existing remote location
-  cisco.mso.mso_remote_location:
-    <<: *mso_info
-    remote_location: non_existing
-    state: query
-  ignore_errors: true
-  register: nm_query_non_existing
+    - name: Query all remote locations
+      cisco.mso.mso_remote_location:
+        <<: *mso_info
+        state: query
+      register: nm_query_all_remotes
 
-- name: Verify queries
-  ansible.builtin.assert:
-    that:
-      - nm_query_remote is not changed
-      - nm_query_remote.current | type_debug == "dict"
-      - nm_query_all_remotes is not changed
-      - nm_query_all_remotes.current | type_debug == "list"
-      - nm_query_non_existing is not changed
-      - 'nm_query_non_existing.msg == "Remote location non_existing not found. Remote locations configured: ansible_test"'
+    - name: Query non existing remote location
+      cisco.mso.mso_remote_location:
+        <<: *mso_info
+        remote_location: non_existing
+        state: query
+      ignore_errors: true
+      register: nm_query_non_existing
 
-- name: Remove remote location (check mode)
-  cisco.mso.mso_remote_location:
-    <<: *remote_location
-    state: absent
-  check_mode: true
-  register: cm_delete_config_remote
+    - name: Verify queries
+      ansible.builtin.assert:
+        that:
+          - nm_query_remote is not changed
+          - nm_query_remote.current | type_debug == "dict"
+          - nm_query_all_remotes is not changed
+          - nm_query_all_remotes.current | type_debug == "list"
+          - nm_query_non_existing is not changed
+          - 'nm_query_non_existing.msg == "Remote location non_existing not found. Remote locations configured: ansible_test"'
 
-- name: Remove remote location
-  cisco.mso.mso_remote_location:
-    <<: *remote_location
-    state: absent
-  register: nm_delete_config_remote
+    - name: Remove remote location (check mode)
+      cisco.mso.mso_remote_location:
+        <<: *remote_location
+        state: absent
+      check_mode: true
+      register: cm_delete_config_remote
 
-- name: Verify delete
-  ansible.builtin.assert:
-    that:
-      - cm_delete_config_remote is changed
-      - cm_delete_config_remote.current == {}
-      - nm_delete_config_remote is changed
-      - nm_delete_config_remote.current == {}
+    - name: Remove remote location
+      cisco.mso.mso_remote_location:
+        <<: *remote_location
+        state: absent
+      register: nm_delete_config_remote
 
-- name: Create remote location different path directory if it does not exist
-  ansible.builtin.file:
-    path: '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
-    state: directory
-    mode: '0755'
+    - name: Verify delete
+      ansible.builtin.assert:
+        that:
+          - cm_delete_config_remote is changed
+          - cm_delete_config_remote.current == {}
+          - nm_delete_config_remote is changed
+          - nm_delete_config_remote.current == {}
 
-- name: Configure remote location different path (check mode)
-  cisco.mso.mso_remote_location:
-    <<: *remote_location
-    remote_path: '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
-  check_mode: true
-  register: cm_config_remote_different_path
+    - name: Create remote location different path directory if it does not exist
+      ansible.builtin.file:
+        path: '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
+        state: directory
+        mode: '0755'
 
-- name: Configure remote location different path
-  cisco.mso.mso_remote_location:
-    <<: *remote_location
-    remote_path: '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
-  register: nm_config_remote_different_path
+    - name: Configure remote location different path (check mode)
+      cisco.mso.mso_remote_location:
+        <<: *remote_location
+        remote_path: '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
+      check_mode: true
+      register: cm_config_remote_different_path
 
-- name: Verify configuration different path
-  ansible.builtin.assert:
-    that:
-      - cm_config_remote_different_path is changed
-      - cm_config_remote_different_path.current.credential.remotePath == mso_remote_location_alternate_path|default("/home/"~mso_username)
-      - nm_config_remote_different_path is changed
-      - nm_config_remote_different_path.current.credential.remotePath == mso_remote_location_alternate_path|default("/home/"~mso_username)
+    - name: Configure remote location different path
+      cisco.mso.mso_remote_location:
+        <<: *remote_location
+        remote_path: '{{ mso_remote_location_alternate_path | default("/home/"~mso_username) }}'
+      register: nm_config_remote_different_path
 
-- name: Remove remote location
-  cisco.mso.mso_remote_location:
-    <<: *remote_location
-    state: absent
+    - name: Verify configuration different path
+      ansible.builtin.assert:
+        that:
+          - cm_config_remote_different_path is changed
+          - cm_config_remote_different_path.current.credential.remotePath == mso_remote_location_alternate_path|default("/home/"~mso_username)
+          - nm_config_remote_different_path is changed
+          - nm_config_remote_different_path.current.credential.remotePath == mso_remote_location_alternate_path|default("/home/"~mso_username)
 
-- name: Configure remote location sftp (check mode)
-  cisco.mso.mso_remote_location:
-    <<: *remote_location
-    remote_protocol: sftp
-  check_mode: true
-  register: cm_config_remote_sftp
+    - name: Remove remote location
+      cisco.mso.mso_remote_location:
+        <<: *remote_location
+        state: absent
 
-- name: Configure remote location sftp
-  cisco.mso.mso_remote_location:
-    <<: *remote_location
-    remote_protocol: sftp
-  register: nm_config_remote_sftp
+    - name: Configure remote location sftp (check mode)
+      cisco.mso.mso_remote_location:
+        <<: *remote_location
+        remote_protocol: sftp
+      check_mode: true
+      register: cm_config_remote_sftp
 
-- name: Verify configuration sftp
-  ansible.builtin.assert:
-    that:
-      - cm_config_remote_sftp is changed
-      - cm_config_remote_sftp.current.credential.protocolType == "sftp"
-      - nm_config_remote_sftp is changed
-      - nm_config_remote_sftp.current.credential.protocolType == "sftp"
+    - name: Configure remote location sftp
+      cisco.mso.mso_remote_location:
+        <<: *remote_location
+        remote_protocol: sftp
+      register: nm_config_remote_sftp
 
-- name: Remove remote location
-  cisco.mso.mso_remote_location:
-    <<: *remote_location
-    state: absent
+    - name: Verify configuration sftp
+      ansible.builtin.assert:
+        that:
+          - cm_config_remote_sftp is changed
+          - cm_config_remote_sftp.current.credential.protocolType == "sftp"
+          - nm_config_remote_sftp is changed
+          - nm_config_remote_sftp.current.credential.protocolType == "sftp"
 
-- name: Set ansible_network_os to cisco.aci.aci
-  ansible.builtin.set_fact:
-    ansible_network_os: cisco.aci.aci
+    - name: Remove remote location
+      cisco.mso.mso_remote_location:
+        <<: *remote_location
+        state: absent
 
-- name: Reset the ansible_connection to access the APIC
-  ansible.builtin.meta: reset_connection
+    - name: Set ansible_network_os to cisco.aci.aci
+      ansible.builtin.set_fact:
+        ansible_network_os: cisco.aci.aci
 
-# Ensure the ssh pub keys are set for the user
-# When this task fails ensure that the user is present on APIC and that it has correct write permissions / domains configured
-- name: Ensure SSH key exists on apic
-  cisco.aci.aci_aaa_ssh_auth:
-    <<: *aci_info
-    aaa_user: '{{ mso_username }}'
-    auth_name: ndo-rsa
-    data: "{{ lookup('file', 'pki/rsa.pub') }}"
-    state: present
+    - name: Reset the ansible_connection to access the APIC
+      ansible.builtin.meta: reset_connection
 
-- name: Ensure SSH key exists on apic
-  cisco.aci.aci_aaa_ssh_auth:
-    <<: *aci_info
-    aaa_user: '{{ mso_username }}'
-    auth_name: ndo-rsa-pass
-    data: "{{ lookup('file', 'pki/rsa-passphrase.pub') }}"
-    state: present
+    # Ensure the ssh pub keys are set for the user
+    # When this task fails ensure that the user is present on APIC and that it has correct write permissions / domains configured
+    - name: Ensure SSH key exists on apic
+      cisco.aci.aci_aaa_ssh_auth:
+        <<: *aci_info
+        aaa_user: '{{ mso_username }}'
+        auth_name: ndo-rsa
+        data: "{{ lookup('file', 'pki/rsa.pub') }}"
+        state: present
 
-- name: Set ansible_network_os to cisco.nd.nd
-  ansible.builtin.set_fact:
-    ansible_network_os: cisco.nd.nd
+    - name: Ensure SSH key exists on apic
+      cisco.aci.aci_aaa_ssh_auth:
+        <<: *aci_info
+        aaa_user: '{{ mso_username }}'
+        auth_name: ndo-rsa-pass
+        data: "{{ lookup('file', 'pki/rsa-passphrase.pub') }}"
+        state: present
 
-- name: Reset the ansible_connection to access the MSO/NDO
-  ansible.builtin.meta: reset_connection
+    - name: Set ansible_network_os to cisco.nd.nd
+      ansible.builtin.set_fact:
+        ansible_network_os: cisco.nd.nd
 
-- name: Configure remote location ssh (check mode)
-  cisco.mso.mso_remote_location: &remote_location_ssh
-    <<: *remote_location
-    authentication_type: ssh
-    remote_ssh_key: "{{ lookup('file', 'pki/rsa') }}"
-  check_mode: true
-  register: cm_config_remote_ssh
+    - name: Reset the ansible_connection to access the MSO/NDO
+      ansible.builtin.meta: reset_connection
 
-- name: Configure remote location ssh
-  cisco.mso.mso_remote_location:
-    <<: *remote_location_ssh
-  register: nm_config_remote_ssh
+    - name: Configure remote location ssh (check mode)
+      cisco.mso.mso_remote_location: &remote_location_ssh
+        <<: *remote_location
+        authentication_type: ssh
+        remote_ssh_key: "{{ lookup('file', 'pki/rsa') }}"
+      check_mode: true
+      register: cm_config_remote_ssh
 
-- name: Verify configuration ssh
-  ansible.builtin.assert:
-    that:
-      - cm_config_remote_ssh is changed
-      - cm_config_remote_ssh.current.credential.authType == "sshKey"
-      - nm_config_remote_ssh is changed
-      - nm_config_remote_ssh.current.credential.authType == "sshKey"
+    - name: Configure remote location ssh
+      cisco.mso.mso_remote_location:
+        <<: *remote_location_ssh
+      register: nm_config_remote_ssh
 
-- name: Remove remote location
-  cisco.mso.mso_remote_location:
-    <<: *remote_location_ssh
-    state: absent
+    - name: Verify configuration ssh
+      ansible.builtin.assert:
+        that:
+          - cm_config_remote_ssh is changed
+          - cm_config_remote_ssh.current.credential.authType == "sshKey"
+          - nm_config_remote_ssh is changed
+          - nm_config_remote_ssh.current.credential.authType == "sshKey"
 
-- name: Configure remote location ssh with passphrase (check mode)
-  cisco.mso.mso_remote_location: &remote_location_ssh_pass
-    <<: *remote_location
-    authentication_type: ssh
-    remote_ssh_key: "{{ lookup('file', 'pki/rsa-passphrase') }}"
-    remote_ssh_passphrase: '{{ mso_ssh_passphrase | default("ansible") }}'
-  check_mode: true
-  register: cm_config_remote_ssh_pass
+    - name: Remove remote location
+      cisco.mso.mso_remote_location:
+        <<: *remote_location_ssh
+        state: absent
 
-- name: Configure remote location ssh with passphrase
-  cisco.mso.mso_remote_location:
-    <<: *remote_location_ssh_pass
-  register: nm_config_remote_ssh_pass
+    - name: Configure remote location ssh with passphrase (check mode)
+      cisco.mso.mso_remote_location: &remote_location_ssh_pass
+        <<: *remote_location
+        authentication_type: ssh
+        remote_ssh_key: "{{ lookup('file', 'pki/rsa-passphrase') }}"
+        remote_ssh_passphrase: '{{ mso_ssh_passphrase | default("ansible") }}'
+      check_mode: true
+      register: cm_config_remote_ssh_pass
 
-- name: Verify configuration ssh
-  ansible.builtin.assert:
-    that:
-      - cm_config_remote_ssh_pass is changed
-      - cm_config_remote_ssh_pass.current.credential.authType == "sshKey"
-      - nm_config_remote_ssh_pass is changed
-      - nm_config_remote_ssh_pass.current.credential.authType == "sshKey"
+    - name: Configure remote location ssh with passphrase
+      cisco.mso.mso_remote_location:
+        <<: *remote_location_ssh_pass
+      register: nm_config_remote_ssh_pass
 
-- name: Remove remote location
-  cisco.mso.mso_remote_location:
-    <<: *remote_location_ssh_pass
-    state: absent
+    - name: Verify configuration ssh
+      ansible.builtin.assert:
+        that:
+          - cm_config_remote_ssh_pass is changed
+          - cm_config_remote_ssh_pass.current.credential.authType == "sshKey"
+          - nm_config_remote_ssh_pass is changed
+          - nm_config_remote_ssh_pass.current.credential.authType == "sshKey"
+
+    - name: Remove remote location
+      cisco.mso.mso_remote_location:
+        <<: *remote_location_ssh_pass
+        state: absent

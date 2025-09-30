@@ -19,26 +19,9 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(false) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # CLEAN ENVIRONMENT
-# - name: Ensure site exist
-#   cisco.mso.mso_site: &site_present
-#     host: '{{ mso_hostname }}'
-#     username: '{{ mso_username }}'
-#     password: '{{ mso_password }}'
-#     validate_certs: '{{ mso_validate_certs | default(false) }}'
-#     use_ssl: '{{ mso_use_ssl | default(true) }}'
-#     use_proxy: '{{ mso_use_proxy | default(true) }}'
-#     output_level: '{{ mso_output_level | default("info") }}'
-#     site: '{{ mso_site | default("ansible_test") }}'
-#     apic_username: '{{ apic_username }}'
-#     apic_password: '{{ apic_password }}'
-#     apic_site_id: '{{ apic_site_id | default(101) }}'
-#     urls:
-#     - https://{{ apic_hostname }}
-#     state: present
-
 - name: Remove schemas
   cisco.mso.mso_schema:
     <<: *mso_info
@@ -49,13 +32,11 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  cisco.mso.mso_tenant: &tenant_present
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
     - '{{ mso_username }}'
-    # sites:
-    # - '{{ mso_site | default("ansible_test") }}'
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
@@ -103,7 +84,7 @@
     state: present
 
 - name: Ensure Contract1 exist
-  cisco.mso.mso_schema_template_contract_filter: &contract_present
+  cisco.mso.mso_schema_template_contract_filter:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -123,7 +104,7 @@
     state: present
 
 - name: Ensure Contract2 exist
-  cisco.mso.mso_schema_template_contract_filter: &contract2_present
+  cisco.mso.mso_schema_template_contract_filter:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -363,7 +344,6 @@
     - cm_query_contract1_consumer_rel.current.contractRef.schemaId == nm_query_contract1_consumer_rel.current.contractRef.schemaId == nm_query_contract1_provider_rel.current.contractRef.schemaId == nm_query_contract2_consumer_rel.current.contractRef.schemaId == nm_query_contract3_provider_rel.current.contractRef.schemaId
     - cm_query_contract1_consumer_rel.current.relationshipType == nm_query_contract1_consumer_rel.current.relationshipType == nm_query_contract2_consumer_rel.current.relationshipType == "consumer"
     - nm_query_contract1_provider_rel.current.relationshipType == nm_query_contract3_provider_rel.current.relationshipType == "provider"
-    
 
 # REMOVE Contract to EPG
 - name: Remove Contract to EPG (check_mode)
@@ -416,7 +396,6 @@
     - nm_remove_contract_rel_again is not changed
     - nm_remove_contract_rel_again.current == {}
 
-
 # QUERY NON-EXISTING Contract to EPG
 - name: Query non-existing contract (check_mode)
   cisco.mso.mso_schema_template_anp_epg_contract:
@@ -462,13 +441,17 @@
   ignore_errors: true
   register: nm_query_non_epg
 
+- name: Set error message for non_existing_epg
+  ansible.builtin.set_fact:
+    error_message_non_existing_epg: "Provided EPG 'non_existing_epg' not matching existing epg(s): ansible_test_1, ansible_test_2"
+
 - name: Verify query_non_epg
   ansible.builtin.assert:
     that:
     - cm_query_non_epg is not changed
     - nm_query_non_epg is not changed
     - cm_query_non_epg == nm_query_non_epg
-    - cm_query_non_epg.msg == nm_query_non_epg.msg == "Provided EPG 'non_existing_epg' not matching existing epg(s){{":"}} ansible_test_1, ansible_test_2"
+    - cm_query_non_epg.msg == nm_query_non_epg.msg == error_message_non_existing_epg
 
 # QUERY NON-EXISTING ANP
 - name: Query non-existing ANP (check_mode)
@@ -486,13 +469,17 @@
   ignore_errors: true
   register: nm_query_non_anp
 
+- name: Set error message for non_existing_anp
+  ansible.builtin.set_fact:
+    error_message_non_existing_anp: "Provided ANP 'non_existing_anp' not matching existing anp(s): ANP"
+
 - name: Verify query_non_anp
   ansible.builtin.assert:
     that:
     - cm_query_non_anp is not changed
     - nm_query_non_anp is not changed
     - cm_query_non_anp == nm_query_non_anp
-    - cm_query_non_anp.msg == nm_query_non_anp.msg == "Provided ANP 'non_existing_anp' not matching existing anp(s){{":"}} ANP"
+    - cm_query_non_anp.msg == nm_query_non_anp.msg == error_message_non_existing_anp
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for contract relationship (check_mode)
@@ -516,7 +503,7 @@
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
     - cm_non_existing_state == nm_non_existing_state
-    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+    - 'cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non-existing-state"'
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for contract relationship (check_mode)
@@ -589,13 +576,17 @@
   ignore_errors: true
   register: nm_non_existing_template
 
+- name: Set error message for non_existing_template
+  ansible.builtin.set_fact:
+    error_message_non_existing_template: "Provided template 'non-existing-template' not matching existing template(s): Template1, Template2"
+
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' not matching existing template(s){{":"}} Template1, Template2"
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == error_message_non_existing_template
 
 - name: Non-existing contract template for contract relationship (check_mode)
   cisco.mso.mso_schema_template_anp_epg_contract:
@@ -632,7 +623,7 @@
 # SETUP TEST ENVIRONMENT FOR BULK
 
 - name: Create template_bulk in schema ansible_test
-  cisco.mso.mso_schema_template: &bulk_template_present
+  cisco.mso.mso_schema_template:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: template_bulk
@@ -1034,8 +1025,20 @@
       - nm_query_contracts.current.19.contractRef.contractName == "contract_bulk_20"
       - nm_query_contracts.current.19.relationshipType == "consumer"
       - err_query_contracts is failed
-      - err_query_contracts.msg.0 is match("Contract with Reference '/schemas/[0-9a-zA-Z]*/templates/template_bulk/contracts/non_contract_3' and type 'provider' not found")
-      - err_query_contracts.msg.1 is match("Contract with Reference '/schemas/[0-9a-zA-Z]*/templates/template_bulk/contracts/non_contract_3' and type 'consumer' not found")
+
+# Set facts is done to assure the test assertion is passing due to a type difference between 2.18 and 2.19 ansible-core
+# msg in 2.18 is of type list
+# msg in 2.19 is of type string and would fail if checking list entries
+- name: Set error messages for err_query_contracts
+  ansible.builtin.set_fact:
+    error_1: "Contract with Reference '/schemas/[0-9a-zA-Z]*/templates/template_bulk/contracts/non_contract_3' and type 'provider' not found"
+    error_2: "Contract with Reference '/schemas/[0-9a-zA-Z]*/templates/template_bulk/contracts/non_contract_3' and type 'provider' not found"
+
+- name: Verify message of err_query_contracts
+  ansible.builtin.assert:
+    that:
+    - err_query_contracts.msg is search(error_1)
+    - err_query_contracts.msg is search(error_2)
 
 # ERROR TESTS FOR BULK
 
@@ -1075,13 +1078,13 @@
   ansible.builtin.assert:
     that:
       - err_mutually_exclusive_contract_and_contracts is failed
-      - err_mutually_exclusive_contract_and_contracts.msg == "parameters are mutually exclusive{{":"}} contract|contracts"
+      - 'err_mutually_exclusive_contract_and_contracts.msg == "parameters are mutually exclusive: contract|contracts"'
       - err_mutually_exclusive_contract_and_force_replace is failed
-      - err_mutually_exclusive_contract_and_force_replace.msg == "parameters are mutually exclusive{{":"}} contract|force_replace"
+      - 'err_mutually_exclusive_contract_and_force_replace.msg == "parameters are mutually exclusive: contract|force_replace"'
       - err_missing_required_attributes_present is failed
-      - err_missing_required_attributes_present.msg == "state is present but any of the following are missing{{":"}} contract, contracts"
+      - 'err_missing_required_attributes_present.msg == "state is present but any of the following are missing: contract, contracts"'
       - err_missing_required_attributes_absent is failed
-      - err_missing_required_attributes_absent.msg == "state is absent but any of the following are missing{{":"}} contract, contracts, force_replace"
+      - 'err_missing_required_attributes_absent.msg == "state is absent but any of the following are missing: contract, contracts, force_replace"'
 
 # FORCE REMOVE ALL CONTRACTS
 
@@ -1107,14 +1110,3 @@
       - force_replace_all_contracts_without_existing_contracts is changed
       - force_replace_all_contracts_without_existing_contracts.previous  == []
       - force_replace_all_contracts_without_existing_contracts.current | length == 20
-
-# CLEAN UP TEST ENVIRONMENT
-
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'

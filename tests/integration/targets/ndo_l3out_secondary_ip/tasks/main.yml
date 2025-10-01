@@ -1,0 +1,1268 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
+    aci_info: &aci_info
+      host: "{{ apic_hostname }}"
+      username: "{{ apic_username }}"
+      password: "{{ apic_password }}"
+      validate_certs: "{{ apic_validate_certs | default(false) }}"
+      use_ssl: "{{ apic_use_ssl | default(true) }}"
+      use_proxy: "{{ apic_use_proxy | default(true) }}"
+      output_level: '{{ apic_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 4.4
+  when: version.current.version is version('4.4', '>=')
+  block:
+    
+    # CLEAN ENVIRONMENT - ENSURE CLEAN ENVIRONMENT FOR TESTS
+
+    - name: Ensure ansible_test tenant exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+
+    - name: Ensure L3out template does not exist
+      cisco.mso.ndo_template: &ndo_l3out_template_absent
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template_type: l3out
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_test schema does not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        template: template_1
+        state: absent
+
+    - name: Ensure ansible_fabric_resource_template does not exist
+      cisco.mso.ndo_template: &ndo_fabric_resource_template_absent
+        <<: *mso_info
+        name: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template_type: fabric_resource
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure ansible_fabric_policy_template does not exist
+      cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
+        <<: *mso_info
+        name: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template_type: fabric_policy
+        sites:
+          - name: '{{ mso_site | default("ansible_test") }}'
+        state: absent
+
+    # CLEAN ENVIRONMENT - REQUIRED FOR TESTS
+
+    - name: Set ansible_network_os to cisco.aci.aci
+      ansible.builtin.set_fact:
+        ansible_network_os: cisco.aci.aci
+
+    - name: Reset the ansible_connection to access the APIC
+      ansible.builtin.meta: reset_connection
+
+    - name: Add physical domain
+      cisco.aci.aci_domain: &phys_domain_present
+        <<: *aci_info
+        domain: ansible_test_phys
+        domain_type: phys
+        state: present
+
+    - name: Add VMM domain
+      cisco.aci.aci_domain: &vmm_domain_present
+        <<: *aci_info
+        domain: ansible_test_vmm
+        domain_type: vmm
+        vm_provider: vmware
+        state: present
+
+    - name: Add a vSwitch policy to vmware domain
+      cisco.aci.aci_vmm_vswitch_policy:
+        <<: *aci_info
+        domain: ansible_test_vmm
+        vm_provider: vmware
+        lldp_policy: default
+        cdp_policy: default
+        port_channel_policy: default
+        state: present
+
+    - name: Create Enhanced LAG policy in check mode
+      cisco.aci.aci_vmm_enhanced_lag_policy:
+        <<: *aci_info
+        name: test_lag
+        domain: ansible_test_vmm
+        vm_provider: vmware
+        lacp_mode: active
+        load_balancing_mode: src-dst-ip
+        number_uplinks: 2
+        state: present
+
+    - name: Set ansible_network_os to cisco.nd.nd
+      ansible.builtin.set_fact:
+        ansible_network_os: cisco.nd.nd
+
+    - name: Reset the ansible_connection to access the MSO/NDO
+      ansible.builtin.meta: reset_connection
+
+    - name: Create a fabric_policy template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_policy_template_absent
+        state: present
+
+    - name: Create a VLAN pool in the fabric_policy template
+      cisco.mso.ndo_vlan_pool:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        vlan_pool: ansible_test_vlan_pool_1
+        vlan_ranges:
+          - from_vlan: 100
+            to_vlan: 200
+        state: present
+
+    - name: Create a L3 domain in the fabric_policy template
+      cisco.mso.ndo_l3_domain:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        l3_domain: ansible_test_l3_domain
+        pool: ansible_test_vlan_pool_1
+        state: present
+
+    - name: Create a interface policy group of type port channel
+      cisco.mso.ndo_interface_setting:
+        <<: *mso_info
+        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        name: ansible_test_interface_policy_group_port_channel
+        interface_type: port_channel
+        state: present
+
+    - name: Create a fabric_resource template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_resource_template_absent
+        state: present
+
+    - name: Create port_channel_interface_1 in the fabric_resource template
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        port_channel_interface: ansible_port_channel_interface_1
+        node: 101
+        interfaces: 1/20
+        interface_policy_group:
+          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          name: ansible_test_interface_policy_group_port_channel
+        state: present
+      register: port_channel_interface_1
+
+    - name: Create port_channel_interface_2 in the fabric_resource template
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        port_channel_interface: ansible_port_channel_interface_2
+        node: 101
+        interfaces: 1/21
+        interface_policy_group:
+          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          name: ansible_test_interface_policy_group_port_channel
+        state: present
+      register: port_channel_interface_2
+
+    - name: Create port_channel_interface_3 in the fabric_resource template
+      cisco.mso.ndo_port_channel_interface:
+        <<: *mso_info
+        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        port_channel_interface: ansible_port_channel_interface_3
+        node: 102
+        interfaces: 1/20
+        interface_policy_group:
+          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          name: ansible_test_interface_policy_group_port_channel
+        state: present
+      register: port_channel_interface_3
+
+    - name: Create ansible_virtual_port_channel_interface_1 in the fabric_resource template
+      cisco.mso.ndo_virtual_port_channel_interface:
+        <<: *mso_info
+        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        name: ansible_virtual_port_channel_interface_1
+        node_1: 101
+        node_2: 102
+        interfaces_node_1:
+          - 1/22
+        interfaces_node_2:
+          - 1/22
+        interface_policy_group:
+          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          name: ansible_test_interface_policy_group_port_channel
+        state: present
+      register: virtual_port_channel_interface_1
+
+    - name: Create a schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+        state: present
+
+    - name: Create a VRF in the schema template
+      cisco.mso.mso_schema_template_vrf:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: template_1
+        vrf: vrf_1
+        state: present
+
+    - name: Create a new L3Out template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+        state: present
+      register: l3out_template
+
+    - name: Create L3Out object in the L3Out template
+      cisco.mso.ndo_l3out_template:
+        <<: *mso_info
+        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+        name: l3out_1
+        vrf:
+          name: vrf_1
+          schema: '{{ mso_schema | default("ansible_test") }}'
+          template: template_1
+        l3_domain: ansible_test_l3_domain
+        ospf:
+          state: enabled
+          area_id: 0.0.0.1
+          area_type: regular
+        bgp:
+          state: enabled
+        state: present
+      register: mso_l3out
+
+    - name: Create a L3out svi interface of type port
+      cisco.mso.ndo_l3out_svi_interface: 
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        path: eth1/1
+        encapsulation_type: vlan
+        encapsulation_value: 103
+        ipv4_address: 10.0.0.1/24
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        state: present
+      register: svi_interface_type_port
+
+    - name: Create a L3out svi interface of type port channel
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        port_channel:
+          uuid: '{{ port_channel_interface_1.current.uuid }}'
+        encapsulation_type: vxlan
+        encapsulation_value: 50001
+        ipv6_address: 1::101/16
+        ipv6_dad: disabled
+        mac: 00:22:BD:F8:19:EE
+        mtu: 2000
+        state: present
+      register: svi_interface_type_port_channel
+
+    - name: Create a L3out svi interface of type virtual port channel
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        encapsulation_type: vlan
+        encapsulation_value: 1000
+        node_router_id: 1.1.1.1
+        ipv4_address: 10.0.2.1/24
+        mac: 00:22:BD:F8:19:AA
+        mtu: 2500
+        virtual_port_channel: 
+          uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
+          side_b_ipv4_address: 10.0.2.2/24
+          side_b_node_router_id: 2.2.2.2
+        state: present
+      register: svi_interface_type_virtual_port_channel
+
+    - name: Create a L3out routed sub-interface of type port channel
+      cisco.mso.ndo_l3out_routed_sub_interface:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_router_id: 1.1.1.1
+        use_router_id_as_loopback: true
+        port_channel:
+          reference:
+            name: '{{ port_channel_interface_2.current.name }}'
+            template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        encapsulation_type: vlan
+        encapsulation_value: 101
+        ipv6_address: 2::101/16
+        mac: 00:22:BD:F8:19:EE
+        mtu: 2000
+        state: present
+      register: routed_sub_interface_port_channel
+
+    - name: Create a L3out routed sub-interface of type port
+      cisco.mso.ndo_l3out_routed_sub_interface:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        path: eth1/2
+        encapsulation_type: vlan
+        encapsulation_value: 101
+        ipv4_address: 10.1.0.1/24
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        state: present
+      register: routed_sub_interface
+
+    - name: Create a L3out routed interface of type port channel
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_router_id: 2.2.2.2
+        use_router_id_as_loopback: true
+        port_channel:
+          reference:
+            name: '{{ port_channel_interface_3.current.name }}'
+            template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        ipv4_address: 10.2.0.1/24
+        mac: 00:22:BD:F8:19:EE
+        mtu: 2000
+        state: present
+      register: routed_interface_port_channel
+
+    - name: Create a L3out routed interface of type port
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        path: eth1/3
+        ipv6_address: 3::101/16
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        state: present
+      register: routed_interface
+
+    - name: Create a L3out floating svi interface
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        ipv4_address: 10.4.0.1/24
+        mac: 00:22:BD:F8:19:FF
+        mtu: inherit
+        node_router_id: 1.1.1.1
+        state: present
+      register: floating_svi_interface
+
+    - name: Create Path Attributes for a L3Out Floating SVI Interface
+      cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        domain_type: vmm
+        domain_provider: vmware
+        domain: ansible_test_vmm
+        primary_ipv4_address: 10.4.0.2/24
+        state: present
+      register: floating_svi_interface_path_attributes
+
+    # CREATE
+
+    - name: Create a secondary address on a L3out Routed Interface of type port (check mode)
+      cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        path: eth1/3
+        parent_type: routed
+        secondary_address: 3::102/16
+        state: present
+      check_mode: true
+      register: cm_create_secondary_address
+
+    - name: Create a secondary address on a L3out Routed Interface of type port
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *create_secondary_address
+        state: present
+      register: nm_create_secondary_address
+
+    - name: Create a secondary address on a L3out Routed Interface of type port again
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *create_secondary_address
+        state: present
+      register: nm_create_secondary_address_again
+
+    - name: Assert that the secondary address on a L3out Routed Interface of type port was created
+      ansible.builtin.assert:
+        that:
+          - cm_create_secondary_address is changed
+          - cm_create_secondary_address.previous == {}
+          - cm_create_secondary_address.proposed == cm_create_secondary_address.current
+          - cm_create_secondary_address.current.address == "3::102/16"
+          - cm_create_secondary_address.current.routedInterfaceNodeID == "101"
+          - cm_create_secondary_address.current.routedInterfacePath == "eth1/3"
+          - cm_create_secondary_address.current.routedInterfacePathType == "port"
+          - cm_create_secondary_address.current.routedInterfacePodID == "1"
+          - cm_create_secondary_address.current.templateId is defined
+          - cm_create_secondary_address.current.templateName is defined
+          - nm_create_secondary_address is changed
+          - nm_create_secondary_address.previous == {}
+          - nm_create_secondary_address.proposed.address == "3::102/16"
+          - nm_create_secondary_address.proposed.routedInterfaceNodeID == "101"
+          - nm_create_secondary_address.proposed.routedInterfacePath == "eth1/3"
+          - nm_create_secondary_address.proposed.routedInterfacePathType == "port"
+          - nm_create_secondary_address.proposed.routedInterfacePodID == "1"
+          - nm_create_secondary_address.proposed.templateId is defined
+          - nm_create_secondary_address.proposed.templateName is defined
+          - nm_create_secondary_address.current.address == "3::102/16"
+          - nm_create_secondary_address.current.dhcpRelay == false
+          - nm_create_secondary_address.current.ipV6DAD == "enabled"
+          - nm_create_secondary_address.current.routedInterfaceNodeID == "101"
+          - nm_create_secondary_address.current.routedInterfacePath == "eth1/3"
+          - nm_create_secondary_address.current.routedInterfacePathType == "port"
+          - nm_create_secondary_address.current.routedInterfacePodID == "1"
+          - nm_create_secondary_address.current.templateId is defined
+          - nm_create_secondary_address.current.templateName is defined
+          - nm_create_secondary_address.current.v6RAPrefix == false
+          - nm_create_secondary_address_again is not changed
+          - nm_create_secondary_address_again.current == nm_create_secondary_address_again.previous == nm_create_secondary_address.current
+    
+    - name: Create a secondary address on a L3out Routed Interface of type port channel
+      cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_routed_port_channel
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        port_channel:
+          uuid: '{{ port_channel_interface_3.current.uuid }}'
+        parent_type: routed
+        secondary_address: 10.2.0.2/24
+        state: present
+      register: nm_create_secondary_address_routed_port_channel
+
+    - name: Create a secondary address on a L3out SVI Interface of type port
+      cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_svi_port
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        path: eth1/1
+        encapsulation_type: vlan
+        encapsulation_value: 103
+        parent_type: svi
+        secondary_address: 10.0.0.2/24
+        state: present
+      register: nm_create_secondary_address_svi_port
+
+    - name: Create a secondary address on a L3out SVI Interface of type port channel
+      cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_svi_port_channel
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        port_channel:
+          uuid: '{{ port_channel_interface_1.current.uuid }}'
+        encapsulation_type: vxlan
+        encapsulation_value: 50001
+        parent_type: svi
+        secondary_address: 1::102/16
+        state: present
+      register: nm_create_secondary_address_svi_port_channel
+
+    - name: Create a secondary address on a L3out SVI Interface of type virtual port channel
+      cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_svi_virtual_port_channel
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        virtual_port_channel: 
+          uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
+        encapsulation_type: vlan
+        encapsulation_value: 1000
+        parent_type: svi
+        secondary_address: 10.0.2.3/24
+        state: present
+      register: nm_create_secondary_address_svi_virtual_port_channel
+
+    - name: Create a secondary address on a L3out SVI Interface of type virtual port channel side b
+      cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_svi_virtual_port_channel_side_b
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        virtual_port_channel: 
+          uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
+          side_b: true
+        encapsulation_type: vlan
+        encapsulation_value: 1000
+        parent_type: svi
+        secondary_address: 10.0.2.4/24
+        state: present
+      register: nm_create_secondary_address_svi_virtual_port_channel_side_b
+
+    - name: Create a secondary address on a L3out Routed Sub-Interface of type port
+      cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_routed_sub_port
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        path: eth1/2
+        encapsulation_type: vlan
+        encapsulation_value: 101
+        parent_type: routed_sub
+        secondary_address: 10.1.0.2/24
+        state: present
+      register: nm_create_secondary_address_routed_sub_port
+
+    - name: Create a secondary address on a L3out Routed Sub-Interface of type port channel
+      cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_routed_sub_port_channel
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        port_channel:
+          uuid: '{{ port_channel_interface_2.current.uuid }}'
+        encapsulation_type: vlan
+        encapsulation_value: 101
+        parent_type: routed_sub
+        secondary_address: 2::102/16
+        state: present
+      register: nm_create_secondary_address_routed_sub_port_channel
+
+    - name: Create a secondary address on a L3Out Floating SVI Interface
+      cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_floating_svi
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        parent_type: floating_svi
+        secondary_address: 10.4.0.3/24
+        state: present
+      register: nm_create_secondary_address_floating_svi
+    
+    - name: Create a secondary address on a L3Out Floating SVI Interface path attributes
+      cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_floating_svi_path_attributes
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        domain_type: vmm
+        domain_provider: vmware
+        domain: ansible_test_vmm
+        parent_type: floating_svi_path_attributes
+        secondary_address: 10.4.0.4/24
+        state: present
+      register: nm_create_secondary_address_floating_svi_path_attributes
+
+    - name: Assert that the secondary address on all Interface types can be created
+      ansible.builtin.assert:
+        that:
+          - nm_create_secondary_address_routed_port_channel is changed
+          - nm_create_secondary_address_routed_port_channel.previous == {}
+          - nm_create_secondary_address_routed_port_channel.current.address == "10.2.0.2/24"
+          - nm_create_secondary_address_routed_port_channel.current.dhcpRelay == false
+          - nm_create_secondary_address_routed_port_channel.current.ipV6DAD == "enabled"
+          - nm_create_secondary_address_routed_port_channel.current.portChannelName == "ansible_port_channel_interface_3"
+          - nm_create_secondary_address_routed_port_channel.current.portChannelTemplateId is defined
+          - nm_create_secondary_address_routed_port_channel.current.portChannelTemplateName is defined
+          - nm_create_secondary_address_routed_port_channel.current.routedInterfacePathRef is defined
+          - nm_create_secondary_address_routed_port_channel.current.routedInterfacePathType == "pc"
+          - nm_create_secondary_address_routed_port_channel.current.templateId is defined
+          - nm_create_secondary_address_routed_port_channel.current.templateName is defined
+          - nm_create_secondary_address_routed_port_channel.current.v6RAPrefix == false
+          - nm_create_secondary_address_svi_port is changed
+          - nm_create_secondary_address_svi_port.previous == {}
+          - nm_create_secondary_address_svi_port.current.address == "10.0.0.2/24"
+          - nm_create_secondary_address_svi_port.current.dhcpRelay == false
+          - nm_create_secondary_address_svi_port.current.ipV6DAD == "enabled"
+          - nm_create_secondary_address_svi_port.current.sviInterfaceEncap.encapType == "vlan"
+          - nm_create_secondary_address_svi_port.current.sviInterfaceEncap.value == 103
+          - nm_create_secondary_address_svi_port.current.sviInterfaceNodeID == "101"
+          - nm_create_secondary_address_svi_port.current.sviInterfacePath == "eth1/1"
+          - nm_create_secondary_address_svi_port.current.sviInterfacePathType == "port"
+          - nm_create_secondary_address_svi_port.current.sviInterfacePodID == "1"
+          - nm_create_secondary_address_svi_port.current.templateId is defined
+          - nm_create_secondary_address_svi_port.current.templateName is defined
+          - nm_create_secondary_address_svi_port.current.v6RAPrefix == false
+          - nm_create_secondary_address_svi_port_channel is changed
+          - nm_create_secondary_address_svi_port_channel.previous == {}
+          - nm_create_secondary_address_svi_port_channel.current.address == "1::102/16"
+          - nm_create_secondary_address_svi_port_channel.current.dhcpRelay == false
+          - nm_create_secondary_address_svi_port_channel.current.ipV6DAD == "enabled"
+          - nm_create_secondary_address_svi_port_channel.current.portChannelName == "ansible_port_channel_interface_1"
+          - nm_create_secondary_address_svi_port_channel.current.portChannelTemplateId is defined
+          - nm_create_secondary_address_svi_port_channel.current.portChannelTemplateName is defined
+          - nm_create_secondary_address_svi_port_channel.current.sviInterfaceEncap.encapType == "vxlan"
+          - nm_create_secondary_address_svi_port_channel.current.sviInterfaceEncap.value == 50001
+          - nm_create_secondary_address_svi_port_channel.current.sviInterfacePathRef is defined
+          - nm_create_secondary_address_svi_port_channel.current.sviInterfacePathType == "pc"
+          - nm_create_secondary_address_svi_port_channel.current.templateId is defined
+          - nm_create_secondary_address_svi_port_channel.current.templateName is defined
+          - nm_create_secondary_address_svi_port_channel.current.v6RAPrefix == false
+          - nm_create_secondary_address_svi_virtual_port_channel is changed
+          - nm_create_secondary_address_svi_virtual_port_channel.previous == {}
+          - nm_create_secondary_address_svi_virtual_port_channel.current.address == "10.0.2.3/24"
+          - nm_create_secondary_address_svi_virtual_port_channel.current.dhcpRelay == false
+          - nm_create_secondary_address_svi_virtual_port_channel.current.ipV6DAD == "enabled"
+          - nm_create_secondary_address_svi_virtual_port_channel.current.sviInterfaceEncap.encapType == "vlan"
+          - nm_create_secondary_address_svi_virtual_port_channel.current.sviInterfaceEncap.value == 1000
+          - nm_create_secondary_address_svi_virtual_port_channel.current.sviInterfacePathRef is defined
+          - nm_create_secondary_address_svi_virtual_port_channel.current.sviInterfacePathType == "vpc"
+          - nm_create_secondary_address_svi_virtual_port_channel.current.templateId is defined
+          - nm_create_secondary_address_svi_virtual_port_channel.current.templateName is defined
+          - nm_create_secondary_address_svi_virtual_port_channel.current.v6RAPrefix == false
+          - nm_create_secondary_address_svi_virtual_port_channel.current.virtualPortChannelName == "ansible_virtual_port_channel_interface_1"
+          - nm_create_secondary_address_svi_virtual_port_channel.current.virtualPortChannelSide == "A"
+          - nm_create_secondary_address_svi_virtual_port_channel.current.virtualPortChannelTemplateId is defined
+          - nm_create_secondary_address_svi_virtual_port_channel.current.virtualPortChannelTemplateName is defined
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b is changed
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.previous == {}
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.address == "10.0.2.4/24"
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.dhcpRelay == false
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.ipV6DAD == "enabled"
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.sviInterfaceEncap.encapType == "vlan"
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.sviInterfaceEncap.value == 1000
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.sviInterfacePathRef is defined
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.sviInterfacePathType == "vpc"
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.templateId is defined
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.templateName is defined
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.v6RAPrefix == false
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.virtualPortChannelName == "ansible_virtual_port_channel_interface_1"
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.virtualPortChannelSide == "B"
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.virtualPortChannelTemplateId is defined
+          - nm_create_secondary_address_svi_virtual_port_channel_side_b.current.virtualPortChannelTemplateName is defined
+          - nm_create_secondary_address_routed_sub_port is changed
+          - nm_create_secondary_address_routed_sub_port.previous == {}
+          - nm_create_secondary_address_routed_sub_port.current.address == "10.1.0.2/24"
+          - nm_create_secondary_address_routed_sub_port.current.dhcpRelay == false
+          - nm_create_secondary_address_routed_sub_port.current.ipV6DAD == "enabled"
+          - nm_create_secondary_address_routed_sub_port.current.routedSubInterfaceEncap.encapType == "vlan"
+          - nm_create_secondary_address_routed_sub_port.current.routedSubInterfaceEncap.value == 101
+          - nm_create_secondary_address_routed_sub_port.current.routedSubInterfaceNodeID == "101"
+          - nm_create_secondary_address_routed_sub_port.current.routedSubInterfacePath == "eth1/2"
+          - nm_create_secondary_address_routed_sub_port.current.routedSubInterfacePathType == "port"
+          - nm_create_secondary_address_routed_sub_port.current.routedSubInterfacePodID == "1"
+          - nm_create_secondary_address_routed_sub_port.current.templateId is defined
+          - nm_create_secondary_address_routed_sub_port.current.templateName is defined
+          - nm_create_secondary_address_routed_sub_port.current.v6RAPrefix == false
+          - nm_create_secondary_address_routed_sub_port_channel is changed
+          - nm_create_secondary_address_routed_sub_port_channel.previous == {}
+          - nm_create_secondary_address_routed_sub_port_channel.current.address == "2::102/16"
+          - nm_create_secondary_address_routed_sub_port_channel.current.dhcpRelay == false
+          - nm_create_secondary_address_routed_sub_port_channel.current.ipV6DAD == "enabled"
+          - nm_create_secondary_address_routed_sub_port_channel.current.portChannelName == "ansible_port_channel_interface_2"
+          - nm_create_secondary_address_routed_sub_port_channel.current.portChannelTemplateId is defined
+          - nm_create_secondary_address_routed_sub_port_channel.current.portChannelTemplateName is defined
+          - nm_create_secondary_address_routed_sub_port_channel.current.routedSubInterfaceEncap.encapType == "vlan"
+          - nm_create_secondary_address_routed_sub_port_channel.current.routedSubInterfaceEncap.value == 101
+          - nm_create_secondary_address_routed_sub_port_channel.current.routedSubInterfacePathRef is defined
+          - nm_create_secondary_address_routed_sub_port_channel.current.routedSubInterfacePathType == "pc"
+          - nm_create_secondary_address_routed_sub_port_channel.current.templateId is defined
+          - nm_create_secondary_address_routed_sub_port_channel.current.templateName is defined
+          - nm_create_secondary_address_routed_sub_port_channel.current.v6RAPrefix == false
+          - nm_create_secondary_address_floating_svi is changed
+          - nm_create_secondary_address_floating_svi.previous == {}
+          - nm_create_secondary_address_floating_svi.current.address == "10.4.0.3/24"
+          - nm_create_secondary_address_floating_svi.current.dhcpRelay == false
+          - nm_create_secondary_address_floating_svi.current.floatingSviInterfaceEncap.encapType == "vlan"
+          - nm_create_secondary_address_floating_svi.current.floatingSviInterfaceEncap.value == 100
+          - nm_create_secondary_address_floating_svi.current.floatingSviInterfaceNodeID == "101"
+          - nm_create_secondary_address_floating_svi.current.floatingSviInterfacePathType == "anchorNode"
+          - nm_create_secondary_address_floating_svi.current.floatingSviInterfacePodID == "1"
+          - nm_create_secondary_address_floating_svi.current.ipV6DAD == "enabled"
+          - nm_create_secondary_address_floating_svi.current.templateId is defined
+          - nm_create_secondary_address_floating_svi.current.templateName is defined
+          - nm_create_secondary_address_floating_svi.current.v6RAPrefix == false
+          - nm_create_secondary_address_floating_svi_path_attributes is changed
+          - nm_create_secondary_address_floating_svi_path_attributes.previous == {}
+          - nm_create_secondary_address_floating_svi_path_attributes.current.address == "10.4.0.4/24"
+          - nm_create_secondary_address_floating_svi_path_attributes.current.dhcpRelay == false
+          - nm_create_secondary_address_floating_svi_path_attributes.current.floatingPathAttributesDomain == "uni/vmmp-VMware/dom-ansible_test_vmm"
+          - nm_create_secondary_address_floating_svi_path_attributes.current.ipV6DAD == "disabled"
+          - nm_create_secondary_address_floating_svi_path_attributes.current.templateId is defined
+          - nm_create_secondary_address_floating_svi_path_attributes.current.templateName is defined
+          - nm_create_secondary_address_floating_svi_path_attributes.current.v6RAPrefix == false
+
+    # UPDATE
+
+    - name: Update a secondary address on a L3out Routed Interface of type port (check mode)
+      cisco.mso.ndo_l3out_secondary_ip: &update_secondary_address
+        <<: *create_secondary_address
+        dhcp_relay: true
+        ipv6_dad: disabled
+        nd_ra_prefix: true
+      check_mode: true
+      register: cm_update_secondary_address
+
+    - name: Update a secondary address on a L3out Routed Interface of type port
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *update_secondary_address
+        state: present
+      register: nm_update_secondary_address
+
+    - name: Update a secondary address on a L3out Routed Interface of type port again
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *update_secondary_address
+        state: present
+      register: nm_update_secondary_address_again
+
+    - name: Assert that the secondary address on a L3out Routed Interface of type port was updated
+      ansible.builtin.assert:
+        that:
+          - cm_update_secondary_address is changed
+          - cm_update_secondary_address.previous == nm_create_secondary_address.current
+          - cm_update_secondary_address.proposed == cm_update_secondary_address.current
+          - cm_update_secondary_address.current.address == "3::102/16"
+          - cm_update_secondary_address.current.dhcpRelay == true
+          - cm_update_secondary_address.current.ipV6DAD == "disabled"
+          - cm_update_secondary_address.current.routedInterfaceNodeID == "101"
+          - cm_update_secondary_address.current.routedInterfacePath == "eth1/3"
+          - cm_update_secondary_address.current.routedInterfacePathType == "port"
+          - cm_update_secondary_address.current.routedInterfacePodID == "1"
+          - cm_update_secondary_address.current.templateId is defined
+          - cm_update_secondary_address.current.templateName is defined
+          - cm_update_secondary_address.current.v6RAPrefix == true
+          - nm_update_secondary_address is changed
+          - nm_update_secondary_address.previous == nm_create_secondary_address.current
+          - nm_update_secondary_address.current != nm_update_secondary_address.previous
+          - nm_update_secondary_address.current == cm_update_secondary_address.current
+          - nm_update_secondary_address_again is not changed
+          - nm_update_secondary_address_again.current == nm_update_secondary_address_again.previous == nm_update_secondary_address.current
+    
+    # ERROR HANDLING
+
+    - name: Error creating L3Out Secondary Address with parent_type routed without path or port_channel
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: routed
+        state: present
+      ignore_errors: true
+      register: err_routed_without_path_or_port_channel
+
+    - name: Error creating L3Out Secondary Address with parent_type routed_sub without path or port_channel
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: routed_sub
+        state: present
+      ignore_errors: true
+      register: err_routed_sub_without_path_or_port_channel
+
+    - name: Error creating L3Out Secondary Address with parent_type routed_sub with path without encapsulation_type and encapsulation_value
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: routed_sub
+        path: eth1/1
+        state: present
+      ignore_errors: true
+      register: err_routed_sub_with_path
+
+    - name: Error creating L3Out Secondary Address with parent_type routed_sub with path and encapsulation_type but without encapsulation_value
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: routed_sub
+        path: eth1/1
+        encapsulation_type: vlan
+        state: present
+      ignore_errors: true
+      register: err_routed_sub_with_path_and_encapsulation_type
+
+    - name: Error creating L3Out Secondary Address with parent_type routed_sub with path and encapsulation_value but without encapsulation_type
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: routed_sub
+        path: eth1/1
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_routed_sub_with_path_and_encapsulation_value
+
+    - name: Error creating L3Out Secondary Address with parent_type routed_sub with path without node_id
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: routed_sub
+        path: eth1/1
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_routed_sub_with_path_without_node_id
+
+    - name: Error creating L3Out Secondary Address with parent_type svi without path, port_channel or vitrual_port_channel
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: svi
+        state: present
+      ignore_errors: true
+      register: err_svi_without_path_or_port_channel_or_virtual_port_channel
+
+    - name: Error creating L3Out Secondary Address with parent_type routed_sub with path without encapsulation_type and encapsulation_value
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: svi
+        path: eth1/1
+        state: present
+      ignore_errors: true
+      register: err_svi_with_path
+
+    - name: Error creating L3Out Secondary Address with parent_type routed_sub with path and encapsulation_type but without encapsulation_value
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: svi
+        path: eth1/1
+        encapsulation_type: vlan
+        state: present
+      ignore_errors: true
+      register: err_svi_with_path_and_encapsulation_type
+
+    - name: Error creating L3Out Secondary Address with parent_type routed_sub with path and encapsulation_value but without encapsulation_type
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: svi
+        path: eth1/1
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_svi_with_path_and_encapsulation_value
+
+    - name: Error creating L3Out Secondary Address with parent_type floating_svi without node_id, encapsulation_type or encapsulation_value
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: floating_svi
+        state: present
+      ignore_errors: true
+      register: err_floating_svi_without_node_id_or_encapsulation_type_or_encapsulation_value
+
+    - name: Error creating L3Out Secondary Address with parent_type floating_svi without node_id
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: floating_svi
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_floating_svi_without_node_id
+
+    - name: Error creating L3Out Secondary Address with parent_type floating_svi without encapsulation_type
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: floating_svi
+        node_id: 101
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_floating_svi_without_encapsulation_type
+
+    - name: Error creating L3Out Secondary Address with parent_type floating_svi without encapsulation_value
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: floating_svi
+        node_id: 101
+        encapsulation_type: vlan
+        state: present
+      ignore_errors: true
+      register: err_floating_svi_without_encapsulation_value
+
+    - name: Error mutually exclusive parameters port_channel and path
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: svi
+        path: eth1/1
+        node_id: 101
+        port_channel:
+          uuid: some_value
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_mutually_exclusive_port_channel_path
+
+    - name: Error mutually exclusive parameters port_channel and node_id
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: svi
+        node_id: 101
+        port_channel:
+          uuid: some_value
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_mutually_exclusive_port_channel_node_id
+
+    - name: Error mutually exclusive parameters port_channel and virtual_port_channel
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: svi
+        port_channel:
+          uuid: some_value
+        virtual_port_channel:
+          uuid: some_value
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_mutually_exclusive_port_channel_virtual_port_channel
+
+    - name: Error mutually exclusive parameters virtual_port_channel and path
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: svi
+        path: eth1/1
+        node_id: 101
+        virtual_port_channel:
+          uuid: some_value
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_mutually_exclusive_virtual_port_channel_path
+
+    - name: Error mutually exclusive parameters virtual_port_channel and node_id
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *mso_info
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        secondary_address: 5.5.5.5
+        parent_type: svi
+        node_id: 101
+        virtual_port_channel:
+          uuid: some_value
+        encapsulation_type: vlan
+        encapsulation_value: 100
+        state: present
+      ignore_errors: true
+      register: err_mutually_exclusive_virtual_port_channel_node_id
+
+    - name: Set errors message to handle quotes in string
+      ansible.builtin.set_fact:
+        error_missing_node_id: "missing parameter(s) required by 'path': node_id"
+
+    - name: Assert input errors for creating L3Out Secondary Address
+      ansible.builtin.assert:
+        that:
+          - err_routed_without_path_or_port_channel.failed
+          - 'err_routed_without_path_or_port_channel.msg == "parent_type is routed but any of the following are missing: path, port_channel"'
+          - err_routed_sub_without_path_or_port_channel.failed
+          - 'err_routed_sub_without_path_or_port_channel.msg == "parent_type is routed_sub but any of the following are missing: path, port_channel"'
+          - err_routed_sub_with_path.failed
+          - 'err_routed_sub_with_path.msg == "parent_type is routed_sub but all of the following are missing: encapsulation_type, encapsulation_value"'
+          - err_routed_sub_with_path_and_encapsulation_type.failed
+          - 'err_routed_sub_with_path_and_encapsulation_type.msg == "parent_type is routed_sub but all of the following are missing: encapsulation_value"'
+          - err_routed_sub_with_path_and_encapsulation_value.failed
+          - 'err_routed_sub_with_path_and_encapsulation_value.msg == "parent_type is routed_sub but all of the following are missing: encapsulation_type"'
+          - err_routed_sub_with_path_without_node_id.failed
+          - err_routed_sub_with_path_without_node_id.msg == error_missing_node_id
+          - err_svi_without_path_or_port_channel_or_virtual_port_channel.failed
+          - 'err_svi_without_path_or_port_channel_or_virtual_port_channel.msg == "parent_type is svi but any of the following are missing: path, port_channel, virtual_port_channel"'
+          - err_svi_with_path.failed
+          - 'err_svi_with_path.msg == "parent_type is svi but all of the following are missing: encapsulation_type, encapsulation_value"'
+          - err_svi_with_path_and_encapsulation_type.failed
+          - 'err_svi_with_path_and_encapsulation_type.msg == "parent_type is svi but all of the following are missing: encapsulation_value"'
+          - err_svi_with_path_and_encapsulation_value.failed
+          - 'err_svi_with_path_and_encapsulation_value.msg == "parent_type is svi but all of the following are missing: encapsulation_type"'
+          - err_floating_svi_without_node_id_or_encapsulation_type_or_encapsulation_value.failed
+          - 'err_floating_svi_without_node_id_or_encapsulation_type_or_encapsulation_value.msg == "parent_type is floating_svi but all of the following are missing: node_id, encapsulation_type, encapsulation_value"'
+          - err_floating_svi_without_node_id.failed
+          - 'err_floating_svi_without_node_id.msg == "parent_type is floating_svi but all of the following are missing: node_id"'
+          - err_floating_svi_without_encapsulation_type.failed
+          - 'err_floating_svi_without_encapsulation_type.msg == "parent_type is floating_svi but all of the following are missing: encapsulation_type"'
+          - err_floating_svi_without_encapsulation_value.failed
+          - 'err_floating_svi_without_encapsulation_value.msg == "parent_type is floating_svi but all of the following are missing: encapsulation_value"'
+          - err_mutually_exclusive_port_channel_path.failed
+          - 'err_mutually_exclusive_port_channel_path.msg == "parameters are mutually exclusive: port_channel|path, port_channel|node_id"'
+          - err_mutually_exclusive_port_channel_node_id.failed
+          - 'err_mutually_exclusive_port_channel_node_id.msg == "parameters are mutually exclusive: port_channel|node_id"'
+          - err_mutually_exclusive_port_channel_virtual_port_channel.failed
+          - 'err_mutually_exclusive_port_channel_virtual_port_channel.msg == "parameters are mutually exclusive: port_channel|virtual_port_channel"'
+          - err_mutually_exclusive_virtual_port_channel_path.failed
+          - 'err_mutually_exclusive_virtual_port_channel_path.msg == "parameters are mutually exclusive: virtual_port_channel|path, virtual_port_channel|node_id"'
+          - err_mutually_exclusive_virtual_port_channel_node_id.failed
+          - 'err_mutually_exclusive_virtual_port_channel_node_id.msg == "parameters are mutually exclusive: virtual_port_channel|node_id"'
+
+    # QUERY
+
+    - name: Create another secondary address on a L3out Routed Interface of type port
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *create_secondary_address
+        secondary_address: 3::103/16
+        state: present
+      register: query_create_another_secondary_address
+
+    - name: Get a secondary address on a L3out Routed Interface of type port
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *create_secondary_address
+        state: query
+      register: query_secondary_address
+    
+    - name: Get all secondary addresses on a L3out Routed Interface of type port
+      cisco.mso.ndo_l3out_secondary_ip:
+        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out: l3out_1
+        node_id: 101
+        path: eth1/3
+        parent_type: routed
+        state: query
+      register: query_all
+
+    - name: Assert that the secondary addresses on a L3out Routed Interface of type port was queried
+      ansible.builtin.assert:
+        that:
+          - query_secondary_address is not changed
+          - query_secondary_address.current == nm_update_secondary_address.current
+          - query_all is not changed
+          - query_all.current | length == 2
+          - query_all.current.0 == nm_update_secondary_address.current
+          - query_all.current.1 == query_create_another_secondary_address.current
+
+    # DELETE
+
+    - name: Delete a secondary address on a L3out Routed Interface of type port (check mode)
+      cisco.mso.ndo_l3out_secondary_ip: &delete_secondary_address
+        <<: *create_secondary_address
+        state: absent
+      check_mode: true
+      register: cm_delete_secondary_address
+
+    - name: Delete a secondary address on a L3out Routed Interface of type port
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *delete_secondary_address
+      register: nm_delete_secondary_address
+
+    - name: Delete a secondary address on a L3out Routed Interface of type port again
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *delete_secondary_address
+      register: nm_delete_secondary_address_again
+
+    - name: Assert that the secondary address on a L3out Routed Interface of type port was deleted
+      ansible.builtin.assert:
+        that:
+          - cm_delete_secondary_address is changed
+          - cm_delete_secondary_address.previous == query_secondary_address.current
+          - cm_delete_secondary_address.current == cm_delete_secondary_address.proposed == {}
+          - nm_delete_secondary_address is changed
+          - nm_delete_secondary_address.current == nm_delete_secondary_address.proposed == {}
+          - nm_delete_secondary_address.previous == query_secondary_address.current
+          - nm_delete_secondary_address_again is not changed
+          - nm_delete_secondary_address_again.current == nm_delete_secondary_address_again.previous == {}
+
+    - name: Delete a secondary address on a L3out Routed Interface of type port
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *create_secondary_address_routed_port_channel
+        state: absent
+      register: nm_delete_secondary_address_routed_port_channel
+
+    - name: Delete a secondary address on a L3out SVI Interface of type port
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *create_secondary_address_svi_port
+        state: absent
+      register: nm_delete_secondary_address_svi_port
+
+    - name: Delete a secondary address on a L3out SVI Interface of type port channel
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *create_secondary_address_svi_port_channel
+        state: absent
+      register: nm_delete_secondary_address_svi_port_channel
+    
+    - name: Delete a secondary address on a L3out SVI Interface of type virtual port channel
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *create_secondary_address_svi_virtual_port_channel
+        state: absent
+      register: nm_delete_secondary_address_svi_virtual_port_channel
+    
+    - name: Delete a secondary address on a L3out SVI Interface of type virtual port channel side b
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *create_secondary_address_svi_virtual_port_channel_side_b
+        state: absent
+      register: nm_delete_secondary_address_svi_virtual_port_channel_side_b
+    
+    - name: Delete a secondary address on a L3out Routed Sub-Interface of type port
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *create_secondary_address_routed_sub_port
+        state: absent
+      register: nm_delete_secondary_address_routed_sub_port
+    
+    - name: Delete a secondary address on a L3out Routed Sub-Interface of type port channel
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *create_secondary_address_routed_sub_port_channel
+        state: absent
+      register: nm_delete_secondary_address_routed_sub_port_channel
+    
+    - name: Delete aa secondary address on a L3Out Floating SVI Interface
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *create_secondary_address_floating_svi
+        state: absent
+      register: nm_delete_secondary_address_floating_svi
+
+    - name: Delete a secondary address on a L3Out Floating SVI Interface path attributes
+      cisco.mso.ndo_l3out_secondary_ip:
+        <<: *create_secondary_address_floating_svi_path_attributes
+        state: absent
+      register: nm_delete_secondary_address_floating_svi_path_attributes
+
+    - name: Assert that the secondary address on all Interface types can be deleted
+      ansible.builtin.assert:
+        that:
+          - nm_delete_secondary_address_routed_port_channel is changed
+          - nm_delete_secondary_address_routed_port_channel.previous == nm_create_secondary_address_routed_port_channel.current
+          - nm_delete_secondary_address_routed_port_channel.current == nm_delete_secondary_address_routed_port_channel.proposed == {}
+          - nm_delete_secondary_address_svi_port is changed
+          - nm_delete_secondary_address_svi_port.previous == nm_create_secondary_address_svi_port.current
+          - nm_delete_secondary_address_svi_port.current == nm_delete_secondary_address_svi_port.proposed == {}
+          - nm_delete_secondary_address_svi_port_channel is changed
+          - nm_delete_secondary_address_svi_port_channel.previous == nm_create_secondary_address_svi_port_channel.current
+          - nm_delete_secondary_address_svi_port_channel.current == nm_delete_secondary_address_svi_port_channel.proposed == {}
+          - nm_delete_secondary_address_svi_virtual_port_channel is changed
+          - nm_delete_secondary_address_svi_virtual_port_channel.previous == nm_create_secondary_address_svi_virtual_port_channel.current
+          - nm_delete_secondary_address_svi_virtual_port_channel.current == nm_delete_secondary_address_svi_virtual_port_channel.proposed == {}
+          - nm_delete_secondary_address_svi_virtual_port_channel_side_b is changed
+          - nm_delete_secondary_address_svi_virtual_port_channel_side_b.previous == nm_create_secondary_address_svi_virtual_port_channel_side_b.current
+          - nm_delete_secondary_address_svi_virtual_port_channel_side_b.current == nm_delete_secondary_address_svi_virtual_port_channel_side_b.proposed == {}
+          - nm_delete_secondary_address_routed_sub_port is changed
+          - nm_delete_secondary_address_routed_sub_port.previous == nm_create_secondary_address_routed_sub_port.current
+          - nm_delete_secondary_address_routed_sub_port.current == nm_delete_secondary_address_routed_sub_port.proposed == {}
+          - nm_delete_secondary_address_routed_sub_port_channel is changed
+          - nm_delete_secondary_address_routed_sub_port_channel.previous == nm_create_secondary_address_routed_sub_port_channel.current
+          - nm_delete_secondary_address_routed_sub_port_channel.current == nm_delete_secondary_address_routed_sub_port_channel.proposed == {}
+          - nm_delete_secondary_address_floating_svi is changed
+          - nm_delete_secondary_address_floating_svi.previous == nm_create_secondary_address_floating_svi.current
+          - nm_delete_secondary_address_floating_svi.current == nm_delete_secondary_address_floating_svi.proposed == {}
+          - nm_delete_secondary_address_floating_svi_path_attributes is changed
+          - nm_delete_secondary_address_floating_svi_path_attributes.previous == nm_create_secondary_address_floating_svi_path_attributes.current
+          - nm_delete_secondary_address_floating_svi_path_attributes.current == nm_delete_secondary_address_floating_svi_path_attributes.proposed == {}
+
+    # CLEANUP TEMPLATE
+
+    - name: Remove l3out template
+      cisco.mso.ndo_template:
+        <<: *ndo_l3out_template_absent
+
+    - name: Remove ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+
+    - name: Remove ansible_fabric_resource_template fabric_resource template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_resource_template_absent
+
+    - name: Remove ansible_fabric_policy_template fabric_policy template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_policy_template_absent
+
+    - name: Set ansible_network_os to cisco.aci.aci
+      ansible.builtin.set_fact:
+        ansible_network_os: cisco.aci.aci
+
+    - name: Reset the ansible_connection to access the APIC
+      ansible.builtin.meta: reset_connection
+
+    - name: Remove the VMM domain
+      cisco.aci.aci_domain:
+        <<: *vmm_domain_present
+        state: absent
+
+    - name: Remove the physical domain
+      cisco.aci.aci_domain:
+        <<: *phys_domain_present
+        state: absent

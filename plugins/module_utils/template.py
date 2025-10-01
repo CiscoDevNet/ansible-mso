@@ -7,7 +7,7 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
-from ansible_collections.cisco.mso.plugins.module_utils.constants import TEMPLATE_TYPES
+from ansible_collections.cisco.mso.plugins.module_utils.constants import TEMPLATE_TYPES, DOMAIN_TYPE_MAP, VM_DOMAIN_PROVIDER_MAP
 from ansible_collections.cisco.mso.plugins.module_utils.utils import generate_api_endpoint
 from collections import namedtuple
 
@@ -116,7 +116,7 @@ class MSOTemplate:
             return all((item.get(kv.key) == kv.value for kv in kvs))
 
         match = next((Item(index, item) for index, item in enumerate(search_list) if kv_match(kv_list, item)), None)
-        existing = [item.get(kv.key) for item in search_list for kv in kv_list]
+        existing = [item.get(kv.key) for item in search_list for kv in kv_list if item.get(kv.key) is not None]
         return match, existing
 
     def validate_template(self, template_type):
@@ -479,6 +479,29 @@ class MSOTemplate:
                 fail_module=fail_module,
             )
         return existing_ipsla_track_lists  # Query all objects
+
+    def get_l3out_secondary_address(self, parent_object, parent_type, secondary_address, side_b, fail_module=False):
+        """
+        Get the L3Out Secondary Address by address.
+        :param parent_object: The parent object to search for the secondary IP address -> Dict
+        :param secondary_address: The secondary address to search for -> Str
+        :param side_b: The side indicator for the SVI VPC parent object.
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the address is existing in the search list -> Dict
+                 When the address is not existing in the search list -> None
+                 When the address is None, and the search list is not empty -> List[Dict]
+                 When the address is None, and the search list is empty -> List[]
+        """
+        if parent_type == "floating_svi_path_attributes":
+            existing_secondary_address = parent_object.get("secondaryAddresses", [])
+        else:
+            existing_secondary_address = parent_object.get("sideBAddresses" if side_b else "addresses", {}).get("secondary", [])
+
+        if secondary_address:  # Query a specific object
+            kv_list = [KVPair("address", secondary_address)]
+            return self.get_object_by_key_value_pairs("L3Out Secondary IP Address", existing_secondary_address, kv_list, fail_module)
+        return existing_secondary_address  # Query all objects
 
     def get_l3out_routed_interface(self, l3out_object, pod_id, node_id, path, path_ref, fail_module=False):
         """
@@ -1157,6 +1180,12 @@ class MSOTemplate:
             virtual_port_channel_uuid = virtual_port_channel.get("uuid")
         encapsulation_type = self.mso.params.get("encapsulation_type")
         encapsulation_value = self.mso.params.get("encapsulation_value")
+        domain_type = DOMAIN_TYPE_MAP.get(self.mso.params.get("domain_type"))
+        domain_provider = self.mso.params.get("domain_provider")
+        if domain_type == "physicalDomain":
+            domain = "uni/phys-{0}".format(self.mso.params.get("domain"))
+        elif domain_type == "vmmDomain":
+            domain = "uni/vmmp-{0}/dom-{1}".format(VM_DOMAIN_PROVIDER_MAP.get(self.mso.params.get("domain_provider")), self.mso.params.get("domain"))
 
         if node_id or path or port_channel or virtual_port_channel:
             pod_id = self.mso.get_site_interface_details(
@@ -1179,6 +1208,7 @@ class MSOTemplate:
             parent_match = self.get_l3out_floating_svi_interface(l3out_object.details, pod_id, node_id, encap, fail_module=True)
             parent_path = "/l3outTemplate/l3outs/{0}/floatingSviInterfaces/{1}".format(l3out_object.index, parent_match.index if parent_match else "-")
         elif parent_type == "routed":
+            # self.mso.fail_json("pod_id: {0}, node_id {1}, path {2}".format(pod_id, node_id, path))
             parent_match = self.get_l3out_routed_interface(l3out_object.details, pod_id, node_id, path, port_channel_uuid, fail_module=True)
             parent_path = "/l3outTemplate/l3outs/{0}/interfaces/{1}".format(l3out_object.index, parent_match.index if parent_match else "-")
         elif parent_type == "routed_sub":
@@ -1189,6 +1219,12 @@ class MSOTemplate:
                 l3out_object.details, pod_id, node_id, path, encap, port_channel_uuid or virtual_port_channel_uuid, fail_module=True
             )
             parent_path = "/l3outTemplate/l3outs/{0}/sviInterfaces/{1}".format(l3out_object.index, parent_match.index if parent_match else "-")
+        elif parent_type == "floating_svi_path_attributes":
+            floating_svi_object = self.get_l3out_floating_svi_interface(l3out_object.details, pod_id, node_id, encap, True)
+            parent_match = self.get_l3out_floating_svi_interface_path_attributes(floating_svi_object.details, domain_type, domain, fail_module=True)
+            parent_path = "/l3outTemplate/l3outs/{0}/floatingSviInterfaces/{1}/svi/floatingPathAttributes/{2}".format(
+                l3out_object.index, floating_svi_object.index, parent_match.index if parent_match else "-"
+            )
 
         return parent_match, parent_path
 
@@ -1210,6 +1246,8 @@ class MSOTemplate:
             parent_output_prepend = "routedSubInterface"
         elif parent_type == "svi":
             parent_output_prepend = "sviInterface"
+        elif parent_type == "floating_svi_path_attributes":
+            parent_output_prepend = "floatingPathAttributes"
 
         pod_id = parent_object.get("podID")
         if pod_id:
@@ -1244,3 +1282,7 @@ class MSOTemplate:
         name = parent_object.get("name")
         if name:
             update_object["{0}Name".format(parent_output_prepend)] = name
+
+        domain = parent_object.get("domain")
+        if domain:
+            update_object["{0}Domain".format(parent_output_prepend)] = domain

@@ -336,7 +336,7 @@ def ndo_l3out_ptp_spec(aliases=None):
     )
 
 
-def ndo_l3out_virtual_port_channel_spec(side_b=True):
+def ndo_l3out_virtual_port_channel_spec(side_b=True, secondary_address=False):
     virtual_port_channel_spec = dict(
         type="dict",
         aliases=["vpc"],
@@ -375,6 +375,9 @@ def ndo_l3out_virtual_port_channel_spec(side_b=True):
         virtual_port_channel_spec["options"]["side_b_node_router_id"] = dict(type="str", aliases=["router_id"])
         virtual_port_channel_spec["options"]["side_b_use_router_id_as_loopback"] = dict(type="bool")
         virtual_port_channel_spec["options"]["side_b_node_loopback_ip"] = dict(type="str", aliases=["loopback_ip"])
+    if secondary_address:
+        # enforcing default for clarity of module behaviour, this value is not send to API but is just for calculation of VPC path
+        virtual_port_channel_spec["options"]["side_b"] = dict(type="bool", default=False)
 
     return virtual_port_channel_spec
 

@@ -296,3 +296,5 @@ VM_DOMAIN_PROVIDER_MAP = {
     "vmware": "VMware",
     "nutanix": "Nutanix",
 }
+
+MATCH_COMMUNITY_SCOPE_MAP = {"transitive": "transitive", "non_transitive": "non-transitive"}

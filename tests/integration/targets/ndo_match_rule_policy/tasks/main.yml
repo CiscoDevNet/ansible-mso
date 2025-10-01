@@ -1,0 +1,253 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Gaspard Micol (@gmicol) <gmicol@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 5.1
+  when: version.current.version is version('5.1', '>=')
+  block:
+    # CLEAN TEST ENVIRONMENT
+    - name: Ensure Tenant Policy template does not exist
+      cisco.mso.ndo_template: &rm_tenant_policy_template
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+      ignore_errors: true
+
+    - name: Ensure Tenant does not exist
+      cisco.mso.mso_tenant: &rm_tenant
+        <<: *mso_info
+        tenant: ansible_test
+        state: absent
+
+    - name: Ensure Tenant exists
+      cisco.mso.mso_tenant:
+        <<: *rm_tenant
+        state: present
+
+    - name: Ensure Tenant Policy template exist
+      cisco.mso.ndo_template:
+        <<: *rm_tenant_policy_template
+        state: present
+
+    # CREATE Match Rule Policy
+
+    - name: Create Match Rule Policy (check_mode)
+      cisco.mso.ndo_match_rule_policy: &create_match_rule_policy
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        name: ansible_match_rule_policy_1
+        description: Ansible Match Rule Policy 1
+        state: present
+      check_mode: true
+      register: cm_create_match_rule_policy
+    
+    - name: Create Match Rule Policy
+      cisco.mso.ndo_match_rule_policy:
+        <<: *create_match_rule_policy
+      register: nm_create_match_rule_policy
+
+    - name: Create Match Rule Policy again
+      cisco.mso.ndo_match_rule_policy:
+        <<: *create_match_rule_policy
+      register: nm_create_match_rule_policy_again
+    
+    - name: Create another Match Rule Policy with minimum configurations
+      cisco.mso.ndo_match_rule_policy: &create_match_rule_policy_2
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        name: ansible_match_rule_policy_2
+        state: present
+      register: nm_create_match_rule_policy_2
+
+    - name: Assert Match Rule Policy creation
+      ansible.builtin.assert:
+        that:
+          - cm_create_match_rule_policy is changed
+          - cm_create_match_rule_policy.previous == {}
+          - cm_create_match_rule_policy.proposed == cm_create_match_rule_policy.current
+          - cm_create_match_rule_policy.current.name == 'ansible_match_rule_policy_1'
+          - cm_create_match_rule_policy.current.description == 'Ansible Match Rule Policy 1'
+          - cm_create_match_rule_policy.current.uuid is not defined
+          - cm_create_match_rule_policy.current.templateId is defined
+          - cm_create_match_rule_policy.current.templateName == 'ansible_tenant_policy_template'
+          - nm_create_match_rule_policy is changed
+          - nm_create_match_rule_policy.previous == {}
+          - nm_create_match_rule_policy.current.name == 'ansible_match_rule_policy_1'
+          - nm_create_match_rule_policy.current.description == 'Ansible Match Rule Policy 1'
+          - nm_create_match_rule_policy.current.uuid is defined
+          - nm_create_match_rule_policy.current.templateId is defined
+          - nm_create_match_rule_policy.current.templateName == 'ansible_tenant_policy_template'
+          - nm_create_match_rule_policy_again is not changed
+          - nm_create_match_rule_policy_again.previous == nm_create_match_rule_policy_again.current == nm_create_match_rule_policy.current
+          - nm_create_match_rule_policy_2 is changed
+          - nm_create_match_rule_policy_2.previous == {}
+          - nm_create_match_rule_policy_2.current.name == 'ansible_match_rule_policy_2'
+          - nm_create_match_rule_policy_2.current.uuid is defined
+          - nm_create_match_rule_policy_2.current.templateId is defined
+          - nm_create_match_rule_policy_2.current.templateName == 'ansible_tenant_policy_template'
+
+    # UPDATE Match Rule Policy
+
+    - name: Update Match Rule Policy (check_mode)
+      cisco.mso.ndo_match_rule_policy: &update_match_rule_policy
+        <<: *create_match_rule_policy
+        name: ansible_match_rule_policy_1
+        description: Updated Ansible Match Rule Policy 1
+      check_mode: true
+      register: cm_update_match_rule_policy
+    
+    - name: Update Match Rule Policy
+      cisco.mso.ndo_match_rule_policy:
+        <<: *update_match_rule_policy
+      register: nm_update_match_rule_policy
+    
+    - name: Update Match Rule Policy again
+      cisco.mso.ndo_match_rule_policy:
+        <<: *update_match_rule_policy
+      register: nm_update_match_rule_policy_again
+
+    - name: Update description to empty string
+      cisco.mso.ndo_match_rule_policy:
+        <<: *create_match_rule_policy
+        description: ""
+      register: nm_update_match_rule_policy_empty_description
+
+    - name: Update name of Match Rule Policy
+      cisco.mso.ndo_match_rule_policy:
+        <<: *create_match_rule_policy_2
+        name: ansible_match_rule_policy_2_changed
+        uuid: "{{nm_create_match_rule_policy_2.current.uuid}}"
+      register: nm_update_match_rule_policy_name
+
+    - name: Assert Match Rule Policy update
+      ansible.builtin.assert:
+        that:
+          - cm_update_match_rule_policy is changed
+          - cm_update_match_rule_policy.previous == nm_create_match_rule_policy.current
+          - cm_update_match_rule_policy.previous.name == 'ansible_match_rule_policy_1'
+          - cm_update_match_rule_policy.previous.description == 'Ansible Match Rule Policy 1'
+          - cm_update_match_rule_policy.previous.uuid is defined
+          - cm_update_match_rule_policy.proposed == cm_update_match_rule_policy.current
+          - cm_update_match_rule_policy.current.name == 'ansible_match_rule_policy_1'
+          - cm_update_match_rule_policy.current.description == 'Updated Ansible Match Rule Policy 1'
+          - cm_update_match_rule_policy.current.uuid is defined
+          - cm_update_match_rule_policy.current.templateId is defined
+          - cm_update_match_rule_policy.current.templateName == 'ansible_tenant_policy_template'
+          - nm_update_match_rule_policy is changed
+          - nm_update_match_rule_policy.previous == nm_create_match_rule_policy.current
+          - nm_update_match_rule_policy.previous.name == 'ansible_match_rule_policy_1'
+          - nm_update_match_rule_policy.previous.description == 'Ansible Match Rule Policy 1'
+          - nm_update_match_rule_policy.previous.uuid is defined
+          - nm_update_match_rule_policy.proposed == nm_update_match_rule_policy.current
+          - nm_update_match_rule_policy.current.name == 'ansible_match_rule_policy_1'
+          - nm_update_match_rule_policy.current.description == 'Updated Ansible Match Rule Policy 1'
+          - nm_update_match_rule_policy.current.uuid is defined
+          - nm_update_match_rule_policy.current.templateId is defined
+          - nm_update_match_rule_policy.current.templateName == 'ansible_tenant_policy_template'
+          - nm_update_match_rule_policy_again is not changed
+          - nm_update_match_rule_policy_again.previous == nm_update_match_rule_policy_again.current == nm_update_match_rule_policy.current
+          - nm_update_match_rule_policy_empty_description is changed
+          - nm_update_match_rule_policy_empty_description.previous.name == 'ansible_match_rule_policy_1'
+          - nm_update_match_rule_policy_empty_description.previous.description == 'Updated Ansible Match Rule Policy 1'
+          - nm_update_match_rule_policy_empty_description.previous.uuid is defined
+          - nm_update_match_rule_policy_empty_description.current.name == 'ansible_match_rule_policy_1'
+          - nm_update_match_rule_policy_empty_description.current.description == ''
+          - nm_update_match_rule_policy_empty_description.current.uuid is defined
+          - nm_update_match_rule_policy_name is changed
+          - nm_update_match_rule_policy_name.previous.name == 'ansible_match_rule_policy_2'
+          - nm_update_match_rule_policy_name.current.name == 'ansible_match_rule_policy_2_changed'
+          - nm_update_match_rule_policy_name.current.uuid == nm_update_match_rule_policy_name.previous.uuid == nm_create_match_rule_policy_2.current.uuid
+
+    # QUERY Match Rule Policy
+
+    - name: Query Match Rule Policy
+      cisco.mso.ndo_match_rule_policy:
+        <<: *create_match_rule_policy
+        state: query
+      register: query_match_rule_policy
+
+    - name: Query all Match Rule Policies in Tenant Policy template
+      cisco.mso.ndo_match_rule_policy:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        state: query
+      register: query_all_match_rule_policy
+
+    - name: Assert Match Rule Policy query
+      ansible.builtin.assert:
+        that:
+          - query_match_rule_policy is not changed
+          - query_match_rule_policy.current.name == 'ansible_match_rule_policy_1'
+          - query_all_match_rule_policy is not changed
+          - query_all_match_rule_policy.current | length == 2
+          - query_all_match_rule_policy.current.0.name == 'ansible_match_rule_policy_1'
+          - query_all_match_rule_policy.current.1.name == 'ansible_match_rule_policy_2_changed'
+
+    # DELETE Match Rule Policy
+
+    - name: Delete Match Rule Policy (check_mode)
+      cisco.mso.ndo_match_rule_policy: &delete_match_rule_policy
+        <<: *create_match_rule_policy
+        state: absent
+      check_mode: true
+      register: cm_delete_match_rule_policy
+
+    - name: Delete Match Rule Policy
+      cisco.mso.ndo_match_rule_policy:
+        <<: *delete_match_rule_policy
+      register: nm_delete_match_rule_policy
+
+    - name: Delete Match Rule Policy again
+      cisco.mso.ndo_match_rule_policy:
+        <<: *delete_match_rule_policy
+      register: nm_delete_match_rule_policy_again
+
+    - name: Assert Match Rule Policy deletion
+      ansible.builtin.assert:
+        that:
+          - cm_delete_match_rule_policy is changed
+          - cm_delete_match_rule_policy.previous.name == 'ansible_match_rule_policy_1'
+          - cm_delete_match_rule_policy.proposed == {}
+          - cm_delete_match_rule_policy.current == {}
+          - nm_delete_match_rule_policy is changed
+          - nm_delete_match_rule_policy.previous.name == 'ansible_match_rule_policy_1'
+          - nm_delete_match_rule_policy.proposed == {}
+          - nm_delete_match_rule_policy.current == {}
+          - nm_delete_match_rule_policy_again is not changed
+          - nm_delete_match_rule_policy_again.previous == nm_delete_match_rule_policy_again.current == nm_delete_match_rule_policy.current
+
+    # CLEAN TEST ENVIRONMENT
+
+    - name: Ensure Tenant Policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *rm_tenant_policy_template
+    
+    - name: Ensure Tenant does not exist
+      cisco.mso.mso_tenant:
+        <<: *rm_tenant

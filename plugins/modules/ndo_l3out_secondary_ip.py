@@ -269,7 +269,7 @@ EXAMPLES = r"""
     secondary_address: 1::102/16
     state: present
 
-- name: Create a secondary address on a L3out SVI Interface of type virtual port channel
+- name: Create a secondary address on a L3out SVI Interface of type virtual port channel side a
   cisco.mso.ndo_l3out_secondary_ip:
     host: mso_host
     username: admin

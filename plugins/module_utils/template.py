@@ -1208,7 +1208,6 @@ class MSOTemplate:
             parent_match = self.get_l3out_floating_svi_interface(l3out_object.details, pod_id, node_id, encap, fail_module=True)
             parent_path = "/l3outTemplate/l3outs/{0}/floatingSviInterfaces/{1}".format(l3out_object.index, parent_match.index if parent_match else "-")
         elif parent_type == "routed":
-            # self.mso.fail_json("pod_id: {0}, node_id {1}, path {2}".format(pod_id, node_id, path))
             parent_match = self.get_l3out_routed_interface(l3out_object.details, pod_id, node_id, path, port_channel_uuid, fail_module=True)
             parent_path = "/l3outTemplate/l3outs/{0}/interfaces/{1}".format(l3out_object.index, parent_match.index if parent_match else "-")
         elif parent_type == "routed_sub":

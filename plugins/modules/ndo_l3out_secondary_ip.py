@@ -171,7 +171,7 @@ options:
     type: bool
   nd_ra_prefix:
     description:
-    - Whether to enable Neighbour Discovery (ND) Router Advertisement (RA).
+    - Whether to enable Neighbor Discovery (ND) Router Advertisement (RA).
     - If this parameter is unspecified, NDO defaults to O(nd_ra_prefix=false).
     type: bool
   ipv6_dad:

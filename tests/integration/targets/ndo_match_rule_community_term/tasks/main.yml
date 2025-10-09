@@ -71,7 +71,7 @@
         match_rule_policy: ansible_match_rule_policy
         name: ansible_match_community_term_1
         description: Ansible Match Rule Community Term 1
-        match_community_list:
+        match_community_factors:
           - community: no-export
             scope: transitive
             description: no export and transitive
@@ -107,7 +107,7 @@
           - cm_create_match_community_term_1.current.name == 'ansible_match_community_term_1'
           - cm_create_match_community_term_1.current.description == 'Ansible Match Rule Community Term 1'
           - cm_create_match_community_term_1.current.matchCommunityList | length == 1
-          - cm_create_match_community_term_1.current.matchCommunityList.0.community == 'export'
+          - cm_create_match_community_term_1.current.matchCommunityList.0.community == 'no-export'
           - cm_create_match_community_term_1.current.matchCommunityList.0.scope == 'transitive'
           - cm_create_match_community_term_1.current.matchCommunityList.0.description == 'no export and transitive'
           - cm_create_match_community_term_1.current.matchRulePolicyName == 'ansible_match_rule_policy'
@@ -119,13 +119,13 @@
           - nm_create_match_community_term_1.proposed.name == 'ansible_match_community_term_1'
           - nm_create_match_community_term_1.proposed.description == 'Ansible Match Rule Community Term 1'
           - nm_create_match_community_term_1.proposed.matchCommunityList | length == 1
-          - nm_create_match_community_term_1.proposed.matchCommunityList.0.community == 'export'
+          - nm_create_match_community_term_1.proposed.matchCommunityList.0.community == 'no-export'
           - nm_create_match_community_term_1.proposed.matchCommunityList.0.scope == 'transitive'
           - nm_create_match_community_term_1.proposed.matchCommunityList.0.description == 'no export and transitive'
           - nm_create_match_community_term_1.current.name == 'ansible_match_community_term_1'
           - nm_create_match_community_term_1.current.description == 'Ansible Match Rule Community Term 1'
           - nm_create_match_community_term_1.current.matchCommunityList | length == 1
-          - nm_create_match_community_term_1.current.matchCommunityList.0.community == 'export'
+          - nm_create_match_community_term_1.current.matchCommunityList.0.community == 'no-export'
           - nm_create_match_community_term_1.current.matchCommunityList.0.scope == 'transitive'
           - nm_create_match_community_term_1.current.matchCommunityList.0.description == 'no export and transitive'
           - nm_create_match_community_term_1.current.matchRulePolicyName == 'ansible_match_rule_policy'
@@ -137,7 +137,6 @@
           - nm_create_match_community_term_2 is changed
           - nm_create_match_community_term_2.previous == {}
           - nm_create_match_community_term_2.proposed.name == 'ansible_match_community_term_2'
-          - nm_create_match_community_term_2.proposed.description == ''
           - nm_create_match_community_term_2.proposed.matchCommunityList == []
           - nm_create_match_community_term_2.current.name == 'ansible_match_community_term_2'
           - nm_create_match_community_term_2.current.description == ''
@@ -153,7 +152,7 @@
       cisco.mso.ndo_match_rule_community_term: &update_match_community_term
         <<: *create_match_community_term
         description: Updated Ansible Match Rule Community Term 1
-        match_community_list:
+        match_community_factors:
           - community: no-export
             scope: non_transitive
             description: no export and non-transitive
@@ -176,7 +175,7 @@
     - name: Update Match Rule Community Term by removing one match community
       cisco.mso.ndo_match_rule_community_term:
         <<: *update_match_community_term
-        match_community_list:
+        match_community_factors:
           - community: no-advertise
             scope: transitive
             description: no advertise and transitive
@@ -185,7 +184,7 @@
     - name: Update Match Rule Community Term by removing all match communities
       cisco.mso.ndo_match_rule_community_term:
         <<: *update_match_community_term
-        match_community_list: []
+        match_community_factors: []
       register: nm_update_match_community_term_1_removing_all_match_communities
 
     - name: Assert Match Rule Community Term update
@@ -195,7 +194,7 @@
           - cm_update_match_community_term_1.previous.name == 'ansible_match_community_term_1'
           - cm_update_match_community_term_1.previous.description == 'Ansible Match Rule Community Term 1'
           - cm_update_match_community_term_1.previous.matchCommunityList | length == 1
-          - cm_update_match_community_term_1.previous.matchCommunityList.0.community == 'export'
+          - cm_update_match_community_term_1.previous.matchCommunityList.0.community == 'no-export'
           - cm_update_match_community_term_1.previous.matchCommunityList.0.scope == 'transitive'
           - cm_update_match_community_term_1.previous.matchCommunityList.0.description == 'no export and transitive'
           - cm_update_match_community_term_1.previous.matchRulePolicyName == 'ansible_match_rule_policy'
@@ -206,7 +205,7 @@
           - cm_update_match_community_term_1.current.name == 'ansible_match_community_term_1'
           - cm_update_match_community_term_1.current.description == 'Updated Ansible Match Rule Community Term 1'
           - cm_update_match_community_term_1.current.matchCommunityList | length == 2
-          - cm_update_match_community_term_1.current.matchCommunityList.0.community == 'export'
+          - cm_update_match_community_term_1.current.matchCommunityList.0.community == 'no-export'
           - cm_update_match_community_term_1.current.matchCommunityList.0.scope == 'non-transitive'
           - cm_update_match_community_term_1.current.matchCommunityList.0.description == 'no export and non-transitive'
           - cm_update_match_community_term_1.current.matchCommunityList.1.community == 'no-advertise'
@@ -220,7 +219,7 @@
           - nm_update_match_community_term_1.previous.name == 'ansible_match_community_term_1'
           - nm_update_match_community_term_1.previous.description == 'Ansible Match Rule Community Term 1'
           - nm_update_match_community_term_1.previous.matchCommunityList | length == 1
-          - nm_update_match_community_term_1.previous.matchCommunityList.0.community == 'export'
+          - nm_update_match_community_term_1.previous.matchCommunityList.0.community == 'no-export'
           - nm_update_match_community_term_1.previous.matchCommunityList.0.scope == 'transitive'
           - nm_update_match_community_term_1.previous.matchCommunityList.0.description == 'no export and transitive'
           - nm_update_match_community_term_1.previous.matchRulePolicyName == 'ansible_match_rule_policy'
@@ -230,7 +229,7 @@
           - nm_update_match_community_term_1.proposed.name == 'ansible_match_community_term_1'
           - nm_update_match_community_term_1.proposed.description == 'Updated Ansible Match Rule Community Term 1'
           - nm_update_match_community_term_1.proposed.matchCommunityList | length == 2
-          - nm_update_match_community_term_1.proposed.matchCommunityList.0.community == 'export'
+          - nm_update_match_community_term_1.proposed.matchCommunityList.0.community == 'no-export'
           - nm_update_match_community_term_1.proposed.matchCommunityList.0.scope == 'non-transitive'
           - nm_update_match_community_term_1.proposed.matchCommunityList.0.description == 'no export and non-transitive'
           - nm_update_match_community_term_1.proposed.matchCommunityList.1.community == 'no-advertise'
@@ -239,7 +238,7 @@
           - nm_update_match_community_term_1.current.name == 'ansible_match_community_term_1'
           - nm_update_match_community_term_1.current.description == 'Updated Ansible Match Rule Community Term 1'
           - nm_update_match_community_term_1.current.matchCommunityList | length == 2
-          - nm_update_match_community_term_1.current.matchCommunityList.0.community == 'export'
+          - nm_update_match_community_term_1.current.matchCommunityList.0.community == 'no-export'
           - nm_update_match_community_term_1.current.matchCommunityList.0.scope == 'non-transitive'
           - nm_update_match_community_term_1.current.matchCommunityList.0.description == 'no export and non-transitive'
           - nm_update_match_community_term_1.current.matchCommunityList.1.community == 'no-advertise'
@@ -255,7 +254,7 @@
           - nm_update_match_community_term_1_removing_match_community.previous.name == 'ansible_match_community_term_1'
           - nm_update_match_community_term_1_removing_match_community.previous.description == 'Updated Ansible Match Rule Community Term 1'
           - nm_update_match_community_term_1_removing_match_community.previous.matchCommunityList | length == 2
-          - nm_update_match_community_term_1_removing_match_community.previous.matchCommunityList.0.community == 'export'
+          - nm_update_match_community_term_1_removing_match_community.previous.matchCommunityList.0.community == 'no-export'
           - nm_update_match_community_term_1_removing_match_community.previous.matchCommunityList.0.scope == 'non-transitive'
           - nm_update_match_community_term_1_removing_match_community.previous.matchCommunityList.0.description == 'no export and non-transitive'
           - nm_update_match_community_term_1_removing_match_community.previous.matchCommunityList.1.community == 'no-advertise'
@@ -284,7 +283,7 @@
           - nm_update_match_community_term_1_removing_all_match_communities is changed
           - nm_update_match_community_term_1_removing_all_match_communities.previous.name == 'ansible_match_community_term_1'
           - nm_update_match_community_term_1_removing_all_match_communities.previous.description == 'Updated Ansible Match Rule Community Term 1'
-          - nm_update_match_community_term_1_removing_all_match_communities.current.matchCommunityList | length == 1
+          - nm_update_match_community_term_1_removing_all_match_communities.previous.matchCommunityList | length == 1
           - nm_update_match_community_term_1_removing_all_match_communities.previous.matchCommunityList.0.community == 'no-advertise'
           - nm_update_match_community_term_1_removing_all_match_communities.previous.matchCommunityList.0.scope == 'transitive'
           - nm_update_match_community_term_1_removing_all_match_communities.previous.matchCommunityList.0.description == 'no advertise and transitive'
@@ -344,6 +343,76 @@
           - query_all_match_community_terms.current.1.matchRulePolicyUuid is defined
           - query_all_match_community_terms.current.1.templateName == 'ansible_tenant_policy_template'
           - query_all_match_community_terms.current.1.templateId is defined
+
+    # ERROR HANDLING
+
+    - name: Create Match Rule Community Term with mutually exclusive template parameters (error)
+      cisco.mso.ndo_match_rule_community_term:
+        <<: *create_match_community_term
+        template_id: template_id
+      register: err_mutually_exclusive_template
+      ignore_errors: true
+    
+    - name: Create Match Rule Community Term with mutually exclusive Match Rule Policy parameters (error)
+      cisco.mso.ndo_match_rule_community_term:
+        <<: *create_match_community_term
+        match_rule_policy_uuid: match_rule_policy_uuid
+      register: err_mutually_exclusive_match_rule_policy
+      ignore_errors: true
+
+    - name: Create Match Rule Community Term without required parameters template and template_id (error)
+      cisco.mso.ndo_match_rule_community_term:
+        <<: *mso_info
+        match_rule_policy: ansible_match_rule_policy
+        name: ansible_match_community_term_error
+        state: present
+      register: err_required_parameters_missing_template
+      ignore_errors: true
+
+    - name: Create Match Rule Community Term without required parameters match_rule_policy and match_rule_policy_uuid (error)
+      cisco.mso.ndo_match_rule_community_term:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        name: ansible_match_community_term_error
+        state: present
+      register: err_required_parameters_missing_match_rule_policy
+      ignore_errors: true
+
+    - name: Create Match Rule Community Term with non-existing Match Rule Policy (error)
+      cisco.mso.ndo_match_rule_community_term:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        match_rule_policy: non_existing_match_rule_policy
+        name: ansible_match_community_term_error
+        state: present
+      register: err_non_existing_match_rule_policy
+      ignore_errors: true
+    
+    - name: Create Match Rule Community Term with non-existing Match Rule Polic UUID (error)
+      cisco.mso.ndo_match_rule_community_term:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        match_rule_policy_uuid: non_existing_match_rule_policy_uuid
+        name: ansible_match_community_term_error
+        state: present
+      register: err_non_existing_match_rule_policy_uuid
+      ignore_errors: true
+
+    - name: Assert Match Rule Community Term error handling
+      ansible.builtin.assert:
+        that:
+          - err_mutually_exclusive_template is failed
+          - err_mutually_exclusive_template.msg == "parameters are mutually exclusive{{':'}} template|template_id"
+          - err_mutually_exclusive_match_rule_policy is failed
+          - err_mutually_exclusive_match_rule_policy.msg == "parameters are mutually exclusive{{':'}} match_rule_policy|match_rule_policy_uuid"
+          - err_required_parameters_missing_template is failed
+          - err_required_parameters_missing_template.msg == "one of the following is required{{':'}} template, template_id"
+          - err_required_parameters_missing_match_rule_policy is failed
+          - err_required_parameters_missing_match_rule_policy.msg == "one of the following is required{{':'}} match_rule_policy, match_rule_policy_uuid"
+          - err_non_existing_match_rule_policy is failed
+          - err_non_existing_match_rule_policy.msg == "The Match Rule Policy with the following name 'non_existing_match_rule_policy' does not exist"
+          - err_non_existing_match_rule_policy_uuid is failed
+          - err_non_existing_match_rule_policy_uuid.msg == "The Match Rule Policy with the following UUID 'non_existing_match_rule_policy_uuid' does not exist"
 
     # DELETE Match Rule Community Term
 

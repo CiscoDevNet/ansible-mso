@@ -208,6 +208,31 @@
           - query_all_match_rule_policy.current | length == 2
           - query_all_match_rule_policy.current.0.name == 'ansible_match_rule_policy_1'
           - query_all_match_rule_policy.current.1.name == 'ansible_match_rule_policy_2_changed'
+    
+    # ERROR HANDLING
+
+    - name: Create Match Rule Policy with mutually exclusive template parameters (error)
+      cisco.mso.ndo_match_rule_policy:
+        <<: *create_match_rule_policy
+        template_id: template_id
+      register: err_mutually_exclusive_template
+      ignore_errors: true
+
+    - name: Create Match Rule Policy without required parameters template and template_id (error)
+      cisco.mso.ndo_match_rule_policy:
+        <<: *mso_info
+        name: ansible_match_rule_policy_error
+        state: present
+      register: err_required_parameters_missing_template
+      ignore_errors: true
+
+    - name: Assert Match Rule Policy error handling
+      ansible.builtin.assert:
+        that:
+          - err_mutually_exclusive_template is failed
+          - err_mutually_exclusive_template.msg == "parameters are mutually exclusive{{':'}} template|template_id"
+          - err_required_parameters_missing_template is failed
+          - err_required_parameters_missing_template.msg == "one of the following is required{{':'}} template, template_id"
 
     # DELETE Match Rule Policy
 

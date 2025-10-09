@@ -761,6 +761,29 @@ class MSOTemplate:
             )
         return existing_objects  # Query all objects
 
+    def get_direct_child_object(self, parent_object, description, endpoint, identifier=None, fail_module=False):
+        """
+        Get the direct child object using its identifier and its parent object.
+        :param parent_object: Parent object data where to search the direct child object -> Dict
+        :param description: Description of the child object to search for -> Str
+        :param endpoint: NDO API child object's endpoint -> Str
+        :param identifier: child object's identifier with coresponding identifier's name and value -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the child object identifier is existing in the search list -> Dict
+                 When the child object identifier is not existing in the search list -> None
+                 When the child object identifier is None, and the search list is not empty -> List[Dict]
+                 When the child object identifier is None, and the search list is empty -> List[]
+        """
+        if isinstance(identifier, dict) and identifier.get("value"):  # Query a specific object
+            return self.get_object_by_key_value_pairs(
+                description,
+                parent_object.details.get(endpoint, []),
+                [KVPair(identifier.get("name"), identifier["value"])],
+                fail_module,
+            )
+        return parent_object.details.get(endpoint, [])  # Query all objects
+
     def get_template_policy_uuid(self, template_type, policy_name, policy_type):
         """
         Get the UUID of a Tenant Policy by name.
@@ -1016,6 +1039,27 @@ class MSOTemplate:
             )
             routed_interface["ptpConfig"]["ptpPolicyName"] = ptpPolicy.get("name")
             routed_interface["ptpConfig"]["ptpPolicyRef"] = ptpPolicy.get("uuid")
+
+    def update_match_rule_policy_child_object_with_template_and_parent(self, match_rule_policy, config_data):
+        """
+        Return the updated Match Rule Policy child object config_data with the template and policy values
+        :param config_data: The Match Rule Policy data -> Dict
+        :param config_data: The original config_data that requires to be updated -> Dict
+        :return: Updated config_data with names and ids for template and Match Rule Policy -> Dict
+        """
+        if self.template_id:
+            config_data["templateId"] = self.template_id
+        if self.template_name:
+            config_data["templateName"] = self.template_name
+        if self.schema_id:
+            config_data["schemaId"] = self.schema_id
+        if self.schema_name:
+            config_data["schemaName"] = self.schema_name
+        if match_rule_policy.get("uuid"):
+            config_data["matchRulePolicyUuid"] = match_rule_policy["uuid"]
+        if match_rule_policy.get("name"):
+            config_data["matchRulePolicyName"] = match_rule_policy["name"]
+        return config_data
 
     def get_route_map_policy_for_multicast_uuid(self, route_map_policy_for_multicast_name):
         """

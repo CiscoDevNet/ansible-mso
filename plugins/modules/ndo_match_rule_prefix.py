@@ -189,7 +189,6 @@ RETURN = r"""
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
-from ansible_collections.cisco.mso.plugins.module_utils.template import KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 import copy
 
@@ -244,15 +243,22 @@ def main():
     mso_template.validate_template("tenantPolicy")
 
     match_rule_policy_object = mso_template.get_match_rule_policy_object(match_rule_policy_uuid, match_rule_policy)
-    match = get_match_prefix_object(mso_template, match_rule_policy_object, prefix)
+    if not match_rule_policy_object:
+        mso.fail_json(
+            msg="The Match Rule Policy with the following {0[0]} '{0[1]}' does not exist".format(
+                ("UUID", match_rule_policy_uuid) if match_rule_policy_uuid else ("name", match_rule_policy)
+            )
+        )
+    match_identifiers = {"name": "prefix", "value": prefix}
+    match = mso_template.get_direct_child_object(match_rule_policy_object, "Match Prefix", "matchPrefixList", match_identifiers)
 
     if prefix and match:
         mso.existing = mso.previous = copy.deepcopy(
-            update_match_prefix_term_with_template_and_parent(mso_template, match_rule_policy_object.details, match.details)
+            mso_template.update_match_rule_policy_child_object_with_template_and_parent(match_rule_policy_object.details, match.details)
         )  # Query a specific object
     elif match:
         mso.existing = [
-            update_match_prefix_term_with_template_and_parent(mso_template, match_rule_policy_object.details, obj) for obj in match
+            mso_template.update_match_rule_policy_child_object_with_template_and_parent(match_rule_policy_object.details, obj) for obj in match
         ]  # Query all objects
 
     match_prefix_path = "/tenantPolicyTemplate/template/matchRulePolicies/{0}/matchPrefixList/{1}".format(
@@ -286,49 +292,18 @@ def main():
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)
         match_rule_policy_object = mso_template.get_match_rule_policy_object(match_rule_policy_uuid, match_rule_policy, search_object=response)
-        match = get_match_prefix_object(mso_template, match_rule_policy_object, prefix)
+        match = mso_template.get_direct_child_object(match_rule_policy_object, "Match Prefix", "matchPrefixList", match_identifiers)
         if match:
-            mso.existing = update_match_prefix_term_with_template_and_parent(
-                mso_template,
-                match_rule_policy_object.details,
-                match.details,
+            mso.existing = mso_template.update_match_rule_policy_child_object_with_template_and_parent(
+                match_rule_policy_object.details, match.details
             )  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
         if mso.proposed:
-            update_match_prefix_term_with_template_and_parent(mso_template, match_rule_policy_object.details, mso.proposed)
+            mso_template.update_match_rule_policy_child_object_with_template_and_parent(match_rule_policy_object.details, mso.proposed)
         mso.existing = mso.proposed if state == "present" else {}
     mso.exit_json()
-
-
-def get_match_prefix_object(template, search_object, prefix, fail_module=False):
-    if not search_object:
-        return None  # TODO: add mso_fail instead
-    if prefix:  # Query a specific object
-        return template.get_object_by_key_value_pairs(
-            "Match Prefix",
-            search_object.details.get("matchPrefixList", []),
-            [KVPair("prefix", prefix)],
-            fail_module,
-        )
-    return search_object.details.get("matchPrefixList", [])  # Query all objects
-
-
-def update_match_prefix_term_with_template_and_parent(template, parent_object, config_data):
-    if template.template_id:
-        config_data["templateId"] = template.template_id
-    if template.template_name:
-        config_data["templateName"] = template.template_name
-    if template.schema_id:
-        config_data["schemaId"] = template.schema_id
-    if template.schema_name:
-        config_data["schemaName"] = template.schema_name
-    if parent_object.get("uuid"):
-        config_data["matchRulePolicyUuid"] = parent_object["uuid"]
-    if parent_object.get("name"):
-        config_data["matchRulePolicyName"] = parent_object["name"]
-    return config_data
 
 
 if __name__ == "__main__":

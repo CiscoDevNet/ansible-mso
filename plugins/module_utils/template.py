@@ -761,25 +761,28 @@ class MSOTemplate:
             )
         return existing_objects  # Query all objects
 
-    def get_direct_child_object(self, parent_object, description, endpoint, identifier=None, fail_module=False):
+    def get_direct_child_object(self, parent_object, description, endpoint, identifiers=None, fail_module=False):
         """
-        Get the direct child object using its identifier and its parent object.
+        Get the direct child object using its identifiers and its parent object.
         :param parent_object: Parent object data where to search the direct child object -> Dict
         :param description: Description of the child object to search for -> Str
         :param endpoint: NDO API child object's endpoint -> Str
-        :param identifier: child object's identifier with coresponding identifier's name and value -> Dict
+        :param identifiers: child object's identifiers with coresponding identifier's name and value -> Dict
         :param fail_module: When match is not found fail the ansible module -> Bool
         :return: Dict | None | List[Dict] | List[]: The processed result which could be:
-                 When the child object identifier is existing in the search list -> Dict
-                 When the child object identifier is not existing in the search list -> None
-                 When the child object identifier is None, and the search list is not empty -> List[Dict]
-                 When the child object identifier is None, and the search list is empty -> List[]
+                 When one of the child object identifiers is existing in the search list -> Dict
+                 When the child object identifiers are not existing in the search list -> None
+                 When the child object identifiers are None, and the search list is not empty -> List[Dict]
+                 When the child object identifiers ae None, and the search list is empty -> List[]
         """
-        if isinstance(identifier, dict) and identifier.get("value"):  # Query a specific object
+        if isinstance(identifiers, dict) and identifiers.values():  # Query a specific object
+            for key, value in identifiers.items():
+                if value:
+                    child_object_kvpair = KVPair(key, value)
             return self.get_object_by_key_value_pairs(
                 description,
                 parent_object.details.get(endpoint, []),
-                [KVPair(identifier.get("name"), identifier["value"])],
+                [child_object_kvpair],
                 fail_module,
             )
         return parent_object.details.get(endpoint, [])  # Query all objects
@@ -1047,14 +1050,7 @@ class MSOTemplate:
         :param config_data: The original config_data that requires to be updated -> Dict
         :return: Updated config_data with names and ids for template and Match Rule Policy -> Dict
         """
-        if self.template_id:
-            config_data["templateId"] = self.template_id
-        if self.template_name:
-            config_data["templateName"] = self.template_name
-        if self.schema_id:
-            config_data["schemaId"] = self.schema_id
-        if self.schema_name:
-            config_data["schemaName"] = self.schema_name
+        self.update_config_with_template_and_references(config_data)
         if match_rule_policy.get("uuid"):
             config_data["matchRulePolicyUuid"] = match_rule_policy["uuid"]
         if match_rule_policy.get("name"):

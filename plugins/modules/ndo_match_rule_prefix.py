@@ -54,17 +54,22 @@ options:
   aggregate:
     description:
     - The aggregate flag enabling route aggregation.
+    - Defaults to C(false) when unset during creation.
     type: bool
   from_prefix:
     description:
     - The subnet value from which to aggregate.
     - The value must be below O(to_prefix) and above the subnet of the Prefix IP.
+    - The value must be between 0 and 32.
+    - Defaults to C(0) when unset during creation.
     type: int
     aliases: [ from ]
   to_prefix:
     description:
     - The subnet value to wich to aggregate.
     - The value must be above O(from_prefix) and above the subnet of the Prefix IP.
+    - The value must be between 0 and 32.
+    - Defaults to C(0) when unset during creation.
     type: int
     aliases: [ to ]
   state:
@@ -249,7 +254,7 @@ def main():
                 ("UUID", match_rule_policy_uuid) if match_rule_policy_uuid else ("name", match_rule_policy)
             )
         )
-    match_identifiers = {"name": "prefix", "value": prefix}
+    match_identifiers = {"prefix": prefix}
     match = mso_template.get_direct_child_object(match_rule_policy_object, "Match Prefix", "matchPrefixList", match_identifiers)
 
     if prefix and match:

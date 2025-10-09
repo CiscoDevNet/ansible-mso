@@ -62,11 +62,14 @@ options:
       community_factor:
         description:
         - The Community Factor to match.
+        - e.g., regular:as2-nn2:4:15, extended:as4-nn2:5:16,
+          extended:color:35, no-export, no-advertise, etc.
         type: str
         aliases: [ community ]
       scope:
         description:
         - The scope of the Match Community Factor.
+        - Defaults to C(transitive) when unset during creation.
         type: str
         choices: [ transitive, non_transitive ]
       description:
@@ -251,7 +254,7 @@ def main():
             elements="dict",
             options=dict(
                 community_factor=dict(type="str", aliases=["community"]),
-                scope=dict(type="str", choices=list(MATCH_COMMUNITY_SCOPE_MAP.keys())),
+                scope=dict(type="str", choices=list(MATCH_COMMUNITY_SCOPE_MAP)),
                 description=dict(type="str", aliases=["match_community_description"]),
             ),
         ),
@@ -301,7 +304,7 @@ def main():
                 ("UUID", match_rule_policy_uuid) if match_rule_policy_uuid else ("name", match_rule_policy)
             )
         )
-    match_identifiers = {"name": "name", "value": name}
+    match_identifiers = {"name": name}
     match = mso_template.get_direct_child_object(match_rule_policy_object, "Match Community Term", "matchCommunityTermsList", match_identifiers)
 
     if name and match:

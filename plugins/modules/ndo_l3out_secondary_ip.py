@@ -57,7 +57,7 @@ options:
   path:
     description:
     - The path of the interface.
-    - The path is an existing physical port (eth1/1).
+    - The path must be an existing physical port (eg. eth1/1).
     type: str
     aliases: [ interface ]
   port_channel:

@@ -19,25 +19,13 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
-
-- name: Ensure site exists
-  cisco.mso.mso_site:
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ apic_username }}'
-    apic_password: '{{ apic_password }}'
-    apic_site_id: '{{ apic_site_id | default(101) }}'
-    urls:
-    - https://{{ apic_hostname }}
-    state: present
-  ignore_errors: true
 
 - name: Remove schemas
   cisco.mso.mso_schema:
@@ -55,8 +43,6 @@
     tenant: '{{ item }}'
     users:
       - '{{ mso_username }}'
-    sites:
-    - '{{ mso_site | default("ansible_test") }}'
     state: present
   loop:
   - 'ansible_test'
@@ -321,7 +307,7 @@
   ansible.builtin.assert:
     that:
     - non_existing_state is not changed
-    - non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non_existing_state"
+    - 'non_existing_state.msg == "value of state must be one of: absent, present, query, got: non_existing_state"'
 
 # USE A NON_EXISTING_TEMPLATE
 - name: non_existing_template
@@ -372,24 +358,6 @@
     that:
     - add_description is changed
   when: version.current.version is version('3.3', '>=')
-
-# REMOVE Schemas for next CI Run
-- name: Remove schemas for next ci test
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_3'
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
-
-# REMOVE Tenant2 specific to this test case
-- name: Remove tenant2
-  cisco.mso.mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test_2
-    state: absent
 
 # TEST BLOCK FOR MSO VERSION >= 4.1 WHICH ALLOW FOR SCHEMA WITHOUT TEMPLATES
 - name: Execute tasks only for MSO version >= 4.1

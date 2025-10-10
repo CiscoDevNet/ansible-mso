@@ -1016,9 +1016,9 @@
       register: nt_change_allowed_self_as_count
       ignore_errors: true
 
-    - name: Set errors message to handle quotes in string
-      ansible.builtin.set_fact:
-        error_change_allowed_self_as_count: "MSO Error 400: Invalid configuration in L3Out 'l3out_1': node group 'node_group_policy_1': BgpPeer 3.3.3.3-1::9/16 allowedSelfASCount value is set to 4, but AllowSelfAS is false"
+    - name: Set error message for L3out BGP Peer with different options
+      set_fact:
+        error_message_change_allowed_self_as_count: "MSO Error 400: Invalid configuration in L3Out 'l3out_1': node group 'node_group_policy_1': BgpPeer 3.3.3.3-1::9/16 allowedSelfASCount value is set to 4, but AllowSelfAS is false"
 
     - name: Assertion check for invalid test - L3Out BGP Peer with different options
       ansible.builtin.assert:
@@ -1035,8 +1035,8 @@
           - nt_change_allowed_self_as_count.current.peerAddressV4 == "3.3.3.3"
           - nt_change_allowed_self_as_count.current.peerAddressV6 == "1::9/16"
           - nt_change_allowed_self_as_count.current.templateId != ""
-          - nt_change_allowed_self_as_count.current.templateName is defined
-          - nt_change_allowed_self_as_count.msg == error_change_allowed_self_as_count
+          - nt_change_allowed_self_as_count.current.templateName == "ansible_test"
+          - nt_change_allowed_self_as_count.msg == error_message_change_allowed_self_as_count
           - nt_change_allowed_self_as_count.previous.addressTypeControls.afMast == false
           - nt_change_allowed_self_as_count.previous.addressTypeControls.afUcast == false
           - nt_change_allowed_self_as_count.previous.adminState == "enabled"
@@ -1195,26 +1195,26 @@
       register: nt_create_with_peer_prefix
       ignore_errors: true
 
-    - name: Set errors message to handle quotes in string
+    - name: Set error message for L3out BGP Peer with different options 1
       ansible.builtin.set_fact:
-        error_update_ipv4_addr: "MSO Error 400: Invalid configuration in L3Out 'l3out_1': node group 'node_group_policy_1': BgpPeer 5.5.5.6-1::19/16 is duplicated. Please delete one"
-        error_add_same_ipv4_addr: "MSO Error 400: Invalid configuration in L3Out 'l3out_1': node group 'node_group_policy_1': BgpPeer 3.3.3.3-1::9/16 is duplicated. Please delete one"
-        error_update_ipv6_addr: "MSO Error 400: Invalid configuration in L3Out 'l3out_1': node group 'node_group_policy_1': BgpPeer 5.5.5.5-1::20/16 is duplicated. Please delete one"
+        error_message_update_ipv4_addr: "MSO Error 400: Invalid configuration in L3Out 'l3out_1': node group 'node_group_policy_1': BgpPeer 5.5.5.6-1::19/16 is duplicated. Please delete one"
+        error_message_add_same_ipv4_addr: "MSO Error 400: Invalid configuration in L3Out 'l3out_1': node group 'node_group_policy_1': BgpPeer 3.3.3.3-1::9/16 is duplicated. Please delete one"
+        error_message_update_ipv6_addr: "MSO Error 400: Invalid configuration in L3Out 'l3out_1': node group 'node_group_policy_1': BgpPeer 5.5.5.5-1::20/16 is duplicated. Please delete one"
 
     - name: Assertion check for invalid test - L3Out BGP Peer with different options 1
       ansible.builtin.assert:
         that:
           - nt_update_ipv4_addr is not changed
           - nt_update_ipv4_addr.current == {}
-          - nt_update_ipv4_addr.msg == error_update_ipv4_addr
+          - nt_update_ipv4_addr.msg == error_message_update_ipv4_addr
           - nt_update_ipv4_addr.previous == {}
           - nt_add_same_ipv4_addr is not changed
           - nt_add_same_ipv4_addr.current == {}
-          - nt_add_same_ipv4_addr.msg == error_add_same_ipv4_addr
+          - nt_add_same_ipv4_addr.msg == error_message_add_same_ipv4_addr
           - nt_add_same_ipv4_addr.previous == {}
           - nt_update_ipv6_addr is not changed
           - nt_update_ipv6_addr.current == {}
-          - nt_update_ipv6_addr.msg == error_update_ipv6_addr
+          - nt_update_ipv6_addr.msg == error_message_update_ipv6_addr
           - nt_update_ipv6_addr.previous == {}
           - nt_create_without_template is not changed
           - 'nt_create_without_template.msg == "one of the following is required: template, template_id"'

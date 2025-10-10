@@ -438,13 +438,17 @@
       ignore_errors: true
       register: update_non_existing_uuid
 
+    - name: Set error message for non_existing_uuid
+      ansible.builtin.set_fact:
+        error_message_non_existing_uuid: "SPAN Session with the UUID: 'non-existing-uuid' not found"
+
     - name: Assert no SPAN Session found
       assert:
         that:
           - query_all_none is not changed
           - query_all_none.current == []
           - update_non_existing_uuid is failed
-          - update_non_existing_uuid.msg == "SPAN Session with the UUID{{ ":" }} 'non-existing-uuid' not found"
+          - update_non_existing_uuid.msg == error_message_non_existing_uuid
 
     # CLEANUP
     - name: Ensure Tenant Monitoring Policy template does not exist

@@ -18,7 +18,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -27,104 +27,37 @@
   register: version
 
 # CLEAN ENVIRONMENT
-- name: Ensure site exist
-  cisco.mso.mso_site: &site_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+- name: Ensure site exists
+  cisco.mso.mso_site:
+    <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
     apic_password: '{{ apic_password }}'
-    apic_site_id: '{{ apic_site_id | default(102) }}'
+    apic_site_id: '{{ apic_site_id | default(101) }}'
     urls:
-    - https://{{ apic_hostname }}
+      - https://{{ apic_hostname }}
     state: present
-
-- name: Undeploy a schema 2 template 2
-  cisco.mso.mso_schema_template_deploy:
-    <<: *mso_info
-    template: Template 2
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: undeploy
-  ignore_errors: true
-  register: undeploy_template2
-
-- name: Undeploy a schema 1 template 1
-  cisco.mso.mso_schema_template_deploy:
-    <<: *mso_info
-    template: Template 1
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: undeploy
-  ignore_errors: true
-  register: undeploy_template1
-
-- name: Remove a site from a schema 1 with Template 1
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    state: absent
-  ignore_errors: true
-  register: rm_site_temp1
-
-- name: Remove a site from a schema 2 with Template 2
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    state: absent
-  ignore_errors: true
-  register: rm_site_temp2
 
 - name: Remove schemas
   cisco.mso.mso_schema:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ item }}'
     state: absent
-  ignore_errors: true
   loop:
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  cisco.mso.mso_tenant: &tenant_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
-    tenant: ansible_test
+  cisco.mso.mso_tenant:
+    <<: *mso_info
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
     users:
-    - '{{ mso_username }}'
-    sites:
-    - '{{ mso_site | default("ansible_test") }}'
+      - '{{ mso_username }}'
     state: present
 
 - name: Ensure schemas with Template 1 exist
   cisco.mso.mso_schema_template: &schema_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ item }}'
     tenant: ansible_test
     template: Template 1
@@ -149,26 +82,21 @@
     site: '{{ mso_site | default("ansible_test") }}'
     template: Template 1
     state: present
-  register: add_site_nm1
 
-- name: Add a new site to a schema 2 with Template 2 in normal mode
+- name: Add a new site to a schema 2 with Template 1 and 2 in normal mode
   cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
+    template: '{{ item }}'
     state: present
-  register: add_site_nm2
+  loop:
+    - Template 1
+    - Template 2
 
 - name: Ensure VRF exist
   cisco.mso.mso_schema_template_vrf: &vrf_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     vrf: VRF
@@ -177,13 +105,7 @@
 
 - name: Ensure ANP exist
   cisco.mso.mso_schema_template_anp:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
     anp: ANP
@@ -191,13 +113,7 @@
 
 - name: Ensure ANP2 exist
   cisco.mso.mso_schema_template_anp:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
     anp: ANP2
@@ -221,13 +137,7 @@
 
 - name: Ensure EPG exist
   cisco.mso.mso_schema_template_anp_epg: &epg_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}_2'
     template: Template 1
     anp: ANP
@@ -292,16 +202,6 @@
   when: version.current.version is version('2.2.4e', '!=')
   register: bd_migrate
 
-- name: Deploy a schema 2 template 2 after version 4.0
-  cisco.mso.ndo_schema_template_deploy:
-    <<: *mso_info
-    template: Template 2
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    sites:
-      - '{{ mso_site | default("ansible_test") }}'
-    state: deploy
-  when: version.current.version is version('4.0', '>=')
-
 - name: Migration of EPG objects between templates
   cisco.mso.mso_schema_template_migrate:
     <<: *mso_info
@@ -318,6 +218,33 @@
   when: version.current.version is version('2.2.4e', '!=')
   register: epg_migrate
 
+- name: Deploy a schema 2 template 1 and 2 after version 4.0
+  cisco.mso.ndo_schema_template_deploy:
+    <<: *mso_info
+    template: '{{ item }}'
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    sites:
+      - '{{ mso_site | default("ansible_test") }}'
+    state: deploy
+  when: version.current.version is version('4.0', '>=')
+  loop:
+    - Template 1
+    - Template 2
+
+- name: Query deployment until deployment succeeds
+  cisco.mso.ndo_schema_template_deploy: 
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    template: "{{ item }}"
+    state: query
+  register: query_deploy_status
+  loop:
+  - Template 1
+  - Template 2
+  until: query_deploy_status.current.status.0.status.siteStatus == "Succeeded"
+  retries: 10
+  delay: 10
+
 - name: Undeploy before 4.0
   when:
     - version.current.version is version('4.0', '<')
@@ -330,7 +257,6 @@
       site: '{{ mso_site | default("ansible_test") }}'
       state: undeploy
     ignore_errors: true
-    register: undeploy_template2
 
   - name: Undeploy a schema 1 template 1
     cisco.mso.mso_schema_template_deploy:
@@ -340,7 +266,6 @@
       site: '{{ mso_site | default("ansible_test") }}'
       state: undeploy
     ignore_errors: true
-    register: undeploy_template1
 
 - name: Undeploy after 4.0
   when:
@@ -349,12 +274,15 @@
   - name: Undeploy a schema 2 template 2
     cisco.mso.ndo_schema_template_deploy:
       <<: *mso_info
-      template: Template 2
+      template: '{{ item }}'
       schema: '{{ mso_schema | default("ansible_test") }}_2'
       sites:
         - '{{ mso_site | default("ansible_test") }}'
       state: undeploy
-  
+    loop:
+      - Template 2
+      - Template 1
+
   - name: Undeploy a schema 1 template 1
     cisco.mso.ndo_schema_template_deploy:
       <<: *mso_info
@@ -363,21 +291,17 @@
       sites:
         - '{{ mso_site | default("ansible_test") }}'
       state: undeploy
-
-- name: Remove a site from a schema 2 with Template 2
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    state: absent
-  register: rm_site_temp2
-
-- name: Remove a site from a schema 1 with Template 1
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    state: absent
-  register: rm_site_temp1
+  
+  - name: Query undeployment until un-deployment succeeds
+    cisco.mso.ndo_schema_template_deploy: 
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: "{{ item }}"
+      state: query
+    register: query_undeploy_status
+    loop:
+    - Template 1
+    - Template 2
+    until: query_undeploy_status.current.status == []
+    retries: 10
+    delay: 10

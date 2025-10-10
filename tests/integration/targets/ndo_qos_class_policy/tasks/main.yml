@@ -402,13 +402,17 @@
       ignore_errors: true
       register: update_non_existing_uuid
 
+    - name: Set error message for non_existing_uuid
+      ansible.builtin.set_fact:
+        error_message_non_existing_uuid: "QoS Class Policy with the UUID: 'non-existing-uuid' not found"
+
     - name: Assert QoS Class policy errors
       assert:
         that:
           - nm_create_qos_class_policy_with_duplicate_level is failed
           - nm_create_qos_class_policy_with_duplicate_level.msg == "Duplicate configurations for QoS level1"
           - update_non_existing_uuid is failed
-          - update_non_existing_uuid.msg == "QoS Class Policy with the UUID{{":"}} 'non-existing-uuid' not found"
+          - update_non_existing_uuid.msg == error_message_non_existing_uuid
 
     # DELETE
     - name: Delete the QoS Class policy (check mode)

@@ -19,7 +19,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -226,10 +226,14 @@
       register: failed_validaton_deploy
       ignore_errors: true
 
+    - name: Set error message for failed_validaton_deploy
+      ansible.builtin.set_fact:
+        error_message_failed_validation_deploy: "MSO Error 400: Bad Request: Patch Failed, Received: vzAny contract must be configured if vzAny flag is set. VRF(s) : VRF1 exception while trying to update schema"
+
     - name: Verify validation errors before deploy and redploy
       ansible.builtin.assert:
         that:
-        - failed_validaton_deploy.msg ==  "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} vzAny contract must be configured if vzAny flag is set. VRF(s) {{':'}} VRF1 exception while trying to update schema"
+        - failed_validaton_deploy.msg == error_message_failed_validation_deploy
 
     - name: Remove VRF1 with validation error
       cisco.mso.mso_schema_template_vrf:

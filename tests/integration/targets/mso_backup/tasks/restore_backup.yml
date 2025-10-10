@@ -1,0 +1,80 @@
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+- name: Get the ND version
+  cisco.nd.nd_version:
+    <<: *mso_info
+    state: query
+  register: nd_version
+
+- name: Execute tasks only for ND versions 3.2 and above
+  when:
+    - nd_version.current.major > 3 or (nd_version.current.major >= 3 and nd_version.current.minor >= 2)
+  block:
+    - name: Query backup restore information
+      cisco.nd.nd_rest:
+        <<: *mso_info
+        path: "/api/action/class/backuprestore/status"
+        method: get
+      register: query_restore_information
+
+    # When this assert fails check on clean instance if this assert is possible
+    - name: Assure that there is no restore in progress
+      ansible.builtin.assert:
+        that:
+          - query_restore_information.current != {}
+          - '"details" in query_restore_information.current'
+          - '"state" in query_restore_information.current'
+          - query_restore_information.current.details.progress == 100
+          - query_restore_information.current.state == "complete"
+
+    - name: Import file for restore
+      cisco.nd.nd_rest:
+        <<: *mso_info
+        path: "/api/action/class/backuprestore/restore/file-import"
+        method: post
+        content:
+          path: ""
+          name: "{{ backup_file }}"
+          encryptionKey: "{{ backup_key }}"
+      register: import
+
+    - name: Restore backup
+      cisco.nd.nd_rest:
+        <<: *mso_info
+        path: "/api/action/class/backuprestore/restore"
+        method: post
+        content:
+          type: "config-only"
+          ignorePersistentIPs": false
+      register: restore
+
+    - name: Pause for 2 minutes before resetting connection
+      ansible.builtin.pause:
+        minutes: 2
+
+    - name: Reset the ansible_connection
+      ansible.builtin.meta: reset_connection
+
+    - name: Query backup restore information until restored
+      cisco.nd.nd_rest:
+        <<: *mso_info
+        path: "/api/action/class/backuprestore/status"
+        method: get
+      register: query_restore_information
+      until:
+        - query_restore_information.current != {}
+        - '"details" in query_restore_information.current'
+        - '"state" in query_restore_information.current'
+        - query_restore_information.current.details.progress == 100
+        - query_restore_information.current.state == "complete"
+      retries: 15
+      delay: 300

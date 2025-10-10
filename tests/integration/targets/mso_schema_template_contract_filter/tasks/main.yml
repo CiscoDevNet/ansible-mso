@@ -4,7 +4,6 @@
 # Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
-#
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -12,7 +11,6 @@
   ansible.builtin.fail:
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
-
 
 # CLEAN ENVIRONMENT
 - name: Set vars
@@ -24,7 +22,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(false) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -32,24 +30,21 @@
     state: query
   register: version
 
-- name: Remove schema 2
+- name: Remove schemas
   cisco.mso.mso_schema:
     <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
+    schema: '{{ item }}'
     state: absent
-
-- name: Remove schema 1
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  cisco.mso.mso_tenant: &tenant_present
+  cisco.mso.mso_tenant:
     <<: *mso_info
-    tenant: ansible_test
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
     users:
-    - '{{ mso_username }}'
+      - '{{ mso_username }}'
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
@@ -80,7 +75,6 @@
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     filter: Filter1
-    #add filter entry
     entry: Filter1Entry
     state: present
   register: add_filter
@@ -685,7 +679,7 @@
     validate_certs: '{{ mso_validate_certs | default(false) }}'
     use_ssl: '{{ mso_use_ssl | default(true) }}'
     use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    output_level: '{{ mso_output_level | default("debug") }}'
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     contract: Contract1
@@ -771,7 +765,7 @@
     validate_certs: '{{ mso_validate_certs | default(false) }}'
     use_ssl: '{{ mso_use_ssl | default(true) }}'
     use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    output_level: '{{ mso_output_level | default("debug") }}'
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     contract: Contract1
@@ -867,7 +861,7 @@
     validate_certs: '{{ mso_validate_certs | default(false) }}'
     use_ssl: '{{ mso_use_ssl | default(true) }}'
     use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    output_level: '{{ mso_output_level | default("debug") }}'
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     contract: Contract1
@@ -1019,19 +1013,24 @@
   ignore_errors: true
   register: nm_query_non_contract
 
+- name: Set error message for non_existing_contract
+  ansible.builtin.set_fact:
+    error_message_non_existing_contract_below_3_3: "Provided contract 'non-existing-contract' does not exist. Existing contracts: Contract4, Contract5, Contract-6"
+    error_message_non_existing_contract_above_3_3: "Provided contract 'non-existing-contract' does not exist. Existing contracts: Contract4, Contract5, Contract-6, Contract1"
+
 - name: Verify query_non_contract
   ansible.builtin.assert:
     that:
     - cm_query_non_contract is not changed
     - nm_query_non_contract is not changed
     - nm_query_non_contract == cm_query_non_contract
-    - cm_query_non_contract.msg ==  nm_query_non_contract.msg == "Provided contract 'non-existing-contract' does not exist. Existing contracts{{':'}} Contract4, Contract5, Contract-6"
+    - cm_query_non_contract.msg ==  nm_query_non_contract.msg == error_message_non_existing_contract_below_3_3
   when: version.current.version is version('3.3', '<')
 
 - name: Verify query_non_contract when version greater than 3.3
   ansible.builtin.assert:
     that:
-    - cm_query_non_contract.msg ==  nm_query_non_contract.msg == "Provided contract 'non-existing-contract' does not exist. Existing contracts{{':'}} Contract4, Contract5, Contract-6, Contract1"
+    - cm_query_non_contract.msg ==  nm_query_non_contract.msg == error_message_non_existing_contract_above_3_3
   when: version.current.version is version('3.3', '>=')
 
 # USE A NON-EXISTING SCHEMA
@@ -1051,7 +1050,6 @@
     schema: non-existing-schema
   ignore_errors: true
   register: nm_query_non_schema
-
 
 - name: Verify non_existing_schema
   ansible.builtin.assert:
@@ -1079,10 +1077,14 @@
   ignore_errors: true
   register: nm_query_non_template
 
+- name: Set error message for non_existing_template
+  ansible.builtin.set_fact:
+    error_message_non_existing_template: "Provided template 'non-existing-template' does not exist. Existing templates: Template1, Template2"
+
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
     - cm_query_non_template is not changed
     - nm_query_non_template is not changed
     - cm_query_non_template == nm_query_non_template
-    - cm_query_non_template.msg == nm_query_non_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
+    - cm_query_non_template.msg == nm_query_non_template.msg == error_message_non_existing_template

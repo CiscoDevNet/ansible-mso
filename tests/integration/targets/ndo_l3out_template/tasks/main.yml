@@ -18,7 +18,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -59,7 +59,7 @@
     - name: Ensure ansible_test schema template not exist
       cisco.mso.mso_schema_template: &mso_schema_template_absent
         <<: *mso_info
-        schema: '{{ ansible_schema | default("ansible_test") }}'
+        schema: '{{ mso_schema | default("ansible_test") }}'
         tenant: '{{ ansible_tenant | default("ansible_test") }}'
         template: "Template1"
         state: absent
@@ -80,7 +80,6 @@
         sites:
           - '{{ mso_site | default("ansible_test") }}'
         state: present
-      register: ansible_test_tenant
       when: ansible_test_site.current.common.name == 'ansible_test'
 
     # Schema Template Setup for the VRF
@@ -92,7 +91,7 @@
     - name: Add a new VRF1
       cisco.mso.mso_schema_template_vrf: &vrf1_present
         <<: *mso_info
-        schema: '{{ ansible_schema | default("ansible_test") }}'
+        schema: '{{ mso_schema | default("ansible_test") }}'
         template: "Template1"
         vrf: VRF1
         state: present
@@ -111,7 +110,7 @@
         state: present
       register: ansible_test_policy
 
-    - name: Add a new Route Map Policy for Route Control
+    - name: Add a new Route Map Policy for Route Control (<5.0)
       cisco.mso.mso_rest:
         <<: *mso_info
         path: "/mso/api/v1/templates/{{ ansible_test_policy.current.templateId }}"
@@ -130,6 +129,27 @@
       loop:
         - ans_route_map
         - ans_route_map_2
+      when: version.current.version is version('5.0', '<')
+
+    - name: Add a new Route Map Policy for Route Control (>=5.0)
+      cisco.mso.mso_rest:
+        <<: *mso_info
+        path: "/mso/api/v1/templates/{{ ansible_test_policy.current.templateId }}"
+        method: patch
+        content:
+          - op: add
+            path: "/tenantPolicyTemplate/template/routeMapPolicies/-"
+            value:
+              name: "{{ item }}"
+              description: ""
+              contexts:
+                - order: 0
+                  name: ctxName
+                  action: permit
+      loop:
+        - ans_route_map
+        - ans_route_map_2
+      when: version.current.version is version('5.0', '>=')
 
     # Fabric Policy Template Setup for the L3Out Domain
     - name: Ensure fabric_policy template exists
@@ -186,7 +206,7 @@
         name: "l3out_1"
         vrf:
           name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
         state: "present"
         output_level: debug
@@ -274,7 +294,7 @@
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
         description: "test description"
         pim: false
@@ -593,7 +613,7 @@
         name: l3out_1_updated
         vrf:
           name: "VRF2"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
         pim: true
         target_dscp: "af11"
@@ -1276,7 +1296,7 @@
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
         description: "test description"
         pim: false
@@ -1342,7 +1362,7 @@
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
         description: "test description"
         pim: false
@@ -1390,7 +1410,7 @@
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
         description: "test description"
         pim: false
@@ -1557,17 +1577,21 @@
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
         state: "present"
       register: update_with_invalid_uuid
       ignore_errors: true
 
+    - name: Set error message for invalid uuid
+      ansible.builtin.set_fact:
+        error_message_invalid_uuid: "L3Out with the uuid: 'invalid_uuid' not found"
+
     - name: Assertion check for update l3out_3 object name using invalid uuid
       ansible.builtin.assert:
         that:
           - update_with_invalid_uuid is not changed
-          - update_with_invalid_uuid.msg == "L3Out with the uuid{{':'}} 'invalid_uuid' not found"
+          - update_with_invalid_uuid.msg == error_message_invalid_uuid
 
     - name: Update l3out_3 object without ospf - id and type
       cisco.mso.ndo_l3out_template:
@@ -1577,7 +1601,7 @@
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
         ospf:
           cost: 5
@@ -1589,7 +1613,7 @@
       ansible.builtin.assert:
         that:
           - update_l3out_3_ospf_nt is not changed
-          - update_l3out_3_ospf_nt.msg == "state is enabled but all of the following are missing{{':'}} area_id, area_type found in ospf"
+          - 'update_l3out_3_ospf_nt.msg == "state is enabled but all of the following are missing: area_id, area_type found in ospf"'
 
     - name: Enable pim with L3 Multicast disabled vrf
       cisco.mso.ndo_l3out_template:
@@ -1599,18 +1623,22 @@
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
         pim: true
         state: present
       register: enable_pim_with_invalid_vrf
       ignore_errors: true
 
+    - name: Set error message for enable pim with L3 Multicast disabled vrf
+      ansible.builtin.set_fact:
+        error_message_invalid_vrf: "Invalid configuration in L3Out Name: l3out_nt, 'PIM' cannot be enabled while using the VRF 'VRF1' with L3 Multicast disabled"
+
     - name: Assertion check for enable pim with L3 Multicast disabled vrf
       ansible.builtin.assert:
         that:
           - enable_pim_with_invalid_vrf is not changed
-          - enable_pim_with_invalid_vrf.msg == "Invalid configuration in L3Out Name{{':'}} l3out_nt, 'PIM' cannot be enabled while using the VRF 'VRF1' with L3 Multicast disabled"
+          - enable_pim_with_invalid_vrf.msg == error_message_invalid_vrf
 
     - name: Update l3out_3 object to enable with L3 Multicast disabled vrf
       cisco.mso.ndo_l3out_template:
@@ -1620,7 +1648,7 @@
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
         pim: true
         state: "present"
@@ -1641,7 +1669,7 @@
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          schema: '{{ mso_schema | default("ansible_test") }}'
           template: "Template1"
         ospf:
           area_type: "stub"
@@ -1653,7 +1681,7 @@
       ansible.builtin.assert:
         that:
           - create_ospf_without_area_id is not changed
-          - create_ospf_without_area_id.msg == "state is enabled but all of the following are missing{{':'}} area_id found in ospf"
+          - 'create_ospf_without_area_id.msg == "state is enabled but all of the following are missing: area_id found in ospf"'
 
     - name: Create L3Out object without vrf
       cisco.mso.ndo_l3out_template:

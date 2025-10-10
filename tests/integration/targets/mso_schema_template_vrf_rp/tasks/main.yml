@@ -17,7 +17,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -35,7 +35,7 @@
     - name: Remove schemas
       cisco.mso.mso_schema:
         <<: *mso_info
-        schema: "{{ item }}"
+        schema: '{{ item }}'
         state: absent
       loop:
         - '{{ mso_schema | default("ansible_test") }}_2'
@@ -46,24 +46,13 @@
         <<: *mso_info
         tenant: ansible_test
         users:
-          - "{{ mso_username }}"
+          - '{{ mso_username }}'
         state: present
-
-    - name: Remove tenant templates
-      cisco.mso.ndo_template:
-        <<: *mso_info
-        name: "{{ item }}"
-        template_type: tenant
-        tenant: ansible_test
-        state: absent
-      loop:
-        - "ansible_tenant_template_1"
-        - "ansible_tenant_template_2"
 
     - name: Ensure tenant templates exist
-      cisco.mso.ndo_template:
+      cisco.mso.ndo_template: &tenant_template_present
         <<: *mso_info
-        name: "{{item}}"
+        name: '{{ item }}'
         template_type: tenant
         tenant: ansible_test
         state: present
@@ -71,7 +60,7 @@
         - "ansible_tenant_template_1"
         - "ansible_tenant_template_2"
 
-    - name: Create a new route map policies in templates
+    - name: Ensure route map policies in templates exist
       cisco.mso.ndo_route_map_policy_multicast:
         <<: *mso_info
         template: "{{ item.template }}"
@@ -111,6 +100,7 @@
         vrf: ansible_test_vrf
         layer3_multicast: true
         state: present
+
     # CREATE VRF RP TESTS
 
     - name: Create a new template VRF RP (check_mode)
@@ -384,23 +374,20 @@
           - nm_query_all_vrf_rps_after_delete.current | length == 1
           - nm_query_all_vrf_rps_after_delete.current.0.ipAddress == "2.2.2.2"
 
-    # CLEAN ENVIRONMENT
+  always:
 
-    - name: Remove schemas after tests
+    - name: Remove schemas
       cisco.mso.mso_schema:
         <<: *mso_info
-        schema: "{{ item }}"
+        schema: '{{ item }}'
         state: absent
       loop:
         - '{{ mso_schema | default("ansible_test") }}_2'
         - '{{ mso_schema | default("ansible_test") }}'
 
-    - name: Remove tenant templates after tests
+    - name: Remove tenant templates
       cisco.mso.ndo_template:
-        <<: *mso_info
-        name: "{{ item }}"
-        template_type: tenant
-        tenant: ansible_test
+        <<: *tenant_template_present
         state: absent
       loop:
         - "ansible_tenant_template_1"

@@ -278,11 +278,11 @@
       ansible.builtin.assert:
         that:
           - update_without_nodes is failed
-          - update_without_nodes.msg == "state is present but all of the following are missing{{':'}} nodes"
+          - 'update_without_nodes.msg == "state is present but all of the following are missing: nodes"'
           - update_without_node_setting is failed
-          - update_without_node_setting.msg == "state is present but any of the following are missing{{':'}} node_setting_uuid, node_setting"
+          - 'update_without_node_setting.msg == "state is present but any of the following are missing: node_setting_uuid, node_setting"'
           - update_with_invalid_uuid is failed
-          - update_with_invalid_uuid.msg == "parameters are mutually exclusive{{':'}} node_setting_uuid|node_setting"
+          - 'update_with_invalid_uuid.msg == "parameters are mutually exclusive: node_setting_uuid|node_setting"'
 
     # DELETE
     - name: Delete Node Profile (check mode)
@@ -345,13 +345,17 @@
       ignore_errors: true
       register: update_non_existing_uuid
 
+    - name: Set error message for non_existing_uuid
+      ansible.builtin.set_fact:
+        error_message_non_existing_uuid: "Node Profile with the UUID: 'non-existing-uuid' not found"
+
     - name: Assert no Node Profile found
       assert:
         that:
           - query_all_none is not changed
           - query_all_none.current == []
           - update_non_existing_uuid is failed
-          - update_non_existing_uuid.msg == "Node Profile with the UUID{{":"}} 'non-existing-uuid' not found"
+          - update_non_existing_uuid.msg == error_message_non_existing_uuid
 
     # CLEANUP
     - name: Ensure fabric resource template does not exist

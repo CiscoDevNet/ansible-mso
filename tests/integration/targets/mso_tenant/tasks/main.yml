@@ -19,13 +19,13 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version # Used to create the remote user - r_ansible_github_ci login entry. Which allows to map remote user with tenant.
   cisco.mso.mso_version:
     <<: *mso_info
     username: r_ansible_github_ci
-    password: "{{ apic_password }}"
+    password: '{{ apic_password }}'
     login_domain: test
     state: query
   register: version
@@ -43,38 +43,6 @@
   loop:
   - { site: '{{ mso_site | default("ansible_test") }}', username: '{{ apic_username }}', password: '{{ apic_password }}', id: '{{ apic_site_id | default(101) }}', urls: '{{ apic_hostname }}' }
 
-- name: Undeploy a schema 1 template 1
-  cisco.mso.mso_schema_template_deploy: &schema_undeploy
-    <<: *mso_info
-    schema: ansible_test
-    template: Template 1
-    site: '{{ item }}'
-    state: undeploy
-  ignore_errors: true
-  loop:
-  - '{{ mso_site | default("ansible_test") }}'
-
-- name: Undeploy a schema 1 template 2
-  cisco.mso.mso_schema_template_deploy:
-    <<: *schema_undeploy
-    template: Template 2
-    site: '{{ item }}'
-    state: undeploy
-  ignore_errors: true
-  loop:
-  - '{{ mso_site | default("ansible_test") }}'
-
-- name: Undeploy a schema 2 template 3
-  cisco.mso.mso_schema_template_deploy:
-    <<: *schema_undeploy
-    schema: ansible_test_2
-    template: Template 3
-    site: '{{ item }}'
-    state: undeploy
-  ignore_errors: true
-  loop:
-  - '{{ mso_site | default("ansible_test") }}'
-
 - name: Remove schemas
   cisco.mso.mso_schema:
     <<: *mso_info
@@ -90,7 +58,7 @@
     tenant: '{{ item }}'
     state: absent
   loop:
-  - ansible_test
+  - ansible_test1
   - ansible_test2
   - ansible_test3
   - tenant_with_site
@@ -99,7 +67,7 @@
 - name: Add tenant (check_mode)
   cisco.mso.mso_tenant: &tenant_present
     <<: *mso_info
-    tenant: ansible_test
+    tenant: ansible_test1
     display_name: Ansible test title
     description: Ansible test tenant
     state: present
@@ -112,7 +80,7 @@
     - cm_add_tenant is changed
     - cm_add_tenant.previous == {}
     - cm_add_tenant.current.id is not defined
-    - cm_add_tenant.current.name == 'ansible_test'
+    - cm_add_tenant.current.name == 'ansible_test1'
     - cm_add_tenant.current.description == 'Ansible test tenant'
     - cm_add_tenant.current.userAssociations | length == 1
 
@@ -126,7 +94,7 @@
     - nm_add_tenant is changed
     - nm_add_tenant.previous == {}
     - nm_add_tenant.current.id is defined
-    - nm_add_tenant.current.name == 'ansible_test'
+    - nm_add_tenant.current.name == 'ansible_test1'
     - nm_add_tenant.current.description == 'Ansible test tenant'
     - nm_add_tenant.current.userAssociations | length == 1
 
@@ -139,10 +107,10 @@
   ansible.builtin.assert:
     that:
     - cm_add_tenant_again is not changed
-    - cm_add_tenant_again.previous.name == 'ansible_test'
+    - cm_add_tenant_again.previous.name == 'ansible_test1'
     - cm_add_tenant_again.previous.description == 'Ansible test tenant'
     - cm_add_tenant_again.current.id == nm_add_tenant.current.id
-    - cm_add_tenant_again.current.name == 'ansible_test'
+    - cm_add_tenant_again.current.name == 'ansible_test1'
     - cm_add_tenant_again.current.description == 'Ansible test tenant'
     - cm_add_tenant_again.current.userAssociations == cm_add_tenant_again.previous.userAssociations
 
@@ -154,10 +122,10 @@
   ansible.builtin.assert:
     that:
     - nm_add_tenant_again is not changed
-    - nm_add_tenant_again.previous.name == 'ansible_test'
+    - nm_add_tenant_again.previous.name == 'ansible_test1'
     - nm_add_tenant_again.previous.description == 'Ansible test tenant'
     - nm_add_tenant_again.current.id == nm_add_tenant.current.id
-    - nm_add_tenant_again.current.name == 'ansible_test'
+    - nm_add_tenant_again.current.name == 'ansible_test1'
     - nm_add_tenant_again.current.description == 'Ansible test tenant'
     - nm_add_tenant_again.current.userAssociations == nm_add_tenant_again.previous.userAssociations
 
@@ -320,7 +288,7 @@
 - name: Change tenant (check_mode)
   cisco.mso.mso_tenant:
     <<: *tenant_present
-    tenant: ansible_test
+    tenant: ansible_test1
     description: Ansible test tenant 2
   check_mode: true
   register: cm_change_tenant
@@ -330,13 +298,13 @@
     that:
     - cm_change_tenant is changed
     - cm_change_tenant.current.id == nm_add_tenant.current.id
-    - cm_change_tenant.current.name == 'ansible_test'
+    - cm_change_tenant.current.name == 'ansible_test1'
     - cm_change_tenant.current.description == 'Ansible test tenant 2'
 
 - name: Change tenant (normal mode)
   cisco.mso.mso_tenant:
     <<: *tenant_present
-    tenant: ansible_test
+    tenant: ansible_test1
     description: Ansible test tenant 2
     output_level: debug
   register: nm_change_tenant
@@ -346,13 +314,13 @@
     that:
     - nm_change_tenant is changed
     - nm_change_tenant.current.id == nm_add_tenant.current.id
-    - nm_change_tenant.current.name == 'ansible_test'
+    - nm_change_tenant.current.name == 'ansible_test1'
     - nm_change_tenant.current.description == 'Ansible test tenant 2'
 
 - name: Change tenant again (check_mode)
   cisco.mso.mso_tenant:
     <<: *tenant_present
-    tenant: ansible_test
+    tenant: ansible_test1
     description: Ansible test tenant 2
   check_mode: true
   register: cm_change_tenant_again
@@ -362,13 +330,13 @@
     that:
     - cm_change_tenant_again is not changed
     - cm_change_tenant_again.current.id == nm_add_tenant.current.id
-    - cm_change_tenant_again.current.name == 'ansible_test'
+    - cm_change_tenant_again.current.name == 'ansible_test1'
     - cm_change_tenant_again.current.description == 'Ansible test tenant 2'
 
 - name: Change tenant again (normal mode)
   cisco.mso.mso_tenant:
     <<: *tenant_present
-    tenant: ansible_test
+    tenant: ansible_test1
     description: Ansible test tenant 2
   register: nm_change_tenant_again
 
@@ -377,7 +345,7 @@
     that:
     - nm_change_tenant_again is not changed
     - nm_change_tenant_again.current.id == nm_add_tenant.current.id
-    - nm_change_tenant_again.current.name == 'ansible_test'
+    - nm_change_tenant_again.current.name == 'ansible_test1'
     - nm_change_tenant_again.current.description == 'Ansible test tenant 2'
 
 # QUERY ALL TENANTS
@@ -404,14 +372,14 @@
 - name: Query our tenant
   cisco.mso.mso_tenant:
     <<: *tenant_query
-    tenant: ansible_test
+    tenant: ansible_test1
   check_mode: true
   register: cm_query_tenant
 
 - name: Query our tenant
   cisco.mso.mso_tenant:
     <<: *tenant_query
-    tenant: ansible_test
+    tenant: ansible_test1
   register: nm_query_tenant
 
 - name: Verify query_tenant
@@ -419,11 +387,11 @@
     that:
     - cm_query_tenant is not changed
     - cm_query_tenant.current.id == nm_add_tenant.current.id
-    - cm_query_tenant.current.name == 'ansible_test'
+    - cm_query_tenant.current.name == 'ansible_test1'
     - cm_query_tenant.current.description == 'Ansible test tenant 2'
     - nm_query_tenant is not changed
     - nm_query_tenant.current.id == nm_add_tenant.current.id
-    - nm_query_tenant.current.name == 'ansible_test'
+    - nm_query_tenant.current.name == 'ansible_test1'
     - nm_query_tenant.current.description == 'Ansible test tenant 2'
     - cm_query_tenant.current == nm_query_tenant.current
 
@@ -431,7 +399,7 @@
 - name: Remove tenant (check_mode)
   cisco.mso.mso_tenant:
     <<: *tenant_absent
-    tenant: ansible_test
+    tenant: ansible_test1
   check_mode: true
   register: cm_remove_tenant
 
@@ -444,7 +412,7 @@
 - name: Remove tenant (normal mode)
   cisco.mso.mso_tenant:
     <<: *tenant_absent
-    tenant: ansible_test
+    tenant: ansible_test1
   register: nm_remove_tenant
 
 - name: Verify nm_remove_tenant
@@ -456,7 +424,7 @@
 - name: Remove tenant again (check_mode)
   cisco.mso.mso_tenant:
     <<: *tenant_absent
-    tenant: ansible_test
+    tenant: ansible_test1
   check_mode: true
   register: cm_remove_tenant_again
 
@@ -469,7 +437,7 @@
 - name: Remove tenant again (normal mode)
   cisco.mso.mso_tenant:
     <<: *tenant_absent
-    tenant: ansible_test
+    tenant: ansible_test1
   register: nm_remove_tenant_again
 
 - name: Verify nm_remove_tenant_again
@@ -482,14 +450,14 @@
 - name: Query non-existing tenant (check_mode)
   cisco.mso.mso_tenant:
     <<: *tenant_query
-    tenant: ansible_test
+    tenant: ansible_test1
   check_mode: true
   register: cm_query_non_tenant
 
 - name: Query non-existing tenant (normal mode)
   cisco.mso.mso_tenant:
     <<: *tenant_query
-    tenant: ansible_test
+    tenant: ansible_test1
   register: nm_query_non_tenant
 
 # TODO: Implement more tests
@@ -795,3 +763,12 @@
       - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_no is not changed
       - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_no.current == {}
       - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_no.previous == {}
+
+- name: Remove tenants
+  cisco.mso.mso_tenant:
+    <<: *tenant_absent
+  loop:
+  - ansible_test1
+  - ansible_test2
+  - ansible_test3
+  - tenant_with_site

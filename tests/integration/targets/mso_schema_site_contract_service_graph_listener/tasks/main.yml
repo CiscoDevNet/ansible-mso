@@ -18,7 +18,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(false) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
     aci_info: &aci_info
       host: "{{ apic_hostname }}"
       username: "{{ apic_username }}"
@@ -26,12 +26,11 @@
       validate_certs: "{{ apic_validate_certs | default(false) }}"
       use_ssl: "{{ apic_use_ssl | default(true) }}"
       use_proxy: "{{ apic_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # Setup part begins
 - name: Set ansible_network_os to cisco.aci.aci and ansible_connection to local
   ansible.builtin.set_fact:
-    ansible_connection: local
     ansible_network_os: cisco.aci.aci
 
 - name: Reset the ansible_connection to access the APIC
@@ -605,6 +604,10 @@
         target_ip_type: unspecified
   register: add_ans_li_common_http
 
+- name: Set error message for add_nlb_li_udp
+  ansible.builtin.set_fact:
+    error_message_add_nlb_li_udp: "When the 'frontend_ip' is '10.10.10.10', the ['device'] attributes must be set and the object name: nlb_li_udp"
+
 - name: Assertions check for the add listeners test
   ansible.builtin.assert:
     that:
@@ -643,7 +646,7 @@
       - add_nlb_li_tcp_nm_again.current.rules.0.index == 1
       - add_nlb_li_tcp_nm_again.current.rules.0.name == "rule1"
       - add_nlb_li_udp is not changed
-      - add_nlb_li_udp.msg == "When the 'frontend_ip' is '10.10.10.10', the ['device'] attributes must be set and the object name{{':'}} nlb_li_udp"
+      - add_nlb_li_udp.msg == error_message_add_nlb_li_udp
       - add_ans_li_common_udp is changed
       - add_ans_li_common_udp.current.name == "ans_li_common"
       - add_ans_li_common_udp.current.protocol == "udp"
@@ -765,7 +768,7 @@
       - update_ans_li_common.current.rules.0.protocol == "https"
       - update_ans_li_common.current.rules.0.healthCheck.protocol == "https"
       - nt_update_ans_li_common is not changed
-      - nt_update_ans_li_common.msg == "The service_node_index{{':'}} 5 is out of range."
+      - 'nt_update_ans_li_common.msg == "The service_node_index: 5 is out of range."'
 
 - name: Query all listeners
   cisco.mso.mso_schema_site_contract_service_graph_listener:
@@ -1455,33 +1458,45 @@
   ignore_errors: true
   register: rm_ans_li_common_nm_again
 
+- name: Set error messages for the listeners negative test
+  set_fact:
+    error_message_nt_lp_https_ssl_cert_missing: "When the 'listener_protocol' is 'https', the ['security_policy', 'ssl_certificates'] attributes must be set and the object name: nt_aplb_li_https"
+    error_message_nt_tp_fw_listener: "Listener is not supported for the 'service_node_index': 0 is associated with the Third-Party Firewall device."
+    error_message_nt_tp_lb_listener: "Listener is not supported for the 'service_node_index': 1 is associated with the Third-Party Load Balancer device."
+    error_message_nt_action_type_redirect: "When the 'action_type' is 'redirect', the ['redirect_protocol', 'redirect_port', 'url_type', 'redirect_code'] attributes must be set at the object position: 0 and the object name: rule1"
+    error_message_nt_action_type_forward: "When the 'action_type' is 'forward', the ['health_check'] attributes must be set at the object position: 0 and the object name: rule1"
+    error_message_nt_url_type_custom: "When the 'url_type' is 'custom', the ['redirect_host_name', 'redirect_path', 'redirect_query', 'response_code'] attributes must be set at the object position: 0 and the object name: rule1"
+    error_message_nt_lp_tcp_udp_hp_missing: "When the 'action_type' is 'forward', the ['health_check'] attributes must be set at the object position: 0 and the object name: rule1"
+    error_message_nt_lp_http_hp_http: "The 'listener_protocol': http and the health_check protocol: http is not a valid configuration at the object position: 0 and the object name: rule1"
+    error_message_nt_lp_https_hp_https: "The 'listener_protocol': https and the health_check protocol: https is not a valid configuration at the object position: 0 and the object name: rule1"
+
 - name: Assertions check for the listeners negative test
   ansible.builtin.assert:
     that:
       - nt_non_cloud_site is not changed
-      - nt_non_cloud_site.msg == "The Site Contract Service Graph Listener is not supported for the site{{':'}} ansible_test."
+      - 'nt_non_cloud_site.msg == "The Site Contract Service Graph Listener is not supported for the site: ansible_test."'
       - nt_lp_https_ssl_cert_missing is not changed
-      - nt_lp_https_ssl_cert_missing.msg == "When the 'listener_protocol' is 'https', the ['security_policy', 'ssl_certificates'] attributes must be set and the object name{{':'}} nt_aplb_li_https"
+      - nt_lp_https_ssl_cert_missing.msg == error_message_nt_lp_https_ssl_cert_missing
       - nt_invalid_contract3 is not changed
-      - nt_invalid_contract3.msg == "The site contract{{':'}} Contract3 is not associated with a service graph."
+      - 'nt_invalid_contract3.msg == "The site contract: Contract3 is not associated with a service graph."'
       - nt_invalid_device is not changed
-      - nt_invalid_device.msg == "The site contract{{':'}} Contract3 is not associated with a service graph."
+      - 'nt_invalid_device.msg == "The site contract: Contract3 is not associated with a service graph."'
       - nt_tp_fw_listener is not changed
-      - nt_tp_fw_listener.msg == "Listener is not supported for the 'service_node_index'{{':'}} 0 is associated with the Third-Party Firewall device."
+      - nt_tp_fw_listener.msg == error_message_nt_tp_fw_listener
       - nt_tp_lb_listener is not changed
-      - nt_tp_lb_listener.msg ==  "Listener is not supported for the 'service_node_index'{{':'}} 1 is associated with the Third-Party Load Balancer device."
+      - nt_tp_lb_listener.msg ==  error_message_nt_tp_lb_listener
       - nt_lp_and_rp_https is not changed
       - nt_lp_and_rp_https.msg == "When the 'listener_protocol' is 'https', the rule 'protocol' must be 'https'"
       - nt_lp_and_rp_http is not changed
       - nt_lp_and_rp_http.msg ==  "When the 'listener_protocol' is 'http', the rule 'protocol' must be 'http'"
       - nt_action_type_redirect is not changed
-      - nt_action_type_redirect.msg == "When the 'action_type' is 'redirect', the ['redirect_protocol', 'redirect_port', 'url_type', 'redirect_code'] attributes must be set at the object position{{':'}} 0 and the object name{{':'}} rule1"
+      - nt_action_type_redirect.msg == error_message_nt_action_type_redirect
       - nt_action_type_forward is not changed
-      - nt_action_type_forward.msg == "When the 'action_type' is 'forward', the ['health_check'] attributes must be set at the object position{{':'}} 0 and the object name{{':'}} rule1"
+      - nt_action_type_forward.msg == error_message_nt_action_type_forward
       - nt_url_type_custom is not changed
-      - nt_url_type_custom.msg == "When the 'url_type' is 'custom', the ['redirect_host_name', 'redirect_path', 'redirect_query', 'response_code'] attributes must be set at the object position{{':'}} 0 and the object name{{':'}} rule1"
+      - nt_url_type_custom.msg == error_message_nt_url_type_custom
       - nt_lp_tcp_udp_hp_missing is not changed
-      - nt_lp_tcp_udp_hp_missing.msg == "When the 'action_type' is 'forward', the ['health_check'] attributes must be set at the object position{{':'}} 0 and the object name{{':'}} rule1"
+      - nt_lp_tcp_udp_hp_missing.msg == error_message_nt_lp_tcp_udp_hp_missing
       - nt_lp_tcp_udp_hp_tcp_ut_missing is not changed
       - nt_lp_tcp_udp_hp_tcp_ut_missing.msg == "When the 'health_check - 'protocol'' is 'tcp', the ['unhealthy_threshold'] attributes must be set"
       - nt_lp_tcp_udp_hp_http_https_ut_missing is not changed
@@ -1489,11 +1504,11 @@
       - nt_lp_http_hp_https_ut_missing is not changed
       - nt_lp_http_hp_https_ut_missing.msg == "When the 'health_check - 'protocol'' is 'http/https', the ['path', 'unhealthy_threshold', 'timeout'] attributes must be set"
       - nt_lp_http_hp_http is not changed
-      - nt_lp_http_hp_http.msg == "The 'listener_protocol'{{':'}} http and the health_check protocol{{':'}} http is not a valid configuration at the object position{{':'}} 0 and the object name{{':'}} rule1"
+      - nt_lp_http_hp_http.msg == error_message_nt_lp_http_hp_http
       - nt_lp_https_hp_https is not changed
-      - nt_lp_https_hp_https.msg == "The 'listener_protocol'{{':'}} https and the health_check protocol{{':'}} https is not a valid configuration at the object position{{':'}} 0 and the object name{{':'}} rule1"
+      - nt_lp_https_hp_https.msg == error_message_nt_lp_https_hp_https
       - rm_ans_li_common_nm_again is not changed
-      - rm_ans_li_common_nm_again.msg == "The service_node_index{{':'}} -1 is not valid."
+      - 'rm_ans_li_common_nm_again.msg == "The service_node_index: -1 is not valid."'
 
 - name: Remove an existing listener - ans_li_common - check_mode
   cisco.mso.mso_schema_site_contract_service_graph_listener:
@@ -1577,7 +1592,6 @@
 
 - name: Set ansible_network_os to cisco.aci.aci and ansible_connection to local
   ansible.builtin.set_fact:
-    ansible_connection: local
     ansible_network_os: cisco.aci.aci
 
 - name: Reset the ansible_connection to access the APIC

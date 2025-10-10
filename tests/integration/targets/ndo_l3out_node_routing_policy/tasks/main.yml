@@ -18,7 +18,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -651,11 +651,15 @@
       register: nt_clear_all_settings
       ignore_errors: true
 
+    - name: Set error message for clear all settings
+      ansible.builtin.set_fact:
+        error_message_clear_settings: "MSO Error 400: Invalid configuration for L3Out Node Routing Policy 'nrp_1_update': At least 1 policy must be configured"
+
     - name: Assertion check for clear nrp_1_update L3Out Node Routing Policy bfd_multi_hop_settings, bgp_node_settings and as_path_multipath_relax using name (Negative test)
       ansible.builtin.assert:
         that:
           - nt_clear_all_settings is not changed
-          - nt_clear_all_settings.msg == "MSO Error 400{{':'}} Invalid configuration for L3Out Node Routing Policy 'nrp_1_update'{{':'}} At least 1 policy must be configured"
+          - nt_clear_all_settings.msg == error_message_clear_settings
 
     - name: Create a new L3Out Node Routing Policy with only name (Negative test)
       cisco.mso.ndo_l3out_node_routing_policy:
@@ -666,12 +670,16 @@
       register: nrp_nt_1
       ignore_errors: true
 
+    - name: Set error message for create a new L3Out Node Routing Policy with only name
+      ansible.builtin.set_fact:
+        error_message_create_only_name: "At least one of the following attributes must be specified when creating L3Out Node Routing Policy: 'bfd_multi_hop_settings', 'bgp_node_settings', or 'as_path_multipath_relax'."
+
     - name: Assertion check for create a new L3Out Node Routing Policy with only name (Negative test)
       ansible.builtin.assert:
         that:
           - nrp_nt_1 is not changed
           - nrp_nt_1.current == {}
-          - nrp_nt_1.msg == "At least one of the following attributes must be specified when creating L3Out Node Routing Policy{{':'}} 'bfd_multi_hop_settings', 'bgp_node_settings', or 'as_path_multipath_relax'."
+          - nrp_nt_1.msg == error_message_create_only_name
           - nrp_nt_1.previous == {}
 
     - name: Query L3Out Node Routing Policy with invalid name
@@ -726,13 +734,18 @@
       register: nt_keep_alive_interval
       ignore_errors: true
 
+    - name: Set error message for invalid value checks
+      ansible.builtin.set_fact:
+        error_message_invalid_detection_multiplier: "MSO Error 400: 'DetectionMultiplier' allowed minimum value is 1 maximum value is 50"
+        error_message_invalid_keep_alive_interval: "MSO Error 400: 'KeepAliveInterval' allowed maximum value is 3600"
+
     - name: Assertion check for invalid value checks
       ansible.builtin.assert:
         that:
           - nt_detection_multiplier_max is not changed
-          - nt_detection_multiplier_max.msg == "MSO Error 400{{':'}} 'DetectionMultiplier' allowed minimum value is 1 maximum value is 50"
+          - nt_detection_multiplier_max.msg == error_message_invalid_detection_multiplier
           - nt_keep_alive_interval is not changed
-          - nt_keep_alive_interval.msg == "MSO Error 400{{':'}} 'KeepAliveInterval' allowed maximum value is 3600"
+          - nt_keep_alive_interval.msg == error_message_invalid_keep_alive_interval
     # Negative test ends
 
     - name: Remove L3Out Node Routing Policy with name - check_mode

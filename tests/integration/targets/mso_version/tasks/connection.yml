@@ -33,7 +33,7 @@
 - name: Query mso_version with domain overwrite in task (test)
   cisco.mso.mso_version:  
     <<: *plugin_query
-    username: 'r_{{ mso_username }}'
+    username: '{{ mso_remote_username }}'
     login_domain: test
   register: nm_query_login_domain_overwrite
 
@@ -110,8 +110,8 @@
 
 - name: Set ansible connection search queries and error message for failed authentication
   ansible.builtin.set_fact:
-    search_username: "'username': 'r_ansible_github_ci'"
-    search_login_domain: "'login_domain': 'test'"
+    search_username: "'username': '{{ mso_remote_username }}'"
+    search_login_domain: "'login_domain': '{{ mso_login_domain }}'"
     search_proxy_true: "'use_proxy': True"
     search_ssl: "'use_ssl': True"
     search_timeout_300: "'timeout': 300"

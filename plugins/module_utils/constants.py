@@ -296,3 +296,11 @@ VM_DOMAIN_PROVIDER_MAP = {
     "vmware": "VMware",
     "nutanix": "Nutanix",
 }
+
+ROUTE_MAP_METRIC_TYPE_MAP = {
+    "type1": "ospf-type1",
+    "ospf_type1": "ospf-type1",
+    "type2": "ospf-type2",
+    "ospf_type2": "ospf-type2",
+    "": "",
+}

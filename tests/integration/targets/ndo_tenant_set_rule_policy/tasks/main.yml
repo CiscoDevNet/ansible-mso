@@ -75,7 +75,7 @@
 
     # CREATE
     - name: Create Set Rule Policy (check mode)
-      cisco.mso.ndo_tenant_set_rule_policy: &add_set_rule_policy
+      cisco.mso.ndo_set_rule_policy: &add_set_rule_policy
         <<: *mso_info
         template: ansible_tenant_template
         name: ansible_set_rule_policy
@@ -109,12 +109,12 @@
       register: cm_set_rule_policy
 
     - name: Create Set Rule Policy
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *add_set_rule_policy
       register: nm_set_rule_policy
 
     - name: Create Set Rule Policy again
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *add_set_rule_policy
       register: nm_set_rule_policy_again
 
@@ -160,7 +160,7 @@
 
     # UPDATE
     - name: Update Set Rule Policy (check mode)
-      cisco.mso.ndo_tenant_set_rule_policy: &update_set_rule_policy
+      cisco.mso.ndo_set_rule_policy: &update_set_rule_policy
         <<: *mso_info
         template_id: '{{ create_tenant_template.current.templateId }}'
         name: ansible_set_rule_policy
@@ -185,17 +185,17 @@
       register: cm_update_set_rule_policy
 
     - name: Update Set Rule Policy
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *update_set_rule_policy
       register: nm_update_set_rule_policy
 
     - name: Update Set Rule Policy again
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *update_set_rule_policy
       register: nm_update_set_rule_policy_again
 
     - name: Remove all properties from Set Rule Policy
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *mso_info
         template_id: '{{ create_tenant_template.current.templateId }}'
         uuid: "{{ nm_set_rule_policy.current.uuid }}"
@@ -215,7 +215,7 @@
       register: nm_update_set_rule_policy_remove_all
 
     - name: Update Set Rule Policy name using UUID
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *mso_info
         template_id: '{{ create_tenant_template.current.templateId }}'
         name: ansible_set_rule_policy_1
@@ -274,13 +274,13 @@
 
     # QUERY
     - name: Create another Set Rule Policy
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *add_set_rule_policy
         name: ansible_set_rule_policy_2
       register: nm_set_rule_policy_2
 
     - name: Query one Set Rule Policy by name
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *mso_info
         name: ansible_set_rule_policy_2
         template: ansible_tenant_template
@@ -288,7 +288,7 @@
       register: query_name
 
     - name: Query one Set Rule Policy by UUID
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *mso_info
         uuid: '{{ nm_set_rule_policy.current.uuid }}'
         template: ansible_tenant_template
@@ -296,7 +296,7 @@
       register: query_uuid
 
     - name: Query all Set Rule Policies
-      cisco.mso.ndo_tenant_set_rule_policy: &query_all_set_rule_policies
+      cisco.mso.ndo_set_rule_policy: &query_all_set_rule_policies
         <<: *mso_info
         template: ansible_tenant_template
         state: query
@@ -316,7 +316,7 @@
 
     # DELETE
     - name: Delete Set Rule Policy (check mode)
-      cisco.mso.ndo_tenant_set_rule_policy: &delete_set_rule_policy
+      cisco.mso.ndo_set_rule_policy: &delete_set_rule_policy
         <<: *mso_info
         template: ansible_tenant_template
         name: ansible_set_rule_policy_1
@@ -325,17 +325,17 @@
       register: cm_delete_set_rule_policy
 
     - name: Delete Set Rule Policy
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *delete_set_rule_policy
       register: nm_delete_set_rule_policy
 
     - name: Delete Set Rule Policy
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *delete_set_rule_policy
       register: nm_delete_set_rule_policy_again
 
     - name: Delete Set Rule Policy with UUID
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *mso_info
         template: ansible_tenant_template
         uuid: "{{ nm_set_rule_policy_2.current.uuid }}"
@@ -360,12 +360,12 @@
 
     # NO POLICIES
     - name: Query all Set Rule Policies in the template when all are deleted
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *query_all_set_rule_policies
       register: query_all_none
 
     - name: Update Set Rule Policy with non-existing UUID
-      cisco.mso.ndo_tenant_set_rule_policy:
+      cisco.mso.ndo_set_rule_policy:
         <<: *mso_info
         template: ansible_tenant_template
         uuid: non-existing-uuid

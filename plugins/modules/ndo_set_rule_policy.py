@@ -18,7 +18,7 @@ ANSIBLE_METADATA = {
 
 DOCUMENTATION = r"""
 ---
-module: ndo_tenant_set_rule_policy
+module: ndo_set_rule_policy
 short_description: Manage Tenant Set Rule Policies on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage Tenant Set Rule Policies on Cisco Nexus Dashboard Orchestrator (NDO).
@@ -197,7 +197,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r"""
 - name: Create a new Set Rule Policy
-  cisco.mso.ndo_tenant_set_rule_policy:
+  cisco.mso.ndo_set_rule_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -232,7 +232,7 @@ EXAMPLES = r"""
   register: create_set_rule_policy_1
 
 - name: Update the name of the Set Rule Policy using UUID
-  cisco.mso.ndo_tenant_set_rule_policy:
+  cisco.mso.ndo_set_rule_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -243,7 +243,7 @@ EXAMPLES = r"""
   register: update_set_rule_policy_1
 
 - name: Query an existing Set Rule Policy using UUID
-  cisco.mso.ndo_tenant_set_rule_policy:
+  cisco.mso.ndo_set_rule_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -253,7 +253,7 @@ EXAMPLES = r"""
   register: query_with_uuid
 
 - name: Query an existing Set Rule Policy using name
-  cisco.mso.ndo_tenant_set_rule_policy:
+  cisco.mso.ndo_set_rule_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -263,7 +263,7 @@ EXAMPLES = r"""
   register: query_with_name
 
 - name: Query all Set Rule Policies
-  cisco.mso.ndo_tenant_set_rule_policy:
+  cisco.mso.ndo_set_rule_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -272,7 +272,7 @@ EXAMPLES = r"""
   register: query_all
 
 - name: Remove set rules from a Set Rule Policy
-  cisco.mso.ndo_tenant_set_rule_policy:
+  cisco.mso.ndo_set_rule_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -285,7 +285,7 @@ EXAMPLES = r"""
     state: present
 
 - name: Delete an existing Set Rule Policy using UUID
-  cisco.mso.ndo_tenant_set_rule_policy:
+  cisco.mso.ndo_set_rule_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -294,7 +294,7 @@ EXAMPLES = r"""
     state: absent
 
 - name: Delete an existing Set Rule Policy using Name
-  cisco.mso.ndo_tenant_set_rule_policy:
+  cisco.mso.ndo_set_rule_policy:
     host: mso_host
     username: admin
     password: SomeSecretPassword

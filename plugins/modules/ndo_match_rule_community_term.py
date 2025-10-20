@@ -198,7 +198,7 @@ EXAMPLES = r"""
     state: query
   register: query_with_uuid
 
-- name: Query all Match Community Termes in a Match Rule Policy
+- name: Query all Match Community Terms in a Match Rule Policy
   cisco.mso.ndo_match_rule_community_term:
     host: mso_host
     username: admin

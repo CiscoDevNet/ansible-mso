@@ -66,7 +66,7 @@ options:
     aliases: [ from ]
   to_prefix:
     description:
-    - The subnet value to wich to aggregate.
+    - The subnet value to which to aggregate.
     - The value must be above O(from_prefix) and above the subnet of the Prefix IP.
     - The value must be between 0 and 32.
     - Defaults to C(0) when unset during creation.

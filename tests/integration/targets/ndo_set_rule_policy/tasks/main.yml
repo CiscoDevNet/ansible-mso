@@ -124,6 +124,7 @@
           - cm_set_rule_policy is changed
           - nm_set_rule_policy is changed
           - cm_set_rule_policy.previous == nm_set_rule_policy.previous == {}
+          - cm_set_rule_policy.proposed == cm_set_rule_policy.current
           - cm_set_rule_policy.current.name == nm_set_rule_policy.current.name == "ansible_set_rule_policy"
           - cm_set_rule_policy.current.description == nm_set_rule_policy.current.description == "Test Ansible Set Rule Policy"
           - cm_set_rule_policy.current.templateName == nm_set_rule_policy.current.templateName == create_tenant_template.current.displayName
@@ -155,6 +156,34 @@
           - cm_set_rule_policy.current.setAsPath | length == nm_set_rule_policy.current.setAsPath | length == 2
           - cm_set_rule_policy.current.setAsPath.1.pathASNs | length == nm_set_rule_policy.current.setAsPath.1.pathASNs | length == 2
           - nm_set_rule_policy.current.uuid is defined
+          - cm_set_rule_policy.proposed.name == nm_set_rule_policy.proposed.name == "ansible_set_rule_policy"
+          - cm_set_rule_policy.proposed.description == nm_set_rule_policy.proposed.description == "Test Ansible Set Rule Policy"
+          - cm_set_rule_policy.proposed.setWeight == nm_set_rule_policy.proposed.setWeight == 50
+          - cm_set_rule_policy.proposed.setRouteTag == nm_set_rule_policy.proposed.setRouteTag == 500
+          - cm_set_rule_policy.proposed.setPreference == nm_set_rule_policy.proposed.setPreference == 200
+          - cm_set_rule_policy.proposed.setMetricType == nm_set_rule_policy.proposed.setMetricType == "ospf-type2"
+          - cm_set_rule_policy.proposed.setMetric == nm_set_rule_policy.proposed.setMetric == 100
+          - cm_set_rule_policy.proposed.setNextHop == nm_set_rule_policy.proposed.setNextHop == "aa::"
+          - cm_set_rule_policy.proposed.setDampening.halfLife == nm_set_rule_policy.proposed.setDampening.halfLife == 15
+          - cm_set_rule_policy.proposed.setDampening.maxSuppressTime == nm_set_rule_policy.proposed.setDampening.maxSuppressTime == 60
+          - cm_set_rule_policy.proposed.setDampening.reuseLimit == nm_set_rule_policy.proposed.setDampening.reuseLimit == 750
+          - cm_set_rule_policy.proposed.setDampening.suppressLimit == nm_set_rule_policy.proposed.setDampening.suppressLimit == 2000
+          - cm_set_rule_policy.proposed.setCommunity.community == nm_set_rule_policy.proposed.setCommunity.community == "no-export"
+          - cm_set_rule_policy.proposed.setCommunity.criteria == nm_set_rule_policy.proposed.setCommunity.criteria == "replace"
+          - cm_set_rule_policy.proposed.setAddCommunities.0.community == nm_set_rule_policy.proposed.setAddCommunities.0.community == "no-advertise"
+          - cm_set_rule_policy.proposed.setAddCommunities.0.criteria == nm_set_rule_policy.proposed.setAddCommunities.0.criteria == "append"
+          - cm_set_rule_policy.proposed.setAddCommunities.1.community == nm_set_rule_policy.proposed.setAddCommunities.1.community == "extended:color:35"
+          - cm_set_rule_policy.proposed.setAddCommunities.1.criteria == nm_set_rule_policy.proposed.setAddCommunities.1.criteria == "append"
+          - cm_set_rule_policy.proposed.setAddCommunities | length == nm_set_rule_policy.proposed.setAddCommunities | length == 2
+          - cm_set_rule_policy.proposed.setAsPath.0.asnCount == nm_set_rule_policy.proposed.setAsPath.0.asnCount == 10
+          - cm_set_rule_policy.proposed.setAsPath.0.criteria == nm_set_rule_policy.proposed.setAsPath.0.criteria == "prepend-last-as"
+          - cm_set_rule_policy.proposed.setAsPath.1.criteria == nm_set_rule_policy.proposed.setAsPath.1.criteria == "prepend"
+          - cm_set_rule_policy.proposed.setAsPath.1.pathASNs.0.asn == nm_set_rule_policy.proposed.setAsPath.1.pathASNs.0.asn == 1
+          - cm_set_rule_policy.proposed.setAsPath.1.pathASNs.0.order == nm_set_rule_policy.proposed.setAsPath.1.pathASNs.0.order == 11
+          - cm_set_rule_policy.proposed.setAsPath.1.pathASNs.1.asn == nm_set_rule_policy.proposed.setAsPath.1.pathASNs.1.asn == 2
+          - cm_set_rule_policy.proposed.setAsPath.1.pathASNs.1.order == nm_set_rule_policy.proposed.setAsPath.1.pathASNs.1.order == 10
+          - cm_set_rule_policy.proposed.setAsPath | length == nm_set_rule_policy.proposed.setAsPath | length == 2
+          - cm_set_rule_policy.proposed.setAsPath.1.pathASNs | length == nm_set_rule_policy.proposed.setAsPath.1.pathASNs | length == 2
           - nm_set_rule_policy_again is not changed
           - nm_set_rule_policy_again.previous == nm_set_rule_policy_again.current == nm_set_rule_policy.current
 
@@ -229,6 +258,7 @@
           - cm_update_set_rule_policy is changed
           - nm_update_set_rule_policy is changed
           - cm_update_set_rule_policy.previous == nm_update_set_rule_policy.previous
+          - cm_update_set_rule_policy.proposed == cm_update_set_rule_policy.current
           - cm_update_set_rule_policy.previous.name == nm_update_set_rule_policy.previous.name == "ansible_set_rule_policy"
           - cm_update_set_rule_policy.current.name == nm_update_set_rule_policy.current.name == "ansible_set_rule_policy"
           - cm_update_set_rule_policy.previous.description == nm_update_set_rule_policy.previous.description == "Test Ansible Set Rule Policy"
@@ -258,6 +288,17 @@
           - cm_update_set_rule_policy.current.setAsPath.0.criteria == nm_update_set_rule_policy.current.setAsPath.0.criteria == "prepend-last-as"
           - cm_update_set_rule_policy.previous.setAsPath == nm_update_set_rule_policy.previous.setAsPath == nm_set_rule_policy.current.setAsPath
           - cm_update_set_rule_policy.current.uuid == nm_update_set_rule_policy.current.uuid
+          - cm_update_set_rule_policy.proposed.name == nm_update_set_rule_policy.proposed.name == "ansible_set_rule_policy"
+          - cm_update_set_rule_policy.proposed.description == nm_update_set_rule_policy.proposed.description == "Test Ansible Set Rule Policy Updated"
+          - cm_update_set_rule_policy.proposed.setPreference == nm_update_set_rule_policy.proposed.setPreference == 220
+          - cm_update_set_rule_policy.proposed.setMetricType == nm_update_set_rule_policy.proposed.setMetricType == "ospf-type1"
+          - cm_update_set_rule_policy.proposed.setMetric == nm_update_set_rule_policy.proposed.setMetric == 110
+          - cm_update_set_rule_policy.proposed.setNextHop == nm_update_set_rule_policy.proposed.setNextHop == "aa::"
+          - cm_update_set_rule_policy.proposed.setDampening == nm_update_set_rule_policy.proposed.setDampening == nm_set_rule_policy.proposed.setDampening
+          - cm_update_set_rule_policy.proposed.setAddCommunities == nm_update_set_rule_policy.proposed.setAddCommunities == nm_set_rule_policy.proposed.setAddCommunities
+          - cm_update_set_rule_policy.proposed.setAsPath | length == nm_update_set_rule_policy.proposed.setAsPath | length == 1
+          - cm_update_set_rule_policy.proposed.setAsPath.0.asnCount == nm_update_set_rule_policy.proposed.setAsPath.0.asnCount == 9
+          - cm_update_set_rule_policy.proposed.setAsPath.0.criteria == nm_update_set_rule_policy.proposed.setAsPath.0.criteria == "prepend-last-as"
           - nm_update_set_rule_policy_again is not changed
           - nm_update_set_rule_policy_again.previous == nm_update_set_rule_policy_again.current == nm_update_set_rule_policy.current
           - nm_update_set_rule_policy_name is changed

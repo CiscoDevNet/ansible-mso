@@ -150,7 +150,7 @@ options:
     aliases: [ set_add_communities ]
   set_as_path:
     description:
-    - The AS path rules to add to the Set Rule Policy.
+    - The Autonomous System (AS) path rules to add to the Set Rule Policy.
     - Providing an empty dictionary will remove the O(set_as_path={}) rules from the Set Rule Policy.
     type: dict
     suboptions:

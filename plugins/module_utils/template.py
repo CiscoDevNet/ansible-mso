@@ -736,6 +736,57 @@ class MSOTemplate:
             )
         return existing_l3out_interface_routing_policy  # Query all objects
 
+    def get_match_rule_policy_object(self, uuid=None, name=None, search_object=None, fail_module=False):
+        """
+        Get the Match Rule Policy by uuid or name.
+        :param uuid: UUID of the Match Rule Policy to search for -> Str
+        :param name: Name of the Match Rule Policy to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        if not search_object:
+            search_object = self.template
+        existing_objects = search_object.get("tenantPolicyTemplate", {}).get("template", {}).get("matchRulePolicies", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs(
+                "Match Rule Policy",
+                existing_objects,
+                [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
+                fail_module,
+            )
+        return existing_objects  # Query all objects
+
+    def get_direct_child_object(self, parent_object, description, endpoint, identifiers=None, fail_module=False):
+        """
+        Get the direct child object using its identifiers and its parent object.
+        :param parent_object: Parent object data where to search the direct child object -> Dict
+        :param description: Description of the child object to search for -> Str
+        :param endpoint: NDO API child object's endpoint -> Str
+        :param identifiers: child object's identifiers with coresponding identifier's name and value -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When one of the child object identifiers is existing in the search list -> Dict
+                 When the child object identifiers are not existing in the search list -> None
+                 When the child object identifiers are None, and the search list is not empty -> List[Dict]
+                 When the child object identifiers ae None, and the search list is empty -> List[]
+        """
+        if isinstance(identifiers, dict) and identifiers.values():  # Query a specific object
+            for key, value in identifiers.items():
+                if value:
+                    child_object_kvpair = KVPair(key, value)
+            return self.get_object_by_key_value_pairs(
+                description,
+                parent_object.details.get(endpoint, []),
+                [child_object_kvpair],
+                fail_module,
+            )
+        return parent_object.details.get(endpoint, [])  # Query all objects
+
     def get_template_policy_uuid(self, template_type, policy_name, policy_type):
         """
         Get the UUID of a Tenant Policy by name.
@@ -815,7 +866,7 @@ class MSOTemplate:
             "qosRef": "unique-qos-id",
             "interfaceRoutingPolicyRef": "unique-interface-id"
         }
-        updated_config_data = mso_template_object.set_names_for_references(mso_instance, config_data, reference_collections)
+        updated_config_data = mso_template_object.update_config_with_template_and_references(mso_instance, config_data, reference_collections)
         Expected Output:
         {    "templateName": "template_name",
              "templateId": "unique-template-id",
@@ -850,7 +901,7 @@ class MSOTemplate:
             "stateLimitRouteMapRef": "unique-state-limit-id",
             "reportPolicyRouteMapRef": "unique-report-policy-id"
         }
-        updated_config_data = mso_template_object.set_names_for_references(mso_instance, config_data, reference_collections)
+        updated_config_data = mso_template_object.update_config_with_template_and_references(mso_instance, config_data, reference_collections)
          Expected Output:
          {   "templateName": "template_name",
              "templateId": "unique-template-id",
@@ -991,6 +1042,20 @@ class MSOTemplate:
             )
             routed_interface["ptpConfig"]["ptpPolicyName"] = ptpPolicy.get("name")
             routed_interface["ptpConfig"]["ptpPolicyRef"] = ptpPolicy.get("uuid")
+
+    def update_match_rule_policy_child_object_with_template_and_parent(self, match_rule_policy, config_data):
+        """
+        Return the updated Match Rule Policy child object config_data with the template and policy values
+        :param config_data: The Match Rule Policy data -> Dict
+        :param config_data: The original config_data that requires to be updated -> Dict
+        :return: Updated config_data with names and ids for template and Match Rule Policy -> Dict
+        """
+        self.update_config_with_template_and_references(config_data)
+        if match_rule_policy.get("uuid"):
+            config_data["matchRulePolicyUuid"] = match_rule_policy["uuid"]
+        if match_rule_policy.get("name"):
+            config_data["matchRulePolicyName"] = match_rule_policy["name"]
+        return config_data
 
     def get_route_map_policy_for_multicast_uuid(self, route_map_policy_for_multicast_name):
         """

@@ -297,6 +297,8 @@ VM_DOMAIN_PROVIDER_MAP = {
     "nutanix": "Nutanix",
 }
 
+MATCH_COMMUNITY_SCOPE_MAP = {"transitive": "transitive", "non_transitive": "non-transitive"}
+
 ROUTE_MAP_METRIC_TYPE_MAP = {
     "type1": "ospf-type1",
     "ospf_type1": "ospf-type1",

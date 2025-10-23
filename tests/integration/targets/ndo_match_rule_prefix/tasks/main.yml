@@ -1,0 +1,386 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Gaspard Micol (@gmicol) <gmicol@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 5.1
+  when: version.current.version is version('5.1', '>=')
+  block:
+    # CLEAN TEST ENVIRONMENT
+    - name: Ensure Tenant Policy template does not exist
+      cisco.mso.ndo_template: &rm_tenant_policy_template
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+      ignore_errors: true
+
+    - name: Ensure Tenant does not exist
+      cisco.mso.mso_tenant: &rm_tenant
+        <<: *mso_info
+        tenant: ansible_test
+        state: absent
+
+    - name: Ensure Tenant exists
+      cisco.mso.mso_tenant:
+        <<: *rm_tenant
+        state: present
+
+    - name: Ensure Tenant Policy template exists
+      cisco.mso.ndo_template:
+        <<: *rm_tenant_policy_template
+        state: present
+
+    - name: Ensure Match Rule Policy exists
+      cisco.mso.ndo_match_rule_policy:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        name: ansible_match_rule_policy
+        state: present
+
+    # CREATE Match Rule Prefix
+
+    - name: Create Match Rule Prefix (check_mode)
+      cisco.mso.ndo_match_rule_prefix: &create_match_prefix
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        match_rule_policy: ansible_match_rule_policy
+        prefix: 10.10.10.1/24
+        description: Ansible Match Rule Prefix
+        aggregate: false
+        from_prefix: 0
+        to_prefix: 0
+        state: present
+      check_mode: true
+      register: cm_create_match_prefix
+    
+    - name: Create Match Rule Prefix
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *create_match_prefix
+      register: nm_create_match_prefix
+
+    - name: Create Match Rule Prefix again
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *create_match_prefix
+      register: nm_create_match_prefix_again
+    
+    - name: Create another Match Rule Prefix with minimum configurations
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        match_rule_policy: ansible_match_rule_policy
+        prefix: 11.11.11.1/24
+        state: present
+      register: nm_create_match_prefix_2
+
+    - name: Assert Match Rule Prefix creation
+      ansible.builtin.assert:
+        that:
+          - cm_create_match_prefix is changed
+          - cm_create_match_prefix.previous == {}
+          - cm_create_match_prefix.proposed == cm_create_match_prefix.current
+          - cm_create_match_prefix.current.prefix == '10.10.10.1/24'
+          - cm_create_match_prefix.current.description == 'Ansible Match Rule Prefix'
+          - cm_create_match_prefix.current.aggregate == false
+          - cm_create_match_prefix.current.fromPfxLen == 0
+          - cm_create_match_prefix.current.toPfxLen == 0
+          - cm_create_match_prefix.current.matchRulePolicyName == 'ansible_match_rule_policy'
+          - cm_create_match_prefix.current.matchRulePolicyUuid is defined
+          - cm_create_match_prefix.current.templateName == 'ansible_tenant_policy_template'
+          - cm_create_match_prefix.current.templateId is defined
+          - nm_create_match_prefix is changed
+          - nm_create_match_prefix.previous == {}
+          - nm_create_match_prefix.proposed.prefix == '10.10.10.1/24'
+          - nm_create_match_prefix.proposed.description == 'Ansible Match Rule Prefix'
+          - nm_create_match_prefix.proposed.aggregate == false
+          - nm_create_match_prefix.proposed.fromPfxLen == 0
+          - nm_create_match_prefix.proposed.toPfxLen == 0
+          - nm_create_match_prefix.current.prefix == '10.10.10.1/24'
+          - nm_create_match_prefix.current.description == 'Ansible Match Rule Prefix'
+          - nm_create_match_prefix.current.fromPfxLen == 0
+          - nm_create_match_prefix.current.toPfxLen == 0
+          - nm_create_match_prefix.current.matchRulePolicyName == 'ansible_match_rule_policy'
+          - nm_create_match_prefix.current.matchRulePolicyUuid is defined
+          - nm_create_match_prefix.current.templateName == 'ansible_tenant_policy_template'
+          - nm_create_match_prefix.current.templateId is defined
+          - nm_create_match_prefix_again is not changed
+          - nm_create_match_prefix_again.previous == nm_create_match_prefix_again.current == nm_create_match_prefix.current
+          - nm_create_match_prefix_2 is changed
+          - nm_create_match_prefix_2.previous == {}
+          - nm_create_match_prefix_2.proposed.prefix == '11.11.11.1/24'
+          - nm_create_match_prefix_2.current.prefix == '11.11.11.1/24'
+          - nm_create_match_prefix_2.current.description == ''
+          - nm_create_match_prefix_2.current.fromPfxLen == 0
+          - nm_create_match_prefix_2.current.toPfxLen == 0
+          - nm_create_match_prefix_2.current.matchRulePolicyName == 'ansible_match_rule_policy'
+          - nm_create_match_prefix_2.current.matchRulePolicyUuid is defined
+          - nm_create_match_prefix_2.current.templateName == 'ansible_tenant_policy_template'
+          - nm_create_match_prefix_2.current.templateId is defined
+
+    # UPDATE Match Rule Prefix
+
+    - name: Update Match Rule Prefix (check_mode)
+      cisco.mso.ndo_match_rule_prefix: &update_match_prefix
+        <<: *create_match_prefix
+        description: Updated Ansible Match Rule Prefix
+        aggregate: true
+        from_prefix: 25
+        to_prefix: 31
+      check_mode: true
+      register: cm_update_match_prefix
+    
+    - name: Update Match Rule Prefix
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *update_match_prefix
+      register: nm_update_match_prefix
+    
+    - name: Update Match Rule Prefix again
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *update_match_prefix
+      register: nm_update_match_prefix_again
+
+    - name: Assert Match Rule Prefix update
+      ansible.builtin.assert:
+        that:
+          - cm_update_match_prefix is changed
+          - cm_update_match_prefix.previous.prefix == '10.10.10.1/24'
+          - cm_update_match_prefix.previous.description == 'Ansible Match Rule Prefix'
+          - cm_update_match_prefix.previous.fromPfxLen == 0
+          - cm_update_match_prefix.previous.toPfxLen == 0
+          - cm_update_match_prefix.previous.matchRulePolicyName == 'ansible_match_rule_policy'
+          - cm_update_match_prefix.previous.matchRulePolicyUuid is defined
+          - cm_update_match_prefix.previous.templateName == 'ansible_tenant_policy_template'
+          - cm_update_match_prefix.previous.templateId is defined
+          - cm_update_match_prefix.proposed == cm_update_match_prefix.current
+          - cm_update_match_prefix.current.prefix == '10.10.10.1/24'
+          - cm_update_match_prefix.current.description == 'Updated Ansible Match Rule Prefix'
+          - cm_update_match_prefix.current.aggregate == true
+          - cm_update_match_prefix.current.fromPfxLen == 25
+          - cm_update_match_prefix.current.toPfxLen == 31
+          - cm_update_match_prefix.current.matchRulePolicyName == 'ansible_match_rule_policy'
+          - cm_update_match_prefix.current.matchRulePolicyUuid is defined
+          - cm_update_match_prefix.current.templateName == 'ansible_tenant_policy_template'
+          - cm_update_match_prefix.current.templateId is defined
+          - nm_update_match_prefix is changed
+          - nm_update_match_prefix.previous.prefix == '10.10.10.1/24'
+          - nm_update_match_prefix.previous.description == 'Ansible Match Rule Prefix'
+          - nm_update_match_prefix.previous.fromPfxLen == 0
+          - nm_update_match_prefix.previous.toPfxLen == 0
+          - nm_update_match_prefix.previous.matchRulePolicyName == 'ansible_match_rule_policy'
+          - nm_update_match_prefix.previous.matchRulePolicyUuid is defined
+          - nm_update_match_prefix.previous.templateName == 'ansible_tenant_policy_template'
+          - nm_update_match_prefix.previous.templateId is defined
+          - nm_update_match_prefix.proposed.prefix == '10.10.10.1/24'
+          - nm_update_match_prefix.proposed.description == 'Updated Ansible Match Rule Prefix'
+          - nm_update_match_prefix.proposed.aggregate == true
+          - nm_update_match_prefix.proposed.fromPfxLen == 25
+          - nm_update_match_prefix.proposed.toPfxLen == 31
+          - nm_update_match_prefix.current.prefix == '10.10.10.1/24'
+          - nm_update_match_prefix.current.description == 'Updated Ansible Match Rule Prefix'
+          - nm_update_match_prefix.current.aggregate == true
+          - nm_update_match_prefix.current.fromPfxLen == 25
+          - nm_update_match_prefix.current.toPfxLen == 31
+          - nm_update_match_prefix.current.matchRulePolicyName == 'ansible_match_rule_policy'
+          - nm_update_match_prefix.current.matchRulePolicyUuid is defined
+          - nm_update_match_prefix.current.templateName == 'ansible_tenant_policy_template'
+          - nm_update_match_prefix.current.templateId is defined
+          - nm_update_match_prefix_again is not changed
+          - nm_update_match_prefix_again.previous == nm_update_match_prefix_again.current == nm_update_match_prefix.current
+
+    # QUERY Match Rule Prefix
+
+    - name: Query Match Rule Prefix
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *create_match_prefix
+        state: query
+      register: query_match_prefix
+
+    - name: Query all Match Rule Prefixes in Match Rule Policy
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        match_rule_policy: ansible_match_rule_policy
+        state: query
+      register: query_all_match_prefix
+
+    - name: Assert Match Rule Prefix query
+      ansible.builtin.assert:
+        that:
+          - query_match_prefix is not changed
+          - query_match_prefix.current.prefix == '10.10.10.1/24'
+          - query_match_prefix.current.matchRulePolicyName == 'ansible_match_rule_policy'
+          - query_match_prefix.current.matchRulePolicyUuid is defined
+          - query_match_prefix.current.templateName == 'ansible_tenant_policy_template'
+          - query_match_prefix.current.templateId is defined
+          - query_all_match_prefix is not changed
+          - query_all_match_prefix.current | length == 2
+          - query_all_match_prefix.current.0.prefix == '10.10.10.1/24'
+          - query_all_match_prefix.current.0.description == 'Updated Ansible Match Rule Prefix'
+          - query_all_match_prefix.current.0.aggregate == true
+          - query_all_match_prefix.current.0.fromPfxLen == 25
+          - query_all_match_prefix.current.0.toPfxLen == 31
+          - query_all_match_prefix.current.0.matchRulePolicyName == 'ansible_match_rule_policy'
+          - query_all_match_prefix.current.0.matchRulePolicyUuid is defined
+          - query_all_match_prefix.current.0.templateName == 'ansible_tenant_policy_template'
+          - query_all_match_prefix.current.0.templateId is defined
+          - query_all_match_prefix.current.1.prefix == '11.11.11.1/24'
+          - query_all_match_prefix.current.1.description == ''
+          - query_all_match_prefix.current.1.fromPfxLen == 0
+          - query_all_match_prefix.current.1.toPfxLen == 0
+          - query_all_match_prefix.current.1.matchRulePolicyName == 'ansible_match_rule_policy'
+          - query_all_match_prefix.current.1.matchRulePolicyUuid is defined
+          - query_all_match_prefix.current.1.templateName == 'ansible_tenant_policy_template'
+          - query_all_match_prefix.current.1.templateId is defined
+
+    # ERROR HANDLING
+
+    - name: Create Match Rule Prefix with mutually exclusive template parameters (error)
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *create_match_prefix
+        template_id: template_id
+      register: err_mutually_exclusive_template
+      ignore_errors: true
+    
+    - name: Create Match Rule Prefix with mutually exclusive Match Rule Policy parameters (error)
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *create_match_prefix
+        match_rule_policy_uuid: match_rule_policy_uuid
+      register: err_mutually_exclusive_match_rule_policy
+      ignore_errors: true
+
+    - name: Create Match Rule Prefix without required parameters template and template_id (error)
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *mso_info
+        match_rule_policy: ansible_match_rule_policy
+        prefix: 12.12.12.1/24
+        state: present
+      register: err_required_parameters_missing_template
+      ignore_errors: true
+
+    - name: Create Match Rule Prefix without required parameters match_rule_policy and match_rule_policy_uuid (error)
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        prefix: 12.12.12.1/24
+        state: present
+      register: err_required_parameters_missing_match_rule_policy
+      ignore_errors: true
+
+    - name: Create Match Rule Prefix with non-existing Match Rule Policy (error)
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        match_rule_policy: non_existing_match_rule_policy
+        prefix: 12.12.12.1/24
+        state: present
+      register: err_non_existing_match_rule_policy
+      ignore_errors: true
+    
+    - name: Create Match Rule Prefix with non-existing Match Rule Polic UUID (error)
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        match_rule_policy_uuid: non_existing_match_rule_policy_uuid
+        prefix: 12.12.12.1/24
+        state: present
+      register: err_non_existing_match_rule_policy_uuid
+      ignore_errors: true
+
+    - name: Assert Match Rule Prefix error handling
+      ansible.builtin.assert:
+        that:
+          - err_mutually_exclusive_template is failed
+          - err_mutually_exclusive_template.msg == "parameters are mutually exclusive{{':'}} template|template_id"
+          - err_mutually_exclusive_match_rule_policy is failed
+          - err_mutually_exclusive_match_rule_policy.msg == "parameters are mutually exclusive{{':'}} match_rule_policy|match_rule_policy_uuid"
+          - err_required_parameters_missing_template is failed
+          - err_required_parameters_missing_template.msg == "one of the following is required{{':'}} template, template_id"
+          - err_required_parameters_missing_match_rule_policy is failed
+          - err_required_parameters_missing_match_rule_policy.msg == "one of the following is required{{':'}} match_rule_policy, match_rule_policy_uuid"
+          - err_non_existing_match_rule_policy is failed
+          - err_non_existing_match_rule_policy.msg == "The Match Rule Policy with the following name 'non_existing_match_rule_policy' does not exist"
+          - err_non_existing_match_rule_policy_uuid is failed
+          - err_non_existing_match_rule_policy_uuid.msg == "The Match Rule Policy with the following UUID 'non_existing_match_rule_policy_uuid' does not exist"
+
+    # DELETE Match Rule Prefix
+
+    - name: Delete Match Rule Prefix (check_mode)
+      cisco.mso.ndo_match_rule_prefix: &delete_match_prefix
+        <<: *create_match_prefix
+        state: absent
+      check_mode: true
+      register: cm_delete_match_prefix
+
+    - name: Delete Match Rule Prefix
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *delete_match_prefix
+      register: nm_delete_match_prefix
+
+    - name: Delete Match Rule Prefix again
+      cisco.mso.ndo_match_rule_prefix:
+        <<: *delete_match_prefix
+      register: nm_delete_match_prefix_again
+
+    - name: Assert Match Rule Prefix deletion
+      ansible.builtin.assert:
+        that:
+          - cm_delete_match_prefix is changed
+          - cm_delete_match_prefix.previous.prefix == '10.10.10.1/24'
+          - cm_delete_match_prefix.previous.description == 'Updated Ansible Match Rule Prefix'
+          - cm_delete_match_prefix.previous.aggregate == true
+          - cm_delete_match_prefix.previous.fromPfxLen == 25
+          - cm_delete_match_prefix.previous.toPfxLen == 31
+          - cm_delete_match_prefix.previous.matchRulePolicyName == 'ansible_match_rule_policy'
+          - cm_delete_match_prefix.previous.matchRulePolicyUuid is defined
+          - cm_delete_match_prefix.previous.templateName == 'ansible_tenant_policy_template'
+          - cm_delete_match_prefix.previous.templateId is defined
+          - cm_delete_match_prefix.proposed == {}
+          - cm_delete_match_prefix.current == {}
+          - nm_delete_match_prefix is changed
+          - nm_delete_match_prefix.previous.prefix == '10.10.10.1/24'
+          - nm_delete_match_prefix.previous.description == 'Updated Ansible Match Rule Prefix'
+          - nm_delete_match_prefix.previous.aggregate == true
+          - nm_delete_match_prefix.previous.fromPfxLen == 25
+          - nm_delete_match_prefix.previous.toPfxLen == 31
+          - nm_delete_match_prefix.previous.matchRulePolicyName == 'ansible_match_rule_policy'
+          - nm_delete_match_prefix.previous.matchRulePolicyUuid is defined
+          - nm_delete_match_prefix.previous.templateName == 'ansible_tenant_policy_template'
+          - nm_delete_match_prefix.previous.templateId is defined
+          - nm_delete_match_prefix.proposed == {}
+          - nm_delete_match_prefix.current == {}
+          - nm_delete_match_prefix_again is not changed
+          - nm_delete_match_prefix_again.previous == nm_delete_match_prefix_again.current == nm_delete_match_prefix.current
+
+    # CLEAN TEST ENVIRONMENT
+
+    - name: Ensure Tenant Policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *rm_tenant_policy_template
+    
+    - name: Ensure Tenant does not exist
+      cisco.mso.mso_tenant:
+        <<: *rm_tenant

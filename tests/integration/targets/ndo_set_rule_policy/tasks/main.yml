@@ -1,0 +1,429 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version > 5.1
+  when: version.current.version is version('5.1', '>')
+  block:
+
+    # SETUP
+    - name: Ensure sites exists
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ item.site }}'
+        apic_username: '{{ apic_username }}'
+        apic_password: '{{ apic_password }}'
+        apic_site_id: '{{ item.apic_site_id }}'
+        urls:
+          - https://{{ apic_hostname }}
+        state: present
+      loop:
+        - {site: "ansible_test", apic_site_id: 101}
+        - {site: "ansible_test_2", apic_site_id: 102}
+    
+    - name: Ensure tenant exist
+      cisco.mso.mso_tenant: 
+        <<: *mso_info
+        tenant: '{{ item }}'
+        users:
+          - '{{ mso_username }}'
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+          - ansible_test_2
+        state: present
+      loop:
+        - '{{ mso_tenant | default("ansible_test") }}'
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_tenant_template
+        template_type: tenant
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        state: absent
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+      register: create_tenant_template
+
+    # CREATE
+    - name: Create Set Rule Policy (check mode)
+      cisco.mso.ndo_set_rule_policy: &add_set_rule_policy
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_set_rule_policy
+        description: Test Ansible Set Rule Policy
+        set_community:
+          community: no-export
+          criteria: replace
+        set_additional_community:
+          - no-advertise
+          - extended:color:35
+        set_route_tag: 500
+        set_dampening:
+          half_life: 15
+          reuse_limit: 750
+          suppress_limit: 2000
+          max_suppress_time: 60
+        set_weight: 50
+        set_next_hop: 'aa::'
+        set_preference: 200
+        set_metric: 100
+        set_metric_type: type2
+        set_as_path:
+          last_asn_count: 10
+          path_asn_list:
+            - order: 11
+              asn: 1
+            - order: 10
+              asn: 2
+        state: present
+      check_mode: true
+      register: cm_set_rule_policy
+
+    - name: Create Set Rule Policy
+      cisco.mso.ndo_set_rule_policy:
+        <<: *add_set_rule_policy
+      register: nm_set_rule_policy
+
+    - name: Create Set Rule Policy again
+      cisco.mso.ndo_set_rule_policy:
+        <<: *add_set_rule_policy
+      register: nm_set_rule_policy_again
+
+    - name: Assert Set Rule Policy is created
+      ansible.builtin.assert:
+        that:
+          - cm_set_rule_policy is changed
+          - nm_set_rule_policy is changed
+          - cm_set_rule_policy.previous == nm_set_rule_policy.previous == {}
+          - cm_set_rule_policy.proposed == cm_set_rule_policy.current
+          - cm_set_rule_policy.current.name == nm_set_rule_policy.current.name == "ansible_set_rule_policy"
+          - cm_set_rule_policy.current.description == nm_set_rule_policy.current.description == "Test Ansible Set Rule Policy"
+          - cm_set_rule_policy.current.templateName == nm_set_rule_policy.current.templateName == create_tenant_template.current.displayName
+          - cm_set_rule_policy.current.templateId == nm_set_rule_policy.current.templateId == create_tenant_template.current.templateId
+          - cm_set_rule_policy.current.setWeight == nm_set_rule_policy.current.setWeight == 50
+          - cm_set_rule_policy.current.setRouteTag == nm_set_rule_policy.current.setRouteTag == 500
+          - cm_set_rule_policy.current.setPreference == nm_set_rule_policy.current.setPreference == 200
+          - cm_set_rule_policy.current.setMetricType == nm_set_rule_policy.current.setMetricType == "ospf-type2"
+          - cm_set_rule_policy.current.setMetric == nm_set_rule_policy.current.setMetric == 100
+          - cm_set_rule_policy.current.setNextHop == nm_set_rule_policy.current.setNextHop == "aa::"
+          - cm_set_rule_policy.current.setDampening.halfLife == nm_set_rule_policy.current.setDampening.halfLife == 15
+          - cm_set_rule_policy.current.setDampening.maxSuppressTime == nm_set_rule_policy.current.setDampening.maxSuppressTime == 60
+          - cm_set_rule_policy.current.setDampening.reuseLimit == nm_set_rule_policy.current.setDampening.reuseLimit == 750
+          - cm_set_rule_policy.current.setDampening.suppressLimit == nm_set_rule_policy.current.setDampening.suppressLimit == 2000
+          - cm_set_rule_policy.current.setCommunity.community == nm_set_rule_policy.current.setCommunity.community == "no-export"
+          - cm_set_rule_policy.current.setCommunity.criteria == nm_set_rule_policy.current.setCommunity.criteria == "replace"
+          - cm_set_rule_policy.current.setAddCommunities.0.community == nm_set_rule_policy.current.setAddCommunities.0.community == "no-advertise"
+          - cm_set_rule_policy.current.setAddCommunities.0.criteria == nm_set_rule_policy.current.setAddCommunities.0.criteria == "append"
+          - cm_set_rule_policy.current.setAddCommunities.1.community == nm_set_rule_policy.current.setAddCommunities.1.community == "extended:color:35"
+          - cm_set_rule_policy.current.setAddCommunities.1.criteria == nm_set_rule_policy.current.setAddCommunities.1.criteria == "append"
+          - cm_set_rule_policy.current.setAddCommunities | length == nm_set_rule_policy.current.setAddCommunities | length == 2
+          - cm_set_rule_policy.current.setAsPath.0.asnCount == nm_set_rule_policy.current.setAsPath.0.asnCount == 10
+          - cm_set_rule_policy.current.setAsPath.0.criteria == nm_set_rule_policy.current.setAsPath.0.criteria == "prepend-last-as"
+          - cm_set_rule_policy.current.setAsPath.1.criteria == nm_set_rule_policy.current.setAsPath.1.criteria == "prepend"
+          - cm_set_rule_policy.current.setAsPath.1.pathASNs.0.asn == nm_set_rule_policy.current.setAsPath.1.pathASNs.0.asn == 1
+          - cm_set_rule_policy.current.setAsPath.1.pathASNs.0.order == nm_set_rule_policy.current.setAsPath.1.pathASNs.0.order == 11
+          - cm_set_rule_policy.current.setAsPath.1.pathASNs.1.asn == nm_set_rule_policy.current.setAsPath.1.pathASNs.1.asn == 2
+          - cm_set_rule_policy.current.setAsPath.1.pathASNs.1.order == nm_set_rule_policy.current.setAsPath.1.pathASNs.1.order == 10
+          - cm_set_rule_policy.current.setAsPath | length == nm_set_rule_policy.current.setAsPath | length == 2
+          - cm_set_rule_policy.current.setAsPath.1.pathASNs | length == nm_set_rule_policy.current.setAsPath.1.pathASNs | length == 2
+          - nm_set_rule_policy.current.uuid is defined
+          - cm_set_rule_policy.proposed.name == nm_set_rule_policy.proposed.name == "ansible_set_rule_policy"
+          - cm_set_rule_policy.proposed.description == nm_set_rule_policy.proposed.description == "Test Ansible Set Rule Policy"
+          - cm_set_rule_policy.proposed.setWeight == nm_set_rule_policy.proposed.setWeight == 50
+          - cm_set_rule_policy.proposed.setRouteTag == nm_set_rule_policy.proposed.setRouteTag == 500
+          - cm_set_rule_policy.proposed.setPreference == nm_set_rule_policy.proposed.setPreference == 200
+          - cm_set_rule_policy.proposed.setMetricType == nm_set_rule_policy.proposed.setMetricType == "ospf-type2"
+          - cm_set_rule_policy.proposed.setMetric == nm_set_rule_policy.proposed.setMetric == 100
+          - cm_set_rule_policy.proposed.setNextHop == nm_set_rule_policy.proposed.setNextHop == "aa::"
+          - cm_set_rule_policy.proposed.setDampening.halfLife == nm_set_rule_policy.proposed.setDampening.halfLife == 15
+          - cm_set_rule_policy.proposed.setDampening.maxSuppressTime == nm_set_rule_policy.proposed.setDampening.maxSuppressTime == 60
+          - cm_set_rule_policy.proposed.setDampening.reuseLimit == nm_set_rule_policy.proposed.setDampening.reuseLimit == 750
+          - cm_set_rule_policy.proposed.setDampening.suppressLimit == nm_set_rule_policy.proposed.setDampening.suppressLimit == 2000
+          - cm_set_rule_policy.proposed.setCommunity.community == nm_set_rule_policy.proposed.setCommunity.community == "no-export"
+          - cm_set_rule_policy.proposed.setCommunity.criteria == nm_set_rule_policy.proposed.setCommunity.criteria == "replace"
+          - cm_set_rule_policy.proposed.setAddCommunities.0.community == nm_set_rule_policy.proposed.setAddCommunities.0.community == "no-advertise"
+          - cm_set_rule_policy.proposed.setAddCommunities.0.criteria == nm_set_rule_policy.proposed.setAddCommunities.0.criteria == "append"
+          - cm_set_rule_policy.proposed.setAddCommunities.1.community == nm_set_rule_policy.proposed.setAddCommunities.1.community == "extended:color:35"
+          - cm_set_rule_policy.proposed.setAddCommunities.1.criteria == nm_set_rule_policy.proposed.setAddCommunities.1.criteria == "append"
+          - cm_set_rule_policy.proposed.setAddCommunities | length == nm_set_rule_policy.proposed.setAddCommunities | length == 2
+          - cm_set_rule_policy.proposed.setAsPath.0.asnCount == nm_set_rule_policy.proposed.setAsPath.0.asnCount == 10
+          - cm_set_rule_policy.proposed.setAsPath.0.criteria == nm_set_rule_policy.proposed.setAsPath.0.criteria == "prepend-last-as"
+          - cm_set_rule_policy.proposed.setAsPath.1.criteria == nm_set_rule_policy.proposed.setAsPath.1.criteria == "prepend"
+          - cm_set_rule_policy.proposed.setAsPath.1.pathASNs.0.asn == nm_set_rule_policy.proposed.setAsPath.1.pathASNs.0.asn == 1
+          - cm_set_rule_policy.proposed.setAsPath.1.pathASNs.0.order == nm_set_rule_policy.proposed.setAsPath.1.pathASNs.0.order == 11
+          - cm_set_rule_policy.proposed.setAsPath.1.pathASNs.1.asn == nm_set_rule_policy.proposed.setAsPath.1.pathASNs.1.asn == 2
+          - cm_set_rule_policy.proposed.setAsPath.1.pathASNs.1.order == nm_set_rule_policy.proposed.setAsPath.1.pathASNs.1.order == 10
+          - cm_set_rule_policy.proposed.setAsPath | length == nm_set_rule_policy.proposed.setAsPath | length == 2
+          - cm_set_rule_policy.proposed.setAsPath.1.pathASNs | length == nm_set_rule_policy.proposed.setAsPath.1.pathASNs | length == 2
+          - nm_set_rule_policy_again is not changed
+          - nm_set_rule_policy_again.previous == nm_set_rule_policy_again.current == nm_set_rule_policy.current
+
+    # UPDATE
+    - name: Update Set Rule Policy (check mode)
+      cisco.mso.ndo_set_rule_policy: &update_set_rule_policy
+        <<: *mso_info
+        template_id: '{{ create_tenant_template.current.templateId }}'
+        name: ansible_set_rule_policy
+        description: 'Test Ansible Set Rule Policy Updated'
+        set_community:
+          community: no-advertise
+          criteria: replace
+        set_additional_community: '{{ omit }}'
+        set_route_tag: ''
+        set_next_hop_propagate: true
+        set_multi_path: true
+        set_dampening: '{{ omit }}'
+        set_weight: ''
+        set_next_hop: '{{ omit }}'
+        set_preference: 220
+        set_metric: 110
+        set_metric_type: type1
+        set_as_path:
+          last_asn_count: 9
+        state: present
+      check_mode: true
+      register: cm_update_set_rule_policy
+
+    - name: Update Set Rule Policy
+      cisco.mso.ndo_set_rule_policy:
+        <<: *update_set_rule_policy
+      register: nm_update_set_rule_policy
+
+    - name: Update Set Rule Policy again
+      cisco.mso.ndo_set_rule_policy:
+        <<: *update_set_rule_policy
+      register: nm_update_set_rule_policy_again
+
+    - name: Remove all properties from Set Rule Policy
+      cisco.mso.ndo_set_rule_policy:
+        <<: *mso_info
+        template_id: '{{ create_tenant_template.current.templateId }}'
+        uuid: "{{ nm_set_rule_policy.current.uuid }}"
+        set_community: {}
+        set_additional_community: []
+        set_route_tag: ''
+        set_dampening: {}
+        set_weight: ''
+        set_next_hop: ''
+        set_preference: ''
+        set_metric: ''
+        set_metric_type: ''
+        set_as_path: {}
+        set_next_hop_propagate: false
+        set_multi_path: false
+        state: present
+      register: nm_update_set_rule_policy_remove_all
+
+    - name: Update Set Rule Policy name using UUID
+      cisco.mso.ndo_set_rule_policy:
+        <<: *mso_info
+        template_id: '{{ create_tenant_template.current.templateId }}'
+        name: ansible_set_rule_policy_1
+        uuid: "{{ nm_set_rule_policy.current.uuid }}"
+        state: present
+      register: nm_update_set_rule_policy_name
+
+    - name: Assert Set Rule Policy is updated
+      ansible.builtin.assert:
+        that:
+          - cm_update_set_rule_policy is changed
+          - nm_update_set_rule_policy is changed
+          - cm_update_set_rule_policy.previous == nm_update_set_rule_policy.previous
+          - cm_update_set_rule_policy.proposed == cm_update_set_rule_policy.current
+          - cm_update_set_rule_policy.previous.name == nm_update_set_rule_policy.previous.name == "ansible_set_rule_policy"
+          - cm_update_set_rule_policy.current.name == nm_update_set_rule_policy.current.name == "ansible_set_rule_policy"
+          - cm_update_set_rule_policy.previous.description == nm_update_set_rule_policy.previous.description == "Test Ansible Set Rule Policy"
+          - cm_update_set_rule_policy.current.description == nm_update_set_rule_policy.current.description == "Test Ansible Set Rule Policy Updated"
+          - cm_update_set_rule_policy.previous.templateName == nm_update_set_rule_policy.previous.templateName == create_tenant_template.current.displayName
+          - cm_update_set_rule_policy.previous.templateId == nm_update_set_rule_policy.previous.templateId == create_tenant_template.current.templateId
+          - cm_update_set_rule_policy.current.templateName == nm_update_set_rule_policy.current.templateName == create_tenant_template.current.displayName
+          - cm_update_set_rule_policy.current.templateId == nm_update_set_rule_policy.current.templateId == create_tenant_template.current.templateId
+          - nm_update_set_rule_policy.current.setWeight is undefined
+          - cm_update_set_rule_policy.previous.setWeight == nm_update_set_rule_policy.previous.setWeight == 50
+          - nm_update_set_rule_policy.current.setRouteTag is undefined
+          - cm_update_set_rule_policy.previous.setRouteTag == nm_update_set_rule_policy.previous.setRouteTag == 500
+          - cm_update_set_rule_policy.current.setPreference == nm_update_set_rule_policy.current.setPreference == 220
+          - cm_update_set_rule_policy.previous.setPreference == nm_update_set_rule_policy.previous.setPreference == 200
+          - cm_update_set_rule_policy.current.setMetricType == nm_update_set_rule_policy.current.setMetricType == "ospf-type1"
+          - cm_update_set_rule_policy.previous.setMetricType == nm_update_set_rule_policy.previous.setMetricType == "ospf-type2"
+          - cm_update_set_rule_policy.current.setMetric == nm_update_set_rule_policy.current.setMetric == 110
+          - cm_update_set_rule_policy.previous.setMetric == nm_update_set_rule_policy.previous.setMetric == 100
+          - cm_update_set_rule_policy.current.setNextHop == nm_update_set_rule_policy.current.setNextHop == "aa::"
+          - cm_update_set_rule_policy.previous.setNextHop == nm_update_set_rule_policy.previous.setNextHop == "aa::"
+          - cm_update_set_rule_policy.current.setDampening == nm_update_set_rule_policy.current.setDampening == nm_set_rule_policy.current.setDampening
+          - cm_update_set_rule_policy.previous.setDampening == nm_update_set_rule_policy.previous.setDampening == nm_set_rule_policy.current.setDampening
+          - cm_update_set_rule_policy.current.setAddCommunities == nm_update_set_rule_policy.current.setAddCommunities == nm_set_rule_policy.current.setAddCommunities
+          - cm_update_set_rule_policy.previous.setAddCommunities == nm_update_set_rule_policy.previous.setAddCommunities == nm_set_rule_policy.current.setAddCommunities
+          - cm_update_set_rule_policy.current.setAsPath | length == nm_update_set_rule_policy.current.setAsPath | length == 1
+          - cm_update_set_rule_policy.current.setAsPath.0.asnCount == nm_update_set_rule_policy.current.setAsPath.0.asnCount == 9
+          - cm_update_set_rule_policy.current.setAsPath.0.criteria == nm_update_set_rule_policy.current.setAsPath.0.criteria == "prepend-last-as"
+          - cm_update_set_rule_policy.previous.setAsPath == nm_update_set_rule_policy.previous.setAsPath == nm_set_rule_policy.current.setAsPath
+          - cm_update_set_rule_policy.current.uuid == nm_update_set_rule_policy.current.uuid
+          - cm_update_set_rule_policy.proposed.name == nm_update_set_rule_policy.proposed.name == "ansible_set_rule_policy"
+          - cm_update_set_rule_policy.proposed.description == nm_update_set_rule_policy.proposed.description == "Test Ansible Set Rule Policy Updated"
+          - cm_update_set_rule_policy.proposed.setPreference == nm_update_set_rule_policy.proposed.setPreference == 220
+          - cm_update_set_rule_policy.proposed.setMetricType == nm_update_set_rule_policy.proposed.setMetricType == "ospf-type1"
+          - cm_update_set_rule_policy.proposed.setMetric == nm_update_set_rule_policy.proposed.setMetric == 110
+          - cm_update_set_rule_policy.proposed.setNextHop == nm_update_set_rule_policy.proposed.setNextHop == "aa::"
+          - cm_update_set_rule_policy.proposed.setDampening == nm_update_set_rule_policy.proposed.setDampening == nm_set_rule_policy.proposed.setDampening
+          - cm_update_set_rule_policy.proposed.setAddCommunities == nm_update_set_rule_policy.proposed.setAddCommunities == nm_set_rule_policy.proposed.setAddCommunities
+          - cm_update_set_rule_policy.proposed.setAsPath | length == nm_update_set_rule_policy.proposed.setAsPath | length == 1
+          - cm_update_set_rule_policy.proposed.setAsPath.0.asnCount == nm_update_set_rule_policy.proposed.setAsPath.0.asnCount == 9
+          - cm_update_set_rule_policy.proposed.setAsPath.0.criteria == nm_update_set_rule_policy.proposed.setAsPath.0.criteria == "prepend-last-as"
+          - nm_update_set_rule_policy_again is not changed
+          - nm_update_set_rule_policy_again.previous == nm_update_set_rule_policy_again.current == nm_update_set_rule_policy.current
+          - nm_update_set_rule_policy_name is changed
+          - nm_update_set_rule_policy_name.previous.name == "ansible_set_rule_policy"
+          - nm_update_set_rule_policy_name.current.name == "ansible_set_rule_policy_1"
+          - nm_update_set_rule_policy_remove_all is changed
+          - nm_update_set_rule_policy_remove_all.previous == nm_update_set_rule_policy_again.current
+          - nm_update_set_rule_policy_remove_all.current | length == 5
+          - nm_update_set_rule_policy_remove_all.current.description == "Test Ansible Set Rule Policy Updated"
+          - nm_update_set_rule_policy_remove_all.current.name == "ansible_set_rule_policy"
+          - nm_update_set_rule_policy_remove_all.current.templateId == create_tenant_template.current.templateId
+          - nm_update_set_rule_policy_remove_all.current.templateName == create_tenant_template.current.displayName
+          - nm_update_set_rule_policy_remove_all.current.uuid == nm_set_rule_policy.current.uuid
+
+    # QUERY
+    - name: Create another Set Rule Policy
+      cisco.mso.ndo_set_rule_policy:
+        <<: *add_set_rule_policy
+        name: ansible_set_rule_policy_2
+      register: nm_set_rule_policy_2
+
+    - name: Query one Set Rule Policy by name
+      cisco.mso.ndo_set_rule_policy:
+        <<: *mso_info
+        name: ansible_set_rule_policy_2
+        template: ansible_tenant_template
+        state: query
+      register: query_name
+
+    - name: Query one Set Rule Policy by UUID
+      cisco.mso.ndo_set_rule_policy:
+        <<: *mso_info
+        uuid: '{{ nm_set_rule_policy.current.uuid }}'
+        template: ansible_tenant_template
+        state: query
+      register: query_uuid
+
+    - name: Query all Set Rule Policies
+      cisco.mso.ndo_set_rule_policy: &query_all_set_rule_policies
+        <<: *mso_info
+        template: ansible_tenant_template
+        state: query
+      register: query_all
+
+    - name: Assert Set Rule Policy is queried
+      ansible.builtin.assert:
+        that:
+          - query_name is not changed
+          - query_uuid is not changed
+          - query_all is not changed
+          - query_name.current == nm_set_rule_policy_2.current
+          - query_uuid.current == nm_update_set_rule_policy_name.current
+          - query_all.current | length == 2
+          - query_all.current[0].name == "ansible_set_rule_policy_1"
+          - query_all.current[1].name == "ansible_set_rule_policy_2"
+
+    # DELETE
+    - name: Delete Set Rule Policy (check mode)
+      cisco.mso.ndo_set_rule_policy: &delete_set_rule_policy
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_set_rule_policy_1
+        state: absent
+      check_mode: true
+      register: cm_delete_set_rule_policy
+
+    - name: Delete Set Rule Policy
+      cisco.mso.ndo_set_rule_policy:
+        <<: *delete_set_rule_policy
+      register: nm_delete_set_rule_policy
+
+    - name: Delete Set Rule Policy
+      cisco.mso.ndo_set_rule_policy:
+        <<: *delete_set_rule_policy
+      register: nm_delete_set_rule_policy_again
+
+    - name: Delete Set Rule Policy with UUID
+      cisco.mso.ndo_set_rule_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        uuid: "{{ nm_set_rule_policy_2.current.uuid }}"
+        state: absent
+      register: nm_delete_set_rule_policy_with_uuid
+
+    - name: Assert Set Rule Policy is deleted
+      ansible.builtin.assert:
+        that:
+          - cm_delete_set_rule_policy is changed
+          - nm_delete_set_rule_policy is changed
+          - cm_delete_set_rule_policy.current == nm_delete_set_rule_policy.current == {}
+          - cm_delete_set_rule_policy.previous == nm_delete_set_rule_policy.previous
+          - cm_delete_set_rule_policy.previous.name == nm_delete_set_rule_policy.previous.name == "ansible_set_rule_policy_1"
+          - cm_delete_set_rule_policy.previous.uuid is defined
+          - nm_delete_set_rule_policy_again is not changed
+          - nm_delete_set_rule_policy_again.previous == nm_delete_set_rule_policy_again.current == {}
+          - nm_delete_set_rule_policy_again.current.uuid is not defined
+          - nm_delete_set_rule_policy_with_uuid is changed
+          - nm_delete_set_rule_policy_with_uuid.current == {}
+          - nm_delete_set_rule_policy_with_uuid.previous.name == "ansible_set_rule_policy_2"
+
+    # NO POLICIES
+    - name: Query all Set Rule Policies in the template when all are deleted
+      cisco.mso.ndo_set_rule_policy:
+        <<: *query_all_set_rule_policies
+      register: query_all_none
+
+    - name: Update Set Rule Policy with non-existing UUID
+      cisco.mso.ndo_set_rule_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        uuid: non-existing-uuid
+        state: present
+      ignore_errors: true
+      register: update_non_existing_uuid
+
+    - name: Assert no Set Rule Policy found
+      assert:
+        that:
+          - query_all_none is not changed
+          - query_all_none.current == []
+          - update_non_existing_uuid is failed
+          - update_non_existing_uuid.msg == "Set Rule Policy with the UUID{{ ":" }} 'non-existing-uuid' not found"
+
+  always:
+    # CLEANUP
+    - name: Ensure tenant template does not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

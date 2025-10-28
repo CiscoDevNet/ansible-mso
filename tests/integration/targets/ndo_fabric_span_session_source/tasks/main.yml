@@ -41,7 +41,7 @@
     - name: Ensure Tenant exist for the APIC L3Out configuration
       cisco.mso.mso_tenant:
         <<: *mso_info
-        tenant: apic_ansible_test_tenant
+        tenant: apic_ansible_test
         users:
           - "{{ mso_username }}"
         sites:
@@ -50,7 +50,6 @@
 
     - name: Set ansible_network_os to cisco.aci.aci and ansible_connection to local
       ansible.builtin.set_fact:
-        ansible_connection: local
         ansible_network_os: cisco.aci.aci
 
     - name: Reset the ansible_connection to access the APIC
@@ -59,7 +58,7 @@
     - name: Add vrf directly on the APIC tenant
       cisco.aci.aci_vrf:
         <<: *aci_info
-        tenant: apic_ansible_test_tenant
+        tenant: apic_ansible_test
         name: apic_vrf
         state: present
       delegate_to: localhost
@@ -74,7 +73,7 @@
     - name: Add L3Out directly on the APIC tenant
       cisco.aci.aci_l3out:
         <<: *aci_info
-        tenant: apic_ansible_test_tenant
+        tenant: apic_ansible_test
         name: apic_l3out
         domain: apic_l3_domain
         vrf: apic_vrf
@@ -83,7 +82,7 @@
     - name: Add logical node profile directly on the APIC tenant
       cisco.aci.aci_l3out_logical_node_profile:
         <<: *aci_info
-        tenant: apic_ansible_test_tenant
+        tenant: apic_ansible_test
         l3out: apic_l3out
         node_profile: apic_l3out_node_profile
         state: present
@@ -91,7 +90,7 @@
     - name: Add logical node directly on the APIC tenant
       cisco.aci.aci_l3out_logical_node:
         <<: *aci_info
-        tenant: apic_ansible_test_tenant
+        tenant: apic_ansible_test
         l3out: apic_l3out
         node_profile: apic_l3out_node_profile
         pod_id: 1
@@ -103,7 +102,7 @@
     - name: Add logical interface profile directly on the APIC tenant
       cisco.aci.aci_l3out_logical_interface_profile:
         <<: *aci_info
-        tenant: apic_ansible_test_tenant
+        tenant: apic_ansible_test
         l3out: apic_l3out
         node_profile: apic_l3out_node_profile
         interface_profile: apic_l3out_interface_profile
@@ -112,7 +111,7 @@
     - name: Add logical interface directly on the APIC tenant
       cisco.aci.aci_l3out_interface:
         <<: *aci_info
-        tenant: apic_ansible_test_tenant
+        tenant: apic_ansible_test
         l3out: apic_l3out
         node_profile: apic_l3out_node_profile
         interface_profile: apic_l3out_interface_profile
@@ -189,7 +188,7 @@
     - name: Ensure Tenant exist
       cisco.mso.mso_tenant:
         <<: *mso_info
-        tenant: ansible_test_tenant
+        tenant: ansible_test
         users:
           - "{{ mso_username }}"
         sites:
@@ -275,7 +274,7 @@
       cisco.mso.mso_schema_template:
         <<: *mso_info
         schema: ansible_test_schema
-        tenant: ansible_test_tenant
+        tenant: ansible_test
         template: template1
         state: present
       register: add_schema_template1
@@ -320,7 +319,7 @@
     - name: Ensure L3Out template exist
       cisco.mso.ndo_template:
         <<: *rm_l3out_template
-        tenant: ansible_test_tenant
+        tenant: ansible_test
         sites:
           - name: "{{ mso_site | default('ansible_test') }}"
         state: present
@@ -967,7 +966,7 @@
           vlan_id: 24
           reference:
             name: apic_l3out
-            tenant: apic_ansible_test_tenant
+            tenant: apic_ansible_test
         state: present
       register: add_filter_l3out_ansible_test_source_1_tenant
       ignore_errors: true
@@ -1270,7 +1269,7 @@
           - add_filter_l3out_ansible_test_source_1_tenant.current.accessPaths.0.accessInterfaces.0.portType == "leaf"
           - add_filter_l3out_ansible_test_source_1_tenant.current.accessPaths.0.accessInterfaces.0.uuid is defined
           - add_filter_l3out_ansible_test_source_1_tenant.current.direction == "outgoing"
-          - add_filter_l3out_ansible_test_source_1_tenant.current.l3out.dn == "uni/tn-apic_ansible_test_tenant/out-apic_l3out"
+          - add_filter_l3out_ansible_test_source_1_tenant.current.l3out.dn == "uni/tn-apic_ansible_test/out-apic_l3out"
           - add_filter_l3out_ansible_test_source_1_tenant.current.l3out.encapType == "vlan"
           - add_filter_l3out_ansible_test_source_1_tenant.current.l3out.encapValue == 24
           - add_filter_l3out_ansible_test_source_1_tenant.current.name == "ansible_test_source_1"
@@ -1330,7 +1329,7 @@
           - rm_ansible_test_source_1_filter_l3out.previous.accessPaths.0.accessInterfaces.0.portType == "leaf"
           - rm_ansible_test_source_1_filter_l3out.previous.accessPaths.0.accessInterfaces.0.uuid is defined
           - rm_ansible_test_source_1_filter_l3out.previous.direction == "outgoing"
-          - rm_ansible_test_source_1_filter_l3out.previous.l3out.dn == "uni/tn-apic_ansible_test_tenant/out-apic_l3out"
+          - rm_ansible_test_source_1_filter_l3out.previous.l3out.dn == "uni/tn-apic_ansible_test/out-apic_l3out"
           - rm_ansible_test_source_1_filter_l3out.previous.l3out.encapType == "vlan"
           - rm_ansible_test_source_1_filter_l3out.previous.l3out.encapValue == 24
           - rm_ansible_test_source_1_filter_l3out.previous.name == "ansible_test_source_1"
@@ -1667,20 +1666,33 @@
       register: nt_incomplete_l3out_3
       ignore_errors: true
 
+    - name: Set error messages for SPAN Session sources with invalid and incomplete configuration
+      ansible.builtin.set_fact:
+        error_message_multiple_access_paths: "MSO Error 400:.+SPAN session ansible_test_span_session: source ansible_test_source_6: only 1 Access Path must be present if an L3Out filter is selected.+"
+        error_message_empty_pc_config: "Access path 1: when the access_path_type='port_channel', either 'uuid', or both 'name' and 'template', or both 'name' and 'template_id' must be provided."
+        error_message_span_drop_packets: "MSO Error 400:.+SPAN session ansible_test_span_session: source ansible_test_source_2: invalid access span source - source ansible_test_source_2 has Span Drop Packets enabled but also has EPG filter.+"
+        error_message_incomplete_port: "Access path 1: when the access_path_type='port', either 'uuid' or both 'node' and 'interface' must be provided."
+        error_message_incomplete_pc: "Access path 1: when the access_path_type='port_channel', either 'uuid', or both 'name' and 'template', or both 'name' and 'template_id' must be provided."
+        error_message_incomplete_vpc: "Access path 1: when the access_path_type 'virtual_port_channel', either 'uuid', or both 'name' and 'template', or both 'name' and 'template_id' must be provided."
+        error_message_incomplete_vpc_pc: "Access path 1: when the access_path_type 'vpc_component_pc', either both 'uuid' and 'node', or all of 'name', 'template', and 'node', or all of 'name', 'template_id', and 'node' must be provided."
+        error_message_ansible_test_source_4_vpc_com_pc: "MSO Error 400: .+span: ansible_test_span_session, source ansible_test_source_4: combination of access paths and L3Out is not correct, no common VLAN.+"
+        error_message_incomplete_l3out_1: "missing parameter(s) required by 'uuid': vlan_id found in filter_l3out"
+        error_message_incomplete_l3out_2: "missing parameter(s) required by 'reference': vlan_id found in filter_l3out"
+
     - name: Assertion check for negative test for the SPAN Session sources with invalid and incomplete configuration
       ansible.builtin.assert:
         that:
           - nt_l3out_with_multiple_access_paths is not changed
           - nt_l3out_with_multiple_access_paths.current == {}
-          - nt_l3out_with_multiple_access_paths.msg is match("MSO Error 400{{':'}}.+SPAN session ansible_test_span_session{{':'}} source ansible_test_source_6{{':'}} only 1 Access Path must be present if an L3Out filter is selected.+")
+          - nt_l3out_with_multiple_access_paths.msg is match(error_message_multiple_access_paths)
           - nt_l3out_with_multiple_access_paths.previous == {}
           - nt_access_path_with_invalid_config is not changed
-          - nt_access_path_with_invalid_config.msg == "parameters are mutually exclusive{{':'}} template|template_id found in access_paths"
+          - 'nt_access_path_with_invalid_config.msg == "parameters are mutually exclusive: template|template_id found in access_paths"'
           - nt_access_path_with_invalid_pc_config is not changed
-          - nt_access_path_with_invalid_pc_config.msg == "parameters are mutually exclusive{{':'}} uuid|interface|name found in access_paths"
+          - 'nt_access_path_with_invalid_pc_config.msg == "parameters are mutually exclusive: uuid|interface|name found in access_paths"'
           - nt_access_path_with_empty_pc_config is not changed
           - nt_access_path_with_empty_pc_config.current == {}
-          - nt_access_path_with_empty_pc_config.msg == "Access path 1{{':'}} when the access_path_type='port_channel', either 'uuid', or both 'name' and 'template', or both 'name' and 'template_id' must be provided."
+          - nt_access_path_with_empty_pc_config.msg == error_message_empty_pc_config
           - nt_epg_with_span_drop_packets is not changed
           - nt_epg_with_span_drop_packets.current.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/6]"
           - nt_epg_with_span_drop_packets.current.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
@@ -1692,7 +1704,7 @@
           - nt_epg_with_span_drop_packets.current.name == "ansible_test_source_2"
           - nt_epg_with_span_drop_packets.current.spanDropPackets == true
           - nt_epg_with_span_drop_packets.current.templateName == "ansible_test_mon_pol"
-          - nt_epg_with_span_drop_packets.msg is match("MSO Error 400{{':'}}.+SPAN session ansible_test_span_session{{':'}} source ansible_test_source_2{{':'}} invalid access span source - source ansible_test_source_2 has Span Drop Packets enabled but also has EPG filter.+")
+          - nt_epg_with_span_drop_packets.msg is match(error_message_span_drop_packets)
           - nt_epg_with_span_drop_packets.previous.accessPaths.0.accessInterfaces.0.dn == "topology/pod-1/paths-101/pathep-[eth1/6]"
           - nt_epg_with_span_drop_packets.previous.accessPaths.1.portChannels.0.portChannelName == "ansible_test_pc1"
           - nt_epg_with_span_drop_packets.previous.accessPaths.2.virtualPortChannels.0.virtualPortChannelName == "ansible_test_vpc1"
@@ -1704,29 +1716,29 @@
           - nt_epg_with_span_drop_packets.previous.spanDropPackets == true
           - nt_epg_with_span_drop_packets.previous.templateName == "ansible_test_mon_pol"
           - nt_add_filter_epg_and_l3out is not changed
-          - nt_add_filter_epg_and_l3out.msg == "parameters are mutually exclusive{{':'}} filter_epg|filter_l3out"
+          - 'nt_add_filter_epg_and_l3out.msg == "parameters are mutually exclusive: filter_epg|filter_l3out"'
           - nt_duplicate_access_paths is not changed
           - nt_duplicate_access_paths.msg is match("Remove duplicate entries from the access_paths.+")
           - nt_incomplete_port is not changed
           - nt_incomplete_port.current == {}
-          - nt_incomplete_port.msg == "Access path 1{{':'}} when the access_path_type='port', either 'uuid' or both 'node' and 'interface' must be provided."
+          - nt_incomplete_port.msg == error_message_incomplete_port
           - nt_incomplete_pc is not changed
           - nt_incomplete_pc.current == {}
-          - nt_incomplete_pc.msg == "Access path 1{{':'}} when the access_path_type='port_channel', either 'uuid', or both 'name' and 'template', or both 'name' and 'template_id' must be provided."
+          - nt_incomplete_pc.msg == error_message_incomplete_pc
           - nt_incomplete_vpc is not changed
           - nt_incomplete_vpc.current == {}
-          - nt_incomplete_vpc.msg == "Access path 1{{':'}} when the access_path_type 'virtual_port_channel', either 'uuid', or both 'name' and 'template', or both 'name' and 'template_id' must be provided."
+          - nt_incomplete_vpc.msg == error_message_incomplete_vpc
           - nt_incomplete_vpc_pc is not changed
           - nt_incomplete_vpc_pc.current == {}
-          - nt_incomplete_vpc_pc.msg == "Access path 1{{':'}} when the access_path_type 'vpc_component_pc', either both 'uuid' and 'node', or all of 'name', 'template', and 'node', or all of 'name', 'template_id', and 'node' must be provided."
+          - nt_incomplete_vpc_pc.msg == error_message_incomplete_vpc_pc
           - nt_incomplete_l3out_1 is not changed
-          - nt_incomplete_l3out_1.msg == "missing parameter(s) required by 'uuid'{{':'}} vlan_id found in filter_l3out"
+          - nt_incomplete_l3out_1.msg == error_message_incomplete_l3out_1
           - nt_incomplete_l3out_2 is not changed
-          - nt_incomplete_l3out_2.msg == "missing parameter(s) required by 'reference'{{':'}} vlan_id found in filter_l3out"
+          - nt_incomplete_l3out_2.msg == error_message_incomplete_l3out_2
           - nt_incomplete_l3out_3 is not changed
-          - nt_incomplete_l3out_3.msg == "one of the following is required{{':'}} tenant, template, template_id found in filter_l3out -> reference"
+          - 'nt_incomplete_l3out_3.msg == "one of the following is required: tenant, template, template_id found in filter_l3out -> reference"'
           - nt_ansible_test_source_4_vpc_com_pc is not changed
-          - nt_ansible_test_source_4_vpc_com_pc.msg is match("MSO Error 400{{':'}} .+span{{':'}} ansible_test_span_session, source ansible_test_source_4{{':'}} combination of access paths and L3Out is not correct, no common VLAN.+")
+          - nt_ansible_test_source_4_vpc_com_pc.msg is match(error_message_ansible_test_source_4_vpc_com_pc)
 
     # DELETE
     - name: Delete SPAN Session source (check mode)
@@ -1818,13 +1830,12 @@
     - name: Ensure Tenant does not exist
       cisco.mso.mso_tenant:
         <<: *mso_info
-        tenant: apic_ansible_test_tenant
+        tenant: apic_ansible_test
         orchestrator_only: no # To delete tenant from both MSO and APIC
         state: absent
 
     - name: Set ansible_network_os to cisco.aci.aci and ansible_connection to local
       ansible.builtin.set_fact:
-        ansible_connection: local
         ansible_network_os: cisco.aci.aci
 
     - name: Reset the ansible_connection to access the APIC

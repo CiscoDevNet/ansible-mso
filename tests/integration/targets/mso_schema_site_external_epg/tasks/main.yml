@@ -19,22 +19,13 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
-
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure site exists
   cisco.mso.mso_site:
@@ -44,61 +35,18 @@
     apic_password: '{{ apic_password }}'
     apic_site_id: '{{ apic_site_id | default(101) }}'
     urls:
-    - https://{{ apic_hostname }}
+      - https://{{ apic_hostname }}
     state: present
 
-- name: Query ansible_test tenant
-  cisco.mso.mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test
-    state: query
-  register: query_tenant
-
-- name: Ensure sites removed from tenant ansible_test
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: absent
-  when: query_tenant.current != {} and query_tenant.current.name == "ansible_test"
-
-- name: Ensure tenant ansible_test exist
+- name: Ensure tenant ansible_test exists
   cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
-    - '{{ mso_username }}'
+      - '{{ mso_username }}'
     sites:
-    - '{{ mso_site | default("ansible_test") }}'
+      - '{{ mso_site | default("ansible_test") }}'
     state: present
-  ignore_errors: true
-
-- name: Associate site with ansible_test
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: present
-  register: add_ncs
-
-- name: Verify add_ncs
-  ansible.builtin.assert:
-    that:
-    - add_ncs is not changed
-
-- name: Remove a site from a schema with Template1 and Template2
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: '{{ item }}'
-    state: absent
-  ignore_errors: true
-  loop:
-  - Template4
-  - Template3
-  - Template2
-  - Template1
 
 - name: Remove schemas
   cisco.mso.mso_schema:
@@ -802,7 +750,7 @@
       that:
       - cm_non_existing_state is not changed
       - nm_non_existing_state is not changed
-      - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non_existing_state"
+      - 'cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non_existing_state"'
 
   # USE A NON_EXISTING_TEMPLATE
   - name: non_existing_template (check_mode)
@@ -830,12 +778,16 @@
     ignore_errors: true
     register: nm_non_existing_template
 
+  - name: Set error message for non_existing_template
+    ansible.builtin.set_fact:
+      error_message_non_existing_template: "Provided template 'non_existing_template' not matching existing template(s): Template1, Template2, Template3, Template4"
+
   - name: Verify cm_non_existing_template and nm_non_existing_template
     ansible.builtin.assert:
       that:
       - cm_non_existing_template is not changed
       - nm_non_existing_template is not changed
-      - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non_existing_template' not matching existing template(s){{':'}} Template1, Template2, Template3, Template4"
+      - cm_non_existing_template.msg == nm_non_existing_template.msg == error_message_non_existing_template
 
   # USE A NON_EXISTING_SCHEMA
   - name: non_existing_schema (check_mode)
@@ -929,12 +881,16 @@
     ignore_errors: true
     register: nm_non_existing_site_template
 
+  - name: Set error message for non_existing_site_template
+    ansible.builtin.set_fact:
+      error_message_non_existing_site_template: "Provided site 'ansible_test' not associated with template 'Template4'. Site is currently associated with template(s): Template1, Template2, Template3"
+
   - name: Verify cm_non_existing_site_template and nm_non_existing_site_template
     ansible.builtin.assert:
       that:
       - cm_non_existing_site_template is not changed
       - nm_non_existing_site_template is not changed
-      - cm_non_existing_site_template.msg == nm_non_existing_site_template.msg == "Provided site 'ansible_test' not associated with template 'Template4'. Site is currently associated with template(s){{':'}} Template1, Template2, Template3"
+      - cm_non_existing_site_template.msg == nm_non_existing_site_template.msg == error_message_non_existing_site_template
 
   # USE A TEMPLATE WITHOUT ANY SITE
   - name: Add site External EPG to Schema Template4 without any site associated (check mode)
@@ -962,9 +918,13 @@
     ignore_errors: true
     register: nm_no_site_associated
 
+  - name: Set error message for no_site_associated
+    ansible.builtin.set_fact:
+      error_message_no_site_associated: "Provided site 'ansible_test' not associated with template 'Template4'. Site is currently associated with template(s): Template1, Template2, Template3"
+
   - name: Verify cm_no_site_associated and nm_no_site_associated
     ansible.builtin.assert:
       that:
       - cm_no_site_associated is not changed
       - nm_no_site_associated is not changed
-      - cm_no_site_associated.msg == nm_no_site_associated.msg == "Provided site 'ansible_test' not associated with template 'Template4'. Site is currently associated with template(s){{':'}} Template1, Template2, Template3"
+      - cm_no_site_associated.msg == nm_no_site_associated.msg == error_message_no_site_associated

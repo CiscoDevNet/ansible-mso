@@ -397,11 +397,15 @@
       ignore_errors: true
       register: create_physical_interface_without_nodes
 
+    - name: Set error message for create_physical_interface_without_nodes
+      ansible.builtin.set_fact:
+        error_message_create_physical_interface_without_nodes: "ERROR: Missing 'nodes' for creating a Physical Interface."
+
     - name: Assert creating Physical Interface with invalid attributes
       ansible.builtin.assert:
         that:
           - create_physical_interface_without_nodes is failed
-          - create_physical_interface_without_nodes.msg == "ERROR{{':'}} Missing 'nodes' for creating a Physical Interface."
+          - create_physical_interface_without_nodes.msg == error_message_create_physical_interface_without_nodes
 
     - name: Create Physical Interface without_interface_type
       cisco.mso.ndo_physical_interface:
@@ -414,11 +418,15 @@
       ignore_errors: true
       register: create_physical_interface_without_interface_type
 
+    - name: Set error message for create_physical_interface_without_interface_type
+      ansible.builtin.set_fact:
+        error_message_create_physical_interface_without_interface_type: "ERROR: Missing Physical Interface type for creating a Physical Interface."
+
     - name: Assert creating Physical Interface with invalid attributes
       ansible.builtin.assert:
         that:
           - create_physical_interface_without_interface_type is failed
-          - create_physical_interface_without_interface_type.msg == "ERROR{{':'}} Missing Physical Interface type for creating a Physical Interface."
+          - create_physical_interface_without_interface_type.msg == error_message_create_physical_interface_without_interface_type
 
     # Update errors
     - name: Update interfaces without updating the Physical Interface type
@@ -428,11 +436,15 @@
       ignore_errors: true
       register: create_physical_interface_invalid_type
 
+    - name: Set error message for create_physical_interface_invalid_type
+      ansible.builtin.set_fact:
+        error_message_create_physical_interface_invalid_type: "ERROR: Physical Interface type cannot be changed."
+
     - name: Assert updating interfaces without updating the Physical Interface type
       ansible.builtin.assert:
         that:
           - create_physical_interface_invalid_type is failed
-          - create_physical_interface_invalid_type.msg == "ERROR{{':'}} Physical Interface type cannot be changed."
+          - create_physical_interface_invalid_type.msg == error_message_create_physical_interface_invalid_type
 
     # DELETE
     - name: Delete Physical Interface of type 'physical' (check mode)
@@ -506,6 +518,10 @@
       ignore_errors: true
       register: update_non_existing_uuid
 
+    - name: Set error message for non_existing_uuid
+      ansible.builtin.set_fact:
+        error_message_non_existing_uuid: "Physical Interface Profile with the UUID: 'non-existing-uuid' not found"
+
     - name: Assert no Physical Interface found
       assert:
         that:
@@ -516,7 +532,7 @@
           - query_all_none is not changed
           - query_all_none.current == []
           - update_non_existing_uuid is failed
-          - update_non_existing_uuid.msg == "Physical Interface Profile with the UUID{{":"}} 'non-existing-uuid' not found"
+          - update_non_existing_uuid.msg == error_message_non_existing_uuid
 
     # CLEANUP TEMPLATE
 

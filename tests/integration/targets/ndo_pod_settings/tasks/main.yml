@@ -325,11 +325,11 @@
       ansible.builtin.assert:
         that:
           - err_mutually_exclusive_template is failed
-          - err_mutually_exclusive_template.msg == "parameters are mutually exclusive{{':'}} template|template_id"
+          - 'err_mutually_exclusive_template.msg == "parameters are mutually exclusive: template|template_id"'
           - err_mutually_exclusive_macsec_policy is failed
-          - err_mutually_exclusive_macsec_policy.msg == "parameters are mutually exclusive{{':'}} macsec_policy|macsec_policy_uuid"
+          - 'err_mutually_exclusive_macsec_policy.msg == "parameters are mutually exclusive: macsec_policy|macsec_policy_uuid"'
           - err_mutually_exclusive_ntp_policy is failed
-          - err_mutually_exclusive_ntp_policy.msg == "parameters are mutually exclusive{{':'}} ntp_policy|ntp_policy_uuid"
+          - 'err_mutually_exclusive_ntp_policy.msg == "parameters are mutually exclusive: ntp_policy|ntp_policy_uuid"'
 
     - name: Pod Settings with invalid MACsec policy (error)
       cisco.mso.ndo_pod_settings:
@@ -360,14 +360,19 @@
         ntp_policy_uuid: invalid_ntp_policy_uuid
       register: err_invalid_ntp_policy_uuid
       ignore_errors: true
-    
+
+    - name: Set error messages for Pod Settings errors
+      ansible.builtin.set_fact:
+        error_message_invalid_macsec_policy: "Provided MACsec Policy with '[KVPair(key='name', value='invalid_macsec_policy')]' not matching existing object(s): macsec_policy_1, macsec_policy_2"
+        error_message_invalid_ntp_policy: "Provided NTP Policy with '[KVPair(key='name', value='invalid_ntp_policy')]' not matching existing object(s): ntp_policy_1, ntp_policy_2"
+
     - name: Assert Pod Settings error handling
       ansible.builtin.assert:
         that:
           - err_invalid_macsec_policy is failed
-          - err_invalid_macsec_policy.msg == "Provided MACsec Policy with '[KVPair(key='name', value='invalid_macsec_policy')]' not matching existing object(s){{':'}} macsec_policy_1, macsec_policy_2"
+          - err_invalid_macsec_policy.msg == error_message_invalid_macsec_policy
           - err_invalid_ntp_policy is failed
-          - err_invalid_ntp_policy.msg == "Provided NTP Policy with '[KVPair(key='name', value='invalid_ntp_policy')]' not matching existing object(s){{':'}} ntp_policy_1, ntp_policy_2"
+          - err_invalid_ntp_policy.msg == error_message_invalid_ntp_policy
           - err_invalid_macsec_policy_uuid is failed
           - err_invalid_macsec_policy_uuid.msg.startswith("Provided MACsec Policy with '[KVPair(key='uuid'")
           - err_invalid_ntp_policy_uuid is failed

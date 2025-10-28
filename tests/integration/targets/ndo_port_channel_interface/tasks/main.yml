@@ -18,7 +18,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -442,13 +442,17 @@
       ignore_errors: true
       register: nm_create_without_existing_policy
 
+    - name: Set error message for creation without existing policy
+      ansible.builtin.set_fact:
+        error_message_without_existing_policy: "Provided Interface Settings with '[KVPair(key='name', value='ansible_test_interface_policy_group_port_channel'), KVPair(key='templateName', value='ansible_fabric_policy_template')]' not matching existing object(s): ansible_test_interface_policy_group_port_channel_2, ansible_fabric_policy_template"
+
     - name: Assert port channel interface errors tasks
       assert:
         that:
           - nm_create_missing_node.msg == "Missing parameter 'node' for creating a Port Channel Interface"
           - nm_create_invalid_range.msg == "Range start is greater than or equal to range stop for range of IDs '1/2-1'"
           - nm_create_invalid_id.msg == "Incorrect interface ID or range of IDs. Got 'invalid_id'"
-          - nm_create_without_existing_policy.msg == "Provided Interface Policy Groups with '[KVPair(key='name', value='ansible_test_interface_policy_group_port_channel')]' not matching existing object(s): ansible_test_interface_policy_group_port_channel_2"
+          - nm_create_without_existing_policy.msg == error_message_without_existing_policy
 
     # DELETE
 
@@ -509,13 +513,17 @@
       ignore_errors: true
       register: update_non_existing_uuid
 
+    - name: Set error message for non_existing_uuid
+      ansible.builtin.set_fact:
+        error_message_non_existing_uuid: "Port Channel Interface with the UUID: 'non-existing-uuid' not found"
+
     - name: Assert no Port Channel Interface found
       assert:
         that:
           - query_all_none is not changed
           - query_all_none.current == {}
           - update_non_existing_uuid is failed
-          - update_non_existing_uuid.msg == "Port Channel Interface with the UUID{{":"}} 'non-existing-uuid' not found"
+          - update_non_existing_uuid.msg == error_message_non_existing_uuid
 
     # CLEANUP TEMPLATE
 

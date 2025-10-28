@@ -329,11 +329,11 @@
       ansible.builtin.assert:
         that:
           - err_mutually_exclusive_template is failed
-          - err_mutually_exclusive_template.msg == "parameters are mutually exclusive{{':'}} template|template_id"
+          - 'err_mutually_exclusive_template.msg == "parameters are mutually exclusive: template|template_id"'
           - err_mutually_exclusive_pod_settings is failed
-          - err_mutually_exclusive_pod_settings.msg == "parameters are mutually exclusive{{':'}} pod_settings|pod_settings_uuid"
+          - 'err_mutually_exclusive_pod_settings.msg == "parameters are mutually exclusive: pod_settings|pod_settings_uuid"'
           - err_mutually_exclusive_pod_settings_template is failed
-          - err_mutually_exclusive_pod_settings_template.msg == "parameters are mutually exclusive{{':'}} template|template_id found in pod_settings"
+          - 'err_mutually_exclusive_pod_settings_template.msg == "parameters are mutually exclusive: template|template_id found in pod_settings"'
     
     - name: Pod Profile with required if parameters pod_settings and pod_settings_uuid missing (error)
       cisco.mso.ndo_pod_profile:
@@ -376,17 +376,22 @@
       register: err_invalid_pod_settings_uuid
       ignore_errors: true
 
+    - name: Set error messages for Pod Settings errors
+      ansible.builtin.set_fact:
+        error_message_invalid_pod_settings_template: "Provided Pod Settings with '[KVPair(key='name', value='ansible_pod_settings_2')]' not matching existing object(s): ansible_pod_settings_1"
+        error_message_invalid_pod_settings_uuid: "MSO Error 400: {\"errors\":[\"Error validating pod policy group reference: invalid_uuid\"]}"
+
     - name: Assert Pod Settings error handling
       ansible.builtin.assert:
         that:
           - err_required_parameters_missing_pod_settings is failed
-          - err_required_parameters_missing_pod_settings.msg == "missing required arguments{{':'}} name found in pod_settings"
+          - 'err_required_parameters_missing_pod_settings.msg == "missing required arguments: name found in pod_settings"'
           - err_required_parameters_missing_pod_settings_template is failed
-          - err_required_parameters_missing_pod_settings_template.msg == "one of the following is required{{':'}} template, template_id found in pod_settings"
+          - 'err_required_parameters_missing_pod_settings_template.msg == "one of the following is required: template, template_id found in pod_settings"'
           - err_invalid_pod_settings_with_template is failed
-          - err_invalid_pod_settings_with_template.msg == "Provided Pod Settings with '[KVPair(key='name', value='ansible_pod_settings_2')]' not matching existing object(s){{':'}} ansible_pod_settings_1"
+          - err_invalid_pod_settings_with_template.msg == error_message_invalid_pod_settings_template
           - err_invalid_pod_settings_uuid is failed
-          - err_invalid_pod_settings_uuid.msg == "MSO Error 400{{':'}} {\"errors\"{{':'}}[\"Error validating pod policy group reference{{':'}} invalid_uuid\"]}"
+          - err_invalid_pod_settings_uuid.msg == error_message_invalid_pod_settings_uuid
 
     # DELETE Pod Profile
 

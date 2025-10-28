@@ -18,7 +18,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -501,11 +501,11 @@
           - err_providers_update_empty_list is failed
           - err_providers_update_empty_list.msg == "At least one provider is required when state is present."
           - err_providers_create_no_schema is failed
-          - err_providers_create_no_schema.msg == "missing required arguments{{":"}} schema found in providers"
+          - 'err_providers_create_no_schema.msg == "missing required arguments: schema found in providers"'
           - err_providers_create_no_template is failed
-          - err_providers_create_no_template.msg == "missing required arguments{{":"}} template found in providers"
+          - 'err_providers_create_no_template.msg == "missing required arguments: template found in providers"'
           - err_providers_create_no_ip is failed
-          - err_providers_create_no_ip.msg == "missing required arguments{{":"}} ip found in providers"
+          - 'err_providers_create_no_ip.msg == "missing required arguments: ip found in providers"'
           - err_providers_create_no_epg_or_external_epg is failed
           - err_providers_create_no_epg_or_external_epg.msg == "The epg or external_epg argument is required for each provider."
           - err_providers_create_epg_and_external_epg is failed

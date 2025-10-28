@@ -19,7 +19,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(false) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -36,12 +36,6 @@
   - '{{ mso_schema | default("ansible_test") }}_3'
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
-
-- name: Remove tenant2
-  cisco.mso.mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test_2
-    state: absent
 
 - name: Ensure tenant ansible_test exist
   cisco.mso.mso_tenant:
@@ -259,11 +253,15 @@
   ignore_errors: true
   register: query_non_existing_template
 
+- name: Set error message for query_non_existing_template
+  ansible.builtin.set_fact:
+    error_message_non_existing_template: "Provided template 'non_existing_template' does not exist. Existing templates: Template1, Template2"
+
 - name: Verify query_non_existing_schema and query_non_existing_template
   ansible.builtin.assert:
     that:
     - query_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
-    - query_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1, Template2"
+    - query_non_existing_template.msg == error_message_non_existing_template
 
 - name: Remove anp (check_mode)
   cisco.mso.mso_schema_template_anp:

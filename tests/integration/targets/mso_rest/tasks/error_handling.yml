@@ -20,7 +20,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -58,7 +58,7 @@
     validate_certs: '{{ mso_validate_certs | default(false) }}'
     use_ssl: '{{ mso_use_ssl | default(true) }}'
     use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    output_level: '{{ mso_output_level | default("debug") }}'
     path: /mso/api/v1/tenants
     method: post
     content:
@@ -77,12 +77,20 @@
     that:
     - error_on_name_resolution is failed
 
-- name: Verify error_on_name_resolution
+- name: Verify error_on_name_resolution >= 3.7 and < 4.4
   ansible.builtin.assert:
     that:
     - error_on_name_resolution.msg is search("Name or service not known")
   when: 
     - version.current.version is version('3.7', '>=')
+    - version.current.version is version('4.4', '<')
+
+- name: Verify error_on_name_resolution >= 5.0
+  ansible.builtin.assert:
+    that:
+    - error_on_name_resolution.msg is search("Unable to parse error output as JSON")
+  when: 
+    - version.current.version is version('5.0', '>=')
 
 - name: Error on invalid path
   cisco.mso.mso_rest:
@@ -103,8 +111,18 @@
   ansible.builtin.assert:
     that:
     - error_on_invalid_path is failed
+    - error_on_invalid_path.status == 500
+  when:
+    - version.current.version is version('5.0', '>=')
+
+- name: Verify error_on_invalid_path
+  ansible.builtin.assert:
+    that:
+    - error_on_invalid_path is failed
     - error_on_invalid_path.status == 404
-  when: version.current.version is version('3.0.0a', '<') or version.current.version is version('3.2', '>=')
+  when: 
+    - (version.current.version is version('3.0.0a', '<') or version.current.version is version('3.2', '>='))
+    - version.current.version is version('5.0', '<')
 
 - name: Verify error_on_invalid_path
   ansible.builtin.assert:

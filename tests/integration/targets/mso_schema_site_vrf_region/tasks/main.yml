@@ -13,7 +13,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
     sites: "['aws_{{ mso_site | default(\"ansible_test\") }}',
               'azure_{{ mso_site | default(\"ansible_test\") }}',
               '{{ mso_site | default(\"ansible_test\") }}']"
@@ -558,16 +558,21 @@
     - non_existing_site_template.msg == "Provided site-template association 'aws_ansible_test-Template2' does not exist."
     - non_existing_region.msg == "Region 'non_existing' not found"
 
+- name: Set error message for non_existing_vrf
+  ansible.builtin.set_fact:
+    error_message_non_existing_vrf_below_3_3: "Provided vrf 'non_existing' does not exist. Existing vrfs: VRF1"
+    error_message_non_existing_vrf_above_3_3: "Provided vrf 'non_existing' does not exist. Existing vrfs: VRF1, VRF2"
+
 - name: Verify non_existing  (version < 3.3)
   ansible.builtin.assert:
     that:
-    - non_existing_vrf.msg == "Provided vrf 'non_existing' does not exist. Existing vrfs{{':'}} VRF1"
+    - non_existing_vrf.msg == error_message_non_existing_vrf_below_3_3
   when: version.current.version is version('3.3', '<')
 
 - name: Verify non_existing (version >= 3.3)
   ansible.builtin.assert:
     that:
-    - non_existing_vrf.msg == "Provided vrf 'non_existing' does not exist. Existing vrfs{{':'}} VRF1, VRF2"
+    - non_existing_vrf.msg == error_message_non_existing_vrf_above_3_3
   when: version.current.version is version('3.3', '>=')
 
 - name: Delete non_existing region

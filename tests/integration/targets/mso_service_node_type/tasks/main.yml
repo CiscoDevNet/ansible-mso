@@ -19,7 +19,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(false) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Remove existing nodes added during test
   cisco.mso.mso_service_node_type:
@@ -27,13 +27,13 @@
     name: '{{ item }}'
     state: absent
   loop:
-  - TEST1
-  - TEST2
+  - ansible_test_other1
+  - ansible_test_other2
 
 - name: Add a new node type (check_mode)
   cisco.mso.mso_service_node_type:
     <<: *mso_info
-    name: TEST1
+    name: ansible_test_other1
     display_name: test
     state: present
   register: node_cm
@@ -44,12 +44,12 @@
     that:
     - node_cm is changed
     - node_cm.current.displayName == "test"
-    - node_cm.current.name == "TEST1"
+    - node_cm.current.name == "ansible_test_other1"
 
 - name: Add a new node type (normal mode)
   cisco.mso.mso_service_node_type:
     <<: *mso_info
-    name: TEST1
+    name: ansible_test_other1
     display_name: test
     state: present
   register: node1
@@ -59,12 +59,12 @@
     that:
     - node1 is changed
     - node1.current.displayName == "test"
-    - node1.current.name == "TEST1"
+    - node1.current.name == "ansible_test_other1"
 
 - name: Add another node type
   cisco.mso.mso_service_node_type:
     <<: *mso_info
-    name: TEST2
+    name: ansible_test_other2
     state: present
   register: node2
 
@@ -72,13 +72,13 @@
   ansible.builtin.assert:
     that:
     - node2 is changed
-    - node2.current.displayName == "TEST2"
-    - node2.current.name == "TEST2"
+    - node2.current.displayName == "ansible_test_other2"
+    - node2.current.name == "ansible_test_other2"
 
-- name: Add node type TEST2 again
+- name: Add node type ansible_test_other2 again
   cisco.mso.mso_service_node_type:
     <<: *mso_info
-    name: TEST2
+    name: ansible_test_other2
     state: present
   register: node2_again
 
@@ -86,13 +86,13 @@
   ansible.builtin.assert:
     that:
     - node2_again is not changed
-    - node2_again.current.displayName == "TEST2"
-    - node2_again.current.name == "TEST2"
+    - node2_again.current.displayName == "ansible_test_other2"
+    - node2_again.current.name == "ansible_test_other2"
 
-- name: Add TEST1 again with a different display name
+- name: Add ansible_test_other1 again with a different display name
   cisco.mso.mso_service_node_type:
     <<: *mso_info
-    name: TEST1
+    name: ansible_test_other1
     display_name: change_test
     state: present
   register: node2_different_display_name
@@ -101,12 +101,12 @@
 - name: Verify node2_different_display_name
   ansible.builtin.assert:
     that:
-    - node2_different_display_name.msg == "Service Node Type 'TEST1' already exists with display name 'test' which is different from provided display name 'change_test'."
+    - node2_different_display_name.msg == "Service Node Type 'ansible_test_other1' already exists with display name 'test' which is different from provided display name 'change_test'."
 
 - name: Query a node type
   cisco.mso.mso_service_node_type:
     <<: *mso_info
-    name: TEST1
+    name: ansible_test_other1
     state: query
   register: query_node1
 
@@ -115,7 +115,7 @@
     that:
     - query_node1 is not changed
     - query_node1.current.displayName == "test"
-    - query_node1.current.name == "TEST1"
+    - query_node1.current.name == "ansible_test_other1"
   
 - name: Query all node types
   cisco.mso.mso_service_node_type:
@@ -132,7 +132,7 @@
 - name: Remove a node type (check_mode)
   cisco.mso.mso_service_node_type:
     <<: *mso_info
-    name: TEST1
+    name: ansible_test_other1
     state: absent
   check_mode: true
   register: cm_rm
@@ -141,12 +141,12 @@
   ansible.builtin.assert:
     that:
     - cm_rm is changed
-    - cm_rm.previous.name == "TEST1"
+    - cm_rm.previous.name == "ansible_test_other1"
 
 - name: Remove a node type (normal_mode)
   cisco.mso.mso_service_node_type:
     <<: *mso_info
-    name: TEST1
+    name: ansible_test_other1
     state: absent
   register: rm_node1
 
@@ -155,12 +155,12 @@
     that:
     - rm_node1 is changed
     - rm_node1.current == {}
-    - rm_node1.previous.name == "TEST1"
+    - rm_node1.previous.name == "ansible_test_other1"
 
 - name: Query absent node type
   cisco.mso.mso_service_node_type:
     <<: *mso_info
-    name: TEST1
+    name: ansible_test_other1
     state: query
   register: query_absent
   ignore_errors: true
@@ -168,12 +168,12 @@
 - name: Verify query_absent
   ansible.builtin.assert:
     that:
-    - query_absent.msg == "Service Node Type 'TEST1' not found"
+    - query_absent.msg == "Service Node Type 'ansible_test_other1' not found"
 
 - name: Remove another node type
   cisco.mso.mso_service_node_type:
     <<: *mso_info
-    name: TEST2
+    name: ansible_test_other2
     state: absent
   register: rm_node2
 
@@ -182,12 +182,12 @@
     that:
     - rm_node2 is changed
     - rm_node2.current == {}
-    - rm_node2.previous.name == "TEST2"
+    - rm_node2.previous.name == "ansible_test_other2"
 
 - name: Remove node type again
   cisco.mso.mso_service_node_type:
     <<: *mso_info
-    name: TEST2
+    name: ansible_test_other2
     state: absent
   register: rm_node2_again
 

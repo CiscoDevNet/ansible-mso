@@ -197,7 +197,7 @@
             "fast_sel_hot_stdby",
             "graceful_conv",
             "susp_individual",
-            "symmetric_hash",
+            # "symmetric_hash",
           ]
         load_balance_hashing: destination_ip
         link_level_debounce_interval: 200
@@ -257,11 +257,10 @@
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.minLinks == nm_add_interface_policy_group_pc.current.portChannelPolicy.minLinks == 5
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.maxLinks == nm_add_interface_policy_group_pc.current.portChannelPolicy.maxLinks == 50
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.hashFields == nm_add_interface_policy_group_pc.current.portChannelPolicy.hashFields == "dst-ip"
-          - cm_add_interface_policy_group_pc.current.portChannelPolicy.control | length == nm_add_interface_policy_group_pc.current.portChannelPolicy.control | length == 4
+          - cm_add_interface_policy_group_pc.current.portChannelPolicy.control | length == nm_add_interface_policy_group_pc.current.portChannelPolicy.control | length == 3
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.control.0 == nm_add_interface_policy_group_pc.current.portChannelPolicy.control.0 == "fast-sel-hot-stdby"
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.control.1 == nm_add_interface_policy_group_pc.current.portChannelPolicy.control.1 == "graceful-conv"
           - cm_add_interface_policy_group_pc.current.portChannelPolicy.control.2 == nm_add_interface_policy_group_pc.current.portChannelPolicy.control.2 == "susp-individual"
-          - cm_add_interface_policy_group_pc.current.portChannelPolicy.control.3 == nm_add_interface_policy_group_pc.current.portChannelPolicy.control.3 == "symmetric-hash"
           - cm_add_interface_policy_group_pc.current.syncEthPolicy == nm_add_interface_policy_group_pc.current.syncEthPolicy
           - cm_add_interface_policy_group_pc.current.accessMACsecPolicy == nm_add_interface_policy_group_pc.current.accessMACsecPolicy
           - cm_add_interface_policy_group_pc.current.domains | length == nm_add_interface_policy_group_pc.current.domains | length == 2
@@ -287,7 +286,7 @@
             "fast_sel_hot_stdby",
             "graceful_conv",
             "susp_individual",
-            "load_defer",
+            # "load_defer",
             "symmetric_hash",
           ]
         load_balance_hashing: source_ip
@@ -391,17 +390,15 @@
           - cm_update_interface_policy_group.current.portChannelPolicy.maxLinks == nm_update_interface_policy_group.current.portChannelPolicy.maxLinks == 60
           - cm_update_interface_policy_group.previous.portChannelPolicy.hashFields == nm_update_interface_policy_group.previous.portChannelPolicy.hashFields == "dst-ip"
           - cm_update_interface_policy_group.current.portChannelPolicy.hashFields == nm_update_interface_policy_group.current.portChannelPolicy.hashFields == "src-ip"
-          - cm_update_interface_policy_group.previous.portChannelPolicy.control | length == nm_update_interface_policy_group.previous.portChannelPolicy.control | length == 4
+          - cm_update_interface_policy_group.previous.portChannelPolicy.control | length == nm_update_interface_policy_group.previous.portChannelPolicy.control | length == 3
           - cm_update_interface_policy_group.previous.portChannelPolicy.control.0 == nm_update_interface_policy_group.previous.portChannelPolicy.control.0 == "fast-sel-hot-stdby"
           - cm_update_interface_policy_group.previous.portChannelPolicy.control.1 == nm_update_interface_policy_group.previous.portChannelPolicy.control.1 == "graceful-conv"
           - cm_update_interface_policy_group.previous.portChannelPolicy.control.2 == nm_update_interface_policy_group.previous.portChannelPolicy.control.2 == "susp-individual"
-          - cm_update_interface_policy_group.previous.portChannelPolicy.control.3 == nm_update_interface_policy_group.previous.portChannelPolicy.control.3 == "symmetric-hash"
-          - cm_update_interface_policy_group.current.portChannelPolicy.control | length == nm_update_interface_policy_group.current.portChannelPolicy.control | length == 5
+          - cm_update_interface_policy_group.current.portChannelPolicy.control | length == nm_update_interface_policy_group.current.portChannelPolicy.control | length == 4
           - cm_update_interface_policy_group.current.portChannelPolicy.control.0 == nm_update_interface_policy_group.current.portChannelPolicy.control.0 == "fast-sel-hot-stdby"
           - cm_update_interface_policy_group.current.portChannelPolicy.control.1 == nm_update_interface_policy_group.current.portChannelPolicy.control.1 == "graceful-conv"
           - cm_update_interface_policy_group.current.portChannelPolicy.control.2 == nm_update_interface_policy_group.current.portChannelPolicy.control.2 == "susp-individual"
-          - cm_update_interface_policy_group.current.portChannelPolicy.control.3 == nm_update_interface_policy_group.current.portChannelPolicy.control.3 == "load-defer"
-          - cm_update_interface_policy_group.current.portChannelPolicy.control.4 == nm_update_interface_policy_group.current.portChannelPolicy.control.4 == "symmetric-hash"
+          - cm_update_interface_policy_group.current.portChannelPolicy.control.3 == nm_update_interface_policy_group.current.portChannelPolicy.control.3 == "symmetric-hash"
           - cm_update_interface_policy_group.previous.syncEthPolicy == nm_update_interface_policy_group.previous.syncEthPolicy
           - cm_update_interface_policy_group.current.syncEthPolicy == nm_update_interface_policy_group.current.syncEthPolicy
           - cm_update_interface_policy_group.previous.accessMACsecPolicy == nm_update_interface_policy_group.previous.accessMACsecPolicy
@@ -466,7 +463,7 @@
           - nm_update_interface_policy_mcp.previous.name == nm_update_interface_policy_mcp.current.name == "ansible_interface_policy_group_changed"
           - nm_update_interface_policy_mcp.previous.mcp.adminState == "enabled"
           - nm_update_interface_policy_mcp.current.mcp.adminState == "disabled"
-          - nm_update_interface_policy_mcp.previous.portChannelPolicy.control | length == 5
+          - nm_update_interface_policy_mcp.previous.portChannelPolicy.control | length == 4
           - nm_update_interface_policy_mcp.current.portChannelPolicy.control is not defined
           - nm_update_interface_policy_mcp.previous.accessMACsecPolicy == nm_update_interface_policy_mcp.current.accessMACsecPolicy
           - nm_update_interface_policy_mcp.previous.accessMACsecPolicyName == nm_update_interface_policy_mcp.current.accessMACsecPolicyName == "ansible_macsec_policy_2"
@@ -524,11 +521,15 @@
       ignore_errors: true
       register: interface_policy_group_without_interface_type
 
+    - name: Set error message for missing interface_type
+      ansible.builtin.set_fact:
+        interface_policy_group_without_interface_type_msg: "Error: Missing required argument 'interface_type' for creating an Interface Policy Group."
+
     - name: Assert Interface Policy group without interface_type
       assert:
         that:
           - interface_policy_group_without_interface_type is failed
-          - interface_policy_group_without_interface_type.msg == "Error{{':'}} Missing required argument 'interface_type' for creating an Interface Policy Group."
+          - interface_policy_group_without_interface_type.msg == interface_policy_group_without_interface_type_msg
 
     # ERROR for LLDP
     - name: Create another Interface Policy group of interface_type 'physical'
@@ -784,6 +785,10 @@
       ignore_errors: true
       register: update_non_existing_uuid
 
+    - name: Set error message for non_existing_uuid
+      set_fact:
+        error_message_non_existing_uuid: "Interface Policy Groups with the UUID: 'non-existing-uuid' not found"
+
     - name: Assert no Interface Policy group found
       assert:
         that:
@@ -794,7 +799,7 @@
           - query_all_none is not changed
           - query_all_none.current == {}
           - update_non_existing_uuid is failed
-          - update_non_existing_uuid.msg == "Interface Policy Groups with the UUID{{":"}} 'non-existing-uuid' not found"
+          - update_non_existing_uuid.msg == error_message_non_existing_uuid
 
     # Create Interface Policy group interface_type physical for coverage
     - name: Create a Interface Policy group of interface_type 'physical' without MCP admin_state

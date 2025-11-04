@@ -1285,3 +1285,23 @@ class MSOTemplate:
         domain = parent_object.get("domain")
         if domain:
             update_object["{0}Domain".format(parent_output_prepend)] = domain
+
+    def get_route_map_policy(self, uuid=None, name=None, template_object=None, fail_module=False):
+        """
+        Get the Route Map Policy for Route Control by UUID or Name.
+        :param uuid: UUID of the Route Map Policy for Route Control to search for -> Str
+        :param name: Name of the Route Map Policy for Route Control to search for -> Str
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                When the UUID | Name is existing in the search list -> Dict
+                When the UUID | Name is not existing in the search list -> None
+                When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        template_object = template_object if template_object else self.template
+        match = template_object.get("tenantPolicyTemplate", {}).get("template", {}).get("routeMapPolicies", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs(
+                "Route Map Policy for Route Control", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module
+            )
+        return match  # Query all objects

@@ -1,0 +1,566 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 4.1
+  when: version.current.version is version('4.1', '>=')
+  block:
+    # CLEAN ENVIRONMENT
+    - name: Ensure ansible_test exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        name: ansible_test
+        state: present
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_tenant_template
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+
+    # SETUP
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+      register: add_ansible_tenant_template
+
+    - name: Add Route Map Policy for Route Control
+      cisco.mso.ndo_route_map_policy_route_control:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: route_map_policy
+        state: present
+      register: add_route_map_policy
+
+    - name: Add Set Rule Policy 1
+      cisco.mso.ndo_set_rule_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_set_rule_policy_1
+        description: Test Ansible Set Rule Policy
+        set_community:
+          community: no-export
+          criteria: replace
+        set_additional_community:
+          - no-advertise
+          - extended:color:35
+        set_route_tag: 500
+        set_dampening:
+          half_life: 15
+          reuse_limit: 750
+          suppress_limit: 2000
+          max_suppress_time: 60
+        set_weight: 50
+        set_next_hop: "aa::"
+        set_preference: 200
+        set_metric: 100
+        set_metric_type: type2
+        set_as_path:
+          last_asn_count: 10
+          path_asn_list:
+            - order: 11
+              asn: 1
+            - order: 10
+              asn: 2
+        state: present
+      register: add_set_rule_policy_1
+
+    - name: Add Set Rule Policy 2
+      cisco.mso.ndo_set_rule_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_set_rule_policy_2
+        description: Test Ansible Set Rule Policy
+        set_community:
+          community: no-export
+          criteria: replace
+        set_additional_community:
+          - no-advertise
+          - extended:color:35
+        set_route_tag: 500
+        set_dampening:
+          half_life: 15
+          reuse_limit: 750
+          suppress_limit: 2000
+          max_suppress_time: 60
+        set_weight: 50
+        set_next_hop: "aa::"
+        set_preference: 200
+        set_metric: 100
+        set_metric_type: type2
+        set_as_path:
+          last_asn_count: 10
+          path_asn_list:
+            - order: 11
+              asn: 1
+            - order: 10
+              asn: 2
+        state: present
+      register: add_set_rule_policy_2
+
+    - name: Add Match Rule Policy 1
+      cisco.mso.ndo_match_rule_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_match_rule_policy_1
+        description: Ansible Match Rule Policy 1
+        state: present
+      register: add_match_rule_policy_1
+
+    - name: Add Match Rule Policy 2
+      cisco.mso.ndo_match_rule_policy:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: ansible_match_rule_policy_2
+        description: Ansible Match Rule Policy 2
+        state: present
+      register: add_match_rule_policy_2
+
+    # CREATE
+    - name: Add Route Map Policy for Route Control Context 1 (check_mode)
+      cisco.mso.ndo_route_map_policy_route_control_context: &cm_add_route_map_policy_context_1
+        <<: *mso_info
+        template: ansible_tenant_template
+        route_map_policy: route_map_policy
+        name: route_map_policy_context_1
+        description: test
+        order: 1
+        set_rule_uuid: "{{ add_set_rule_policy_1.current.uuid }}"
+        match_rules:
+          - uuid: "{{ add_match_rule_policy_1.current.uuid }}"
+          - reference:
+              template_id: "{{ add_ansible_tenant_template.current.templateId }}"
+              name: ansible_match_rule_policy_2
+        state: present
+        output_level: debug
+      check_mode: true
+      register: cm_add_route_map_policy_context_1
+
+    - name: Add Route Map Policy for Route Control Context 1
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *cm_add_route_map_policy_context_1
+      register: nm_add_route_map_policy_context_1
+
+    - name: Add Route Map Policy for Route Control Context 1 again
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *cm_add_route_map_policy_context_1
+      register: nm_add_route_map_policy_context_1_again
+
+    - name: Add Route Map Policy for Route Control Context 2
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *mso_info
+        template_id: "{{ add_ansible_tenant_template.current.templateId }}"
+        route_map_policy: route_map_policy
+        name: route_map_policy_context_2
+        description: test
+        order: 1
+        action: deny
+        set_rule:
+          template_id: "{{ add_ansible_tenant_template.current.templateId }}"
+          name: ansible_set_rule_policy_2
+        match_rules:
+          - reference:
+              template: ansible_tenant_template
+              name: ansible_match_rule_policy_2
+        state: present
+      register: add_route_map_policy_context_2
+
+    - name: Assertion check for add Route Map Policy for Route Control Contexts
+      ansible.builtin.assert:
+        that:
+          - cm_add_route_map_policy_context_1 is changed
+          - cm_add_route_map_policy_context_1.current.description == "test"
+          - cm_add_route_map_policy_context_1.current.matchRules.0.matchRuleName == "ansible_match_rule_policy_1"
+          - cm_add_route_map_policy_context_1.current.matchRules.0.matchRuleRef is defined
+          - cm_add_route_map_policy_context_1.current.matchRules.0.matchRuleTemplateId is defined
+          - cm_add_route_map_policy_context_1.current.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
+          - cm_add_route_map_policy_context_1.current.matchRules.1.matchRuleName == "ansible_match_rule_policy_2"
+          - cm_add_route_map_policy_context_1.current.matchRules.1.matchRuleRef is defined
+          - cm_add_route_map_policy_context_1.current.matchRules.1.matchRuleTemplateId is defined
+          - cm_add_route_map_policy_context_1.current.matchRules.1.matchRuleTemplateName == "ansible_tenant_template"
+          - cm_add_route_map_policy_context_1.current.name == "route_map_policy_context_1"
+          - cm_add_route_map_policy_context_1.current.order == 1
+          - cm_add_route_map_policy_context_1.current.setRuleName == "ansible_set_rule_policy_1"
+          - cm_add_route_map_policy_context_1.current.setRuleRef is defined
+          - cm_add_route_map_policy_context_1.current.setRuleTemplateId is defined
+          - cm_add_route_map_policy_context_1.current.setRuleTemplateName == "ansible_tenant_template"
+          - cm_add_route_map_policy_context_1.proposed.description == "test"
+          - cm_add_route_map_policy_context_1.proposed.matchRules.0.matchRuleName == "ansible_match_rule_policy_1"
+          - cm_add_route_map_policy_context_1.proposed.matchRules.0.matchRuleRef is defined
+          - cm_add_route_map_policy_context_1.proposed.matchRules.0.matchRuleTemplateId is defined
+          - cm_add_route_map_policy_context_1.proposed.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
+          - cm_add_route_map_policy_context_1.proposed.matchRules.1.matchRuleName == "ansible_match_rule_policy_2"
+          - cm_add_route_map_policy_context_1.proposed.matchRules.1.matchRuleRef is defined
+          - cm_add_route_map_policy_context_1.proposed.matchRules.1.matchRuleTemplateId is defined
+          - cm_add_route_map_policy_context_1.proposed.matchRules.1.matchRuleTemplateName == "ansible_tenant_template"
+          - cm_add_route_map_policy_context_1.proposed.name == "route_map_policy_context_1"
+          - cm_add_route_map_policy_context_1.proposed.order == 1
+          - cm_add_route_map_policy_context_1.proposed.setRuleName == "ansible_set_rule_policy_1"
+          - cm_add_route_map_policy_context_1.proposed.setRuleRef is defined
+          - cm_add_route_map_policy_context_1.proposed.setRuleTemplateId is defined
+          - cm_add_route_map_policy_context_1.proposed.setRuleTemplateName == "ansible_tenant_template"
+          - cm_add_route_map_policy_context_1.previous == {}
+          - nm_add_route_map_policy_context_1 is changed
+          - nm_add_route_map_policy_context_1.current.action == "permit"
+          - nm_add_route_map_policy_context_1.current.description == "test"
+          - nm_add_route_map_policy_context_1.current.matchRules.0.matchRuleName == "ansible_match_rule_policy_1"
+          - nm_add_route_map_policy_context_1.current.matchRules.0.matchRuleRef is defined
+          - nm_add_route_map_policy_context_1.current.matchRules.0.matchRuleTemplateId is defined
+          - nm_add_route_map_policy_context_1.current.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
+          - nm_add_route_map_policy_context_1.current.matchRules.1.matchRuleName == "ansible_match_rule_policy_2"
+          - nm_add_route_map_policy_context_1.current.matchRules.1.matchRuleRef is defined
+          - nm_add_route_map_policy_context_1.current.matchRules.1.matchRuleTemplateId is defined
+          - nm_add_route_map_policy_context_1.current.matchRules.1.matchRuleTemplateName == "ansible_tenant_template"
+          - nm_add_route_map_policy_context_1.current.name == "route_map_policy_context_1"
+          - nm_add_route_map_policy_context_1.current.order == 1
+          - nm_add_route_map_policy_context_1.current.setRuleName == "ansible_set_rule_policy_1"
+          - nm_add_route_map_policy_context_1.current.setRuleRef is defined
+          - nm_add_route_map_policy_context_1.current.setRuleTemplateId is defined
+          - nm_add_route_map_policy_context_1.current.setRuleTemplateName == "ansible_tenant_template"
+          - nm_add_route_map_policy_context_1.previous == {}
+          - nm_add_route_map_policy_context_1.proposed == cm_add_route_map_policy_context_1.proposed
+          - nm_add_route_map_policy_context_1_again is not changed
+          - nm_add_route_map_policy_context_1_again.current.action == "permit"
+          - nm_add_route_map_policy_context_1_again.current.description == "test"
+          - nm_add_route_map_policy_context_1_again.current.matchRules.0.matchRuleName == "ansible_match_rule_policy_1"
+          - nm_add_route_map_policy_context_1_again.current.matchRules.0.matchRuleRef is defined
+          - nm_add_route_map_policy_context_1_again.current.matchRules.0.matchRuleTemplateId is defined
+          - nm_add_route_map_policy_context_1_again.current.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
+          - nm_add_route_map_policy_context_1_again.current.matchRules.1.matchRuleName == "ansible_match_rule_policy_2"
+          - nm_add_route_map_policy_context_1_again.current.matchRules.1.matchRuleRef is defined
+          - nm_add_route_map_policy_context_1_again.current.matchRules.1.matchRuleTemplateId is defined
+          - nm_add_route_map_policy_context_1_again.current.matchRules.1.matchRuleTemplateName == "ansible_tenant_template"
+          - nm_add_route_map_policy_context_1_again.current.name == "route_map_policy_context_1"
+          - nm_add_route_map_policy_context_1_again.current.order == 1
+          - nm_add_route_map_policy_context_1_again.current.setRuleName == "ansible_set_rule_policy_1"
+          - nm_add_route_map_policy_context_1_again.current.setRuleRef is defined
+          - nm_add_route_map_policy_context_1_again.current.setRuleTemplateId is defined
+          - nm_add_route_map_policy_context_1_again.current.setRuleTemplateName == "ansible_tenant_template"
+          - nm_add_route_map_policy_context_1_again.previous.action == "permit"
+          - nm_add_route_map_policy_context_1_again.previous.description == "test"
+          - nm_add_route_map_policy_context_1_again.previous.matchRules.0.matchRuleName == "ansible_match_rule_policy_1"
+          - nm_add_route_map_policy_context_1_again.previous.matchRules.0.matchRuleRef is defined
+          - nm_add_route_map_policy_context_1_again.previous.matchRules.0.matchRuleTemplateId is defined
+          - nm_add_route_map_policy_context_1_again.previous.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
+          - nm_add_route_map_policy_context_1_again.previous.matchRules.1.matchRuleName == "ansible_match_rule_policy_2"
+          - nm_add_route_map_policy_context_1_again.previous.matchRules.1.matchRuleRef is defined
+          - nm_add_route_map_policy_context_1_again.previous.matchRules.1.matchRuleTemplateId is defined
+          - nm_add_route_map_policy_context_1_again.previous.matchRules.1.matchRuleTemplateName == "ansible_tenant_template"
+          - nm_add_route_map_policy_context_1_again.previous.name == "route_map_policy_context_1"
+          - nm_add_route_map_policy_context_1_again.previous.order == 1
+          - nm_add_route_map_policy_context_1_again.previous.setRuleName == "ansible_set_rule_policy_1"
+          - nm_add_route_map_policy_context_1_again.previous.setRuleRef is defined
+          - nm_add_route_map_policy_context_1_again.previous.setRuleTemplateId is defined
+          - nm_add_route_map_policy_context_1_again.previous.setRuleTemplateName == "ansible_tenant_template"
+          - add_route_map_policy_context_2 is changed
+          - add_route_map_policy_context_2.current.action == "deny"
+          - add_route_map_policy_context_2.current.description == "test"
+          - add_route_map_policy_context_2.current.matchRules.0.matchRuleName == "ansible_match_rule_policy_2"
+          - add_route_map_policy_context_2.current.matchRules.0.matchRuleRef is defined
+          - add_route_map_policy_context_2.current.matchRules.0.matchRuleTemplateId is defined
+          - add_route_map_policy_context_2.current.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
+          - add_route_map_policy_context_2.current.name == "route_map_policy_context_2"
+          - add_route_map_policy_context_2.current.order == 1
+          - add_route_map_policy_context_2.current.setRuleName == "ansible_set_rule_policy_2"
+          - add_route_map_policy_context_2.current.setRuleRef is defined
+          - add_route_map_policy_context_2.current.setRuleTemplateId is defined
+          - add_route_map_policy_context_2.current.setRuleTemplateName == "ansible_tenant_template"
+          - add_route_map_policy_context_2.previous == {}
+
+    # UPDATE
+    - name: Update Route Map Policy for Route Control Context 2
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *mso_info
+        template_id: "{{ add_ansible_tenant_template.current.templateId }}"
+        route_map_policy: route_map_policy
+        name: route_map_policy_context_2
+        description: test
+        order: 1
+        action: permit
+        set_rule:
+          template_id: "{{ add_ansible_tenant_template.current.templateId }}"
+          name: ansible_set_rule_policy_1
+        match_rules:
+          - reference:
+              template: ansible_tenant_template
+              name: ansible_match_rule_policy_1
+        state: present
+        output_level: debug
+      register: update_route_map_policy_context_2
+
+    - name: Remove description, set_rule and match_rules values from Route Map Policy for Route Control Context 2
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *mso_info
+        template_id: "{{ add_ansible_tenant_template.current.templateId }}"
+        route_map_policy: route_map_policy
+        name: route_map_policy_context_2
+        description: ""
+        order: 1
+        set_rule: {}
+        match_rules: []
+        state: present
+        output_level: debug
+      register: rm_route_map_policy_context_2_values
+
+    - name: Assertion check for update Route Map Policy for Route Control Contexts
+      ansible.builtin.assert:
+        that:
+          - update_route_map_policy_context_2 is changed
+          - update_route_map_policy_context_2.current.action == "permit"
+          - update_route_map_policy_context_2.current.description == "test"
+          - update_route_map_policy_context_2.current.matchRules.0.matchRuleName == "ansible_match_rule_policy_1"
+          - update_route_map_policy_context_2.current.matchRules.0.matchRuleRef is defined
+          - update_route_map_policy_context_2.current.matchRules.0.matchRuleTemplateId is defined
+          - update_route_map_policy_context_2.current.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
+          - update_route_map_policy_context_2.current.name == "route_map_policy_context_2"
+          - update_route_map_policy_context_2.current.order == 1
+          - update_route_map_policy_context_2.current.setRuleName == "ansible_set_rule_policy_1"
+          - update_route_map_policy_context_2.current.setRuleRef is defined
+          - update_route_map_policy_context_2.current.setRuleTemplateId is defined
+          - update_route_map_policy_context_2.current.setRuleTemplateName == "ansible_tenant_template"
+          - update_route_map_policy_context_2.previous.action == "deny"
+          - update_route_map_policy_context_2.previous.description == "test"
+          - update_route_map_policy_context_2.previous.matchRules.0.matchRuleName == "ansible_match_rule_policy_2"
+          - update_route_map_policy_context_2.previous.matchRules.0.matchRuleRef is defined
+          - update_route_map_policy_context_2.previous.matchRules.0.matchRuleTemplateId is defined
+          - update_route_map_policy_context_2.previous.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
+          - update_route_map_policy_context_2.previous.name == "route_map_policy_context_2"
+          - update_route_map_policy_context_2.previous.order == 1
+          - update_route_map_policy_context_2.previous.setRuleName == "ansible_set_rule_policy_2"
+          - update_route_map_policy_context_2.previous.setRuleRef is defined
+          - update_route_map_policy_context_2.previous.setRuleTemplateId is defined
+          - update_route_map_policy_context_2.previous.setRuleTemplateName == "ansible_tenant_template"
+          - update_route_map_policy_context_2.proposed.action == "permit"
+          - rm_route_map_policy_context_2_values is changed
+          - rm_route_map_policy_context_2_values.current.action == "permit"
+          - rm_route_map_policy_context_2_values.current.matchRules == []
+          - rm_route_map_policy_context_2_values.current.name == "route_map_policy_context_2"
+          - rm_route_map_policy_context_2_values.current.order == 1
+          - rm_route_map_policy_context_2_values.previous.action == "permit"
+          - rm_route_map_policy_context_2_values.previous.description == "test"
+          - rm_route_map_policy_context_2_values.previous.matchRules.0.matchRuleName == "ansible_match_rule_policy_1"
+          - rm_route_map_policy_context_2_values.previous.matchRules.0.matchRuleRef is defined
+          - rm_route_map_policy_context_2_values.previous.matchRules.0.matchRuleTemplateId is defined
+          - rm_route_map_policy_context_2_values.previous.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
+          - rm_route_map_policy_context_2_values.previous.name == "route_map_policy_context_2"
+          - rm_route_map_policy_context_2_values.previous.order == 1
+          - rm_route_map_policy_context_2_values.previous.setRuleName == "ansible_set_rule_policy_1"
+          - rm_route_map_policy_context_2_values.previous.setRuleRef is defined
+          - rm_route_map_policy_context_2_values.previous.setRuleTemplateId is defined
+          - rm_route_map_policy_context_2_values.previous.setRuleTemplateName == "ansible_tenant_template"
+          - rm_route_map_policy_context_2_values.proposed.action == "permit"
+          - rm_route_map_policy_context_2_values.proposed.description == ""
+          - rm_route_map_policy_context_2_values.proposed.matchRules == []
+          - rm_route_map_policy_context_2_values.proposed.name == "route_map_policy_context_2"
+          - rm_route_map_policy_context_2_values.proposed.order == 1
+          - rm_route_map_policy_context_2_values.proposed.setRuleRef == ""
+
+    # QUERY
+    - name: Query Route Map Policy for Route Control Context 1
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *mso_info
+        template: ansible_tenant_template
+        route_map_policy: route_map_policy
+        name: route_map_policy_context_1
+        state: query
+      register: query_route_map_policy_context_1
+
+    - name: Query all Route Map Policy for Route Control Contexts
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *mso_info
+        template: ansible_tenant_template
+        route_map_policy: route_map_policy
+        state: query
+      register: query_all_route_map_policy_context
+
+    - name: Assertion check for query Route Map Policy for Route Control Contexts
+      ansible.builtin.assert:
+        that:
+          - query_route_map_policy_context_1 is not changed
+          - query_route_map_policy_context_1.current.action == "permit"
+          - query_route_map_policy_context_1.current.description == "test"
+          - query_route_map_policy_context_1.current.matchRules.0.matchRuleName == "ansible_match_rule_policy_1"
+          - query_route_map_policy_context_1.current.matchRules.0.matchRuleRef is defined
+          - query_route_map_policy_context_1.current.matchRules.0.matchRuleTemplateId is defined
+          - query_route_map_policy_context_1.current.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
+          - query_route_map_policy_context_1.current.matchRules.1.matchRuleName == "ansible_match_rule_policy_2"
+          - query_route_map_policy_context_1.current.matchRules.1.matchRuleRef is defined
+          - query_route_map_policy_context_1.current.matchRules.1.matchRuleTemplateId is defined
+          - query_route_map_policy_context_1.current.matchRules.1.matchRuleTemplateName == "ansible_tenant_template"
+          - query_route_map_policy_context_1.current.name == "route_map_policy_context_1"
+          - query_route_map_policy_context_1.current.order == 1
+          - query_route_map_policy_context_1.current.setRuleName == "ansible_set_rule_policy_1"
+          - query_route_map_policy_context_1.current.setRuleRef is defined
+          - query_route_map_policy_context_1.current.setRuleTemplateId is defined
+          - query_route_map_policy_context_1.current.setRuleTemplateName == "ansible_tenant_template"
+          - query_all_route_map_policy_context is not changed
+          - query_all_route_map_policy_context.current.0.action == "permit"
+          - query_all_route_map_policy_context.current.0.description == "test"
+          - query_all_route_map_policy_context.current.0.matchRules.0.matchRuleName == "ansible_match_rule_policy_1"
+          - query_all_route_map_policy_context.current.0.matchRules.0.matchRuleRef is defined
+          - query_all_route_map_policy_context.current.0.matchRules.0.matchRuleTemplateId is defined
+          - query_all_route_map_policy_context.current.0.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
+          - query_all_route_map_policy_context.current.0.matchRules.1.matchRuleName == "ansible_match_rule_policy_2"
+          - query_all_route_map_policy_context.current.0.matchRules.1.matchRuleRef is defined
+          - query_all_route_map_policy_context.current.0.matchRules.1.matchRuleTemplateId is defined
+          - query_all_route_map_policy_context.current.0.matchRules.1.matchRuleTemplateName == "ansible_tenant_template"
+          - query_all_route_map_policy_context.current.0.name == "route_map_policy_context_1"
+          - query_all_route_map_policy_context.current.0.order == 1
+          - query_all_route_map_policy_context.current.0.setRuleName == "ansible_set_rule_policy_1"
+          - query_all_route_map_policy_context.current.0.setRuleRef is defined
+          - query_all_route_map_policy_context.current.0.setRuleTemplateId is defined
+          - query_all_route_map_policy_context.current.0.setRuleTemplateName == "ansible_tenant_template"
+          - query_all_route_map_policy_context.current.1.action == "permit"
+          - query_all_route_map_policy_context.current.1.matchRules == []
+          - query_all_route_map_policy_context.current.1.name == "route_map_policy_context_2"
+          - query_all_route_map_policy_context.current.1.order == 1
+
+    # ERROR
+    - name: Negative test add Route Map Policy for Route Control Context without name and order
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *mso_info
+        template: ansible_tenant_template
+        route_map_policy: route_map_policy
+        state: present
+      register: nt_add_route_control_context_without_name_order
+      ignore_errors: true
+
+    - name: Negative test add Route Map Policy for Route Control Context without template
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *mso_info
+        route_map_policy: route_map_policy
+        name: nt_test
+        order: 1
+        state: present
+      register: nt_add_route_control_context_without_template
+      ignore_errors: true
+
+    - name: Negative test add Route Map Policy for Route Control Context without route_map_policy
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: nt_test
+        order: 1
+        state: present
+      register: nt_add_route_control_context_without_route_map_policy
+      ignore_errors: true
+
+    - name: Negative test add Route Map Policy for Route Control Context with invalid order value
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: nt_test
+        route_map_policy: route_map_policy
+        order: 11111
+        state: present
+      register: nt_add_route_control_context_with_invalid_order
+      ignore_errors: true
+
+    - name: Set expected error message for invalid order value
+      ansible.builtin.set_fact:
+        error_message_invalid_order_value: "MSO Error 400: 'Order' allowed maximum value is 9"
+
+    - name: Assertion check for negative test add Route Map Policy for Route Control Contexts
+      ansible.builtin.assert:
+        that:
+          - nt_add_route_control_context_without_name_order is not changed
+          - 'nt_add_route_control_context_without_name_order.msg == "state is present but all of the following are missing: name, order"'
+          - nt_add_route_control_context_without_template is not changed
+          - 'nt_add_route_control_context_without_template.msg == "one of the following is required: template, template_id"'
+          - nt_add_route_control_context_without_route_map_policy is not changed
+          - 'nt_add_route_control_context_without_route_map_policy.msg == "one of the following is required: route_map_policy, route_map_policy_uuid"'
+          - nt_add_route_control_context_with_invalid_order is not changed
+          - nt_add_route_control_context_with_invalid_order.msg == error_message_invalid_order_value
+
+    # DELETE
+    - name: Remove Route Map Policy for Route Control Context 1 (check_mode)
+      cisco.mso.ndo_route_map_policy_route_control_context: &cm_rm_route_map_policy_context_1
+        <<: *mso_info
+        template: ansible_tenant_template
+        route_map_policy: route_map_policy
+        name: route_map_policy_context_1
+        state: absent
+      check_mode: true
+      register: cm_rm_route_map_policy_context_1
+
+    - name: Remove Route Map Policy for Route Control Context 1
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *cm_rm_route_map_policy_context_1
+      register: nm_rm_route_map_policy_context_1
+
+    - name: Remove Route Map Policy for Route Control Context 1 again
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *cm_rm_route_map_policy_context_1
+      register: nm_rm_route_map_policy_context_1_again
+
+    - name: Remove Route Map Policy for Route Control Context 2
+      cisco.mso.ndo_route_map_policy_route_control_context:
+        <<: *cm_rm_route_map_policy_context_1
+        name: route_map_policy_context_2
+      register: rm_route_map_policy_context_2
+
+    - name: Assertion check for remove Route Map Policy for Route Control Contexts
+      ansible.builtin.assert:
+        that:
+          - cm_rm_route_map_policy_context_1 is changed
+          - cm_rm_route_map_policy_context_1.current == {}
+          - nm_rm_route_map_policy_context_1 is changed
+          - nm_rm_route_map_policy_context_1.current == {}
+          - cm_rm_route_map_policy_context_1.previous == nm_rm_route_map_policy_context_1.previous
+          - nm_rm_route_map_policy_context_1.previous.action == "permit"
+          - nm_rm_route_map_policy_context_1.previous.description == "test"
+          - nm_rm_route_map_policy_context_1.previous.matchRules.0.matchRuleName == "ansible_match_rule_policy_1"
+          - nm_rm_route_map_policy_context_1.previous.matchRules.0.matchRuleRef is defined
+          - nm_rm_route_map_policy_context_1.previous.matchRules.0.matchRuleTemplateId is defined
+          - nm_rm_route_map_policy_context_1.previous.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
+          - nm_rm_route_map_policy_context_1.previous.matchRules.1.matchRuleName == "ansible_match_rule_policy_2"
+          - nm_rm_route_map_policy_context_1.previous.matchRules.1.matchRuleRef is defined
+          - nm_rm_route_map_policy_context_1.previous.matchRules.1.matchRuleTemplateId is defined
+          - nm_rm_route_map_policy_context_1.previous.matchRules.1.matchRuleTemplateName == "ansible_tenant_template"
+          - nm_rm_route_map_policy_context_1.previous.name == "route_map_policy_context_1"
+          - nm_rm_route_map_policy_context_1.previous.order == 1
+          - nm_rm_route_map_policy_context_1.previous.setRuleName == "ansible_set_rule_policy_1"
+          - nm_rm_route_map_policy_context_1.previous.setRuleRef is defined
+          - nm_rm_route_map_policy_context_1.previous.setRuleTemplateId is defined
+          - nm_rm_route_map_policy_context_1.previous.setRuleTemplateName == "ansible_tenant_template"
+          - nm_rm_route_map_policy_context_1_again is not changed
+          - nm_rm_route_map_policy_context_1_again.current == {}
+          - nm_rm_route_map_policy_context_1_again.previous == {}
+          - rm_route_map_policy_context_2 is changed
+          - rm_route_map_policy_context_2.current == {}
+          - rm_route_map_policy_context_2.previous.action == "permit"
+          - rm_route_map_policy_context_2.previous.matchRules == []
+          - rm_route_map_policy_context_2.previous.name == "route_map_policy_context_2"
+          - rm_route_map_policy_context_2.previous.order == 1
+
+    # CLEAN ENVIRONMENT
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent

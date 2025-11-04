@@ -306,3 +306,5 @@ ROUTE_MAP_METRIC_TYPE_MAP = {
     "ospf_type2": "ospf-type2",
     "": "",
 }
+
+ROUTE_MAP_POLICY_MATCH_TYPE = {"prefix_and_routing_policy": "combinable", "routing_policy_only": "global"}

@@ -180,7 +180,6 @@
         route_map_policy: route_map_policy
         name: route_map_policy_context_2
         description: test
-        order: 1
         action: deny
         set_rule:
           template_id: "{{ add_ansible_tenant_template.current.templateId }}"
@@ -287,7 +286,7 @@
           - add_route_map_policy_context_2.current.matchRules.0.matchRuleTemplateId is defined
           - add_route_map_policy_context_2.current.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
           - add_route_map_policy_context_2.current.name == "route_map_policy_context_2"
-          - add_route_map_policy_context_2.current.order == 1
+          - add_route_map_policy_context_2.current.order == 0
           - add_route_map_policy_context_2.current.setRuleName == "ansible_set_rule_policy_2"
           - add_route_map_policy_context_2.current.setRuleRef is defined
           - add_route_map_policy_context_2.current.setRuleTemplateId is defined
@@ -302,7 +301,6 @@
         route_map_policy: route_map_policy
         name: route_map_policy_context_2
         description: test
-        order: 1
         action: permit
         set_rule:
           template_id: "{{ add_ansible_tenant_template.current.templateId }}"
@@ -340,7 +338,7 @@
           - update_route_map_policy_context_2.current.matchRules.0.matchRuleTemplateId is defined
           - update_route_map_policy_context_2.current.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
           - update_route_map_policy_context_2.current.name == "route_map_policy_context_2"
-          - update_route_map_policy_context_2.current.order == 1
+          - update_route_map_policy_context_2.current.order == 0
           - update_route_map_policy_context_2.current.setRuleName == "ansible_set_rule_policy_1"
           - update_route_map_policy_context_2.current.setRuleRef is defined
           - update_route_map_policy_context_2.current.setRuleTemplateId is defined
@@ -352,7 +350,7 @@
           - update_route_map_policy_context_2.previous.matchRules.0.matchRuleTemplateId is defined
           - update_route_map_policy_context_2.previous.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
           - update_route_map_policy_context_2.previous.name == "route_map_policy_context_2"
-          - update_route_map_policy_context_2.previous.order == 1
+          - update_route_map_policy_context_2.previous.order == 0
           - update_route_map_policy_context_2.previous.setRuleName == "ansible_set_rule_policy_2"
           - update_route_map_policy_context_2.previous.setRuleRef is defined
           - update_route_map_policy_context_2.previous.setRuleTemplateId is defined
@@ -360,9 +358,11 @@
           - update_route_map_policy_context_2.proposed.action == "permit"
           - rm_route_map_policy_context_2_values is changed
           - rm_route_map_policy_context_2_values.current.action == "permit"
-          - rm_route_map_policy_context_2_values.current.matchRules == []
+          - rm_route_map_policy_context_2_values.current.matchRules is undefined
           - rm_route_map_policy_context_2_values.current.name == "route_map_policy_context_2"
           - rm_route_map_policy_context_2_values.current.order == 1
+          - rm_route_map_policy_context_2_values.current.setRuleRef is undefined
+          - rm_route_map_policy_context_2_values.current.description is undefined
           - rm_route_map_policy_context_2_values.previous.action == "permit"
           - rm_route_map_policy_context_2_values.previous.description == "test"
           - rm_route_map_policy_context_2_values.previous.matchRules.0.matchRuleName == "ansible_match_rule_policy_1"
@@ -370,7 +370,7 @@
           - rm_route_map_policy_context_2_values.previous.matchRules.0.matchRuleTemplateId is defined
           - rm_route_map_policy_context_2_values.previous.matchRules.0.matchRuleTemplateName == "ansible_tenant_template"
           - rm_route_map_policy_context_2_values.previous.name == "route_map_policy_context_2"
-          - rm_route_map_policy_context_2_values.previous.order == 1
+          - rm_route_map_policy_context_2_values.previous.order == 0
           - rm_route_map_policy_context_2_values.previous.setRuleName == "ansible_set_rule_policy_1"
           - rm_route_map_policy_context_2_values.previous.setRuleRef is defined
           - rm_route_map_policy_context_2_values.previous.setRuleTemplateId is defined
@@ -438,20 +438,11 @@
           - query_all_route_map_policy_context.current.0.setRuleTemplateId is defined
           - query_all_route_map_policy_context.current.0.setRuleTemplateName == "ansible_tenant_template"
           - query_all_route_map_policy_context.current.1.action == "permit"
-          - query_all_route_map_policy_context.current.1.matchRules == []
+          - query_all_route_map_policy_context.current.1.matchRules is undefined
           - query_all_route_map_policy_context.current.1.name == "route_map_policy_context_2"
           - query_all_route_map_policy_context.current.1.order == 1
 
     # ERROR
-    - name: Negative test add Route Map Policy for Route Control Context without name and order
-      cisco.mso.ndo_route_map_policy_route_control_context:
-        <<: *mso_info
-        template: ansible_tenant_template
-        route_map_policy: route_map_policy
-        state: present
-      register: nt_add_route_control_context_without_name_order
-      ignore_errors: true
-
     - name: Negative test add Route Map Policy for Route Control Context without template
       cisco.mso.ndo_route_map_policy_route_control_context:
         <<: *mso_info
@@ -490,8 +481,6 @@
     - name: Assertion check for negative test add Route Map Policy for Route Control Contexts
       ansible.builtin.assert:
         that:
-          - nt_add_route_control_context_without_name_order is not changed
-          - 'nt_add_route_control_context_without_name_order.msg == "state is present but all of the following are missing: name, order"'
           - nt_add_route_control_context_without_template is not changed
           - 'nt_add_route_control_context_without_template.msg == "one of the following is required: template, template_id"'
           - nt_add_route_control_context_without_route_map_policy is not changed
@@ -556,7 +545,7 @@
           - rm_route_map_policy_context_2 is changed
           - rm_route_map_policy_context_2.current == {}
           - rm_route_map_policy_context_2.previous.action == "permit"
-          - rm_route_map_policy_context_2.previous.matchRules == []
+          - rm_route_map_policy_context_2.previous.matchRules is undefined
           - rm_route_map_policy_context_2.previous.name == "route_map_policy_context_2"
           - rm_route_map_policy_context_2.previous.order == 1
 

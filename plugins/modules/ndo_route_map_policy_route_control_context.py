@@ -54,7 +54,8 @@ options:
   order:
     description:
     - The order of the Route Control context.
-    - The value must be a number between 1 and 9.
+    - The value must be a number between 0 and 9.
+    - Defaults to C(0) when unset during creation.
     type: int
   action:
     description:
@@ -292,7 +293,7 @@ def main():
         argument_spec=argument_spec,
         supports_check_mode=True,
         required_if=[
-            ["state", "present", ["name", "order"]],
+            ["state", "present", ["name"]],
             ["state", "absent", ["name"]],
         ],
         required_one_of=[
@@ -346,11 +347,13 @@ def main():
             "Route Map Policy Route Control Context", route_map_policy_object.details.get("contexts", []), [KVPair("name", name)]
         )
         if match:
-            match.details["matchRules"] = match_rules_list_to_dict(match.details.get("matchRules", []))
+            if match.details.get("matchRules"):
+                match.details["matchRules"] = match_rules_list_to_dict(match.details.get("matchRules"))
             mso.previous = mso.existing = mso_template.update_config_with_template_and_references(copy.deepcopy(match.details), reference_details, False)
     elif route_map_policy_object.details.get("contexts", []):  # Query all objects
         for obj in route_map_policy_object.details.get("contexts", []):
-            obj["matchRules"] = match_rules_list_to_dict(obj.get("matchRules", []))
+            if obj.get("matchRules"):
+                obj["matchRules"] = match_rules_list_to_dict(obj.get("matchRules"))
             mso_template.update_config_with_template_and_references(obj, reference_details, False)
         mso.existing = route_map_policy_object.details.get("contexts", [])  # Query all
 
@@ -381,13 +384,16 @@ def main():
                     match_rule_uuids.append(match_rule_policy_match.details.get("uuid"))
 
         mso_values = {
-            "order": order,
             "name": name,
             "action": action,
             "description": description,
             "matchRules": match_rule_uuids,
             "setRuleRef": set_rule_uuid if set_rule_uuid else "",
         }
+
+        if order is not None:
+            mso_values["order"] = order
+
         if match:
             append_update_ops_data(ops, match.details, path, mso_values)
             mso.sanitize(mso_values, collate=True)
@@ -415,7 +421,8 @@ def main():
             "Route Map Policy Route Control Context", route_map_policy_object.get("contexts", []), [KVPair("name", name)]
         )
         if match:
-            match.details["matchRules"] = match_rules_list_to_dict(match.details.get("matchRules", []))
+            if match.details.get("matchRules"):
+                match.details["matchRules"] = match_rules_list_to_dict(match.details.get("matchRules"))
             mso.existing = mso_template.update_config_with_template_and_references(match.details, reference_details, False)  # When the state is present
         else:
             mso.existing = {}  # When the state is absent

@@ -44,7 +44,6 @@ options:
   description:
     description:
     - The description of the Route Map Policy for Route Control.
-    - Providing an empty string O(description="") will remove description from the Route Map Policy for Route Control.
     type: str
   match_type:
     description:

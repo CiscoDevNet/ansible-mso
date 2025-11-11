@@ -63,33 +63,38 @@ options:
     - Defaults to C(permit) when unset during creation.
     type: str
     choices: [ permit, deny ]
-  set_rule_uuid:
-    description:
-    - The UUID of the Set Rule Policy.
-    - Providing an empty string O(set_rule_uuid="") will remove Set Rule Policy from the Route Control context.
-    - This parameter can be used instead of O(set_rule).
-    type: str
   set_rule:
     description:
-    - The reference of the Set Rule Policy.
+    - The Set Rule Policy reference details for the Route Control context.
     - Providing an empty dictionary O(set_rule={}) will remove Set Rule Policy from the Route Control context.
-    - This parameter can be used instead of O(set_rule_uuid).
     type: dict
     suboptions:
-      name:
+      uuid:
         description:
-        - The name of the Set Rule Policy.
+        - The UUID of the Set Rule Policy.
+        - This parameter can be used instead of O(set_rule.reference).
         type: str
-      template:
+      reference:
         description:
-        - The template associated with the Set Rule Policy.
-        - This parameter or O(set_rule.template_id) is required.
-        type: str
-      template_id:
-        description:
-        - The template ID associated with the Set Rule Policy.
-        - This parameter or O(set_rule.template) is required.
-        type: str
+        - The reference details of the Set Rule Policy.
+        - This parameter can be used instead of O(set_rule.uuid).
+        type: dict
+        aliases: [ ref ]
+        suboptions:
+          name:
+            description:
+            - The name of the Set Rule Policy.
+            type: str
+          template:
+            description:
+            - The template associated with the Set Rule Policy.
+            - This parameter or O(set_rule.reference.template_id) is required.
+            type: str
+          template_id:
+            description:
+            - The template ID associated with the Set Rule Policy.
+            - This parameter or O(set_rule.reference.template) is required.
+            type: str
   match_rules:
     description:
     - The list of Match Rule Policy references.
@@ -160,7 +165,8 @@ EXAMPLES = r"""
     route_map_policy: ansible_test_route_map_policy
     name: route_map_policy_context_1
     order: 1
-    set_rule_uuid: "{{ add_set_rule_policy_1.current.uuid }}"
+    set_rule:
+      uuid: "{{ add_set_rule_policy_1.current.uuid }}"
     match_rules:
       - uuid: "{{ add_match_rule_policy_1.current.uuid }}"
       - reference:
@@ -178,8 +184,9 @@ EXAMPLES = r"""
     name: route_map_policy_context_1
     order: 2
     set_rule:
-      template_id: "{{ add_ansible_tenant_template.current.templateId }}"
-      name: ansible_set_rule_policy_2
+      reference:
+        template_id: "{{ add_ansible_tenant_template.current.templateId }}"
+        name: ansible_set_rule_policy_2
     match_rules:
       - reference:
           template_id: "{{ add_ansible_tenant_template.current.templateId }}"
@@ -253,18 +260,24 @@ def main():
         description=dict(type="str"),
         order=dict(type="int"),
         action=dict(type="str", choices=["permit", "deny"]),
-        set_rule_uuid=dict(type="str"),
         set_rule=dict(
             type="dict",
             options=dict(
-                name=dict(type="str"),
-                template=dict(type="str"),
-                template_id=dict(type="str"),
+                uuid=dict(type="str"),
+                reference=dict(
+                    type="dict",
+                    options=dict(
+                        name=dict(type="str"),
+                        template=dict(type="str"),
+                        template_id=dict(type="str"),
+                    ),
+                    required_by={
+                        "template": "name",
+                        "template_id": "name",
+                    },
+                    aliases=["ref"],
+                ),
             ),
-            required_by={
-                "template": "name",
-                "template_id": "name",
-            },
         ),
         match_rules=dict(
             type="list",
@@ -316,7 +329,6 @@ def main():
     description = module.params.get("description")
     order = module.params.get("order")
     action = module.params.get("action")
-    set_rule_uuid = module.params.get("set_rule_uuid")
     set_rule = module.params.get("set_rule")
     match_rules = module.params.get("match_rules")
     state = module.params.get("state")
@@ -361,13 +373,17 @@ def main():
         path = "/tenantPolicyTemplate/template/routeMapPolicies/{0}/contexts/{1}".format(route_map_policy_object.index, match.index if match else "-")
 
     if state == "present":
-        if not set_rule_uuid and set_rule and not check_if_all_elements_are_none(set_rule.values()):
-            set_rule_template = mso_templates.get_template("tenant", set_rule.get("template"), set_rule.get("template_id"))
-            set_rule_policies = set_rule_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("setRulePolicies", [])
-            set_rule_policy_match = set_rule_template.get_object_by_key_value_pairs(
-                "Set Rule Policy", set_rule_policies, [KVPair("name", set_rule.get("name"))], True
-            )
-            set_rule_uuid = set_rule_policy_match.details.get("uuid")
+        set_rule_uuid = None
+        if set_rule:
+            set_rule_uuid = set_rule.get("uuid")
+            set_rule_reference = set_rule.get("reference")
+            if not set_rule_uuid and set_rule_reference and not check_if_all_elements_are_none(set_rule_reference.values()):
+                set_rule_template = mso_templates.get_template("tenant", set_rule_reference.get("template"), set_rule_reference.get("template_id"))
+                set_rule_policies = set_rule_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("setRulePolicies", [])
+                set_rule_policy_match = set_rule_template.get_object_by_key_value_pairs(
+                    "Set Rule Policy", set_rule_policies, [KVPair("name", set_rule_reference.get("name"))], True
+                )
+                set_rule_uuid = set_rule_policy_match.details.get("uuid")
 
         match_rule_uuids = []
         if match_rules:

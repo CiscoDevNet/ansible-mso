@@ -152,7 +152,8 @@
         name: route_map_policy_context_1
         description: test
         order: 1
-        set_rule_uuid: "{{ add_set_rule_policy_1.current.uuid }}"
+        set_rule:
+          uuid: "{{ add_set_rule_policy_1.current.uuid }}"
         match_rules:
           - uuid: "{{ add_match_rule_policy_1.current.uuid }}"
           - reference:
@@ -182,8 +183,9 @@
         description: test
         action: deny
         set_rule:
-          template_id: "{{ add_ansible_tenant_template.current.templateId }}"
-          name: ansible_set_rule_policy_2
+          reference:
+            template_id: "{{ add_ansible_tenant_template.current.templateId }}"
+            name: ansible_set_rule_policy_2
         match_rules:
           - reference:
               template: ansible_tenant_template
@@ -303,8 +305,9 @@
         description: test
         action: permit
         set_rule:
-          template_id: "{{ add_ansible_tenant_template.current.templateId }}"
-          name: ansible_set_rule_policy_1
+          reference:
+            template_id: "{{ add_ansible_tenant_template.current.templateId }}"
+            name: ansible_set_rule_policy_1
         match_rules:
           - reference:
               template: ansible_tenant_template

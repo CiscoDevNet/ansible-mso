@@ -1,0 +1,546 @@
+# Test code for the MSO modules
+# Copyright: (c) 2025, Gaspard Micol (@gmicol) <gmicol@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 5.1
+  when: version.current.version is version('5.1', '>=')
+  block:
+    # CLEAN TEST ENVIRONMENT
+    - name: Ensure Tenant Policy template does not exist
+      cisco.mso.ndo_template: &tenant_policy_template_absent
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        template_type: tenant
+        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        state: absent
+      ignore_errors: true
+
+    - name: Ensure schema template not exist
+      cisco.mso.mso_schema_template: &schema_template_absent
+        <<: *mso_info
+        schema: '{{ ansible_schema | default("ansible_test") }}'
+        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        template: ansible_tenant_template
+        state: absent
+      ignore_errors: true
+
+    - name: Ensure Tenant does not exist
+      cisco.mso.mso_tenant: &tenant_absent
+        <<: *mso_info
+        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        state: absent
+  
+    - name: Ensure ansible_test site exist
+      cisco.mso.mso_site:
+        <<: *mso_info
+        site: '{{ mso_site | default("ansible_test") }}'
+        state: query
+
+    - name: Ensure ansible_test tenant exist
+      cisco.mso.mso_tenant:
+        <<: *tenant_absent
+        users:
+          - "{{ mso_username }}"
+        sites:
+          - '{{ mso_site | default("ansible_test") }}'
+        state: present
+
+    # Schema Template Setup VRF and BD
+
+    - name: Add an ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *schema_template_absent
+        state: present
+
+    - name: Add a new VRF
+      cisco.mso.mso_schema_template_vrf:
+        <<: *mso_info
+        schema: '{{ ansible_schema | default("ansible_test") }}'
+        template: ansible_tenant_template
+        vrf: ansible_vrf
+        state: present
+
+    - name: Add a new BD
+      cisco.mso.mso_schema_template_bd:
+        <<: *mso_info
+        schema: '{{ ansible_schema | default("ansible_test") }}'
+        template: ansible_tenant_template
+        bd: ansible_bd
+        vrf:
+          name: ansible_vrf
+        state: present
+
+    - name: Ensure Tenant Policy template exist
+      cisco.mso.ndo_template:
+        <<: *tenant_policy_template_absent
+        state: present
+
+    # CREATE Endpoint MAC Tag Policy
+
+    - name: Create Endpoint MAC Tag Policy (check_mode)
+      cisco.mso.ndo_endpoint_mac_tag_policy: &create_endpoint_mac_tag_policy
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        endpoint_mac_address: 01:23:45:67:89:AB
+        bridge_domain:
+          name: ansible_bd
+          template: ansible_tenant_template
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+        annotations:
+          - key: key_1
+            value: value_1
+          - key: key_2
+            value: value_2
+        policy_tags:
+          - key: key_1
+            value: value_1
+        state: present
+      check_mode: true
+      register: cm_create_endpoint_mac_tag_policy
+    
+    - name: Create Endpoint MAC Tag Policy
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *create_endpoint_mac_tag_policy
+      register: nm_create_endpoint_mac_tag_policy
+
+    - name: Create Endpoint MAC Tag Policy again
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *create_endpoint_mac_tag_policy
+      register: nm_create_endpoint_mac_tag_policy_again
+    
+    - name: Create another Endpoint MAC Tag Policy with minimum configurations
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        endpoint_mac_address: 2C:54:91:88:C9:E3
+        bridge_domain:
+          name: ansible_bd
+          template: ansible_tenant_template
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+        state: present
+      register: nm_create_endpoint_mac_tag_policy_2
+
+    - name: Assert Endpoint MAC Tag Policy creation
+      ansible.builtin.assert:
+        that:
+          - cm_create_endpoint_mac_tag_policy is changed
+          - cm_create_endpoint_mac_tag_policy.previous == {}
+          - cm_create_endpoint_mac_tag_policy.proposed == cm_create_endpoint_mac_tag_policy.current
+          - cm_create_endpoint_mac_tag_policy.current.mac == '01:23:45:67:89:AB'
+          - cm_create_endpoint_mac_tag_policy.current.policyTags | length == 1
+          - cm_create_endpoint_mac_tag_policy.current.policyTags.0.key == 'key_1'
+          - cm_create_endpoint_mac_tag_policy.current.policyTags.0.value == 'value_1'
+          - cm_create_endpoint_mac_tag_policy.current.tagAnnotations.0.tagKey == 'key_1'
+          - cm_create_endpoint_mac_tag_policy.current.tagAnnotations | length == 2
+          - cm_create_endpoint_mac_tag_policy.current.tagAnnotations.0.tagValue == 'value_1'
+          - cm_create_endpoint_mac_tag_policy.current.tagAnnotations.1.tagKey == 'key_2'
+          - cm_create_endpoint_mac_tag_policy.current.tagAnnotations.1.tagValue == 'value_2'
+          - cm_create_endpoint_mac_tag_policy.current.bdRef is defined
+          - cm_create_endpoint_mac_tag_policy.current.bdName == 'ansible_bd'
+          - cm_create_endpoint_mac_tag_policy.current.bdSchemaId is defined
+          - cm_create_endpoint_mac_tag_policy.current.bdSchemaNmae == 'ansible_test'
+          - cm_create_endpoint_mac_tag_policy.current.bdTemplateId is defined
+          - cm_create_endpoint_mac_tag_policy.current.bdTemplateName == 'ansible_tenant_template'
+          - cm_create_endpoint_mac_tag_policy.current.uuid is not defined
+          - cm_create_endpoint_mac_tag_policy.current.templateId is defined
+          - cm_create_endpoint_mac_tag_policy.current.templateName == 'ansible_tenant_policy_template'
+          - nm_create_endpoint_mac_tag_policy is changed
+          - nm_create_endpoint_mac_tag_policy.previous == {}
+          - nm_create_endpoint_mac_tag_policy.current.mac == '01:23:45:67:89:AB'
+          - nm_create_endpoint_mac_tag_policy.current.policyTags | length == 1
+          - nm_create_endpoint_mac_tag_policy.current.policyTags.0.key == 'key_1'
+          - nm_create_endpoint_mac_tag_policy.current.policyTags.0.value == 'value_1'
+          - nm_create_endpoint_mac_tag_policy.current.tagAnnotations.0.tagKey == 'key_1'
+          - nm_create_endpoint_mac_tag_policy.current.tagAnnotations | length == 2
+          - nm_create_endpoint_mac_tag_policy.current.tagAnnotations.0.tagValue == 'value_1'
+          - nm_create_endpoint_mac_tag_policy.current.tagAnnotations.1.tagKey == 'key_2'
+          - nm_create_endpoint_mac_tag_policy.current.tagAnnotations.1.tagValue == 'value_2'
+          - nm_create_endpoint_mac_tag_policy.current.bdRef is defined
+          - nm_create_endpoint_mac_tag_policy.current.bdName == 'ansible_bd'
+          - nm_create_endpoint_mac_tag_policy.current.bdSchemaId is defined
+          - nm_create_endpoint_mac_tag_policy.current.bdSchemaNmae == 'ansible_test'
+          - nm_create_endpoint_mac_tag_policy.current.bdTemplateId is defined
+          - nm_create_endpoint_mac_tag_policy.current.bdTemplateName == 'ansible_tenant_template'
+          - nm_create_endpoint_mac_tag_policy.current.vrfRef == ''
+          - nm_create_endpoint_mac_tag_policy.current.uuid is defined
+          - nm_create_endpoint_mac_tag_policy.current.templateId is defined
+          - nm_create_endpoint_mac_tag_policy.current.templateName == 'ansible_tenant_policy_template'
+          - nm_create_endpoint_mac_tag_policy_again is not changed
+          - nm_create_endpoint_mac_tag_policy_again.previous == nm_create_endpoint_mac_tag_policy_again.current == nm_create_endpoint_mac_tag_policy.current
+          - nm_create_endpoint_mac_tag_policy_2 is changed
+          - nm_create_endpoint_mac_tag_policy_2.previous == {}
+          - nm_create_endpoint_mac_tag_policy_2.current.mac == '2C:54:91:88:C9:E3'
+          - nm_create_endpoint_mac_tag_policy_2.current.policyTags is not defined
+          - nm_create_endpoint_mac_tag_policy_2.current.tagAnnotations is not defined
+          - nm_create_endpoint_mac_tag_policy_2.current.bdRef is defined
+          - nm_create_endpoint_mac_tag_policy_2.current.bdName == 'ansible_bd'
+          - nm_create_endpoint_mac_tag_policy_2.current.bdSchemaId is defined
+          - nm_create_endpoint_mac_tag_policy_2.current.bdSchemaNmae == 'ansible_test'
+          - nm_create_endpoint_mac_tag_policy_2.current.bdTemplateId is defined
+          - nm_create_endpoint_mac_tag_policy_2.current.bdTemplateName == 'ansible_tenant_template'
+          - nm_create_endpoint_mac_tag_policy_2.current.vrfRef == ''
+          - nm_create_endpoint_mac_tag_policy_2.current.uuid is defined
+          - nm_create_endpoint_mac_tag_policy_2.current.templateId is defined
+          - nm_create_endpoint_mac_tag_policy_2.current.templateName == 'ansible_tenant_policy_template'
+
+    # UPDATE Endpoint MAC Tag Policy
+
+    - name: Update Endpoint MAC Tag Policy (check_mode)
+      cisco.mso.ndo_endpoint_mac_tag_policy: &update_endpoint_mac_tag_policy
+        <<: *create_endpoint_mac_tag_policy
+        annotations:
+          - key: key_1
+            value: value_1
+        policy_tags:
+          - key: key_1
+            value: value_1
+          - key: key_2
+            value: value_2
+      check_mode: true
+      register: cm_update_endpoint_mac_tag_policy
+    
+    - name: Update Endpoint MAC Tag Policy
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *update_endpoint_mac_tag_policy
+      register: nm_update_endpoint_mac_tag_policy
+    
+    - name: Update Endpoint MAC Tag Policy again
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *update_endpoint_mac_tag_policy
+      register: nm_update_endpoint_mac_tag_policy_again
+
+    - name: Update Endpoint MAC Tag Policy MAC address and VRF
+      cisco.mso.ndo_endpoint_mac_tag_policy: &update_endpoint_mac_tag_policy_mac_vrf
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        uuid: "{{ nm_create_endpoint_mac_tag_policy.current.uuid }}"
+        endpoint_mac_address: 3C:22:FB:6A:9B:1C
+        vrf:
+          name: ansible_vrf
+          template: ansible_tenant_template
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+        annotations:
+          - key: key_1
+            value: value_1
+        policy_tags:
+          - key: key_1
+            value: value_1
+          - key: key_2
+            value: value_2
+        state: present
+      register: nm_update_endpoint_mac_tag_policy_mac_vrf
+
+    - name: Update Endpoint MAC Tag Policy by removing Annotations and Policy Tags
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *update_endpoint_mac_tag_policy_mac_vrf
+        annotations: []
+        policy_tags: []
+      register: nm_update_endpoint_mac_tag_policy_empty_list
+
+    - name: Assert Endpoint MAC Tag Policy update
+      ansible.builtin.assert:
+        that:
+          - cm_update_endpoint_mac_tag_policy is changed
+          - cm_update_endpoint_mac_tag_policy.previous == nm_create_endpoint_mac_tag_policy.current
+          - cm_update_endpoint_mac_tag_policy.previous.mac == '01:23:45:67:89:AB'
+          - cm_update_endpoint_mac_tag_policy.previous.uuid is defined
+          - cm_update_endpoint_mac_tag_policy.proposed == cm_update_endpoint_mac_tag_policy.current
+          - cm_update_endpoint_mac_tag_policy.current.mac == '01:23:45:67:89:AB'
+          - cm_update_endpoint_mac_tag_policy.current.policyTags | length == 2
+          - cm_update_endpoint_mac_tag_policy.current.policyTags.0.key == 'key_1'
+          - cm_update_endpoint_mac_tag_policy.current.policyTags.0.value == 'value_1'
+          - cm_update_endpoint_mac_tag_policy.current.policyTags.1.key == 'key_2'
+          - cm_update_endpoint_mac_tag_policy.current.policyTags.1.value == 'value_2'
+          - cm_update_endpoint_mac_tag_policy.current.tagAnnotations | length == 1
+          - cm_update_endpoint_mac_tag_policy.current.tagAnnotations.0.tagKey == 'key_1'
+          - cm_update_endpoint_mac_tag_policy.current.tagAnnotations.0.tagValue == 'value_1'
+          - cm_update_endpoint_mac_tag_policy.current.bdRef is defined
+          - cm_update_endpoint_mac_tag_policy.current.bdName == 'ansible_bd'
+          - cm_update_endpoint_mac_tag_policy.current.bdSchemaId is defined
+          - cm_update_endpoint_mac_tag_policy.current.bdSchemaNmae == 'ansible_test'
+          - cm_update_endpoint_mac_tag_policy.current.bdTemplateId is defined
+          - cm_update_endpoint_mac_tag_policy.current.bdTemplateName == 'ansible_tenant_template'
+          - cm_update_endpoint_mac_tag_policy.current.uuid is defined
+          - cm_update_endpoint_mac_tag_policy.current.templateId is defined
+          - cm_update_endpoint_mac_tag_policy.current.templateName == 'ansible_tenant_policy_template'
+          - nm_update_endpoint_mac_tag_policy is changed
+          - nm_update_endpoint_mac_tag_policy.previous == nm_create_endpoint_mac_tag_policy.current
+          - nm_update_endpoint_mac_tag_policy.previous.mac == '01:23:45:67:89:AB'
+          - nm_update_endpoint_mac_tag_policy.previous.uuid is defined
+          - nm_update_endpoint_mac_tag_policy.current.mac == '01:23:45:67:89:AB'
+          - nm_update_endpoint_mac_tag_policy.current.policyTags | length == 2
+          - nm_update_endpoint_mac_tag_policy.current.policyTags.0.key == 'key_1'
+          - nm_update_endpoint_mac_tag_policy.current.policyTags.0.value == 'value_1'
+          - nm_update_endpoint_mac_tag_policy.current.policyTags.1.key == 'key_2'
+          - nm_update_endpoint_mac_tag_policy.current.policyTags.1.value == 'value_2'
+          - nm_update_endpoint_mac_tag_policy.current.tagAnnotations | length == 1
+          - nm_update_endpoint_mac_tag_policy.current.tagAnnotations.0.tagKey == 'key_1'
+          - nm_update_endpoint_mac_tag_policy.current.tagAnnotations.0.tagValue == 'value_1'
+          - nm_update_endpoint_mac_tag_policy.current.bdRef is defined
+          - nm_update_endpoint_mac_tag_policy.current.bdName == 'ansible_bd'
+          - nm_update_endpoint_mac_tag_policy.current.bdSchemaId is defined
+          - nm_update_endpoint_mac_tag_policy.current.bdSchemaNmae == 'ansible_test'
+          - nm_update_endpoint_mac_tag_policy.current.bdTemplateId is defined
+          - nm_update_endpoint_mac_tag_policy.current.bdTemplateName == 'ansible_tenant_template'
+          - nm_update_endpoint_mac_tag_policy.current.vrfRef == ''
+          - nm_update_endpoint_mac_tag_policy.current.uuid is defined
+          - nm_update_endpoint_mac_tag_policy.current.templateId is defined
+          - nm_update_endpoint_mac_tag_policy.current.templateName == 'ansible_tenant_policy_template'
+          - nm_update_endpoint_mac_tag_policy_again is not changed
+          - nm_update_endpoint_mac_tag_policy_again.previous == nm_update_endpoint_mac_tag_policy_again.current == nm_update_endpoint_mac_tag_policy.current
+          - nm_update_endpoint_mac_tag_policy_mac_vrf is changed
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.previous.mac == '01:23:45:67:89:AB'
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.previous.uuid is defined
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.mac == '3C:22:FB:6A:9B:1C'
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.policyTags | length == 2
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.policyTags.0.key == 'key_1'
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.policyTags.0.value == 'value_1'
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.policyTags.1.key == 'key_2'
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.policyTags.1.value == 'value_2'
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.tagAnnotations | length == 1
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.tagAnnotations.0.tagKey == 'key_1'
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.tagAnnotations.0.tagValue == 'value_1'
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.bdRef == ''
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.vrfRef is defined
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.vrfName == 'ansible_vrf'
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.vrfSchemaId is defined
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.vrfSchemaNmae == 'ansible_test'
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.vrfTemplateId is defined
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.vrfTemplateName == 'ansible_tenant_template'
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.uuid is defined
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.uuid == nm_update_endpoint_mac_tag_policy.current.uuid == nm_create_endpoint_mac_tag_policy.current.uuid
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.templateId is defined
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.templateName == 'ansible_tenant_policy_template'
+          - nm_update_endpoint_mac_tag_policy_empty_list is changed
+          - nm_update_endpoint_mac_tag_policy_empty_list.previous.mac == '3C:22:FB:6A:9B:1C'
+          - nm_update_endpoint_mac_tag_policy_empty_list.previous.uuid is defined
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.mac == '3C:22:FB:6A:9B:1C'
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.policyTags is not defined
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.tagAnnotations is not defined
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.bdRef == ''
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.vrfRef is defined
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.vrfName == 'ansible_vrf'
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.vrfSchemaId is defined
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.vrfSchemaNmae == 'ansible_test'
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.vrfTemplateId is defined
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.vrfTemplateName == 'ansible_tenant_template'
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.uuid is defined
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.uuid == nm_update_endpoint_mac_tag_policy.current.uuid == nm_create_endpoint_mac_tag_policy.current.uuid
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.templateId is defined
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.templateName == 'ansible_tenant_policy_template'
+
+    # ERROR HANDLING
+
+    - name: Create Endpoint MAC Tag Policy with mutually exclusive template parameters (error)
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *create_endpoint_mac_tag_policy
+        template_id: template_id
+      register: err_mutually_exclusive_template
+      ignore_errors: true
+    
+    - name: Create Endpoint MAC Tag Policy with mutually exclusive Bridge Domain parameters (error)
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *create_endpoint_mac_tag_policy
+        bridge_domain_uuid: bd_uuid
+      register: err_mutually_exclusive_bd
+      ignore_errors: true
+    
+    - name: Create Endpoint MAC Tag Policy with mutually exclusive Bridge Domain and VRF parameters (error)
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *create_endpoint_mac_tag_policy
+        vrf:
+          name: ansible_vrf
+          template: ansible_tenant_template
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+      register: err_mutually_exclusive_bd_vrf
+      ignore_errors: true
+    
+    - name: Create Endpoint MAC Tag Policy with mutually exclusive Bridge Domain and VRF UUID parameters (error)
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *create_endpoint_mac_tag_policy
+        vrf_uuid: vrf_uuid
+      register: err_mutually_exclusive_bd_vrf_uuid
+      ignore_errors: true
+    
+    - name: Create Endpoint MAC Tag Policy with mutually exclusive Bridge Domain UUID and VRF parameters (error)
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        endpoint_mac_address: 01:23:45:67:89:AB
+        bridge_domain_uuid: bd_uuid
+        vrf:
+          name: ansible_vrf
+          template: ansible_tenant_template
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+        state: present
+      register: err_mutually_exclusive_bd_uuid_vrf
+      ignore_errors: true
+    
+    - name: Create Endpoint MAC Tag Policy with mutually exclusive Bridge Domain UUID and VRF UUID parameters (error)
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        endpoint_mac_address: 01:23:45:67:89:AB
+        vrf_uuid: vrf_uuid
+        bridge_domain_uuid: bd_uuid
+        state: present
+      register: err_mutually_exclusive_bd_uuid_vrf_uuid
+      ignore_errors: true
+    
+    - name: Create Endpoint MAC Tag Policy with mutually exclusive VRF parameters (error)
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        endpoint_mac_address: 01:23:45:67:89:AB
+        vrf_uuid: vrf_uuid
+        vrf:
+          name: ansible_vrf
+          template: ansible_tenant_template
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+        state: present
+      register: err_mutually_exclusive_vrf
+      ignore_errors: true
+
+    - name: Create Endpoint MAC Tag Policy without required parameters template and template_id (error)
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *mso_info
+        endpoint_mac_address: 01:23:45:67:89:AB
+        bridge_domain:
+          name: ansible_bd
+          template: ansible_tenant_template
+          schema: '{{ ansible_schema | default("ansible_test") }}'
+        state: present
+      register: err_required_parameters_missing_template
+      ignore_errors: true
+    
+    - name: Create Endpoint MAC Tag Policy without required parameters when using MAC address (error)
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        endpoint_mac_address: 01:23:45:67:89:AB
+        state: present
+      register: err_required_parameters_missing_with_mac
+      ignore_errors: true
+
+    - name: Assert Endpoint MAC Tag Policy error handling
+      ansible.builtin.assert:
+        that:
+          - err_mutually_exclusive_template is failed
+          - err_mutually_exclusive_template.msg == "parameters are mutually exclusive{{':'}} template|template_id"
+          - err_mutually_exclusive_bd is failed
+          - err_mutually_exclusive_bd.msg == "parameters are mutually exclusive{{':'}} bridge_domain|bridge_domain_uuid"
+          - err_mutually_exclusive_bd_vrf is failed
+          - err_mutually_exclusive_bd_vrf.msg == "parameters are mutually exclusive{{':'}} bridge_domain|vrf"
+          - err_mutually_exclusive_bd_vrf_uuid is failed
+          - err_mutually_exclusive_bd_vrf_uuid.msg == "parameters are mutually exclusive{{':'}} bridge_domain|vrf_uuid"
+          - err_mutually_exclusive_bd_uuid_vrf is failed
+          - err_mutually_exclusive_bd_uuid_vrf.msg == "parameters are mutually exclusive{{':'}} bridge_domain_uuid|vrf"
+          - err_mutually_exclusive_bd_uuid_vrf_uuid is failed
+          - err_mutually_exclusive_bd_uuid_vrf_uuid.msg == "parameters are mutually exclusive{{':'}} bridge_domain_uuid|vrf_uuid"
+          - err_mutually_exclusive_vrf is failed
+          - err_mutually_exclusive_vrf.msg == "parameters are mutually exclusive{{':'}} vrf|vrf_uuid"
+          - err_required_parameters_missing_template is failed
+          - err_required_parameters_missing_template.msg == "one of the following is required{{':'}} template, template_id"
+          - err_required_parameters_missing_with_mac is failed
+          - err_required_parameters_missing_with_mac.msg == "when providing a MAC address without UUID, one of the following is required{{':'}} bridge_domain, bridge_domain_uuid, vrf, vrf_uuid"
+
+    # QUERY Endpoint MAC Tag Policy
+
+    - name: Query Endpoint MAC Tag Policy
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *update_endpoint_mac_tag_policy_mac_vrf
+        state: query
+      register: query_endpoint_mac_tag_policy
+
+    - name: Query all Endpoint MAC Tag Policies in Tenant Policy template
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *mso_info
+        template: ansible_tenant_policy_template
+        state: query
+      register: query_all_endpoint_mac_tag_policy
+
+    - name: Assert Endpoint MAC Tag Policy query
+      ansible.builtin.assert:
+        that:
+          - query_endpoint_mac_tag_policy is not changed
+          - query_endpoint_mac_tag_policy.current.mac == '3C:22:FB:6A:9B:1C'
+          - query_endpoint_mac_tag_policy.current.vrfName == 'ansible_vrf'
+          - query_all_endpoint_mac_tag_policy is not changed
+          - query_all_endpoint_mac_tag_policy.current | length == 2
+          - query_all_endpoint_mac_tag_policy.current.0.mac == '3C:22:FB:6A:9B:1C'
+          - query_all_endpoint_mac_tag_policy.current.0.vrfName == 'ansible_vrf'
+          - query_all_endpoint_mac_tag_policy.current.1.mac == '2C:54:91:88:C9:E3'
+          - query_all_endpoint_mac_tag_policy.current.1.bdName == 'ansible_bd'
+
+    # DELETE Endpoint MAC Tag Policy
+
+    - name: Delete Endpoint MAC Tag Policy (check_mode)
+      cisco.mso.ndo_endpoint_mac_tag_policy: &delete_endpoint_mac_tag_policy
+        <<: *update_endpoint_mac_tag_policy_mac_vrf
+        state: absent
+      check_mode: true
+      register: cm_delete_endpoint_mac_tag_policy
+
+    - name: Delete Endpoint MAC Tag Policy
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *delete_endpoint_mac_tag_policy
+      register: nm_delete_endpoint_mac_tag_policy
+
+    - name: Delete Endpoint MAC Tag Policy again
+      cisco.mso.ndo_endpoint_mac_tag_policy:
+        <<: *delete_endpoint_mac_tag_policy
+      register: nm_delete_endpoint_mac_tag_policy_again
+
+    - name: Assert Endpoint MAC Tag Policy deletion
+      ansible.builtin.assert:
+        that:
+          - cm_delete_endpoint_mac_tag_policy is changed
+          - cm_delete_endpoint_mac_tag_policy.previous.mac == '3C:22:FB:6A:9B:1C'
+          - cm_delete_endpoint_mac_tag_policy.previous.uuid is defined
+          - cm_delete_endpoint_mac_tag_policy.proposed == {}
+          - cm_delete_endpoint_mac_tag_policy.current == {}
+          - nm_delete_endpoint_mac_tag_policy is changed
+          - nm_delete_endpoint_mac_tag_policy.previous.mac == '3C:22:FB:6A:9B:1C'
+          - nm_delete_endpoint_mac_tag_policy.previous.uuid is defined
+          - nm_delete_endpoint_mac_tag_policy.proposed == {}
+          - nm_delete_endpoint_mac_tag_policy.current == {}
+          - nm_delete_endpoint_mac_tag_policy_again is not changed
+          - nm_delete_endpoint_mac_tag_policy_again.previous == nm_delete_endpoint_mac_tag_policy_again.current == nm_delete_endpoint_mac_tag_policy.current
+
+    # CLEAN TEST ENVIRONMENT
+
+    - name: Ensure Tenant Policy template does not exist
+      cisco.mso.ndo_template:
+        <<: *tenant_policy_template_absent
+    
+    - name: Esnure schema template does not exist
+      cisco.mso.mso_schema_template:
+        <<: *schema_template_absent
+    
+    - name: Ensure Tenant does not exist
+      cisco.mso.mso_tenant:
+        <<: *tenant_absent

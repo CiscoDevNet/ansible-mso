@@ -225,6 +225,31 @@ class MSOTemplate:
         else:
             self.mso.fail_json(msg="Provided VRF {0} not found.".format(vrf_dict.get("name")))
 
+    def get_bd_object(self, bd_dict, tenant_id, templates_objects_path):
+        """
+        Get Bridge Domain object based on provided parameters.
+        :param bd_dict: Dictionary containing Bridge Domain details. -> Dict
+        :param tenant_id: Id of the tenant. -> Str
+        :param templates_objects_path: Path to the templates objects. -> Str
+        :return: Bridge Domain object if found, otherwise fail with an error message. -> Dict
+        """
+
+        bd_path = generate_api_endpoint(templates_objects_path, **{"type": "bd", "tenant-id": tenant_id, "include-common": "true"})
+        bd_objects = self.mso.query_objs(bd_path)
+        bd_kv_list = [
+            KVPair("name", bd_dict.get("name")),
+            KVPair("templateName", bd_dict.get("template")),
+            KVPair("schemaName", bd_dict.get("schema")),
+            KVPair("tenantId", tenant_id),
+        ]
+
+        bd_object = self.get_object_from_list(bd_objects, bd_kv_list)
+
+        if bd_object[0]:
+            return bd_object[0]
+        else:
+            self.mso.fail_json(msg="Provided Bridge Domain {0} not found.".format(bd_dict.get("name")))
+
     def get_l3out_node_routing_policy_object(self, uuid=None, name=None, fail_module=False):
         """
         Get the L3Out Node Routing Policy by UUID or Name.
@@ -782,6 +807,34 @@ class MSOTemplate:
                 [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
                 fail_module,
             )
+        return existing_objects  # Query all objects
+
+    def get_endpoint_mac_tag_policy_object(self, uuid=None, mac=None, bd_uuid=None, vrf_uuid=None, search_object=None, fail_module=False):
+        """
+        Get the Endpoint MAC Tag Policy by uuid or mac and bd_uuid or vrf_uuid.
+        :param uuid: UUID of the Endpoint MAC Tag Policy to search for -> Str
+        :param mac: The MAC address of the Endpoint MAC Tag Policy to search for -> Str
+        :param bd_uuid: UUID of the Bridge Domain referenced by the Endpoint MAC Tag Policy to search for -> Str
+        :param vrf_uuid: UUID of the VRF referenced by the Endpoint MAC Tag Policy to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | MAC address is existing in the search list -> Dict
+                 When the UUID | MAC address is not existing in the search list -> None
+                 When both UUID and MAC address are None, and the search list is not empty -> List[Dict]
+                 When both UUID and MAC address are None, and the search list is empty -> List[]
+        """
+        if not search_object:
+            search_object = self.template
+        existing_objects = search_object.get("tenantPolicyTemplate", {}).get("template", {}).get("endpointMacTagPolicies", [])
+        if uuid or (mac and (bd_uuid or vrf_uuid)):
+            if uuid:
+                kv_list = [KVPair("uuid", uuid)]
+            elif mac and bd_uuid:
+                kv_list = [KVPair("mac", mac), KVPair("bdRef", bd_uuid)]
+            else:
+                kv_list = [KVPair("mac", mac), KVPair("vrfRef", vrf_uuid)]
+            return self.get_object_by_key_value_pairs("Endpoint MAC Tag Policy", existing_objects, kv_list, fail_module)
         return existing_objects  # Query all objects
 
     def get_direct_child_object(self, parent_object, description, endpoint, identifiers=None, fail_module=False):

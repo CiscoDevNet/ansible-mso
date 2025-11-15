@@ -1305,3 +1305,30 @@ class MSOTemplate:
                 "Route Map Policy for Route Control", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module
             )
         return match  # Query all objects
+
+    def get_set_rule_policy_object(self, uuid=None, name=None, search_object=None, fail_module=False):
+        """
+        Get the Set Rule Policy by uuid or name.
+        :param uuid: UUID of the Set Rule Policy to search for -> Str
+        :param name: Name of the Set Rule Policy to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        if not search_object:
+            search_object = self.template
+
+        existing_objects = search_object.get("tenantPolicyTemplate", {}).get("template", {}).get("setRulePolicies", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs(
+                "Set Rule Policy",
+                existing_objects,
+                [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
+                fail_module,
+            )
+
+        return existing_objects  # Query all objects

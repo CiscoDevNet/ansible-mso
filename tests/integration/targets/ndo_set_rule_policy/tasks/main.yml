@@ -414,13 +414,17 @@
       ignore_errors: true
       register: update_non_existing_uuid
 
+    - name: Set expected error message for update non exists object
+      ansible.builtin.set_fact:
+        error_message_update_non_existing_object: "Set Rule Policy with the UUID: 'non-existing-uuid' not found"
+
     - name: Assert no Set Rule Policy found
       assert:
         that:
           - query_all_none is not changed
-          - query_all_none.current == []
+          - query_all_none.current == {}
           - update_non_existing_uuid is failed
-          - update_non_existing_uuid.msg == "Set Rule Policy with the UUID{{ ":" }} 'non-existing-uuid' not found"
+          - update_non_existing_uuid.msg == error_message_update_non_existing_object
 
   always:
     # CLEANUP

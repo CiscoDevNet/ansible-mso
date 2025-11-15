@@ -336,7 +336,6 @@ def main():
     mso_template = mso_templates.get_template("tenant", template_name, template_id)
     mso_template.validate_template("tenantPolicy")
     route_map_policy_object = mso_template.get_route_map_policy(route_map_policy_uuid, route_map_policy, template_object=None, fail_module=True)
-
     reference_details = {
         "matchRule": {
             "name": "matchRuleName",
@@ -379,9 +378,8 @@ def main():
             set_rule_reference = set_rule.get("reference")
             if not set_rule_uuid and set_rule_reference and not check_if_all_elements_are_none(set_rule_reference.values()):
                 set_rule_template = mso_templates.get_template("tenant", set_rule_reference.get("template"), set_rule_reference.get("template_id"))
-                set_rule_policies = set_rule_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("setRulePolicies", [])
-                set_rule_policy_match = set_rule_template.get_object_by_key_value_pairs(
-                    "Set Rule Policy", set_rule_policies, [KVPair("name", set_rule_reference.get("name"))], True
+                set_rule_policy_match = set_rule_template.get_set_rule_policy_object(
+                    uuid=None, name=set_rule_reference.get("name"), search_object=None, fail_module=True
                 )
                 set_rule_uuid = set_rule_policy_match.details.get("uuid")
 
@@ -393,9 +391,8 @@ def main():
                 elif match_rule and not check_if_all_elements_are_none(match_rule.get("reference", {}).values()):
                     ref = match_rule.get("reference")
                     match_rule_template = mso_templates.get_template("tenant", ref.get("template"), ref.get("template_id"))
-                    match_rule_policies = match_rule_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("matchRulePolicies", [])
-                    match_rule_policy_match = match_rule_template.get_object_by_key_value_pairs(
-                        "Match Rule Policy", match_rule_policies, [KVPair("name", ref.get("name"))], True
+                    match_rule_policy_match = match_rule_template.get_match_rule_policy_object(
+                        uuid=None, name=ref.get("name"), search_object=None, fail_module=True
                     )
                     match_rule_uuids.append(match_rule_policy_match.details.get("uuid"))
 

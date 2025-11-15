@@ -307,18 +307,9 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import (
-    MSOModule,
-    mso_argument_spec,
-)
-from ansible_collections.cisco.mso.plugins.module_utils.template import (
-    MSOTemplate,
-    KVPair,
-)
-from ansible_collections.cisco.mso.plugins.module_utils.utils import (
-    append_update_ops_data,
-    check_if_all_elements_are_none,
-)
+from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.template import MSOTemplate
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, check_if_all_elements_are_none
 from ansible_collections.cisco.mso.plugins.module_utils.constants import ROUTE_MAP_METRIC_TYPE_MAP
 import copy
 
@@ -433,20 +424,14 @@ def main():
     path = "/tenantPolicyTemplate/template/setRulePolicies"
     set_rule_policy_path = None
 
-    existing_set_rule_policies = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("setRulePolicies", [])
-    if name or uuid:
-        match = mso_template.get_object_by_key_value_pairs(
-            object_description,
-            existing_set_rule_policies,
-            [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
-        )
-        if match:
-            set_rule_policy_path = "{0}/{1}".format(path, match.index)
-            mso_template.update_config_with_template_and_references(match.details)
-            mso.existing = copy.deepcopy(match.details)
-            mso.previous = copy.deepcopy(match.details)
-    else:
-        mso.existing = mso.previous = [mso_template.update_config_with_template_and_references(obj) for obj in existing_set_rule_policies]
+    match = mso_template.get_set_rule_policy_object(uuid, name, search_object=None, fail_module=False)
+    if (name or uuid) and match:
+        set_rule_policy_path = "{0}/{1}".format(path, match.index)
+        mso_template.update_config_with_template_and_references(match.details)
+        mso.existing = copy.deepcopy(match.details)
+        mso.previous = copy.deepcopy(match.details)
+    elif match:
+        mso.existing = mso.previous = [mso_template.update_config_with_template_and_references(obj) for obj in match]
 
     if state == "present":
         if uuid and not mso.existing:
@@ -557,12 +542,7 @@ def main():
 
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)
-        set_rule_policies = response.get("tenantPolicyTemplate", {}).get("template", {}).get("setRulePolicies") or []
-        match = mso_template.get_object_by_key_value_pairs(
-            object_description,
-            set_rule_policies,
-            [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
-        )
+        match = mso_template.get_set_rule_policy_object(uuid, name, search_object=response, fail_module=False)
         if match:
             mso_template.update_config_with_template_and_references(match.details)
             mso.existing = match.details  # When the state is present

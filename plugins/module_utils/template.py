@@ -824,16 +824,17 @@ class MSOTemplate:
                  When both UUID and MAC address are None, and the search list is not empty -> List[Dict]
                  When both UUID and MAC address are None, and the search list is empty -> List[]
         """
+        kv_list = []
         if not search_object:
             search_object = self.template
         existing_objects = search_object.get("tenantPolicyTemplate", {}).get("template", {}).get("endpointMacTagPolicies", [])
-        if uuid or (mac and (bd_uuid or vrf_uuid)):
-            if uuid:
-                kv_list = [KVPair("uuid", uuid)]
-            elif mac and bd_uuid:
-                kv_list = [KVPair("mac", mac), KVPair("bdRef", bd_uuid)]
-            else:
-                kv_list = [KVPair("mac", mac), KVPair("vrfRef", vrf_uuid)]
+        if uuid:
+            kv_list = [KVPair("uuid", uuid)]
+        elif mac and bd_uuid:
+            kv_list = [KVPair("mac", mac), KVPair("bdRef", bd_uuid)]
+        elif mac and vrf_uuid:
+            kv_list = [KVPair("mac", mac), KVPair("vrfRef", vrf_uuid)]
+        if kv_list:
             return self.get_object_by_key_value_pairs("Endpoint MAC Tag Policy", existing_objects, kv_list, fail_module)
         return existing_objects  # Query all objects
 

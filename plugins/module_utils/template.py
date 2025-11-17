@@ -830,6 +830,31 @@ class MSOTemplate:
             kv_list = [KVPair("mac", mac), KVPair("vrfRef", vrf_uuid)]
         if kv_list:
             return self.get_object_by_key_value_pairs("Endpoint MAC Tag Policy", existing_objects, kv_list, fail_module)
+        return existing_objects # Query all objects
+
+    def get_endpoint_ip_tag_policy_object(self, uuid=None, ip=None, vrf_uuid=None, search_object=None, fail_module=False):
+        """
+        Get the Endpoint IP Tag Policy by uuid or ip and vrf_uuid.
+        :param uuid: UUID of the Endpoint IP Tag Policy to search for -> Str
+        :param ip: The IP address of the Endpoint IP Tag Policy to search for -> Str
+        :param vrf_uuid: UUID of the VRF referenced by the Endpoint IP Tag Policy to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | IP address is existing in the search list -> Dict
+                 When the UUID | IP address is not existing in the search list -> None
+                 When both UUID and IP address are None, and the search list is not empty -> List[Dict]
+                 When both UUID and IP address are None, and the search list is empty -> List[]
+        """
+        if not search_object:
+            search_object = self.template
+        existing_objects = search_object.get("tenantPolicyTemplate", {}).get("template", {}).get("endpointIPTagPolicies", [])
+        if uuid or (ip and vrf_uuid):
+            if uuid:
+                kv_list = [KVPair("uuid", uuid)]
+            else:
+                kv_list = [KVPair("ip", ip), KVPair("vrfRef", vrf_uuid)]
+            return self.get_object_by_key_value_pairs("Endpoint IP Tag Policy", existing_objects, kv_list, fail_module)
         return existing_objects  # Query all objects
 
     def get_direct_child_object(self, parent_object, description, endpoint, identifiers=None, fail_module=False):

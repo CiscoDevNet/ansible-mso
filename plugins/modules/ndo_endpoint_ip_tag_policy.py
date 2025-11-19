@@ -63,7 +63,8 @@ seealso:
 extends_documentation_fragment:
 - cisco.mso.modules
 - cisco.mso.vrf_references
-- cisco.mso.annotations_and_tags
+- cisco.mso.annotations
+- cisco.mso.policy_tags
 """
 
 EXAMPLES = r"""
@@ -210,7 +211,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import (
     ndo_tags_annotations_spec,
 )
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
-from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, format_annotations_list
 import copy
 
 
@@ -300,14 +301,7 @@ def main():
             "vrfRef": vrf_uuid,
         }
 
-        if annotations:
-            mso_values["tagAnnotations"] = [
-                {
-                    "tagKey": annotation.get("key"),
-                    "tagValue": annotation.get("value"),
-                }
-                for annotation in annotations
-            ]
+        format_annotations_list(mso_values, annotations)
         if policy_tags:
             mso_values["policyTags"] = policy_tags
 

@@ -67,7 +67,8 @@ extends_documentation_fragment:
 - cisco.mso.modules
 - cisco.mso.bridge_domain_references
 - cisco.mso.vrf_references
-- cisco.mso.annotations_and_tags
+- cisco.mso.annotations
+- cisco.mso.policy_tags
 """
 
 EXAMPLES = r"""
@@ -243,7 +244,7 @@ from ansible_collections.cisco.mso.plugins.module_utils.mso import (
     ndo_tags_annotations_spec,
 )
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
-from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data, format_annotations_list
 import copy
 
 
@@ -285,9 +286,7 @@ def main():
     mac = module.params.get("endpoint_mac_address")
     uuid = module.params.get("uuid")
     bd = module.params.get("bridge_domain")
-    bd_uuid = module.params.get("bridge_domain_uuid")
     vrf = module.params.get("vrf")
-    vrf_uuid = module.params.get("vrf_uuid")
     annotations = module.params.get("annotations")
     policy_tags = module.params.get("policy_tags")
     state = module.params.get("state")
@@ -320,6 +319,8 @@ def main():
 
     tenant_id = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("tenantId")
     templates_objects_path = "templates/objects"
+    vrf_uuid = ""
+    bd_uuid = ""
     if vrf:
         if vrf.get("uuid"):
             vrf_uuid = vrf["uuid"]
@@ -329,7 +330,7 @@ def main():
     elif bd:
         if bd.get("uuid"):
             bd_uuid = bd["uuid"]
-        elif vrf.get("reference"):
+        elif bd.get("reference"):
             bd_object = mso_template.get_bd_object(bd["reference"], tenant_id, templates_objects_path)
             bd_uuid = bd_object.details.get("uuid")
 
@@ -354,14 +355,7 @@ def main():
             "vrfRef": vrf_uuid,
         }
 
-        if annotations:
-            mso_values["tagAnnotations"] = [
-                {
-                    "tagKey": annotation.get("key"),
-                    "tagValue": annotation.get("value"),
-                }
-                for annotation in annotations
-            ]
+        format_annotations_list(mso_values, annotations)
         if policy_tags:
             mso_values["policyTags"] = policy_tags
 

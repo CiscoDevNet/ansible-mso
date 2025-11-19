@@ -14,6 +14,7 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_match_rule_community_term
+version_added: "2.12.0"
 short_description: Manage Match Community Terms on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage Match Community Terms inside a Match Rule Policy on Cisco Nexus Dashboard Orchestrator (NDO).

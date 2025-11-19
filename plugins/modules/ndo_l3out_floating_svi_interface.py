@@ -15,6 +15,7 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_l3out_floating_svi_interface
+version_added: "2.12.0"
 short_description: Manage L3Out Floating SVI Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage L3Out Floating SVI Interfaces on Cisco Nexus Dashboard Orchestrator (NDO).

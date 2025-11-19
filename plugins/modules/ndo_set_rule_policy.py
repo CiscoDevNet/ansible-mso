@@ -19,6 +19,7 @@ ANSIBLE_METADATA = {
 DOCUMENTATION = r"""
 ---
 module: ndo_set_rule_policy
+version_added: "2.12.0"
 short_description: Manage Tenant Set Rule Policies on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage Tenant Set Rule Policies on Cisco Nexus Dashboard Orchestrator (NDO).

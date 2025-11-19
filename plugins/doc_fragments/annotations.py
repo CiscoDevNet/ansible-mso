@@ -8,7 +8,6 @@ __metaclass__ = type
 
 
 class ModuleDocFragment(object):
-    # Standard files documentation fragment
     DOCUMENTATION = r"""
 options:
   annotations:
@@ -25,21 +24,5 @@ options:
       value:
         description:
         - The  value associated with O(annotations.key).
-        type: str
-  policy_tags:
-    description:
-    - The list of Policy Tags.
-    - Providing an empty list will remove the O(policy_tags) from the parent object.
-    type: list
-    elements: dict
-    aliases: [ tags ]
-    suboptions:
-      key:
-        description:
-        - The Policy Tag key.
-        type: str
-      value:
-        description:
-        - The value associated with O(policy_tags.key).
         type: str
 """

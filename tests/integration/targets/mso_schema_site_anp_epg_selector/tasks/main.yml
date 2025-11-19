@@ -20,7 +20,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -768,13 +768,17 @@
   ignore_errors: true
   register: nm_query_non_epg
 
+- name: Set assert message for cm_query_non_epg
+  ansible.builtin.set_fact:
+    assert_message_query_non_epg: "Provided EPG 'non_existing_epg' does not exist. Existing EPGs: ansible_test_1, ansible_test_2"
+
 - name: Verify query_non_epg
   ansible.builtin.assert:
     that:
     - cm_query_non_epg is not changed
     - nm_query_non_epg is not changed
     - cm_query_non_epg == nm_query_non_epg
-    - cm_query_non_epg.msg == nm_query_non_epg.msg == "Provided EPG 'non_existing_epg' does not exist. Existing EPGs{{':'}} ansible_test_1, ansible_test_2"
+    - cm_query_non_epg.msg == nm_query_non_epg.msg == assert_message_query_non_epg
 
 # QUERY NON-EXISTING ANP
 - name: Query non-existing ANP (check_mode)
@@ -804,13 +808,17 @@
   ignore_errors: true
   register: nm_query_non_anp
 
+- name: Set assert message for cm_query_non_anp
+  ansible.builtin.set_fact:
+    assert_message_query_non_anp: "Provided ANP 'non_existing_anp' does not exist. Existing ANPs: ANP"
+
 - name: Verify query_non_anp
   ansible.builtin.assert:
     that:
     - cm_query_non_anp is not changed
     - nm_query_non_anp is not changed
     - cm_query_non_anp == nm_query_non_anp
-    - cm_query_non_anp.msg == nm_query_non_anp.msg == "Provided anp 'non_existing_anp' does not exist. Existing anps{{':'}} ANP"
+    - cm_query_non_anp.msg == nm_query_non_anp.msg == assert_message_query_non_anp
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state (check_mode)
@@ -846,7 +854,7 @@
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
     - cm_non_existing_state == nm_non_existing_state
-    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+    - 'cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non-existing-state"'
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template (check_mode)
@@ -876,13 +884,17 @@
   ignore_errors: true
   register: nm_non_existing_template
 
+- name: Set error message for non_existing_template
+  ansible.builtin.set_fact:
+    error_message_non_existing_template: "Provided template 'non-existing-template' does not exist. Existing templates: Template1, Template2, Template3"
+
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2, Template3"
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == error_message_non_existing_template
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema (check_mode)

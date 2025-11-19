@@ -284,19 +284,24 @@
       register: error_wait_to_restore
       ignore_errors: true
 
+    - name: Set error messages for syncE interface policy
+      ansible.builtin.set_fact:
+        error_src_priority_msg: "MSO Error 400: 'SrcPriority' allowed minimum value is 1 maximum value is 254"
+        error_wait_to_restore_msg: "MSO Error 400: 'WaitToRestore' allowed maximum value is 12"
+
     - name: Assert errors
       assert:
         that:
           - error_admin_state is failed
-          - error_admin_state.msg == "value of admin_state must be one of{{':'}} enabled, disabled, got{{':'}} invalid"
+          - 'error_admin_state.msg == "value of admin_state must be one of: enabled, disabled, got: invalid"'
           - error_sync_state_msg is failed
-          - error_sync_state_msg.msg == "value of sync_state_msg must be one of{{':'}} enabled, disabled, got{{':'}} invalid"
+          - 'error_sync_state_msg.msg == "value of sync_state_msg must be one of: enabled, disabled, got: invalid"'
           - error_selection_input is failed
-          - error_selection_input.msg == "value of selection_input must be one of{{':'}} enabled, disabled, got{{':'}} invalid"
+          - 'error_selection_input.msg == "value of selection_input must be one of: enabled, disabled, got: invalid"'
           - error_src_priority is failed
-          - error_src_priority.msg == "MSO Error 400{{':'}} 'SrcPriority' allowed minimum value is 1 maximum value is 254"
+          - error_src_priority.msg == error_src_priority_msg
           - error_wait_to_restore is failed
-          - error_wait_to_restore.msg == "MSO Error 400{{':'}} 'WaitToRestore' allowed maximum value is 12"
+          - error_wait_to_restore.msg == error_wait_to_restore_msg
 
     # CLEANUP TEMPLATE
 

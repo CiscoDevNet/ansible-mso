@@ -22,16 +22,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
-
-- name: Remove Schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Ensure site exists
   cisco.mso.mso_site:
@@ -41,25 +32,27 @@
     apic_password: '{{ apic_password }}'
     apic_site_id: '{{ apic_site_id | default(101) }}'
     urls:
-    - https://{{ apic_hostname }}
+      - https://{{ apic_hostname }}
     state: present
 
-- name: Ensure sites removed from tenant ansible_test
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: absent
-
-- name: Ensure tenant ansible_test exist
-  cisco.mso.mso_tenant: 
+- name: Ensure tenant ansible_test exists
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
-    - '{{ mso_username }}'
+      - '{{ mso_username }}'
     sites:
-    - '{{ mso_site | default("ansible_test") }}'
+      - '{{ mso_site | default("ansible_test") }}'
     state: present
+
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure schema 1 with Template 1 and 2 exists
   cisco.mso.mso_schema_template: 
@@ -767,13 +760,17 @@
   ignore_errors: true
   register: nm_non_existing_template
 
+- name: Set assert message for non_existing_template
+  ansible.builtin.set_fact:
+    assert_message_non_existing_template: "Provided template 'non_existing_template' not matching existing template(s): Template1, Template2"
+
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non_existing_template' not matching existing template(s){{":"}} Template1, Template2"
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == assert_message_non_existing_template
 
 # USE A NON-EXISTING SITE
 - name: Non-existing site for static port (check_mode)
@@ -813,14 +810,18 @@
   ignore_errors: true
   register: nm_non_existing_site
 
+- name: Set assert message for non_existing_site
+  ansible.builtin.set_fact:
+    assert_message_non_existing_site: "Provided site 'ansible_test' not associated with template 'Template2'. Site is currently associated with template(s): Template1"
+
 - name: Verify non_existing_site
   ansible.builtin.assert:
     that:
     - cm_non_existing_site is not changed
     - nm_non_existing_site is not changed
     - cm_non_existing_site == nm_non_existing_site
-    - cm_non_existing_site.msg == "Provided site 'ansible_test' not associated with template 'Template2'. Site is currently associated with template(s){{':'}} Template1"
-    - nm_non_existing_site.msg == "Provided site 'ansible_test' not associated with template 'Template2'. Site is currently associated with template(s){{':'}} Template1"
+    - cm_non_existing_site.msg == assert_message_non_existing_site
+    - nm_non_existing_site.msg == assert_message_non_existing_site
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add site EPG static port association to Schema 2 Template 3 without any site associated (check mode)
@@ -1352,7 +1353,7 @@
   ansible.builtin.assert:
     that:
       - err_present_static_ports is failed
-      - err_present_static_ports.msg == "state is present or absent but all of the following are missing{{":"}} pod, leaf, path, vlan."
+      - 'err_present_static_ports.msg == "state is present or absent but all of the following are missing: pod, leaf, path, vlan."'
       - nm_query_static_ports is not changed
       - nm_query_static_ports.current | length == 10
       - nm_query_static_ports.current.0.path == "topology/pod-1/paths-101/pathep-[eth2/0]"
@@ -1362,10 +1363,22 @@
       - nm_query_static_ports.current.9.path == "topology/pod-1/paths-101/pathep-[eth2/9]"
       - nm_query_static_ports.current.9.portEncapVlan == 1309
       - err_query_static_ports is failed
-      - err_query_static_ports.msg.0 == "Provided Static Port Path 'topology/pod-1/paths-101/pathep-[eth1/40]' not found"
-      - err_query_static_ports.msg.1 == "Provided Static Port Path 'topology/pod-1/paths-201/pathep-[eth1/41]' not found"
 
-# FORCE REMOVE ALL CONTRACTS
+# Set facts is done to assure the test assertion is passing due to a type difference between 2.18 and 2.19 ansible-core
+# msg in 2.18 is of type list
+# msg in 2.19 is of type string and would fail if checking list entries
+- name: Set error messages for err_query_static_ports
+  ansible.builtin.set_fact:
+    error_1: "Provided Static Port Path 'topology/pod-1/paths-101/pathep-[eth1/40]' not found"
+    error_2: "Provided Static Port Path 'topology/pod-1/paths-201/pathep-[eth1/41]' not found"
+
+- name: Verify message of err_query_static_ports
+  ansible.builtin.assert:
+    that:
+    - error_1 in err_query_static_ports.msg
+    - error_2 in err_query_static_ports.msg
+
+# FORCE REMOVE ALL STATIC PORTS
 
 - name: Force remove all static ports
   cisco.mso.mso_schema_site_anp_epg_staticport: &force_remove_all
@@ -1376,7 +1389,7 @@
     state: absent
   register: force_remove_all_static_ports
 
-- name: Create new static ports without existing contracts
+- name: Create new static ports without existing static ports
   cisco.mso.mso_schema_site_anp_epg_staticport:
     <<: *force_remove_all
     static_ports:
@@ -1508,18 +1521,10 @@
   ansible.builtin.assert:
     that:
       - err_overwrite_static_ports is failed
-      - err_overwrite_static_ports.msg == "state is present but all of the following are missing{{":"}} path, vlan."
+      - 'err_overwrite_static_ports.msg == "state is present but all of the following are missing: path, vlan."'
       - err_overwrite_static_ports_other is failed
-      - err_overwrite_static_ports_other.msg == "state is present but all of the following are missing{{":"}} pod, leaf."
+      - 'err_overwrite_static_ports_other.msg == "state is present but all of the following are missing: pod, leaf."'
       - overwrite_static_ports is changed
       - overwrite_static_ports.current.0.path == "topology/pod-1/paths-201/pathep-[eth1/41]"
       - overwrite_static_ports.current.0.portEncapVlan == 1101
       - overwrite_static_ports.current.0.type == "port"
-
-# CLEAN UP TEST ENVIRONMENT
-
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: ansible_test
-    state: absent

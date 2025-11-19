@@ -129,6 +129,10 @@
       ignore_errors: true
       register: nm_update_mcp_global_policy_no_uuid
 
+    - name: Set error message for bad_uuid
+      ansible.builtin.set_fact:
+        error_message_bad_uuid: "MCP Global Policy with the UUID: 'bad-uuid' not found"
+
     - name: Assert the MCP Global Policy updated
       ansible.builtin.assert:
         that:
@@ -158,7 +162,7 @@
           - update_mcp_global_policy_again is not changed
           - update_mcp_global_policy_again.previous == update_mcp_global_policy_again.current
           - nm_update_mcp_global_policy_no_uuid is failed
-          - nm_update_mcp_global_policy_no_uuid.msg == "MCP Global Policy with the UUID{{":"}} 'bad-uuid' not found"
+          - nm_update_mcp_global_policy_no_uuid.msg == error_message_bad_uuid
 
     # QUERY
     - name: Query the MCP Global Policy with name
@@ -302,15 +306,20 @@
         <<: *add_mcp_global_policy
         state: absent
 
+    - name: Set error message for non_existing_uuid
+      ansible.builtin.set_fact:
+        error_message_non_existing_uuid: "MCP Global Policy with the UUID: 'non-existing-uuid' not found"
+        error_message_non_existing_uuid_delete: "MCP Global Policy with the UUID: 'does-not-exist' not found"
+
     - name: Assert errors and no MCP Global Policy found
       ansible.builtin.assert:
         that:
           - query_none is not changed
           - query_none.current == {}
           - update_non_existing_uuid is failed
-          - update_non_existing_uuid.msg == "MCP Global Policy with the UUID{{":"}} 'non-existing-uuid' not found"
+          - update_non_existing_uuid.msg == error_message_non_existing_uuid
           - delete_non_existing_uuid is failed
-          - delete_non_existing_uuid.msg == "MCP Global Policy with the UUID{{":"}} 'does-not-exist' not found"
+          - delete_non_existing_uuid.msg == error_message_non_existing_uuid_delete
           - create_with_uuid is failed
           - create_with_uuid.msg == "MCP Global Policy cannot be created with a UUID"
 

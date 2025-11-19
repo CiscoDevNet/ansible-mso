@@ -18,7 +18,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -562,7 +562,7 @@
           - err_no_template_type_query is failed
           - err_no_template_type_query.msg == "Template type must be provided when using template name."
           - err_no_template_type_application is failed
-          - err_no_template_type_application.msg == "The template_type{{':'}} application is only intended for retrieving the Application template."
+          - 'err_no_template_type_application.msg == "The template_type: application is only intended for retrieving the Application template."'
 
     # DELETE
 

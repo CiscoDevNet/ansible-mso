@@ -18,7 +18,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -47,7 +47,6 @@
         sites:
           - '{{ mso_site | default("ansible_test") }}'
         state: present
-      register: ansible_test_tenant
       when: ansible_test_site.current.common.name == 'ansible_test'
 
     - name: Ensure common tenant exist
@@ -59,7 +58,6 @@
         sites:
           - '{{ mso_site | default("ansible_test") }}'
         state: present
-      register: ansible_test_tenant
       when: ansible_test_site.current.common.name == 'ansible_test'
 
     - name: Ensure l3out template not exist
@@ -700,11 +698,15 @@
       register: enable_ngp_5_auth_without_key
       ignore_errors: true
 
+    - name: Set error message for enable bfd_multi_hop_authentication without bfd_multi_hop_key on node_group_policy_5
+      ansible.builtin.set_fact:
+        error_message_enable_ngp_5_auth_without_key: "MSO Error 400: Invalid configuration in L3Out 'l3out_2': node group 'node_group_policy_5': bfdMultiHop Key must be specified when auth is enabled"
+
     - name: Assertion check for enable bfd_multi_hop_authentication without bfd_multi_hop_key on node_group_policy_5
       ansible.builtin.assert:
         that:
           - enable_ngp_5_auth_without_key is changed
-          - enable_ngp_5_auth_without_key.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_2'{{':'}} node group 'node_group_policy_5'{{':'}} bfdMultiHop Key must be specified when auth is enabled"
+          - enable_ngp_5_auth_without_key.msg == error_message_enable_ngp_5_auth_without_key
 
     - name: Update node_group_policy_5 with bfd config
       cisco.mso.ndo_l3out_node_group_policy:
@@ -812,12 +814,16 @@
       register: node_group_policy_nt
       ignore_errors: true
 
+    - name: Set error message for create L3Out node group policy object with invalid l3out name
+      ansible.builtin.set_fact:
+        error_message_node_group_policy: "Provided L3Out with '[KVPair(key='name', value='l3out_nt')]' not matching existing object(s): l3out_1, l3out_2"
+
     - name: Assertion check for create L3Out node group policy object with invalid l3out name
       ansible.builtin.assert:
         that:
           - node_group_policy_nt is not changed
           - node_group_policy_nt.current == {}
-          - node_group_policy_nt.msg == "Provided L3Out with '[KVPair(key='name', value='l3out_nt')]' not matching existing object(s){{':'}} l3out_1, l3out_2"
+          - node_group_policy_nt.msg == error_message_node_group_policy
           - node_group_policy_nt.previous == {}
 
     - name: Create L3Out node group policy object with l3out_1 template
@@ -835,11 +841,15 @@
       register: node_group_policy_nt_with_l3out_1
       ignore_errors: true
 
+    - name: Set error message for create L3Out node group policy object with l3out_1 template
+      ansible.builtin.set_fact:
+        error_message_node_group_policy_l3out: "MSO Error 400: Invalid configuration in L3Out 'l3out_1': node group 'node_group_policy_nt': BFD Multihop is not supported with non-BGP routing protocols. Current protocol: none"
+
     - name: Assertion check for create L3Out node group policy object with l3out_1 template
       ansible.builtin.assert:
         that:
           - node_group_policy_nt_with_l3out_1 is changed
-          - node_group_policy_nt_with_l3out_1.msg == "MSO Error 400{{':'}} Invalid configuration in L3Out 'l3out_1'{{':'}} node group 'node_group_policy_nt'{{':'}} BFD Multihop is not supported with non-BGP routing protocols. Current protocol{{':'}} none"
+          - node_group_policy_nt_with_l3out_1.msg == error_message_node_group_policy_l3out
 
     - name: Create ngp1 with an empty bfd configuration
       cisco.mso.ndo_l3out_node_group_policy:

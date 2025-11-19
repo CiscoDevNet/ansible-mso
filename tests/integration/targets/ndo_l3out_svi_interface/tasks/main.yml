@@ -1160,61 +1160,73 @@
       ignore_errors: true
       register: error_svi_interface_type_virtual_port_channel_without_encapsulation_value
 
+    - name: Set error messages for svi interface creation
+      ansible.builtin.set_fact:
+        error_message_svi_interface_type_port_channel_invalid_name: "Provided Port Channel with '[KVPair(key='name', value='invalid_template_name')]' not matching existing object(s): ansible_port_channel_interface_1, ansible_port_channel_interface_2"
+        error_message_svi_interface_type_virtual_port_channel_invalid_name: "Provided Virtual Port Channel with '[KVPair(key='name', value='invalid_template_name')]' not matching existing object(s): ansible_virtual_port_channel_interface_1, ansible_virtual_port_channel_interface_2"
+        error_message_svi_interface_type_port_without_node_id: "missing parameter(s) required by 'path': node_id"
+        error_message_svi_interface_type_port_without_encapsulation_type: "missing parameter(s) required by 'path': encapsulation_type"
+        error_message_svi_interface_type_port_without_encapsulation_value: "missing parameter(s) required by 'path': encapsulation_value"
+        error_message_svi_interface_type_port_channel_without_encapsulation_type: "missing parameter(s) required by 'port_channel': encapsulation_type"
+        error_message_svi_interface_type_port_channel_without_encapsulation_value: "missing parameter(s) required by 'port_channel': encapsulation_value"
+        error_message_svi_interface_type_virtual_port_channel_without_encapsulation_type: "missing parameter(s) required by 'virtual_port_channel': encapsulation_type"
+        error_message_svi_interface_type_virtual_port_channel_without_encapsulation_value: "missing parameter(s) required by 'virtual_port_channel': encapsulation_value"
+
     - name: Assert that the error handling for svi interface creation works
       ansible.builtin.assert:
         that:
           - error_svi_interface_template_and_template_id is failed
-          - error_svi_interface_template_and_template_id.msg == "parameters are mutually exclusive{{":"}} template|template_id"
+          - 'error_svi_interface_template_and_template_id.msg == "parameters are mutually exclusive: template|template_id"'
           - error_svi_interface_l3out_and_l3out_uuid is failed
-          - error_svi_interface_l3out_and_l3out_uuid.msg == "parameters are mutually exclusive{{":"}} l3out|l3out_uuid"
+          - 'error_svi_interface_l3out_and_l3out_uuid.msg == "parameters are mutually exclusive: l3out|l3out_uuid"'
           - error_svi_interface_without_template_or_template_id is failed
-          - error_svi_interface_without_template_or_template_id.msg == "one of the following is required{{":"}} template, template_id"
+          - 'error_svi_interface_without_template_or_template_id.msg == "one of the following is required: template, template_id"'
           - error_svi_interface_without_l3out_or_l3out_uuid is failed
-          - error_svi_interface_without_l3out_or_l3out_uuid.msg == "one of the following is required{{":"}} l3out, l3out_uuid"
+          - 'error_svi_interface_without_l3out_or_l3out_uuid.msg == "one of the following is required: l3out, l3out_uuid"'
           - error_create_svi_interface_without_path_or_port_channel_or_virtual_port_channel is failed
-          - error_create_svi_interface_without_path_or_port_channel_or_virtual_port_channel.msg == "state is present but any of the following are missing{{":"}} path, port_channel, virtual_port_channel"
+          - 'error_create_svi_interface_without_path_or_port_channel_or_virtual_port_channel.msg == "state is present but any of the following are missing: path, port_channel, virtual_port_channel"'
           - error_delete_svi_interface_without_path_or_port_channel_or_virtual_port_channel is failed
-          - error_delete_svi_interface_without_path_or_port_channel_or_virtual_port_channel.msg == "state is absent but any of the following are missing{{":"}} path, port_channel, virtual_port_channel"
+          - 'error_delete_svi_interface_without_path_or_port_channel_or_virtual_port_channel.msg == "state is absent but any of the following are missing: path, port_channel, virtual_port_channel"'
           - error_svi_interface_type_port_channel_invalid_template is failed
           - error_svi_interface_type_port_channel_invalid_template.msg.startswith("Provided template name 'invalid_template' does not exist. Existing templates:")
           - error_svi_interface_type_port_channel_invalid_template_id is failed
           - error_svi_interface_type_port_channel_invalid_template_id.msg.startswith("Provided template id 'invalid_template_id' does not exist. Existing templates:")
           - error_svi_interface_type_port_channel_invalid_name is failed
-          - error_svi_interface_type_port_channel_invalid_name.msg == "Provided Port Channel with '[KVPair(key='name', value='invalid_template_name')]' not matching existing object(s){{":"}} ansible_port_channel_interface_1, ansible_port_channel_interface_2"
+          - error_svi_interface_type_port_channel_invalid_name.msg == error_message_svi_interface_type_port_channel_invalid_name
           - error_svi_interface_type_port_channel_invalid_template_uuid is failed
-          - error_svi_interface_type_port_channel_invalid_template_uuid.msg == "MSO Error 404{{":"}} policy not found"
+          - 'error_svi_interface_type_port_channel_invalid_template_uuid.msg == "MSO Error 404: policy not found"'
           - error_svi_interface_type_virtual_port_channel_invalid_template is failed
           - error_svi_interface_type_virtual_port_channel_invalid_template.msg.startswith("Provided template name 'invalid_template' does not exist. Existing templates:")
           - error_svi_interface_type_virtual_port_channel_invalid_template_id is failed
           - error_svi_interface_type_virtual_port_channel_invalid_template_id.msg.startswith("Provided template id 'invalid_template_id' does not exist. Existing templates:")
           - error_svi_interface_type_virtual_port_channel_invalid_name is failed
-          - error_svi_interface_type_virtual_port_channel_invalid_name.msg == "Provided Virtual Port Channel with '[KVPair(key='name', value='invalid_template_name')]' not matching existing object(s){{":"}} ansible_virtual_port_channel_interface_1, ansible_virtual_port_channel_interface_2"
+          - error_svi_interface_type_virtual_port_channel_invalid_name.msg == error_message_svi_interface_type_virtual_port_channel_invalid_name
           - error_svi_interface_type_virtual_port_channel_invalid_template_uuid is failed
-          - error_svi_interface_type_virtual_port_channel_invalid_template_uuid.msg == "MSO Error 404{{":"}} policy not found"
+          - 'error_svi_interface_type_virtual_port_channel_invalid_template_uuid.msg == "MSO Error 404: policy not found"'
           - error_svi_interface_type_port_channel_with_path is failed
-          - error_svi_interface_type_port_channel_with_path.msg == "parameters are mutually exclusive{{":"}} port_channel|path"
+          - 'error_svi_interface_type_port_channel_with_path.msg == "parameters are mutually exclusive: port_channel|path"'
           - error_svi_interface_type_port_channel_with_node_id is failed
-          - error_svi_interface_type_port_channel_with_node_id.msg == "parameters are mutually exclusive{{":"}} port_channel|node_id"
+          - 'error_svi_interface_type_port_channel_with_node_id.msg == "parameters are mutually exclusive: port_channel|node_id"'
           - error_svi_interface_type_virtual_port_channel_with_path is failed
-          - error_svi_interface_type_virtual_port_channel_with_path.msg == "parameters are mutually exclusive{{":"}} virtual_port_channel|path"
+          - 'error_svi_interface_type_virtual_port_channel_with_path.msg == "parameters are mutually exclusive: virtual_port_channel|path"'
           - error_svi_interface_type_virtual_port_channel_with_node_id is failed
-          - error_svi_interface_type_virtual_port_channel_with_node_id.msg == "parameters are mutually exclusive{{":"}} virtual_port_channel|node_id"
+          - 'error_svi_interface_type_virtual_port_channel_with_node_id.msg == "parameters are mutually exclusive: virtual_port_channel|node_id"'
           - error_svi_interface_type_virtual_port_channel_with_port_channel is failed
-          - error_svi_interface_type_virtual_port_channel_with_port_channel.msg == "parameters are mutually exclusive{{":"}} port_channel|virtual_port_channel"
+          - 'error_svi_interface_type_virtual_port_channel_with_port_channel.msg == "parameters are mutually exclusive: port_channel|virtual_port_channel"'
           - error_svi_interface_type_port_without_node_id is failed
-          - error_svi_interface_type_port_without_node_id.msg == "missing parameter(s) required by 'path'{{":"}} node_id"
+          - error_svi_interface_type_port_without_node_id.msg == error_message_svi_interface_type_port_without_node_id
           - error_svi_interface_type_port_without_encapsulation_type is failed
-          - error_svi_interface_type_port_without_encapsulation_type.msg == "missing parameter(s) required by 'path'{{":"}} encapsulation_type"
+          - error_svi_interface_type_port_without_encapsulation_type.msg == error_message_svi_interface_type_port_without_encapsulation_type
           - error_svi_interface_type_port_without_encapsulation_value is failed
-          - error_svi_interface_type_port_without_encapsulation_value.msg == "missing parameter(s) required by 'path'{{":"}} encapsulation_value"
+          - error_svi_interface_type_port_without_encapsulation_value.msg == error_message_svi_interface_type_port_without_encapsulation_value
           - error_svi_interface_type_port_channel_without_encapsulation_type is failed
-          - error_svi_interface_type_port_channel_without_encapsulation_type.msg == "missing parameter(s) required by 'port_channel'{{":"}} encapsulation_type"
+          - error_svi_interface_type_port_channel_without_encapsulation_type.msg == error_message_svi_interface_type_port_channel_without_encapsulation_type
           - error_svi_interface_type_port_channel_without_encapsulation_value is failed
-          - error_svi_interface_type_port_channel_without_encapsulation_value.msg == "missing parameter(s) required by 'port_channel'{{":"}} encapsulation_value"
+          - error_svi_interface_type_port_channel_without_encapsulation_value.msg == error_message_svi_interface_type_port_channel_without_encapsulation_value
           - error_svi_interface_type_virtual_port_channel_without_encapsulation_type is failed
-          - error_svi_interface_type_virtual_port_channel_without_encapsulation_type.msg == "missing parameter(s) required by 'virtual_port_channel'{{":"}} encapsulation_type"
+          - error_svi_interface_type_virtual_port_channel_without_encapsulation_type.msg == error_message_svi_interface_type_virtual_port_channel_without_encapsulation_type
           - error_svi_interface_type_virtual_port_channel_without_encapsulation_value is failed
-          - error_svi_interface_type_virtual_port_channel_without_encapsulation_value.msg == "missing parameter(s) required by 'virtual_port_channel'{{":"}} encapsulation_value"
+          - error_svi_interface_type_virtual_port_channel_without_encapsulation_value.msg == error_message_svi_interface_type_virtual_port_channel_without_encapsulation_value
 
     # QUERY
 

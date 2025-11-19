@@ -20,7 +20,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -33,21 +33,10 @@
     cisco.mso.mso_l3mcast: false
   when: version.current.version is version('2.2.4', '=')
 
-- name: Ensure site exist
-  cisco.mso.mso_site: &site_present
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    apic_username: "{{ apic_username }}"
-    apic_password: "{{ apic_password }}"
-    apic_site_id: "{{ apic_site_id | default(101) }}"
-    urls:
-      - https://{{ apic_hostname }}
-    state: present
-
 - name: Remove schemas
   cisco.mso.mso_schema:
     <<: *mso_info
-    schema: "{{ item }}"
+    schema: '{{ item }}'
     state: absent
   loop:
     - '{{ mso_schema | default("ansible_test") }}_2'
@@ -82,13 +71,11 @@
     - version.current.version is version('4.0', '<')
 
 - name: Ensure tenant ansible_test exist
-  cisco.mso.mso_tenant: &tenant_present
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
-      - "{{ mso_username }}"
-    sites:
-      - '{{ mso_site | default("ansible_test") }}'
+      - '{{ mso_username }}'
     state: present
 
 - name: Ensure schema 1 with Template1 exist
@@ -245,7 +232,7 @@
         - "ansible_tenant_template_2"
 
     - name: Ensure tenant templates exist
-      cisco.mso.ndo_template: &template_absent
+      cisco.mso.ndo_template: &tenant_template_present
         <<: *mso_info
         name: "{{item}}"
         template_type: tenant
@@ -728,11 +715,15 @@
   ignore_errors: true
   register: nm_change_bd_5_3
 
+- name: Set error message for nm_change_bd_5_3 before 3.1
+  ansible.builtin.set_fact:
+    error_message_change_bd_5_3_before_3_1: "MSO Error 143: Invalid Field: BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off"
+
 - name: Verify nm_change_bd_5_3 for a version that's before 3.1
   ansible.builtin.assert:
     that:
       - nm_change_bd_5_3 is changed
-      - nm_change_bd_5_3.msg is match ("MSO Error 143{{':'}} Invalid Field{{':'}} BD 'ansible_test_5' l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
+      - nm_change_bd_5_3.msg is match(error_message_change_bd_5_3_before_3_1)
   when: version.current.version is version('3.1.1g', '<')
 
 - name: Verify nm_change_bd_5_3 for a version that's after 3.1 and before 3.3
@@ -743,26 +734,34 @@
     # Below variants of the message output have occurred randomly, thus commenting out the specific error messages below.
     # Would need further investigation in to the cause, but due to old version decided to skip this investigation and do skip the message skip.
     # - "'l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off exception while trying to update schema' in nm_change_bd_5_3.msg"
-    # - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} BD 'ansible_test_5' {{':'}} ARP Flooding has to be disabled if L2 Stretch enabled and BUM traffic disabled exception while trying to update schema")
-    # - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template5', BD 'ansible_test_5' {{':'}} ARP Flooding has to be disabled if L2 Stretch enabled and BUM traffic disabled exception while trying to update schema")
+    # - nm_change_bd_5_3.msg is match ("MSO Error 400: Bad Request: Patch Failed, Received: BD 'ansible_test_5' : ARP Flooding has to be disabled if L2 Stretch enabled and BUM traffic disabled exception while trying to update schema")
+    # - nm_change_bd_5_3.msg is match ("MSO Error 400: Bad Request: Patch Failed, Received: Template 'Template5', BD 'ansible_test_5' : ARP Flooding has to be disabled if L2 Stretch enabled and BUM traffic disabled exception while trying to update schema")
   when:
     - version.current.version is version('3.3', '<')
     - version.current.version is version('3.1.1g', '>=')
+
+- name: Set error message for nm_change_bd_5_3  after 4.0 and before 4.3
+  ansible.builtin.set_fact:
+    error_message_change_bd_5_3_after_4_0_before_4_3: "MSO Error 400: BD: ansible_test_5 in Schema: ansible_test_2 , Template: Template5 BD ansible_test_5 l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off"
 
 - name: Verify nm_change_bd_5_3 for a version that's after 4.0 and before 4.3
   ansible.builtin.assert:
     that:
       - nm_change_bd_5_3 is changed
-      - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} BD{{':'}} ansible_test_5 in Schema{{':'}} ansible_test_2 , Template{{':'}} Template5 BD ansible_test_5 l2UnknownUnicast cannot be flood when intersiteBumTrafficAllow is off")
+      - nm_change_bd_5_3.msg is match(error_message_change_bd_5_3_after_4_0_before_4_3)
   when:
     - version.current.version is version('4.3', '<')
     - version.current.version is version('4.0', '>=')
+
+- name: Set error message for nm_change_bd_5_3 after 4.3
+  ansible.builtin.set_fact:
+    error_message_change_bd_5_3_after_4_3: "MSO Error 400: BD: ansible_test_5 in Schema: ansible_test_2, Template: Template5, BD ansible_test_5 l2UnknownUnicast cannot be set to flood when intersiteBumTrafficAllow is off"
 
 - name: Verify nm_change_bd_5_3 for a version that's after 4.3
   ansible.builtin.assert:
     that:
       - nm_change_bd_5_3 is changed
-      - nm_change_bd_5_3.msg is match ("MSO Error 400{{':'}} BD{{':'}} ansible_test_5 in Schema{{':'}} ansible_test_2, Template{{':'}} Template5, BD ansible_test_5 l2UnknownUnicast cannot be set to flood when intersiteBumTrafficAllow is off")
+      - nm_change_bd_5_3.msg is match(error_message_change_bd_5_3_after_4_3)
   when:
     - version.current.version is version('4.3', '>=')
 
@@ -777,11 +776,15 @@
     - version.current.version is version('3.3', '>=')
     - version.current.version is version('4.0', '<') # mso_schema_validate not needed after 4.0 because validation is done upon request
 
+- name: Set error message for query_validate after 4.3
+  ansible.builtin.set_fact:
+    error_message_query_validate_after_4_3: "MSO Error 400: Bad Request: Patch Failed, Received: Template 'Template5', BD 'ansible_test_5' : ARP Flooding has to be disabled if L2 Stretch enabled and BUM traffic disabled exception while trying to update schema"
+
 - name: Verify query_validate for a version that's after 3.3
   ansible.builtin.assert:
     that:
       - query_validate is not changed
-      - query_validate.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template5', BD 'ansible_test_5' {{':'}} ARP Flooding has to be disabled if L2 Stretch enabled and BUM traffic disabled exception while trying to update schema")
+      - query_validate.msg is match(error_message_query_validate_after_4_3)
   when:
     - version.current.version is version('3.3', '>=')
     - version.current.version is version('3.7', '<')
@@ -1304,10 +1307,14 @@
   ignore_errors: true
   when: version.current.version is version('3.1.1g', '>')
 
+- name: Set error message for nm_bd_subnet_second_primary
+  set_fact:
+    error_message_bd_subnet_second_primary: "MSO Error 400: Bad Request: Patch Failed, Received: Only one preferred subnet per address family is allowed under BD ansible_test_new_options of Template Template1 exception while trying to update schema"
+
 - name: Verify subnets in nm_bd_subnet_second_primary
   ansible.builtin.assert:
     that:
-      - nm_bd_subnet_second_primary.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Only one preferred subnet per address family is allowed under BD ansible_test_new_options of Template Template1 exception while trying to update schema")
+      - nm_bd_subnet_second_primary.msg is match (error_message_bd_subnet_second_primary)
   when:
     - version.current.version is version('3.1.1g', '>')
     - version.current.version is version('3.3', '<')
@@ -1336,10 +1343,14 @@
   register: nm_bd_new_encap_flood_non
   when: version.current.version is version('3.1.1g', '>')
 
+- name: Set error message for nm_bd_new_encap_flood_non
+  set_fact:
+    error_message: "MSO Error 400: Bad Request: Patch Failed, Received: Template 'Template1', BD 'ansible_test_flood_encap' : Multi destination flood in encapsulation is only supported when l2Stretch is disabled exception while trying to update schema"
+
 - name: Verify nm_bd_new_encap_flood_non
   ansible.builtin.assert:
     that:
-      - nm_bd_new_encap_flood_non.msg is match ("MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} Template 'Template1', BD 'ansible_test_flood_encap' {{':'}} Multi destination flood in encapsulation is only supported when l2Stretch is disabled exception while trying to update schema")
+      - nm_bd_new_encap_flood_non.msg is match(error_message)
   when:
     - version.current.version is version('3.1.1g', '>')
     - version.current.version is version('3.3', '<')
@@ -2238,7 +2249,7 @@
       - cm_non_existing_state is not changed
       - nm_non_existing_state is not changed
       - cm_non_existing_state == nm_non_existing_state
-      - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+      - 'cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non-existing-state"'
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for bd (check_mode)
@@ -2280,63 +2291,33 @@
   ignore_errors: true
   register: nm_non_existing_template
 
+- name: Set error message for nm_non_existing_template
+  ansible.builtin.set_fact:
+    error_message_non_existing_template: "Provided template 'non-existing-template' does not exist. Existing templates: Template1, Template2"
+
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
       - cm_non_existing_template is not changed
       - nm_non_existing_template is not changed
       - cm_non_existing_template == nm_non_existing_template
-      - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
+      - cm_non_existing_template.msg == nm_non_existing_template.msg == error_message_non_existing_template
 
-# CLEAN UP DHCP Policies
-- name: Ensure DHCP policies are removed
-  cisco.mso.mso_dhcp_relay_policy:
-    <<: *mso_info
-    dhcp_relay_policy: "{{ item }}"
-    tenant: ansible_test
-    state: absent
-  loop:
-    - "ansible_test_dhcp_policy1"
-    - "ansible_test_dhcp_policy2"
-    - "ansible_test_dhcp_policy3"
-  when:
-    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
-    - version.current.version is version('4.0', '<')
-
-- name: Ensure DHCP option policies are removed
-  cisco.mso.mso_dhcp_option_policy:
-    <<: *mso_info
-    dhcp_option_policy: "{{ item }}"
-    tenant: ansible_test
-    state: absent
-  loop:
-    - "ansible_test_dhcp_policy_option1"
-    - "ansible_test_dhcp_policy_option2"
-    - "ansible_test_dhcp_policy_option3"
-  when:
-    # TODO dhcp policies api endpoint has changed after 4.0, fix when new module is created
-    - version.current.version is version('4.0', '<')
-
-# REMOVE Schemas for next CI Run
-- name: Remove schemas for next ci test
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: "{{ item }}"
-    state: absent
-  loop:
-    - '{{ mso_schema | default("ansible_test") }}_2'
-    - '{{ mso_schema | default("ansible_test") }}'
-
-# CLEAN UP Tenant Templates
 - name: Execute tasks only for MSO version > 4.3
   when: version.current.version is version('4.3', '>=')
   block:
-    - name: Remove tenant templates for next ci test
-      cisco.mso.ndo_template:
+    - name: Remove schemas
+      cisco.mso.mso_schema:
         <<: *mso_info
-        name: "{{item}}"
-        template_type: tenant
-        tenant: ansible_test
+        schema: '{{ item }}'
+        state: absent
+      loop:
+      - '{{ mso_schema | default("ansible_test") }}_2'
+      - '{{ mso_schema | default("ansible_test") }}'
+
+    - name: Remove tenant templates
+      cisco.mso.ndo_template:
+        <<: *tenant_template_present
         state: absent
       loop:
         - "ansible_tenant_template_1"

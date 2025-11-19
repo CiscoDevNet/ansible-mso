@@ -21,16 +21,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
-
-- name: Remove Schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Ensure site exists
   cisco.mso.mso_site:
@@ -40,25 +31,27 @@
     apic_password: '{{ apic_password }}'
     apic_site_id: '{{ apic_site_id | default(101) }}'
     urls:
-    - https://{{ apic_hostname }}
+      - https://{{ apic_hostname }}
     state: present
 
-- name: Ensure sites removed from tenant ansible_test
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: absent
-
-- name: Ensure tenant ansible_test exist
-  cisco.mso.mso_tenant: 
+- name: Ensure tenant ansible_test exists
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
-    - '{{ mso_username }}'
+      - '{{ mso_username }}'
     sites:
-    - '{{ mso_site | default("ansible_test") }}'
+      - '{{ mso_site | default("ansible_test") }}'
     state: present
+
+- name: Remove schemas
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure schema 1 with Template 1 and 2 exists
   cisco.mso.mso_schema_template: 
@@ -729,7 +722,7 @@
   ansible.builtin.assert:
     that:
     - err_binding_type_static is not changed
-    - err_binding_type_static.msg == "binding_type is static but all of the following are missing{{":"}} port_allocation"
+    - 'err_binding_type_static.msg == "binding_type is static but all of the following are missing: port_allocation"'
 
 - name: Error micro_seg_vlan and micro_seg_vlan_type not provided (error mode)
   cisco.mso.mso_schema_site_anp_epg_domain:
@@ -769,9 +762,9 @@
   ansible.builtin.assert:
     that:
     - err_no_micro_seg_vlan_type is not changed
-    - err_no_micro_seg_vlan_type.msg == "parameters are required together{{":"}} micro_seg_vlan_type, micro_seg_vlan"
+    - 'err_no_micro_seg_vlan_type.msg == "parameters are required together: micro_seg_vlan_type, micro_seg_vlan"'
     - err_no_micro_seg_vlan is not changed
-    - err_no_micro_seg_vlan.msg == "parameters are required together{{":"}} micro_seg_vlan_type, micro_seg_vlan"
+    - 'err_no_micro_seg_vlan.msg == "parameters are required together: micro_seg_vlan_type, micro_seg_vlan"'
 
 - name: Error port_encap_vlan and port_encap_vlan_type not provided (error mode)
   cisco.mso.mso_schema_site_anp_epg_domain:
@@ -811,9 +804,9 @@
   ansible.builtin.assert:
     that:
     - err_no_port_encap_vlan_type is not changed
-    - err_no_port_encap_vlan_type.msg == "parameters are required together{{":"}} port_encap_vlan_type, port_encap_vlan"
+    - 'err_no_port_encap_vlan_type.msg == "parameters are required together: port_encap_vlan_type, port_encap_vlan"'
     - err_no_port_encap_vlan is not changed
-    - err_no_port_encap_vlan.msg == "parameters are required together{{":"}} port_encap_vlan_type, port_encap_vlan"
+    - 'err_no_port_encap_vlan.msg == "parameters are required together: port_encap_vlan_type, port_encap_vlan"'
 
 - name: Error enhanced_lagpolicy_dn and enhanced_lagpolicy_name not provided (error mode)
   cisco.mso.mso_schema_site_anp_epg_domain:
@@ -853,9 +846,9 @@
   ansible.builtin.assert:
     that:
     - err_no_enhanced_lagpolicy_name is not changed
-    - err_no_enhanced_lagpolicy_name.msg == "parameters are required together{{":"}} enhanced_lagpolicy_name, enhanced_lagpolicy_dn"
+    - 'err_no_enhanced_lagpolicy_name.msg == "parameters are required together: enhanced_lagpolicy_name, enhanced_lagpolicy_dn"'
     - err_no_enhanced_lagpolicy_dn is not changed
-    - err_no_enhanced_lagpolicy_dn.msg == "parameters are required together{{":"}} enhanced_lagpolicy_name, enhanced_lagpolicy_dn"
+    - 'err_no_enhanced_lagpolicy_dn.msg == "parameters are required together: enhanced_lagpolicy_name, enhanced_lagpolicy_dn"'
 
 # USE NON-EXISTING EPG and ANP AT TEMPLATE LEVEL
 - name: Add domain 1 to non-existent site EPG5 (normal mode)
@@ -973,13 +966,17 @@
   ignore_errors: true
   register: nm_non_existing_template
 
+- name: Set assert message for nm_non_existing_template
+  ansible.builtin.set_fact:
+    assert_message_non_existing_template: "Provided template 'non_existing_template' does not exist. Existing templates: Template1, Template2"
+
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non_existing_template' does not exist. Existing templates{{':'}} Template1, Template2"
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == assert_message_non_existing_template
 
 # USE A NON-EXISTING SITE
 - name: Non-existing site for domain (check_mode)
@@ -1013,14 +1010,18 @@
   ignore_errors: true
   register: nm_non_existing_site
 
+- name: Set regex match for verification of non_existing_site
+  ansible.builtin.set_fact:
+    regex_match: "Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates: [0-9a-zA-Z]*/Template1"
+
 - name: Verify non_existing_site
   ansible.builtin.assert:
     that:
     - cm_non_existing_site is not changed
     - nm_non_existing_site is not changed
     - cm_non_existing_site == nm_non_existing_site
-    - cm_non_existing_site.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1")
-    - nm_non_existing_site.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1")
+    - cm_non_existing_site.msg is match(regex_match)
+    - nm_non_existing_site.msg is match(regex_match)
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add site EPG domain association to Schema 2 Template 3 without any site associated (check mode)

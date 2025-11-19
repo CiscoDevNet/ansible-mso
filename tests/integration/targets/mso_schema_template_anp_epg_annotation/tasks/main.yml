@@ -34,28 +34,26 @@
     
     # SETUP
     - name: Remove schemas
-      cisco.mso.mso_schema: &ansible_schema_absent
+      cisco.mso.mso_schema:
         <<: *mso_info
-        schema: ansible_test
+        schema: '{{ item }}'
         state: absent
+      loop:
+      - '{{ mso_schema | default("ansible_test") }}_2'
+      - '{{ mso_schema | default("ansible_test") }}'
 
-    - name: Ensure ansible_test tenant absent
-      cisco.mso.mso_tenant: &ansible_tenant_absent
+    - name: Ensure ansible_test tenant present
+      cisco.mso.mso_tenant:
         <<: *mso_info
         tenant: ansible_test
         users:
-          - "{{ mso_username }}"
-        state: absent
-
-    - name: Ensure ansible_test tenant present
-      cisco.mso.mso_tenant: &ansible_tenant_present
-        <<: *ansible_tenant_absent
+          - '{{ mso_username }}'
         state: present
 
     - name: Ensure ansible_test schema with ans_test_template exist
       cisco.mso.mso_schema_template:
         <<: *mso_info
-        schema: ansible_test
+        schema: '{{ mso_schema | default("ansible_test") }}'
         tenant: ansible_test
         template: ans_test_template
         state: present
@@ -63,7 +61,7 @@
     - name: Ensure ans_test_anp exist
       cisco.mso.mso_schema_template_anp:
         <<: *mso_info
-        schema: ansible_test
+        schema: '{{ mso_schema | default("ansible_test") }}'
         template: ans_test_template
         anp: ans_test_anp
         state: present
@@ -71,7 +69,7 @@
     - name: Ensure ans_test_epg exist
       cisco.mso.mso_schema_template_anp_epg: &ans_test_epg_present
         <<: *mso_info
-        schema: ansible_test
+        schema: '{{ mso_schema | default("ansible_test") }}'
         template: ans_test_template
         anp: ans_test_anp
         epg: ans_test_epg
@@ -229,6 +227,10 @@
       ignore_errors: true
       register: non_existing_epg
 
+    - name: Set error message for non_existing_epg
+      ansible.builtin.set_fact:
+        error_message_non_existing_epg: "Provided EPG 'ans_test_epg_none' not matching existing epg(s): ans_test_epg"
+
     - name: Assert error conditions
       ansible.builtin.assert:
         that:
@@ -237,13 +239,4 @@
           - query_one_none is not changed
           - query_one_none.current == {}
           - non_existing_epg is failed
-          - non_existing_epg.msg == "Provided EPG 'ans_test_epg_none' not matching existing epg(s){{":"}} ans_test_epg"
-
-    # CLEANUP
-    - name: Remove ansible_test schema
-      cisco.mso.mso_schema:
-        <<: *ansible_schema_absent
-
-    - name: Remove ansible_test tenant
-      cisco.mso.mso_tenant:
-        <<: *ansible_tenant_absent
+          - non_existing_epg.msg == error_message_non_existing_epg

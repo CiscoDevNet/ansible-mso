@@ -14,7 +14,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
     sites: "['aws_{{ mso_site | default(\"ansible_test\") }}', 
               'azure_{{ mso_site | default(\"ansible_test\") }}',
               '{{ mso_site | default(\"ansible_test\") }}']"
@@ -414,13 +414,17 @@
   ignore_errors: true
   register: nm_query_non_region
 
+- name: Set error message for non_existing_region
+  ansible.builtin.set_fact:
+    error_message_non_existing_region: "Provided region 'non_existing_region' does not exist. Existing regions: us-west-1"
+
 - name: Verify query_non_region
   ansible.builtin.assert:
     that:
     - cm_query_non_region is not changed
     - nm_query_non_region is not changed
     - cm_query_non_region == nm_query_non_region
-    - cm_query_non_region.msg == nm_query_non_region.msg == "Provided region 'non_existing_region' does not exist. Existing regions{{':'}} us-west-1"
+    - cm_query_non_region.msg == nm_query_non_region.msg == error_message_non_existing_region
 
 # QUERY NON-EXISTING VRF
 - name: Query non-existing VRF (check_mode)
@@ -448,13 +452,17 @@
   ignore_errors: true
   register: nm_query_non_vrf
 
+- name: Set error message for non_existing_vrf
+  ansible.builtin.set_fact:
+    error_message_non_existing_vrf: "Provided vrf 'non_existing_vrf' does not exist. Existing vrfs: VRF1"
+
 - name: Verify query_non_vrf
   ansible.builtin.assert:
     that:
     - cm_query_non_vrf is not changed
     - nm_query_non_vrf is not changed
     - cm_query_non_vrf == nm_query_non_vrf
-    - cm_query_non_vrf.msg == nm_query_non_vrf.msg == "Provided vrf 'non_existing_vrf' does not exist. Existing vrfs{{':'}} VRF1"
+    - cm_query_non_vrf.msg == nm_query_non_vrf.msg == error_message_non_existing_vrf
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for site hub network (check_mode)
@@ -488,7 +496,7 @@
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
     - cm_non_existing_state == nm_non_existing_state
-    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+    - 'cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non-existing-state"'
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for site hub network (check_mode)
@@ -550,13 +558,17 @@
   ignore_errors: true
   register: nm_non_existing_template
 
+- name: Set error message for non_existing_template
+  ansible.builtin.set_fact:
+    error_message_non_existing_template: "Provided template 'non-existing-template' does not exist. Existing templates: Template1, Template2"
+
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == error_message_non_existing_template
 
 # USE A NON_EXISTING_SITE_TEMPLATE
 - name: non_existing_site_template (check_mode)

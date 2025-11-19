@@ -21,30 +21,13 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
-
-# - name: Ensure site exist
-#   cisco.mso.mso_site: &site_present
-#     host: '{{ mso_hostname }}'
-#     username: '{{ mso_username }}'
-#     password: '{{ mso_password }}'
-#     validate_certs: '{{ mso_validate_certs | default(false) }}'
-#     use_ssl: '{{ mso_use_ssl | default(true) }}'
-#     use_proxy: '{{ mso_use_proxy | default(true) }}'
-#     output_level: '{{ mso_output_level | default("info") }}'
-#     site: '{{ mso_site | default("ansible_test") }}'
-#     apic_username: '{{ apic_username }}'
-#     apic_password: '{{ apic_password }}'
-#     apic_site_id: '{{ apic_site_id | default(101) }}'
-#     urls:
-#     - https://{{ apic_hostname }}
-#     state: present
 
 - name: Remove schemas
   cisco.mso.mso_schema:
@@ -61,8 +44,6 @@
     tenant: ansible_test
     users:
     - '{{ mso_username }}'
-    # sites:
-    # - '{{ mso_site | default("ansible_test") }}'
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
@@ -536,40 +517,40 @@
     - nm_query_selector2.current.expressions[5].operator == "keyNotExist"
     - nm_query_selector2.current.expressions[5].value == ""
 
-# - name: Remove selector 1 (check_mode)
-#   cisco.mso.mso_schema_template_anp_epg_selector:
-#     <<: *mso_info
-#     schema: '{{ mso_schema | default("ansible_test") }}'
-#     template: Template 1
-#     anp: ANP
-#     epg: ansible_test_1
-#     selector: selector 1
-#     state: absent
-#   check_mode: true
-#   register: cm_remove_selector_1
+- name: Remove selector 1 (check_mode)
+  cisco.mso.mso_schema_template_anp_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    epg: ansible_test_1
+    selector: selector_1
+    state: absent
+  check_mode: true
+  register: cm_remove_selector_1
 
-# - name: Verify cm_remove_selector_1
-#   ansible.builtin.assert:
-#     that:
-#     - cm_remove_selector_1 is changed
-#     - cm_remove_selector_1.current == {}
+- name: Verify cm_remove_selector_1
+  ansible.builtin.assert:
+    that:
+    - cm_remove_selector_1 is changed
+    - cm_remove_selector_1.current == {}
 
-# - name: Remove selector 1 (normal_mode)
-#   cisco.mso.mso_schema_template_anp_epg_selector:
-#     <<: *mso_info
-#     schema: '{{ mso_schema | default("ansible_test") }}'
-#     template: Template 1
-#     anp: ANP
-#     epg: ansible_test_1
-#     selector: selector 1
-#     state: absent
-#   register: nm_remove_selector_1
+- name: Remove selector 1 (normal_mode)
+  cisco.mso.mso_schema_template_anp_epg_selector:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    anp: ANP
+    epg: ansible_test_1
+    selector: selector_1
+    state: absent
+  register: nm_remove_selector_1
 
-# - name: Verify nm_remove_selector_1
-#   ansible.builtin.assert:
-#     that:
-#     - nm_remove_selector_1 is changed
-#     - nm_remove_selector_1.current == {}
+- name: Verify nm_remove_selector_1
+  ansible.builtin.assert:
+    that:
+    - nm_remove_selector_1 is changed
+    - nm_remove_selector_1.current == {}
 
 - name: Remove selector 2 (normal_mode)
   cisco.mso.mso_schema_template_anp_epg_selector:
@@ -649,13 +630,17 @@
   ignore_errors: true
   register: nm_query_non_epg
 
+- name: Set error message for cm_query_non_epg
+  ansible.builtin.set_fact:
+    error_message_non_existing_epg: "Provided epg 'non_existing_epg' does not exist. Existing epgs: ansible_test_1"
+
 - name: Verify query_non_epg
   ansible.builtin.assert:
     that:
     - cm_query_non_epg is not changed
     - nm_query_non_epg is not changed
     - cm_query_non_epg == nm_query_non_epg
-    - cm_query_non_epg.msg == nm_query_non_epg.msg == "Provided epg 'non_existing_epg' does not exist. Existing epgs{{':'}} ansible_test_1"
+    - cm_query_non_epg.msg == nm_query_non_epg.msg == error_message_non_existing_epg
 
 # QUERY NON-EXISTING ANP
 - name: Query non-existing ANP (check_mode)
@@ -683,13 +668,17 @@
   ignore_errors: true
   register: nm_query_non_anp
 
+- name: Set error message for cm_query_non_anp
+  ansible.builtin.set_fact:
+    error_message_non_existing_anp: "Provided anp 'non_existing_anp' does not exist. Existing anps: ANP"
+
 - name: Verify query_non_anp
   ansible.builtin.assert:
     that:
     - cm_query_non_anp is not changed
     - nm_query_non_anp is not changed
     - cm_query_non_anp == nm_query_non_anp
-    - cm_query_non_anp.msg == nm_query_non_anp.msg == "Provided anp 'non_existing_anp' does not exist. Existing anps{{':'}} ANP"
+    - cm_query_non_anp.msg == nm_query_non_anp.msg == error_message_non_existing_anp
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state (check_mode)
@@ -723,7 +712,7 @@
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
     - cm_non_existing_state == nm_non_existing_state
-    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+    - 'cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non-existing-state"'
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template (check_mode)
@@ -751,13 +740,17 @@
   ignore_errors: true
   register: nm_non_existing_template
 
+- name: Set error message for cm_non_existing_template
+  ansible.builtin.set_fact:
+    error_message_non_existing_template: "Provided template 'non-existing-template' does not exist. Existing templates: Template1, Template2"
+
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == error_message_non_existing_template
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema (check_mode)

@@ -14,6 +14,7 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_route_map_policy_route_control_context
+version_added: "2.12.0"
 short_description: Manage Route Map Policy for Route Control Context on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage Route Map Policy for Route Control Context on Cisco Nexus Dashboard Orchestrator (NDO).

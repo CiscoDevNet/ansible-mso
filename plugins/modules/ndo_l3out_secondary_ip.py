@@ -13,7 +13,7 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 
 DOCUMENTATION = r"""
 module: ndo_l3out_secondary_ip
-version_added: "2.11.0"
+version_added: "2.12.0"
 short_description: Manage L3Out Secondary IP Address on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage L3Out L3Out Secondary IP Address on Cisco Nexus Dashboard Orchestrator (NDO).

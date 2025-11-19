@@ -107,9 +107,10 @@
         template: ansible_tenant_policy_template
         endpoint_mac_address: 01:23:45:67:89:AB
         bridge_domain:
-          name: ansible_bd
-          template: ansible_tenant_template
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          reference:
+            name: ansible_bd
+            template: ansible_tenant_template
+            schema: '{{ ansible_schema | default("ansible_test") }}'
         annotations:
           - key: key_1
             value: value_1
@@ -138,9 +139,10 @@
         template: ansible_tenant_policy_template
         endpoint_mac_address: 2C:54:91:88:C9:E3
         bridge_domain:
-          name: ansible_bd
-          template: ansible_tenant_template
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          reference:
+            name: ansible_bd
+            template: ansible_tenant_template
+            schema: '{{ ansible_schema | default("ansible_test") }}'
         state: present
       register: nm_create_endpoint_mac_tag_policy_2
 
@@ -240,9 +242,10 @@
         uuid: "{{ nm_create_endpoint_mac_tag_policy.current.uuid }}"
         endpoint_mac_address: 3C:22:FB:6A:9B:1C
         vrf:
-          name: ansible_vrf
-          template: ansible_tenant_template
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          reference:
+            name: ansible_vrf
+            template: ansible_tenant_template
+            schema: '{{ ansible_schema | default("ansible_test") }}'
         annotations:
           - key: key_1
             value: value_1
@@ -365,7 +368,12 @@
     - name: Create Endpoint MAC Tag Policy with mutually exclusive Bridge Domain parameters (error)
       cisco.mso.ndo_endpoint_mac_tag_policy:
         <<: *create_endpoint_mac_tag_policy
-        bridge_domain_uuid: bd_uuid
+        bridge_domain:
+          uuid: bd_uuid
+          reference:
+            name: ansible_bd
+            template: ansible_tenant_template
+            schema: '{{ ansible_schema | default("ansible_test") }}'
       register: err_mutually_exclusive_bd
       ignore_errors: true
     
@@ -373,42 +381,11 @@
       cisco.mso.ndo_endpoint_mac_tag_policy:
         <<: *create_endpoint_mac_tag_policy
         vrf:
-          name: ansible_vrf
-          template: ansible_tenant_template
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          reference:
+            name: ansible_vrf
+            template: ansible_tenant_template
+            schema: '{{ ansible_schema | default("ansible_test") }}'
       register: err_mutually_exclusive_bd_vrf
-      ignore_errors: true
-    
-    - name: Create Endpoint MAC Tag Policy with mutually exclusive Bridge Domain and VRF UUID parameters (error)
-      cisco.mso.ndo_endpoint_mac_tag_policy:
-        <<: *create_endpoint_mac_tag_policy
-        vrf_uuid: vrf_uuid
-      register: err_mutually_exclusive_bd_vrf_uuid
-      ignore_errors: true
-    
-    - name: Create Endpoint MAC Tag Policy with mutually exclusive Bridge Domain UUID and VRF parameters (error)
-      cisco.mso.ndo_endpoint_mac_tag_policy:
-        <<: *mso_info
-        template: ansible_tenant_policy_template
-        endpoint_mac_address: 01:23:45:67:89:AB
-        bridge_domain_uuid: bd_uuid
-        vrf:
-          name: ansible_vrf
-          template: ansible_tenant_template
-          schema: '{{ ansible_schema | default("ansible_test") }}'
-        state: present
-      register: err_mutually_exclusive_bd_uuid_vrf
-      ignore_errors: true
-    
-    - name: Create Endpoint MAC Tag Policy with mutually exclusive Bridge Domain UUID and VRF UUID parameters (error)
-      cisco.mso.ndo_endpoint_mac_tag_policy:
-        <<: *mso_info
-        template: ansible_tenant_policy_template
-        endpoint_mac_address: 01:23:45:67:89:AB
-        vrf_uuid: vrf_uuid
-        bridge_domain_uuid: bd_uuid
-        state: present
-      register: err_mutually_exclusive_bd_uuid_vrf_uuid
       ignore_errors: true
     
     - name: Create Endpoint MAC Tag Policy with mutually exclusive VRF parameters (error)
@@ -416,11 +393,12 @@
         <<: *mso_info
         template: ansible_tenant_policy_template
         endpoint_mac_address: 01:23:45:67:89:AB
-        vrf_uuid: vrf_uuid
         vrf:
-          name: ansible_vrf
-          template: ansible_tenant_template
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          uuid: vrf_uuid
+          reference:
+            name: ansible_vrf
+            template: ansible_tenant_template
+            schema: '{{ ansible_schema | default("ansible_test") }}'
         state: present
       register: err_mutually_exclusive_vrf
       ignore_errors: true
@@ -430,9 +408,10 @@
         <<: *mso_info
         endpoint_mac_address: 01:23:45:67:89:AB
         bridge_domain:
-          name: ansible_bd
-          template: ansible_tenant_template
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          reference:
+            name: ansible_bd
+            template: ansible_tenant_template
+            schema: '{{ ansible_schema | default("ansible_test") }}'
         state: present
       register: err_required_parameters_missing_template
       ignore_errors: true
@@ -452,21 +431,15 @@
           - err_mutually_exclusive_template is failed
           - err_mutually_exclusive_template.msg == "parameters are mutually exclusive{{':'}} template|template_id"
           - err_mutually_exclusive_bd is failed
-          - err_mutually_exclusive_bd.msg == "parameters are mutually exclusive{{':'}} bridge_domain|bridge_domain_uuid"
+          - err_mutually_exclusive_bd.msg == "parameters are mutually exclusive{{':'}} reference|uuid"
           - err_mutually_exclusive_bd_vrf is failed
           - err_mutually_exclusive_bd_vrf.msg == "parameters are mutually exclusive{{':'}} bridge_domain|vrf"
-          - err_mutually_exclusive_bd_vrf_uuid is failed
-          - err_mutually_exclusive_bd_vrf_uuid.msg == "parameters are mutually exclusive{{':'}} bridge_domain|vrf_uuid"
-          - err_mutually_exclusive_bd_uuid_vrf is failed
-          - err_mutually_exclusive_bd_uuid_vrf.msg == "parameters are mutually exclusive{{':'}} bridge_domain_uuid|vrf"
-          - err_mutually_exclusive_bd_uuid_vrf_uuid is failed
-          - err_mutually_exclusive_bd_uuid_vrf_uuid.msg == "parameters are mutually exclusive{{':'}} bridge_domain_uuid|vrf_uuid"
           - err_mutually_exclusive_vrf is failed
-          - err_mutually_exclusive_vrf.msg == "parameters are mutually exclusive{{':'}} vrf|vrf_uuid"
+          - err_mutually_exclusive_vrf.msg == "parameters are mutually exclusive{{':'}} reference|uuid"
           - err_required_parameters_missing_template is failed
           - err_required_parameters_missing_template.msg == "one of the following is required{{':'}} template, template_id"
           - err_required_parameters_missing_with_mac is failed
-          - err_required_parameters_missing_with_mac.msg == "when providing a MAC address without UUID, one of the following is required{{':'}} bridge_domain, bridge_domain_uuid, vrf, vrf_uuid"
+          - err_required_parameters_missing_with_mac.msg == "when providing a MAC address without UUID, one of the following is required{{':'}} bridge_domain, vrf"
 
     # QUERY Endpoint MAC Tag Policy
 

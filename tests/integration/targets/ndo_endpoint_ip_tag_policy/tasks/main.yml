@@ -171,7 +171,7 @@
           - nm_create_endpoint_ip_tag_policy is changed
           - nm_create_endpoint_ip_tag_policy.previous == {}
           - nm_create_endpoint_ip_tag_policy.current.ip == '1.1.1.1'
-          - nm_create_endpoint_ip_tag_policy.current.name == '1.1.1.1-[ansible_vrf]'
+          - nm_create_endpoint_ip_tag_policy.current.name == '[1.1.1.1]-ansible_vrf'
           - nm_create_endpoint_ip_tag_policy.current.policyTags | length == 1
           - nm_create_endpoint_ip_tag_policy.current.policyTags.0.key == 'key_1'
           - nm_create_endpoint_ip_tag_policy.current.policyTags.0.value == 'value_1'
@@ -194,7 +194,7 @@
           - nm_create_endpoint_ip_tag_policy_2 is changed
           - nm_create_endpoint_ip_tag_policy_2.previous == {}
           - nm_create_endpoint_ip_tag_policy_2.current.ip == '2.2.2.2'
-          - nm_create_endpoint_ip_tag_policy_2.current.name == '2.2.2.2-[ansible_vrf]'
+          - nm_create_endpoint_ip_tag_policy_2.current.name == '[2.2.2.2]-ansible_vrf'
           - nm_create_endpoint_ip_tag_policy_2.current.policyTags is not defined
           - nm_create_endpoint_ip_tag_policy_2.current.tagAnnotations is not defined
           - nm_create_endpoint_ip_tag_policy_2.current.vrfRef is defined
@@ -293,7 +293,7 @@
           - nm_update_endpoint_ip_tag_policy.previous.ip == '1.1.1.1'
           - nm_update_endpoint_ip_tag_policy.previous.uuid is defined
           - nm_update_endpoint_ip_tag_policy.current.ip == '1.1.1.1'
-          - nm_update_endpoint_ip_tag_policy.current.name == '1.1.1.1-[ansible_vrf]'
+          - nm_update_endpoint_ip_tag_policy.current.name == '[1.1.1.1]-ansible_vrf'
           - nm_update_endpoint_ip_tag_policy.current.policyTags | length == 2
           - nm_update_endpoint_ip_tag_policy.current.policyTags.0.key == 'key_1'
           - nm_update_endpoint_ip_tag_policy.current.policyTags.0.value == 'value_1'
@@ -317,7 +317,7 @@
           - nm_update_endpoint_ip_tag_policy_ip_vrf.previous.ip == '1.1.1.1'
           - nm_update_endpoint_ip_tag_policy_ip_vrf.previous.uuid is defined
           - nm_update_endpoint_ip_tag_policy_ip_vrf.current.ip == '1.1.1.10'
-          - nm_update_endpoint_ip_tag_policy_ip_vrf.current.name == '1.1.1.10-[ansible_vrf_2]'
+          - nm_update_endpoint_ip_tag_policy_ip_vrf.current.name == '[1.1.1.10]-ansible_vrf_2'
           - nm_update_endpoint_ip_tag_policy_ip_vrf.current.policyTags | length == 2
           - nm_update_endpoint_ip_tag_policy_ip_vrf.current.policyTags.0.key == 'key_1'
           - nm_update_endpoint_ip_tag_policy_ip_vrf.current.policyTags.0.value == 'value_1'
@@ -340,7 +340,7 @@
           - nm_update_endpoint_ip_tag_policy_empty_list.previous.ip == '1.1.1.10'
           - nm_update_endpoint_ip_tag_policy_empty_list.previous.uuid is defined
           - nm_update_endpoint_ip_tag_policy_empty_list.current.ip == '1.1.1.10'
-          - nm_update_endpoint_ip_tag_policy_empty_list.current.name == '1.1.1.10-[ansible_vrf_2]'
+          - nm_update_endpoint_ip_tag_policy_empty_list.current.name == '[1.1.1.10]-ansible_vrf_2'
           - nm_update_endpoint_ip_tag_policy_empty_list.current.policyTags is not defined
           - nm_update_endpoint_ip_tag_policy_empty_list.current.tagAnnotations is not defined
           - nm_update_endpoint_ip_tag_policy_empty_list.current.vrfRef is defined
@@ -404,7 +404,7 @@
           - err_mutually_exclusive_template is failed
           - err_mutually_exclusive_template.msg == "parameters are mutually exclusive{{':'}} template|template_id"
           - err_mutually_exclusive_vrf is failed
-          - err_mutually_exclusive_vrf.msg == "parameters are mutually exclusive{{':'}} reference|uuid"
+          - err_mutually_exclusive_vrf.msg == "parameters are mutually exclusive{{':'}} reference|uuid found in vrf"
           - err_required_parameters_missing_template is failed
           - err_required_parameters_missing_template.msg == "one of the following is required{{':'}} template, template_id"
           - err_required_parameters_missing_with_ip is failed
@@ -431,15 +431,15 @@
           - query_endpoint_ip_tag_policy is not changed
           - query_endpoint_ip_tag_policy.current.ip == '1.1.1.10'
           - query_endpoint_ip_tag_policy.current.vrfName == 'ansible_vrf_2'
-          - query_endpoint_ip_tag_policy.current.name == '1.1.1.10-[ansible_vrf_2]'
+          - query_endpoint_ip_tag_policy.current.name == '[1.1.1.10]-ansible_vrf_2'
           - query_all_endpoint_ip_tag_policy is not changed
           - query_all_endpoint_ip_tag_policy.current | length == 2
           - query_all_endpoint_ip_tag_policy.current.0.ip == '1.1.1.10'
           - query_all_endpoint_ip_tag_policy.current.0.vrfName == 'ansible_vrf_2'
-          - query_all_endpoint_ip_tag_policy.current.0.name == '1.1.1.10-[ansible_vrf_2]'
+          - query_all_endpoint_ip_tag_policy.current.0.name == '[1.1.1.10]-ansible_vrf_2'
           - query_all_endpoint_ip_tag_policy.current.1.ip == '2.2.2.2'
           - query_all_endpoint_ip_tag_policy.current.1.vrfName == 'ansible_vrf'
-          - query_all_endpoint_ip_tag_policy.current.1.name == '2.2.2.2-[ansible_vrf]'
+          - query_all_endpoint_ip_tag_policy.current.1.name == '[2.2.2.2]-ansible_vrf'
 
     # DELETE Endpoint IP Tag Policy
 
@@ -484,7 +484,7 @@
       cisco.mso.ndo_template:
         <<: *tenant_policy_template_absent
     
-    - name: Esnure schema template does not exist
+    - name: Ensure schema template does not exist
       cisco.mso.mso_schema_template:
         <<: *schema_template_absent
     

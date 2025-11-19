@@ -195,7 +195,7 @@ def delete_none_values(obj_to_sanitize, recursive=True):
 
     else:
         raise TypeError("Object to sanitize must be of type list or dict. Got {}".format(type(obj_to_sanitize)))
-    
+
 
 def format_annotations_list(mso_values, annotations):
     """
@@ -213,4 +213,3 @@ def format_annotations_list(mso_values, annotations):
             }
             for annotation in annotations
         ]
-

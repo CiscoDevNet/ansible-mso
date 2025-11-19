@@ -44,60 +44,6 @@ options:
     - The UUID must be used when updating O(endpoint_ip_address) or O(vrf).
     type: str
     aliases: [ enpoint_ip_tag_policy_uuid ]
-  vrf:
-    description:
-    - The VRF associated with the Endpoint IP Tag Policy.
-    type: dict
-    suboptions:
-      name:
-        description:
-        - The name of the VRF.
-        required: true
-        type: str
-      schema:
-        description:
-        - The name of the schema associated with the VRF.
-        required: true
-        type: str
-      template:
-        description:
-        - The name of the template associated with the VRF.
-        required: true
-        type: str
-  vrf_uuid:
-    description:
-    - The UUID of the VRF associated with the Endpoint IP Tag Policy.
-    type: str
-  annotations:
-    description:
-    - The list of annotations of the Endpoint IP Tag Policy.
-    - Providing an empty list will remove the O(annotations) from the Endpoint IP Tag Policy.
-    type: list
-    elements: dict
-    suboptions:
-      key:
-        description:
-        - The annotation key.
-        type: str
-      value:
-        description:
-        - The  value associated with O(annotations.key).
-        type: str
-  policy_tags:
-    description:
-    - The list of Policy Tags of the Endpoint IP Tag Policy.
-    - Providing an empty list will remove the O(policy_tags) from the Endpoint IP Tag Policy.
-    type: list
-    elements: dict
-    suboptions:
-      key:
-        description:
-        - The Policy Tag key.
-        type: str
-      value:
-        description:
-        - The value associated with O(policy_tags.key).
-        type: str
   state:
     description:
     - Use C(absent) for removing.
@@ -114,7 +60,10 @@ notes:
 seealso:
 - module: cisco.mso.ndo_template
 - module: cisco.mso.mso_schema_template_vrf
-extends_documentation_fragment: cisco.mso.modules
+extends_documentation_fragment:
+- cisco.mso.modules
+- cisco.mso.vrf_references
+- cisco.mso.annotations_and_tags
 """
 
 EXAMPLES = r"""
@@ -126,9 +75,10 @@ EXAMPLES = r"""
     template: ansible_tenant_policy_template
     endpoint_ip_address: 1.1.1.1
     vrf:
-      name: ansible_vrf
-      template: ansible_tenant_template
-      schema: ansible_schema
+      reference:
+        name: ansible_vrf
+        template: ansible_tenant_template
+        schema: ansible_schema
     annotations:
       - key: key_1
         value: value_1
@@ -150,9 +100,10 @@ EXAMPLES = r"""
     template: ansible_tenant_policy_template
     endpoint_ip_address: 1.1.1.1
     vrf:
-      name: ansible_vrf
-      template: ansible_tenant_template
-      schema: ansible_schema
+      reference:
+        name: ansible_vrf
+        template: ansible_tenant_template
+        schema: ansible_schema
     annotations:
       - key: key_1
         value: value_1
@@ -174,9 +125,10 @@ EXAMPLES = r"""
     uuid: "{{ create_enpoint_ip_tag_policy.current.uuid }}"
     endpoint_ip_address: 2.2.2.2
     vrf:
-      name: ansible_vrf_2
-      template: ansible_tenant_template
-      schema: ansible_schema
+      reference:
+        name: ansible_vrf_2
+        template: ansible_tenant_template
+        schema: ansible_schema
     annotations:
       - key: key_1
         value: value_1
@@ -197,9 +149,10 @@ EXAMPLES = r"""
     template: ansible_tenant_policy_template
     endpoint_ip_address: 2.2.2.2
     vrf:
-      name: ansible_vrf
-      template: ansible_tenant_template
-      schema: ansible_schema
+      reference:
+        name: ansible_vrf
+        template: ansible_tenant_template
+        schema: ansible_schema
     state: query
   register: query_with_ip_and_vrf
 
@@ -230,9 +183,10 @@ EXAMPLES = r"""
     template: ansible_tenant_policy_template
     endpoint_ip_address: 1.1.1.1
     vrf:
-      name: ansible_vrf
-      template: ansible_tenant_template
-      schema: ansible_schema
+      reference:
+        name: ansible_vrf
+        template: ansible_tenant_template
+        schema: ansible_schema
     state: absent
 
 - name: Delete an Endpoint IP Tag Policy using UUID
@@ -249,7 +203,12 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import (
+    MSOModule,
+    mso_argument_spec,
+    ndo_schema_template_object_references_spec,
+    ndo_tags_annotations_spec,
+)
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
 from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 import copy
@@ -262,31 +221,9 @@ def main():
         template_id=dict(type="str"),
         endpoint_ip_address=dict(type="str", aliases=["ip"]),
         uuid=dict(type="str", aliases=["enpoint_ip_tag_policy_uuid"]),
-        vrf=dict(
-            type="dict",
-            options=dict(
-                name=dict(type="str", required=True),
-                schema=dict(type="str", required=True),
-                template=dict(type="str", required=True),
-            ),
-        ),
-        vrf_uuid=dict(type="str"),
-        annotations=dict(
-            type="list",
-            elements="dict",
-            options=dict(
-                key=dict(type="str", no_log=False),
-                value=dict(type="str"),
-            ),
-        ),
-        policy_tags=dict(
-            type="list",
-            elements="dict",
-            options=dict(
-                key=dict(type="str", no_log=False),
-                value=dict(type="str"),
-            ),
-        ),
+        vrf=ndo_schema_template_object_references_spec(),
+        annotations=ndo_tags_annotations_spec(),
+        policy_tags=ndo_tags_annotations_spec(aliases=["tags"]),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
 
@@ -295,7 +232,6 @@ def main():
         supports_check_mode=True,
         mutually_exclusive=[
             ("template", "template_id"),
-            ("vrf", "vrf_uuid"),
         ],
         required_if=[
             ["state", "absent", ["endpoint_ip_address", "uuid"], True],
@@ -314,7 +250,6 @@ def main():
     ip = module.params.get("endpoint_ip_address")
     uuid = module.params.get("uuid")
     vrf = module.params.get("vrf")
-    vrf_uuid = module.params.get("vrf_uuid")
     annotations = module.params.get("annotations")
     policy_tags = module.params.get("policy_tags")
     state = module.params.get("state")
@@ -330,17 +265,20 @@ def main():
         },
     }
 
-    if ip and not uuid and not (vrf or vrf_uuid):
-        mso.fail_json(msg="when providing an IP address without UUID, one of the following is required: vrf, vrf_uuid")
+    if ip and not uuid and not vrf:
+        mso.fail_json(msg="when providing an IP address without UUID, one of the following is required: vrf")
 
     mso_template = mso_templates.get_template("tenant", template_name, template_id)
     mso_template.validate_template("tenantPolicy")
 
     tenant_id = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("tenantId")
     templates_objects_path = "templates/objects"
-    if vrf and not vrf_uuid:
-        vrf_object = mso_template.get_vrf_object(vrf, tenant_id, templates_objects_path)
-        vrf_uuid = vrf_object.details.get("uuid")
+    if vrf:
+        if vrf.get("uuid"):
+            vrf_uuid = vrf["uuid"]
+        elif vrf.get("reference"):
+            vrf_object = mso_template.get_vrf_object(vrf["reference"], tenant_id, templates_objects_path)
+            vrf_uuid = vrf_object.details.get("uuid")
 
     match = mso_template.get_endpoint_ip_tag_policy_object(uuid, ip, vrf_uuid)
 

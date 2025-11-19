@@ -44,86 +44,6 @@ options:
     - The UUID must be used when updating O(endpoint_mac_address), O(bridge_domain) or O(vrf).
     type: str
     aliases: [ endpoint_mac_tag_policy_uuid ]
-  bridge_domain:
-    description:
-    - The Bridge Domain associated with the Endpoint MAC Tag Policy.
-    type: dict
-    suboptions:
-      name:
-        description:
-        - The name of the Bridge Domain.
-        required: true
-        type: str
-      schema:
-        description:
-        - The schema associated with the Bridge Domain.
-        required: true
-        type: str
-      template:
-        description:
-        - The template associated with the Bridge Domain.
-        required: true
-        type: str
-    aliases: [ bd ]
-  bridge_domain_uuid:
-    description:
-    - The UUID of the Bridge Domain associated with the Endpoint MAC Tag Policy.
-    type: str
-    aliases: [ bd_uuid ]
-  vrf:
-    description:
-    - The VRF associated with the Endpoint MAC Tag Policy.
-    type: dict
-    suboptions:
-      name:
-        description:
-        - The name of the VRF.
-        required: true
-        type: str
-      schema:
-        description:
-        - The schema associated with the VRF.
-        required: true
-        type: str
-      template:
-        description:
-        - The template ID associated with the VRF.
-        required: true
-        type: str
-  vrf_uuid:
-    description:
-    - The UUID of the VRF associated with the Endpoint MAC Tag Policy.
-    type: str
-  annotations:
-    description:
-    - The list of annotations of the Endpoint MAC Tag Policy.
-    - Providing an empty list will remove the O(annotations) from the Endpoint MAC Tag Policy.
-    type: list
-    elements: dict
-    suboptions:
-      key:
-        description:
-        - The annotation key.
-        type: str
-      value:
-        description:
-        - The  value associated with O(annotations.key).
-        type: str
-  policy_tags:
-    description:
-    - The list of Policy Tags of the Endpoint MAC Tag Policy.
-    - Providing an empty list will remove the O(policy_tags) from the Endpoint MAC Tag Policy.
-    type: list
-    elements: dict
-    suboptions:
-      key:
-        description:
-        - The Policy Tag key.
-        type: str
-      value:
-        description:
-        - The value associated with O(policy_tags.key).
-        type: str
   state:
     description:
     - Use C(absent) for removing.
@@ -143,7 +63,11 @@ seealso:
 - module: cisco.mso.ndo_template
 - module: cisco.mso.mso_schema_template_bd
 - module: cisco.mso.mso_schema_template_vrf
-extends_documentation_fragment: cisco.mso.modules
+extends_documentation_fragment:
+- cisco.mso.modules
+- cisco.mso.bridge_domain_references
+- cisco.mso.vrf_references
+- cisco.mso.annotations_and_tags
 """
 
 EXAMPLES = r"""
@@ -155,9 +79,10 @@ EXAMPLES = r"""
     template: ansible_tenant_policy_template
     endpoint_mac_address: 01:23:45:67:89:AB
     bridge_domain:
-      name: ansible_bd
-      template: ansible_tenant_template
-      schema: ansible_schema
+      reference:
+        name: ansible_bd
+        template: ansible_tenant_template
+        schema: ansible_schema
     annotations:
       - key: key_1
         value: value_1
@@ -179,9 +104,10 @@ EXAMPLES = r"""
     template: ansible_tenant_policy_template
     endpoint_mac_address: 01:23:45:67:89:AB
     bridge_domain:
-      name: ansible_bd
-      template: ansible_tenant_template
-      schema: ansible_schema
+      reference:
+        name: ansible_bd
+        template: ansible_tenant_template
+        schema: ansible_schema
     annotations:
       - key: key_1
         value: value_1
@@ -203,9 +129,10 @@ EXAMPLES = r"""
     uuid: "{{ create_endpoint_mac_tag_policy.current.uuid }}"
     endpoint_mac_address: 2C:54:91:88:C9:E3
     vrf:
-      name: ansible_vrf
-      template: ansible_tenant_template
-      schema: ansible_schema
+      reference:
+        name: ansible_vrf
+        template: ansible_tenant_template
+        schema: ansible_schema
     annotations:
       - key: key_1
         value: value_1
@@ -226,9 +153,10 @@ EXAMPLES = r"""
     template: ansible_tenant_policy_template
     endpoint_mac_address: 01:23:45:67:89:AB
     bridge_domain:
-      name: ansible_bd
-      template: ansible_tenant_template
-      schema: ansible_schema
+      reference:
+        name: ansible_bd
+        template: ansible_tenant_template
+        schema: ansible_schema
     state: query
   register: query_with_mac_and_bd
 
@@ -240,9 +168,10 @@ EXAMPLES = r"""
     template: ansible_tenant_policy_template
     endpoint_mac_address: 2C:54:91:88:C9:E3
     vrf:
-      name: ansible_vrf
-      template: ansible_tenant_template
-      schema: ansible_schema
+      reference:
+        name: ansible_vrf
+        template: ansible_tenant_template
+        schema: ansible_schema
     state: query
   register: query_with_mac_and_vrf
 
@@ -273,9 +202,10 @@ EXAMPLES = r"""
     template: ansible_tenant_policy_template
     endpoint_mac_address: 01:23:45:67:89:AB
     bridge_domain:
-      name: ansible_bd
-      template: ansible_tenant_template
-      schema: ansible_schema
+      reference:
+        name: ansible_bd
+        template: ansible_tenant_template
+        schema: ansible_schema
     state: absent
 
 - name: Delete an Endpoint MAC Tag Policy using its MAC address and VRF
@@ -286,9 +216,10 @@ EXAMPLES = r"""
     template: ansible_tenant_policy_template
     endpoint_mac_address: 01:23:45:67:89:AB
     vrf:
-      name: ansible_vrf
-      template: ansible_tenant_template
-      schema: ansible_schema
+      reference:
+        name: ansible_vrf
+        template: ansible_tenant_template
+        schema: ansible_schema
     state: absent
 
 - name: Delete an Endpoint MAC Tag Policy using UUID
@@ -305,7 +236,12 @@ RETURN = r"""
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.mso import (
+    MSOModule,
+    mso_argument_spec,
+    ndo_schema_template_object_references_spec,
+    ndo_tags_annotations_spec,
+)
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
 from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 import copy
@@ -318,41 +254,10 @@ def main():
         template_id=dict(type="str"),
         endpoint_mac_address=dict(type="str", aliases=["mac"]),
         uuid=dict(type="str", aliases=["endpoint_mac_tag_policy_uuid"]),
-        bridge_domain=dict(
-            type="dict",
-            options=dict(
-                name=dict(type="str", required=True),
-                schema=dict(type="str", required=True),
-                template=dict(type="str", required=True),
-            ),
-            aliases=["bd"],
-        ),
-        bridge_domain_uuid=dict(type="str", aliases=["bd_uuid"]),
-        vrf=dict(
-            type="dict",
-            options=dict(
-                name=dict(type="str", required=True),
-                schema=dict(type="str", required=True),
-                template=dict(type="str", required=True),
-            ),
-        ),
-        vrf_uuid=dict(type="str"),
-        annotations=dict(
-            type="list",
-            elements="dict",
-            options=dict(
-                key=dict(type="str", no_log=False),
-                value=dict(type="str"),
-            ),
-        ),
-        policy_tags=dict(
-            type="list",
-            elements="dict",
-            options=dict(
-                key=dict(type="str", no_log=False),
-                value=dict(type="str"),
-            ),
-        ),
+        bridge_domain=ndo_schema_template_object_references_spec(aliases=["bd"]),
+        vrf=ndo_schema_template_object_references_spec(),
+        annotations=ndo_tags_annotations_spec(),
+        policy_tags=ndo_tags_annotations_spec(aliases=["tags"]),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
 
@@ -361,12 +266,7 @@ def main():
         supports_check_mode=True,
         mutually_exclusive=[
             ("template", "template_id"),
-            ("bridge_domain", "bridge_domain_uuid"),
-            ("vrf", "vrf_uuid"),
             ("bridge_domain", "vrf"),
-            ("bridge_domain_uuid", "vrf_uuid"),
-            ("bridge_domain", "vrf_uuid"),
-            ("bridge_domain_uuid", "vrf"),
         ],
         required_if=[
             ["state", "absent", ["endpoint_mac_address", "uuid"], True],
@@ -412,20 +312,26 @@ def main():
         },
     }
 
-    if mac and not uuid and not (bd or vrf or vrf_uuid or bd_uuid):
-        mso.fail_json(msg="when providing a MAC address without UUID, one of the following is required: bridge_domain, bridge_domain_uuid, vrf, vrf_uuid")
+    if mac and not uuid and not (bd or vrf):
+        mso.fail_json(msg="when providing a MAC address without UUID, one of the following is required: bridge_domain, vrf")
 
     mso_template = mso_templates.get_template("tenant", template_name, template_id)
     mso_template.validate_template("tenantPolicy")
 
     tenant_id = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("tenantId")
     templates_objects_path = "templates/objects"
-    if vrf and not vrf_uuid:
-        vrf_object = mso_template.get_vrf_object(vrf, tenant_id, templates_objects_path)
-        vrf_uuid = vrf_object.details.get("uuid")
-    elif bd and not bd_uuid:
-        bd_object = mso_template.get_bd_object(bd, tenant_id, templates_objects_path)
-        bd_uuid = bd_object.details.get("uuid")
+    if vrf:
+        if vrf.get("uuid"):
+            vrf_uuid = vrf["uuid"]
+        elif vrf.get("reference"):
+            vrf_object = mso_template.get_vrf_object(vrf["reference"], tenant_id, templates_objects_path)
+            vrf_uuid = vrf_object.details.get("uuid")
+    elif bd:
+        if bd.get("uuid"):
+            bd_uuid = bd["uuid"]
+        elif vrf.get("reference"):
+            bd_object = mso_template.get_bd_object(bd["reference"], tenant_id, templates_objects_path)
+            bd_uuid = bd_object.details.get("uuid")
 
     match = mso_template.get_endpoint_mac_tag_policy_object(uuid, mac, bd_uuid, vrf_uuid)
 

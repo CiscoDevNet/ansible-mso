@@ -105,9 +105,10 @@
         template: ansible_tenant_policy_template
         endpoint_ip_address: '1.1.1.1'
         vrf:
-          name: ansible_vrf
-          template: ansible_tenant_template
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          reference:
+            name: ansible_vrf
+            template: ansible_tenant_template
+            schema: '{{ ansible_schema | default("ansible_test") }}'
         annotations:
           - key: key_1
             value: value_1
@@ -136,9 +137,10 @@
         template: ansible_tenant_policy_template
         endpoint_ip_address: 2.2.2.2
         vrf:
-          name: ansible_vrf
-          template: ansible_tenant_template
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          reference:
+            name: ansible_vrf
+            template: ansible_tenant_template
+            schema: '{{ ansible_schema | default("ansible_test") }}'
         state: present
       register: nm_create_endpoint_ip_tag_policy_2
 
@@ -236,9 +238,10 @@
         uuid: '{{ nm_create_endpoint_ip_tag_policy.current.uuid }}'
         endpoint_ip_address: '1.1.1.10'
         vrf:
-          name: ansible_vrf_2
-          template: ansible_tenant_template
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          reference:
+            name: ansible_vrf_2
+            template: ansible_tenant_template
+            schema: '{{ ansible_schema | default("ansible_test") }}'
         annotations:
           - key: key_1
             value: value_1
@@ -358,7 +361,12 @@
     - name: Create Endpoint IP Tag Policy with mutually exclusive VRF parameters (error)
       cisco.mso.ndo_endpoint_ip_tag_policy:
         <<: *create_endpoint_ip_tag_policy
-        vrf_uuid: vrf_uuid
+        vrf:
+          uuid: vrf_uuid
+          reference:
+            name: ansible_vrf
+            template: ansible_tenant_template
+            schema: '{{ ansible_schema | default("ansible_test") }}'
         state: present
       register: err_mutually_exclusive_vrf
       ignore_errors: true
@@ -368,9 +376,10 @@
         <<: *mso_info
         endpoint_ip_address: '1.1.1.1'
         vrf:
-          name: ansible_vrf
-          template: ansible_tenant_template
-          schema: '{{ ansible_schema | default("ansible_test") }}'
+          reference:
+            name: ansible_vrf
+            template: ansible_tenant_template
+            schema: '{{ ansible_schema | default("ansible_test") }}'
         state: present
       register: err_required_parameters_missing_template
       ignore_errors: true
@@ -390,11 +399,11 @@
           - err_mutually_exclusive_template is failed
           - err_mutually_exclusive_template.msg == "parameters are mutually exclusive{{':'}} template|template_id"
           - err_mutually_exclusive_vrf is failed
-          - err_mutually_exclusive_vrf.msg == "parameters are mutually exclusive{{':'}} vrf|vrf_uuid"
+          - err_mutually_exclusive_vrf.msg == "parameters are mutually exclusive{{':'}} reference|uuid"
           - err_required_parameters_missing_template is failed
           - err_required_parameters_missing_template.msg == "one of the following is required{{':'}} template, template_id"
           - err_required_parameters_missing_with_ip is failed
-          - err_required_parameters_missing_with_ip.msg == "when providing an IP address without UUID, one of the following is required{{':'}} vrf, vrf_uuid"
+          - err_required_parameters_missing_with_ip.msg == "when providing an IP address without UUID, one of the following is required{{':'}} vrf"
 
     # QUERY Endpoint IP Tag Policy
 

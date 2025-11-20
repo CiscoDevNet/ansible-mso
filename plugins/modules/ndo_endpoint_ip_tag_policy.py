@@ -276,10 +276,9 @@ def main():
     templates_objects_path = "templates/objects"
     vrf_uuid = ""
     if vrf:
-        if vrf.get("uuid"):
-            vrf_uuid = vrf["uuid"]
-        elif vrf.get("reference"):
-            vrf_object = mso_template.get_vrf_object(vrf["reference"], tenant_id, templates_objects_path)
+        vrf_uuid = vrf.get("uuid")
+        if not vrf_uuid:
+            vrf_object = mso_template.get_vrf_object(vrf.get("reference"), tenant_id, templates_objects_path)
             vrf_uuid = vrf_object.details.get("uuid")
 
     match = mso_template.get_endpoint_ip_tag_policy_object(uuid, ip, vrf_uuid)

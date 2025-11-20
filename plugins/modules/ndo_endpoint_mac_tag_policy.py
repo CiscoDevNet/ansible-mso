@@ -322,16 +322,14 @@ def main():
     vrf_uuid = ""
     bd_uuid = ""
     if vrf:
-        if vrf.get("uuid"):
-            vrf_uuid = vrf["uuid"]
-        elif vrf.get("reference"):
-            vrf_object = mso_template.get_vrf_object(vrf["reference"], tenant_id, templates_objects_path)
+        vrf_uuid = vrf.get("uuid")
+        if not vrf_uuid:
+            vrf_object = mso_template.get_vrf_object(vrf.get("reference"), tenant_id, templates_objects_path)
             vrf_uuid = vrf_object.details.get("uuid")
     elif bd:
-        if bd.get("uuid"):
-            bd_uuid = bd["uuid"]
-        elif bd.get("reference"):
-            bd_object = mso_template.get_bd_object(bd["reference"], tenant_id, templates_objects_path)
+        bd_uuid = bd.get("uuid")
+        if not bd_uuid:
+            bd_object = mso_template.get_bd_object(bd.get("reference"), tenant_id, templates_objects_path)
             bd_uuid = bd_object.details.get("uuid")
 
     match = mso_template.get_endpoint_mac_tag_policy_object(uuid, mac, bd_uuid, vrf_uuid)

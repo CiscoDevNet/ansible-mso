@@ -274,7 +274,7 @@ def main():
 
     tenant_id = mso_template.template.get("tenantPolicyTemplate", {}).get("template", {}).get("tenantId")
     templates_objects_path = "templates/objects"
-    vrf_uuid = ""
+    vrf_uuid = None
     if vrf:
         vrf_uuid = vrf.get("uuid")
         if not vrf_uuid:

@@ -213,8 +213,8 @@ class MSOTemplate:
         vrf_objects = self.mso.query_objs(vrf_path)
         vrf_kv_list = [
             KVPair("name", vrf_dict.get("name")),
-            KVPair("templateName", vrf_dict.get("template")),
-            KVPair("schemaName", vrf_dict.get("schema")),
+            KVPair("templateId", vrf_dict.get("template_id")) if vrf_dict.get("template_id") else KVPair("templateName", vrf_dict.get("template")),
+            KVPair("schemaId", vrf_dict.get("schema_id")) if vrf_dict.get("schema_id") else KVPair("schemaName", vrf_dict.get("schema")),
             KVPair("tenantId", tenant_id),
         ]
 
@@ -238,8 +238,8 @@ class MSOTemplate:
         bd_objects = self.mso.query_objs(bd_path)
         bd_kv_list = [
             KVPair("name", bd_dict.get("name")),
-            KVPair("templateName", bd_dict.get("template")),
-            KVPair("schemaName", bd_dict.get("schema")),
+            KVPair("templateId", bd_dict.get("template_id")) if bd_dict.get("template_id") else KVPair("templateName", bd_dict.get("template")),
+            KVPair("schemaId", bd_dict.get("schema_id")) if bd_dict.get("schema_id") else KVPair("schemaName", bd_dict.get("schema")),
             KVPair("tenantId", tenant_id),
         ]
 

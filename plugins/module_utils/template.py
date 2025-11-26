@@ -841,10 +841,10 @@ class MSOTemplate:
         :param search_object: The object to search in -> Dict
         :param fail_module: When match is not found fail the ansible module -> Bool
         :return: Dict | None | List[Dict] | List[]: The processed result which could be:
-                 When the UUID | IP address is existing in the search list -> Dict
-                 When the UUID | IP address is not existing in the search list -> None
-                 When both UUID and IP address are None, and the search list is not empty -> List[Dict]
-                 When both UUID and IP address are None, and the search list is empty -> List[]
+                When the UUID | IP address is existing in the search list -> Dict
+                When the UUID | IP address is not existing in the search list -> None
+                When both UUID and IP address are None, and the search list is not empty -> List[Dict]
+                When both UUID and IP address are None, and the search list is empty -> List[]
         """
         if not search_object:
             search_object = self.template

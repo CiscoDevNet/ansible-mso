@@ -429,14 +429,24 @@ def ndo_schema_template_object_references_spec(aliases=None):
                 type="dict",
                 options=dict(
                     name=dict(type="str", required=True),
-                    schema=dict(type="str", required=True),
-                    template=dict(type="str", required=True),
+                    schema=dict(type="str"),
+                    schema_id=dict(type="str"),
+                    template=dict(type="str"),
+                    template_id=dict(type="str"),
                 ),
+                required_one_of=[
+                    ("schema", "schema_id"),
+                    ("template", "template_id"),
+                ],
+                mutually_exclusive=[
+                    ("schema", "schema_id"),
+                    ("template", "template_id"),
+                ],
                 aliases=["ref"],
             ),
         ),
         required_one_of=[
-            ["reference", "uuid"],
+            ("reference", "uuid"),
         ],
         mutually_exclusive=[
             ("reference", "uuid"),

@@ -242,13 +242,7 @@ class MSOTemplate:
             KVPair("schemaId", bd_dict.get("schema_id")) if bd_dict.get("schema_id") else KVPair("schemaName", bd_dict.get("schema")),
             KVPair("tenantId", tenant_id),
         ]
-
-        bd_object = self.get_object_from_list(bd_objects, bd_kv_list)
-
-        if bd_object[0]:
-            return bd_object[0]
-        else:
-            self.mso.fail_json(msg="Provided Bridge Domain {0} not found.".format(bd_dict.get("name")))
+        return self.get_object_by_key_value_pairs("Bridge Domain", bd_objects, bd_kv_list, fail_module=True)
 
     def get_l3out_node_routing_policy_object(self, uuid=None, name=None, fail_module=False):
         """
@@ -819,10 +813,10 @@ class MSOTemplate:
         :param search_object: The object to search in -> Dict
         :param fail_module: When match is not found fail the ansible module -> Bool
         :return: Dict | None | List[Dict] | List[]: The processed result which could be:
-                 When the UUID | MAC address is existing in the search list -> Dict
-                 When the UUID | MAC address is not existing in the search list -> None
-                 When both UUID and MAC address are None, and the search list is not empty -> List[Dict]
-                 When both UUID and MAC address are None, and the search list is empty -> List[]
+                 When the UUID | MAC address and (VRF UUID | Bridge Domain UUID) are existing in the search list -> Dict
+                 When the UUID | MAC address and (VRF UUID | Bridge Domain UUID) are not existing in the search list -> None
+                 When UUID is None and MAC address | (VRF UUID and Bridge Domain UUID) are None, and the search list is not empty -> List[Dict]
+                 When UUID and MAC address | (VRF UUID and Bridge Domain UUID) are None, and the search list is empty -> List[]
         """
         kv_list = []
         if not search_object:

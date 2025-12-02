@@ -213,8 +213,8 @@ class MSOTemplate:
         vrf_objects = self.mso.query_objs(vrf_path)
         vrf_kv_list = [
             KVPair("name", vrf_dict.get("name")),
-            KVPair("templateName", vrf_dict.get("template")),
-            KVPair("schemaName", vrf_dict.get("schema")),
+            KVPair("templateId", vrf_dict.get("template_id")) if vrf_dict.get("template_id") else KVPair("templateName", vrf_dict.get("template")),
+            KVPair("schemaId", vrf_dict.get("schema_id")) if vrf_dict.get("schema_id") else KVPair("schemaName", vrf_dict.get("schema")),
             KVPair("tenantId", tenant_id),
         ]
 
@@ -782,6 +782,31 @@ class MSOTemplate:
                 [KVPair("uuid", uuid) if uuid else KVPair("name", name)],
                 fail_module,
             )
+        return existing_objects  # Query all objects
+
+    def get_endpoint_ip_tag_policy_object(self, uuid=None, ip=None, vrf_uuid=None, search_object=None, fail_module=False):
+        """
+        Get the Endpoint IP Tag Policy by uuid or ip and vrf_uuid.
+        :param uuid: UUID of the Endpoint IP Tag Policy to search for -> Str
+        :param ip: The IP address of the Endpoint IP Tag Policy to search for -> Str
+        :param vrf_uuid: UUID of the VRF referenced by the Endpoint IP Tag Policy to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                When the UUID | IP address and VRF UUID are existing in the search list -> Dict
+                When the UUID | IP address and VRF UUID are not existing in the search list -> None
+                When UUID is None and IP address | VRF UUID is None, and the search list is not empty -> List[Dict]
+                When UUID is None and IP address | VRF UUID is None, and the search list is empty -> List[]
+        """
+        if not search_object:
+            search_object = self.template
+        existing_objects = search_object.get("tenantPolicyTemplate", {}).get("template", {}).get("endpointIPTagPolicies", [])
+        if uuid or (ip and vrf_uuid):
+            if uuid:
+                kv_list = [KVPair("uuid", uuid)]
+            else:
+                kv_list = [KVPair("ip", ip), KVPair("vrfRef", vrf_uuid)]
+            return self.get_object_by_key_value_pairs("Endpoint IP Tag Policy", existing_objects, kv_list, fail_module)
         return existing_objects  # Query all objects
 
     def get_direct_child_object(self, parent_object, description, endpoint, identifiers=None, fail_module=False):

@@ -195,3 +195,20 @@ def delete_none_values(obj_to_sanitize, recursive=True):
 
     else:
         raise TypeError("Object to sanitize must be of type list or dict. Got {}".format(type(obj_to_sanitize)))
+
+
+def format_annotations_list(mso_values, annotations):
+    """
+    Format the list of annotations for the payload to be sent
+    :param mso_values: The payload to be sent -> Dict
+    :param annotations: The initial list of annotations -> Dict
+    :return: Assign the formated list of annotations to the payload under key 'tagAnnotations' -> None
+    """
+    if annotations:
+        mso_values["tagAnnotations"] = [
+            {
+                "tagKey": annotation.get("key"),
+                "tagValue": annotation.get("value"),
+            }
+            for annotation in annotations
+        ]

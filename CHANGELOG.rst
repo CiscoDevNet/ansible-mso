@@ -6,6 +6,20 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.13.0
+=======
+
+Release Summary
+---------------
+
+Release v2.13.0 of the ``ansible-mso`` collection on 2025-12-08.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.12.0.
+
+Minor Changes
+-------------
+
+- Add ndo_endpoint_mac_tag_policy as a new module to configure Endpoint MAC Tag Policies in Tenant Policy Template.
+
 v2.12.0
 =======
 

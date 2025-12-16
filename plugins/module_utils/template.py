@@ -105,6 +105,7 @@ class MSOTemplate:
         if not deploy_summary:
             deploy_summary = self.template_summary.get("deploySummary", {})
         self.deploy_task_id = deploy_summary.get("teTaskId")
+        self.deployed_site_ids = [summary.get("siteId") for summary in deploy_summary.get("siteDeploymentSummaries", []) if summary.get("siteId") is not None]
 
     @staticmethod
     def get_object_from_list(search_list, kv_list):

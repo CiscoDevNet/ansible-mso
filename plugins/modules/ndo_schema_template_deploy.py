@@ -52,8 +52,8 @@ options:
     choices: [ tenant, l3out, application, fabric_policy, fabric_resource, monitoring_tenant, monitoring_access, service_device ]
   sites:
     description:
-    - The name of the site(s).
-    - O(sites) is required when state is C(undeploy).
+    - The list of site names where the template will be undeployed.
+    - When O(sites) is not provided the template will be undeployed from all sites.
     type: list
     elements: str
   state:
@@ -68,10 +68,10 @@ options:
 seealso:
 - module: cisco.mso.mso_schema_site
 - module: cisco.mso.mso_schema_template
+- module: cisco.mso.ndo_template
 extends_documentation_fragment: cisco.mso.modules
 """
 
-# TODO: Template examples
 EXAMPLES = r"""
 - name: Deploy a schema template
   cisco.mso.ndo_schema_template_deploy:
@@ -80,6 +80,15 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     schema: Schema 1
     template: Template 1
+    state: deploy
+
+- name: Deploy a fabric policy template
+  cisco.mso.ndo_template_deploy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: Fabric Policy 1
+    type: fabric_policy
     state: deploy
 
 - name: Redeploy a schema template
@@ -91,6 +100,14 @@ EXAMPLES = r"""
     template: Template 1
     state: redeploy
 
+- name: Redeploy a fabric policy template using template id
+  cisco.mso.ndo_template_deploy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template_id: '{{ fabric_policy_1.current.templateId }}'
+    state: deploy
+
 - name: Undeploy a schema template
   cisco.mso.ndo_schema_template_deploy:
     host: mso_host
@@ -101,6 +118,25 @@ EXAMPLES = r"""
     sites: [Site1, Site2]
     state: undeploy
 
+- name: Undeploy a fabric policy template from all sites
+  cisco.mso.ndo_template_deploy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: Fabric Policy 1
+    type: fabric_policy
+    state: undeploy
+
+- name: Undeploy a fabric policy template from one site
+  cisco.mso.ndo_template_deploy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: Fabric Policy 1
+    type: fabric_policy
+    sites: [Site1]
+    state: undeploy
+
 - name: Query a schema template deploy status
   cisco.mso.ndo_schema_template_deploy:
     host: mso_host
@@ -108,6 +144,16 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     schema: Schema 1
     template: Template 1
+    state: query
+  register: query_result
+
+- name: Query a fabric policy template deploy status
+  cisco.mso.ndo_template_deploy:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: Fabric Policy 1
+    type: fabric_policy
     state: query
   register: query_result
 """
@@ -131,9 +177,7 @@ def main():
         schema_id=dict(type="str"),
         template=dict(type="str"),
         template_id=dict(type="str"),
-        template_type=dict(
-            type="str", choices=list(TEMPLATE_TYPES), default="application", aliases=["type"]
-        ),
+        template_type=dict(type="str", choices=list(TEMPLATE_TYPES), default="application", aliases=["type"]),
         sites=dict(type="list", elements="str"),
         state=dict(
             type="str",
@@ -150,9 +194,6 @@ def main():
             ("schema", "schema_id"),
         ],
         required_one_of=[["template", "template_id"]],
-        required_if=[
-            ["state", "undeploy", ["sites"]],
-        ],
     )
 
     schema = module.params.get("schema")
@@ -189,7 +230,7 @@ def main():
             schema_id = mso_template.schema_id
         elif schema is not None and schema_id is None:
             schema_id = mso.lookup_schema(schema)
-    
+
     path = None
     if state == "query":
         if is_application:
@@ -210,14 +251,18 @@ def main():
         elif state == "redeploy":
             payload.update(isRedeploy=True)
         elif state == "undeploy":
-            payload.update(
-                undeploy=[site.get("siteId") for site in mso.lookup_sites(sites)]
-            )
-        if is_application:
+            payload.update(undeploy=get_site_ids(mso, mso_template, sites))
+        if is_application and state != "undeploy":
             mso.validate_schema(schema_id)
     if not module.check_mode:
         mso.existing = mso.request(path, method=method, data=payload) if path else {}
     mso.exit_json()
+
+
+def get_site_ids(mso, mso_template, sites):
+    if sites:
+        return [site.get("siteId") for site in mso.lookup_sites(sites)]
+    return mso_template.deployed_site_ids
 
 
 if __name__ == "__main__":

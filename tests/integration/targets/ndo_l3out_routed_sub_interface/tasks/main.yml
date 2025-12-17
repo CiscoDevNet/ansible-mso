@@ -687,6 +687,10 @@
       register: nm_update_routed_sub_interface_port_channel_ptp_remove_destinations_without_ptp_config
       ignore_errors: true
 
+    - name: Set fact for expected error message
+      ansible.builtin.set_fact:
+        error_message_update_routed_sub_interface_port_channel_ptp_remove_destinations_without_ptp_config:  "MSO Error 400: Invalid configuration in L3Out 'l3out_1': subInterface-1/101/ansible_port_channel_interface_1(vxlan-50001): Invalid PTP profile reference: , policy not found"
+
     - name: Assert that the PTP configuration was removed
       ansible.builtin.assert:
         that:
@@ -696,7 +700,7 @@
           - nm_update_routed_sub_interface_port_channel_ptp_remove_again is not changed
           - nm_update_routed_sub_interface_port_channel_ptp_remove_again.previous == nm_update_routed_sub_interface_port_channel_ptp_remove_again.current == nm_update_routed_sub_interface_port_channel_ptp_remove.current
           - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations_without_ptp_config is failed
-          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations_without_ptp_config.msg == "MSO Error 400{{":"}} Invalid configuration in L3Out 'l3out_1'{{":"}} subInterface-1/101/ansible_port_channel_interface_1(vxlan-50001){{":"}} Invalid PTP profile reference{{":"}} , policy not found"
+          - nm_update_routed_sub_interface_port_channel_ptp_remove_destinations_without_ptp_config.msg == error_message_update_routed_sub_interface_port_channel_ptp_remove_destinations_without_ptp_config
 
     - name: Remove the ipv4_address from a L3out routed sub-interface
       cisco.mso.ndo_l3out_routed_sub_interface: &removed_ipv4_address
@@ -785,15 +789,19 @@
       register: error_create_routed_sub_interface_port_channel_invalid_uuid
       ignore_errors: true
 
+    - name: Set error message for invalid port channel template
+      ansible.builtin.set_fact:
+        error_message_create_routed_sub_interface_port_channel_invalid_template: "Provided Port Channel with '[KVPair(key='name', value='invalid_name')]' not matching existing object(s): ansible_port_channel_interface_1, ansible_port_channel_interface_2"
+
     - name: Assert that the errors were raised
       ansible.builtin.assert:
         that:
           - error_create_routed_sub_interface_port_channel_invalid_template is failed
-          - error_create_routed_sub_interface_port_channel_invalid_template.msg.startswith("Provided template name 'invalid_template' does not exist. Existing templates{{":"}}")
+          - error_create_routed_sub_interface_port_channel_invalid_template.msg.startswith("Provided template name 'invalid_template' does not exist. Existing templates")
           - error_create_routed_sub_interface_port_channel_invalid_name is failed
-          - error_create_routed_sub_interface_port_channel_invalid_name.msg == "Provided Port Channel with '[KVPair(key='name', value='invalid_name')]' not matching existing object(s){{":"}} ansible_port_channel_interface_1, ansible_port_channel_interface_2"
+          - error_create_routed_sub_interface_port_channel_invalid_name.msg == error_message_create_routed_sub_interface_port_channel_invalid_template
           - error_create_routed_sub_interface_port_channel_invalid_uuid is failed
-          - error_create_routed_sub_interface_port_channel_invalid_uuid.msg == "MSO Error 404{{":"}} policy not found"
+          - 'error_create_routed_sub_interface_port_channel_invalid_uuid.msg == "MSO Error 404: policy not found"'
 
     - name: Create a L3out routed sub-interface with invalid ptp user_profile name
       cisco.mso.ndo_l3out_routed_sub_interface:
@@ -856,21 +864,25 @@
       register: error_create_routed_sub_interface_port_channel_invalid_user_profile_with_both_templates
       ignore_errors: true
 
+    - name: Set error message for invalid user_profile name
+      ansible.builtin.set_fact:
+        error_message_create_routed_sub_interface_port_channel_invalid_user_profile_name: "Provided PTP Policy Profile with '[KVPair(key='name', value='invalid_name')]' not matching existing object(s): ptp_profile_1, ptp_profile_2"
+
     - name: Assert that the errors were raised
       ansible.builtin.assert:
         that:
           - error_create_routed_sub_interface_port_channel_invalid_user_profile_name is failed
-          - error_create_routed_sub_interface_port_channel_invalid_user_profile_name.msg == "Provided PTP Policy Profile with '[KVPair(key='name', value='invalid_name')]' not matching existing object(s){{":"}} ptp_profile_1, ptp_profile_2"
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_name.msg == error_message_create_routed_sub_interface_port_channel_invalid_user_profile_name
           - error_create_routed_sub_interface_port_channel_invalid_user_profile_template is failed
-          - error_create_routed_sub_interface_port_channel_invalid_user_profile_template.msg.startswith("Provided template name 'invalid_template' does not exist. Existing templates{{":"}}")
+          - error_create_routed_sub_interface_port_channel_invalid_user_profile_template.msg.startswith("Provided template name 'invalid_template' does not exist. Existing templates")
           - error_create_routed_sub_interface_port_channel_invalid_user_profile_uuid is failed
-          - error_create_routed_sub_interface_port_channel_invalid_user_profile_uuid.msg == "MSO Error 404{{":"}} policy not found"
+          - 'error_create_routed_sub_interface_port_channel_invalid_user_profile_uuid.msg == "MSO Error 404: policy not found"'
           - error_create_routed_sub_interface_port_channel_invalid_user_profile_empty is failed
-          - error_create_routed_sub_interface_port_channel_invalid_user_profile_empty.msg == "one of the following is required{{":"}} reference, uuid found in ptp -> user_profile"
+          - 'error_create_routed_sub_interface_port_channel_invalid_user_profile_empty.msg == "one of the following is required: reference, uuid found in ptp -> user_profile"'
           - error_create_routed_sub_interface_port_channel_invalid_user_profile_without_template is failed
-          - error_create_routed_sub_interface_port_channel_invalid_user_profile_without_template.msg == "one of the following is required{{":"}} template, template_id found in ptp -> user_profile -> reference"
+          - 'error_create_routed_sub_interface_port_channel_invalid_user_profile_without_template.msg == "one of the following is required: template, template_id found in ptp -> user_profile -> reference"'
           - error_create_routed_sub_interface_port_channel_invalid_user_profile_with_both_templates is failed
-          - error_create_routed_sub_interface_port_channel_invalid_user_profile_with_both_templates.msg == "parameters are mutually exclusive{{":"}} template|template_id found in ptp -> user_profile -> reference"
+          - 'error_create_routed_sub_interface_port_channel_invalid_user_profile_with_both_templates.msg == "parameters are mutually exclusive: template|template_id found in ptp -> user_profile -> reference"'
 
     # QUERY
 

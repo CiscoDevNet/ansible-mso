@@ -18,7 +18,7 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -412,17 +412,24 @@
       register: nt_irp_1_ospf_dead_interval
       ignore_errors: true
 
+    - name: Set error messages for negatice tests
+      ansible.builtin.set_fact:
+        error_message_create: "MSO Error 400: At least 1 policy must be specified for 'irp_1_nt'"
+        error_message_bfd_multi_hop: "MSO Error 400: 'MinRxInterval' allowed minimum value is 250 maximum value is 999"
+        error_message_bfd_settings: "MSO Error 400: 'MinTxInterval' allowed minimum value is 50 maximum value is 999"
+        error_message_ospf_dead_interval: "MSO Error 400: 'DeadInterval' allowed minimum value is 1 maximum value is 65535"
+
     - name: Assertion check for Negative tests
       ansible.builtin.assert:
         that:
           - nt_irp_1_create is not changed
-          - nt_irp_1_create.msg == "MSO Error 400{{':'}} At least 1 policy must be specified for 'irp_1_nt'"
+          - nt_irp_1_create.msg == error_message_create
           - nt_irp_1_bfd_multi_hop is not changed
-          - nt_irp_1_bfd_multi_hop.msg == "MSO Error 400{{':'}} 'MinRxInterval' allowed minimum value is 250 maximum value is 999"
+          - nt_irp_1_bfd_multi_hop.msg == error_message_bfd_multi_hop
           - nt_irp_1_bfd_settings is not changed
-          - nt_irp_1_bfd_settings.msg == "MSO Error 400{{':'}} 'MinTxInterval' allowed minimum value is 50 maximum value is 999"
+          - nt_irp_1_bfd_settings.msg == error_message_bfd_settings
           - nt_irp_1_ospf_dead_interval is not changed
-          - nt_irp_1_ospf_dead_interval.msg == "MSO Error 400{{':'}} 'DeadInterval' allowed minimum value is 1 maximum value is 65535"
+          - nt_irp_1_ospf_dead_interval.msg == error_message_ospf_dead_interval
 
     - name: Clear bfd_multi_hop_settings from irp_1 L3Out Interface Routing Policy
       cisco.mso.ndo_l3out_interface_routing_policy:

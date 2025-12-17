@@ -18,22 +18,13 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
     <<: *mso_info
     state: query
   register: version
-
-- name: Ensure schemas do not exist
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure site exists
   cisco.mso.mso_site:
@@ -43,31 +34,27 @@
     apic_password: '{{ apic_password }}'
     apic_site_id: '{{ apic_site_id | default(101) }}'
     urls:
-    - https://{{ apic_hostname }}
+      - https://{{ apic_hostname }}
     state: present
-  ignore_errors: true
 
 - name: Ensure tenant ansible_test exists
-  cisco.mso.mso_tenant: &create_tenant
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
       - '{{ mso_username }}'
+    sites:
+      - '{{ mso_site | default("ansible_test") }}'
     state: present
 
-- name: Ensure sites removed from tenant ansible_test
-  cisco.mso.mso_tenant_site:
+- name: Remove schemas
+  cisco.mso.mso_schema:
     <<: *mso_info
-    tenant: ansible_test
-    site: '{{ mso_site | default("ansible_test") }}'
+    schema: '{{ item }}'
     state: absent
-
-- name: Associate site with ansible_test again in normal mode
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: present
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure schema 1 with Template 1, Template 2 and Template 3 exist
   cisco.mso.mso_schema_template:
@@ -378,11 +365,15 @@
   ignore_errors: true
   register: nm_query_non_epg
 
+- name: Set error message for query_non_epg
+  ansible.builtin.set_fact:
+    error_message_query_non_epg: "Provided EPG 'non_existing_epg' does not exist. Existing EPGs: ansible_test_3"
+
 - name: Verify query_non_epg
   ansible.builtin.assert:
     that:
     - nm_query_non_epg is not changed
-    - nm_query_non_epg.msg == "Provided EPG 'non_existing_epg' does not exist. Existing EPGs{{':'}} ansible_test_3"
+    - nm_query_non_epg.msg == error_message_query_non_epg
 
 # QUERY NON-EXISTING EPG
 - name: Query non-existing EPG in site level
@@ -426,11 +417,15 @@
   ignore_errors: true
   register: nm_query_non_anp
 
+- name: Set error message for query_non_anp
+  ansible.builtin.set_fact:
+    error_message_query_non_anp: "Provided anp 'non_existing_anp' does not exist. Existing anps: ANP_3"
+
 - name: Verify query_non_anp
   ansible.builtin.assert:
     that:
     - nm_query_non_anp is not changed
-    - nm_query_non_anp.msg == "Provided anp 'non_existing_anp' does not exist. Existing anps{{':'}} ANP_3"
+    - nm_query_non_anp.msg == error_message_query_non_anp
 
 # QUERY NON-EXISTING ANP
 - name: Query non-existing ANP at site level(normal mode)
@@ -468,7 +463,7 @@
   ansible.builtin.assert:
     that:
     - nm_non_existing_state is not changed
-    - nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+    - 'nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non-existing-state"'
 
 # USE A NON-EXISTING TEMPLATE
 - name: Non-existing template (normal_mode)
@@ -483,11 +478,15 @@
   ignore_errors: true
   register: nm_non_existing_template
 
+- name: Set error message for non_existing_template
+  ansible.builtin.set_fact:
+    error_message_non_existing_template: "Provided template 'non-existing-template' does not exist. Existing templates: Template1, Template2, Template3"
+
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
     - nm_non_existing_template is not changed
-    - nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2, Template3"
+    - nm_non_existing_template.msg == error_message_non_existing_template
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema (normal_mode)
@@ -540,11 +539,15 @@
   ignore_errors: true
   register: nm_non_existing_site_template
 
+- name: Set error message for non_existing_site_template
+  ansible.builtin.set_fact:
+    error_message_non_existing_site_template: "Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates: [0-9a-zA-Z]*/Template3, [0-9a-zA-Z]*/Template1"
+
 - name: Verify non_existing_site_template
   ansible.builtin.assert:
     that:
     - nm_non_existing_site_template is not changed
-    - nm_non_existing_site_template.msg is match("Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template3, [0-9a-zA-Z]*/Template1")
+    - nm_non_existing_site_template.msg is match(error_message_non_existing_site_template)
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add EPG to Template without any site associated (normal mode)
@@ -605,19 +608,3 @@
     - nm_epg_admin_up.current.epgRef.epgName == "ansible_test_3"
     - nm_epg_admin_up.current.epgRef.templateName == "Template3"
     - nm_epg_admin_up.current.shutdown == false
-
-# CLEANUP
-
-- name: Ensure schemas do not exist
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
-
-- name: Ensure tenant ansible_test does not exist
-  cisco.mso.mso_tenant:
-    <<: *create_tenant
-    state: absent

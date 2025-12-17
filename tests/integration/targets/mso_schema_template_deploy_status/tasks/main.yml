@@ -19,7 +19,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -28,7 +28,7 @@
   register: version
 
 - name: Ensure site exist
-  cisco.mso.mso_site: &site_present
+  cisco.mso.mso_site:
     <<: *mso_info
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
@@ -42,7 +42,7 @@
   cisco.mso.mso_schema_template_deploy:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
-    template: "{{ item }}"
+    template: '{{ item }}'
     site: '{{ mso_site | default("ansible_test") }}'
     state: undeploy
   ignore_errors: true
@@ -196,7 +196,6 @@
     - status_site_temp2.current.anps[0].state == 'created'
     - status_site_temp2.current.vrfs[0].state == 'created'
 
-
 - name: Ensure ansible_test_1 BD exists
   cisco.mso.mso_schema_template_bd:
     <<: *mso_info
@@ -303,7 +302,7 @@
     - status3_temp1.current[0].vrfs[0].state == 'created'
 
 # mso_schema_template_deploy is deprecated in MSO/NDO v4.0+, different api endpoint thus different module
-# when new module created, remove block and do execution for each  cisco.mso.mso_schema_template_deploy tasks
+# when new module created, remove block and do execution for each cisco.mso.mso_schema_template_deploy tasks
 - name: Execute tasks only for MSO version < 4.0
   when: version.current.version is version('4.0', '<')
   block:

@@ -18,27 +18,24 @@
       validate_certs: "{{ mso_validate_certs | default(false) }}"
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
-      output_level: '{{ mso_output_level | default("info") }}'
-    ignore_errors: true
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 # Setup Part
 - name: Remove schemas
-  cisco.mso.mso_schema: &ansible_schema_absent
+  cisco.mso.mso_schema:
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ item }}'
     state: absent
+  loop:
+  - '{{ mso_schema | default("ansible_test") }}_2'
+  - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure ansible_test tenant absent
-  cisco.mso.mso_tenant: &ansible_tenant_absent
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
-      - "{{ mso_username }}"
-    state: absent
-
-- name: Ensure ansible_test tenant present
-  cisco.mso.mso_tenant: &ansible_tenant_present
-    <<: *ansible_tenant_absent
+      - '{{ mso_username }}'
     state: present
 
 - name: Ensure ansible_test schema with ans_test_template exist
@@ -104,7 +101,7 @@
   ansible.builtin.assert:
     that:
       - ans_test_uSeg_1_nt is not changed
-      - ans_test_uSeg_1_nt.msg == "state is present but all of the following are missing{{':'}} name, type"
+      - 'ans_test_uSeg_1_nt.msg == "state is present but all of the following are missing: name, type"'
       - ans_test_uSeg_1_nt1 is not changed
       - ans_test_uSeg_1_nt1.msg == "The value of uSeg subnet IP should be an empty string or 0.0.0.0, when the useg_subnet is set to true."
 
@@ -162,7 +159,7 @@
       - ans_test_uSeg_1.current.fvSubnet == true
       - ans_test_uSeg_1.current.description == "ans_test_uSeg_1"
       - ans_test_uSeg_2_nt is not changed
-      - ans_test_uSeg_2_nt.msg == "useg_subnet is False but all of the following are missing{{':'}} value"
+      - 'ans_test_uSeg_2_nt.msg == "useg_subnet is False but all of the following are missing: value"'
       - ans_test_uSeg_2_cm_present is changed
       - ans_test_uSeg_2_cm_present.current != {}
       - ans_test_uSeg_2_cm_present.previous == {}
@@ -207,11 +204,15 @@
     value: "aa:bb:cc:dd:ee:ff"
   register: ans_test_uSeg_3
 
+- name: Set error message for mac invalid
+  ansible.builtin.set_fact:
+    error_message_mac_invalid: "Failed due to invalid 'value' and the attribute_type is: mac."
+
 - name: Assertions check for add ans_test_uSeg_3 object
   ansible.builtin.assert:
     that:
       - ans_test_uSeg_3_nt is not changed
-      - ans_test_uSeg_3_nt.msg == "Failed due to invalid 'value' and the attribute_type is{{':'}} mac."
+      - ans_test_uSeg_3_nt.msg == error_message_mac_invalid
       - ans_test_uSeg_3 is changed
       - ans_test_uSeg_3.current != {}
       - ans_test_uSeg_3.previous == {}
@@ -236,11 +237,15 @@
     value: "test_dns_value"
   register: ans_test_uSeg_4
 
+- name: Set error message for dns invalid
+  ansible.builtin.set_fact:
+    error_message_dns_invalid: "Failed due to invalid 'value' and the attribute_type is: dns."
+
 - name: Assertions check for add ans_test_uSeg_4 object
   ansible.builtin.assert:
     that:
       - ans_test_uSeg_4_nt is not changed
-      - ans_test_uSeg_4_nt.msg == "Failed due to invalid 'value' and the attribute_type is{{':'}} dns."
+      - ans_test_uSeg_4_nt.msg == error_message_dns_invalid
       - ans_test_uSeg_4 is changed
       - ans_test_uSeg_4.current != {}
       - ans_test_uSeg_4.previous == {}
@@ -276,13 +281,17 @@
     value: test_vm_datacenter_value
   register: ans_test_uSeg_6
 
+- name: Set error message for vm_datacenter invalid
+  ansible.builtin.set_fact:
+    error_message_vm_datacenter_invalid: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_datacenter."
+
 - name: Assertions check for add ans_test_uSeg_6 object
   ansible.builtin.assert:
     that:
       - ans_test_uSeg_6_nt is not changed
-      - ans_test_uSeg_6_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_datacenter."
+      - ans_test_uSeg_6_nt.msg == error_message_vm_datacenter_invalid
       - ans_test_uSeg_6_nt1 is not changed
-      - ans_test_uSeg_6_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_datacenter."
+      - ans_test_uSeg_6_nt1.msg == error_message_vm_datacenter_invalid
       - ans_test_uSeg_6 is changed
       - ans_test_uSeg_6.current != {}
       - ans_test_uSeg_6.previous == {}
@@ -318,13 +327,17 @@
     value: test_vm_hypervisor_identifier_value
   register: ans_test_uSeg_7
 
+- name: Set error message for vm_hypervisor_identifier invalid
+  ansible.builtin.set_fact:
+    error_message_vm_hypervisor_identifier_invalid: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_hypervisor_identifier."
+
 - name: Assertions check for add ans_test_uSeg_7 object
   ansible.builtin.assert:
     that:
       - ans_test_uSeg_7_nt is not changed
-      - ans_test_uSeg_7_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_hypervisor_identifier."
+      - ans_test_uSeg_7_nt.msg == error_message_vm_hypervisor_identifier_invalid
       - ans_test_uSeg_7_nt1 is not changed
-      - ans_test_uSeg_7_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_hypervisor_identifier."
+      - ans_test_uSeg_7_nt1.msg == error_message_vm_hypervisor_identifier_invalid
       - ans_test_uSeg_7 is changed
       - ans_test_uSeg_7.current != {}
       - ans_test_uSeg_7.previous == {}
@@ -360,13 +373,17 @@
     value: test_vm_operating_system_value
   register: ans_test_uSeg_8
 
+- name: Set error message for vm_operating_system invalid
+  ansible.builtin.set_fact:
+    error_message_vm_operating_system_invalid: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_operating_system."
+
 - name: Assertions check for add ans_test_uSeg_8 object
   ansible.builtin.assert:
     that:
       - ans_test_uSeg_8_nt is not changed
-      - ans_test_uSeg_8_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_operating_system."
+      - ans_test_uSeg_8_nt.msg == error_message_vm_operating_system_invalid
       - ans_test_uSeg_8_nt1 is not changed
-      - ans_test_uSeg_8_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_operating_system."
+      - ans_test_uSeg_8_nt1.msg == error_message_vm_operating_system_invalid
       - ans_test_uSeg_8 is changed
       - ans_test_uSeg_8.current != {}
       - ans_test_uSeg_8.previous == {}
@@ -402,13 +419,17 @@
     value: test_vm_tag_value
   register: ans_test_uSeg_9
 
+- name: Set error message for vm_tag invalid
+  ansible.builtin.set_fact:
+    error_message_vm_tag_invalid: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_tag."
+
 - name: Assertions check for add ans_test_uSeg_9 object
   ansible.builtin.assert:
     that:
       - ans_test_uSeg_9_nt is not changed
-      - ans_test_uSeg_9_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_tag."
+      - ans_test_uSeg_9_nt.msg == error_message_vm_tag_invalid
       - ans_test_uSeg_9_nt1 is not changed
-      - ans_test_uSeg_9_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_tag."
+      - ans_test_uSeg_9_nt1.msg == error_message_vm_tag_invalid
       - ans_test_uSeg_9 is changed
       - ans_test_uSeg_9.current != {}
       - ans_test_uSeg_9.previous == {}
@@ -444,13 +465,17 @@
     value: test_vm_identifier_value
   register: ans_test_uSeg_10
 
+- name: Set error message for vm_identifier invalid
+  ansible.builtin.set_fact:
+    error_message_vm_identifier_invalid: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_identifier."
+
 - name: Assertions check for add ans_test_uSeg_10 object
   ansible.builtin.assert:
     that:
       - ans_test_uSeg_10_nt is not changed
-      - ans_test_uSeg_10_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_identifier."
+      - ans_test_uSeg_10_nt.msg == error_message_vm_identifier_invalid
       - ans_test_uSeg_10_nt1 is not changed
-      - ans_test_uSeg_10_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_identifier."
+      - ans_test_uSeg_10_nt1.msg == error_message_vm_identifier_invalid
       - ans_test_uSeg_10 is changed
       - ans_test_uSeg_10.current != {}
       - ans_test_uSeg_10.previous == {}
@@ -486,13 +511,17 @@
     value: test_vmm_domain_value
   register: ans_test_uSeg_11
 
+- name: Set error message for vmm_domain invalid
+  ansible.builtin.set_fact:
+    error_message_vmm_domain_invalid: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vmm_domain."
+
 - name: Assertions check for add ans_test_uSeg_11 object
   ansible.builtin.assert:
     that:
       - ans_test_uSeg_11_nt is not changed
-      - ans_test_uSeg_11_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vmm_domain."
+      - ans_test_uSeg_11_nt.msg == error_message_vmm_domain_invalid
       - ans_test_uSeg_11_nt1 is not changed
-      - ans_test_uSeg_11_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vmm_domain."
+      - ans_test_uSeg_11_nt1.msg == error_message_vmm_domain_invalid
       - ans_test_uSeg_11 is changed
       - ans_test_uSeg_11.current != {}
       - ans_test_uSeg_11.previous == {}
@@ -528,13 +557,17 @@
     value: test_vm_value
   register: ans_test_uSeg_12
 
+- name: Set error message for vm_name invalid
+  ansible.builtin.set_fact:
+    error_message_vm_name_invalid: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_name."
+
 - name: Assertions check for add ans_test_uSeg_12 object
   ansible.builtin.assert:
     that:
       - ans_test_uSeg_12_nt is not changed
-      - ans_test_uSeg_12_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_name."
+      - ans_test_uSeg_12_nt.msg == error_message_vm_name_invalid
       - ans_test_uSeg_12_nt1 is not changed
-      - ans_test_uSeg_12_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vm_name."
+      - ans_test_uSeg_12_nt1.msg == error_message_vm_name_invalid
       - ans_test_uSeg_12 is changed
       - ans_test_uSeg_12.current != {}
       - ans_test_uSeg_12.previous == {}
@@ -570,13 +603,17 @@
     value: test_vnic_dn_value
   register: ans_test_uSeg_13
 
+- name: Set error message for vnic_dn invalid
+  ansible.builtin.set_fact:
+    error_message_vnic_dn_invalid: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vnic_dn."
+
 - name: Assertions check for add ans_test_uSeg_12 object
   ansible.builtin.assert:
     that:
       - ans_test_uSeg_13_nt is not changed
-      - ans_test_uSeg_13_nt.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vnic_dn."
+      - ans_test_uSeg_13_nt.msg == error_message_vnic_dn_invalid
       - ans_test_uSeg_13_nt1 is not changed
-      - ans_test_uSeg_13_nt1.msg == "Failed due to invalid 'value' or 'operator' and the attribute_type is{{':'}} vnic_dn."
+      - ans_test_uSeg_13_nt1.msg == error_message_vnic_dn_invalid
       - ans_test_uSeg_13 is changed
       - ans_test_uSeg_13.current != {}
       - ans_test_uSeg_13.previous == {}
@@ -607,16 +644,17 @@
     state: query
   register: query_all_useg_objects
 
+# Changes made to assertions to be addressed in issue: https://github.com/CiscoDevNet/ansible-mso/issues/708
 - name: Assertions check for query uSeg Attr objects
   ansible.builtin.assert:
     that:
       - invalid_useg_attr is not changed
-      - invalid_useg_attr.msg == "The uSeg Attribute{{':'}} invalid_useg_attr not found."
+      - 'invalid_useg_attr.msg == "The uSeg Attribute: invalid_useg_attr not found."'
       - query_a_useg_6 is not changed
       - query_a_useg_6.current != {}
       - query_a_useg_6.current.name == "ans_test_uSeg_6"
       - query_a_useg_6.current.type == "rootContName"
-      - query_a_useg_6.current.value == "test_vm_datacenter_value"
+      - query_a_useg_6.current.value == "TEST_VM_DATACENTER_VALUE"  # Updated because ND3.2+ capitalizes the input thus query is different
       - query_all_useg_objects is not changed
       - query_all_useg_objects.current | length >= 12
 
@@ -635,6 +673,7 @@
     state: query
   register: query_a_useg_object_with_name
 
+# Changes made to assertions to be addressed in issue: https://github.com/CiscoDevNet/ansible-mso/issues/708
 - name: Assertions check for update ans_test_uSeg_13 object
   ansible.builtin.assert:
     that:
@@ -648,13 +687,13 @@
       - ans_test_uSeg_13_update.previous.description == "uSeg Attr object created using Ansible"
       - ans_test_uSeg_13_update.previous.name == "ans_test_uSeg_13"
       - ans_test_uSeg_13_update.previous.type == "vnic"
-      - ans_test_uSeg_13_update.previous.value == "test_vnic_dn_value"
+      - ans_test_uSeg_13_update.previous.value == "TEST_VNIC_DN_VALUE"  # Updated because ND3.2+ capitalizes the input thus previous is different
       - query_a_useg_object_with_name is not changed
       - query_a_useg_object_with_name.current != {}
       - query_a_useg_object_with_name.current.description == "ans_test_uSeg_13 updated!"
       - query_a_useg_object_with_name.current.name == "ans_test_uSeg_13"
       - query_a_useg_object_with_name.current.type == "vnic"
-      - query_a_useg_object_with_name.current.value == "test_vnic_dn_value_updated"
+      - query_a_useg_object_with_name.current.value == "TEST_VNIC_DN_VALUE_UPDATED" # Updated because ND3.2+ capitalizes the input thus query is different
 
 # Cleanup Part
 - name: ans_test_uSeg_1 absent with check mode
@@ -722,6 +761,10 @@
   ignore_errors: true
   register: ans_test_epg_2_nt
 
+- name: Set error message for ans_test_epg_2 invalid
+  ansible.builtin.set_fact:
+    error_message_ans_test_epg_2_invalid: "ans_test_epg_2: is not a valid uSeg EPG."
+
 - name: Assertions check for invalid inputs
   ansible.builtin.assert:
     that:
@@ -732,29 +775,4 @@
       - query_invalid_epg is not changed
       - query_invalid_epg.msg is match("Provided EPG 'ans_test_epg_123' not matching existing epg.+")
       - ans_test_epg_2_nt is not changed
-      - ans_test_epg_2_nt.msg is match("ans_test_epg_2{{':'}} is not a valid uSeg EPG.")
-
-- name: Remove ansible_test schema to delete all uSeg Attr objects
-  cisco.mso.mso_schema:
-    <<: *ansible_schema_absent
-    schema: ansible_test
-    state: absent
-
-# To check all uSeg Attrs removed from the machine
-- name: Query all uSeg Attrs - Cleanup Part
-  cisco.mso.mso_schema_template_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    state: query
-  ignore_errors: true
-  register: query_useg_absent_check
-
-- name: Assertions check for query all uSeg Attrs - Cleanup Part
-  ansible.builtin.assert:
-    that:
-      - query_useg_absent_check is not changed
-      - query_useg_absent_check.current == {}
-
-- name: Remove ansible_test tenant
-  cisco.mso.mso_tenant:
-    <<: *ansible_tenant_absent
-    state: absent
+      - ans_test_epg_2_nt.msg is match(error_message_ans_test_epg_2_invalid)

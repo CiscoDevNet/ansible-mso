@@ -22,7 +22,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
     sites: "[ { 'site': 'aws_{{ mso_site | default(\"ansible_test\") }}', 'region': 'us-west-1', 'cidr': '10.0.0.0/16'}, 
               { 'site': 'azure_{{ mso_site | default(\"ansible_test\") }}', 'region': 'westus', 'cidr': '10.1.0.0/16'}]"
 
@@ -668,16 +668,21 @@
     - nm_query_non_cidr is not changed
     - cm_query_non_cidr == nm_query_non_cidr
 
+- name: Set expected msg for query_non_cidr
+  ansible.builtin.set_fact:
+    error_message_non_cidr_below_3_3: "Provided CIDR IP 'non_existing_cidr' does not exist. Existing CIDR IPs: 10.0.0.0/16. Use mso_schema_site_vrf_region_cidr to create it."
+    error_message_non_cidr_above_3_3: "Provided CIDR IP 'non_existing_cidr' does not exist. Existing CIDR IPs: 10.0.0.0/16, 10.2.0.0/16. Use mso_schema_site_vrf_region_cidr to create it."
+
 - name: Verify query_non_cidr value (version < 3.3)
   ansible.builtin.assert:
     that:
-    - cm_query_non_cidr.msg == nm_query_non_cidr.msg == "Provided CIDR IP 'non_existing_cidr' does not exist. Existing CIDR IPs{{':'}} 10.0.0.0/16. Use mso_schema_site_vrf_region_cidr to create it."
+    - cm_query_non_cidr.msg == nm_query_non_cidr.msg == error_message_non_cidr_below_3_3
   when: version.current.version is version('3.3', '<')
 
 - name: Verify query_non_cidr value (version >= 3.3)
   ansible.builtin.assert:
     that:
-    - cm_query_non_cidr.msg == nm_query_non_cidr.msg == "Provided CIDR IP 'non_existing_cidr' does not exist. Existing CIDR IPs{{':'}} 10.0.0.0/16, 10.2.0.0/16. Use mso_schema_site_vrf_region_cidr to create it."
+    - cm_query_non_cidr.msg == nm_query_non_cidr.msg == error_message_non_cidr_above_3_3
   when: version.current.version is version('3.3', '>=')
 
 # QUERY NON-EXISTING region
@@ -696,13 +701,17 @@
   ignore_errors: true
   register: nm_query_non_region
 
+- name: Set error message for non_existing_region
+  ansible.builtin.set_fact:
+    error_message_non_existing_region: "Provided region 'non_existing_region' does not exist. Existing regions: us-west-1. Use mso_schema_site_vrf_region_cidr to create it."
+
 - name: Verify query_non_region
   ansible.builtin.assert:
     that:
     - cm_query_non_region is not changed
     - nm_query_non_region is not changed
     - cm_query_non_region == nm_query_non_region
-    - cm_query_non_region.msg == nm_query_non_region.msg == "Provided region 'non_existing_region' does not exist. Existing regions{{':'}} us-west-1. Use mso_schema_site_vrf_region_cidr to create it."
+    - cm_query_non_region.msg == nm_query_non_region.msg == error_message_non_existing_region
 
 # QUERY NON-EXISTING VRF
 - name: Query non-existing VRF (check_mode)
@@ -750,7 +759,7 @@
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
     - cm_non_existing_state == nm_non_existing_state
-    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+    - 'cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non-existing-state"'
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for site cidr subnet (check_mode)
@@ -792,13 +801,17 @@
   ignore_errors: true
   register: nm_non_existing_template
 
+- name: Set error message for non_existing_template
+  ansible.builtin.set_fact:
+    error_message_non_existing_template: "Provided template 'non-existing-template' does not exist. Existing templates: Template1, Template2"
+
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == error_message_non_existing_template
 
 # USE A NON-ASSOCIATED TEMPLATE
 - name: Non-associated template for site cidr subnet (check_mode)
@@ -816,14 +829,18 @@
   ignore_errors: true
   register: nm_non_associated_template
 
+- name: Set error message for non_associated_template
+  ansible.builtin.set_fact:
+    error_message_non_associated_template: "Provided site/siteId/template 'aws_ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates: [0-9a-zA-Z]*/Template1"
+
 - name: Verify non_associated_template
   ansible.builtin.assert:
     that:
     - cm_non_associated_template is not changed
     - nm_non_associated_template is not changed
     - cm_non_associated_template == nm_non_associated_template
-    - cm_non_associated_template.msg is match("Provided site/siteId/template 'aws_ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1")
-    - nm_non_associated_template.msg is match("Provided site/siteId/template 'aws_ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates{{':'}} [0-9a-zA-Z]*/Template1")
+    - cm_non_associated_template.msg is match(error_message_non_associated_template)
+    - nm_non_associated_template.msg is match(error_message_non_associated_template)
 
 # USE A TEMPLATE WITHOUT ANY SITE
 - name: Add site cidr subnet to Schema 2 Template 3 without any site associated (check mode)

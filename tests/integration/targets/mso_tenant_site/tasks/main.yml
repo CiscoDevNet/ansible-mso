@@ -21,7 +21,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -38,43 +38,6 @@
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
-- name: Ensure tenant ansible_test exists to validate the invalid_site_mso_site
-  cisco.mso.mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test
-    users:
-      - '{{ mso_username }}'
-    state: present
-  register: ansible_test_tenant_present
-
-- name: Dissociate sites that are associated with ansible_tenant
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: '{{ item }}'
-    state: absent
-  loop:
-  - 'invalid_site_{{ mso_site | default("ansible_test") }}'
-  - '{{ mso_site | default("ansible_test") }}'
-  register: tenant_site_absent_check
-  when: ansible_test_tenant_present.current != {}
-
-- name: Assertion check for the tenant site dissociation
-  ansible.builtin.assert:
-    that:
-    - tenant_site_absent_check.results.0.current == {}
-    - tenant_site_absent_check.warnings.0 == "Site 'invalid_site_ansible_test' is not a valid site name."
-    - tenant_site_absent_check.results.1.current == {}
-  when: ansible_test_tenant_present.current != {}
-
-- name: Remove tenant ansible_test
-  cisco.mso.mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test
-    users:
-      - '{{ mso_username }}'
-    state: absent
-
 - name: Ensure site exists
   cisco.mso.mso_site:
     <<: *mso_info
@@ -86,13 +49,31 @@
     - https://{{ apic_hostname }}
     state: present
 
-- name: Ensure tenant ansible_test exists
+- name: Ensure tenant ansible_test exists to validate the invalid_site_mso_site
   cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
       - '{{ mso_username }}'
     state: present
+
+- name: Dissociate sites that are associated with ansible_tenant
+  cisco.mso.mso_tenant_site:
+    <<: *mso_info
+    tenant: ansible_test
+    site: '{{ item }}'
+    state: absent
+  loop:
+  - 'invalid_site_{{ mso_site | default("ansible_test") }}'
+  - '{{ mso_site | default("ansible_test") }}'
+  register: tenant_site_absent_check
+
+- name: Assertion check for the tenant site dissociation
+  ansible.builtin.assert:
+    that:
+    - tenant_site_absent_check.results.0.current == {}
+    - tenant_site_absent_check.warnings.0 == "Site 'invalid_site_ansible_test' is not a valid site name."
+    - tenant_site_absent_check.results.1.current == {}
 
 - name: Associate site with ansible_test in check mode
   cisco.mso.mso_tenant_site:

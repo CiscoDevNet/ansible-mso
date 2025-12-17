@@ -22,7 +22,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(false) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -40,7 +40,7 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  cisco.mso.mso_tenant: &tenant_present
+  cisco.mso.mso_tenant:
     <<: *mso_info
     tenant: ansible_test
     users:
@@ -138,7 +138,7 @@
     state: present
 
 - name: Ensure Contract1 exist
-  cisco.mso.mso_schema_template_contract_filter: &contract_present
+  cisco.mso.mso_schema_template_contract_filter:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
@@ -158,7 +158,7 @@
     state: present
 
 - name: Ensure Contract2 exist
-  cisco.mso.mso_schema_template_contract_filter: &contract2_present
+  cisco.mso.mso_schema_template_contract_filter:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
@@ -840,9 +840,10 @@
       <<: *new_epg
       state: absent
 
-- name: Execute tasks only for MSO version >= 4.0
+- name: Execute tasks only for MSO version >= 4.0 and < 5.0
   when:
   - version.current.version is version('4.0', '>=')
+  - version.current.version is version('5.0', '<') # in ND 4.1 no error is raised anymore and the config is set into the schema ( not visible in UI )
   block:
   - name: Add EPG service type parameters (for version greater than 4.0)
     cisco.mso.mso_schema_template_anp_epg:
@@ -863,10 +864,14 @@
     ignore_errors: true
     register: service_type_epg_error
 
+  - name: Set error message for service_type_epg_error
+    ansible.builtin.set_fact:
+      regex_service_type_epg_error: 'MSO Error 400: EPG: ansible_test_1 in Schema: ansible_test\s*,?\s*Template: Template1\s*,?\s*DeploymentType: saas, AccessType :publicAndPrivateType, Combination is not supported'
+
   - name: Verify service type error
     ansible.builtin.assert:
       that:
-      - service_type_epg_error.msg is match ("MSO Error 400{{':'}} EPG{{':'}} ansible_test_1 in Schema{{':'}} ansible_test\s*,?\s*Template{{':'}} Template1\s*,?\s*DeploymentType{{':'}} saas, AccessType {{':'}}publicAndPrivateType, Combination is not supported")
+      - service_type_epg_error.msg is match (regex_service_type_epg_error)
 
 # Add EPG when MSO version >= 3.3 and < 4.0
 - name: Execute tasks only for MSO version >= 3.3 and < 4.0
@@ -891,11 +896,16 @@
     ignore_errors: true
     register: query_validate
 
+  - name: Set error message for query_validate
+    ansible.builtin.set_fact:
+      error_message_query_validate: "MSO Error 400: Bad Request: Patch Failed, Received: For Deployment type 'Third-party' access type 'PublicAndPrivate' is not supported exception while trying to update schema"
+    when: query_validate is failed
+
   - name: Verify validation
     ansible.builtin.assert:
       that:
       - query_validate is not changed
-      - query_validate.msg == "MSO Error 400{{':'}} Bad Request{{':'}} Patch Failed, Received{{':'}} For Deployment type 'Third-party' access type 'PublicAndPrivate' is not supported exception while trying to update schema"
+      - query_validate.msg == error_message_query_validate
 
   - name: Add EPG service type parameters (for version greater than 3.3 and less than 4.0)
     cisco.mso.mso_schema_template_anp_epg:
@@ -998,13 +1008,17 @@
   ignore_errors: true
   register: nm_query_non_anp
 
+- name: Set error message for cm_query_non_anp
+  ansible.builtin.set_fact:
+    error_message_query_non_anp: "Provided anp 'non_existing_anp' does not exist. Existing anps: ANP"
+
 - name: Verify query_non_anp
   ansible.builtin.assert:
     that:
     - cm_query_non_anp is not changed
     - nm_query_non_anp is not changed
     - cm_query_non_anp == nm_query_non_anp
-    - cm_query_non_anp.msg == nm_query_non_anp.msg == "Provided anp 'non_existing_anp' does not exist. Existing anps{{':'}} ANP"
+    - cm_query_non_anp.msg == nm_query_non_anp.msg == error_message_query_non_anp
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for EPG (check_mode)
@@ -1030,7 +1044,7 @@
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
     - cm_non_existing_state == nm_non_existing_state
-    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+    - 'cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non-existing-state"'
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for EPG (check_mode)
@@ -1138,13 +1152,17 @@
   ignore_errors: true
   register: nm_non_existing_template
 
+- name: Set error message for non_existing_template
+  ansible.builtin.set_fact:
+    error_message_non_existing_template: "Provided template 'non-existing-template' does not exist. Existing templates: Template1, Template2"
+
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == error_message_non_existing_template
 
 # Checking if contract are removed after re-applying an EPG. (#13 | #62137)
 - name: Reset EPG 3 in template of schema 1 to avoid cyclic circles (normal mode)

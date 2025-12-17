@@ -12,32 +12,20 @@
 
 
 # CLEAN ENVIRONMENT
-# - name: Ensure site exist
-#   cisco.mso.mso_site: &site_present
-#     host: '{{ mso_hostname }}'
-#     username: '{{ mso_username }}'
-#     password: '{{ mso_password }}'
-#     validate_certs: '{{ mso_validate_certs | default(false) }}'
-#     use_ssl: '{{ mso_use_ssl | default(true) }}'
-#     use_proxy: '{{ mso_use_proxy | default(true) }}'
-#     output_level: '{{ mso_output_level | default("info") }}'
-#     site: '{{ mso_site | default("ansible_test") }}'
-#     apic_username: '{{ apic_username }}'
-#     apic_password: '{{ apic_password }}'
-#     apic_site_id: '{{ apic_site_id | default(101) }}'
-#     urls:
-#     - https://{{ apic_hostname }}
-#     state: present
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Remove schemas
   cisco.mso.mso_schema:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ item }}'
     state: absent
   loop:
@@ -45,30 +33,16 @@
   - '{{ mso_schema | default("ansible_test") }}'
 
 - name: Ensure tenant ansible_test exist
-  cisco.mso.mso_tenant: &tenant_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
-    tenant: ansible_test
+  cisco.mso.mso_tenant:
+    <<: *mso_info
+    tenant: '{{ mso_tenant | default("ansible_test") }}'
     users:
-    - '{{ mso_username }}'
-    # sites:
-    # - '{{ mso_site | default("ansible_test") }}'
+      - '{{ mso_username }}'
     state: present
 
 - name: Ensure schema 1 with Template 1 exist
   cisco.mso.mso_schema_template: &schema_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     tenant: ansible_test
     template: Template 1
@@ -92,13 +66,7 @@
 
 - name: Ensure VRF exist
   cisco.mso.mso_schema_template_vrf:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     vrf: VRF
@@ -106,13 +74,7 @@
 
 - name: Ensure Filter 1 exist
   cisco.mso.mso_schema_template_filter_entry:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     filter: Filter1
@@ -121,13 +83,7 @@
 
 - name: Ensure Filter 2 exist
   cisco.mso.mso_schema_template_filter_entry:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
     filter: Filter2
@@ -136,13 +92,7 @@
 
 - name: Ensure Contract1 exist
   cisco.mso.mso_schema_template_contract_filter: &contract_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     contract: Contract1
@@ -163,13 +113,7 @@
 
 - name: Ensure external EPGs exist
   cisco.mso.mso_schema_template_externalepg:
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     state: present
     schema: '{{ item.schema }}'
     template: '{{ item.template }}'
@@ -185,13 +129,7 @@
 # ADD Contract to External EPG
 - name: Add Contract1 to External EPG (check_mode)
   cisco.mso.mso_schema_template_external_epg_contract: &contract_ext_epg_present
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     external_epg: ansible_test_1
@@ -311,13 +249,7 @@
 # # QUERY ALL Contract to External EPG
 - name: Query all contract relationship for External EPG (check_mode)
   cisco.mso.mso_schema_template_external_epg_contract: &contract_ext_epg_query
-    host: '{{ mso_hostname }}'
-    username: '{{ mso_username }}'
-    password: '{{ mso_password }}'
-    validate_certs: '{{ mso_validate_certs | default(false) }}'
-    use_ssl: '{{ mso_use_ssl | default(true) }}'
-    use_proxy: '{{ mso_use_proxy | default(true) }}'
-    output_level: '{{ mso_output_level | default("info") }}'
+    <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     external_epg: ansible_test_1
@@ -503,13 +435,17 @@
   ignore_errors: true
   register: nm_query_non_ext_epg
 
+- name: Set error message for nm_query_non_ext_epg
+  ansible.builtin.set_fact:
+    error_message_non_existing_ext_epg: "Provided epg 'non_existing_ext_epg' does not exist. Existing epgs: ansible_test_1"
+
 - name: Verify query_non_ext_epg
   ansible.builtin.assert:
     that:
     - cm_query_non_ext_epg is not changed
     - nm_query_non_ext_epg is not changed
     - cm_query_non_ext_epg == nm_query_non_ext_epg
-    - cm_query_non_ext_epg.msg == nm_query_non_ext_epg.msg == "Provided epg 'non_existing_ext_epg' does not exist. Existing epgs{{':'}} ansible_test_1"
+    - cm_query_non_ext_epg.msg == nm_query_non_ext_epg.msg == error_message_non_existing_ext_epg
 
 # USE A NON-EXISTING STATE
 - name: Non-existing state for contract relationship (check_mode)
@@ -533,7 +469,7 @@
     - cm_non_existing_state is not changed
     - nm_non_existing_state is not changed
     - cm_non_existing_state == nm_non_existing_state
-    - cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of{{':'}} absent, present, query, got{{':'}} non-existing-state"
+    - 'cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non-existing-state"'
 
 # USE A NON-EXISTING SCHEMA
 - name: Non-existing schema for contract relationship (check_mode)
@@ -606,13 +542,17 @@
   ignore_errors: true
   register: nm_non_existing_template
 
+- name: Set error message for nm_non_existing_template
+  ansible.builtin.set_fact:
+    error_message_non_existing_template: "Provided template 'non-existing-template' does not exist. Existing templates: Template1, Template2"
+
 - name: Verify non_existing_template
   ansible.builtin.assert:
     that:
     - cm_non_existing_template is not changed
     - nm_non_existing_template is not changed
     - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == "Provided template 'non-existing-template' does not exist. Existing templates{{':'}} Template1, Template2"
+    - cm_non_existing_template.msg == nm_non_existing_template.msg == error_message_non_existing_template
 
 - name: Non-existing contract template for contract relationship (check_mode)
   cisco.mso.mso_schema_template_external_epg_contract:

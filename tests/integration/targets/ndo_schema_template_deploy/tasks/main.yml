@@ -89,6 +89,14 @@
   - Template 1
   - Template 2
 
+- name: Query schema template
+  cisco.mso.mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    state: query
+  register: query_schema_template
+
 - name: Add physical site to a schema
   cisco.mso.mso_schema_site:
     <<: *mso_info
@@ -357,13 +365,10 @@
     <<: *fail_validation
     state: absent
 
-- name: Deploy templates
+- name: Deploy schema template with template_id
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    sites: 
-      - '{{ mso_site | default("ansible_test") }}'
+    template_id: "{{ query_schema_template.current.templateID }}"
     state: deploy
   register: deploy_template_all
 

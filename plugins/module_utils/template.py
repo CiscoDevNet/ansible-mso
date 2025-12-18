@@ -41,7 +41,7 @@ class MSOTemplate:
                 self.template_name = self.template.get("displayName")
                 self.template_type = self.template.get("templateType")
                 self._set_deployment_properties()
-                if template_type == "application":
+                if self.template_type == "application":
                     self._set_schema_properties()
             else:
                 self.mso.fail_json(

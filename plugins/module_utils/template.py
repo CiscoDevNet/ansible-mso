@@ -40,7 +40,8 @@ class MSOTemplate:
                 self.template = self.mso.query_obj(self.template_path)
                 self.template_name = self.template.get("displayName")
                 self.template_type = self.template.get("templateType")
-                if template_type == "application":
+                self._set_deployment_properties()
+                if self.template_type == "application":
                     self._set_schema_properties()
             else:
                 self.mso.fail_json(
@@ -67,6 +68,7 @@ class MSOTemplate:
                 self.template = self.mso.query_obj(self.template_path)
                 self.template_id = self.template.get("templateId")
                 self.template_type = self.template.get("templateType")
+                self._set_deployment_properties()
                 if template_type == "application":
                     self._set_schema_properties()
 
@@ -95,6 +97,13 @@ class MSOTemplate:
         self.schema_name = self.template_summary.get("schemaName")
         self.schema_id = self.template_summary.get("schemaId")
         self.schema_path = "schemas/{0}".format(self.schema_id)
+
+    def _set_deployment_properties(self):
+        # "deploySummmary" is a typo in the API
+        # Checking both keys to be safe
+        deploy_summary = self.template_summary.get("deploySummmary", {}) or self.template_summary.get("deploySummary", {})
+        self.deploy_task_id = deploy_summary.get("teTaskId")
+        self.deployed_site_ids = [summary.get("siteId") for summary in deploy_summary.get("siteDeploymentSummaries", []) if summary.get("siteId") is not None]
 
     @staticmethod
     def get_object_from_list(search_list, kv_list):

@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2022, Akini Ross (@akinross) <akinross@cisco.com>
+# Copyright: (c) 2025, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -19,7 +20,7 @@
       validate_certs: '{{ mso_validate_certs | default(false) }}'
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("info") }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -41,7 +42,7 @@
 - name: Undeploy template
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: "{{ item }}"
     sites:
       - '{{ mso_site | default("ansible_test") }}'
@@ -59,6 +60,21 @@
   loop:
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
+
+- name: Undeploy fabric template
+  cisco.mso.ndo_template_deploy:
+    <<: *mso_info
+    template: ansible_fabric_policy_template
+    type: fabric_policy
+    state: undeploy_all
+  ignore_errors: true
+
+- name: Remove fabric template
+  cisco.mso.ndo_template: &fabric_template_absent
+    <<: *mso_info
+    template: ansible_fabric_policy_template
+    type: fabric_policy
+    state: absent
 
 - name: Ensure tenant ansible_test exists
   cisco.mso.mso_tenant: 
@@ -81,6 +97,14 @@
   - Template 1
   - Template 2
 
+- name: Query schema template
+  cisco.mso.mso_schema_template:
+    <<: *mso_info
+    schema: '{{ mso_schema | default("ansible_test") }}'
+    template: Template 1
+    state: query
+  register: query_schema_template
+
 - name: Add physical site to a schema
   cisco.mso.mso_schema_site:
     <<: *mso_info
@@ -92,10 +116,18 @@
   - Template 1
   - Template 2
 
+- name: Ensure fabric policy template exists
+  cisco.mso.ndo_template:
+    <<: *fabric_template_absent
+    sites: 
+      - name: '{{ mso_site | default("ansible_test") }}'
+    state: present
+  register: create_fabric_template
+
 - name: Deploy templates (check_mode)
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: "{{ item }}"
     sites:
       - '{{ mso_site | default("ansible_test") }}'
@@ -115,7 +147,7 @@
 - name: Deploy templates (normal_mode)
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: "{{ item }}"
     sites:
       - '{{ mso_site | default("ansible_test") }}'
@@ -139,10 +171,39 @@
   loop: "{{ nm_deploy_template.results }}"
   when: version.current.version is version('4.0', '>=')
 
+- name: Deploy fabric policy template (check_mode)
+  cisco.mso.ndo_template_deploy:
+    <<: *fabric_template_absent
+    state: deploy
+  check_mode: true
+  register: cm_fabric_template_deploy
+
+- name: Verify cm_fabric_template_deploy
+  ansible.builtin.assert:
+    that:
+    - cm_fabric_template_deploy is not changed
+
+- name: Deploy fabric policy template (normal_mode)
+  cisco.mso.ndo_template_deploy:
+    <<: *fabric_template_absent
+    state: deploy
+  register: nm_fabric_template_deploy
+
+- name: Verify nm_fabric_template_deploy 
+  ansible.builtin.assert:
+    that:
+    - nm_fabric_template_deploy is not changed
+    - '"isRedeploy" not in nm_fabric_template_deploy.current.reqDetails'
+    - '"deploy" in nm_fabric_template_deploy.current.reqDetails'
+    - nm_fabric_template_deploy.current.reqDetails.templateType == "fabricPolicy"
+    - nm_fabric_template_deploy.current.reqDetails.templateName == "ansible_fabric_policy_template"
+    - nm_fabric_template_deploy.current.reqDetails.templateId == create_fabric_template.current.templateId
+  when: version.current.version is version('4.0', '>=')
+
 - name: Query deployment
   cisco.mso.ndo_schema_template_deploy: 
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: "{{ item }}"
     state: query
   register: query_deploy_status
@@ -157,10 +218,27 @@
     - item.current.status.0.status.siteStatus == "Succeeded"
   loop: "{{ query_deploy_status.results }}"
 
+- name: Query fabric policy template deployment using template id
+  cisco.mso.ndo_schema_template_deploy: 
+    <<: *mso_info
+    template_id: '{{ create_fabric_template.current.templateId }}'
+    type: l3out # This is expected to be ignored while using template_id
+    state: query
+  register: query_fabric_template_deploy
+
+- name: Verify query_fabric_template_deploy
+  ansible.builtin.assert:
+    that:
+    - query_fabric_template_deploy is not changed
+    - query_fabric_template_deploy.current.operDetails.detailedStatus.0.succeeded is true
+    - query_fabric_template_deploy.current.operDetails.taskStatus == "Complete"
+    - query_fabric_template_deploy.current.reqDetails.templateType == "fabricPolicy"
+    - query_fabric_template_deploy.current.reqDetails.templateName == "ansible_fabric_policy_template"
+
 - name: Redeploy templates
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: '{{ item }}'
     sites:
       - '{{ mso_site | default("ansible_test") }}'
@@ -184,10 +262,22 @@
   loop: "{{ redeploy_template.results }}"
   when: version.current.version is version('4.0', '>=')
 
+- name: Redeploy fabric policy template
+  cisco.mso.ndo_template_deploy:
+    <<: *fabric_template_absent
+    state: redeploy
+  register: redeploy_fabric_template
+
+- name: Verify redeploy_fabric_template
+  ansible.builtin.assert:
+    that:
+    - redeploy_fabric_template is not changed
+    - redeploy_fabric_template.current.reqDetails.isRedeploy == true
+
 - name: Undeploy templates
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: '{{ item }}'
     sites:
       - '{{ mso_site | default("ansible_test") }}'
@@ -204,6 +294,34 @@
     - '"undeploy" in item.current.reqDetails'
   loop: "{{ undeploy_template.results }}"
 
+- name: Undeploy fabric policy template
+  cisco.mso.ndo_template_deploy:
+    <<: *fabric_template_absent
+    state: undeploy
+    sites:
+      - '{{ mso_site | default("ansible_test") }}'
+  register: undeploy_fabric_template
+
+- name: Redeploy fabric policy template again
+  cisco.mso.ndo_template_deploy:
+    <<: *fabric_template_absent
+    state: redeploy
+  register: redeploy_fabric_template
+
+- name: Undeploy fabric policy template from all sites
+  cisco.mso.ndo_template_deploy:
+    <<: *fabric_template_absent
+    state: undeploy_all
+  register: undeploy_all_fabric_template
+
+- name: Verify undeploy_fabric_template
+  ansible.builtin.assert:
+    that:
+    - undeploy_fabric_template is not changed
+    - '"undeploy" in undeploy_fabric_template.current.reqDetails'
+    - undeploy_all_fabric_template is not changed
+    - '"undeploy" in undeploy_all_fabric_template.current.reqDetails'
+
 - name: Add VRF1 with validation error
   cisco.mso.mso_schema_template_vrf: &fail_validation
     <<: *mso_info
@@ -217,7 +335,7 @@
 - name: Deploy template with validation error
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
     sites:
       - '{{ mso_site | default("ansible_test") }}'
@@ -228,7 +346,7 @@
 - name: Redeploy template with validation error
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 2
     sites:
       - '{{ mso_site | default("ansible_test") }}'
@@ -246,8 +364,8 @@
 - name: Verify validation errors before deploy and redploy
   ansible.builtin.assert:
     that:
-    - failed_validaton_deploy.msg is match ("MSO Error 400{{':'}} VRF{{':'}} VRF1 in Schema{{':'}} ansible_test\s*,?\s*Template{{':'}} Template2\s*,?\s*has VzAnyEnabled flag enabled but is not consuming or providing contracts")
-    - failed_validaton_redeploy.msg is match ("MSO Error 400{{':'}} VRF{{':'}} VRF1 in Schema{{':'}} ansible_test\s*,?\s*Template{{':'}} Template2\s*,?\s*has VzAnyEnabled flag enabled but is not consuming or providing contracts")
+    - failed_validaton_deploy.msg is match ("MSO Error 400{{':'}} VRF{{':'}} VRF1 in Schema{{':'}} {{ mso_schema | default("ansible_test") }}\s*,?\s*Template{{':'}} Template2\s*,?\s*has VzAnyEnabled flag enabled but is not consuming or providing contracts")
+    - failed_validaton_redeploy.msg is match ("MSO Error 400{{':'}} VRF{{':'}} VRF1 in Schema{{':'}} {{ mso_schema | default("ansible_test") }}\s*,?\s*Template{{':'}} Template2\s*,?\s*has VzAnyEnabled flag enabled but is not consuming or providing contracts")
   when: version.current.version is version('4.0', '>=')
 
 - name: Remove VRF1 with validation error
@@ -255,20 +373,17 @@
     <<: *fail_validation
     state: absent
 
-- name: Deploy templates
+- name: Deploy schema template with template_id
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
-    schema: ansible_test
-    template: Template 1
-    sites: 
-      - '{{ mso_site | default("ansible_test") }}'
+    template_id: "{{ query_schema_template.current.templateID }}"
     state: deploy
   register: deploy_template_all
 
 - name: Query deployment
   cisco.mso.ndo_schema_template_deploy: 
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     state: query
   register: query_deploy_status_all
@@ -284,7 +399,7 @@
 - name: Redeploy templates
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     sites: 
       - '{{ mso_site | default("ansible_test") }}'
@@ -294,25 +409,23 @@
 - name: Query redeployment
   cisco.mso.ndo_schema_template_deploy: 
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     state: query
   register: query_redeploy_status_all
 
-- name: Undeploy templates
+- name: Undeploy template from all sites
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    sites: 
-      - '{{ mso_site | default("ansible_test") }}'
-    state: undeploy
+    state: undeploy_all
   register: undeploy_template_all
 
 - name: Query undeployment
   cisco.mso.ndo_schema_template_deploy: 
     <<: *mso_info
-    schema: ansible_test
+    schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
     state: query
   register: query_undeploy_status_all

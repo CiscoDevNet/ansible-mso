@@ -101,9 +101,7 @@ class MSOTemplate:
     def _set_deployment_properties(self):
         # "deploySummmary" is a typo in the API
         # Checking both keys to be safe
-        deploy_summary = self.template_summary.get("deploySummmary", {})
-        if not deploy_summary:
-            deploy_summary = self.template_summary.get("deploySummary", {})
+        deploy_summary = self.template_summary.get("deploySummmary", {}) or self.template_summary.get("deploySummary", {})
         self.deploy_task_id = deploy_summary.get("teTaskId")
         self.deployed_site_ids = [summary.get("siteId") for summary in deploy_summary.get("siteDeploymentSummaries", []) if summary.get("siteId") is not None]
 

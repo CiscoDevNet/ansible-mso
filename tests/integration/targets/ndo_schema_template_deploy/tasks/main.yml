@@ -61,6 +61,14 @@
   - '{{ mso_schema | default("ansible_test") }}_2'
   - '{{ mso_schema | default("ansible_test") }}'
 
+- name: Undeploy fabric template
+  cisco.mso.ndo_template_deploy:
+    <<: *mso_info
+    template: ansible_fabric_policy_template
+    type: fabric_policy
+    state: undeploy_all
+  ignore_errors: true
+
 - name: Remove fabric template
   cisco.mso.ndo_template: &fabric_template_absent
     <<: *mso_info
@@ -300,19 +308,19 @@
     state: redeploy
   register: redeploy_fabric_template
 
-- name: Undeploy fabric policy template without sites
+- name: Undeploy fabric policy template from all sites
   cisco.mso.ndo_template_deploy:
     <<: *fabric_template_absent
-    state: undeploy
-  register: undeploy_fabric_template_no_sites
+    state: undeploy_all
+  register: undeploy_all_fabric_template
 
 - name: Verify undeploy_fabric_template
   ansible.builtin.assert:
     that:
     - undeploy_fabric_template is not changed
     - '"undeploy" in undeploy_fabric_template.current.reqDetails'
-    - undeploy_fabric_template_no_sites is not changed
-    - '"undeploy" in undeploy_fabric_template_no_sites.current.reqDetails'
+    - undeploy_all_fabric_template is not changed
+    - '"undeploy" in undeploy_all_fabric_template.current.reqDetails'
 
 - name: Add VRF1 with validation error
   cisco.mso.mso_schema_template_vrf: &fail_validation
@@ -406,12 +414,12 @@
     state: query
   register: query_redeploy_status_all
 
-- name: Undeploy templates
+- name: Undeploy template from all sites
   cisco.mso.ndo_schema_template_deploy:
     <<: *mso_info
     schema: '{{ mso_schema | default("ansible_test") }}'
     template: Template 1
-    state: undeploy
+    state: undeploy_all
   register: undeploy_template_all
 
 - name: Query undeployment

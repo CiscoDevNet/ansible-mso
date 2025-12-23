@@ -53,17 +53,18 @@ options:
   sites:
     description:
     - The list of site names where the template will be undeployed.
-    - When O(sites) is not provided the template will be undeployed from all sites.
+    - This option is required when O(state=undeploy).
     type: list
     elements: str
   state:
     description:
     - Use C(deploy) to deploy a template.
     - Use C(redeploy) to redeploy a template.
-    - Use C(undeploy) to undeploy a template from sites.
+    - Use C(undeploy) to undeploy a template from specified O(sites).
+    - Use C(undeploy_all) to undeploy a template from all sites.
     - Use C(query) to get deployment status.
     type: str
-    choices: [ deploy, redeploy, undeploy, query ]
+    choices: [ deploy, redeploy, undeploy, undeploy_all, query ]
     default: deploy
 seealso:
 - module: cisco.mso.mso_schema_site
@@ -125,7 +126,7 @@ EXAMPLES = r"""
     password: SomeSecretPassword
     template: Fabric Policy 1
     type: fabric_policy
-    state: undeploy
+    state: undeploy_all
 
 - name: Undeploy a fabric policy template from one site
   cisco.mso.ndo_template_deploy:
@@ -182,13 +183,16 @@ def main():
         state=dict(
             type="str",
             default="deploy",
-            choices=["deploy", "redeploy", "undeploy", "query"],
+            choices=["deploy", "redeploy", "undeploy", "undeploy_all", "query"],
         ),
     )
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         supports_check_mode=True,
+        required_if=[
+            ["state", "undeploy", ["sites"]],
+        ],
         mutually_exclusive=[
             ("template", "template_id"),
             ("schema", "schema_id"),
@@ -242,6 +246,7 @@ def main():
     else:
         path = "task"
         method = "POST"
+        is_undeploy = state == "undeploy" or state == "undeploy_all"
         if is_application:
             payload = dict(schemaId=schema_id, templateName=template)
         else:
@@ -250,19 +255,19 @@ def main():
             payload.update(isRedeploy=False)
         elif state == "redeploy":
             payload.update(isRedeploy=True)
-        elif state == "undeploy":
-            payload.update(undeploy=get_site_ids(mso, mso_template, sites))
-        if is_application and state != "undeploy":
+        elif is_undeploy:
+            payload.update(undeploy=get_site_ids(mso, mso_template, sites, state))
+        if is_application and not is_undeploy:
             mso.validate_schema(schema_id)
     if not module.check_mode:
         mso.existing = mso.request(path, method=method, data=payload) if path else {}
     mso.exit_json()
 
 
-def get_site_ids(mso, mso_template, sites):
-    if sites:
-        return [site.get("siteId") for site in mso.lookup_sites(sites)]
-    return mso_template.deployed_site_ids
+def get_site_ids(mso, mso_template, sites, state):
+    if state == "undeploy_all":
+        return mso_template.deployed_site_ids
+    return [site.get("siteId") for site in mso.lookup_sites(sites)] if sites else []
 
 
 if __name__ == "__main__":

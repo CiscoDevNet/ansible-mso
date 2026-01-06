@@ -13,12 +13,12 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 
 DOCUMENTATION = r"""
 ---
-module: ndo_schema_template_deploy
+module: ndo_template_deploy
 short_description: Deploy templates to sites for NDO v3.7 and higher
 description:
 - Deploy templates to sites.
 - Prior to deploy or redeploy a schema validation is executed.
-- When schema validation fails, M(cisco.mso.ndo_schema_template_deploy) fails and deploy or redeploy will not be executed.
+- When schema validation fails, M(cisco.mso.ndo_template_deploy) fails and deploy or redeploy will not be executed.
 - Only supports NDO v3.7 and higher
 author:
 - Akini Ross (@akinross)
@@ -75,7 +75,7 @@ extends_documentation_fragment: cisco.mso.modules
 
 EXAMPLES = r"""
 - name: Deploy a schema template
-  cisco.mso.ndo_schema_template_deploy:
+  cisco.mso.ndo_template_deploy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -93,7 +93,7 @@ EXAMPLES = r"""
     state: deploy
 
 - name: Redeploy a schema template
-  cisco.mso.ndo_schema_template_deploy:
+  cisco.mso.ndo_template_deploy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -110,7 +110,7 @@ EXAMPLES = r"""
     state: deploy
 
 - name: Undeploy a schema template
-  cisco.mso.ndo_schema_template_deploy:
+  cisco.mso.ndo_template_deploy:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -139,7 +139,7 @@ EXAMPLES = r"""
     state: undeploy
 
 - name: Query a schema template deploy status
-  cisco.mso.ndo_schema_template_deploy:
+  cisco.mso.ndo_template_deploy:
     host: mso_host
     username: admin
     password: SomeSecretPassword

@@ -47,9 +47,9 @@ options:
 
 deprecated:
   removed_in: '3.0.0'
-  why: Due to changes in the ND and NDO API, a new module (cisco.mso.ndo_schema_template_deploy) has been released for
+  why: Due to changes in the ND and NDO API, a new module (cisco.mso.ndo_template_deploy) has been released for
     ND v2.2 (NDO v4.1) and later.
-  alternative: Use M(cisco.mso.ndo_schema_template_deploy) instead.
+  alternative: Use M(cisco.mso.ndo_template_deploy) instead.
 seealso:
 - module: cisco.mso.mso_schema_site
 - module: cisco.mso.mso_schema_template

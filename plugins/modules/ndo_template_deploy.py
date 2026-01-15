@@ -66,6 +66,10 @@ options:
     type: str
     choices: [ deploy, redeploy, undeploy, undeploy_all, query ]
     default: deploy
+notes:
+- The O(template) must exist before using this module in your playbook.
+  Use M(cisco.mso.ndo_template) to create non-schema templates.
+  Use M(cisco.mso.mso_schema_template) to create schema/application templates.
 seealso:
 - module: cisco.mso.mso_schema_site
 - module: cisco.mso.mso_schema_template

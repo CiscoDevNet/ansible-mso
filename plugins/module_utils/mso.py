@@ -31,7 +31,6 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import (
     LISTENER_PROTOCOLS,
 )
 
-
 try:
     from requests_toolbelt.multipart.encoder import MultipartEncoder
 

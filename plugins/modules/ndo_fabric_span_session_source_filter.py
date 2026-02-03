@@ -235,7 +235,6 @@ from ansible_collections.cisco.mso.plugins.module_utils.constants import PORT_MA
 from collections import namedtuple
 import copy
 
-
 port_mapping_values = list(PORT_MAPPING) + list(PORT_MAPPING.values())
 ip_protocol_mapping_values = list(IP_PROTOCOL_MAPPING) + list(IP_PROTOCOL_MAPPING.values())
 

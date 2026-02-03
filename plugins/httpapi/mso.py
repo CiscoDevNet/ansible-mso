@@ -39,7 +39,6 @@ from ansible.module_utils.connection import ConnectionError
 from ansible.plugins.httpapi import HttpApiBase
 from copy import copy
 
-
 CONNECTION_MAP = {"username": "remote_user", "timeout": "persistent_command_timeout"}
 RESET_KEYS = ["username", "password", "login_domain", "host", "port"]
 CONNECTION_KEYS = RESET_KEYS + ["use_proxy", "use_ssl", "timeout", "validate_certs"]

@@ -310,14 +310,14 @@ ROUTE_MAP_METRIC_TYPE_MAP = {
 ROUTE_MAP_POLICY_MATCH_TYPE = {"prefix_and_routing_policy": "combinable", "routing_policy_only": "global"}
 
 MATCH_PARAMETER_MAP = {
-    "destination_ipv4/6": "dstIP",
+    "destination_ip": "dstIP",
     "destination_ipv4": "dstIPv4",
     "destination_ipv6": "dstIPv6",
     "destination_mac": "dstMac",
     "destination_port": "dstPort",
     "ethertype": "ethertype",
-    "ip_proto": "proto",
-    "source_ipv4/6": "srcIP",
+    "ip_protocol": "proto",
+    "source_ip": "srcIP",
     "source_ipv4": "srcIPv4",
     "source_ipv6": "srcIPv6",
     "source_mac": "srcMac",

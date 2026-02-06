@@ -54,14 +54,14 @@ options:
     elements: str
     aliases: [ match ]
     choices:
-      - destination_ipv4/6
+      - destination_ip
       - destination_ipv4
       - destination_ipv6
       - destination_mac
       - destination_port
       - ethertype
-      - ip_proto
-      - source_ipv4/6
+      - ip_protocol
+      - source_ip
       - source_ipv4
       - source_ipv6
       - source_mac
@@ -209,7 +209,7 @@ def main():
     mso_template = mso_templates.get_template("tenant", template_name, template_id)
     mso_template.validate_template("tenantPolicy")
 
-    match = get_netflow_record(mso_template, uuid, name)
+    match = mso_template.get_netflow_record(uuid, name)
     if (uuid or name) and match:  # Query a specific object
         mso.existing = mso.previous = copy.deepcopy(mso_template.update_config_with_template_and_references(match.details))
     elif match:  # Query all objects
@@ -240,7 +240,7 @@ def main():
 
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)
-        match = get_netflow_record(mso_template, uuid, name, template_object=response)
+        match = mso_template.get_netflow_record(uuid, name, response)
         if match:
             mso.existing = mso_template.update_config_with_template_and_references(match.details)  # When the state is present
         else:
@@ -249,14 +249,6 @@ def main():
         mso.existing = mso.proposed if state == "present" else {}
 
     mso.exit_json()
-
-
-def get_netflow_record(mso_template, uuid=None, name=None, template_object=None, fail_module=False):
-    template_object = template_object if template_object else mso_template.template
-    match = template_object.get("tenantPolicyTemplate", {}).get("template", {}).get("netFlowRecords", [])
-    if uuid or name:  # Query a specific object
-        return mso_template.get_object_by_key_value_pairs("NetFlow Record", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
-    return match  # Query all objects
 
 
 if __name__ == "__main__":

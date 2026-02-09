@@ -162,7 +162,6 @@ import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.constants import MATCH_PARAMETER_MAP
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
-from ansible_collections.cisco.mso.plugins.module_utils.template import KVPair
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
 from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 

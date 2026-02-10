@@ -1,0 +1,512 @@
+# Test code for the MSO modules
+# Copyright: (c) 2026, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that we have an ACI MultiSite host, username and password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+# CLEAN ENVIRONMENT
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("info") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Execute tasks only for NDO version >= 4.1
+  when: version.current.version is version('4.1', '>=')
+  block:
+    # CLEAN ENVIRONMENT
+    - name: Ensure ansible_test exist
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        name: ansible_test
+        state: present
+
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template: &template_absent
+        <<: *mso_info
+        name: ansible_tenant_template
+        template_type: tenant
+        tenant: ansible_test
+        state: absent
+
+    - name: Ensure templates exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: present
+      register: add_ansible_tenant_template
+
+    - name: Ensure NetFlow Record 1 exist
+      cisco.mso.ndo_tenant_netflow_record:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_record_1
+        state: present
+      register: add_netflow_record_1
+
+    - name: Ensure NetFlow Record 2 exist
+      cisco.mso.ndo_tenant_netflow_record:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_record_2
+        state: present
+      register: add_netflow_record_2
+
+    - name: Ensure NetFlow Exporter 1 exist
+      cisco.mso.ndo_tenant_netflow_exporter:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_exporter_1
+        state: present
+      register: add_netflow_exporter_1
+
+    - name: Ensure NetFlow Exporter 2 exist
+      cisco.mso.ndo_tenant_netflow_exporter:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_exporter_2
+        state: present
+      register: add_netflow_exporter_2
+
+    # CREATE
+    - name: Add NetFlow Monitor (check_mode)
+      cisco.mso.ndo_tenant_netflow_monitor: &cm_add_netflow_monitor
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_monitor_1
+        netflow_exporters:
+          - {"reference": {"name": "netflow_exporter_1", "template": "ansible_tenant_template"}}
+          - {"reference": {"name": "netflow_exporter_2", "template": "ansible_tenant_template"}}
+        state: present
+        output_level: debug
+      check_mode: true
+      register: cm_add_netflow_monitor
+
+    - name: Add NetFlow Monitor
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *cm_add_netflow_monitor
+      register: nm_add_netflow_monitor
+    
+    - name: Add NetFlow Monitor again
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *cm_add_netflow_monitor
+      register: nm_add_netflow_monitor_again
+
+    - name: Add NetFlow Monitor 2
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_monitor_2
+        description: test
+        netflow_record: {"reference": {"name": "netflow_record_2", "template": "ansible_tenant_template"}}
+        netflow_exporters:
+          - uuid: "{{ add_netflow_exporter_1.current.uuid }}"
+          - uuid: "{{ add_netflow_exporter_2.current.uuid }}"
+        state: present
+      register: add_netflow_monitor_2
+
+    - name: Assertion check for add NetFlow Monitor
+      ansible.builtin.assert:
+        that:
+          - cm_add_netflow_monitor is changed
+          - cm_add_netflow_monitor.current.exporterRefs.0.exporterName == "netflow_exporter_1"
+          - cm_add_netflow_monitor.current.exporterRefs.0.exporterRef != ""
+          - cm_add_netflow_monitor.current.exporterRefs.0.exporterTemplateId != ""
+          - cm_add_netflow_monitor.current.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - cm_add_netflow_monitor.current.exporterRefs.1.exporterName == "netflow_exporter_2"
+          - cm_add_netflow_monitor.current.exporterRefs.1.exporterRef != ""
+          - cm_add_netflow_monitor.current.exporterRefs.1.exporterTemplateId != ""
+          - cm_add_netflow_monitor.current.exporterRefs.1.exporterTemplateName == "ansible_tenant_template"
+          - cm_add_netflow_monitor.current.name == "netflow_monitor_1"
+          - cm_add_netflow_monitor.current.recordRef == ""
+          - cm_add_netflow_monitor.previous == {}
+          - cm_add_netflow_monitor.proposed.exporterRefs.0.exporterName == "netflow_exporter_1"
+          - cm_add_netflow_monitor.proposed.exporterRefs.0.exporterRef != ""
+          - cm_add_netflow_monitor.proposed.exporterRefs.0.exporterTemplateId != ""
+          - cm_add_netflow_monitor.proposed.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - cm_add_netflow_monitor.proposed.exporterRefs.1.exporterName == "netflow_exporter_2"
+          - cm_add_netflow_monitor.proposed.exporterRefs.1.exporterRef != ""
+          - cm_add_netflow_monitor.proposed.exporterRefs.1.exporterTemplateId != ""
+          - cm_add_netflow_monitor.proposed.exporterRefs.1.exporterTemplateName == "ansible_tenant_template"
+          - cm_add_netflow_monitor.proposed.name == "netflow_monitor_1"
+          - cm_add_netflow_monitor.proposed.recordRef == ""
+          - nm_add_netflow_monitor is changed
+          - nm_add_netflow_monitor.current.description == ""
+          - nm_add_netflow_monitor.current.exporterRefs.0.exporterName == "netflow_exporter_1"
+          - nm_add_netflow_monitor.current.exporterRefs.0.exporterRef != ""
+          - nm_add_netflow_monitor.current.exporterRefs.0.exporterTemplateId != ""
+          - nm_add_netflow_monitor.current.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - nm_add_netflow_monitor.current.exporterRefs.1.exporterName == "netflow_exporter_2"
+          - nm_add_netflow_monitor.current.exporterRefs.1.exporterRef != ""
+          - nm_add_netflow_monitor.current.exporterRefs.1.exporterTemplateId != ""
+          - nm_add_netflow_monitor.current.exporterRefs.1.exporterTemplateName == "ansible_tenant_template"
+          - nm_add_netflow_monitor.current.name == "netflow_monitor_1"
+          - nm_add_netflow_monitor.current.recordRef == ""
+          - nm_add_netflow_monitor.current.uuid is defined
+          - nm_add_netflow_monitor.previous == {}
+          - nm_add_netflow_monitor_again is not changed
+          - nm_add_netflow_monitor_again.current == nm_add_netflow_monitor_again.previous == nm_add_netflow_monitor.current
+          - add_netflow_monitor_2 is changed
+          - add_netflow_monitor_2.current.description == "test"
+          - add_netflow_monitor_2.current.exporterRefs.0.exporterName == "netflow_exporter_1"
+          - add_netflow_monitor_2.current.exporterRefs.0.exporterRef != ""
+          - add_netflow_monitor_2.current.exporterRefs.0.exporterTemplateId != ""
+          - add_netflow_monitor_2.current.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - add_netflow_monitor_2.current.exporterRefs.1.exporterName == "netflow_exporter_2"
+          - add_netflow_monitor_2.current.exporterRefs.1.exporterRef != ""
+          - add_netflow_monitor_2.current.exporterRefs.1.exporterTemplateId != ""
+          - add_netflow_monitor_2.current.exporterRefs.1.exporterTemplateName == "ansible_tenant_template"
+          - add_netflow_monitor_2.current.name == "netflow_monitor_2"
+          - add_netflow_monitor_2.current.recordName == "netflow_record_2"
+          - add_netflow_monitor_2.current.recordRef != ""
+          - add_netflow_monitor_2.current.recordTemplateId != ""
+          - add_netflow_monitor_2.current.recordTemplateName == "ansible_tenant_template"
+          - add_netflow_monitor_2.current.uuid is defined
+          - add_netflow_monitor_2.previous == {}
+
+    # UPDATE
+    - name: Update NetFlow Monitor (check_mode)
+      cisco.mso.ndo_tenant_netflow_monitor: &cm_update_netflow_monitor
+        <<: *mso_info
+        template: ansible_tenant_template
+        uuid: "{{ nm_add_netflow_monitor.current.uuid }}"
+        name: netflow_monitor_1_updated
+        description: updated
+        netflow_record:
+          uuid: "{{ add_netflow_record_2.current.uuid }}"
+        netflow_exporters:
+          - uuid: "{{ add_netflow_exporter_2.current.uuid }}"
+        output_level: debug
+        state: present
+      check_mode: true
+      register: cm_update_netflow_monitor
+
+    - name: Update NetFlow Monitor
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *cm_update_netflow_monitor
+      register: nm_update_netflow_monitor
+
+    - name: Update NetFlow Monitor again
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *cm_update_netflow_monitor
+      register: nm_update_netflow_monitor_again
+
+    - name: Remove NetFlow Record and description from NetFlow Monitor 2
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_monitor_2
+        description: ""
+        netflow_record: {}
+        netflow_exporters:
+          - uuid: "{{ add_netflow_exporter_1.current.uuid }}"
+        state: present
+      register: update_netflow_monitor_2
+
+    - name: Assertion check for update NetFlow Monitor
+      ansible.builtin.assert:
+        that:
+          - cm_update_netflow_monitor is changed
+          - cm_update_netflow_monitor.current.description == "updated"
+          - cm_update_netflow_monitor.current.exporterRefs.0.exporterName == "netflow_exporter_2"
+          - cm_update_netflow_monitor.current.exporterRefs.0.exporterRef != ""
+          - cm_update_netflow_monitor.current.exporterRefs.0.exporterTemplateId != ""
+          - cm_update_netflow_monitor.current.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - cm_update_netflow_monitor.current.name == "netflow_monitor_1_updated"
+          - cm_update_netflow_monitor.current.recordName == "netflow_record_2"
+          - cm_update_netflow_monitor.current.recordRef != ""
+          - cm_update_netflow_monitor.current.recordTemplateId != ""
+          - cm_update_netflow_monitor.current.recordTemplateName == "ansible_tenant_template"
+          - cm_update_netflow_monitor.current.uuid is defined
+          - cm_update_netflow_monitor.previous.description == ""
+          - cm_update_netflow_monitor.previous.exporterRefs.0.exporterName == "netflow_exporter_1"
+          - cm_update_netflow_monitor.previous.exporterRefs.0.exporterRef != ""
+          - cm_update_netflow_monitor.previous.exporterRefs.0.exporterTemplateId != ""
+          - cm_update_netflow_monitor.previous.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - cm_update_netflow_monitor.previous.exporterRefs.1.exporterName == "netflow_exporter_2"
+          - cm_update_netflow_monitor.previous.exporterRefs.1.exporterRef != ""
+          - cm_update_netflow_monitor.previous.exporterRefs.1.exporterTemplateId != ""
+          - cm_update_netflow_monitor.previous.exporterRefs.1.exporterTemplateName == "ansible_tenant_template"
+          - cm_update_netflow_monitor.previous.name == "netflow_monitor_1"
+          - cm_update_netflow_monitor.previous.recordRef == ""
+          - cm_update_netflow_monitor.previous.uuid is defined
+          - cm_update_netflow_monitor.proposed.description == "updated"
+          - cm_update_netflow_monitor.proposed.exporterRefs.0.exporterName == "netflow_exporter_2"
+          - cm_update_netflow_monitor.proposed.exporterRefs.0.exporterRef != ""
+          - cm_update_netflow_monitor.proposed.exporterRefs.0.exporterTemplateId != ""
+          - cm_update_netflow_monitor.proposed.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - cm_update_netflow_monitor.proposed.name == "netflow_monitor_1_updated"
+          - cm_update_netflow_monitor.proposed.recordName == "netflow_record_2"
+          - cm_update_netflow_monitor.proposed.recordRef != ""
+          - cm_update_netflow_monitor.proposed.recordTemplateId != ""
+          - cm_update_netflow_monitor.proposed.recordTemplateName == "ansible_tenant_template"
+          - cm_update_netflow_monitor.proposed.uuid is defined
+          - nm_update_netflow_monitor is changed
+          - nm_update_netflow_monitor.current.description == "updated"
+          - nm_update_netflow_monitor.current.exporterRefs.0.exporterName == "netflow_exporter_2"
+          - nm_update_netflow_monitor.current.exporterRefs.0.exporterRef != ""
+          - nm_update_netflow_monitor.current.exporterRefs.0.exporterTemplateId != ""
+          - nm_update_netflow_monitor.current.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - nm_update_netflow_monitor.current.name == "netflow_monitor_1_updated"
+          - nm_update_netflow_monitor.current.recordName == "netflow_record_2"
+          - nm_update_netflow_monitor.current.recordRef != ""
+          - nm_update_netflow_monitor.current.recordTemplateId != ""
+          - nm_update_netflow_monitor.current.recordTemplateName == "ansible_tenant_template"
+          - nm_update_netflow_monitor.current.uuid is defined
+          - nm_update_netflow_monitor.previous.description == ""
+          - nm_update_netflow_monitor.previous.exporterRefs.0.exporterName == "netflow_exporter_1"
+          - nm_update_netflow_monitor.previous.exporterRefs.0.exporterRef != ""
+          - nm_update_netflow_monitor.previous.exporterRefs.0.exporterTemplateId != ""
+          - nm_update_netflow_monitor.previous.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - nm_update_netflow_monitor.previous.exporterRefs.1.exporterName == "netflow_exporter_2"
+          - nm_update_netflow_monitor.previous.exporterRefs.1.exporterRef != ""
+          - nm_update_netflow_monitor.previous.exporterRefs.1.exporterTemplateId != ""
+          - nm_update_netflow_monitor.previous.exporterRefs.1.exporterTemplateName == "ansible_tenant_template"
+          - nm_update_netflow_monitor.previous.name == "netflow_monitor_1"
+          - nm_update_netflow_monitor.previous.recordRef == ""
+          - nm_update_netflow_monitor.previous.uuid is defined
+          - nm_update_netflow_monitor_again is not changed
+          - nm_update_netflow_monitor_again.current == nm_update_netflow_monitor_again.previous
+          - update_netflow_monitor_2 is changed
+          - update_netflow_monitor_2.current.description == ""
+          - update_netflow_monitor_2.current.exporterRefs.0.exporterName == "netflow_exporter_1"
+          - update_netflow_monitor_2.current.exporterRefs.0.exporterRef != ""
+          - update_netflow_monitor_2.current.exporterRefs.0.exporterTemplateId != ""
+          - update_netflow_monitor_2.current.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - update_netflow_monitor_2.current.name == "netflow_monitor_2"
+          - update_netflow_monitor_2.current.recordRef == ""
+          - update_netflow_monitor_2.current.uuid is defined
+          - update_netflow_monitor_2.previous.description == "test"
+          - update_netflow_monitor_2.previous.exporterRefs.0.exporterName == "netflow_exporter_1"
+          - update_netflow_monitor_2.previous.exporterRefs.0.exporterRef != ""
+          - update_netflow_monitor_2.previous.exporterRefs.0.exporterTemplateId != ""
+          - update_netflow_monitor_2.previous.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - update_netflow_monitor_2.previous.exporterRefs.1.exporterName == "netflow_exporter_2"
+          - update_netflow_monitor_2.previous.exporterRefs.1.exporterRef != ""
+          - update_netflow_monitor_2.previous.exporterRefs.1.exporterTemplateId != ""
+          - update_netflow_monitor_2.previous.exporterRefs.1.exporterTemplateName == "ansible_tenant_template"
+          - update_netflow_monitor_2.previous.name == "netflow_monitor_2"
+          - update_netflow_monitor_2.previous.recordName == "netflow_record_2"
+          - update_netflow_monitor_2.previous.recordRef != ""
+          - update_netflow_monitor_2.previous.recordTemplateId != ""
+          - update_netflow_monitor_2.previous.recordTemplateName == "ansible_tenant_template"
+          - update_netflow_monitor_2.previous.uuid is defined
+
+    # QUERY
+    - name: Query NetFlow Monitor using UUID
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *mso_info
+        template: ansible_tenant_template
+        uuid: "{{ nm_add_netflow_monitor.current.uuid }}"
+        state: query
+      register: query_netflow_monitor_1_uuid
+
+    - name: Query NetFlow Monitor using name
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_monitor_2
+        state: query
+      register: query_netflow_monitor_2_name
+
+    - name: Query all NetFlow Monitor
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *mso_info
+        template: ansible_tenant_template
+        state: query
+      register: query_all_netflow_monitors
+
+    - name: Assertion check for query NetFlow Monitor
+      ansible.builtin.assert:
+        that:
+          - query_netflow_monitor_1_uuid is not changed
+          - query_netflow_monitor_1_uuid.current.description == "updated"
+          - query_netflow_monitor_1_uuid.current.exporterRefs.0.exporterName == "netflow_exporter_2"
+          - query_netflow_monitor_1_uuid.current.exporterRefs.0.exporterRef != ""
+          - query_netflow_monitor_1_uuid.current.exporterRefs.0.exporterTemplateId != ""
+          - query_netflow_monitor_1_uuid.current.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - query_netflow_monitor_1_uuid.current.name == "netflow_monitor_1_updated"
+          - query_netflow_monitor_1_uuid.current.recordName == "netflow_record_2"
+          - query_netflow_monitor_1_uuid.current.recordRef != ""
+          - query_netflow_monitor_1_uuid.current.recordTemplateId != ""
+          - query_netflow_monitor_1_uuid.current.recordTemplateName == "ansible_tenant_template"
+          - query_netflow_monitor_1_uuid.current.uuid is defined
+          - query_netflow_monitor_2_name is not changed
+          - query_netflow_monitor_2_name.current.description == ""
+          - query_netflow_monitor_2_name.current.exporterRefs.0.exporterName == "netflow_exporter_1"
+          - query_netflow_monitor_2_name.current.exporterRefs.0.exporterRef != ""
+          - query_netflow_monitor_2_name.current.exporterRefs.0.exporterTemplateId != ""
+          - query_netflow_monitor_2_name.current.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - query_netflow_monitor_2_name.current.name == "netflow_monitor_2"
+          - query_netflow_monitor_2_name.current.recordRef == ""
+          - query_netflow_monitor_2_name.current.uuid is defined
+          - query_all_netflow_monitors is not changed
+          - query_all_netflow_monitors.current.0 == query_netflow_monitor_1_uuid.current
+          - query_all_netflow_monitors.current.1 == query_netflow_monitor_2_name.current
+
+    # ERROR
+    - name: Negative test add NetFlow Monitor without template
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *mso_info
+        name: netflow_monitor_3
+        state: present
+      register: nt_add_netflow_monitor_without_template
+      ignore_errors: true
+
+    - name: Negative test add NetFlow Monitor without name and uuid
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *mso_info
+        template: ansible_tenant_template
+        state: present
+      register: nt_add_netflow_monitor_without_name_uuid
+      ignore_errors: true
+
+    - name: Negative test add NetFlow Monitor without NetFlow Exporter
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_monitor_3
+        state: present
+      register: nt_add_netflow_monitor_without_exporter
+      ignore_errors: true
+    
+    - name: Negative test add NetFlow Monitor with incomplete NetFlow Record
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_monitor_3
+        netflow_record:
+          reference:
+            name: netflow_record_1
+        state: present
+      register: nt_add_netflow_monitor_with_incomplete_record
+      ignore_errors: true
+    
+    - name: Negative test add NetFlow Monitor with incomplete NetFlow Exporter
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_monitor_3
+        netflow_exporter:
+          - reference:
+              name: netflow_exporter_1
+        state: present
+      register: nt_add_netflow_monitor_with_incomplete_exporter
+      ignore_errors: true
+
+    - name: Assertion check for NetFlow Monitor negative tests
+      ansible.builtin.assert:
+        that:
+          - nt_add_netflow_monitor_without_template is not changed
+          - 'nt_add_netflow_monitor_without_template.msg == "one of the following is required: template, template_id"'
+          - nt_add_netflow_monitor_without_name_uuid is not changed
+          - 'nt_add_netflow_monitor_without_name_uuid.msg == "state is present but any of the following are missing: name, uuid"'
+          - nt_add_netflow_monitor_without_exporter is not changed
+          - 'nt_add_netflow_monitor_without_exporter.msg == "state is present but all of the following are missing: netflow_exporters"'
+          - nt_add_netflow_monitor_with_incomplete_record is not changed
+          - 'nt_add_netflow_monitor_with_incomplete_record.msg == "state is present but all of the following are missing: netflow_exporters"'
+          - nt_add_netflow_monitor_with_incomplete_exporter is not changed
+          - 'nt_add_netflow_monitor_with_incomplete_exporter.msg == "state is present but all of the following are missing: netflow_exporters"'
+
+    # DELETE
+    - name: Delete NetFlow Monitor 1 using UUID (check_mode)
+      cisco.mso.ndo_tenant_netflow_monitor: &cm_delete_netflow_monitor_1_uuid
+        <<: *mso_info
+        template: ansible_tenant_template
+        uuid: "{{ nm_add_netflow_monitor.current.uuid }}"
+        state: absent
+        output_level: debug
+      check_mode: true
+      register: cm_delete_netflow_monitor_1_uuid
+    
+    - name: Delete NetFlow Monitor 1 using UUID
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *cm_delete_netflow_monitor_1_uuid
+      register: nm_delete_netflow_monitor_1_uuid
+
+    - name: Delete NetFlow Monitor 1 using UUID again
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *cm_delete_netflow_monitor_1_uuid
+      register: nm_delete_netflow_monitor_1_uuid_again
+
+    - name: Delete NetFlow Monitor 2 using name (check_mode)
+      cisco.mso.ndo_tenant_netflow_monitor: &cm_delete_netflow_monitor_2_name
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_monitor_2
+        state: absent
+        output_level: debug
+      check_mode: true
+      register: cm_delete_netflow_monitor_2_name
+
+    - name: Delete NetFlow Monitor 2 using name
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *cm_delete_netflow_monitor_2_name
+        state: absent
+      register: nm_delete_netflow_monitor_2_name
+
+    - name: Delete NetFlow Monitor 2 using name again
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *cm_delete_netflow_monitor_2_name
+        state: absent
+      register: nm_delete_netflow_monitor_2_name_again
+
+    - name: Assertion check for delete NetFlow Monitor
+      ansible.builtin.assert:
+        that:
+          - cm_delete_netflow_monitor_1_uuid is changed
+          - cm_delete_netflow_monitor_1_uuid.current == {}
+          - cm_delete_netflow_monitor_1_uuid.previous.description == "updated"
+          - cm_delete_netflow_monitor_1_uuid.previous.exporterRefs.0.exporterName == "netflow_exporter_2"
+          - cm_delete_netflow_monitor_1_uuid.previous.exporterRefs.0.exporterRef != ""
+          - cm_delete_netflow_monitor_1_uuid.previous.exporterRefs.0.exporterTemplateId != ""
+          - cm_delete_netflow_monitor_1_uuid.previous.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - cm_delete_netflow_monitor_1_uuid.previous.name == "netflow_monitor_1_updated"
+          - cm_delete_netflow_monitor_1_uuid.previous.recordName == "netflow_record_2"
+          - cm_delete_netflow_monitor_1_uuid.previous.recordRef != ""
+          - cm_delete_netflow_monitor_1_uuid.previous.recordTemplateId != ""
+          - cm_delete_netflow_monitor_1_uuid.previous.recordTemplateName == "ansible_tenant_template"
+          - cm_delete_netflow_monitor_1_uuid.previous.uuid is defined
+          - nm_delete_netflow_monitor_1_uuid is changed
+          - nm_delete_netflow_monitor_1_uuid.current == {}
+          - nm_delete_netflow_monitor_1_uuid.previous == cm_delete_netflow_monitor_1_uuid.previous
+          - nm_delete_netflow_monitor_1_uuid_again is not changed
+          - nm_delete_netflow_monitor_1_uuid_again.current == {}
+          - nm_delete_netflow_monitor_1_uuid_again.previous == {}
+          - cm_delete_netflow_monitor_2_name is changed
+          - cm_delete_netflow_monitor_2_name.current == {}
+          - cm_delete_netflow_monitor_2_name.previous.description == ""
+          - cm_delete_netflow_monitor_2_name.previous.exporterRefs.0.exporterName == "netflow_exporter_1"
+          - cm_delete_netflow_monitor_2_name.previous.exporterRefs.0.exporterRef != ""
+          - cm_delete_netflow_monitor_2_name.previous.exporterRefs.0.exporterTemplateId != ""
+          - cm_delete_netflow_monitor_2_name.previous.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - cm_delete_netflow_monitor_2_name.previous.name == "netflow_monitor_2"
+          - cm_delete_netflow_monitor_2_name.previous.recordRef == ""
+          - cm_delete_netflow_monitor_2_name.previous.uuid is defined
+          - nm_delete_netflow_monitor_2_name is changed
+          - nm_delete_netflow_monitor_2_name.current == {}
+          - nm_delete_netflow_monitor_2_name.previous == cm_delete_netflow_monitor_2_name.previous
+          - nm_delete_netflow_monitor_2_name_again is not changed
+          - nm_delete_netflow_monitor_2_name_again.current == {}
+          - nm_delete_netflow_monitor_2_name_again.previous == {}
+
+    # CLEANUP
+    - name: Ensure templates do not exist
+      cisco.mso.ndo_template:
+        <<: *template_absent
+        state: absent

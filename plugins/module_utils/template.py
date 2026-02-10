@@ -1433,3 +1433,41 @@ class MSOTemplate:
         if uuid or name:  # Query a specific object
             return self.get_object_by_key_value_pairs("NetFlow Record", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
         return match  # Query all objects
+
+    def get_netflow_exporter(self, uuid=None, name=None, search_object=None, fail_module=False):
+        """
+        Get the NetFlow Exporter by uuid or name.
+        :param uuid: UUID of the NetFlow Exporter to search for -> Str
+        :param name: Name of the NetFlow Exporter to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        search_object = search_object if search_object else self.template
+        match = search_object.get("tenantPolicyTemplate", {}).get("template", {}).get("netFlowExporters", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs("NetFlow Exporter", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+        return match  # Query all objects
+
+    def get_netflow_monitor(self, uuid=None, name=None, search_object=None, fail_module=False):
+        """
+        Get the NetFlow Monitor by uuid or name.
+        :param uuid: UUID of the NetFlow Monitor to search for -> Str
+        :param name: Name of the NetFlow Monitor to search for -> Str
+        :param search_object: The object to search in -> Dict
+        :param fail_module: When match is not found fail the ansible module -> Bool
+        :return: Dict | None | List[Dict] | List[]: The processed result which could be:
+                 When the UUID | Name is existing in the search list -> Dict
+                 When the UUID | Name is not existing in the search list -> None
+                 When both UUID and Name are None, and the search list is not empty -> List[Dict]
+                 When both UUID and Name are None, and the search list is empty -> List[]
+        """
+        search_object = search_object if search_object else self.template
+        match = search_object.get("tenantPolicyTemplate", {}).get("template", {}).get("netFlowMonitors", [])
+        if uuid or name:  # Query a specific object
+            return self.get_object_by_key_value_pairs("NetFlow Monitor", match, [KVPair("uuid", uuid) if uuid else KVPair("name", name)], fail_module)
+        return match  # Query all objects

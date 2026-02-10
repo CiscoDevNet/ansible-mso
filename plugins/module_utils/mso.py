@@ -2118,3 +2118,40 @@ def epg_object_reference_spec(aliases=None):
     if aliases:
         epg_reference_spec["aliases"] = aliases
     return epg_reference_spec
+
+
+def ndo_template_object_spec_with_uuid(aliases=None, required_uuid_and_reference=True):
+    ndo_template_object_spec_with_uuid = dict(
+        options=dict(
+            uuid=dict(type="str"),
+            reference=dict(
+                type="dict",
+                aliases=["ref"],
+                options=dict(
+                    name=dict(type="str", required=True),
+                    template=dict(type="str"),
+                    template_id=dict(type="str"),
+                ),
+                required_one_of=[
+                    ["template", "template_id"],
+                ],
+                mutually_exclusive=[
+                    ("template", "template_id"),
+                ],
+            ),
+        ),
+        required_one_of=[
+            ["reference", "uuid"],
+        ],
+        mutually_exclusive=[
+            ("reference", "uuid"),
+        ],
+    )
+
+    if not required_uuid_and_reference:
+        ndo_template_object_spec_with_uuid.pop("required_one_of")
+
+    if aliases:
+        ndo_template_object_spec_with_uuid["aliases"] = aliases
+
+    return ndo_template_object_spec_with_uuid

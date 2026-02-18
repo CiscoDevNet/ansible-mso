@@ -218,6 +218,15 @@
         state: present
       register: update_netflow_monitor_2
 
+    - name: Update description from NetFlow Monitor 2 without specifying NetFlow Exporter
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_monitor_2
+        description: "Updated"
+        state: present
+      register: update_netflow_monitor_2_without_changing_exporter
+
     - name: Assertion check for update NetFlow Monitor
       ansible.builtin.assert:
         that:
@@ -306,6 +315,15 @@
           - update_netflow_monitor_2.previous.recordTemplateId != ""
           - update_netflow_monitor_2.previous.recordTemplateName == "ansible_tenant_template"
           - update_netflow_monitor_2.previous.uuid is defined
+          - update_netflow_monitor_2_without_changing_exporter is changed
+          - update_netflow_monitor_2_without_changing_exporter.current.description == "Updated"
+          - update_netflow_monitor_2_without_changing_exporter.current.exporterRefs.0.exporterName == "netflow_exporter_1"
+          - update_netflow_monitor_2_without_changing_exporter.current.exporterRefs.0.exporterRef != ""
+          - update_netflow_monitor_2_without_changing_exporter.current.exporterRefs.0.exporterTemplateId != ""
+          - update_netflow_monitor_2_without_changing_exporter.current.exporterRefs.0.exporterTemplateName == "ansible_tenant_template"
+          - update_netflow_monitor_2_without_changing_exporter.current.name == "netflow_monitor_2"
+          - update_netflow_monitor_2_without_changing_exporter.current.recordRef == ""
+          - update_netflow_monitor_2_without_changing_exporter.previous.description == ""
 
     # QUERY
     - name: Query NetFlow Monitor using UUID
@@ -347,7 +365,7 @@
           - query_netflow_monitor_1_uuid.current.recordTemplateName == "ansible_tenant_template"
           - query_netflow_monitor_1_uuid.current.uuid is defined
           - query_netflow_monitor_2_name is not changed
-          - query_netflow_monitor_2_name.current.description == ""
+          - query_netflow_monitor_2_name.current.description == "Updated"
           - query_netflow_monitor_2_name.current.exporterRefs.0.exporterName == "netflow_exporter_1"
           - query_netflow_monitor_2_name.current.exporterRefs.0.exporterRef != ""
           - query_netflow_monitor_2_name.current.exporterRefs.0.exporterTemplateId != ""
@@ -376,15 +394,6 @@
       register: nt_add_netflow_monitor_without_name_uuid
       ignore_errors: true
 
-    - name: Negative test add NetFlow Monitor without NetFlow Exporter
-      cisco.mso.ndo_tenant_netflow_monitor:
-        <<: *mso_info
-        template: ansible_tenant_template
-        name: netflow_monitor_3
-        state: present
-      register: nt_add_netflow_monitor_without_exporter
-      ignore_errors: true
-    
     - name: Negative test add NetFlow Monitor with incomplete NetFlow Record
       cisco.mso.ndo_tenant_netflow_monitor:
         <<: *mso_info
@@ -402,11 +411,22 @@
         <<: *mso_info
         template: ansible_tenant_template
         name: netflow_monitor_3
-        netflow_exporter:
+        netflow_exporters:
           - reference:
               name: netflow_exporter_1
         state: present
       register: nt_add_netflow_monitor_with_incomplete_exporter
+      ignore_errors: true
+
+    - name: Negative test create NetFlow Monitor 3 without netflow_exporters
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_monitor_3
+        description: test
+        netflow_record: {"reference": {"name": "netflow_record_2", "template": "ansible_tenant_template"}}
+        state: present
+      register: nt_add_netflow_monitor_3_without_exporter
       ignore_errors: true
 
     - name: Assertion check for NetFlow Monitor negative tests
@@ -416,12 +436,12 @@
           - 'nt_add_netflow_monitor_without_template.msg == "one of the following is required: template, template_id"'
           - nt_add_netflow_monitor_without_name_uuid is not changed
           - 'nt_add_netflow_monitor_without_name_uuid.msg == "state is present but any of the following are missing: name, uuid"'
-          - nt_add_netflow_monitor_without_exporter is not changed
-          - 'nt_add_netflow_monitor_without_exporter.msg == "state is present but all of the following are missing: netflow_exporters"'
           - nt_add_netflow_monitor_with_incomplete_record is not changed
-          - 'nt_add_netflow_monitor_with_incomplete_record.msg == "state is present but all of the following are missing: netflow_exporters"'
+          - 'nt_add_netflow_monitor_with_incomplete_record.msg == "one of the following is required: template, template_id found in netflow_record -> reference"'
           - nt_add_netflow_monitor_with_incomplete_exporter is not changed
-          - 'nt_add_netflow_monitor_with_incomplete_exporter.msg == "state is present but all of the following are missing: netflow_exporters"'
+          - 'nt_add_netflow_monitor_with_incomplete_exporter.msg == "one of the following is required: template, template_id found in netflow_exporters -> reference"'
+          - nt_add_netflow_monitor_3_without_exporter is not changed
+          - 'nt_add_netflow_monitor_3_without_exporter.msg == "MSO Error 400: At least one NetFlow Exporter needs to be provided to NetFlow Monitor netflow_monitor_3"'
 
     # DELETE
     - name: Delete NetFlow Monitor 1 using UUID (check_mode)
@@ -490,7 +510,7 @@
           - nm_delete_netflow_monitor_1_uuid_again.previous == {}
           - cm_delete_netflow_monitor_2_name is changed
           - cm_delete_netflow_monitor_2_name.current == {}
-          - cm_delete_netflow_monitor_2_name.previous.description == ""
+          - cm_delete_netflow_monitor_2_name.previous.description == "Updated"
           - cm_delete_netflow_monitor_2_name.previous.exporterRefs.0.exporterName == "netflow_exporter_1"
           - cm_delete_netflow_monitor_2_name.previous.exporterRefs.0.exporterRef != ""
           - cm_delete_netflow_monitor_2_name.previous.exporterRefs.0.exporterTemplateId != ""

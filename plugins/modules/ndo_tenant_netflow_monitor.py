@@ -250,7 +250,6 @@ def main():
         required_if=[
             ["state", "absent", ["name", "uuid"], True],
             ["state", "present", ["name", "uuid"], True],
-            ["state", "present", ["netflow_exporters"]],
         ],
         required_one_of=[
             ["template", "template_id"],
@@ -325,14 +324,17 @@ def main():
                 netflow_record_uuid = netflow_record_match.details.get("uuid")
 
         netflow_exporter_uuids = []
-        for netflow_exporter in netflow_exporters:
-            if netflow_exporter and netflow_exporter.get("uuid"):
-                netflow_exporter_uuids.append(netflow_exporter.get("uuid"))
-            elif netflow_exporter and not check_if_all_elements_are_none(netflow_exporter.get("reference", {}).values()):
-                ref = netflow_exporter.get("reference")
-                netflow_exporter_template = mso_templates.get_template("tenant", ref.get("template"), ref.get("template_id"))
-                netflow_exporter_match = netflow_exporter_template.get_netflow_exporter(uuid=None, name=ref.get("name"), search_object=None, fail_module=True)
-                netflow_exporter_uuids.append(netflow_exporter_match.details.get("uuid"))
+        if netflow_exporters:
+            for netflow_exporter in netflow_exporters:
+                if netflow_exporter and netflow_exporter.get("uuid"):
+                    netflow_exporter_uuids.append(netflow_exporter.get("uuid"))
+                elif netflow_exporter and not check_if_all_elements_are_none(netflow_exporter.get("reference", {}).values()):
+                    ref = netflow_exporter.get("reference")
+                    netflow_exporter_template = mso_templates.get_template("tenant", ref.get("template"), ref.get("template_id"))
+                    netflow_exporter_match = netflow_exporter_template.get_netflow_exporter(
+                        uuid=None, name=ref.get("name"), search_object=None, fail_module=True
+                    )
+                    netflow_exporter_uuids.append(netflow_exporter_match.details.get("uuid"))
 
         mso_values = {
             "name": name,
@@ -342,6 +344,9 @@ def main():
         }
 
         if match:
+            if not netflow_exporter_uuids:
+                mso_values.pop("exporterRefs", None)
+
             append_update_ops_data(ops, match.details, path, mso_values)
             mso.sanitize(mso_values, collate=True)
         else:
@@ -353,7 +358,14 @@ def main():
 
     if mso.proposed:
         mso.proposed = copy.deepcopy(mso.proposed)
-        mso.proposed["exporterRefs"] = netflow_exporters_list_to_dict(mso.proposed.get("exporterRefs", []))
+
+        if (
+            mso.proposed.get("exporterRefs")
+            and isinstance(mso.proposed.get("exporterRefs"), list)
+            and not isinstance(mso.proposed.get("exporterRefs")[0], dict)
+        ):
+            mso.proposed["exporterRefs"] = netflow_exporters_list_to_dict(mso.proposed.get("exporterRefs", []))
+
         proposed_reference_details = copy.deepcopy(reference_details)
         if mso.proposed.get("recordRef") == "":
             proposed_reference_details.pop("recordRef", None)
@@ -375,7 +387,7 @@ def main():
 
 
 def netflow_exporters_list_to_dict(netflow_exporters):
-    return [{"exporterRef": mr} for mr in netflow_exporters]
+    return [{"exporterRef": netflow_exporter} for netflow_exporter in netflow_exporters]
 
 
 if __name__ == "__main__":

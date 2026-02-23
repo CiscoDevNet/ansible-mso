@@ -233,9 +233,7 @@ def main():
     elif state == "absent" and match:
         ops.append(dict(op="remove", path=path))
 
-    if mso.proposed:
-        mso.proposed = copy.deepcopy(mso.proposed)
-        mso_template.update_config_with_template_and_references(mso.proposed)
+    mso_template.update_config_with_template_and_references(mso.proposed, set_template=mso.proposed != {})
 
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)

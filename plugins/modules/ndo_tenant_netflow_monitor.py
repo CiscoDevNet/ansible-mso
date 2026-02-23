@@ -239,7 +239,7 @@ def main():
         name=dict(type="str"),
         uuid=dict(type="str"),
         description=dict(type="str"),
-        netflow_record=dict(type="dict", **ndo_template_object_spec_with_uuid(required_uuid_and_reference=False)),
+        netflow_record=dict(type="dict", **ndo_template_object_spec_with_uuid(required_uuid_or_reference=False)),
         netflow_exporters=dict(type="list", elements="dict", **ndo_template_object_spec_with_uuid()),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
@@ -297,14 +297,13 @@ def main():
     if (uuid or name) and match:  # Query a specific object
         netflow_monitor_object = copy.deepcopy(match.details)
         netflow_monitor_object["exporterRefs"] = netflow_exporters_list_to_dict(netflow_monitor_object.get("exporterRefs"))
-        updated_netflow_monitor_object = mso_template.update_config_with_template_and_references(netflow_monitor_object, reference_details, False)
-        mso.previous = copy.deepcopy(updated_netflow_monitor_object)
-        mso.existing = copy.deepcopy(updated_netflow_monitor_object)
+        updated_netflow_monitor_object = mso_template.update_config_with_template_and_references(netflow_monitor_object, reference_details)
+        mso.previous = mso.existing = copy.deepcopy(updated_netflow_monitor_object)
     elif match:  # Query all objects
         for obj in match:
             obj["exporterRefs"] = netflow_exporters_list_to_dict(obj.get("exporterRefs"))
 
-        mso.existing = [mso_template.update_config_with_template_and_references(obj, reference_details, False) for obj in match]
+        mso.existing = [mso_template.update_config_with_template_and_references(obj, reference_details) for obj in match]
 
     if state != "query":
         path = "/tenantPolicyTemplate/template/netFlowMonitors/{0}".format(match.index if match else "-")
@@ -347,6 +346,9 @@ def main():
             if not netflow_exporter_uuids:
                 mso_values.pop("exporterRefs", None)
 
+            if netflow_record is None and netflow_record_uuid is None:
+                mso_values.pop("recordRef", None)
+
             append_update_ops_data(ops, match.details, path, mso_values)
             mso.sanitize(mso_values, collate=True)
         else:
@@ -356,27 +358,19 @@ def main():
     elif state == "absent" and match:
         ops.append(dict(op="remove", path=path))
 
-    if mso.proposed:
-        mso.proposed = copy.deepcopy(mso.proposed)
+    if mso.proposed.get("exporterRefs") and isinstance(mso.proposed.get("exporterRefs"), list) and not isinstance(mso.proposed.get("exporterRefs")[0], dict):
+        mso.proposed["exporterRefs"] = netflow_exporters_list_to_dict(mso.proposed.get("exporterRefs", []))
 
-        if (
-            mso.proposed.get("exporterRefs")
-            and isinstance(mso.proposed.get("exporterRefs"), list)
-            and not isinstance(mso.proposed.get("exporterRefs")[0], dict)
-        ):
-            mso.proposed["exporterRefs"] = netflow_exporters_list_to_dict(mso.proposed.get("exporterRefs", []))
-
-        proposed_reference_details = copy.deepcopy(reference_details)
-        if mso.proposed.get("recordRef") == "":
-            proposed_reference_details.pop("recordRef", None)
-        mso_template.update_config_with_template_and_references(mso.proposed, proposed_reference_details, False)
+    if mso.proposed.get("recordRef") == "":
+        reference_details.pop("recordRef", None)
+    mso_template.update_config_with_template_and_references(mso.proposed, reference_details, set_template=mso.proposed != {})
 
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)
         match = mso_template.get_netflow_monitor(uuid, name, response)
         if match:
             match.details["exporterRefs"] = netflow_exporters_list_to_dict(match.details.get("exporterRefs"))
-            mso.existing = mso_template.update_config_with_template_and_references(match.details, reference_details, False)  # When the state is present
+            mso.existing = mso_template.update_config_with_template_and_references(match.details, reference_details)  # When the state is present
         else:
             mso.existing = {}  # When the state is absent
 

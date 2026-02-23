@@ -227,10 +227,21 @@
         state: present
       register: update_netflow_monitor_2_without_changing_exporter
 
+    - name: Update NetFlow Monitor without specifying description, NetFlow Record and NetFlow Exporter
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *mso_info
+        template: ansible_tenant_template
+        uuid: "{{ nm_add_netflow_monitor.current.uuid }}"
+        name: netflow_monitor_1_updated
+        state: present
+      register: update_netflow_monitor_without_description_record_exporter
+
     - name: Assertion check for update NetFlow Monitor
       ansible.builtin.assert:
         that:
           - cm_update_netflow_monitor is changed
+          - cm_update_netflow_monitor.current.templateName == "ansible_tenant_template"
+          - cm_update_netflow_monitor.current.templateId is defined
           - cm_update_netflow_monitor.current.description == "updated"
           - cm_update_netflow_monitor.current.exporterRefs.0.exporterName == "netflow_exporter_2"
           - cm_update_netflow_monitor.current.exporterRefs.0.exporterRef != ""
@@ -266,6 +277,8 @@
           - cm_update_netflow_monitor.proposed.recordTemplateName == "ansible_tenant_template"
           - cm_update_netflow_monitor.proposed.uuid is defined
           - nm_update_netflow_monitor is changed
+          - nm_update_netflow_monitor.current.templateName == "ansible_tenant_template"
+          - nm_update_netflow_monitor.current.templateId is defined
           - nm_update_netflow_monitor.current.description == "updated"
           - nm_update_netflow_monitor.current.exporterRefs.0.exporterName == "netflow_exporter_2"
           - nm_update_netflow_monitor.current.exporterRefs.0.exporterRef != ""
@@ -292,6 +305,8 @@
           - nm_update_netflow_monitor_again is not changed
           - nm_update_netflow_monitor_again.current == nm_update_netflow_monitor_again.previous
           - update_netflow_monitor_2 is changed
+          - update_netflow_monitor_2.current.templateName == "ansible_tenant_template"
+          - update_netflow_monitor_2.current.templateId is defined
           - update_netflow_monitor_2.current.description == ""
           - update_netflow_monitor_2.current.exporterRefs.0.exporterName == "netflow_exporter_1"
           - update_netflow_monitor_2.current.exporterRefs.0.exporterRef != ""
@@ -300,6 +315,8 @@
           - update_netflow_monitor_2.current.name == "netflow_monitor_2"
           - update_netflow_monitor_2.current.recordRef == ""
           - update_netflow_monitor_2.current.uuid is defined
+          - update_netflow_monitor_2.previous.templateName == "ansible_tenant_template"
+          - update_netflow_monitor_2.previous.templateId is defined
           - update_netflow_monitor_2.previous.description == "test"
           - update_netflow_monitor_2.previous.exporterRefs.0.exporterName == "netflow_exporter_1"
           - update_netflow_monitor_2.previous.exporterRefs.0.exporterRef != ""
@@ -324,6 +341,9 @@
           - update_netflow_monitor_2_without_changing_exporter.current.name == "netflow_monitor_2"
           - update_netflow_monitor_2_without_changing_exporter.current.recordRef == ""
           - update_netflow_monitor_2_without_changing_exporter.previous.description == ""
+          - update_netflow_monitor_without_description_record_exporter is not changed
+          - update_netflow_monitor_without_description_record_exporter.current == nm_update_netflow_monitor_again.current
+          - update_netflow_monitor_without_description_record_exporter.previous == nm_update_netflow_monitor_again.previous
 
     # QUERY
     - name: Query NetFlow Monitor using UUID
@@ -353,6 +373,8 @@
       ansible.builtin.assert:
         that:
           - query_netflow_monitor_1_uuid is not changed
+          - query_netflow_monitor_1_uuid.current.templateName == "ansible_tenant_template"
+          - query_netflow_monitor_1_uuid.current.templateId is defined
           - query_netflow_monitor_1_uuid.current.description == "updated"
           - query_netflow_monitor_1_uuid.current.exporterRefs.0.exporterName == "netflow_exporter_2"
           - query_netflow_monitor_1_uuid.current.exporterRefs.0.exporterRef != ""

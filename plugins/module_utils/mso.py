@@ -2120,7 +2120,7 @@ def epg_object_reference_spec(aliases=None):
     return epg_reference_spec
 
 
-def ndo_template_object_spec_with_uuid(aliases=None, required_uuid_and_reference=True):
+def ndo_template_object_spec_with_uuid(aliases=None, required_uuid_or_reference=True):
     ndo_template_object_spec_with_uuid = dict(
         options=dict(
             uuid=dict(type="str"),
@@ -2148,7 +2148,7 @@ def ndo_template_object_spec_with_uuid(aliases=None, required_uuid_and_reference
         ],
     )
 
-    if not required_uuid_and_reference:
+    if not required_uuid_or_reference:
         ndo_template_object_spec_with_uuid.pop("required_one_of")
 
     if aliases:

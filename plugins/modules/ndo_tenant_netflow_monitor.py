@@ -338,18 +338,20 @@ def main():
         mso_values = {
             "name": name,
             "description": description,
-            "exporterRefs": netflow_exporter_uuids,
-            "recordRef": netflow_record_uuid if netflow_record_uuid else "",
         }
 
+        if netflow_exporter_uuids:
+            mso_values["exporterRefs"] = netflow_exporter_uuids
+
+        if netflow_record_uuid is not None:
+            mso_values["recordRef"] = netflow_record_uuid
+
         if match:
-            if not netflow_exporter_uuids:
-                mso_values.pop("exporterRefs", None)
+            mso_remove_values = []
+            if match.details.get("recordRef") and netflow_record is not None and check_if_all_elements_are_none(netflow_record.values()):
+                mso_remove_values.append("recordRef")
 
-            if netflow_record is None and netflow_record_uuid is None:
-                mso_values.pop("recordRef", None)
-
-            append_update_ops_data(ops, match.details, path, mso_values)
+            append_update_ops_data(ops, match.details, path, mso_values, mso_remove_values)
             mso.sanitize(mso_values, collate=True)
         else:
             mso.sanitize(mso_values)

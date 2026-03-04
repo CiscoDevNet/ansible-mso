@@ -51,7 +51,6 @@ options:
     description:
     - The NetFlow Record reference details for the NetFlow Monitor.
     - Providing an empty dictionary O(netflow_record={}) will remove NetFlow Record from the NetFlow Monitor.
-    - Defaults to an empty string when unset during creation.
     type: dict
     suboptions:
       uuid:

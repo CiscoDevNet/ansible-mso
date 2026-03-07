@@ -14,7 +14,8 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_template_deploy
-short_description: Deploy templates to sites for NDO v3.7 and higher
+version_added: "2.13.0"
+short_description: Deploy templates to sites on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Deploy templates to sites.
 - Prior to deploy or redeploy a schema validation is executed.

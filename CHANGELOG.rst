@@ -6,6 +6,28 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v2.13.0
+=======
+
+Release Summary
+---------------
+
+Release v2.13.0 of the ``ansible-mso`` collection on 2026-03-07.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.12.0.
+
+Minor Changes
+-------------
+
+- Add support to deploy and undeploy non-schema templates in ndo_template_deploy (formerly ndo_schema_template_deploy).
+
+New Modules
+-----------
+
+- cisco.mso.ndo_endpoint_ip_tag_policy - Manage Endpoint IP Tag Policies on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_endpoint_mac_tag_policy - Manage Endpoint MAC Tag Policies on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_template_deploy - Deploy templates to sites on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_tenant_netflow_record - Manage NetFlow Record on Cisco Nexus Dashboard Orchestrator (NDO).
+
 v2.12.0
 =======
 

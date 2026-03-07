@@ -14,7 +14,7 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_tenant_netflow_record
-version_added: "2.12.0"
+version_added: "2.13.0"
 short_description: Manage NetFlow Record on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage NetFlow Record on Cisco Nexus Dashboard Orchestrator (NDO).

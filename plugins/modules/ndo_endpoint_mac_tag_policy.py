@@ -14,6 +14,7 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_endpoint_mac_tag_policy
+version_added: "2.13.0"
 short_description: Manage Endpoint MAC Tag Policies on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage Endpoint MAC Tag Policies on Cisco Nexus Dashboard Orchestrator (NDO).

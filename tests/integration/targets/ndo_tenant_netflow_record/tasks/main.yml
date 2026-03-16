@@ -34,7 +34,7 @@
     - name: Ensure ansible_test exist
       cisco.mso.mso_tenant:
         <<: *mso_info
-        name: ansible_test
+        name: '{{ ansible_tenant | default("ansible_test") }}'
         state: present
 
     - name: Ensure templates do not exist
@@ -42,7 +42,7 @@
         <<: *mso_info
         name: ansible_tenant_template
         template_type: tenant
-        tenant: ansible_test
+        tenant: '{{ ansible_tenant | default("ansible_test") }}'
         state: absent
 
     - name: Ensure templates exist

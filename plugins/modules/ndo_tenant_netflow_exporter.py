@@ -13,11 +13,11 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 
 DOCUMENTATION = r"""
 ---
-module: ndo_tenant_netflow_record
-version_added: "2.13.0"
-short_description: Manage NetFlow Record on Cisco Nexus Dashboard Orchestrator (NDO).
+module: ndo_tenant_netflow_exporter
+version_added: "2.12.0"
+short_description: Manage NetFlow Exporter on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
-- Manage NetFlow Record on Cisco Nexus Dashboard Orchestrator (NDO).
+- Manage NetFlow Exporter on Cisco Nexus Dashboard Orchestrator (NDO).
 - This module is only supported on ND v4.1 and later.
 author:
 - Sabari Jaganathan (@sajagana)
@@ -35,37 +35,13 @@ options:
     type: str
   name:
     description:
-    - The name of the NetFlow Record.
+    - The name of the NetFlow Exporter.
     type: str
   uuid:
     description:
-    - The UUID of the NetFlow Record.
+    - The UUID of the NetFlow Exporter.
     - This parameter is required when the O(name) needs to be updated.
     type: str
-  description:
-    description:
-    - The description of the NetFlow Record.
-    - Defaults to an empty string when unset during creation.
-    type: str
-  match_parameters:
-    description:
-    - The match parameters of the NetFlow Record.
-    type: list
-    elements: str
-    aliases: [ match ]
-    choices:
-      - destination_ip
-      - destination_ipv4
-      - destination_ipv6
-      - destination_mac
-      - destination_port
-      - ethertype
-      - ip_protocol
-      - source_ip
-      - source_ipv4
-      - source_ipv6
-      - source_mac
-      - source_port
   state:
     description:
     - Use C(absent) for removing.
@@ -83,51 +59,48 @@ extends_documentation_fragment: cisco.mso.modules
 """
 
 EXAMPLES = r"""
-- name: Add a NetFlow Record
-  cisco.mso.ndo_tenant_netflow_record:
+- name: Add a NetFlow Exporter
+  cisco.mso.ndo_tenant_netflow_exporter:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    name: netflow_record_1
+    name: netflow_exporter_1
     state: present
-  register: add_netflow_record
+  register: add_netflow_exporter
 
-- name: Update a NetFlow Record name using UUID
-  cisco.mso.ndo_tenant_netflow_record:
+- name: Update a NetFlow Exporter name using UUID
+  cisco.mso.ndo_tenant_netflow_exporter:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    name: netflow_record_1_updated
-    uuid: "{{ add_netflow_record.current.uuid }}"
-    match_parameters:
-      - ethertype
-      - destination_mac
+    name: netflow_exporter_1_updated
+    uuid: "{{ add_netflow_exporter.current.uuid }}"
     state: present
 
-- name: Query a NetFlow Record using name
-  cisco.mso.ndo_tenant_netflow_record:
+- name: Query a NetFlow Exporter using name
+  cisco.mso.ndo_tenant_netflow_exporter:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    name: netflow_record_1_updated
+    name: netflow_exporter_1_updated
     state: query
   register: query_one_with_name
 
-- name: Query a NetFlow Record using UUID
-  cisco.mso.ndo_tenant_netflow_record:
+- name: Query a NetFlow Exporter using UUID
+  cisco.mso.ndo_tenant_netflow_exporter:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    uuid: "{{ add_netflow_record.current.uuid }}"
+    uuid: "{{ add_netflow_exporter.current.uuid }}"
     state: query
   register: query_one_with_uuid
 
-- name: Query all NetFlow Records
-  cisco.mso.ndo_tenant_netflow_record:
+- name: Query all NetFlow Exporters
+  cisco.mso.ndo_tenant_netflow_exporter:
     host: mso_host
     username: admin
     password: SomeSecretPassword
@@ -135,22 +108,22 @@ EXAMPLES = r"""
     state: query
   register: query_all
 
-- name: Remove a NetFlow Record using name
-  cisco.mso.ndo_tenant_netflow_record:
+- name: Remove a NetFlow Exporter using name
+  cisco.mso.ndo_tenant_netflow_exporter:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    name: netflow_record_1_updated
+    name: netflow_exporter_1_updated
     state: absent
 
-- name: Remove a NetFlow Record using UUID
-  cisco.mso.ndo_tenant_netflow_record:
+- name: Remove a NetFlow Exporter using UUID
+  cisco.mso.ndo_tenant_netflow_exporter:
     host: mso_host
     username: admin
     password: SomeSecretPassword
     template: ansible_tenant_template
-    uuid: "{{ add_netflow_record.current.uuid }}"
+    uuid: "{{ add_netflow_exporter.current.uuid }}"
     state: absent
 """
 
@@ -160,7 +133,6 @@ RETURN = r"""
 
 import copy
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cisco.mso.plugins.module_utils.constants import MATCH_PARAMETER_MAP
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
 from ansible_collections.cisco.mso.plugins.module_utils.templates import MSOTemplates
 from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
@@ -173,8 +145,6 @@ def main():
         template_id=dict(type="str"),
         name=dict(type="str"),
         uuid=dict(type="str"),
-        description=dict(type="str"),
-        match_parameters=dict(type="list", elements="str", choices=list(MATCH_PARAMETER_MAP), aliases=["match"]),
         state=dict(type="str", default="query", choices=["absent", "query", "present"]),
     )
 
@@ -197,8 +167,6 @@ def main():
     template_id = mso.params.get("template_id")
     name = mso.params.get("name")
     uuid = mso.params.get("uuid")
-    description = mso.params.get("description")
-    match_parameters = [MATCH_PARAMETER_MAP.get(param) for param in mso.params.get("match_parameters") or []]
     state = mso.params.get("state")
 
     ops = []
@@ -208,20 +176,18 @@ def main():
     mso_template = mso_templates.get_template("tenant", template_name, template_id)
     mso_template.validate_template("tenantPolicy")
 
-    match = mso_template.get_netflow_record(uuid, name)
+    match = mso_template.get_netflow_exporter(uuid, name)
     if (uuid or name) and match:  # Query a specific object
         mso.existing = mso.previous = copy.deepcopy(mso_template.update_config_with_template_and_references(match.details))
     elif match:  # Query all objects
         mso.existing = [mso_template.update_config_with_template_and_references(obj) for obj in match]
 
     if state != "query":
-        path = "/tenantPolicyTemplate/template/netFlowRecords/{0}".format(match.index if match else "-")
+        path = "/tenantPolicyTemplate/template/netFlowExporters/{0}".format(match.index if match else "-")
 
     if state == "present":
         mso_values = {
             "name": name,
-            "description": description,
-            "match": match_parameters,
         }
         if match:
             append_update_ops_data(ops, match.details, path, mso_values)
@@ -237,7 +203,7 @@ def main():
 
     if not module.check_mode and ops:
         response = mso.request(mso_template.template_path, method="PATCH", data=ops)
-        match = mso_template.get_netflow_record(uuid, name, response)
+        match = mso_template.get_netflow_exporter(uuid, name, response)
         if match:
             mso.existing = mso_template.update_config_with_template_and_references(match.details)  # When the state is present
         else:

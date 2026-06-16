@@ -24,7 +24,18 @@ class L3OutNode:
     def construct_node_payload(self):
         return delete_none_values(
             {
-                "group": self.node_group_policy,
+                # Node group policy handling differs across ND versions:
+                # - Before ND 4.2 a node references a single group through the "group" attribute.
+                # - From ND 4.2 onwards a node references one or more groups through the "nodeGroups" list attribute.
+                #   "group" is still accepted by the API and is internally translated to "nodeGroups".
+                # "group" and "nodeGroups" are mutually exclusive, so only one is set,
+                # based on the number of provided node_group_policy values:
+                # - exactly one value   -> set "group"      (backwards compatible, valid on all supported versions)
+                # - more than one value -> set "nodeGroups" (only valid from ND 4.2 onwards)
+                # NOTE: When the API stops accepting "group", this create logic must be revisited so that a single
+                #       group is always sent through "nodeGroups".
+                "group": self.node_group_policy[0] if (self.node_group_policy and len(self.node_group_policy) == 1) else None,
+                "nodeGroups": self.node_group_policy if (self.node_group_policy and len(self.node_group_policy) > 1) else None,
                 "podID": self.pod_id,
                 "nodeID": self.node_id,
                 "routerID": self.node_router_id,
@@ -44,6 +55,13 @@ class L3OutNode:
         node_payload = self.construct_node_payload()
         if node_payload.get("useRouteIDAsLoopback") is True or node_payload.get("loopbackIPs") == [""]:
             remove_data.append("loopbackIPs")
+        # Updates patch individual attributes against the existing configuration.
+        # If the existing node already stores its group reference under "nodeGroups" (ND 4.2+ representation),
+        # patching "group" would leave the existing "nodeGroups" untouched and add a conflicting attribute.
+        # To keep updating the attribute that already exists, a single "group" value is converted to a
+        # one-element "nodeGroups" list; an empty value clears it.
+        if self.node.details.get("nodeGroups") and node_payload.get("group") is not None:
+            node_payload["nodeGroups"] = [node_payload.pop("group")] if node_payload.get("group") else []
         append_update_ops_data(ops, self.node.details, self.path, node_payload, remove_data)
 
     def set_node_add_op(self, ops):

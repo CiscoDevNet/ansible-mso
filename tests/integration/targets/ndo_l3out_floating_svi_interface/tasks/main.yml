@@ -142,13 +142,16 @@
         state: present
       register: mso_l3out
 
-    - name: Create L3Out node group policy
+    - name: Create L3Out node group policies
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
         template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: l3out_1
-        name: node_group_policy_1
+        name: '{{item}}'
         state: present
+      loop:
+        - node_group_policy_1
+        - node_group_policy_2
 
     - name: Create L3Out interface group policy
       cisco.mso.ndo_l3out_interface_group_policy:
@@ -309,9 +312,71 @@
           - nm_update_floating_svi_interface is changed
           - nm_update_floating_svi_interface.previous == nm_create_floating_svi_interface_again.current
           - nm_update_floating_svi_interface.previous != nm_update_floating_svi_interface.current
-          - nm_update_floating_svi_interface.proposed == nm_update_floating_svi_interface.current == cm_update_floating_svi_interface.current
+          # The proposed/current comparison is version specific: from ND 4.2 onwards a single node_group_policy
+          # is returned under "nodeGroups" while "group" is cleared, so proposed (which sets "group") no longer
+          # matches current. It is therefore only asserted in the "< 5.2" block below where "group" is still used.
+          # - nm_update_floating_svi_interface.proposed == nm_update_floating_svi_interface.current == cm_update_floating_svi_interface.current
           - nm_update_floating_svi_interface_again is not changed
           - nm_update_floating_svi_interface_again.previous == nm_update_floating_svi_interface_again.current == nm_update_floating_svi_interface.current
+
+    - name: Assert that the L3out floating svi interface was updated (>= 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_floating_svi_interface.current.addresses.primaryV4 == "10.0.0.2/24"
+          - nm_update_floating_svi_interface.current.addresses.primaryV6 == "2::101/16"
+          - nm_update_floating_svi_interface.current.addresses.linkLocalV6 == "FE80::10"
+          - nm_update_floating_svi_interface.current.addresses.ipV6DAD == "disabled"
+          - nm_update_floating_svi_interface.current.encap.encapType == "vlan"
+          - nm_update_floating_svi_interface.current.encap.value == 100
+          - nm_update_floating_svi_interface.current.group == "interface_group_policy_1"
+          - nm_update_floating_svi_interface.current.mac == "00:22:BD:F8:19:FE"
+          - nm_update_floating_svi_interface.current.mtu == "1000"
+          - nm_update_floating_svi_interface.current.node.group == ""
+          - nm_update_floating_svi_interface.current.node.nodeGroups == ["node_group_policy_1"]
+          - nm_update_floating_svi_interface.current.node.nodeID == "101"
+          - nm_update_floating_svi_interface.current.node.podID == "1"
+          - nm_update_floating_svi_interface.current.node.routerID == "1.1.1.1"
+          - nm_update_floating_svi_interface.current.node.useRouteIDAsLoopback == false
+          - nm_update_floating_svi_interface.current.node.loopbackIPs is not defined
+          - nm_update_floating_svi_interface.current.nodeID == "101"
+          - nm_update_floating_svi_interface.current.pathType == "anchorNode"
+          - nm_update_floating_svi_interface.current.podID == "1"
+          - nm_update_floating_svi_interface.current.targetDscp == "af11"
+          - nm_update_floating_svi_interface.current.svi.autostate == "enabled"
+          - nm_update_floating_svi_interface.current.svi.mode == "access8021p"
+          - nm_update_floating_svi_interface.current.templateId is defined
+          - nm_update_floating_svi_interface.current.templateName is defined
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the L3out floating svi interface was updated (< 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_floating_svi_interface.current.addresses.primaryV4 == "10.0.0.2/24"
+          - nm_update_floating_svi_interface.current.addresses.primaryV6 == "2::101/16"
+          - nm_update_floating_svi_interface.current.addresses.linkLocalV6 == "FE80::10"
+          - nm_update_floating_svi_interface.current.addresses.ipV6DAD == "disabled"
+          - nm_update_floating_svi_interface.current.encap.encapType == "vlan"
+          - nm_update_floating_svi_interface.current.encap.value == 100
+          - nm_update_floating_svi_interface.current.group == "interface_group_policy_1"
+          - nm_update_floating_svi_interface.current.mac == "00:22:BD:F8:19:FE"
+          - nm_update_floating_svi_interface.current.mtu == "1000"
+          - nm_update_floating_svi_interface.current.node.group == "node_group_policy_1"
+          - nm_update_floating_svi_interface.current.node.nodeGroups is not defined
+          - nm_update_floating_svi_interface.current.node.nodeID == "101"
+          - nm_update_floating_svi_interface.current.node.podID == "1"
+          - nm_update_floating_svi_interface.current.node.routerID == "1.1.1.1"
+          - nm_update_floating_svi_interface.current.node.useRouteIDAsLoopback == false
+          - nm_update_floating_svi_interface.current.node.loopbackIPs is not defined
+          - nm_update_floating_svi_interface.current.nodeID == "101"
+          - nm_update_floating_svi_interface.current.pathType == "anchorNode"
+          - nm_update_floating_svi_interface.current.podID == "1"
+          - nm_update_floating_svi_interface.current.targetDscp == "af11"
+          - nm_update_floating_svi_interface.current.svi.autostate == "enabled"
+          - nm_update_floating_svi_interface.current.svi.mode == "access8021p"
+          - nm_update_floating_svi_interface.current.templateId is defined
+          - nm_update_floating_svi_interface.current.templateName is defined
+          - nm_update_floating_svi_interface.proposed == nm_update_floating_svi_interface.current == cm_update_floating_svi_interface.current
+      when: version.current.version is version('5.2', '<')
 
     - name: Remove the ipv4_address from a L3out floating svi interface
       cisco.mso.ndo_l3out_floating_svi_interface: &removed_ipv4_address
@@ -376,6 +441,83 @@
           - nm_update_floating_svi_interface_router_id_as_loopback.previous.node.loopbackIPs == ["3.3.3.3"]
           - nm_update_floating_svi_interface_router_id_as_loopback.current.node.useRouteIDAsLoopback == true
           - nm_update_floating_svi_interface_router_id_as_loopback.current.node.loopbackIPs is not defined
+
+    - name: Update a L3out floating svi interface with multiple node_group_policies (>= 5.2)
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *update_floating_svi_interface
+        node_group_policy:
+          - node_group_policy_1
+          - node_group_policy_2
+      register: nm_update_floating_svi_interface_multiple_node_group_policies
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Update a L3out floating svi interface with multiple node_group_policies again (>= 5.2)
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *update_floating_svi_interface
+        node_group_policy:
+          - node_group_policy_1
+          - node_group_policy_2
+      register: nm_update_floating_svi_interface_multiple_node_group_policies_again
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the L3out floating svi interface with multiple node_group_policies was updated (>= 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_floating_svi_interface_multiple_node_group_policies is changed
+          - nm_update_floating_svi_interface_multiple_node_group_policies.previous.node.group == ""
+          - nm_update_floating_svi_interface_multiple_node_group_policies.previous.node.nodeGroups == ["node_group_policy_1"]
+          - nm_update_floating_svi_interface_multiple_node_group_policies.current.node.group == ""
+          - nm_update_floating_svi_interface_multiple_node_group_policies.current.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - nm_update_floating_svi_interface_multiple_node_group_policies_again is not changed
+          - nm_update_floating_svi_interface_multiple_node_group_policies_again.previous.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - nm_update_floating_svi_interface_multiple_node_group_policies_again.current.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Remove the node_group_policy and interface_group_policy from a L3out floating svi interface
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *update_floating_svi_interface
+        node_group_policy: ""
+        interface_group_policy: ""
+      register: nm_update_floating_svi_interface_group_policies_removed
+
+    - name: Remove the node_group_policy and interface_group_policy from a L3out floating svi interface again with list input
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *update_floating_svi_interface
+        node_group_policy: [""]
+        interface_group_policy: ""
+      register: nm_update_floating_svi_interface_group_policies_removed_again
+
+    - name: Assert that the node_group_policy and interface_group_policy were removed
+      ansible.builtin.assert:
+        that:
+          - nm_update_floating_svi_interface_group_policies_removed is changed
+          - nm_update_floating_svi_interface_group_policies_removed.previous.group == "interface_group_policy_1"
+          - nm_update_floating_svi_interface_group_policies_removed.current.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed_again is not changed
+          - nm_update_floating_svi_interface_group_policies_removed_again.previous.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed_again.current.group == ""
+
+    - name: Assert that the node_group_policy and interface_group_policy were removed (>= 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_floating_svi_interface_group_policies_removed.previous.node.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed.previous.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - nm_update_floating_svi_interface_group_policies_removed.current.node.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed.current.node.nodeGroups is not defined
+          - nm_update_floating_svi_interface_group_policies_removed_again.previous.node.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed_again.previous.node.nodeGroups is not defined
+          - nm_update_floating_svi_interface_group_policies_removed_again.current.node.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed_again.current.node.nodeGroups is not defined
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the node_group_policy and interface_group_policy were removed (< 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_floating_svi_interface_group_policies_removed.previous.node.group == "node_group_policy_1"
+          - nm_update_floating_svi_interface_group_policies_removed.current.node.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed_again.previous.node.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed_again.current.node.group == ""
+      when: version.current.version is version('5.2', '<')
 
     # ERROR HANDLING
 

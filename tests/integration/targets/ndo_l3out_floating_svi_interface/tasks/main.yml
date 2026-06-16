@@ -442,35 +442,45 @@
           - nm_update_floating_svi_interface_router_id_as_loopback.current.node.useRouteIDAsLoopback == true
           - nm_update_floating_svi_interface_router_id_as_loopback.current.node.loopbackIPs is not defined
 
-    - name: Update a L3out floating svi interface with multiple node_group_policies (>= 5.2)
-      cisco.mso.ndo_l3out_floating_svi_interface:
+    - name: Update a L3out floating svi interface with multiple node_group_policies (check mode) (>= 5.2)
+      cisco.mso.ndo_l3out_floating_svi_interface: &update_multiple_node_group_policies
         <<: *update_floating_svi_interface
-        node_group_policy:
+        node_group_policy: "{{ omit }}"
+        node_group_policies:
           - node_group_policy_1
           - node_group_policy_2
+      check_mode: true
+      register: cm_update_floating_svi_interface_multiple_node_group_policies
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Update a L3out floating svi interface with multiple node_group_policies (>= 5.2)
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *update_multiple_node_group_policies
       register: nm_update_floating_svi_interface_multiple_node_group_policies
       when: version.current.version is version('5.2', '>=')
 
     - name: Update a L3out floating svi interface with multiple node_group_policies again (>= 5.2)
       cisco.mso.ndo_l3out_floating_svi_interface:
-        <<: *update_floating_svi_interface
-        node_group_policy:
-          - node_group_policy_1
-          - node_group_policy_2
+        <<: *update_multiple_node_group_policies
       register: nm_update_floating_svi_interface_multiple_node_group_policies_again
       when: version.current.version is version('5.2', '>=')
 
     - name: Assert that the L3out floating svi interface with multiple node_group_policies was updated (>= 5.2)
       ansible.builtin.assert:
         that:
+          - cm_update_floating_svi_interface_multiple_node_group_policies is changed
+          - cm_update_floating_svi_interface_multiple_node_group_policies.proposed.node.group == ""
+          - cm_update_floating_svi_interface_multiple_node_group_policies.proposed.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
           - nm_update_floating_svi_interface_multiple_node_group_policies is changed
           - nm_update_floating_svi_interface_multiple_node_group_policies.previous.node.group == ""
           - nm_update_floating_svi_interface_multiple_node_group_policies.previous.node.nodeGroups == ["node_group_policy_1"]
           - nm_update_floating_svi_interface_multiple_node_group_policies.current.node.group == ""
           - nm_update_floating_svi_interface_multiple_node_group_policies.current.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          # Unlike a single node_group_policy, node_group_policies is sent under "nodeGroups" and is not translated by
+          # the API, so the check mode current node matches the normal mode current.
+          - nm_update_floating_svi_interface_multiple_node_group_policies.current == cm_update_floating_svi_interface_multiple_node_group_policies.current
           - nm_update_floating_svi_interface_multiple_node_group_policies_again is not changed
-          - nm_update_floating_svi_interface_multiple_node_group_policies_again.previous.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
-          - nm_update_floating_svi_interface_multiple_node_group_policies_again.current.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - nm_update_floating_svi_interface_multiple_node_group_policies_again.previous == nm_update_floating_svi_interface_multiple_node_group_policies_again.current == cm_update_floating_svi_interface_multiple_node_group_policies.current
       when: version.current.version is version('5.2', '>=')
 
     - name: Remove the node_group_policy and interface_group_policy from a L3out floating svi interface
@@ -483,7 +493,8 @@
     - name: Remove the node_group_policy and interface_group_policy from a L3out floating svi interface again with list input
       cisco.mso.ndo_l3out_floating_svi_interface:
         <<: *update_floating_svi_interface
-        node_group_policy: [""]
+        node_group_policy: "{{ omit }}"
+        node_group_policies: []
         interface_group_policy: ""
       register: nm_update_floating_svi_interface_group_policies_removed_again
 
@@ -520,6 +531,16 @@
       when: version.current.version is version('5.2', '<')
 
     # ERROR HANDLING
+
+    - name: Create L3out floating svi interface with node_group_policy and node_group_policies
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *update_floating_svi_interface
+        node_group_policy: node_group_policy_1
+        node_group_policies:
+          - node_group_policy_1
+          - node_group_policy_2
+      register: error_floating_svi_interface_node_group_policy_and_policies
+      ignore_errors: true
 
     - name: Create L3out floating svi interface with template and template_id
       cisco.mso.ndo_l3out_floating_svi_interface:
@@ -594,6 +615,8 @@
     - name: Assert that the error handling for svi interface creation works
       ansible.builtin.assert:
         that:
+          - error_floating_svi_interface_node_group_policy_and_policies is failed
+          - 'error_floating_svi_interface_node_group_policy_and_policies.msg == "parameters are mutually exclusive: node_group_policy|node_group_policies"'
           - error_floating_svi_interface_template_and_template_id is failed
           - 'error_floating_svi_interface_template_and_template_id.msg == "parameters are mutually exclusive: template|template_id"'
           - error_floating_svi_interface_l3out_and_l3out_uuid is failed

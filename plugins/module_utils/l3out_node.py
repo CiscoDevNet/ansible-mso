@@ -16,6 +16,7 @@ class L3OutNode:
         self.node_id = node_id
         self.node_router_id = details.get("node_router_id")
         self.node_group_policy = details.get("node_group_policy")
+        self.node_group_policies = details.get("node_group_policies")
         self.use_router_id_as_loopback = details.get("use_router_id_as_loopback")
         self.node_loopback_ip = details.get("node_loopback_ip")
         self.node = l3out_mso_template.get_l3out_node(l3out_object.details, self.pod_id, self.node_id)
@@ -24,18 +25,15 @@ class L3OutNode:
     def construct_node_payload(self):
         return delete_none_values(
             {
-                # Node group policy handling differs across ND versions:
-                # - Before ND 4.2 a node references a single group through the "group" attribute.
-                # - From ND 4.2 onwards a node references one or more groups through the "nodeGroups" list attribute.
-                #   "group" is still accepted by the API and is internally translated to "nodeGroups".
-                # "group" and "nodeGroups" are mutually exclusive, so only one is set,
-                # based on the number of provided node_group_policy values:
-                # - exactly one value   -> set "group"      (backwards compatible, valid on all supported versions)
-                # - more than one value -> set "nodeGroups" (only valid from ND 4.2 onwards)
-                # NOTE: When the API stops accepting "group", this create logic must be revisited so that a single
-                #       group is always sent through "nodeGroups".
-                "group": self.node_group_policy[0] if (self.node_group_policy and len(self.node_group_policy) == 1) else None,
-                "nodeGroups": self.node_group_policy if (self.node_group_policy and len(self.node_group_policy) > 1) else None,
+                # The node group reference is carried by one of two mutually exclusive API attributes,
+                # each exposed as its own module option (the modules enforce the mutual exclusivity):
+                # - "group"      single reference   <- node_group_policy (str), valid on all supported versions.
+                # - "nodeGroups" list of references <- node_group_policies (list), only valid from ND 4.2 onwards.
+                # The values are passed through as provided; the API validates them against the running version.
+                # On ND 4.2+ the API silently translates a "group" value into a single-element "nodeGroups" and
+                # clears "group"; the update path (set_node_replace_ops) compensates for that to stay idempotent.
+                "group": self.node_group_policy,
+                "nodeGroups": self.node_group_policies,
                 "podID": self.pod_id,
                 "nodeID": self.node_id,
                 "routerID": self.node_router_id,

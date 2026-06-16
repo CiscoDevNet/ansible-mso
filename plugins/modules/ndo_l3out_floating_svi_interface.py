@@ -5,12 +5,6 @@
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
-# node_group_policy is declared as a list of strings to support the multiple node group references
-# introduced in ND 4.2, while remaining backwards compatible with the original single-value behaviour.
-# Ansible automatically coerces a single string provided in the playbook into a single-element list,
-# so users can keep passing one value (e.g. node_group_policy: name) or pass several
-# (e.g. node_group_policy: [name1, name2]) without any change to the exposed option.
-
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
@@ -68,10 +62,21 @@ options:
     aliases: [ router_id ]
   node_group_policy:
     description:
-    - The name(s) of the node group policy.
-    - Providing a single name O(node_group_policy=name) or a list with a single name O(node_group_policy=[name]) are equivalent.
-    - Providing multiple names O(node_group_policy=[name1, name2]) is only supported on ND v4.2 (NDO v4.2) and later.
-    - To remove all node group policies, set this parameter to an empty string O(node_group_policy="") or a list with an empty string O(node_group_policy=[""]).
+    - The name of the node group policy.
+    - This parameter is supported on all versions and references a single node group policy.
+    - This parameter and O(node_group_policies) are mutually exclusive.
+    - To remove the node group policy, set this parameter to an empty string O(node_group_policy="").
+    - On ND v4.2 (NDO v4.2) and later the controller stores a single O(node_group_policy) under C(nodeGroups)
+      and clears C(group). This translation is reflected in the returned configuration after the change is applied,
+      but not in check mode, which returns the value under C(group). Use O(node_group_policies) for a representation
+      that matches in both check mode and normal mode.
+    type: str
+  node_group_policies:
+    description:
+    - The names of the node group policies.
+    - This parameter is only supported on ND v4.2 (NDO v4.2) and later.
+    - This parameter and O(node_group_policy) are mutually exclusive.
+    - To remove all node group policies, set this parameter to an empty list O(node_group_policies=[]).
     type: list
     elements: str
   use_router_id_as_loopback:
@@ -189,7 +194,7 @@ notes:
   The M(cisco.mso.ndo_template) module can be used for this.
 - The O(l3out) or O(l3out_uuid) must exist before using this module in your playbook.
   The M(cisco.mso.ndo_l3out_template) module can be used for this.
-- The O(node_group_policy) must exist before using this module in your playbook.
+- The O(node_group_policy) or O(node_group_policies) must exist before using this module in your playbook.
   The M(cisco.mso.ndo_l3out_node_group_policy) module can be used for this.
 - The O(interface_group_policy) must exist before using this module in your playbook.
   The M(cisco.mso.ndo_l3out_interface_group_policy) module can be used for this.
@@ -252,6 +257,22 @@ EXAMPLES = r"""
     auto_state: enabled
     state: present
 
+- name: Update a L3Out Floating SVI Interface with multiple node group policies
+  cisco.mso.ndo_l3out_floating_svi_interface:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: l3out_template
+    l3out: l3out_name
+    node_id: 101
+    node_router_id: 1.1.1.1
+    encapsulation_type: vlan
+    encapsulation_value: 1200
+    node_group_policies:
+      - node_group_policy_1
+      - node_group_policy_2
+    state: present
+
 - name: Query an existing L3Out Floating SVI Interface with L3Out Node configuration
   cisco.mso.ndo_l3out_floating_svi_interface:
     host: mso_host
@@ -308,7 +329,8 @@ def main():
         l3out=dict(type="str", aliases=["l3out_name"]),
         l3out_uuid=dict(type="str"),
         node_id=dict(type="str", aliases=["node", "border_leaf"]),
-        node_group_policy=dict(type="list", elements="str"),
+        node_group_policy=dict(type="str"),
+        node_group_policies=dict(type="list", elements="str"),
         node_router_id=dict(type="str", aliases=["router_id"]),
         use_router_id_as_loopback=dict(type="bool"),
         node_loopback_ip=dict(type="str", aliases=["loopback_ip"]),
@@ -343,6 +365,7 @@ def main():
         mutually_exclusive=[
             ["template", "template_id"],
             ["l3out", "l3out_uuid"],
+            ["node_group_policy", "node_group_policies"],
         ],
     )
 

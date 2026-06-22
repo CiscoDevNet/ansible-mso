@@ -66,7 +66,22 @@ options:
   node_group_policy:
     description:
     - The name of the node group policy.
+    - This parameter is supported on all versions and references a single node group policy.
+    - This parameter and O(node_group_policies) are mutually exclusive.
+    - To remove the node group policy, set this parameter to an empty string O(node_group_policy="").
+    - On ND v4.2 (NDO v5.2) and later the controller stores a single O(node_group_policy) under C(nodeGroups)
+      and clears C(group). This translation is reflected in the returned configuration after the change is applied,
+      but not in check mode, which returns the value under C(group). Use O(node_group_policies) for a representation
+      that matches in both check mode and normal mode.
     type: str
+  node_group_policies:
+    description:
+    - The names of the node group policies.
+    - This parameter is only supported on ND v4.2 (NDO v5.2) and later.
+    - This parameter and O(node_group_policy) are mutually exclusive.
+    - To remove all node group policies, set this parameter to an empty list O(node_group_policies=[]).
+    type: list
+    elements: str
   use_router_id_as_loopback:
     description:
     - Whether to use the router ID as the loopback address of the node.
@@ -203,7 +218,7 @@ notes:
   The M(cisco.mso.ndo_template) module can be used for this.
 - The O(l3out) or O(l3out_uuid) must exist before using this module in your playbook.
   The M(cisco.mso.ndo_l3out_template) module can be used for this.
-- The O(node_group_policy) must exist before using this module in your playbook.
+- The O(node_group_policy) or O(node_group_policies) must exist before using this module in your playbook.
   The M(cisco.mso.ndo_l3out_node_group_policy) module can be used for this.
 - The O(interface_group_policy) must exist before using this module in your playbook.
   The M(cisco.mso.ndo_l3out_interface_group_policy) module can be used for this.
@@ -310,6 +325,21 @@ EXAMPLES = r"""
     node_loopback_ip: 10.0.0.1
     state: present
 
+- name: Update a L3Out Routed Interface with multiple node group policies
+  cisco.mso.ndo_l3out_routed_interface:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: l3out_template
+    l3out: l3out_name
+    node_id: 101
+    path: eth1/1
+    node_router_id: 1.1.1.1
+    node_group_policies:
+      - node_group_policy_1
+      - node_group_policy_2
+    state: present
+
 - name: Remove PTP configuration from a L3Out Routed Interface of type port
   cisco.mso.ndo_l3out_routed_interface:
     host: mso_host
@@ -390,6 +420,7 @@ def main():
         l3out_uuid=dict(type="str"),
         node_id=dict(type="str", aliases=["node", "border_leaf"]),
         node_group_policy=dict(type="str"),
+        node_group_policies=dict(type="list", elements="str"),
         node_router_id=dict(type="str", aliases=["router_id"]),
         use_router_id_as_loopback=dict(type="bool"),
         node_loopback_ip=dict(type="str", aliases=["loopback_ip"]),
@@ -426,6 +457,7 @@ def main():
             ["l3out", "l3out_uuid"],
             ["port_channel", "path"],
             ["port_channel", "node_id"],
+            ["node_group_policy", "node_group_policies"],
         ],
     )
 

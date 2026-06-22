@@ -220,13 +220,16 @@
           state: enabled
         state: present
 
-    - name: Create L3Out node group policy
+    - name: Create L3Out node group policies
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
         template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: l3out_1
-        name: node_group_policy_1
+        name: '{{ item }}'
         state: present
+      loop:
+        - node_group_policy_1
+        - node_group_policy_2
 
     - name: Create L3Out interface group policy
       cisco.mso.ndo_l3out_interface_group_policy:
@@ -671,7 +674,10 @@
           - nm_update_routed_interface_port is changed
           - nm_update_routed_interface_port.previous == nm_create_routed_interface_again.current
           - nm_update_routed_interface_port.previous != nm_update_routed_interface_port.current
-          - nm_update_routed_interface_port.current == nm_update_routed_interface_port.proposed
+          # The proposed/current comparison is version specific: from ND 4.2 onwards a single node_group_policy
+          # is returned under "nodeGroups" while "group" is cleared, so proposed (which sets "group") no longer
+          # matches current. It is therefore only asserted in the "< 5.2" block below where "group" is still used.
+          # - nm_update_routed_interface_port.current == nm_update_routed_interface_port.proposed
           - nm_update_routed_interface_port.current.podID == "1"
           - nm_update_routed_interface_port.current.nodeID == "101"
           - nm_update_routed_interface_port.current.path == "eth1/1"
@@ -692,10 +698,9 @@
           - nm_update_routed_interface_port.current.node.routerID == "1.1.1.1"
           - nm_update_routed_interface_port.current.node.useRouteIDAsLoopback == false
           - nm_update_routed_interface_port.current.node.loopbackIPs is not defined
-          - nm_update_routed_interface_port.current.node.group == "node_group_policy_1"
           - nm_update_routed_interface_port.current.ptpConfig is not defined
           - nm_update_routed_interface_port_again is not changed
-          - nm_update_routed_interface_port_again.previous == nm_update_routed_interface_port_again.proposed == nm_update_routed_interface_port_again.current
+          - nm_update_routed_interface_port_again.previous == nm_update_routed_interface_port_again.current == nm_update_routed_interface_port.current
           - nm_update_routed_interface_port_again.current.podID == "1"
           - nm_update_routed_interface_port_again.current.nodeID == "101"
           - nm_update_routed_interface_port_again.current.path == "eth1/1"
@@ -716,8 +721,27 @@
           - nm_update_routed_interface_port_again.current.node.routerID == "1.1.1.1"
           - nm_update_routed_interface_port_again.current.node.useRouteIDAsLoopback == false
           - nm_update_routed_interface_port_again.current.node.loopbackIPs is not defined
-          - nm_update_routed_interface_port_again.current.node.group == "node_group_policy_1"
           - nm_update_routed_interface_port_again.current.ptpConfig is not defined
+
+    - name: Assert that the L3out routed interface of type port was updated (>= 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_routed_interface_port.current.node.group == ""
+          - nm_update_routed_interface_port.current.node.nodeGroups == ["node_group_policy_1"]
+          - nm_update_routed_interface_port_again.current.node.group == ""
+          - nm_update_routed_interface_port_again.current.node.nodeGroups == ["node_group_policy_1"]
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the L3out routed interface of type port was updated (< 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_routed_interface_port.current.node.group == "node_group_policy_1"
+          - nm_update_routed_interface_port.current.node.nodeGroups is not defined
+          - nm_update_routed_interface_port.current == nm_update_routed_interface_port.proposed
+          - nm_update_routed_interface_port_again.current.node.group == "node_group_policy_1"
+          - nm_update_routed_interface_port_again.current.node.nodeGroups is not defined
+          - nm_update_routed_interface_port_again.previous == nm_update_routed_interface_port_again.proposed == nm_update_routed_interface_port_again.current
+      when: version.current.version is version('5.2', '<')
 
     - name: Update a L3out routed interface of type port channel with uuid (check mode)
       cisco.mso.ndo_l3out_routed_interface: &update_routed_interface_port_channel_uuid
@@ -784,7 +808,6 @@
           - cm_update_routed_interface_port_channel_uuid.proposed.node.routerID == "1.1.1.1"
           - cm_update_routed_interface_port_channel_uuid.proposed.node.useRouteIDAsLoopback == false
           - cm_update_routed_interface_port_channel_uuid.proposed.node.loopbackIPs is not defined
-          - cm_update_routed_interface_port_channel_uuid.proposed.node.group == "node_group_policy_1"
           - cm_update_routed_interface_port_channel_uuid.proposed.ptpConfig.mode == "unicastMaster"
           - cm_update_routed_interface_port_channel_uuid.proposed.ptpConfig.ptpPolicyName is defined
           - cm_update_routed_interface_port_channel_uuid.proposed.ptpConfig.ptpPolicyRef is defined
@@ -797,7 +820,10 @@
           - cm_update_routed_interface_port_channel_uuid.proposed.ptpConfig.destIPs.1 == "12.0.0.3"
           - nm_update_routed_interface_port_channel_uuid is changed
           - nm_update_routed_interface_port_channel_uuid.previous != nm_create_routed_interface_port_channel_uuid_again.current
-          - nm_update_routed_interface_port_channel_uuid.current == nm_update_routed_interface_port_channel_uuid.proposed
+          # The proposed/current comparison is version specific: from ND 4.2 onwards a single node_group_policy
+          # is returned under "nodeGroups" while "group" is cleared, so proposed (which sets "group") no longer
+          # matches current. It is therefore only asserted in the "< 5.2" block below where "group" is still used.
+          # - nm_update_routed_interface_port_channel_uuid.current == nm_update_routed_interface_port_channel_uuid.proposed
           - nm_update_routed_interface_port_channel_uuid.current.podID is not defined
           - nm_update_routed_interface_port_channel_uuid.current.nodeID is not defined
           - nm_update_routed_interface_port_channel_uuid.current.path is not defined
@@ -822,7 +848,6 @@
           - nm_update_routed_interface_port_channel_uuid.current.node.routerID == "1.1.1.1"
           - nm_update_routed_interface_port_channel_uuid.current.node.useRouteIDAsLoopback == false
           - nm_update_routed_interface_port_channel_uuid.current.node.loopbackIPs is not defined
-          - nm_update_routed_interface_port_channel_uuid.current.node.group == "node_group_policy_1"
           - nm_update_routed_interface_port_channel_uuid.current.ptpConfig.mode == "unicastMaster"
           - nm_update_routed_interface_port_channel_uuid.current.ptpConfig.ptpPolicyName is defined
           - nm_update_routed_interface_port_channel_uuid.current.ptpConfig.ptpPolicyRef is defined
@@ -834,7 +859,7 @@
           - nm_update_routed_interface_port_channel_uuid.current.ptpConfig.destIPs.0 == "12.0.0.2"
           - nm_update_routed_interface_port_channel_uuid.current.ptpConfig.destIPs.1 == "12.0.0.3"
           - nm_update_routed_interface_port_channel_uuid_again is not changed
-          - nm_update_routed_interface_port_channel_uuid_again.previous == nm_update_routed_interface_port_channel_uuid_again.proposed == nm_update_routed_interface_port_channel_uuid_again.current
+          - nm_update_routed_interface_port_channel_uuid_again.previous == nm_update_routed_interface_port_channel_uuid_again.current == nm_update_routed_interface_port_channel_uuid.current
           - nm_update_routed_interface_port_channel_uuid_again.current.podID is not defined
           - nm_update_routed_interface_port_channel_uuid_again.current.nodeID is not defined
           - nm_update_routed_interface_port_channel_uuid_again.current.path is not defined
@@ -859,7 +884,6 @@
           - nm_update_routed_interface_port_channel_uuid_again.current.node.routerID == "1.1.1.1"
           - nm_update_routed_interface_port_channel_uuid_again.current.node.useRouteIDAsLoopback == false
           - nm_update_routed_interface_port_channel_uuid_again.current.node.loopbackIPs is not defined
-          - nm_update_routed_interface_port_channel_uuid_again.current.node.group == "node_group_policy_1"
           - nm_update_routed_interface_port_channel_uuid_again.current.ptpConfig.mode == "unicastMaster"
           - nm_update_routed_interface_port_channel_uuid_again.current.ptpConfig.ptpPolicyName is defined
           - nm_update_routed_interface_port_channel_uuid_again.current.ptpConfig.ptpPolicyRef is defined
@@ -870,6 +894,27 @@
           - nm_update_routed_interface_port_channel_uuid_again.current.ptpConfig.srcIP == "12.0.0.1"
           - nm_update_routed_interface_port_channel_uuid_again.current.ptpConfig.destIPs.0 == "12.0.0.2"
           - nm_update_routed_interface_port_channel_uuid_again.current.ptpConfig.destIPs.1 == "12.0.0.3"
+
+    - name: Assert that the L3out routed interface of type port channel was updated (>= 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_routed_interface_port_channel_uuid.current.node.group == ""
+          - nm_update_routed_interface_port_channel_uuid.current.node.nodeGroups == ["node_group_policy_1"]
+          - nm_update_routed_interface_port_channel_uuid_again.current.node.group == ""
+          - nm_update_routed_interface_port_channel_uuid_again.current.node.nodeGroups == ["node_group_policy_1"]
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the L3out routed interface of type port channel was updated (< 5.2)
+      ansible.builtin.assert:
+        that:
+          - cm_update_routed_interface_port_channel_uuid.proposed.node.group == "node_group_policy_1"
+          - nm_update_routed_interface_port_channel_uuid.current.node.group == "node_group_policy_1"
+          - nm_update_routed_interface_port_channel_uuid.current.node.nodeGroups is not defined
+          - nm_update_routed_interface_port_channel_uuid.current == nm_update_routed_interface_port_channel_uuid.proposed
+          - nm_update_routed_interface_port_channel_uuid_again.current.node.group == "node_group_policy_1"
+          - nm_update_routed_interface_port_channel_uuid_again.current.node.nodeGroups is not defined
+          - nm_update_routed_interface_port_channel_uuid_again.previous == nm_update_routed_interface_port_channel_uuid_again.proposed == nm_update_routed_interface_port_channel_uuid_again.current
+      when: version.current.version is version('5.2', '<')
 
     - name: Remove destination IPs from PTP configuration
       cisco.mso.ndo_l3out_routed_interface: &remove_ptp_dest_ips
@@ -1024,6 +1069,47 @@
           - nm_update_routed_interface_port_channel_router_id_as_loopback.current.node.useRouteIDAsLoopback == true
           - nm_update_routed_interface_port_channel_router_id_as_loopback.current.node.loopbackIPs is not defined
 
+    - name: Update a L3out routed interface with multiple node_group_policies (check mode) (>= 5.2)
+      cisco.mso.ndo_l3out_routed_interface: &update_routed_interface_multiple_node_group_policies
+        <<: *update_routed_interface_port_channel_uuid
+        node_group_policy: "{{ omit }}"
+        node_group_policies:
+          - node_group_policy_1
+          - node_group_policy_2
+      check_mode: true
+      register: cm_update_routed_interface_multiple_node_group_policies
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Update a L3out routed interface with multiple node_group_policies (>= 5.2)
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *update_routed_interface_multiple_node_group_policies
+      register: nm_update_routed_interface_multiple_node_group_policies
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Update a L3out routed interface with multiple node_group_policies again (>= 5.2)
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *update_routed_interface_multiple_node_group_policies
+      register: nm_update_routed_interface_multiple_node_group_policies_again
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the L3out routed interface with multiple node_group_policies was updated (>= 5.2)
+      ansible.builtin.assert:
+        that:
+          - cm_update_routed_interface_multiple_node_group_policies is changed
+          - cm_update_routed_interface_multiple_node_group_policies.proposed.node.group == ""
+          - cm_update_routed_interface_multiple_node_group_policies.proposed.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - nm_update_routed_interface_multiple_node_group_policies is changed
+          - nm_update_routed_interface_multiple_node_group_policies.previous.node.group == ""
+          - nm_update_routed_interface_multiple_node_group_policies.previous.node.nodeGroups == ["node_group_policy_1"]
+          - nm_update_routed_interface_multiple_node_group_policies.current.node.group == ""
+          - nm_update_routed_interface_multiple_node_group_policies.current.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          # Unlike a single node_group_policy, node_group_policies is sent under "nodeGroups" and is not translated by
+          # the API, so the check mode current node matches the normal mode current.
+          - nm_update_routed_interface_multiple_node_group_policies.current == cm_update_routed_interface_multiple_node_group_policies.current
+          - nm_update_routed_interface_multiple_node_group_policies_again is not changed
+          - nm_update_routed_interface_multiple_node_group_policies_again.previous == nm_update_routed_interface_multiple_node_group_policies_again.current == cm_update_routed_interface_multiple_node_group_policies.current
+      when: version.current.version is version('5.2', '>=')
+
     # ERROR HANDLING
 
     - name: Create a L3out routed interface of type port channel with invalid port channel template
@@ -1149,6 +1235,22 @@
           - error_create_routed_interface_port_channel_invalid_user_profile_with_both_templates is failed
           - 'error_create_routed_interface_port_channel_invalid_user_profile_with_both_templates.msg == "parameters are mutually exclusive: template|template_id found in ptp -> user_profile -> reference"'
 
+    - name: Create a L3out routed interface with node_group_policy and node_group_policies
+      cisco.mso.ndo_l3out_routed_interface:
+        <<: *update_routed_interface_port_channel_uuid
+        node_group_policy: node_group_policy_1
+        node_group_policies:
+          - node_group_policy_1
+          - node_group_policy_2
+      register: error_routed_interface_node_group_policy_and_policies
+      ignore_errors: true
+
+    - name: Assert that the mutually exclusive node_group_policy and node_group_policies error was raised
+      ansible.builtin.assert:
+        that:
+          - error_routed_interface_node_group_policy_and_policies is failed
+          - 'error_routed_interface_node_group_policy_and_policies.msg == "parameters are mutually exclusive: node_group_policy|node_group_policies"'
+
     # QUERY
 
     - name: Get a L3out routed interface of type port
@@ -1195,7 +1297,6 @@
           - query_routed_interface_port.current.node.routerID == "1.1.1.1"
           - query_routed_interface_port.current.node.useRouteIDAsLoopback == false
           - query_routed_interface_port.current.node.loopbackIPs is not defined
-          - query_routed_interface_port.current.node.group == "node_group_policy_1"
           - query_routed_interface_port_channel is not changed
           - query_routed_interface_port_channel.current.podID is not defined
           - query_routed_interface_port_channel.current.nodeID is not defined
@@ -1213,7 +1314,6 @@
           - query_routed_interface_port_channel.current.targetDscp == "cs5"
           - query_routed_interface_port_channel.current.microBfd is not defined
           - query_routed_interface_port_channel.current.addresses.primaryV4 == "10.1.0.3/24"
-          - query_routed_interface_port_channel.current.addresses.primaryV6 is not defined
           - query_routed_interface_port_channel.current.addresses.linkLocalV6 == "FE80::20"
           - query_routed_interface_port_channel.current.addresses.ipV6DAD == "enabled"
           - query_routed_interface_port_channel.current.node.nodeID == "101"
@@ -1221,7 +1321,6 @@
           - query_routed_interface_port_channel.current.node.routerID == "1.1.1.1"
           - query_routed_interface_port_channel.current.node.useRouteIDAsLoopback == false
           - query_routed_interface_port_channel.current.node.loopbackIPs is not defined
-          - query_routed_interface_port_channel.current.node.group == "node_group_policy_1"
           - query_all_routed_interfaces is not changed
           - query_all_routed_interfaces.current | length == 3
           - query_all_routed_interfaces.current.0 == query_routed_interface_port.current
@@ -1252,6 +1351,30 @@
           - query_all_routed_interfaces.current.2.node.useRouteIDAsLoopback == true
           - query_all_routed_interfaces.current.2.node.loopbackIPs is not defined
           - query_all_routed_interfaces.current.2.node.group == ""
+
+    - name: Assert that the L3out routed interfaces were queried (>= 5.2)
+      ansible.builtin.assert:
+        that:
+          - query_routed_interface_port.current.node.group == ""
+          # Node 101 hosts both the port and port_channel interfaces; the multi node_group_policies update
+          # on the port_channel sets node 101 nodeGroups to both policies, so the port query reflects the same.
+          - query_routed_interface_port.current.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - query_routed_interface_port_channel.current.node.group == ""
+          - query_routed_interface_port_channel.current.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          # The multi node_group_policies update block re-applies the original ipv6_address from the
+          # update_routed_interface_port_channel_uuid anchor, so primaryV6 is restored on >= 5.2.
+          - query_routed_interface_port_channel.current.addresses.primaryV6 == "1::112/16"
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the L3out routed interfaces were queried (< 5.2)
+      ansible.builtin.assert:
+        that:
+          - query_routed_interface_port.current.node.group == "node_group_policy_1"
+          - query_routed_interface_port.current.node.nodeGroups is not defined
+          - query_routed_interface_port_channel.current.node.group == "node_group_policy_1"
+          - query_routed_interface_port_channel.current.node.nodeGroups is not defined
+          - query_routed_interface_port_channel.current.addresses.primaryV6 is not defined
+      when: version.current.version is version('5.2', '<')
 
     # DELETE
 

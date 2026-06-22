@@ -66,7 +66,7 @@ options:
     - This parameter is supported on all versions and references a single node group policy.
     - This parameter and O(node_group_policies) are mutually exclusive.
     - To remove the node group policy, set this parameter to an empty string O(node_group_policy="").
-    - On ND v4.2 (NDO v4.2) and later the controller stores a single O(node_group_policy) under C(nodeGroups)
+    - On ND v4.2 (NDO v5.2) and later the controller stores a single O(node_group_policy) under C(nodeGroups)
       and clears C(group). This translation is reflected in the returned configuration after the change is applied,
       but not in check mode, which returns the value under C(group). Use O(node_group_policies) for a representation
       that matches in both check mode and normal mode.
@@ -74,7 +74,7 @@ options:
   node_group_policies:
     description:
     - The names of the node group policies.
-    - This parameter is only supported on ND v4.2 (NDO v4.2) and later.
+    - This parameter is only supported on ND v4.2 (NDO v5.2) and later.
     - This parameter and O(node_group_policy) are mutually exclusive.
     - To remove all node group policies, set this parameter to an empty list O(node_group_policies=[]).
     type: list

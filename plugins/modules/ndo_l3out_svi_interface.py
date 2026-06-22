@@ -68,7 +68,29 @@ options:
     description:
     - The name of the node group policy.
     - For O(virtual_port_channel) interfaces, this is the node group policy of the Side A node.
+    - For O(virtual_port_channel) interfaces, the Side A and Side B nodes must reference the same node group policy,
+      so this parameter must match O(virtual_port_channel.side_b_node_group_policy). NDO rejects the request when
+      the two sides differ.
+    - This parameter is supported on all versions and references a single node group policy.
+    - This parameter and O(node_group_policies) are mutually exclusive.
+    - To remove the node group policy, set this parameter to an empty string O(node_group_policy="").
+    - On ND v4.2 (NDO v5.2) and later the controller stores a single O(node_group_policy) under C(nodeGroups)
+      and clears C(group). This translation is reflected in the returned configuration after the change is applied,
+      but not in check mode, which returns the value under C(group). Use O(node_group_policies) for a representation
+      that matches in both check mode and normal mode.
     type: str
+  node_group_policies:
+    description:
+    - The names of the node group policies.
+    - For O(virtual_port_channel) interfaces, this is the list of node group policies of the Side A node.
+    - For O(virtual_port_channel) interfaces, the Side A and Side B nodes must reference the same set of node group
+      policies, so this parameter must match O(virtual_port_channel.side_b_node_group_policies). NDO rejects the
+      request when the two sides differ.
+    - This parameter is only supported on ND v4.2 (NDO v5.2) and later.
+    - This parameter and O(node_group_policy) are mutually exclusive.
+    - To remove all node group policies, set this parameter to an empty list O(node_group_policies=[]).
+    type: list
+    elements: str
   use_router_id_as_loopback:
     description:
     - Whether to use the router ID as the loopback address of the node.
@@ -179,7 +201,26 @@ options:
       side_b_node_group_policy:
         description:
         - The name of the Side B node group policy.
+        - The Side A and Side B nodes must reference the same node group policy, so this parameter must match
+          O(node_group_policy). NDO rejects the request when the two sides differ.
+        - This parameter is supported on all versions and references a single node group policy.
+        - This parameter and O(virtual_port_channel.side_b_node_group_policies) are mutually exclusive.
+        - To remove the Side B node group policy, set this parameter to an empty string O(virtual_port_channel.side_b_node_group_policy="").
+        - On ND v4.2 (NDO v5.2) and later the controller stores a single O(virtual_port_channel.side_b_node_group_policy)
+          under C(nodeGroups) and clears C(group). This translation is reflected in the returned configuration after the change
+          is applied, but not in check mode, which returns the value under C(group). Use
+          O(virtual_port_channel.side_b_node_group_policies) for a representation that matches in both check mode and normal mode.
         type: str
+      side_b_node_group_policies:
+        description:
+        - The names of the Side B node group policies.
+        - The Side A and Side B nodes must reference the same set of node group policies, so this parameter must
+          match O(node_group_policies). NDO rejects the request when the two sides differ.
+        - This parameter is only supported on ND v4.2 (NDO v5.2) and later.
+        - This parameter and O(virtual_port_channel.side_b_node_group_policy) are mutually exclusive.
+        - To remove all Side B node group policies, set this parameter to an empty list O(virtual_port_channel.side_b_node_group_policies=[]).
+        type: list
+        elements: str
       side_b_use_router_id_as_loopback:
         description:
         - Whether to use the router ID as the loopback address of the Side B node.
@@ -299,7 +340,8 @@ notes:
   The M(cisco.mso.ndo_template) module can be used for this.
 - The O(l3out) or O(l3out_uuid) must exist before using this module in your playbook.
   The M(cisco.mso.ndo_l3out_template) module can be used for this.
-- The O(node_group_policy) must exist before using this module in your playbook.
+- The O(node_group_policy) or O(node_group_policies) (and for VPC interfaces O(virtual_port_channel.side_b_node_group_policy)
+  or O(virtual_port_channel.side_b_node_group_policies)) must exist before using this module in your playbook.
   The M(cisco.mso.ndo_l3out_node_group_policy) module can be used for this.
 - The O(interface_group_policy) must exist before using this module in your playbook.
   The M(cisco.mso.ndo_l3out_interface_group_policy) module can be used for this.
@@ -431,6 +473,46 @@ EXAMPLES = r"""
     auto_state: enabled
     state: present
 
+- name: Update a L3Out SVI Interface with multiple node group policies
+  cisco.mso.ndo_l3out_svi_interface:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: l3out_template
+    l3out: l3out_name
+    node_id: 101
+    path: eth1/1
+    encapsulation_type: vlan
+    encapsulation_value: 100
+    node_router_id: 1.1.1.1
+    node_group_policies:
+      - node_group_policy_1
+      - node_group_policy_2
+    state: present
+
+- name: Update a L3Out SVI Interface of type virtual_port_channel with multiple node group policies on both sides
+  cisco.mso.ndo_l3out_svi_interface:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    template: l3out_template
+    l3out: l3out_name
+    node_router_id: 1.1.1.1
+    encapsulation_type: vlan
+    encapsulation_value: 200
+    virtual_port_channel:
+      reference:
+        name: ansible_virtual_port_channel_interface_1
+        template: ansible_fabric_resource_template_template_1
+      side_b_node_router_id: 2.2.2.2
+      side_b_node_group_policies:
+        - node_group_policy_1
+        - node_group_policy_2
+    node_group_policies:
+      - node_group_policy_1
+      - node_group_policy_2
+    state: present
+
 - name: Query an existing L3Out SVI Interface of type port with L3Out Node configuration
   cisco.mso.ndo_l3out_svi_interface:
     host: mso_host
@@ -540,6 +622,7 @@ def main():
         l3out_uuid=dict(type="str"),
         node_id=dict(type="str", aliases=["node", "border_leaf"]),
         node_group_policy=dict(type="str"),
+        node_group_policies=dict(type="list", elements="str"),
         node_router_id=dict(type="str", aliases=["router_id"]),
         use_router_id_as_loopback=dict(type="bool"),
         node_loopback_ip=dict(type="str", aliases=["loopback_ip"]),
@@ -586,6 +669,7 @@ def main():
             ["port_channel", "virtual_port_channel"],
             ["virtual_port_channel", "path"],
             ["virtual_port_channel", "node_id"],
+            ["node_group_policy", "node_group_policies"],
         ],
     )
 
@@ -698,6 +782,7 @@ def main():
             node_details_side_b = {
                 "node_router_id": virtual_port_channel.get("side_b_node_router_id"),
                 "node_group_policy": virtual_port_channel.get("side_b_node_group_policy"),
+                "node_group_policies": virtual_port_channel.get("side_b_node_group_policies"),
                 "use_router_id_as_loopback": virtual_port_channel.get("side_b_use_router_id_as_loopback"),
                 "node_loopback_ip": virtual_port_channel.get("side_b_node_loopback_ip"),
             }

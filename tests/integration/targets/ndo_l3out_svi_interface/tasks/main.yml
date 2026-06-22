@@ -214,13 +214,16 @@
         state: present
       register: mso_l3out
 
-    - name: Create L3Out node group policy
+    - name: Create L3Out node group policies
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
         template: '{{ mso_l3out_template | default("ansible_test") }}'
         l3out: l3out_1
-        name: node_group_policy_1
+        name: '{{ item }}'
         state: present
+      loop:
+        - node_group_policy_1
+        - node_group_policy_2
 
     - name: Create L3Out interface group policy
       cisco.mso.ndo_l3out_interface_group_policy:
@@ -797,7 +800,10 @@
           - nm_update_svi_interface_type_virtual_port_channel is changed
           - nm_update_svi_interface_type_virtual_port_channel.previous == nm_create_svi_interface_type_virtual_port_channel_again.current
           - nm_update_svi_interface_type_virtual_port_channel.previous != nm_update_svi_interface_type_virtual_port_channel.current
-          - nm_update_svi_interface_type_virtual_port_channel.proposed == nm_update_svi_interface_type_virtual_port_channel.current
+          # The proposed/current comparison is version specific: from ND 4.2 onwards a single node_group_policy
+          # is returned under "nodeGroups" while "group" is cleared, so proposed (which sets "group") no longer
+          # matches current. It is therefore only asserted in the "< 5.2" block below where "group" is still used.
+          # - nm_update_svi_interface_type_virtual_port_channel.proposed == nm_update_svi_interface_type_virtual_port_channel.current
           - nm_update_svi_interface_type_virtual_port_channel.current.addresses.primaryV4 == "10.0.2.4/24"
           - nm_update_svi_interface_type_virtual_port_channel.current.addresses.primaryV6 == "10::105/16"
           - nm_update_svi_interface_type_virtual_port_channel.current.addresses.linkLocalV6 == "FE80::14"
@@ -816,13 +822,11 @@
           - nm_update_svi_interface_type_virtual_port_channel.current.node.routerID == "1.1.1.1"
           - nm_update_svi_interface_type_virtual_port_channel.current.node.useRouteIDAsLoopback == false
           - nm_update_svi_interface_type_virtual_port_channel.current.node.loopbackIPs is not defined
-          - nm_update_svi_interface_type_virtual_port_channel.current.node.group == "node_group_policy_1"
           - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.nodeID == "102"
           - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.podID == "1"
           - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.routerID == "2.2.2.2"
           - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.useRouteIDAsLoopback == false
           - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.loopbackIPs is not defined
-          - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.group == "node_group_policy_1"
           - nm_update_svi_interface_type_virtual_port_channel.current.nodeID is not defined
           - nm_update_svi_interface_type_virtual_port_channel.current.path is not defined
           - nm_update_svi_interface_type_virtual_port_channel.current.pathRef is defined
@@ -840,6 +844,86 @@
           - nm_update_svi_interface_type_virtual_port_channel_again is not changed
           - nm_update_svi_interface_type_virtual_port_channel_again.previous == nm_update_svi_interface_type_virtual_port_channel_again.current == nm_update_svi_interface_type_virtual_port_channel.current
 
+    - name: Assert that the L3out svi interface of type virtual port channel with uuid was updated (>= 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_svi_interface_type_virtual_port_channel.current.node.group == ""
+          - nm_update_svi_interface_type_virtual_port_channel.current.node.nodeGroups == ["node_group_policy_1"]
+          - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.group == ""
+          - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.nodeGroups == ["node_group_policy_1"]
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.node.group == ""
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.node.nodeGroups == ["node_group_policy_1"]
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.sideBNode.group == ""
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.sideBNode.nodeGroups == ["node_group_policy_1"]
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the L3out svi interface of type virtual port channel with uuid was updated (< 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_svi_interface_type_virtual_port_channel.current.node.group == "node_group_policy_1"
+          - nm_update_svi_interface_type_virtual_port_channel.current.node.nodeGroups is not defined
+          - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.group == "node_group_policy_1"
+          - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.nodeGroups is not defined
+          - nm_update_svi_interface_type_virtual_port_channel.proposed == nm_update_svi_interface_type_virtual_port_channel.current
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.node.group == "node_group_policy_1"
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.node.nodeGroups is not defined
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.sideBNode.group == "node_group_policy_1"
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.sideBNode.nodeGroups is not defined
+      when: version.current.version is version('5.2', '<')
+
+    - name: Update a L3out svi interface of type virtual port channel with multiple node group policies on both sides (check mode)
+      cisco.mso.ndo_l3out_svi_interface: &update_svi_interface_type_virtual_port_channel_multi
+        <<: *update_svi_interface_type_virtual_port_channel
+        virtual_port_channel:
+          uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
+          side_b_ipv4_address: 10.0.2.5/24
+          side_b_ipv6_address: 10::106/16
+          side_b_ipv6_link_local_address: FE80::15
+          side_b_ipv6_dad: disabled
+          side_b_node_router_id: 2.2.2.2
+          side_b_node_group_policy: "{{ omit }}"
+          side_b_node_group_policies:
+            - node_group_policy_1
+            - node_group_policy_2
+        node_group_policy: "{{ omit }}"
+        node_group_policies:
+          - node_group_policy_1
+          - node_group_policy_2
+      check_mode: true
+      register: cm_update_svi_interface_type_virtual_port_channel_multi
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Update a L3out svi interface of type virtual port channel with multiple node group policies on both sides
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *update_svi_interface_type_virtual_port_channel_multi
+      register: nm_update_svi_interface_type_virtual_port_channel_multi
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Update a L3out svi interface of type virtual port channel with multiple node group policies on both sides again
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *update_svi_interface_type_virtual_port_channel_multi
+      register: nm_update_svi_interface_type_virtual_port_channel_multi_again
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the L3out svi interface of type virtual port channel was updated with multiple node group policies
+      ansible.builtin.assert:
+        that:
+          - cm_update_svi_interface_type_virtual_port_channel_multi is changed
+          - cm_update_svi_interface_type_virtual_port_channel_multi.proposed == cm_update_svi_interface_type_virtual_port_channel_multi.current
+          - cm_update_svi_interface_type_virtual_port_channel_multi.current.node.group == ""
+          - cm_update_svi_interface_type_virtual_port_channel_multi.current.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - cm_update_svi_interface_type_virtual_port_channel_multi.current.sideBNode.group == ""
+          - cm_update_svi_interface_type_virtual_port_channel_multi.current.sideBNode.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - nm_update_svi_interface_type_virtual_port_channel_multi is changed
+          - nm_update_svi_interface_type_virtual_port_channel_multi.proposed == nm_update_svi_interface_type_virtual_port_channel_multi.current
+          - nm_update_svi_interface_type_virtual_port_channel_multi.current.node.group == ""
+          - nm_update_svi_interface_type_virtual_port_channel_multi.current.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - nm_update_svi_interface_type_virtual_port_channel_multi.current.sideBNode.group == ""
+          - nm_update_svi_interface_type_virtual_port_channel_multi.current.sideBNode.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - nm_update_svi_interface_type_virtual_port_channel_multi_again is not changed
+          - nm_update_svi_interface_type_virtual_port_channel_multi_again.previous == nm_update_svi_interface_type_virtual_port_channel_multi_again.current == nm_update_svi_interface_type_virtual_port_channel_multi.current
+      when: version.current.version is version('5.2', '>=')
+
     - name: Remove the ipv4_address from a L3out svi interface of type port channel
       cisco.mso.ndo_l3out_svi_interface: &removed_ipv4_address
         <<: *update_svi_interface_type_port_channel
@@ -850,9 +934,10 @@
       cisco.mso.ndo_l3out_svi_interface:
         <<: *update_svi_interface_type_virtual_port_channel
         ipv6_address: ''
-        virtual_port_channel: 
+        virtual_port_channel:
           uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
           side_b_ipv6_address: ''
+          side_b_node_group_policy: node_group_policy_1
       register: nm_update_svi_interface_type_virtual_port_channel_ipv6_removed
 
     - name: Remove the ipv6_link_local_address from a L3out svi interface of type port channel
@@ -1227,6 +1312,38 @@
           - error_svi_interface_type_virtual_port_channel_without_encapsulation_type.msg == error_message_svi_interface_type_virtual_port_channel_without_encapsulation_type
           - error_svi_interface_type_virtual_port_channel_without_encapsulation_value is failed
           - error_svi_interface_type_virtual_port_channel_without_encapsulation_value.msg == error_message_svi_interface_type_virtual_port_channel_without_encapsulation_value
+
+    - name: Create L3out svi interface with node_group_policy and node_group_policies
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *create_svi_interface_type_port
+        node_group_policy: node_group_policy_1
+        node_group_policies:
+          - node_group_policy_1
+          - node_group_policy_2
+      register: error_svi_interface_node_group_policy_and_node_group_policies
+      ignore_errors: true
+
+    - name: Create L3out svi interface with side_b_node_group_policy and side_b_node_group_policies
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *create_svi_interface_type_virtual_port_channel
+        virtual_port_channel:
+          uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
+          side_b_ipv4_address: 10.0.2.5/24
+          side_b_node_router_id: 2.2.2.2
+          side_b_node_group_policy: node_group_policy_1
+          side_b_node_group_policies:
+            - node_group_policy_1
+            - node_group_policy_2
+      register: error_svi_interface_side_b_node_group_policy_and_node_group_policies
+      ignore_errors: true
+
+    - name: Assert that the mutually exclusive node group policy errors are returned
+      ansible.builtin.assert:
+        that:
+          - error_svi_interface_node_group_policy_and_node_group_policies is failed
+          - 'error_svi_interface_node_group_policy_and_node_group_policies.msg == "parameters are mutually exclusive: node_group_policy|node_group_policies"'
+          - error_svi_interface_side_b_node_group_policy_and_node_group_policies is failed
+          - 'error_svi_interface_side_b_node_group_policy_and_node_group_policies.msg == "parameters are mutually exclusive: side_b_node_group_policy|side_b_node_group_policies found in virtual_port_channel"'
 
     # QUERY
 

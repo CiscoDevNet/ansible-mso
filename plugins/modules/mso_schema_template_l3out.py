@@ -218,8 +218,10 @@ def main():
             ops.append(dict(op="add", path=l3outs_path + "/-", value=mso.sent))
 
         mso.existing = mso.proposed
+        if "vrfRef" in mso.previous and not isinstance(mso.previous.get("vrfRef"), dict):
+            mso.previous["vrfRef"] = mso.vrf_dict_from_ref(mso.previous.get("vrfRef"))
 
-    if not module.check_mode:
+    if not module.check_mode and mso.proposed != mso.previous:
         mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()

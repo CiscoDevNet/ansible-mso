@@ -328,6 +328,10 @@ def main():
             # clean contractRef to fix api issue
             for contract in mso.sent.get("contractRelationships"):
                 contract["contractRef"] = mso.dict_from_ref(contract.get("contractRef"))
+            # normalize contractRef on existing/previous so idempotency comparisons match mso.sent's shape
+            for contract in mso.existing.get("contractRelationships", []) or []:
+                if not isinstance(contract.get("contractRef"), dict):
+                    contract["contractRef"] = mso.dict_from_ref(contract.get("contractRef"))
             ops.append(dict(op="replace", path=eepg_path, value=mso.sent))
         else:
             ops.append(dict(op="add", path=eepgs_path + "/-", value=mso.sent))

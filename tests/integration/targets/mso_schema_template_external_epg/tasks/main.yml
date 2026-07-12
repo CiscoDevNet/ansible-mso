@@ -1095,6 +1095,13 @@
     that:
     - nm_query_epg1_contract.current.contractRelationships | length == 4
 
+- name: Verify contractRef is a dict on query result
+  ansible.builtin.assert:
+    that:
+    - nm_query_epg1_contract.current.contractRelationships[0].contractRef.contractName is defined
+    - nm_query_epg1_contract.current.contractRelationships[0].contractRef.templateName is defined
+    - nm_query_epg1_contract.current.contractRelationships[0].contractRef.schemaId is defined
+
 - name: Add EPG 1 again (normal_mode)
   cisco.mso.mso_schema_template_external_epg:
     <<: *mso_info

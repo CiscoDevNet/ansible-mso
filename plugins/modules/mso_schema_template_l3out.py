@@ -177,6 +177,8 @@ def main():
     if l3out is not None and l3out in l3outs:
         l3out_idx = l3outs.index(l3out)
         mso.existing = schema_obj.get("templates")[template_idx]["intersiteL3outs"][l3out_idx]
+        if "vrfRef" in mso.existing and not isinstance(mso.existing.get("vrfRef"), dict):
+            mso.existing["vrfRef"] = mso.dict_from_ref(mso.existing.get("vrfRef"))
 
     if state == "query":
         if l3out is None:
@@ -219,7 +221,7 @@ def main():
 
         mso.existing = mso.proposed
 
-    if not module.check_mode:
+    if not module.check_mode and mso.proposed != mso.previous:
         mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()

@@ -275,6 +275,9 @@ def main():
             mso.existing["l3outRef"] = mso.dict_from_ref(mso.existing.get("l3outRef"))
         if "anpRef" in mso.existing:
             mso.existing["anpRef"] = mso.dict_from_ref(mso.existing.get("anpRef"))
+        for contract in mso.existing.get("contractRelationships", []) or []:
+            if contract.get("contractRef") and not isinstance(contract.get("contractRef"), dict):
+                contract["contractRef"] = mso.dict_from_ref(contract.get("contractRef"))
 
     if state == "query":
         if external_epg is None:
@@ -327,7 +330,8 @@ def main():
                 del mso.existing["anpRef"]
             # clean contractRef to fix api issue
             for contract in mso.sent.get("contractRelationships"):
-                contract["contractRef"] = mso.dict_from_ref(contract.get("contractRef"))
+                if not isinstance(contract.get("contractRef"), dict):
+                    contract["contractRef"] = mso.dict_from_ref(contract.get("contractRef"))
             ops.append(dict(op="replace", path=eepg_path, value=mso.sent))
         else:
             ops.append(dict(op="add", path=eepgs_path + "/-", value=mso.sent))

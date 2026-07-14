@@ -163,6 +163,13 @@
     - query_l3out is not changed
     - query_all is not changed
 
+- name: Verify vrfRef is a dict on query result
+  ansible.builtin.assert:
+    that:
+    - query_l3out.current.vrfRef.vrfName == "VRF1"
+    - query_l3out.current.vrfRef.templateName == "Template1"
+    - query_l3out.current.vrfRef.schemaId is defined
+
 - name: Remove an L3Out
   cisco.mso.mso_schema_template_l3out:
     <<: *mso_info

@@ -1,0 +1,100 @@
+when:
+  event:
+    - manual
+    - cron
+
+variables:
+  - &ansible_image "10.15.39.22:5000/ci-ansible:py3.11-ansible2.19"
+
+matrix:
+  include:
+    - ND_NAME: "ND32"
+      ND_HOST: "10.15.0.127"
+      APIC_HOST: "10.15.39.241"
+    - ND_NAME: "ND41"
+      ND_HOST: "10.15.0.126"
+      APIC_HOST: "10.15.38.241"
+    - ND_NAME: "ND42"
+      ND_HOST: "10.15.0.128"
+      APIC_HOST: "10.15.38.243"
+
+steps:
+
+  integration_test:
+    image: *ansible_image
+    when:
+      event: [manual, cron]
+    environment:
+      MSO_USERNAME:
+        from_secret: MSO_USERNAME
+      MSO_PASSWORD:
+        from_secret: MSO_PASSWORD
+      APIC_USERNAME:
+        from_secret: APIC_USERNAME
+      APIC_PASSWORD:
+        from_secret: APIC_PASSWORD
+
+    commands:
+      - |
+        TEST_TARGET="$${TEST_TARGET:-$${CI_BUILD_PARAM_TEST_TARGET:-$${CI_PIPELINE_PARAM_TEST_TARGET:-}}}"
+        TEST_TIMEOUT="$${TEST_TIMEOUT:-$${CI_BUILD_PARAM_TEST_TIMEOUT:-$${CI_PIPELINE_PARAM_TEST_TIMEOUT:-600m}}}"
+        ND_FILTER="$${ND_FILTER:-$${CI_BUILD_PARAM_ND_FILTER:-$${CI_PIPELINE_PARAM_ND_FILTER:-all}}}"
+
+        if [ "$${ND_FILTER}" != "all" ] && ! echo ",$${ND_FILTER}," | grep -q ",$${ND_NAME},"; then
+          echo "Skipping $${ND_NAME} due to ND_FILTER=$${ND_FILTER}"
+          exit 0
+        fi
+
+        echo "Running ansible-mso integration tests for ${ND_NAME} (${ND_HOST}) (target $${TEST_TARGET:-all}, timeout $${TEST_TIMEOUT})"
+
+        # ansible-test requires the collection to live at
+        # ansible_collections/<namespace>/<name> on disk.
+        COLLECTION_DIR="/root/.ansible/collections/ansible_collections/cisco/mso"
+        mkdir -p "$(dirname "$COLLECTION_DIR")"
+        cp -a "$PWD" "$COLLECTION_DIR"
+        cd "$COLLECTION_DIR"
+
+        # cisco.mso/cisco.nd modules connect via the ansible.netcommon.httpapi
+        # connection plugin, not a plain HTTP client -- Ansible opens that
+        # connection to the *inventory hostname* itself (no ansible_host is
+        # set below), so the host entry must be the real, directly reachable
+        # ND IP, not a symbolic alias.
+        cat > tests/integration/inventory.networking <<EOF
+        [mso]
+        ${ND_HOST}
+
+        [mso:children]
+        ndo
+
+        [ndo]
+        ${ND_HOST}
+
+        [all:vars]
+        ansible_connection=ansible.netcommon.httpapi
+        ansible_network_os=cisco.nd.nd
+        ansible_user=$${MSO_USERNAME}
+        ansible_httpapi_password="$${MSO_PASSWORD}"
+        ansible_httpapi_validate_certs=False
+        ansible_httpapi_use_ssl=True
+        ansible_python_interpreter=/usr/local/bin/python3
+        ansible_command_timeout=300
+        ansible_connect_timeout=300
+        mso_hostname=${ND_HOST}
+        mso_username=$${MSO_USERNAME}
+        mso_password="$${MSO_PASSWORD}"
+        mso_validate_certs=false
+        mso_use_ssl=true
+        mso_use_proxy=false
+        mso_output_level=debug
+        mso_login_domain=Local
+        apic_hostname=${APIC_HOST}
+        apic_username=$${APIC_USERNAME}
+        apic_password="$${APIC_PASSWORD}"
+        mso_remote_location=${ND_HOST}
+        mso_radius_server=${ND_HOST}
+        EOF
+
+        timeout "$${TEST_TIMEOUT}" ansible-test network-integration --venv -v --color --truncate 0 --continue-on-error --python 3.11 $${TEST_TARGET}
+
+labels:
+  platform: linux/amd64

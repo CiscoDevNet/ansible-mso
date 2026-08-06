@@ -27,8 +27,8 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version >= 4.1
-  when: version.current.version is version('4.1', '>=')
+- name: Run tests supported from ND v4.1 (NDO v5.1)
+  when: version.current.version is version('5.1', '>=')
   block:
     # CLEAN ENVIRONMENT
     - name: Ensure ansible_test exist
@@ -315,7 +315,8 @@
           - nt_add_netflow_exporter_without_name_uuid is not changed
           - 'nt_add_netflow_exporter_without_name_uuid.msg == "state is present but any of the following are missing: name, uuid"'
 
-    # CLEAN ENVIRONMENT
+  always:
+    # CLEANUP
     - name: Ensure templates do not exist
       cisco.mso.ndo_template:
         <<: *template_absent

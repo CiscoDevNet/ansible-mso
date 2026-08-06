@@ -27,8 +27,8 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version >= 4.1
-  when: version.current.version is version('4.1', '>=')
+- name: Run tests supported from ND v4.1 (NDO v5.1)
+  when: version.current.version is version('5.1', '>=')
   block:
     # CLEAN ENVIRONMENT
     - name: Ensure ansible_test exist
@@ -167,6 +167,15 @@
         state: present
       register: update_netflow_record_with_name
 
+    - name: Update NetFlow Record 1 description without specifying match_parameters
+      cisco.mso.ndo_tenant_netflow_record:
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_record_1_updated
+        description: updated_without_match_parameters
+        state: present
+      register: update_netflow_record_without_match_parameters
+
     - name: Assertion check for update NetFlow Record
       ansible.builtin.assert:
         that:
@@ -228,6 +237,19 @@
           - update_netflow_record_with_name.previous.templateId is defined
           - update_netflow_record_with_name.previous.templateName == "ansible_tenant_template"
           - update_netflow_record_with_name.previous.uuid is defined
+          - update_netflow_record_without_match_parameters is changed
+          - update_netflow_record_without_match_parameters.current.description == "updated_without_match_parameters"
+          - update_netflow_record_without_match_parameters.current.name == "netflow_record_1_updated"
+          - update_netflow_record_without_match_parameters.current.match == ["ethertype"]
+          - update_netflow_record_without_match_parameters.current.templateId is defined
+          - update_netflow_record_without_match_parameters.current.templateName == "ansible_tenant_template"
+          - update_netflow_record_without_match_parameters.current.uuid is defined
+          - update_netflow_record_without_match_parameters.previous.description == "updated_again"
+          - update_netflow_record_without_match_parameters.previous.name == "netflow_record_1_updated"
+          - update_netflow_record_without_match_parameters.previous.match == ["ethertype"]
+          - update_netflow_record_without_match_parameters.previous.templateId is defined
+          - update_netflow_record_without_match_parameters.previous.templateName == "ansible_tenant_template"
+          - update_netflow_record_without_match_parameters.previous.uuid is defined
 
     # QUERY
     - name: Query NetFlow Record 1 using UUID
@@ -257,7 +279,7 @@
       ansible.builtin.assert:
         that:
           - query_netflow_record_1_uuid is not changed
-          - query_netflow_record_1_uuid.current.description == "updated_again"
+          - query_netflow_record_1_uuid.current.description == "updated_without_match_parameters"
           - query_netflow_record_1_uuid.current.name == "netflow_record_1_updated"
           - query_netflow_record_1_uuid.current.match == ["ethertype"]
           - query_netflow_record_1_uuid.current.templateId is defined
@@ -266,7 +288,7 @@
           - query_netflow_record_1_name is not changed
           - query_netflow_record_1_uuid.current == query_netflow_record_1_name.current
           - query_all is not changed
-          - query_all.current.0.description == "updated_again"
+          - query_all.current.0.description == "updated_without_match_parameters"
           - query_all.current.0.name == "netflow_record_1_updated"
           - query_all.current.0.match == ["ethertype"]
           - query_all.current.0.templateId is defined
@@ -331,7 +353,7 @@
           - nm_rm_netflow_record_1_uuid is changed
           - nm_rm_netflow_record_1_uuid.current == {}
           - nm_rm_netflow_record_1_uuid.previous == cm_rm_netflow_record_1_uuid.previous
-          - nm_rm_netflow_record_1_uuid.previous.description == "updated_again"
+          - nm_rm_netflow_record_1_uuid.previous.description == "updated_without_match_parameters"
           - nm_rm_netflow_record_1_uuid.previous.name == "netflow_record_1_updated"
           - nm_rm_netflow_record_1_uuid.previous.match == ["ethertype"]
           - nm_rm_netflow_record_1_uuid.previous.templateId is defined
@@ -381,7 +403,8 @@
           - nt_add_netflow_record_without_name_uuid is not changed
           - 'nt_add_netflow_record_without_name_uuid.msg == "state is present but any of the following are missing: name, uuid"'
 
-    # CLEAN ENVIRONMENT
+  always:
+    # CLEANUP
     - name: Ensure templates do not exist
       cisco.mso.ndo_template:
         <<: *template_absent

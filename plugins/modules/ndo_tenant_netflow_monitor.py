@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2026, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -18,9 +19,10 @@ version_added: "2.12.0"
 short_description: Manage NetFlow Monitor on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage NetFlow Monitor on Cisco Nexus Dashboard Orchestrator (NDO).
-- This module is only supported on ND v4.1 and later.
+- This module is only supported on ND v4.1 (NDO v5.1) and later.
 author:
 - Sabari Jaganathan (@sajagana)
+- Samita Bhattacharjee (@samiib)
 options:
   template:
     description:
@@ -262,10 +264,10 @@ def main():
     template_id = mso.params.get("template_id")
     name = mso.params.get("name")
     uuid = mso.params.get("uuid")
-    description = module.params.get("description")
-    netflow_record = module.params.get("netflow_record")
-    netflow_exporters = module.params.get("netflow_exporters")
-    state = module.params.get("state")
+    description = mso.params.get("description")
+    netflow_record = mso.params.get("netflow_record")
+    netflow_exporters = mso.params.get("netflow_exporters")
+    state = mso.params.get("state")
 
     reference_details = {
         "netFlowExporter": {
@@ -308,6 +310,9 @@ def main():
         path = "/tenantPolicyTemplate/template/netFlowMonitors/{0}".format(match.index if match else "-")
 
     if state == "present":
+        if netflow_exporters is not None and len(netflow_exporters) == 0:
+            mso.fail_json(msg="At least one NetFlow Exporter is required when providing the netflow_exporters parameter.")
+
         netflow_record_uuid = None
         if netflow_record:
             netflow_record_uuid = netflow_record.get("uuid")
@@ -362,8 +367,6 @@ def main():
     if mso.proposed.get("exporterRefs") and isinstance(mso.proposed.get("exporterRefs"), list) and not isinstance(mso.proposed.get("exporterRefs")[0], dict):
         mso.proposed["exporterRefs"] = netflow_exporters_list_to_dict(mso.proposed.get("exporterRefs", []))
 
-    if mso.proposed.get("recordRef") == "":
-        reference_details.pop("recordRef", None)
     mso_template.update_config_with_template_and_references(mso.proposed, reference_details, set_template=mso.proposed != {})
 
     if not module.check_mode and ops:

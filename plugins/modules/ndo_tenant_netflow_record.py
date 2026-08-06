@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2026, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -18,9 +19,10 @@ version_added: "2.13.0"
 short_description: Manage NetFlow Record on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage NetFlow Record on Cisco Nexus Dashboard Orchestrator (NDO).
-- This module is only supported on ND v4.1 and later.
+- This module is only supported on ND v4.1 (NDO v5.1) and later.
 author:
 - Sabari Jaganathan (@sajagana)
+- Samita Bhattacharjee (@samiib)
 options:
   template:
     description:
@@ -198,7 +200,8 @@ def main():
     name = mso.params.get("name")
     uuid = mso.params.get("uuid")
     description = mso.params.get("description")
-    match_parameters = [MATCH_PARAMETER_MAP.get(param) for param in mso.params.get("match_parameters") or []]
+    raw_match_parameters = mso.params.get("match_parameters")
+    match_parameters = [MATCH_PARAMETER_MAP.get(param) for param in raw_match_parameters] if raw_match_parameters else None
     state = mso.params.get("state")
 
     ops = []

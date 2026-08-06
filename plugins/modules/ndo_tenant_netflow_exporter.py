@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright: (c) 2026, Sabari Jaganathan (@sajagana) <sajagana@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -18,9 +19,10 @@ version_added: "2.12.0"
 short_description: Manage NetFlow Exporter on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage NetFlow Exporter on Cisco Nexus Dashboard Orchestrator (NDO).
-- This module is only supported on ND v4.1 and later.
+- This module is only supported on ND v4.1 (NDO v5.1) and later.
 author:
 - Sabari Jaganathan (@sajagana)
+- Samita Bhattacharjee (@samiib)
 options:
   template:
     description:

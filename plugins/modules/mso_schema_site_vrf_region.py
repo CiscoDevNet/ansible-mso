@@ -79,6 +79,10 @@ options:
     type: str
     choices: [ absent, present, query ]
     default: present
+deprecated:
+  removed_in: '4.0.0'
+  why: This module manages cloud-specific features that are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases.
+  alternative: No alternative is available.
 notes:
 - Due to restrictions of the MSO REST API, this module cannot create empty region (i.e. regions without cidrs)
   Use the M(cisco.mso.mso_schema_site_vrf_region_cidr) to automatically create regions with cidrs.

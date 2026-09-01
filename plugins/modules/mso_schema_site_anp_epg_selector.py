@@ -81,6 +81,10 @@ options:
     type: str
     choices: [ absent, present, query ]
     default: present
+deprecated:
+  removed_in: '4.0.0'
+  why: This module manages cloud-specific features that are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases.
+  alternative: No alternative is available.
 seealso:
 - module: cisco.mso.mso_schema_site_anp_epg
 extends_documentation_fragment: cisco.mso.modules

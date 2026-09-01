@@ -63,6 +63,10 @@ options:
     type: str
     choices: [ absent, present, query ]
     default: present
+deprecated:
+  removed_in: '4.0.0'
+  why: This module manages cloud-specific features that are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases.
+  alternative: No alternative is available.
 notes:
 - The ACI MultiSite PATCH API has a deficiency requiring some objects to be referenced by index.
   This can cause silent corruption on concurrent access when changing/removing on object as

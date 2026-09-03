@@ -52,7 +52,7 @@ options:
     choices: [ absent, present, query ]
     default: present
 notes:
-- This module can only be used on versions of NDO that are 4.1 or greater.
+- This module can only be used on versions of ND that are 3.1 or greater (NDO 4.3 or greater).
 extends_documentation_fragment: cisco.mso.modules
 """
 

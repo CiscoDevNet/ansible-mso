@@ -65,6 +65,11 @@ options:
     type: str
     choices: [ absent, present, query ]
     default: present
+deprecated:
+  removed_in: '4.0.0'
+  why: This module is no longer functional on NDO 4.0 and later. The replacement module requires PATCH support, so it
+    is supported on ND v3.1 (NDO v4.3) and later.
+  alternative: Use M(cisco.mso.ndo_schema_template_bd_dhcp_policy) instead.
 notes:
 - This module can only be used on versions of MSO that are 3.1.1h or greater.
 - This module can only be used on versions of NDO that are 3.7.2i or lower.

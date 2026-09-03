@@ -84,6 +84,10 @@ options:
     type: str
     choices: [ absent, present, query ]
     default: present
+deprecated:
+  removed_in: '4.0.0'
+  why: Site management is no longer functional on Nexus Dashboard (ND) 4.0+ / NDO 5.0+ releases.
+  alternative: No alternative is available.
 extends_documentation_fragment: cisco.mso.modules
 """
 

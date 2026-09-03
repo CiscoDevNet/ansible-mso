@@ -70,6 +70,10 @@ options:
     type: str
     choices: [ absent, present, query, upload, restore, download, move ]
     default: present
+deprecated:
+  removed_in: '4.0.0'
+  why: This module is no longer functional on ND v3.2 (NDO v4.4) and later.
+  alternative: No alternative is available.
 extends_documentation_fragment: cisco.mso.modules
 """
 

@@ -34,6 +34,11 @@ options:
     type: str
     choices: [ absent, present, query ]
     default: present
+deprecated:
+  removed_in: '4.0.0'
+  why: Create, update, and delete operations are no longer functional on Nexus Dashboard (ND) 4.3+ / NDO 5.3+
+    because the platform only allows GET on service node types.
+  alternative: No alternative is available.
 extends_documentation_fragment: cisco.mso.modules
 """
 

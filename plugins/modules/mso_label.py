@@ -37,6 +37,10 @@ options:
     type: str
     choices: [ absent, present, query ]
     default: present
+deprecated:
+  removed_in: '4.0.0'
+  why: This module is no longer functional on Nexus Dashboard (ND) 3.2+ / NDO 4.2+ releases.
+  alternative: No alternative is available.
 extends_documentation_fragment: cisco.mso.modules
 """
 

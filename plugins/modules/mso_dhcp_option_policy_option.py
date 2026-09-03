@@ -49,6 +49,11 @@ options:
     type: str
     choices: [ absent, present, query ]
     default: present
+deprecated:
+  removed_in: '4.0.0'
+  why: This module is no longer functional on NDO 4.0 and later. The replacement module is supported on ND v3.1
+    (NDO v4.3) and later.
+  alternative: Use M(cisco.mso.ndo_dhcp_option_policy) instead.
 extends_documentation_fragment: cisco.mso.modules
 """
 

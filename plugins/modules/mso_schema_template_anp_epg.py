@@ -265,11 +265,6 @@ EXAMPLES = r"""
     schema: Schema 1
     template: Template 1
     anp: ANP 1
-    epg: EPG 1
-    bd:
-      name: bd1
-    vrf:
-      name: vrf1
     state: query
   register: query_result
 """

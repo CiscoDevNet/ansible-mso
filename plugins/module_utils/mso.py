@@ -157,9 +157,9 @@ def mso_l3out_reference_spec():
     )
 
 
-def mso_epg_subnet_spec():
+def mso_epg_subnet_spec(subnet_required=True):
     return dict(
-        subnet=dict(type="str", required=True, aliases=["ip"]),
+        subnet=dict(type="str", required=subnet_required, aliases=["ip"]),
         description=dict(type="str"),
         scope=dict(type="str", default="private", choices=["private", "public"]),
         shared=dict(type="bool", default=False),

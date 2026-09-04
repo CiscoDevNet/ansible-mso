@@ -159,18 +159,20 @@ ansible_httpapi_use_ssl=True
 
 ## Testing
 
-Integration tests for each module in the `cisco.mso` collection are executed on the following Nexus Dashboard Orchestrator versions:
+Integration tests for each module in the `cisco.mso` collection are executed on the following Nexus Dashboard and Nexus Dashboard Orchestrator versions:
 
-- 3.7
-- 4.1
-- 4.2
-- 4.3
+- ND 3.2 (NDO 4.4)
+- ND 4.1 (NDO 5.1)
+- ND 4.2 (NDO 5.2)
 
 ## Contributing
 
 Ongoing development efforts and contributions to this collection are tracked as issues in this repository.
 
 We welcome community contributions to this collection. If you find problems, need an enhancement or need a new module, please open an issue or create a PR against the [Cisco MSO collection repository](https://github.com/CiscoDevNet/ansible-mso/issues).
+
+See the [Development Guide](DEVELOPMENT.md) for the integration-test structure,
+version handling, prerequisites, cleanup, and validation conventions.
 
 ## Support
 

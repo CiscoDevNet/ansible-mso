@@ -1,0 +1,536 @@
+---
+# Test code for the MSO modules
+# Copyright: (c) 2026, Cisco Systems, Inc.
+# Copyright: (c) 2026, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that required ACI MultiSite variables are defined
+  ansible.builtin.fail:
+    msg: 'Please define mso_hostname, mso_username and mso_password.'
+  when: >
+    mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set test connection and fixture variables
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: debug
+    mso_test:
+      schema: '{{ mso_schema_site_anp_epg_subnet | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_site_anp_epg_subnet | default(mso_tenant | default("ansible_test")) }}'
+      site: '{{ mso_site_anp_epg_subnet | default(mso_site | default("ansible_test")) }}'
+      template: Template1
+      anp: ANP1
+      epg: EPG1
+      bd: BD1
+      vrf: VRF1
+
+- name: Exercise mso_schema_site_anp_epg_subnet
+  block:
+
+  # CLEAN ENVIRONMENT
+  # Due to API changes in ND 4.2, the configured site and tenant are
+  # prerequisites for this test and must already exist. They are intentionally
+  # not created or queried here.
+  - name: Remove test schema before testing
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent
+
+  - name: Ensure schema and template exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{ mso_test.template }}'
+
+  - name: Associate the site with the schema template
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+
+  - name: Ensure VRF exists
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf }}'
+
+  - name: Ensure bridge domain exists
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      bd: '{{ mso_test.bd }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+
+  - name: Ensure template ANP exists
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+
+  - name: Ensure template EPG exists with parent references
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      bd:
+        name: '{{ mso_test.bd }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+
+  - name: Ensure site ANP exists
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+
+  - name: Ensure site EPG exists
+    cisco.mso.mso_schema_site_anp_epg:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+
+  # CREATE
+  - name: Create subnet 1 with all supported attributes in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet: &subnet_1_present
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      subnet: 10.10.1.1/24
+      description: Site subnet 1
+      scope: public
+      shared: true
+      no_default_gateway: true
+    check_mode: true
+    register: cm_create_subnet_1
+
+  - name: Create subnet 1
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *subnet_1_present
+    register: nm_create_subnet_1
+
+  - name: Create subnet 1 again
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *subnet_1_present
+    register: nm_create_subnet_1_again
+
+  # Create results contain the module payload, while subsequent reads may include controller-generated attributes.
+  # Assert the managed attributes individually so the create and idempotency checks do not compare different response shapes.
+  - name: Verify subnet 1 create and idempotency scenarios
+    ansible.builtin.assert:
+      that:
+      - cm_create_subnet_1 is changed
+      - cm_create_subnet_1.previous == {}
+      - cm_create_subnet_1.proposed == cm_create_subnet_1.current
+      - cm_create_subnet_1.current.ip == '10.10.1.1/24'
+      - cm_create_subnet_1.current.description == 'Site subnet 1'
+      - cm_create_subnet_1.current.scope == 'public'
+      - cm_create_subnet_1.current.shared
+      - cm_create_subnet_1.current.noDefaultGateway
+      - nm_create_subnet_1 is changed
+      - nm_create_subnet_1.previous == {}
+      - nm_create_subnet_1.proposed == nm_create_subnet_1.current
+      - nm_create_subnet_1.current.ip == '10.10.1.1/24'
+      - nm_create_subnet_1.current.description == 'Site subnet 1'
+      - nm_create_subnet_1.current.scope == 'public'
+      - nm_create_subnet_1.current.shared
+      - nm_create_subnet_1.current.noDefaultGateway
+      - nm_create_subnet_1_again is not changed
+      - nm_create_subnet_1_again.previous.ip == nm_create_subnet_1.current.ip
+      - nm_create_subnet_1_again.previous.description == nm_create_subnet_1.current.description
+      - nm_create_subnet_1_again.previous.scope == nm_create_subnet_1.current.scope
+      - nm_create_subnet_1_again.previous.shared == nm_create_subnet_1.current.shared
+      - nm_create_subnet_1_again.previous.noDefaultGateway == nm_create_subnet_1.current.noDefaultGateway
+      - nm_create_subnet_1_again.proposed.ip == nm_create_subnet_1.current.ip
+      - nm_create_subnet_1_again.proposed.description == nm_create_subnet_1.current.description
+      - nm_create_subnet_1_again.proposed.scope == nm_create_subnet_1.current.scope
+      - nm_create_subnet_1_again.proposed.shared == nm_create_subnet_1.current.shared
+      - nm_create_subnet_1_again.proposed.noDefaultGateway == nm_create_subnet_1.current.noDefaultGateway
+      - nm_create_subnet_1_again.current.ip == nm_create_subnet_1.current.ip
+      - nm_create_subnet_1_again.current.description == nm_create_subnet_1.current.description
+      - nm_create_subnet_1_again.current.scope == nm_create_subnet_1.current.scope
+      - nm_create_subnet_1_again.current.shared == nm_create_subnet_1.current.shared
+      - nm_create_subnet_1_again.current.noDefaultGateway == nm_create_subnet_1.current.noDefaultGateway
+
+  - name: Create subnet 2 with the ip alias and omitted optionals in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet: &subnet_2_present
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      ip: 10.10.2.1/24
+    check_mode: true
+    register: cm_create_subnet_2
+
+  - name: Create subnet 2 with defaults
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *subnet_2_present
+    register: nm_create_subnet_2
+
+  - name: Create subnet 2 again
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *subnet_2_present
+    register: nm_create_subnet_2_again
+
+  # Assert the managed attributes individually for the same create-versus-read response-shape difference described above.
+  - name: Verify subnet 2 defaults and check mode
+    ansible.builtin.assert:
+      that:
+      - cm_create_subnet_2 is changed
+      - cm_create_subnet_2.previous == {}
+      - cm_create_subnet_2.proposed == cm_create_subnet_2.current
+      - cm_create_subnet_2.current.ip == '10.10.2.1/24'
+      - cm_create_subnet_2.current.description == '10.10.2.1/24'
+      - cm_create_subnet_2.current.scope == 'private'
+      - cm_create_subnet_2.current.shared == false
+      - cm_create_subnet_2.current.noDefaultGateway == false
+      - nm_create_subnet_2 is changed
+      - nm_create_subnet_2.previous == {}
+      - nm_create_subnet_2.proposed == nm_create_subnet_2.current
+      - nm_create_subnet_2.current.ip == '10.10.2.1/24'
+      - nm_create_subnet_2.current.description == '10.10.2.1/24'
+      - nm_create_subnet_2.current.scope == 'private'
+      - nm_create_subnet_2.current.shared == false
+      - nm_create_subnet_2.current.noDefaultGateway == false
+      - nm_create_subnet_2_again is not changed
+      - nm_create_subnet_2_again.previous.ip == nm_create_subnet_2.current.ip
+      - nm_create_subnet_2_again.previous.description == nm_create_subnet_2.current.description
+      - nm_create_subnet_2_again.previous.scope == nm_create_subnet_2.current.scope
+      - nm_create_subnet_2_again.previous.shared == nm_create_subnet_2.current.shared
+      - nm_create_subnet_2_again.previous.noDefaultGateway == nm_create_subnet_2.current.noDefaultGateway
+      - nm_create_subnet_2_again.proposed.ip == nm_create_subnet_2.current.ip
+      - nm_create_subnet_2_again.proposed.description == nm_create_subnet_2.current.description
+      - nm_create_subnet_2_again.proposed.scope == nm_create_subnet_2.current.scope
+      - nm_create_subnet_2_again.proposed.shared == nm_create_subnet_2.current.shared
+      - nm_create_subnet_2_again.proposed.noDefaultGateway == nm_create_subnet_2.current.noDefaultGateway
+      - nm_create_subnet_2_again.current.ip == nm_create_subnet_2.current.ip
+      - nm_create_subnet_2_again.current.description == nm_create_subnet_2.current.description
+      - nm_create_subnet_2_again.current.scope == nm_create_subnet_2.current.scope
+      - nm_create_subnet_2_again.current.shared == nm_create_subnet_2.current.shared
+      - nm_create_subnet_2_again.current.noDefaultGateway == nm_create_subnet_2.current.noDefaultGateway
+
+  # UPDATE
+  - name: Update all mutable attributes of subnet 1 in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet: &subnet_1_updated
+      <<: *subnet_1_present
+      description: Updated site subnet 1
+      scope: private
+      shared: false
+      no_default_gateway: false
+    check_mode: true
+    register: cm_update_subnet_1
+
+  - name: Update all mutable attributes of subnet 1
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *subnet_1_updated
+    register: nm_update_subnet_1
+
+  - name: Update subnet 1 again
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *subnet_1_updated
+    register: nm_update_subnet_1_again
+
+  - name: Verify subnet 1 update and idempotency
+    ansible.builtin.assert:
+      that:
+      - cm_update_subnet_1 is changed
+      - cm_update_subnet_1.previous.ip == '10.10.1.1/24'
+      - cm_update_subnet_1.previous.description == 'Site subnet 1'
+      - cm_update_subnet_1.previous.scope == 'public'
+      - cm_update_subnet_1.previous.shared
+      - cm_update_subnet_1.previous.noDefaultGateway
+      - cm_update_subnet_1.proposed == cm_update_subnet_1.current
+      - cm_update_subnet_1.current.ip == '10.10.1.1/24'
+      - cm_update_subnet_1.current.description == 'Updated site subnet 1'
+      - cm_update_subnet_1.current.scope == 'private'
+      - cm_update_subnet_1.current.shared == false
+      - cm_update_subnet_1.current.noDefaultGateway == false
+      - nm_update_subnet_1 is changed
+      - nm_update_subnet_1.previous.ip == '10.10.1.1/24'
+      - nm_update_subnet_1.previous.description == 'Site subnet 1'
+      - nm_update_subnet_1.previous.scope == 'public'
+      - nm_update_subnet_1.previous.shared
+      - nm_update_subnet_1.previous.noDefaultGateway
+      - nm_update_subnet_1.proposed == nm_update_subnet_1.current
+      - nm_update_subnet_1.current.ip == '10.10.1.1/24'
+      - nm_update_subnet_1.current.description == 'Updated site subnet 1'
+      - nm_update_subnet_1.current.scope == 'private'
+      - nm_update_subnet_1.current.shared == false
+      - nm_update_subnet_1.current.noDefaultGateway == false
+      - nm_update_subnet_1_again is not changed
+      - nm_update_subnet_1_again.previous == nm_update_subnet_1.current
+      - nm_update_subnet_1_again.proposed == nm_update_subnet_1_again.current == nm_update_subnet_1.current
+
+  # QUERY
+  - name: Query subnet 1 in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet: &subnet_1_query
+      <<: *subnet_1_present
+      state: query
+    check_mode: true
+    register: cm_query_subnet_1
+
+  - name: Query subnet 1
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *subnet_1_query
+    register: nm_query_subnet_1
+
+  - name: Create subnet 3 for query-all coverage
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      subnet: 10.10.3.1/24
+      description: Site subnet 3
+      scope: public
+      shared: false
+      no_default_gateway: false
+
+  - name: Query all site EPG subnets in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet: &all_subnets_query
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      state: query
+    check_mode: true
+    register: cm_query_all_subnets
+
+  - name: Query all site EPG subnets
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *all_subnets_query
+    register: nm_query_all_subnets
+
+  - name: Verify individual query
+    ansible.builtin.assert:
+      that:
+      - cm_query_subnet_1 is not changed
+      - nm_query_subnet_1 is not changed
+      - cm_query_subnet_1.current == nm_query_subnet_1.current == nm_update_subnet_1.current
+      - cm_query_subnet_1.current.ip == nm_query_subnet_1.current.ip == '10.10.1.1/24'
+      - cm_query_subnet_1.current.description == nm_query_subnet_1.current.description == 'Updated site subnet 1'
+      - cm_query_subnet_1.current.scope == nm_query_subnet_1.current.scope == 'private'
+      - cm_query_subnet_1.current.shared == nm_query_subnet_1.current.shared == false
+      - cm_query_subnet_1.current.noDefaultGateway == nm_query_subnet_1.current.noDefaultGateway == false
+
+  - name: Verify collection query
+    ansible.builtin.assert:
+      that:
+      - cm_query_all_subnets is not changed
+      - nm_query_all_subnets is not changed
+      - cm_query_all_subnets.current == nm_query_all_subnets.current
+      - cm_query_all_subnets.current | length == nm_query_all_subnets.current | length == 3
+      - cm_query_all_subnets.current | selectattr('ip', 'equalto', '10.10.1.1/24') | list | length == 1
+      - cm_query_all_subnets.current | selectattr('ip', 'equalto', '10.10.2.1/24') | list | length == 1
+      - cm_query_all_subnets.current | selectattr('ip', 'equalto', '10.10.3.1/24') | list | length == 1
+
+  # DELETE
+  - name: Delete subnet 1 in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *subnet_1_present
+      state: absent
+    check_mode: true
+    register: cm_delete_subnet_1
+
+  - name: Delete subnet 1
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *subnet_1_present
+      state: absent
+    register: nm_delete_subnet_1
+
+  - name: Delete subnet 1 again
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *subnet_1_present
+      state: absent
+    register: nm_delete_subnet_1_again
+
+  - name: Verify subnet 1 delete, absence, and idempotency
+    ansible.builtin.assert:
+      that:
+      - cm_delete_subnet_1 is changed
+      - cm_delete_subnet_1.previous == nm_update_subnet_1.current
+      - cm_delete_subnet_1.proposed == cm_delete_subnet_1.current == {}
+      - nm_delete_subnet_1 is changed
+      - nm_delete_subnet_1.previous == nm_update_subnet_1.current
+      - nm_delete_subnet_1.proposed == nm_delete_subnet_1.current == {}
+      - nm_delete_subnet_1_again is not changed
+      - nm_delete_subnet_1_again.previous == nm_delete_subnet_1_again.proposed == nm_delete_subnet_1_again.current == {}
+
+  # ERROR HANDLING
+  - name: Query nonexistent subnet in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *subnet_1_present
+      subnet: 10.10.99.1/24
+      state: query
+    check_mode: true
+    register: cm_query_missing
+    ignore_errors: true
+
+  - name: Query a missing schema in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: MissingSchema
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      subnet: 10.10.4.1/24
+      state: query
+    check_mode: true
+    register: cm_missing_schema
+    ignore_errors: true
+
+  - name: Query a missing site in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *mso_info
+      site: MissingSite
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      subnet: 10.10.4.1/24
+      state: query
+    check_mode: true
+    register: cm_missing_site
+    ignore_errors: true
+
+  - name: Query a missing template in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: MissingTemplate
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      subnet: 10.10.4.1/24
+      state: query
+    check_mode: true
+    register: cm_missing_template
+    ignore_errors: true
+
+  - name: Query a missing ANP in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: MissingANP
+      epg: '{{ mso_test.epg }}'
+      subnet: 10.10.4.1/24
+      state: query
+    check_mode: true
+    register: cm_missing_anp
+    ignore_errors: true
+
+  - name: Query a missing EPG in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: MissingEPG
+      subnet: 10.10.4.1/24
+      state: query
+    check_mode: true
+    register: cm_missing_epg
+    ignore_errors: true
+
+  - name: Reject an invalid subnet scope in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      subnet: 10.10.4.1/24
+      scope: invalid
+    check_mode: true
+    register: cm_invalid_scope
+    ignore_errors: true
+
+  - name: Reject a missing subnet in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      state: present
+    check_mode: true
+    register: cm_missing_subnet
+    ignore_errors: true
+
+  - name: Reject an absent subnet without subnet in check mode
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      state: absent
+    check_mode: true
+    register: cm_missing_subnet_absent
+    ignore_errors: true
+
+  - name: Verify error-handling scenarios
+    ansible.builtin.assert:
+      that:
+      - cm_query_missing is failed
+      - cm_query_missing.msg is search("Subnet '10.10.99.1/24' not found")
+      - cm_missing_schema is failed
+      - cm_missing_schema.msg is search("Provided schema 'MissingSchema' does not exist")
+      - cm_missing_site is failed
+      - cm_missing_site.msg is search("Site 'MissingSite' is not a valid site name")
+      - cm_missing_template is failed
+      - "cm_missing_template.msg is search(\"Provided site/template '\" ~ mso_test.site ~ \"-MissingTemplate' does not exist\")"
+      - cm_missing_anp is failed
+      - cm_missing_anp.msg is search("Provided anp 'MissingANP' does not exist")
+      - cm_missing_epg is failed
+      - cm_missing_epg.msg is search("Provided epg 'MissingEPG' does not exist")
+      - cm_invalid_scope is failed
+      - cm_invalid_scope.msg is search('value of scope must be one of')
+      - cm_missing_subnet is failed
+      - "cm_missing_subnet.msg is search('state is present but all of the following are missing: subnet')"
+      - cm_missing_subnet_absent is failed
+      - "cm_missing_subnet_absent.msg is search('state is absent but all of the following are missing: subnet')"
+
+  always:
+  # CLEANUP
+  - name: Remove test schema even when a test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent

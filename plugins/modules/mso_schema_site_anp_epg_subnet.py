@@ -47,8 +47,9 @@ options:
   subnet:
     description:
     - The IP range in CIDR notation.
+    - Required for C(present) and C(absent) operations.
+    - Optional for C(query); omit to query all subnets for the EPG.
     type: str
-    required: true
     aliases: [ ip ]
   description:
     description:
@@ -73,7 +74,7 @@ options:
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
-    - Use C(query) for listing an object or multiple objects.
+    - Use C(query) for listing a specific subnet or all subnets for the EPG.
     type: str
     choices: [ absent, present, query ]
     default: present
@@ -128,7 +129,7 @@ EXAMPLES = r"""
     state: query
   register: query_result
 
-- name: Query all site EPG subnets
+- name: Query all subnets for a site EPG
   cisco.mso.mso_schema_site_anp_epg_subnet:
     host: mso_host
     username: admin
@@ -137,8 +138,10 @@ EXAMPLES = r"""
     site: Site1
     template: Template1
     anp: ANP1
+    epg: EPG1
     state: query
   register: query_result
+
 """
 
 RETURN = r"""
@@ -158,7 +161,7 @@ def main():
         epg=dict(type="str", required=True),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )
-    argument_spec.update(mso_epg_subnet_spec())
+    argument_spec.update(mso_epg_subnet_spec(subnet_required=False))
 
     module = AnsibleModule(
         argument_spec=argument_spec,
@@ -194,7 +197,8 @@ def main():
         mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
     sites = [(s.get("siteId"), s.get("templateName")) for s in schema_obj.get("sites")]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, ", ".join(sites)))
+        existing_sites_templates = ", ".join("{0}-{1}".format(site_id, template_name) for site_id, template_name in sites)
+        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, existing_sites_templates))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
@@ -243,12 +247,6 @@ def main():
         if not mso.existing:
             if description is None:
                 description = subnet
-            if scope is None:
-                scope = "private"
-            if shared is None:
-                shared = False
-            if no_default_gateway is None:
-                no_default_gateway = False
 
         payload = dict(
             ip=subnet,

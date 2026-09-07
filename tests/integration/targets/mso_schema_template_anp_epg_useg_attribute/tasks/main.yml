@@ -46,6 +46,24 @@
     template: ans_test_template
     state: present
 
+- name: Ensure ans_test_vrf exist
+  cisco.mso.mso_schema_template_vrf:
+    <<: *mso_info
+    schema: ansible_test
+    template: ans_test_template
+    name: ans_test_vrf
+    state: present
+
+- name: Ensure ans_test_bd exist
+  cisco.mso.mso_schema_template_bd:
+    <<: *mso_info
+    schema: ansible_test
+    template: ans_test_template
+    name: ans_test_bd
+    vrf:
+      name: ans_test_vrf
+    state: present
+
 - name: Ensure ans_test_anp exist
   cisco.mso.mso_schema_template_anp:
     <<: *mso_info
@@ -61,6 +79,10 @@
     template: ans_test_template
     anp: ans_test_anp
     epg: ans_test_epg
+    bd:
+      name: ans_test_bd
+    vrf:
+      name: ans_test_vrf
     useg_epg: true
     state: present
 
@@ -71,6 +93,10 @@
     template: ans_test_template
     anp: ans_test_anp
     epg: ans_test_epg_2
+    bd:
+      name: ans_test_bd
+    vrf:
+      name: ans_test_vrf
     state: present
 
 # Test Part

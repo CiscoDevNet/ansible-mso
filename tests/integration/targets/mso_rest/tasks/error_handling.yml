@@ -81,16 +81,6 @@
   ansible.builtin.assert:
     that:
     - error_on_name_resolution.msg is search("Name or service not known")
-  when: 
-    - version.current.version is version('3.7', '>=')
-    - version.current.version is version('4.4', '<')
-
-- name: Verify error_on_name_resolution >= 5.0
-  ansible.builtin.assert:
-    that:
-    - error_on_name_resolution.msg is search("Unable to parse error output as JSON")
-  when: 
-    - version.current.version is version('5.0', '>=')
 
 - name: Error on invalid path
   cisco.mso.mso_rest:

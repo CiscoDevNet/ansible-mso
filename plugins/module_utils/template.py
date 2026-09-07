@@ -880,17 +880,18 @@ class MSOTemplate:
                  When the child object identifiers are None, and the search list is not empty -> List[Dict]
                  When the child object identifiers ae None, and the search list is empty -> List[]
         """
-        if isinstance(identifiers, dict) and identifiers.values():  # Query a specific object
-            for key, value in identifiers.items():
-                if value:
-                    child_object_kvpair = KVPair(key, value)
+        existing_objects = parent_object.details.get(endpoint, [])
+        if isinstance(identifiers, dict):
+            child_object_kvpairs = [KVPair(key, value) for key, value in identifiers.items() if value is not None]
+            if not child_object_kvpairs:
+                return existing_objects  # Query all objects
             return self.get_object_by_key_value_pairs(
                 description,
-                parent_object.details.get(endpoint, []),
-                [child_object_kvpair],
+                existing_objects,
+                child_object_kvpairs,
                 fail_module,
             )
-        return parent_object.details.get(endpoint, [])  # Query all objects
+        return existing_objects  # Query all objects
 
     def get_template_policy_uuid(self, template_type, policy_name, policy_type):
         """

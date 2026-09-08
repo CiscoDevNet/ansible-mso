@@ -90,7 +90,7 @@ options:
     default: present
 deprecated:
   removed_in: '4.0.0'
-  why: This module is no longer functional on Nexus Dashboard (ND) 3.2+ / NDO 4.4+ releases.
+  why: This module is no longer functional on Nexus Dashboard v3.2+ (NDO 4.4+) releases.
   alternative: No alternative is available.
 extends_documentation_fragment: cisco.mso.modules
 """

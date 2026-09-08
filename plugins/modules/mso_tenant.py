@@ -32,7 +32,8 @@ options:
     - On Nexus Dashboard (ND) 4.2+ / NDO 5.2+, O(display_name) must equal O(tenant); the API
       rejects O(sites) association updates otherwise. When omitted on creation, it defaults to
       O(tenant). Once set, the previous value is retained and resent on every update, so ensure
-      O(display_name) still matches O(tenant) before any update that changes O(sites).
+      O(display_name) matches O(tenant) before any update that changes O(sites).
+    - This parameter is deprecated on ND 4.2+ / NDO 5.2+ and will be removed in a future version.
     type: str
   description:
     description:
@@ -41,13 +42,13 @@ options:
   users:
     description:
     - A list of associated users for this tenant.
-    - Using this property will replace any existing associated users.
+    - Using this property will replace any existing associated users, except on
+      Nexus Dashboard (ND) 4.2+ / NDO 5.2+ (see the deprecation note below).
     - Admin user is always added to the associated user list irrespective of this parameter being used, except on
       Nexus Dashboard (ND) 4.2+ / NDO 5.2+ (see the deprecation note below).
     - On ND 4.2+ / NDO 5.2+, user associations are derived from tenant-domain membership and the platform
-      automatically and immutably associates certain users (for example, superusers in the built-in
-      all-tenants-domain) with every tenant. This parameter is deprecated on ND 4.2+ / NDO 5.2+, is no longer
-      able to reliably manage user associations, and may be removed in a future version.
+      automatically and immutably associates certain users with every tenant.
+      This parameter is deprecated on ND 4.2+ / NDO 5.2+ and will be removed in a future version.
     type: list
     elements: str
   remote_users:
@@ -205,13 +206,9 @@ def main():
     elif state == "present":
         mso.previous = mso.existing
 
-        # On ND 4.2+ / NDO 5.2+, userAssociations are derived from tenant-domain membership: the
-        # platform auto-backfills it (e.g. immutable all-tenants-domain members) regardless of
-        # what is sent, so submitting a computed list unconditionally would cause perpetual
-        # "changed" drift when users/remote_users are not actually used. Only manage/send
-        # userAssociations on these versions when the caller explicitly opted in via users
-        # and/or remote_users; otherwise leave the key out of the payload entirely so the API
-        # continues to own it. Older versions keep the previous behavior (always managed).
+        # On ND 4.2+ / NDO 5.2+, userAssociations is platform-derived and auto-backfilled, so it
+        # is only sent when the caller explicitly opts in via users/remote_users; otherwise the
+        # key is left out of the payload so the API fully owns it. Older versions are unchanged.
         users_specified = users is not None or remote_users is not None
         is_ndo_5_2_or_later = is_platform_version_at_least(mso.get_platform_version().get("version"), "5.2")
         if is_ndo_5_2_or_later and users_specified:
@@ -245,7 +242,7 @@ def main():
             mso.sent["displayName"] = tenant
 
         if mso.existing:
-            # On ND 4.2+, the platform returns extra cloud-account keys (awsAccount, azureAccount,
+            # ND returns extra cloud-account keys (awsAccount, azureAccount,
             # gcpAccount, gatewayRouter) on each siteAssociations entry that this module never
             # manages/sends (lookup_sites() only builds siteId/securityDomains). Left as-is, the
             # exact-match list-of-dicts comparison in check_changed()/issubset() would report a
@@ -259,13 +256,15 @@ def main():
                 "siteAssociations.gatewayRouter",
             ]
 
-            # On ND 4.2+ / NDO 5.2+, userAssociations may be sent (when users/remote_users are
-            # explicitly used) but its true state can be further adjusted by the platform itself
-            # (e.g. additional immutable all-tenants-domain members appearing asynchronously), so
-            # the whole field is excluded from the changed-comparison to avoid perpetual
-            # false-positive drift.
+            # On ND 4.2+ / NDO 5.2+, the platform backfills extra immutable users over time, so
+            # only ignore userAssociations when the desired users are already a subset of the
+            # existing ones (platform-added noise); if the caller wants a user not yet
+            # associated, keep it in the comparison so the PUT still fires.
             if is_ndo_5_2_or_later:
-                ignore_keys.append("userAssociations")
+                desired_user_ids = {user.get("userId") for user in users}
+                existing_user_ids = {user.get("userId") for user in mso.existing.get("userAssociations") or []}
+                if not users_specified or desired_user_ids.issubset(existing_user_ids):
+                    ignore_keys.append("userAssociations")
 
             if mso.check_changed(ignore_keys=ignore_keys):
                 if module.check_mode:

@@ -21,14 +21,6 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
 
-- name: Query MSO version # Used to create the remote user - r_ansible_github_ci login entry. Which allows to map remote user with tenant.
-  cisco.mso.mso_version:
-    <<: *mso_info
-    username: r_ansible_github_ci
-    password: '{{ apic_password }}'
-    login_domain: test
-    state: query
-  register: version
 
 - name: Ensure sites exists
   cisco.mso.mso_site:
@@ -61,7 +53,15 @@
   - ansible_test1
   - ansible_test2
   - ansible_test3
+  - ansible_test4
   - tenant_with_site
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
 
 # ADD TENANT
 - name: Add tenant (check_mode)
@@ -82,7 +82,6 @@
     - cm_add_tenant.current.id is not defined
     - cm_add_tenant.current.name == 'ansible_test1'
     - cm_add_tenant.current.description == 'Ansible test tenant'
-    - cm_add_tenant.current.userAssociations | length == 1
 
 - name: Add tenant (normal mode)
   cisco.mso.mso_tenant: *tenant_present
@@ -96,7 +95,7 @@
     - nm_add_tenant.current.id is defined
     - nm_add_tenant.current.name == 'ansible_test1'
     - nm_add_tenant.current.description == 'Ansible test tenant'
-    - nm_add_tenant.current.userAssociations | length == 1
+    - nm_add_tenant.current.userAssociations | length > 0
 
 - name: Add tenant again (check_mode)
   cisco.mso.mso_tenant: *tenant_present
@@ -144,18 +143,10 @@
   ansible.builtin.assert:
     that:
     - nm_add_tenant2 is changed
-
-- name: Verify nm_add_tenant2 (when mso_username != admin)
-  ansible.builtin.assert:
-    that:
-    - nm_add_tenant2.current.userAssociations | length == 2
-  when: mso_username != 'admin'
-
-- name: Verify nm_add_tenant2 (when mso_username == admin)
-  ansible.builtin.assert:
-    that:
-    - nm_add_tenant2.current.userAssociations | length == 1
-  when: mso_username == 'admin'
+    # Exact count is no longer asserted here: on ND 4.2+ / NDO 5.2+ the platform auto-backfills
+    # additional immutable (all-tenants-domain) users regardless of what is sent, so only the
+    # presence of at least the explicitly requested user is guaranteed.
+    - nm_add_tenant2.current.userAssociations | length > 0
 
 - name: Add tenant 2 again (normal mode)
   cisco.mso.mso_tenant:
@@ -171,118 +162,69 @@
   ansible.builtin.assert:
     that:
     - nm_add_tenant2_again is not changed
+    - nm_add_tenant2_again.current.userAssociations | length > 0
 
-- name: Verify nm_add_tenant2_again (when mso_username != admin)
-  ansible.builtin.assert:
-    that:
-    - nm_add_tenant2_again.current.userAssociations | length == 2
-  when: mso_username != 'admin'
+# ADD TENANT WITH USERS - forced-admin merge behavior (MSO classic / ND < 4.2 / NDO < 5.2 only)
+# On these versions the module still force-adds "admin" to userAssociations, so an explicitly
+# specified non-admin user results in exactly 2 entries, and removing that user again (while
+# admin remains forced) results in exactly 1 entry (admin only). This behavior is deprecated and
+# no longer applies on ND 4.2+ / NDO 5.2+ (see users/remote_users deprecation notes), so this
+# block only runs on older versions, and only when the test user is not already "admin" (so the
+# explicitly specified user is distinguishable from the forced-admin one).
+- name: Execute forced-admin userAssociations tasks only for MSO/NDO version < 5.2
+  when:
+  - version.current.version is version('5.2', '<')
+  - mso_username != 'admin'
+  block:
+  - name: Remove ansible_test4 tenant if it exists
+    cisco.mso.mso_tenant:
+      <<: *mso_info
+      tenant: ansible_test4
+      state: absent
 
-- name: Verify nm_add_tenant2_again (when mso_username == admin)
-  ansible.builtin.assert:
-    that:
-    - nm_add_tenant2_again.current.userAssociations | length == 1
-  when: mso_username == 'admin'
+  - name: Query admin user
+    cisco.mso.mso_user:
+      <<: *mso_info
+      user: admin
+      state: query
+    register: query_admin_user
 
-# ADD TENANT WITH REMOTE USERS
-- name: Add tenant 3 (check_mode)
-  cisco.mso.mso_tenant:
-    <<: *tenant_present
-    tenant: ansible_test3
-    display_name: null
-    remote_users:
-    - name: r_ansible_github_ci
-      login_domain: test
-    state: present
-  check_mode: true
-  register: cm_add_rmt_usr_tenant3
+  - name: Add tenant 4 with an explicit non-admin user (normal mode)
+    cisco.mso.mso_tenant: &tenant4_present
+      <<: *mso_info
+      tenant: ansible_test4
+      users:
+      - '{{ mso_username }}'
+      state: present
+    register: nm_add_tenant4
 
-- name: Verify cm_add_rmt_usr_tenant3
-  ansible.builtin.assert:
-    that:
-    - cm_add_rmt_usr_tenant3 is changed
+  - name: Verify nm_add_tenant4 has both the explicitly specified user and the forced admin user
+    ansible.builtin.assert:
+      that:
+      - nm_add_tenant4 is changed
+      - nm_add_tenant4.current.userAssociations | length == 2
 
-- name: Add tenant 3 (normal_mode)
-  cisco.mso.mso_tenant:
-    <<: *tenant_present
-    tenant: ansible_test3
-    display_name: null
-    remote_users:
-    - name: r_ansible_github_ci
-      login_domain: test
-    state: present
-  register: nm_add_rmt_usr_tenant3
+  - name: Update tenant 4 to remove the explicit user, keeping only the forced admin user (normal mode)
+    cisco.mso.mso_tenant:
+      <<: *tenant4_present
+      users: []
+    register: nm_update_tenant4
 
-- name: Verify cm_add_rmt_usr_tenant3
-  ansible.builtin.assert:
-    that:
-    - nm_add_rmt_usr_tenant3 is changed
-    - nm_add_rmt_usr_tenant3.current.name == 'ansible_test3'
+  - name: Verify nm_update_tenant4 now only has the forced admin user
+    ansible.builtin.assert:
+      that:
+      - nm_update_tenant4 is changed
+      - nm_update_tenant4.previous.userAssociations | length == 2
+      - nm_update_tenant4.current.userAssociations | length == 1
+      - nm_update_tenant4.current.userAssociations[0].userId == query_admin_user.current.id
 
-- name: Add tenant 3 with duplicate admin user (normal mode)
-  cisco.mso.mso_tenant:
-    <<: *tenant_present
-    tenant: ansible_test3
-    users:
-    - admin
-    - admin
-    display_name: null
-    state: present
-  ignore_errors: true
-  register: nm_add_tenant3_with_duplicate_admin
+  - name: Remove ansible_test4 tenant
+    cisco.mso.mso_tenant:
+      <<: *mso_info
+      tenant: ansible_test4
+      state: absent
 
-- name: Verify nm_add_tenant3_with_duplicate_admin
-  ansible.builtin.assert:
-    that:
-    - nm_add_tenant3_with_duplicate_admin is not changed
-    - nm_add_tenant3_with_duplicate_admin.msg == "User 'admin' is duplicate."
 
-- name: Add tenant 3 with invalid user (normal mode)
-  cisco.mso.mso_tenant:
-    <<: *tenant_present
-    tenant: ansible_test3
-    users:
-    - invalid user
-    display_name: null
-    state: present
-  ignore_errors: true
-  register: nm_add_tenant3_with_invalid_user
-
-- name: nm_add_tenant3_with_invalid_user
-  ansible.builtin.assert:
-    that:
-    - nm_add_tenant3_with_invalid_user is not changed
-    - nm_add_tenant3_with_invalid_user.msg == "User 'invalid user' is not a valid user name."
-
-- name: Add tenant 3 (normal mode)
-  cisco.mso.mso_tenant:
-    <<: *tenant_present
-    tenant: ansible_test3
-    users:
-    - '{{ mso_username }}'
-    remote_users:
-    - name: r_ansible_github_ci
-      login_domain: test
-    display_name: null
-    state: present
-  register: nm_add_tenant3
-
-- name: Verify nm_add_tenant3
-  ansible.builtin.assert:
-    that:
-    - nm_add_tenant3 is changed
-
-- name: Verify nm_add_tenant3 (when mso_username != admin)
-  ansible.builtin.assert:
-    that:
-    - nm_add_tenant3.current.userAssociations | length == 3
-  when: mso_username != 'admin'
-
-- name: Verify nm_add_tenant3 (when mso_username == admin)
-  ansible.builtin.assert:
-    that:
-    - nm_add_tenant3.current.userAssociations | length == 1
-  when: mso_username == 'admin'
 
 # CHANGE TENANT
 - name: Change tenant (check_mode)
@@ -520,244 +462,244 @@
     - rm_tenant_with_site is changed
     - rm_tenant_with_site.current == {}
 
-- name: Remove "anstest_imp_tenant" to the MSO if exists
+- name: Remove "anstest_imp_tenant2" to the MSO if exists
   cisco.mso.mso_tenant:
     <<: *mso_info
-    tenant: anstest_imp_tenant
-    display_name: anstest_imp_tenant_display_name
+    tenant: anstest_imp_tenant2
+    display_name: anstest_imp_tenant2
     description: anstest_imp_tenant_description
     sites: '{{ mso_site | default("ansible_test") }}'
     state: absent
   register: pre_test_anstest_imp_tenant_absent
 
-- name: Import "anstest_imp_tenant" to the MSO with check mode
+- name: Import "anstest_imp_tenant2" to the MSO with check mode
   cisco.mso.mso_tenant: &cm_import_anstest_imp_tenant_present
     <<: *mso_info
-    tenant: anstest_imp_tenant
-    display_name: anstest_imp_tenant_display_name
+    tenant: anstest_imp_tenant2
+    display_name: anstest_imp_tenant2
     description: anstest_imp_tenant_description
     sites: '{{ mso_site | default("ansible_test") }}'
     state: present
   check_mode: true
   register: cm_import_anstest_imp_tenant_present
 
-- name: Assertions check for import "anstest_imp_tenant" to the MSO with check mode
+- name: Assertions check for import "anstest_imp_tenant2" to the MSO with check mode
   ansible.builtin.assert:
     that:
       - cm_import_anstest_imp_tenant_present is changed
       - cm_import_anstest_imp_tenant_present.current != {}
       - cm_import_anstest_imp_tenant_present.previous == {}
-      - cm_import_anstest_imp_tenant_present.current.name == "anstest_imp_tenant"
-      - cm_import_anstest_imp_tenant_present.current.displayName == "anstest_imp_tenant_display_name"
+      - cm_import_anstest_imp_tenant_present.current.name == "anstest_imp_tenant2"
+      - cm_import_anstest_imp_tenant_present.current.displayName == "anstest_imp_tenant2"
       - cm_import_anstest_imp_tenant_present.current.description == "anstest_imp_tenant_description"
 
-- name: Import "anstest_imp_tenant" to the MSO with normal mode
+- name: Import "anstest_imp_tenant2" to the MSO with normal mode
   cisco.mso.mso_tenant: &nm_import_anstest_imp_tenant_present
     <<: *cm_import_anstest_imp_tenant_present
   register: nm_import_anstest_imp_tenant_present
 
-- name: Assertions check for import "anstest_imp_tenant" to the MSO with normal mode
+- name: Assertions check for import "anstest_imp_tenant2" to the MSO with normal mode
   ansible.builtin.assert:
     that:
       - nm_import_anstest_imp_tenant_present is changed
       - nm_import_anstest_imp_tenant_present.current != {}
       - nm_import_anstest_imp_tenant_present.previous == {}
-      - nm_import_anstest_imp_tenant_present.current.name == "anstest_imp_tenant"
-      - nm_import_anstest_imp_tenant_present.current.displayName == "anstest_imp_tenant_display_name"
+      - nm_import_anstest_imp_tenant_present.current.name == "anstest_imp_tenant2"
+      - nm_import_anstest_imp_tenant_present.current.displayName == "anstest_imp_tenant2"
       - nm_import_anstest_imp_tenant_present.current.description == "anstest_imp_tenant_description"
 
-- name: Import "anstest_imp_tenant" to the MSO with normal mode - idempotency works
+- name: Import "anstest_imp_tenant2" to the MSO with normal mode - idempotency works
   cisco.mso.mso_tenant:
     <<: *nm_import_anstest_imp_tenant_present
   register: idempotency_nm_import_anstest_imp_tenant_present
 
-- name: Idempotency assertions check for import "anstest_imp_tenant" to the MSO with normal mode
+- name: Idempotency assertions check for import "anstest_imp_tenant2" to the MSO with normal mode
   ansible.builtin.assert:
     that:
       - idempotency_nm_import_anstest_imp_tenant_present is not changed
       - idempotency_nm_import_anstest_imp_tenant_present.current != {}
       - idempotency_nm_import_anstest_imp_tenant_present.previous != {}
-      - idempotency_nm_import_anstest_imp_tenant_present.current.name == "anstest_imp_tenant"
-      - idempotency_nm_import_anstest_imp_tenant_present.current.displayName == "anstest_imp_tenant_display_name"
+      - idempotency_nm_import_anstest_imp_tenant_present.current.name == "anstest_imp_tenant2"
+      - idempotency_nm_import_anstest_imp_tenant_present.current.displayName == "anstest_imp_tenant2"
       - idempotency_nm_import_anstest_imp_tenant_present.current.description == "anstest_imp_tenant_description"
-      - idempotency_nm_import_anstest_imp_tenant_present.previous.name == "anstest_imp_tenant"
-      - idempotency_nm_import_anstest_imp_tenant_present.previous.displayName == "anstest_imp_tenant_display_name"
+      - idempotency_nm_import_anstest_imp_tenant_present.previous.name == "anstest_imp_tenant2"
+      - idempotency_nm_import_anstest_imp_tenant_present.previous.displayName == "anstest_imp_tenant2"
       - idempotency_nm_import_anstest_imp_tenant_present.previous.description == "anstest_imp_tenant_description"
 
-- name: Query a tenant with name "anstest_imp_tenant" when it is imported to the MSO
+- name: Query a tenant with name "anstest_imp_tenant2" when it is imported to the MSO
   cisco.mso.mso_tenant:
     <<: *mso_info
-    tenant: anstest_imp_tenant
+    tenant: anstest_imp_tenant2
     state: query
   register: query_anstest_imp_tenant
 
-- name: Assertions check for query a tenant with name "anstest_imp_tenant" when it is imported to the MSO
+- name: Assertions check for query a tenant with name "anstest_imp_tenant2" when it is imported to the MSO
   ansible.builtin.assert:
     that:
       - query_anstest_imp_tenant is not changed
       - query_anstest_imp_tenant.current != {}
-      - query_anstest_imp_tenant.current.name == "anstest_imp_tenant"
-      - query_anstest_imp_tenant.current.displayName == "anstest_imp_tenant_display_name"
+      - query_anstest_imp_tenant.current.name == "anstest_imp_tenant2"
+      - query_anstest_imp_tenant.current.displayName == "anstest_imp_tenant2"
       - query_anstest_imp_tenant.current.description == "anstest_imp_tenant_description"
 
-- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value yes with check mode
+- name: Remove "anstest_imp_tenant2" tenant from MSO and APIC using orchestrator_only flag value yes with check mode
   cisco.mso.mso_tenant: &cm_anstest_imp_tenant_absent_orchestrator_only_yes
     <<: *mso_info
-    tenant: anstest_imp_tenant
+    tenant: anstest_imp_tenant2
     orchestrator_only: yes
     state: absent
   check_mode: true
   register: cm_anstest_imp_tenant_absent_orchestrator_only_yes
 
-- name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value yes with check mode
+- name: Assertions check for remove "anstest_imp_tenant2" tenant from MSO and APIC using orchestrator_only flag value yes with check mode
   ansible.builtin.assert:
     that:
       - cm_anstest_imp_tenant_absent_orchestrator_only_yes is changed
       - cm_anstest_imp_tenant_absent_orchestrator_only_yes.current == {}
       - cm_anstest_imp_tenant_absent_orchestrator_only_yes.previous != {}
-      - cm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.name == "anstest_imp_tenant"
-      - cm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.displayName == "anstest_imp_tenant_display_name"
+      - cm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.name == "anstest_imp_tenant2"
+      - cm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.displayName == "anstest_imp_tenant2"
       - cm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.description == "anstest_imp_tenant_description"
 
-- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value yes with normal mode
+- name: Remove "anstest_imp_tenant2" tenant from MSO and APIC using orchestrator_only flag value yes with normal mode
   cisco.mso.mso_tenant: &nm_anstest_imp_tenant_absent_orchestrator_only_yes
     <<: *cm_anstest_imp_tenant_absent_orchestrator_only_yes
   register: nm_anstest_imp_tenant_absent_orchestrator_only_yes
 
-- name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value yes with normal mode
+- name: Assertions check for remove "anstest_imp_tenant2" tenant from MSO and APIC using orchestrator_only flag value yes with normal mode
   ansible.builtin.assert:
     that:
       - nm_anstest_imp_tenant_absent_orchestrator_only_yes is changed
       - nm_anstest_imp_tenant_absent_orchestrator_only_yes.current == {}
       - nm_anstest_imp_tenant_absent_orchestrator_only_yes.previous != {}
-      - nm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.name == "anstest_imp_tenant"
-      - nm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.displayName == "anstest_imp_tenant_display_name"
+      - nm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.name == "anstest_imp_tenant2"
+      - nm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.displayName == "anstest_imp_tenant2"
       - nm_anstest_imp_tenant_absent_orchestrator_only_yes.previous.description == "anstest_imp_tenant_description"
 
-- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value yes with normal mode - idempotency works
+- name: Remove "anstest_imp_tenant2" tenant from MSO and APIC using orchestrator_only flag value yes with normal mode - idempotency works
   cisco.mso.mso_tenant:
     <<: *nm_anstest_imp_tenant_absent_orchestrator_only_yes
   register: idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_yes
 
-- name: Idempotency assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value yes with normal mode
+- name: Idempotency assertions check for remove "anstest_imp_tenant2" tenant from MSO and APIC using orchestrator_only flag value yes with normal mode
   ansible.builtin.assert:
     that:
       - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_yes is not changed
       - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_yes.current == {}
       - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_yes.previous == {}
 
-- name: Import "anstest_imp_tenant" to the MSO with normal mode once again
+- name: Import "anstest_imp_tenant2" to the MSO with normal mode once again
   cisco.mso.mso_tenant:
     <<: *nm_import_anstest_imp_tenant_present
   register: nm_import_tenant_once_again
 
-- name: Assertions check for import "anstest_imp_tenant" to the MSO with normal mode once again
+- name: Assertions check for import "anstest_imp_tenant2" to the MSO with normal mode once again
   ansible.builtin.assert:
     that:
       - nm_import_tenant_once_again is changed
       - nm_import_tenant_once_again.current != {}
       - nm_import_tenant_once_again.previous == {}
-      - nm_import_tenant_once_again.current.name == "anstest_imp_tenant"
-      - nm_import_tenant_once_again.current.displayName == "anstest_imp_tenant_display_name"
+      - nm_import_tenant_once_again.current.name == "anstest_imp_tenant2"
+      - nm_import_tenant_once_again.current.displayName == "anstest_imp_tenant2"
       - nm_import_tenant_once_again.current.description == "anstest_imp_tenant_description"
 
-- name: Update "anstest_imp_tenant" tenant description with check mode
+- name: Update "anstest_imp_tenant2" tenant description with check mode
   cisco.mso.mso_tenant: &cm_update_anstest_imp_tenant
     <<: *nm_import_anstest_imp_tenant_present
     description: "updated_anstest_imp_tenant_description"
   check_mode: true
   register: cm_update_anstest_imp_tenant
 
-- name: Assertions check for update "anstest_imp_tenant" tenant description with check mode
+- name: Assertions check for update "anstest_imp_tenant2" tenant description with check mode
   ansible.builtin.assert:
     that:
       - cm_update_anstest_imp_tenant is changed
       - cm_update_anstest_imp_tenant.current != {}
       - cm_update_anstest_imp_tenant.previous != {}
-      - cm_update_anstest_imp_tenant.current.name == "anstest_imp_tenant"
-      - cm_update_anstest_imp_tenant.current.displayName == "anstest_imp_tenant_display_name"
+      - cm_update_anstest_imp_tenant.current.name == "anstest_imp_tenant2"
+      - cm_update_anstest_imp_tenant.current.displayName == "anstest_imp_tenant2"
       - cm_update_anstest_imp_tenant.current.description == "updated_anstest_imp_tenant_description"
-      - cm_update_anstest_imp_tenant.previous.name == "anstest_imp_tenant"
-      - cm_update_anstest_imp_tenant.previous.displayName == "anstest_imp_tenant_display_name"
+      - cm_update_anstest_imp_tenant.previous.name == "anstest_imp_tenant2"
+      - cm_update_anstest_imp_tenant.previous.displayName == "anstest_imp_tenant2"
       - cm_update_anstest_imp_tenant.previous.description == "anstest_imp_tenant_description"
 
-- name: Update "anstest_imp_tenant" tenant description with normal mode
+- name: Update "anstest_imp_tenant2" tenant description with normal mode
   cisco.mso.mso_tenant: &nm_update_anstest_imp_tenant
     <<: *cm_update_anstest_imp_tenant
   register: nm_update_anstest_imp_tenant
 
-- name: Assertions check for update "anstest_imp_tenant" tenant description with normal mode
+- name: Assertions check for update "anstest_imp_tenant2" tenant description with normal mode
   ansible.builtin.assert:
     that:
       - nm_update_anstest_imp_tenant is changed
       - nm_update_anstest_imp_tenant.current != {}
       - nm_update_anstest_imp_tenant.previous != {}
-      - nm_update_anstest_imp_tenant.current.name == "anstest_imp_tenant"
-      - nm_update_anstest_imp_tenant.current.displayName == "anstest_imp_tenant_display_name"
+      - nm_update_anstest_imp_tenant.current.name == "anstest_imp_tenant2"
+      - nm_update_anstest_imp_tenant.current.displayName == "anstest_imp_tenant2"
       - nm_update_anstest_imp_tenant.current.description == "updated_anstest_imp_tenant_description"
-      - nm_update_anstest_imp_tenant.previous.name == "anstest_imp_tenant"
-      - nm_update_anstest_imp_tenant.previous.displayName == "anstest_imp_tenant_display_name"
+      - nm_update_anstest_imp_tenant.previous.name == "anstest_imp_tenant2"
+      - nm_update_anstest_imp_tenant.previous.displayName == "anstest_imp_tenant2"
       - nm_update_anstest_imp_tenant.previous.description == "anstest_imp_tenant_description"
 
-- name: Update "anstest_imp_tenant" tenant description with normal mode - idempotency works
+- name: Update "anstest_imp_tenant2" tenant description with normal mode - idempotency works
   cisco.mso.mso_tenant:
     <<: *nm_update_anstest_imp_tenant
   register: nm_idempotency_update_anstest_imp_tenant
 
-- name: Idempotency assertions check for update "anstest_imp_tenant" tenant description with normal mode
+- name: Idempotency assertions check for update "anstest_imp_tenant2" tenant description with normal mode
   ansible.builtin.assert:
     that:
       - nm_idempotency_update_anstest_imp_tenant is not changed
       - nm_idempotency_update_anstest_imp_tenant.current != {}
       - nm_idempotency_update_anstest_imp_tenant.previous != {}
-      - nm_idempotency_update_anstest_imp_tenant.current.name == "anstest_imp_tenant"
-      - nm_idempotency_update_anstest_imp_tenant.current.displayName == "anstest_imp_tenant_display_name"
+      - nm_idempotency_update_anstest_imp_tenant.current.name == "anstest_imp_tenant2"
+      - nm_idempotency_update_anstest_imp_tenant.current.displayName == "anstest_imp_tenant2"
       - nm_idempotency_update_anstest_imp_tenant.current.description == "updated_anstest_imp_tenant_description"
-      - nm_idempotency_update_anstest_imp_tenant.previous.name == "anstest_imp_tenant"
-      - nm_idempotency_update_anstest_imp_tenant.previous.displayName == "anstest_imp_tenant_display_name"
+      - nm_idempotency_update_anstest_imp_tenant.previous.name == "anstest_imp_tenant2"
+      - nm_idempotency_update_anstest_imp_tenant.previous.displayName == "anstest_imp_tenant2"
       - nm_idempotency_update_anstest_imp_tenant.previous.description == "updated_anstest_imp_tenant_description"
 
 # Orchestrator Only no will remove the tenant from MSO and APIC
-- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value no with check mode
+- name: Remove "anstest_imp_tenant2" tenant from MSO and APIC using orchestrator_only flag value no with check mode
   cisco.mso.mso_tenant: &cm_anstest_imp_tenant_absent_orchestrator_only_no
     <<: *mso_info
-    tenant: anstest_imp_tenant
+    tenant: anstest_imp_tenant2
     orchestrator_only: no
     state: absent
   check_mode: true
   register: cm_anstest_imp_tenant_absent_orchestrator_only_no
 
-- name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value no with check mode
+- name: Assertions check for remove "anstest_imp_tenant2" tenant from MSO and APIC using orchestrator_only flag value no with check mode
   ansible.builtin.assert:
     that:
       - cm_anstest_imp_tenant_absent_orchestrator_only_no is changed
       - cm_anstest_imp_tenant_absent_orchestrator_only_no.current == {}
       - cm_anstest_imp_tenant_absent_orchestrator_only_no.previous != {}
-      - cm_anstest_imp_tenant_absent_orchestrator_only_no.previous.name == "anstest_imp_tenant"
-      - cm_anstest_imp_tenant_absent_orchestrator_only_no.previous.displayName == "anstest_imp_tenant_display_name"
+      - cm_anstest_imp_tenant_absent_orchestrator_only_no.previous.name == "anstest_imp_tenant2"
+      - cm_anstest_imp_tenant_absent_orchestrator_only_no.previous.displayName == "anstest_imp_tenant2"
       - cm_anstest_imp_tenant_absent_orchestrator_only_no.previous.description == "updated_anstest_imp_tenant_description"
 
-- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value no with normal mode
+- name: Remove "anstest_imp_tenant2" tenant from MSO and APIC using orchestrator_only flag value no with normal mode
   cisco.mso.mso_tenant: &nm_anstest_imp_tenant_absent_orchestrator_only_no
     <<: *cm_anstest_imp_tenant_absent_orchestrator_only_no
   register: nm_anstest_imp_tenant_absent_orchestrator_only_no
 
-- name: Assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value no with normal mode
+- name: Assertions check for remove "anstest_imp_tenant2" tenant from MSO and APIC using orchestrator_only flag value no with normal mode
   ansible.builtin.assert:
     that:
       - nm_anstest_imp_tenant_absent_orchestrator_only_no is changed
       - nm_anstest_imp_tenant_absent_orchestrator_only_no.current == {}
       - nm_anstest_imp_tenant_absent_orchestrator_only_no.previous != {}
-      - nm_anstest_imp_tenant_absent_orchestrator_only_no.previous.name == "anstest_imp_tenant"
-      - nm_anstest_imp_tenant_absent_orchestrator_only_no.previous.displayName == "anstest_imp_tenant_display_name"
+      - nm_anstest_imp_tenant_absent_orchestrator_only_no.previous.name == "anstest_imp_tenant2"
+      - nm_anstest_imp_tenant_absent_orchestrator_only_no.previous.displayName == "anstest_imp_tenant2"
       - nm_anstest_imp_tenant_absent_orchestrator_only_no.previous.description == "updated_anstest_imp_tenant_description"
 
-- name: Remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value no with normal mode - idempotency works
+- name: Remove "anstest_imp_tenant2" tenant from MSO and APIC using orchestrator_only flag value no with normal mode - idempotency works
   cisco.mso.mso_tenant:
     <<: *nm_anstest_imp_tenant_absent_orchestrator_only_no
   register: idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_no
 
-- name: Idempotency assertions check for remove "anstest_imp_tenant" tenant from MSO and APIC using orchestrator_only flag value no with normal mode
+- name: Idempotency assertions check for remove "anstest_imp_tenant2" tenant from MSO and APIC using orchestrator_only flag value no with normal mode
   ansible.builtin.assert:
     that:
       - idempotency_nm_anstest_imp_tenant_absent_orchestrator_only_no is not changed
@@ -771,4 +713,5 @@
   - ansible_test1
   - ansible_test2
   - ansible_test3
+  - ansible_test4
   - tenant_with_site

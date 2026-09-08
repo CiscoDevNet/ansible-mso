@@ -48,10 +48,20 @@ if PY3:
 def is_platform_version_at_least(version, min_version):
     """Compare a 'major.minor' platform version string (e.g. NDO's 'platform/version' response)
     against a 'major.minor' minimum version string. Returns True if version >= min_version.
-    Non-numeric/missing versions are treated as not meeting the minimum (returns False)."""
+    Each of the first two dot-separated parts is parsed as its leading run of digits, so
+    version strings with non-numeric suffixes (e.g. '5.2(1)', '5.2a') are still parsed
+    correctly. Non-numeric/missing versions are treated as not meeting the minimum (returns
+    False)."""
+
+    def leading_int(part):
+        match = re.match(r"\d+", part)
+        if not match:
+            raise ValueError("No leading digits in version part: {0}".format(part))
+        return int(match.group())
+
     try:
-        version_parts = tuple(int(part) for part in str(version).split(".")[:2])
-        min_version_parts = tuple(int(part) for part in str(min_version).split(".")[:2])
+        version_parts = tuple(leading_int(part) for part in str(version).split(".")[:2])
+        min_version_parts = tuple(leading_int(part) for part in str(min_version).split(".")[:2])
     except (TypeError, ValueError):
         return False
     return version_parts >= min_version_parts

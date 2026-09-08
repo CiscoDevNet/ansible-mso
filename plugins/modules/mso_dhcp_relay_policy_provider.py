@@ -69,8 +69,8 @@ options:
     default: present
 deprecated:
   removed_in: '4.0.0'
-  why: This module is no longer functional on NDO 4.0 and later. The replacement module is supported on ND v3.1
-    (NDO v4.3) and later.
+  why: This module is no longer functional on NDO 4.0 and later. The replacement cisco.mso.ndo_dhcp_relay_policy
+    module is supported on Nexus Dashboard v3.1 (NDO 4.3) and later.
   alternative: Use M(cisco.mso.ndo_dhcp_relay_policy) instead.
 extends_documentation_fragment: cisco.mso.modules
 """

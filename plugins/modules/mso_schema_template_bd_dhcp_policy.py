@@ -67,8 +67,8 @@ options:
     default: present
 deprecated:
   removed_in: '4.0.0'
-  why: This module is no longer functional on NDO 4.0 and later. The replacement module is supported on ND v3.1
-    (NDO v4.3) and later.
+  why: This module is no longer functional on NDO 4.0 and later. The replacement
+    cisco.mso.ndo_schema_template_bd_dhcp_policy module is supported on Nexus Dashboard v3.1 (NDO 4.3) and later.
   alternative: Use M(cisco.mso.ndo_schema_template_bd_dhcp_policy) instead.
 notes:
 - This module can only be used on versions of MSO that are 3.1.1h or greater.

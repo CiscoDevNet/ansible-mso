@@ -45,6 +45,18 @@ if PY3:
         return (a > b) - (a < b)
 
 
+def is_platform_version_at_least(version, min_version):
+    """Compare a 'major.minor' platform version string (e.g. NDO's 'platform/version' response)
+    against a 'major.minor' minimum version string. Returns True if version >= min_version.
+    Non-numeric/missing versions are treated as not meeting the minimum (returns False)."""
+    try:
+        version_parts = tuple(int(part) for part in str(version).split(".")[:2])
+        min_version_parts = tuple(int(part) for part in str(min_version).split(".")[:2])
+    except (TypeError, ValueError):
+        return False
+    return version_parts >= min_version_parts
+
+
 def issubset(subset, superset):
     """Recurse through nested dictionary and compare entries"""
 
@@ -1126,6 +1138,17 @@ class MSOModule(object):
             self.fail_json(msg="More than one object matches unique filter: {0}".format(kwargs))
         return objs[0]
 
+    def get_platform_version(self):
+        """Fetch and cache the platform version info from the 'platform/version' endpoint.
+        Returns a dict as returned by the API (typically includes a 'version' key), or {} on
+        failure. Cached per module run to avoid repeated API calls."""
+        if not hasattr(self, "_platform_version"):
+            try:
+                self._platform_version = self.query_obj("platform/version")
+            except Exception:
+                self._platform_version = {}
+        return self._platform_version
+
     def lookup_schema(self, schema, ignore_not_found_error=False):
         """Look up schema and return its id"""
         if schema is None:
@@ -1258,14 +1281,26 @@ class MSOModule(object):
 
     def lookup_users(self, users, ignore_not_found_error=False):
         """Look up users and return their ids"""
-        # Ensure tenant has at least admin user
-        if users is None:
-            users = ["admin"]
-        elif "admin" not in users:
-            users.append("admin")
+        # On ND 4.2+ / NDO 5.2+, userAssociations are derived from tenant-domain membership and
+        # the platform automatically (and immutably) associates certain users (e.g. all
+        # superusers via the built-in "all-tenants-domain") with every tenant. Forcing "admin"
+        # into the payload is no longer needed there and can conflict with that platform-managed
+        # behavior, so it is only done on older versions where userAssociations is a plain,
+        # fully user-managed list.
+        if not is_platform_version_at_least(self.get_platform_version().get("version"), "5.2"):
+            # Ensure tenant has at least admin user
+            if users is None:
+                users = ["admin"]
+            elif "admin" not in users:
+                users.append("admin")
+        elif users is None:
+            users = []
 
         ids = []
-        if self.platform == "nd":
+        # Only fetch the (potentially large) local/remote user lists when there is actually
+        # something to look up. On ND 4.2+ / NDO 5.2+, users may be an empty list (no forced
+        # "admin" and no users param given), so skip the lookup entirely in that case.
+        if self.platform == "nd" and users:
             remote_users = self.nd_request("/nexus/infra/api/aaa/v4/remoteusers", method="GET", ignore_not_found_error=True)
             local_users = self.nd_request("/nexus/infra/api/aaa/v4/localusers", method="GET", ignore_not_found_error=True)
 
@@ -1692,8 +1727,19 @@ class MSOModule(object):
         self.result.update(**kwargs)
         self.module.fail_json(msg=msg, **self.result)
 
-    def check_changed(self):
-        """Check if changed by comparing new values from existing"""
+    def check_changed(self, ignore_keys=None):
+        """Check if changed by comparing new values from existing
+
+        ignore_keys: optional iterable of keys to exclude from the comparison, for fields that
+        are still sent to the API but whose true state may be adjusted/derived by the platform
+        itself (e.g. userAssociations on ND 4.2+ / NDO 5.2+), so comparing them would otherwise
+        cause perpetual false-positive "changed" results. A plain key (e.g. "userAssociations")
+        excludes that whole top-level field. A dotted path (e.g. "siteAssociations.awsAccount")
+        excludes only the given nested key wherever it occurs under that field -- including
+        within every entry of a list, such as each item of the siteAssociations list -- while
+        the rest of the field is still compared. Neither self.existing nor self.sent is
+        mutated; the comparison operates on copies only.
+        """
         existing = self.existing
         if "password" in existing:
             existing["password"] = self.sent.get("password")
@@ -1701,7 +1747,42 @@ class MSOModule(object):
         existing = self.remove_keys_from_dict_when_value_empty(existing)
         self.stdout = json.dumps(existing)
 
-        return not issubset(self.sent, existing)
+        sent = deepcopy(self.sent)
+        existing = deepcopy(existing)
+
+        if ignore_keys:
+            for ignore_key in ignore_keys:
+                path = ignore_key.split(".")
+                self.remove_key_path(sent, path)
+                self.remove_key_path(existing, path)
+
+        return not issubset(sent, existing)
+
+    def remove_key_path(self, obj, path):
+        """Remove the nested key described by path (a list of key segments, e.g.
+        ["siteAssociations", "awsAccount"]) from obj in place. When a segment resolves to a
+        list (e.g. a list-of-dicts field like siteAssociations), the remaining path is applied
+        to every item of that list. Returns obj for convenience."""
+        if not path or obj is None:
+            return obj
+
+        key, rest = path[0], path[1:]
+
+        if isinstance(obj, list):
+            for item in obj:
+                self.remove_key_path(item, path)
+            return obj
+
+        if not isinstance(obj, dict):
+            return obj
+
+        if not rest:
+            obj.pop(key, None)
+            return obj
+
+        if key in obj:
+            self.remove_key_path(obj[key], rest)
+        return obj
 
     def update_service_graph_obj(self, service_graph_obj):
         """update filter with more information"""

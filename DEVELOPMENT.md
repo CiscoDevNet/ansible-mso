@@ -327,6 +327,11 @@ visible until the module is corrected.
     description: Updated parent
   register: nm_update_parent
 
+- name: Update parent without managing the child object again
+  cisco.mso.<parent_module>:
+    <<: *parent_updated
+  register: nm_update_parent_again
+
 - name: Query child after parent update
   cisco.mso.<child_module>:
     <<: *child_query

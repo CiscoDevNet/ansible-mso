@@ -37,7 +37,7 @@
   # CLEAN ENVIRONMENT
   # Due to API changes in ND 4.2, the configured site and tenant are
   # prerequisites for this test and must already exist. They are intentionally
-  # not created or queried here.
+  # not created or queried here; only their tenant-site association is managed.
   - name: Remove test schema before testing
     cisco.mso.mso_schema:
       <<: *mso_info
@@ -50,6 +50,15 @@
       schema: '{{ mso_test.schema }}'
       tenant: '{{ mso_test.tenant }}'
       template: '{{ mso_test.template }}'
+
+  # TODO: mso_tenant_site is deprecated. Replace this with the supported
+  # tenant-site association solution, or require a stable test environment
+  # where this association is already present before the test runs.
+  - name: Associate the site with the tenant
+    cisco.mso.mso_tenant_site:
+      <<: *mso_info
+      tenant: '{{ mso_test.tenant }}'
+      site: '{{ mso_test.site }}'
 
   - name: Associate the site with the schema template
     cisco.mso.mso_schema_site:
@@ -92,23 +101,6 @@
         name: '{{ mso_test.bd }}'
       vrf:
         name: '{{ mso_test.vrf }}'
-
-  - name: Ensure site ANP exists
-    cisco.mso.mso_schema_site_anp:
-      <<: *mso_info
-      site: '{{ mso_test.site }}'
-      schema: '{{ mso_test.schema }}'
-      template: '{{ mso_test.template }}'
-      anp: '{{ mso_test.anp }}'
-
-  - name: Ensure site EPG exists
-    cisco.mso.mso_schema_site_anp_epg:
-      <<: *mso_info
-      site: '{{ mso_test.site }}'
-      schema: '{{ mso_test.schema }}'
-      template: '{{ mso_test.template }}'
-      anp: '{{ mso_test.anp }}'
-      epg: '{{ mso_test.epg }}'
 
   # CREATE
   - name: Create subnet 1 with all supported attributes in check mode

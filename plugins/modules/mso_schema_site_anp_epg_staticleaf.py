@@ -85,22 +85,10 @@ EXAMPLES = r"""
     template: Template1
     anp: ANP1
     epg: EPG1
-    leaf: Leaf1
+    pod: pod-1
+    leaf: '101'
     vlan: 123
     state: present
-
-- name: Remove a static leaf from a site EPG
-  cisco.mso.mso_schema_site_anp_epg_staticleaf:
-    host: mso_host
-    username: admin
-    password: SomeSecretPassword
-    schema: Schema1
-    site: Site1
-    template: Template1
-    anp: ANP1
-    epg: EPG1
-    leaf: Leaf1
-    state: absent
 
 - name: Query a specific site EPG static leaf
   cisco.mso.mso_schema_site_anp_epg_staticleaf:
@@ -112,7 +100,9 @@ EXAMPLES = r"""
     template: Template1
     anp: ANP1
     epg: EPG1
-    leaf: Leaf1
+    pod: pod-1
+    leaf: '101'
+    vlan: 123
     state: query
   register: query_result
 
@@ -125,8 +115,24 @@ EXAMPLES = r"""
     site: Site1
     template: Template1
     anp: ANP1
+    epg: EPG1
     state: query
   register: query_result
+
+- name: Remove a static leaf from a site EPG
+  cisco.mso.mso_schema_site_anp_epg_staticleaf:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema1
+    site: Site1
+    template: Template1
+    anp: ANP1
+    epg: EPG1
+    pod: pod-1
+    leaf: '101'
+    vlan: 123
+    state: absent
 """
 
 RETURN = r"""

@@ -27,8 +27,8 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version >= 4.1
-  when: version.current.version is version('4.1', '>=')
+- name: Run tests supported from ND v4.1 (NDO v5.1)
+  when: version.current.version is version('5.1', '>=')
   block:
     # CLEAN ENVIRONMENT
     - name: Ensure ansible_test exist
@@ -133,7 +133,7 @@
           - cm_add_netflow_monitor.current.exporterRefs.1.exporterTemplateId != ""
           - cm_add_netflow_monitor.current.exporterRefs.1.exporterTemplateName == "ansible_tenant_template"
           - cm_add_netflow_monitor.current.name == "netflow_monitor_1"
-          - cm_add_netflow_monitor.current.recordRef == ""
+          - cm_add_netflow_monitor.current.recordRef is undefined
           - cm_add_netflow_monitor.previous == {}
           - cm_add_netflow_monitor.proposed.exporterRefs.0.exporterName == "netflow_exporter_1"
           - cm_add_netflow_monitor.proposed.exporterRefs.0.exporterRef != ""
@@ -144,7 +144,7 @@
           - cm_add_netflow_monitor.proposed.exporterRefs.1.exporterTemplateId != ""
           - cm_add_netflow_monitor.proposed.exporterRefs.1.exporterTemplateName == "ansible_tenant_template"
           - cm_add_netflow_monitor.proposed.name == "netflow_monitor_1"
-          - cm_add_netflow_monitor.proposed.recordRef == ""
+          - cm_add_netflow_monitor.proposed.recordRef is undefined
           - nm_add_netflow_monitor is changed
           - nm_add_netflow_monitor.current.description == ""
           - nm_add_netflow_monitor.current.exporterRefs.0.exporterName == "netflow_exporter_1"
@@ -451,6 +451,40 @@
       register: nt_add_netflow_monitor_3_without_exporter
       ignore_errors: true
 
+    - name: Negative test create NetFlow Monitor 3 with an empty netflow_exporters list (check_mode)
+      cisco.mso.ndo_tenant_netflow_monitor: &neg_add_netflow_monitor_3_with_empty_exporters
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_monitor_3
+        netflow_exporters: []
+        state: present
+      check_mode: true
+      register: cm_add_netflow_monitor_3_with_empty_exporters
+      ignore_errors: true
+
+    - name: Negative test create NetFlow Monitor 3 with an empty netflow_exporters list
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *neg_add_netflow_monitor_3_with_empty_exporters
+      register: nt_add_netflow_monitor_3_with_empty_exporters
+      ignore_errors: true
+
+    - name: Negative test update NetFlow Monitor 2 with an empty netflow_exporters list (check_mode)
+      cisco.mso.ndo_tenant_netflow_monitor: &neg_update_netflow_monitor_2_with_empty_exporters
+        <<: *mso_info
+        template: ansible_tenant_template
+        name: netflow_monitor_2
+        netflow_exporters: []
+        state: present
+      check_mode: true
+      register: cm_update_netflow_monitor_2_with_empty_exporters
+      ignore_errors: true
+
+    - name: Negative test update NetFlow Monitor 2 with an empty netflow_exporters list
+      cisco.mso.ndo_tenant_netflow_monitor:
+        <<: *neg_update_netflow_monitor_2_with_empty_exporters
+      register: nt_update_netflow_monitor_2_with_empty_exporters
+      ignore_errors: true
+
     - name: Assertion check for NetFlow Monitor negative tests
       ansible.builtin.assert:
         that:
@@ -464,6 +498,14 @@
           - 'nt_add_netflow_monitor_with_incomplete_exporter.msg == "one of the following is required: template, template_id found in netflow_exporters -> reference"'
           - nt_add_netflow_monitor_3_without_exporter is not changed
           - 'nt_add_netflow_monitor_3_without_exporter.msg == "MSO Error 400: At least one NetFlow Exporter needs to be provided to NetFlow Monitor netflow_monitor_3"'
+          - cm_add_netflow_monitor_3_with_empty_exporters is not changed
+          - 'cm_add_netflow_monitor_3_with_empty_exporters.msg == "At least one NetFlow Exporter is required when providing the netflow_exporters parameter."'
+          - nt_add_netflow_monitor_3_with_empty_exporters is not changed
+          - 'nt_add_netflow_monitor_3_with_empty_exporters.msg == "At least one NetFlow Exporter is required when providing the netflow_exporters parameter."'
+          - cm_update_netflow_monitor_2_with_empty_exporters is not changed
+          - 'cm_update_netflow_monitor_2_with_empty_exporters.msg == "At least one NetFlow Exporter is required when providing the netflow_exporters parameter."'
+          - nt_update_netflow_monitor_2_with_empty_exporters is not changed
+          - 'nt_update_netflow_monitor_2_with_empty_exporters.msg == "At least one NetFlow Exporter is required when providing the netflow_exporters parameter."'
 
     # DELETE
     - name: Delete NetFlow Monitor 1 using UUID (check_mode)
@@ -547,6 +589,7 @@
           - nm_delete_netflow_monitor_2_name_again.current == {}
           - nm_delete_netflow_monitor_2_name_again.previous == {}
 
+  always:
     # CLEANUP
     - name: Ensure templates do not exist
       cisco.mso.ndo_template:

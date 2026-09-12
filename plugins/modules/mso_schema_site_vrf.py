@@ -104,6 +104,8 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
+import copy
 
 
 def main():
@@ -144,7 +146,8 @@ def main():
         mso.fail_json(msg="No site associated with template '{0}'. Associate the site with the template using mso_schema_site.".format(template))
     sites = [(s.get("siteId"), s.get("templateName")) for s in schema_obj.get("sites")]
     if (site_id, template) not in sites:
-        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, ", ".join(sites)))
+        existing_sites_templates = ", ".join("{0}-{1}".format(site_id, template_name) for site_id, template_name in sites)
+        mso.fail_json(msg="Provided site/template '{0}-{1}' does not exist. Existing sites/templates: {2}".format(site, template, existing_sites_templates))
 
     # Schema-access uses indexes
     site_idx = sites.index((site_id, template))
@@ -158,10 +161,15 @@ def main():
         vrf_idx = vrfs.index(vrf_ref)
         vrf_path = "/sites/{0}/vrfs/{1}".format(site_template, vrf)
         mso.existing = schema_obj.get("sites")[site_idx]["vrfs"][vrf_idx]
+        if isinstance(mso.existing.get("vrfRef"), str):
+            mso.existing["vrfRef"] = mso.dict_from_ref(mso.existing["vrfRef"])
 
     if state == "query":
         if vrf is None:
             mso.existing = schema_obj.get("sites")[site_idx]["vrfs"]
+            for site_vrf in mso.existing:
+                if isinstance(site_vrf.get("vrfRef"), str):
+                    site_vrf["vrfRef"] = mso.dict_from_ref(site_vrf["vrfRef"])
         elif not mso.existing:
             mso.fail_json(msg="VRF '{vrf}' not found".format(vrf=vrf))
         mso.exit_json()
@@ -187,13 +195,13 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            ops.append(dict(op="replace", path=vrf_path, value=mso.sent))
+            append_update_ops_data(ops, copy.deepcopy(mso.previous), vrf_path, payload)
         else:
             ops.append(dict(op="add", path=vrfs_path + "/-", value=mso.sent))
 
         mso.existing = mso.proposed
 
-    if not module.check_mode:
+    if not module.check_mode and ops:
         mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()

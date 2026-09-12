@@ -1,0 +1,337 @@
+---
+# Test code for the MSO modules
+# Copyright: (c) 2026, Cisco Systems, Inc.
+# Copyright: (c) 2026, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+- name: Test that required ACI MultiSite variables are defined
+  ansible.builtin.fail:
+    msg: 'Please define mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set test connection and fixture variables
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: debug
+    mso_test:
+      schema: '{{ mso_schema_site_vrf | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_site_vrf | default(mso_tenant | default("ansible_test")) }}'
+      site: '{{ mso_site_vrf | default(mso_site | default("ansible_test")) }}'
+      template: Template1
+      vrf: VRF1
+
+- name: Exercise mso_schema_site_vrf
+  block:
+
+  # CLEAN ENVIRONMENT
+  # Due to API changes in ND 4.2, the configured site and tenant are
+  # prerequisites for this test and must already exist. They are intentionally
+  # not created or queried here; only their tenant-site association is managed.
+  - name: Remove test schema before testing
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent
+
+  - name: Ensure schema and template exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{ mso_test.template }}'
+
+  - name: Query schema metadata for the update fixture
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: query
+    register: nm_update_schema
+
+  # TODO: mso_tenant_site is deprecated. Replace this with the supported
+  # tenant-site association solution, or require a stable test environment
+  # where this association is already present before the test runs.
+  - name: Associate the site with the tenant
+    cisco.mso.mso_tenant_site:
+      <<: *mso_info
+      tenant: '{{ mso_test.tenant }}'
+      site: '{{ mso_test.site }}'
+
+  - name: Associate the site with the schema template
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+    register: nm_schema_site
+
+  # A site VRF must reference an existing template VRF. ND replicates the
+  # template VRFs to the site when the schema template is associated.
+  - name: Ensure template VRFs exist
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ item }}'
+    loop:
+    - '{{ mso_test.vrf }}'
+    - VRF2
+    - VRF3
+
+  # CREATE
+  # Site VRF creation is skipped because ND automatically replicates the
+  # template VRFs to the associated site.
+
+  # UPDATE
+  # The site VRF is replicated automatically from the template. Add a child
+  # object through the REST API, then reconcile the existing parent with the
+  # module and verify that the child object is preserved.
+  # routeTargetAddresses is not exposed by mso_schema_site_vrf yet, so
+  # mso_rest is used to configure this child object for the test.
+  - name: Add route target address to site VRF 1
+    cisco.mso.mso_rest:
+      <<: *mso_info
+      path: "/mso/api/v1/schemas/{{ nm_update_schema.current.id }}"
+      method: patch
+      content:
+      - op: add
+        path: "/sites/{{ nm_schema_site.current.siteId }}-{{ mso_test.template }}/vrfs/{{ mso_test.vrf }}/routeTargetAddresses/-"
+        value:
+          addressFamily: ipv4-ucast
+          address: route-target:as4-nn2:65001:100
+          routeTargetType: export
+
+  - name: Update site VRF 1 in check mode
+    cisco.mso.mso_schema_site_vrf: &site_vrf_1_update
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      name: '{{ mso_test.vrf }}'
+    check_mode: true
+    register: cm_update_site_vrf_1
+
+  - name: Update site VRF 1
+    cisco.mso.mso_schema_site_vrf:
+      <<: *site_vrf_1_update
+    register: nm_update_site_vrf_1
+
+  - name: Update site VRF 1 again
+    cisco.mso.mso_schema_site_vrf:
+      <<: *site_vrf_1_update
+    register: nm_update_site_vrf_1_again
+
+  - name: Verify site VRF 1 update and child preservation
+    ansible.builtin.assert:
+      that:
+      - cm_update_site_vrf_1 is not changed
+      - nm_update_site_vrf_1 is not changed
+      - nm_update_site_vrf_1_again is not changed
+      - cm_update_site_vrf_1.current.vrfRef == nm_update_site_vrf_1.current.vrfRef
+      - nm_update_site_vrf_1.current.vrfRef.vrfName == mso_test.vrf
+      - nm_update_site_vrf_1.current.routeTargetAddresses | length == 1
+      - nm_update_site_vrf_1.current.routeTargetAddresses[0].addressFamily == 'ipv4-ucast'
+      - nm_update_site_vrf_1.current.routeTargetAddresses[0].address == 'route-target:as4-nn2:65001:100'
+      - nm_update_site_vrf_1.current.routeTargetAddresses[0].routeTargetType == 'export'
+      - nm_update_site_vrf_1_again.current.routeTargetAddresses == nm_update_site_vrf_1.current.routeTargetAddresses
+
+  # QUERY
+  - name: Query site VRF 1 in check mode
+    cisco.mso.mso_schema_site_vrf: &site_vrf_1_query
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf }}'
+      state: query
+    check_mode: true
+    register: cm_query_site_vrf_1
+
+  - name: Query site VRF 1
+    cisco.mso.mso_schema_site_vrf:
+      <<: *site_vrf_1_query
+    register: nm_query_site_vrf_1
+
+  - name: Query all site VRFs in check mode
+    cisco.mso.mso_schema_site_vrf: &all_site_vrfs_query
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      state: query
+    check_mode: true
+    register: cm_query_all_site_vrfs
+
+  - name: Query all site VRFs
+    cisco.mso.mso_schema_site_vrf:
+      <<: *all_site_vrfs_query
+    register: nm_query_all_site_vrfs
+
+  - name: Verify individual site VRF query
+    ansible.builtin.assert:
+      that:
+      - cm_query_site_vrf_1 is not changed
+      - nm_query_site_vrf_1 is not changed
+      - cm_query_site_vrf_1.current.vrfRef == nm_query_site_vrf_1.current.vrfRef
+      - cm_query_site_vrf_1.current.vrfRef.templateName == mso_test.template
+      - cm_query_site_vrf_1.current.vrfRef.vrfName == mso_test.vrf
+      - cm_query_site_vrf_1.current.vrfRef.schemaId is defined
+      - cm_query_site_vrf_1.current.routeTargetAddresses == nm_update_site_vrf_1.current.routeTargetAddresses
+
+  - name: Verify site VRF collection query
+    ansible.builtin.assert:
+      that:
+      - cm_query_all_site_vrfs is not changed
+      - nm_query_all_site_vrfs is not changed
+      - cm_query_all_site_vrfs.current == nm_query_all_site_vrfs.current
+      - cm_query_all_site_vrfs.current | length == nm_query_all_site_vrfs.current | length == 3
+      - cm_query_all_site_vrfs.current | selectattr('vrfRef.vrfName', 'equalto', mso_test.vrf) | list | length == 1
+      - cm_query_all_site_vrfs.current | selectattr('vrfRef.vrfName', 'equalto', 'VRF2') | list | length == 1
+      - cm_query_all_site_vrfs.current | selectattr('vrfRef.vrfName', 'equalto', 'VRF3') | list | length == 1
+
+  # DELETE
+  # Deleting the site VRF removes the explicitly configured site object and
+  # its routeTargetAddresses child. ND may then re-replicate the parent VRF
+  # from the template without preserving the site-level child configuration.
+  - name: Delete site VRF 1 in check mode
+    cisco.mso.mso_schema_site_vrf: &site_vrf_1_absent
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf }}'
+      state: absent
+    check_mode: true
+    register: cm_delete_site_vrf_1
+
+  - name: Delete site VRF 1
+    cisco.mso.mso_schema_site_vrf:
+      <<: *site_vrf_1_absent
+    register: nm_delete_site_vrf_1
+
+  - name: Delete site VRF 1 again
+    cisco.mso.mso_schema_site_vrf:
+      <<: *site_vrf_1_absent
+    register: nm_delete_site_vrf_1_again
+
+  - name: Verify site VRF 1 delete, absence, and idempotency
+    ansible.builtin.assert:
+      that:
+      - cm_delete_site_vrf_1 is changed
+      - cm_delete_site_vrf_1.previous.vrfRef == nm_update_site_vrf_1.current.vrfRef
+      - cm_delete_site_vrf_1.previous.vrfRef.templateName == mso_test.template
+      - cm_delete_site_vrf_1.previous.vrfRef.vrfName == mso_test.vrf
+      - cm_delete_site_vrf_1.previous.vrfRef.schemaId is defined
+      - cm_delete_site_vrf_1.proposed == cm_delete_site_vrf_1.current == {}
+      # Adding the route-target child makes this site VRF explicitly modified,
+      # so NDO reports the delete as a real change.
+      - nm_delete_site_vrf_1 is changed
+      - nm_delete_site_vrf_1.previous.vrfRef == nm_update_site_vrf_1.current.vrfRef
+      - nm_delete_site_vrf_1.previous.vrfRef.templateName == mso_test.template
+      - nm_delete_site_vrf_1.previous.vrfRef.vrfName == mso_test.vrf
+      - nm_delete_site_vrf_1.previous.vrfRef.schemaId is defined
+      - nm_delete_site_vrf_1.proposed == nm_delete_site_vrf_1.current == {}
+      - nm_delete_site_vrf_1_again is not changed
+      # ND retains or re-replicates the site VRF after the first delete, so a
+      # repeated delete still sees the same managed VRF identity. The child
+      # and controller-generated fields may differ after re-replication.
+      - nm_delete_site_vrf_1_again.previous.vrfRef == nm_delete_site_vrf_1.previous.vrfRef
+      - nm_delete_site_vrf_1_again.proposed == nm_delete_site_vrf_1_again.current == {}
+
+  # ERROR HANDLING
+  - name: Query nonexistent site VRF in check mode
+    cisco.mso.mso_schema_site_vrf:
+      <<: *site_vrf_1_query
+      vrf: MissingVRF
+      state: query
+    check_mode: true
+    register: cm_query_missing
+    ignore_errors: true
+
+  - name: Query a missing schema in check mode
+    cisco.mso.mso_schema_site_vrf:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: MissingSchema
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf }}'
+      state: query
+    check_mode: true
+    register: cm_missing_schema
+    ignore_errors: true
+
+  - name: Query a missing site in check mode
+    cisco.mso.mso_schema_site_vrf:
+      <<: *mso_info
+      site: MissingSite
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf }}'
+      state: query
+    check_mode: true
+    register: cm_missing_site
+    ignore_errors: true
+
+  - name: Query a missing template in check mode
+    cisco.mso.mso_schema_site_vrf:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: MissingTemplate
+      vrf: '{{ mso_test.vrf }}'
+      state: query
+    check_mode: true
+    register: cm_missing_template
+    ignore_errors: true
+
+  - name: Reject a missing VRF in check mode
+    cisco.mso.mso_schema_site_vrf:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      state: present
+    check_mode: true
+    register: cm_missing_vrf
+    ignore_errors: true
+
+  - name: Reject an absent site VRF without a VRF in check mode
+    cisco.mso.mso_schema_site_vrf:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      state: absent
+    check_mode: true
+    register: cm_missing_vrf_absent
+    ignore_errors: true
+
+  - name: Verify error-handling scenarios
+    ansible.builtin.assert:
+      that:
+      - cm_query_missing is failed
+      - cm_query_missing.msg is search("VRF 'MissingVRF' not found")
+      - cm_missing_schema is failed
+      - cm_missing_schema.msg is search("Provided schema 'MissingSchema' does not exist")
+      - cm_missing_site is failed
+      - cm_missing_site.msg is search("Site 'MissingSite' is not a valid site name")
+      - cm_missing_template is failed
+      - "cm_missing_template.msg is search(\"Provided site/template '\" ~ mso_test.site ~ \"-MissingTemplate' does not exist\")"
+      - cm_missing_vrf is failed
+      - "cm_missing_vrf.msg is search('state is present but all of the following are missing: vrf')"
+      - cm_missing_vrf_absent is failed
+      - "cm_missing_vrf_absent.msg is search('state is absent but all of the following are missing: vrf')"
+
+  always:
+  # CLEANUP
+  - name: Remove test schema even when a test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent

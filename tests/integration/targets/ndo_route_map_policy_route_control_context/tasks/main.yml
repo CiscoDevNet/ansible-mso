@@ -26,8 +26,8 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version >= 4.1
-  when: version.current.version is version('4.1', '>=')
+- name: Run tests supported from ND v4.1 (NDO v5.1)
+  when: version.current.version is version('5.1', '>=')
   block:
     # CLEAN ENVIRONMENT
     - name: Ensure ansible_test exist
@@ -552,6 +552,7 @@
           - rm_route_map_policy_context_2.previous.name == "route_map_policy_context_2"
           - rm_route_map_policy_context_2.previous.order == 1
 
+  always:
     # CLEAN ENVIRONMENT
     - name: Ensure templates do not exist
       cisco.mso.ndo_template:

@@ -43,8 +43,8 @@
           - https://{{ apic_hostname }}
         state: present
       loop:
-        - {site: "ansible_test", apic_site_id: 101}
-        - {site: "ansible_test_2", apic_site_id: 102}
+        - {site: '{{ mso_site | default("ansible_test") }}', apic_site_id: 101}
+        - {site: '{{ mso_site_2 | default("ansible_test_2") }}', apic_site_id: 102}
 
     - name: Ensure templates do not exist
       cisco.mso.ndo_template: &template_absent

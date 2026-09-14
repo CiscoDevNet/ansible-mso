@@ -43,8 +43,8 @@
           - https://{{ apic_hostname }}
         state: present
       loop:
-        - {site: "ansible_test", apic_site_id: 101}
-        - {site: "ansible_test_2", apic_site_id: 102}
+        - {site: '{{ mso_site | default("ansible_test") }}', apic_site_id: 101}
+        - {site: '{{ mso_site_2 | default("ansible_test_2") }}', apic_site_id: 102}
     
     - name: Ensure tenant exist
       cisco.mso.mso_tenant: 
@@ -54,7 +54,7 @@
           - '{{ mso_username }}'
         sites:
           - '{{ mso_site | default("ansible_test") }}'
-          - ansible_test_2
+          - '{{ mso_site_2 | default("ansible_test_2") }}'
         state: present
       loop:
         - '{{ mso_tenant | default("ansible_test") }}'

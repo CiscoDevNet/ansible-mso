@@ -117,21 +117,21 @@
   cisco.mso.mso_tenant_site:
     <<: *mso_info
     tenant: ansible_test
-    site: ansible_test
+    site: '{{ mso_site | default("ansible_test") }}'
     state: present
 
 - name: Ensure ansible_test site associated with ansible_test schema
   cisco.mso.mso_schema_site:
     <<: *mso_info
     schema: ansible_test
-    site: ansible_test
+    site: '{{ mso_site | default("ansible_test") }}'
     template: ans_test_template
     state: present
 
 - name: Add ans_test_epg to the ansible_test site
   cisco.mso.mso_schema_site_anp_epg:
     <<: *mso_info
-    site: ansible_test
+    site: '{{ mso_site | default("ansible_test") }}'
     schema: ansible_test
     template: ans_test_template
     anp: ans_test_anp
@@ -148,7 +148,7 @@
     anp: ans_test_anp
     epg: ans_test_epg
     description: "uSeg Attr object created using Ansible"
-    site: ansible_test
+    site: '{{ mso_site | default("ansible_test") }}'
     state: present
   ignore_errors: true
   register: ans_test_uSeg_1_nt
@@ -156,7 +156,7 @@
 - name: ans_test_uSeg_1 present - attribute_type - ip, useg_subnet - true, without value
   cisco.mso.mso_schema_site_anp_epg_useg_attribute:
     <<: *mso_info
-    site: ansible_test
+    site: '{{ mso_site | default("ansible_test") }}'
     schema: ansible_test
     template: ans_test_template
     anp: ans_test_anp

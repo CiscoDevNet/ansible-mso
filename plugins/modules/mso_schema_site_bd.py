@@ -112,8 +112,11 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
+import copy
+
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
 def main():
@@ -177,13 +180,13 @@ def main():
         bd_idx = bds.index(bd_ref)
         bd_path = "/sites/{0}/bds/{1}".format(site_template, bd)
         mso.existing = schema_obj.get("sites")[site_idx]["bds"][bd_idx]
-        mso.existing["bdRef"] = mso.dict_from_ref(mso.existing.get("bdRef"))
+        mso.recursive_dict_from_ref(mso.existing)
 
     if state == "query":
         if bd is None:
             mso.existing = schema_obj.get("sites")[site_idx]["bds"]
-            for bd in mso.existing:
-                bd["bdRef"] = mso.dict_from_ref(bd.get("bdRef"))
+            for site_bd in mso.existing:
+                mso.recursive_dict_from_ref(site_bd)
         elif not mso.existing:
             mso.fail_json(msg="BD '{bd}' not found".format(bd=bd))
         mso.exit_json()
@@ -216,13 +219,13 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            ops.append(dict(op="replace", path=bd_path, value=mso.sent))
+            append_update_ops_data(ops, copy.deepcopy(mso.previous), bd_path, payload)
         else:
             ops.append(dict(op="add", path=bds_path + "/-", value=mso.sent))
 
         mso.existing = mso.proposed
 
-    if not module.check_mode and mso.existing != mso.previous:
+    if not module.check_mode and ops:
         mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()

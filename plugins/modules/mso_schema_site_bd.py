@@ -42,6 +42,8 @@ options:
   host_route:
     description:
     - Whether host-based routing is enabled.
+    - When omitted while creating a site BD, host-based routing defaults to false.
+    - When omitted while updating an existing site BD, the current value is preserved.
     type: bool
   svi_mac:
     description:
@@ -126,6 +128,10 @@ def main():
         site=dict(type="str", required=True),
         template=dict(type="str", required=True),
         bd=dict(type="str", aliases=["name"]),  # This parameter is not required for querying all objects
+        # Site BDs are normally present through template replication, so
+        # omission must preserve the existing value. Do not set an argument-
+        # spec default; the defensive creation fallback below is not reached
+        # in the normal replicated workflow.
         host_route=dict(type="bool"),
         svi_mac=dict(type="str"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
@@ -203,6 +209,10 @@ def main():
     elif state == "present":
         if not mso.existing:
             if host_route is None:
+                # Site BDs are normally replicated from template BDs, so this
+                # creation fallback is not reached in the normal workflow.
+                # Keep it because the API requires hostBasedRouting for a new
+                # site BD if an unreplicated object is ever encountered.
                 host_route = False
 
         payload = dict(

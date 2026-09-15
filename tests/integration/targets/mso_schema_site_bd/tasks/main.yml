@@ -12,730 +12,832 @@
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
-- name: Set vars
-  ansible.builtin.set_fact:
-    mso_info: &mso_info
-      host: '{{ mso_hostname }}'
-      username: '{{ mso_username }}'
-      password: '{{ mso_password }}'
-      validate_certs: '{{ mso_validate_certs | default(false) }}'
-      use_ssl: '{{ mso_use_ssl | default(true) }}'
-      use_proxy: '{{ mso_use_proxy | default(true) }}'
-      output_level: '{{ mso_output_level | default("debug") }}'
+- name: Exercise mso_schema_site_bd
+  block:
+  - name: Set test connection and fixture variables
+    ansible.builtin.set_fact:
+      mso_info: &mso_info
+        host: '{{ mso_hostname }}'
+        username: '{{ mso_username }}'
+        password: '{{ mso_password }}'
+        validate_certs: '{{ mso_validate_certs | default(false) }}'
+        use_ssl: '{{ mso_use_ssl | default(true) }}'
+        use_proxy: '{{ mso_use_proxy | default(true) }}'
+        output_level: '{{ mso_output_level | default("debug") }}'
+      mso_test:
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema_without_site: '{{ mso_schema | default("ansible_test") }}_2'
+        tenant: ansible_test
+        site: '{{ mso_site | default("ansible_test") }}'
+        template: Template 1
+        bd:
+          name: ansible_test_1
+          subnet:
+            ip: 10.20.30.1/24
+            description: site BD child subnet
+            scope: public
+            shared: true
+            no_default_gateway: true
+            querier: true
 
-- name: Query MSO version
-  cisco.mso.mso_version:
-    <<: *mso_info
-    state: query
-  register: version
+  - name: Query MSO version
+    cisco.mso.mso_version:
+      <<: *mso_info
+      state: query
+    register: version
 
-- name: Ensure site exists
-  cisco.mso.mso_site:
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ apic_username }}'
-    apic_password: '{{ apic_password }}'
-    apic_site_id: '{{ apic_site_id | default(101) }}'
-    urls:
-      - https://{{ apic_hostname }}
-    state: present
+  - name: Ensure site exists
+    cisco.mso.mso_site:
+      <<: *mso_info
+      site: '{{ mso_site | default("ansible_test") }}'
+      apic_username: '{{ apic_username }}'
+      apic_password: '{{ apic_password }}'
+      apic_site_id: '{{ apic_site_id | default(101) }}'
+      urls:
+        - https://{{ apic_hostname }}
+      state: present
 
-- name: Ensure tenant ansible_test exists
-  cisco.mso.mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test
-    users:
-      - '{{ mso_username }}'
-    sites:
-      - '{{ mso_site | default("ansible_test") }}'
-    state: present
+  - name: Ensure tenant ansible_test exists
+    cisco.mso.mso_tenant:
+      <<: *mso_info
+      tenant: ansible_test
+      users:
+        - '{{ mso_username }}'
+      sites:
+        - '{{ mso_site | default("ansible_test") }}'
+      state: present
 
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
+  - name: Remove schemas
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    loop:
+    - '{{ mso_test.schema_without_site }}'
+    - '{{ mso_test.schema }}'
 
-- name: Ensure schema 1 with Template 1, and Template 2, Template 3 exist
-  cisco.mso.mso_schema_template:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    tenant: ansible_test
-    template: '{{item.template}}'
-    state: present
-  loop:
-  - { template: Template 1}
-  - { template: Template 2}
-  - { template: Template 3}
+  - name: Ensure schema 1 with Template 1, and Template 2, Template 3 exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      tenant: ansible_test
+      template: '{{item.template}}'
+      state: present
+    loop:
+    - { template: Template 1}
+    - { template: Template 2}
+    - { template: Template 3}
 
-- name: Ensure schema 2 with Template 3 exist
-  cisco.mso.mso_schema_template:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    tenant: ansible_test
-    template: Template 3
-    state: present
+  - name: Ensure schema 2 with Template 3 exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      tenant: ansible_test
+      template: Template 3
+      state: present
 
-- name: Add physical site to a schema
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: '{{item.template}}'
-    state: present
-  loop:
-  - { template: Template 1}
-  - { template: Template 2}
+  - name: Add physical site to a schema
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: '{{item.template}}'
+      state: present
+    loop:
+    - { template: Template 1}
+    - { template: Template 2}
 
-- name: Ensure VRF1 exists
-  cisco.mso.mso_schema_template_vrf: 
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    vrf: VRF1
-    layer3_multicast: true
-    state: present
-
-- name: Ensure ansible_test_1 BD does not exist
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    vrf:
-      name: VRF1
-    state: absent
-
-- name: Add template BD 
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    vrf:
-      name: VRF1
-    state: present
-  register: nm_add_bd
-
-- name: Verify nm_add_bd
-  ansible.builtin.assert:
-    that:
-    - nm_add_bd is changed
-    - nm_add_bd.previous == {}
-    - nm_add_bd.current.name == "ansible_test_1"
-    - nm_add_bd.current.vrfRef.templateName == "Template1"
-    - nm_add_bd.current.vrfRef.vrfName == "VRF1"
-
-- name: Add template BD 2
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 2
-    bd: ansible_test_2
-    vrf:
-      name: VRF1
+  - name: Ensure VRF1 exists
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
-    state: present
-  register: nm_add_bd_2
+      vrf: VRF1
+      layer3_multicast: true
+      state: present
 
-- name: Verify nm_add_bd_2
-  ansible.builtin.assert:
-    that:
-    - nm_add_bd_2 is changed
-    - nm_add_bd_2.previous == {}
-    - nm_add_bd_2.current.name == "ansible_test_2"
-    - nm_add_bd_2.current.vrfRef.templateName == "Template1"
-    - nm_add_bd_2.current.vrfRef.vrfName == "VRF1"
-
-- name: Add template BD 3
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_3
-    vrf:
-      name: VRF1
+  - name: Ensure ansible_test_1 BD does not exist
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
-    state: present
-  register: nm_add_bd_3
+      bd: ansible_test_1
+      vrf:
+        name: VRF1
+      state: absent
 
-- name: Verify nm_add_bd_3
-  ansible.builtin.assert:
-    that:
-    - nm_add_bd_3 is changed
-    - nm_add_bd_3.previous == {}
-    - nm_add_bd_3.current.name == "ansible_test_3"
-    - nm_add_bd_3.current.vrfRef.templateName == "Template1"
-    - nm_add_bd_3.current.vrfRef.vrfName == "VRF1"
-
-- name: Add template BD 4
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_4
-    vrf:
-      name: VRF1
+  - name: Add template BD
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
-    state: present
-  register: nm_add_bd_4
+      bd: ansible_test_1
+      layer2_stretch: false
+      vrf:
+        name: VRF1
+      state: present
+    register: nm_add_bd
 
-- name: Verify nm_add_bd_4
-  ansible.builtin.assert:
-    that:
-    - nm_add_bd_4 is changed
-    - nm_add_bd_4.previous == {}
-    - nm_add_bd_4.current.name == "ansible_test_4"
-    - nm_add_bd_4.current.vrfRef.templateName == "Template1"
-    - nm_add_bd_4.current.vrfRef.vrfName == "VRF1"
+  - name: Verify nm_add_bd
+    ansible.builtin.assert:
+      that:
+      - nm_add_bd is changed
+      - nm_add_bd.previous == {}
+      - nm_add_bd.current.name == "ansible_test_1"
+      - nm_add_bd.current.vrfRef.templateName == "Template1"
+      - nm_add_bd.current.vrfRef.vrfName == "VRF1"
 
-- name: Add site BD (check_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    state: present
-  check_mode: true
-  register: cm_add_site_bd
+  - name: Add template BD 2
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 2
+      bd: ansible_test_2
+      vrf:
+        name: VRF1
+        template: Template 1
+      state: present
+    register: nm_add_bd_2
 
-- name: Verify cm_add_site_bd
-  ansible.builtin.assert:
-    that:
-    - cm_add_site_bd.current.bdRef.bdName == "ansible_test_1"
-    - cm_add_site_bd.current.bdRef.templateName == "Template1"
-    - cm_add_site_bd.current.hostBasedRouting == false
+  - name: Verify nm_add_bd_2
+    ansible.builtin.assert:
+      that:
+      - nm_add_bd_2 is changed
+      - nm_add_bd_2.previous == {}
+      - nm_add_bd_2.current.name == "ansible_test_2"
+      - nm_add_bd_2.current.vrfRef.templateName == "Template1"
+      - nm_add_bd_2.current.vrfRef.vrfName == "VRF1"
 
-- name: Verify cm_add_site_bd
-  ansible.builtin.assert:
-    that:
-    - cm_add_site_bd is changed
-    - cm_add_site_bd.previous == {}
-  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
+  - name: Add template BD 3
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_3
+      vrf:
+        name: VRF1
+        template: Template 1
+      state: present
+    register: nm_add_bd_3
 
-- name: Add site BD (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    state: present
-  register: nm_add_site_bd
+  - name: Verify nm_add_bd_3
+    ansible.builtin.assert:
+      that:
+      - nm_add_bd_3 is changed
+      - nm_add_bd_3.previous == {}
+      - nm_add_bd_3.current.name == "ansible_test_3"
+      - nm_add_bd_3.current.vrfRef.templateName == "Template1"
+      - nm_add_bd_3.current.vrfRef.vrfName == "VRF1"
 
-- name: Verify nm_add_site_bd
-  ansible.builtin.assert:
-    that:
-    - nm_add_site_bd.current.bdRef.bdName == "ansible_test_1"
-    - nm_add_site_bd.current.bdRef.templateName == "Template1"
-    - nm_add_site_bd.current.hostBasedRouting == false
-    - cm_add_site_bd.current.bdRef.schemaId == nm_add_site_bd.current.bdRef.schemaId
+  - name: Add template BD 4
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_4
+      vrf:
+        name: VRF1
+        template: Template 1
+      state: present
+    register: nm_add_bd_4
 
-- name: Verify nm_add_site_bd
-  ansible.builtin.assert:
-    that:
-    - nm_add_site_bd is changed
-    - nm_add_site_bd.previous == {}
-  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
+  - name: Verify nm_add_bd_4
+    ansible.builtin.assert:
+      that:
+      - nm_add_bd_4 is changed
+      - nm_add_bd_4.previous == {}
+      - nm_add_bd_4.current.name == "ansible_test_4"
+      - nm_add_bd_4.current.vrfRef.templateName == "Template1"
+      - nm_add_bd_4.current.vrfRef.vrfName == "VRF1"
 
-- name: Add site BD again (check_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    state: present
-  check_mode: true
-  register: cm_add_site_bd_again
+  - name: Add site BD (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_1
+      state: present
+    check_mode: true
+    register: cm_add_site_bd
 
-- name: Add site BD again (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    state: present
-  register: nm_add_site_bd_again
+  - name: Verify cm_add_site_bd
+    ansible.builtin.assert:
+      that:
+      - cm_add_site_bd.current.bdRef.bdName == "ansible_test_1"
+      - cm_add_site_bd.current.bdRef.templateName == "Template1"
+      - cm_add_site_bd.current.hostBasedRouting == false
 
-- name: Verify cm_add_site_bd_again and nm_add_site_bd_again
-  ansible.builtin.assert:
-    that:
-    - cm_add_site_bd_again is not changed
-    - nm_add_site_bd_again is not changed
-    - cm_add_site_bd_again.previous.bdRef.bdName == nm_add_site_bd_again.previous.bdRef.bdName == cm_add_site_bd_again.current.bdRef.bdName == nm_add_site_bd_again.current.bdRef.bdName == "ansible_test_1"
+  - name: Verify cm_add_site_bd
+    ansible.builtin.assert:
+      that:
+      - cm_add_site_bd is changed
+      - cm_add_site_bd.previous == {}
+    when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
-- name: Change site BD (check_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    host_route: true
-    state: present
-  check_mode: true
-  register: cm_change_site_bd
+  - name: Add site BD (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_1
+      state: present
+    register: nm_add_site_bd
 
-- name: Change site BD (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    host_route: true
-    state: present
-  register: nm_change_site_bd
+  - name: Verify nm_add_site_bd
+    ansible.builtin.assert:
+      that:
+      - nm_add_site_bd.current.bdRef.bdName == "ansible_test_1"
+      - nm_add_site_bd.current.bdRef.templateName == "Template1"
+      - nm_add_site_bd.current.hostBasedRouting == false
+      - cm_add_site_bd.current.bdRef.schemaId == nm_add_site_bd.current.bdRef.schemaId
 
-- name: Verify cm_change_site_bd and nm_change_site_bd
-  ansible.builtin.assert:
-    that:
-    - cm_change_site_bd is changed
-    - nm_change_site_bd is changed
-    - cm_change_site_bd.previous.bdRef == cm_change_site_bd.current.bdRef
-    - nm_change_site_bd.previous.bdRef == nm_change_site_bd.current.bdRef
-    - cm_change_site_bd.previous.hostBasedRouting == false
-    - cm_change_site_bd.current.hostBasedRouting == true
-    - nm_change_site_bd.previous.hostBasedRouting == false
-    - nm_change_site_bd.current.hostBasedRouting == true
+  - name: Verify nm_add_site_bd
+    ansible.builtin.assert:
+      that:
+      - nm_add_site_bd is changed
+      - nm_add_site_bd.previous == {}
+    when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
-- name: Add site BD with host_route (check_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    bd: ansible_test_2
-    host_route: true
-    state: present
-  check_mode: true
-  register: cm_add_site_bd_with_host_route
+  - name: Add site BD again (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_1
+      state: present
+    check_mode: true
+    register: cm_add_site_bd_again
 
-- name: Add site BD with host_route (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    bd: ansible_test_2
-    host_route: true
-    state: present
-  register: nm_add_site_bd_with_host_route
+  - name: Add site BD again (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_1
+      state: present
+    register: nm_add_site_bd_again
 
-- name: Verify cm_add_site_bd_with_host_route and nm_add_site_bd_with_host_route
-  ansible.builtin.assert:
-    that:
-    - cm_add_site_bd_with_host_route is changed
-    - nm_add_site_bd_with_host_route is changed
-    - cm_add_site_bd_with_host_route.current.hostBasedRouting == true
-    - nm_add_site_bd_with_host_route.current.hostBasedRouting == true
+  - name: Verify cm_add_site_bd_again and nm_add_site_bd_again
+    ansible.builtin.assert:
+      that:
+      - cm_add_site_bd_again is not changed
+      - nm_add_site_bd_again is not changed
+      - cm_add_site_bd_again.previous.bdRef.bdName == nm_add_site_bd_again.previous.bdRef.bdName == cm_add_site_bd_again.current.bdRef.bdName == nm_add_site_bd_again.current.bdRef.bdName == "ansible_test_1"
 
-- name: Verify cm_add_site_bd_with_host_route and nm_add_site_bd_with_host_route
-  ansible.builtin.assert:
-    that:
-    - cm_add_site_bd_with_host_route.previous == {}
-    - nm_add_site_bd_with_host_route.previous == {}
-  when: version.current.version is version('4.0', '<') # already present when template is defined, thus previous exists
+  # CHILD PRESERVATION
+  - name: Add site BD subnet for parent update preservation
+    cisco.mso.mso_schema_site_bd_subnet:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      bd: '{{ mso_test.bd.name }}'
+      subnet: '{{ mso_test.bd.subnet.ip }}'
+      description: '{{ mso_test.bd.subnet.description }}'
+      scope: '{{ mso_test.bd.subnet.scope }}'
+      shared: '{{ mso_test.bd.subnet.shared }}'
+      no_default_gateway: '{{ mso_test.bd.subnet.no_default_gateway }}'
+      querier: '{{ mso_test.bd.subnet.querier }}'
+      state: present
+    register: nm_add_site_bd_subnet
 
-- name: Add site BD 3 (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_3
-    host_route: true
-    state: present
-  register: nm_add_site_bd_3
+  - name: Verify site BD subnet fixture
+    ansible.builtin.assert:
+      that:
+      - nm_add_site_bd_subnet is changed
+      - nm_add_site_bd_subnet.current.ip == mso_test.bd.subnet.ip
+      - nm_add_site_bd_subnet.current.description == mso_test.bd.subnet.description
+      - nm_add_site_bd_subnet.current.scope == mso_test.bd.subnet.scope
+      - nm_add_site_bd_subnet.current.shared == mso_test.bd.subnet.shared
+      - nm_add_site_bd_subnet.current.noDefaultGateway == mso_test.bd.subnet.no_default_gateway
+      - nm_add_site_bd_subnet.current.querier == mso_test.bd.subnet.querier
 
-- name: Verify nm_add_site_bd_3
-  ansible.builtin.assert:
-    that:
-    - nm_add_site_bd_3 is changed
-    - nm_add_site_bd_3.current.hostBasedRouting == true
-    - nm_add_site_bd_3.current.bdRef.bdName == "ansible_test_3"
-    - nm_add_site_bd_3.current.bdRef.templateName == "Template1"
+  - name: Change site BD (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_1
+      host_route: true
+      state: present
+    check_mode: true
+    register: cm_change_site_bd
 
-- name: Verify nm_add_site_bd_3
-  ansible.builtin.assert:
-    that:
-    - nm_add_site_bd_3.previous == {}
-  when: version.current.version is version('4.0', '<') # already be present when template is defined, thus previous exists
+  - name: Change site BD (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_1
+      host_route: true
+      state: present
+    register: nm_change_site_bd
 
-- name: Add site BD 4 (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_4
-    svi_mac: 00:22:23:F1:21:F9
-    state: present
-  register: nm_add_site_bd_4
+  - name: Verify cm_change_site_bd and nm_change_site_bd
+    ansible.builtin.assert:
+      that:
+      - cm_change_site_bd is changed
+      - nm_change_site_bd is changed
+      - cm_change_site_bd.previous.bdRef == cm_change_site_bd.current.bdRef
+      - nm_change_site_bd.previous.bdRef == nm_change_site_bd.current.bdRef
+      - cm_change_site_bd.previous.hostBasedRouting == false
+      - cm_change_site_bd.current.hostBasedRouting == true
+      - nm_change_site_bd.previous.hostBasedRouting == false
+      - nm_change_site_bd.current.hostBasedRouting == true
 
-- name: Verify nm_add_site_bd_4
-  ansible.builtin.assert:
-    that:
-    - nm_add_site_bd_4 is changed
-    - nm_add_site_bd_4.current.mac == "00:22:23:F1:21:F9"
-    - nm_add_site_bd_4.current.bdRef.bdName == "ansible_test_4"
-    - nm_add_site_bd_4.current.bdRef.templateName == "Template1"
+  - name: Verify site BD child subnet preservation
+    ansible.builtin.assert:
+      that:
+      - cm_change_site_bd.current.subnets | length == 1
+      - nm_change_site_bd.current.subnets | length == 1
+      - cm_change_site_bd.current.subnets[0].ip == mso_test.bd.subnet.ip
+      - nm_change_site_bd.current.subnets[0].ip == mso_test.bd.subnet.ip
+      - nm_change_site_bd.current.subnets[0].description == mso_test.bd.subnet.description
+      - nm_change_site_bd.current.subnets[0].scope == mso_test.bd.subnet.scope
+      - nm_change_site_bd.current.subnets[0].shared == mso_test.bd.subnet.shared
+      - nm_change_site_bd.current.subnets[0].noDefaultGateway == mso_test.bd.subnet.no_default_gateway
+      - nm_change_site_bd.current.subnets[0].querier == mso_test.bd.subnet.querier
 
-- name: Verify nm_add_site_bd_4
-  ansible.builtin.assert:
-    that:
-    - nm_add_site_bd_4.previous == {}
-  when: version.current.version is version('4.0', '<') # already be present when template is defined, thus previous exists
+  - name: Add site BD with host_route (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 2
+      bd: ansible_test_2
+      host_route: true
+      state: present
+    check_mode: true
+    register: cm_add_site_bd_with_host_route
 
-- name: Query a specific BD (check_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    bd: ansible_test_2
-    state: query
-  check_mode: true
-  register: cm_query_bd_2
+  - name: Add site BD with host_route (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 2
+      bd: ansible_test_2
+      host_route: true
+      state: present
+    register: nm_add_site_bd_with_host_route
 
-- name: Query a specific BD (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    bd: ansible_test_2
-    state: query
-  register: nm_query_bd_2
+  - name: Verify cm_add_site_bd_with_host_route and nm_add_site_bd_with_host_route
+    ansible.builtin.assert:
+      that:
+      - cm_add_site_bd_with_host_route is changed
+      - nm_add_site_bd_with_host_route is changed
+      - cm_add_site_bd_with_host_route.current.hostBasedRouting == true
+      - nm_add_site_bd_with_host_route.current.hostBasedRouting == true
 
-- name: Verify cm_query_bd_2 and nm_query_bd_2
-  ansible.builtin.assert:
-    that:
-    - cm_query_bd_2 is not changed
-    - nm_query_bd_2 is not changed
-    - cm_query_bd_2.current.bdRef.bdName == "ansible_test_2" == nm_query_bd_2.current.bdRef.bdName
-    - cm_query_bd_2.current.bdRef.schemaId == nm_query_bd_2.current.bdRef.schemaId
-    - cm_query_bd_2.current.bdRef.templateName == nm_query_bd_2.current.bdRef.templateName == "Template2"
-    - cm_query_bd_2.current.hostBasedRouting == nm_query_bd_2.current.hostBasedRouting == true
+  - name: Verify cm_add_site_bd_with_host_route and nm_add_site_bd_with_host_route
+    ansible.builtin.assert:
+      that:
+      - cm_add_site_bd_with_host_route.previous == {}
+      - nm_add_site_bd_with_host_route.previous == {}
+    when: version.current.version is version('4.0', '<') # already present when template is defined, thus previous exists
 
-- name: Query all BDs (check_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    state: query
-  check_mode: true
-  register: cm_query_all_bd
+  - name: Add site BD 3 (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_3
+      host_route: true
+      state: present
+    register: nm_add_site_bd_3
 
-- name: Query all BDs (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    state: query
-  register: nm_query_all_bd
+  - name: Verify nm_add_site_bd_3
+    ansible.builtin.assert:
+      that:
+      - nm_add_site_bd_3 is changed
+      - nm_add_site_bd_3.current.hostBasedRouting == true
+      - nm_add_site_bd_3.current.bdRef.bdName == "ansible_test_3"
+      - nm_add_site_bd_3.current.bdRef.templateName == "Template1"
 
-- name: Verify cm_query_all_bd and cm_query_all_bd
-  ansible.builtin.assert:
-    that:
-    - cm_query_all_bd is not changed
-    - nm_query_all_bd is not changed
-    - cm_query_all_bd.current[0].bdRef.bdName == nm_query_all_bd.current[0].bdRef.bdName == "ansible_test_1"
-    - cm_query_all_bd.current[0].bdRef.schemaId == nm_query_all_bd.current[0].bdRef.schemaId
-    - cm_query_all_bd.current[0].bdRef.templateName == nm_query_all_bd.current[0].bdRef.templateName == "Template1"
-    - cm_query_all_bd.current[1].bdRef.bdName == nm_query_all_bd.current[1].bdRef.bdName == "ansible_test_3"
-    - cm_query_all_bd.current[1].bdRef.schemaId == nm_query_all_bd.current[1].bdRef.schemaId
-    - cm_query_all_bd.current[1].bdRef.templateName == nm_query_all_bd.current[1].bdRef.templateName == "Template1"
+  - name: Verify nm_add_site_bd_3
+    ansible.builtin.assert:
+      that:
+      - nm_add_site_bd_3.previous == {}
+    when: version.current.version is version('4.0', '<') # already be present when template is defined, thus previous exists
 
-- name: Remove BD 2 (check_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    bd: ansible_test_2
-    state: absent
-  check_mode: true
-  register: cm_remove_site_bd_2
+  - name: Add site BD 4 (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_4
+      svi_mac: 00:22:23:F1:21:F9
+      state: present
+    register: nm_add_site_bd_4
 
-- name: Remove BD 2 (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    bd: ansible_test_2
-    state: absent
-  register: nm_remove_site_bd_2
+  - name: Verify nm_add_site_bd_4
+    ansible.builtin.assert:
+      that:
+      - nm_add_site_bd_4 is changed
+      - nm_add_site_bd_4.current.mac == "00:22:23:F1:21:F9"
+      - nm_add_site_bd_4.current.bdRef.bdName == "ansible_test_4"
+      - nm_add_site_bd_4.current.bdRef.templateName == "Template1"
 
-- name: Verify cm_remove_site_bd_2 and nm_remove_site_bd_2
-  ansible.builtin.assert:
-    that:
-    - cm_remove_site_bd_2 is changed
-    - nm_remove_site_bd_2 is changed
-    - cm_remove_site_bd_2.previous.bdRef.bdName == nm_remove_site_bd_2.previous.bdRef.bdName == "ansible_test_2"
-    - cm_remove_site_bd_2.previous.bdRef.schemaId == nm_remove_site_bd_2.previous.bdRef.schemaId
-    - cm_remove_site_bd_2.previous.bdRef.templateName == nm_remove_site_bd_2.previous.bdRef.templateName == "Template2"
-    - cm_remove_site_bd_2.current == nm_remove_site_bd_2.current == {}
+  - name: Verify nm_add_site_bd_4
+    ansible.builtin.assert:
+      that:
+      - nm_add_site_bd_4.previous == {}
+    when: version.current.version is version('4.0', '<') # already be present when template is defined, thus previous exists
 
-- name: Remove BD 2 again(normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    bd: ansible_test_2
-    state: absent
-  register: nm_remove_site_bd_2_again
+  - name: Query a specific BD (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 2
+      bd: ansible_test_2
+      state: query
+    check_mode: true
+    register: cm_query_bd_2
 
-- name: Verify nm_remove_site_bd_2_again
-  ansible.builtin.assert:
-    that:
-    - nm_remove_site_bd_2_again is not changed
-    - nm_remove_site_bd_2_again.previous == nm_remove_site_bd_2_again.current == {}
-  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
+  - name: Query a specific BD (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 2
+      bd: ansible_test_2
+      state: query
+    register: nm_query_bd_2
 
-- name: Query site without BD (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    state: query
-  register: nm_query_without_bd
+  - name: Verify cm_query_bd_2 and nm_query_bd_2
+    ansible.builtin.assert:
+      that:
+      - cm_query_bd_2 is not changed
+      - nm_query_bd_2 is not changed
+      - cm_query_bd_2.current.bdRef.bdName == "ansible_test_2" == nm_query_bd_2.current.bdRef.bdName
+      - cm_query_bd_2.current.bdRef.schemaId == nm_query_bd_2.current.bdRef.schemaId
+      - cm_query_bd_2.current.bdRef.templateName == nm_query_bd_2.current.bdRef.templateName == "Template2"
+      - cm_query_bd_2.current.hostBasedRouting == nm_query_bd_2.current.hostBasedRouting == true
 
-- name: Verify nm_query_without_bd
-  ansible.builtin.assert:
-    that:
-    - nm_query_without_bd is not changed
-    - nm_query_without_bd.current == []
-  when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
+  - name: Query all BDs (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      state: query
+    check_mode: true
+    register: cm_query_all_bd
+
+  - name: Query all BDs (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      state: query
+    register: nm_query_all_bd
+
+  - name: Verify cm_query_all_bd and cm_query_all_bd
+    ansible.builtin.assert:
+      that:
+      - cm_query_all_bd is not changed
+      - nm_query_all_bd is not changed
+      - cm_query_all_bd.current[0].bdRef.bdName == nm_query_all_bd.current[0].bdRef.bdName == "ansible_test_1"
+      - cm_query_all_bd.current[0].bdRef.schemaId == nm_query_all_bd.current[0].bdRef.schemaId
+      - cm_query_all_bd.current[0].bdRef.templateName == nm_query_all_bd.current[0].bdRef.templateName == "Template1"
+      - cm_query_all_bd.current[1].bdRef.bdName == nm_query_all_bd.current[1].bdRef.bdName == "ansible_test_3"
+      - cm_query_all_bd.current[1].bdRef.schemaId == nm_query_all_bd.current[1].bdRef.schemaId
+      - cm_query_all_bd.current[1].bdRef.templateName == nm_query_all_bd.current[1].bdRef.templateName == "Template1"
+      - cm_query_all_bd.current[0].subnets[0].ip == nm_query_all_bd.current[0].subnets[0].ip == mso_test.bd.subnet.ip
+
+  - name: Remove BD 2 (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 2
+      bd: ansible_test_2
+      state: absent
+    check_mode: true
+    register: cm_remove_site_bd_2
+
+  - name: Remove BD 2 (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 2
+      bd: ansible_test_2
+      state: absent
+    register: nm_remove_site_bd_2
+
+  - name: Verify cm_remove_site_bd_2 and nm_remove_site_bd_2
+    ansible.builtin.assert:
+      that:
+      - cm_remove_site_bd_2 is changed
+      - nm_remove_site_bd_2 is changed
+      - cm_remove_site_bd_2.previous.bdRef.bdName == nm_remove_site_bd_2.previous.bdRef.bdName == "ansible_test_2"
+      - cm_remove_site_bd_2.previous.bdRef.schemaId == nm_remove_site_bd_2.previous.bdRef.schemaId
+      - cm_remove_site_bd_2.previous.bdRef.templateName == nm_remove_site_bd_2.previous.bdRef.templateName == "Template2"
+      - cm_remove_site_bd_2.current == nm_remove_site_bd_2.current == {}
+
+  - name: Remove BD 2 again(normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 2
+      bd: ansible_test_2
+      state: absent
+    register: nm_remove_site_bd_2_again
+
+  - name: Verify nm_remove_site_bd_2_again
+    ansible.builtin.assert:
+      that:
+      - nm_remove_site_bd_2_again is not changed
+      - nm_remove_site_bd_2_again.previous == nm_remove_site_bd_2_again.current == {}
+    when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
+
+  # CHILD REMOVAL
+  - name: Remove site BD with child subnet (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      bd: '{{ mso_test.bd.name }}'
+      state: absent
+    check_mode: true
+    register: cm_remove_site_bd_with_child
+
+  - name: Remove site BD with child subnet (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      bd: '{{ mso_test.bd.name }}'
+      state: absent
+    register: nm_remove_site_bd_with_child
+
+  - name: Verify removal of site BD with child subnet
+    ansible.builtin.assert:
+      that:
+      - cm_remove_site_bd_with_child is changed
+      - nm_remove_site_bd_with_child is changed
+      - cm_remove_site_bd_with_child.previous.bdRef.bdName == nm_remove_site_bd_with_child.previous.bdRef.bdName == mso_test.bd.name
+      - cm_remove_site_bd_with_child.previous.subnets | length == 1
+      - nm_remove_site_bd_with_child.previous.subnets | length == 1
+      - cm_remove_site_bd_with_child.current == nm_remove_site_bd_with_child.current == {}
+
+  - name: Query site without BD (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 2
+      state: query
+    register: nm_query_without_bd
+
+  - name: Verify nm_query_without_bd
+    ansible.builtin.assert:
+      that:
+      - nm_query_without_bd is not changed
+      - nm_query_without_bd.current == []
+    when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
 
-# QUERY NON-EXISTING BD
-- name: Query non-existing BD (check_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: non_existing_bd
-    state: query
-  check_mode: true
-  ignore_errors: true
-  register: cm_query_non_bd
+  # QUERY NON-EXISTING BD
+  - name: Query non-existing BD (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: non_existing_bd
+      state: query
+    check_mode: true
+    ignore_errors: true
+    register: cm_query_non_bd
 
-- name: Query non-existing BD (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: non_existing_bd
-    state: query
-  ignore_errors: true
-  register: nm_query_non_bd
+  - name: Query non-existing BD (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: non_existing_bd
+      state: query
+    ignore_errors: true
+    register: nm_query_non_bd
 
-- name: Verify cm_query_non_bd and nm_query_non_bd
-  ansible.builtin.assert:
-    that:
-    - cm_query_non_bd is not changed
-    - nm_query_non_bd is not changed
-    - cm_query_non_bd.msg == nm_query_non_bd.msg == "BD 'non_existing_bd' not found"
+  - name: Verify cm_query_non_bd and nm_query_non_bd
+    ansible.builtin.assert:
+      that:
+      - cm_query_non_bd is not changed
+      - nm_query_non_bd is not changed
+      - cm_query_non_bd.msg == nm_query_non_bd.msg == "BD 'non_existing_bd' not found"
 
-# USE NON-EXISTING STATE
-- name: non_existing_state state (check_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    state: non_existing_state
-  ignore_errors: true
-  register: cm_non_existing_state
+  # USE NON-EXISTING STATE
+  - name: non_existing_state state (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_1
+      state: non_existing_state
+    ignore_errors: true
+    register: cm_non_existing_state
 
-- name: non_existing_state state (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    state: non_existing_state
-  ignore_errors: true
-  register: nm_non_existing_state
+  - name: non_existing_state state (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_1
+      state: non_existing_state
+    ignore_errors: true
+    register: nm_non_existing_state
 
-- name: Verify cm_non_existing_state and nm_non_existing_state
-  ansible.builtin.assert:
-    that:
-    - cm_non_existing_state is not changed
-    - nm_non_existing_state is not changed
-    - 'cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non_existing_state"'
+  - name: Verify cm_non_existing_state and nm_non_existing_state
+    ansible.builtin.assert:
+      that:
+      - cm_non_existing_state is not changed
+      - nm_non_existing_state is not changed
+      - 'cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non_existing_state"'
 
-# USE A NON_EXISTING_TEMPLATE
-- name: non_existing_template (check_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: non_existing_template
-    bd: ansible_test_1
-    state: query
-  check_mode: true
-  ignore_errors: true
-  register: cm_non_existing_template
+  # USE A NON_EXISTING_TEMPLATE
+  - name: non_existing_template (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: non_existing_template
+      bd: ansible_test_1
+      state: query
+    check_mode: true
+    ignore_errors: true
+    register: cm_non_existing_template
 
-- name: non_existing_template (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: non_existing_template
-    bd: ansible_test_1
-    state: query
-  ignore_errors: true
-  register: nm_non_existing_template
+  - name: non_existing_template (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: non_existing_template
+      bd: ansible_test_1
+      state: query
+    ignore_errors: true
+    register: nm_non_existing_template
 
-- name: Set error message for non existing template
-  ansible.builtin.set_fact:
-    error_message_non_existing_template: "Provided template 'non_existing_template' does not exist. Existing templates: Template1, Template2, Template3"
+  - name: Set error message for non existing template
+    ansible.builtin.set_fact:
+      error_message_non_existing_template: "Provided template 'non_existing_template' does not exist. Existing templates: Template1, Template2, Template3"
 
-- name: Verify cm_non_existing_template and nm_non_existing_template
-  ansible.builtin.assert:
-    that:
-    - cm_non_existing_template is not changed
-    - nm_non_existing_template is not changed
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == error_message_non_existing_template
+  - name: Verify cm_non_existing_template and nm_non_existing_template
+    ansible.builtin.assert:
+      that:
+      - cm_non_existing_template is not changed
+      - nm_non_existing_template is not changed
+      - cm_non_existing_template.msg == nm_non_existing_template.msg == error_message_non_existing_template
 
-# USE A NON_EXISTING_SCHEMA
-- name: non_existing_schema (check_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: non_existing_schema
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    state: query
-  check_mode: true
-  ignore_errors: true
-  register: cm_non_existing_schema
+  # USE A NON_EXISTING_SCHEMA
+  - name: non_existing_schema (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: non_existing_schema
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_1
+      state: query
+    check_mode: true
+    ignore_errors: true
+    register: cm_non_existing_schema
 
-- name: non_existing_schema (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: non_existing_schema
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    state: query
-  ignore_errors: true
-  register: nm_non_existing_schema
+  - name: non_existing_schema (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: non_existing_schema
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_1
+      state: query
+    ignore_errors: true
+    register: nm_non_existing_schema
 
-- name: Verify cm_non_existing_schema and nm_non_existing_schema
-  ansible.builtin.assert:
-    that:
-    - cm_non_existing_schema is not changed
-    - nm_non_existing_schema is not changed
-    - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
+  - name: Verify cm_non_existing_schema and nm_non_existing_schema
+    ansible.builtin.assert:
+      that:
+      - cm_non_existing_schema is not changed
+      - nm_non_existing_schema is not changed
+      - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
 
-# USE A NON_EXISTING_SITE
-- name: non_existing_site (check_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: non_existing_site
-    template: Template 1
-    bd: ansible_test_1
-    state: query
-  check_mode: true
-  ignore_errors: true
-  register: cm_non_existing_site
+  # USE A NON_EXISTING_SITE
+  - name: non_existing_site (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: non_existing_site
+      template: Template 1
+      bd: ansible_test_1
+      state: query
+    check_mode: true
+    ignore_errors: true
+    register: cm_non_existing_site
 
-- name: non_existing_site (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: non_existing_site
-    template: Template 1
-    bd: ansible_test_1
-    state: query
-  ignore_errors: true
-  register: nm_non_existing_site
+  - name: non_existing_site (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: non_existing_site
+      template: Template 1
+      bd: ansible_test_1
+      state: query
+    ignore_errors: true
+    register: nm_non_existing_site
 
-- name: Verify cm_non_existing_site and nm_non_existing_site
-  ansible.builtin.assert:
-    that:
-    - cm_non_existing_site is not changed
-    - nm_non_existing_site is not changed
-    - cm_non_existing_site.msg == nm_non_existing_site.msg == "Site 'non_existing_site' is not a valid site name."
+  - name: Verify cm_non_existing_site and nm_non_existing_site
+    ansible.builtin.assert:
+      that:
+      - cm_non_existing_site is not changed
+      - nm_non_existing_site is not changed
+      - cm_non_existing_site.msg == nm_non_existing_site.msg == "Site 'non_existing_site' is not a valid site name."
 
-# USE A NON_EXISTING_SITE_TEMPLATE
-- name: non_existing_site_template (check_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    bd: ansible_test_1
-    state: query
-  check_mode: true
-  ignore_errors: true
-  register: cm_non_existing_site_template
+  # USE A NON_EXISTING_SITE_TEMPLATE
+  - name: non_existing_site_template (check_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 3
+      bd: ansible_test_1
+      state: query
+    check_mode: true
+    ignore_errors: true
+    register: cm_non_existing_site_template
 
-- name: non_existing_site_template (normal_mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    bd: ansible_test_1
-    state: query
-  ignore_errors: true
-  register: nm_non_existing_site_template
+  - name: non_existing_site_template (normal_mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 3
+      bd: ansible_test_1
+      state: query
+    ignore_errors: true
+    register: nm_non_existing_site_template
 
-- name: Verify cm_non_existing_site_template and nm_non_existing_site_template
-  ansible.builtin.assert:
-    that:
-    - cm_non_existing_site_template is not changed
-    - nm_non_existing_site_template is not changed
-    - cm_non_existing_site_template.msg == nm_non_existing_site_template.msg == "Provided site-template association 'ansible_test-Template3' does not exist."
+  - name: Verify cm_non_existing_site_template and nm_non_existing_site_template
+    ansible.builtin.assert:
+      that:
+      - cm_non_existing_site_template is not changed
+      - nm_non_existing_site_template is not changed
+      - cm_non_existing_site_template.msg == nm_non_existing_site_template.msg == "Provided site-template association 'ansible_test-Template3' does not exist."
 
-# USE A TEMPLATE WITHOUT ANY SITE
-- name: Add site BD to Schema 2 Template 3 without any site associated (check mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    bd: ansible_test_1
-    state: present
-  check_mode: true
-  ignore_errors: true
-  register: cm_no_site_associated
+  # USE A TEMPLATE WITHOUT ANY SITE
+  - name: Add site BD to Schema 2 Template 3 without any site associated (check mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 3
+      bd: ansible_test_1
+      state: present
+    check_mode: true
+    ignore_errors: true
+    register: cm_no_site_associated
 
-- name: Add site BD to Template 3 without any site associated (normal mode)
-  cisco.mso.mso_schema_site_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    bd: ansible_test_1
-    state: present
-  ignore_errors: true
-  register: nm_no_site_associated
+  - name: Add site BD to Template 3 without any site associated (normal mode)
+    cisco.mso.mso_schema_site_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: Template 3
+      bd: ansible_test_1
+      state: present
+    ignore_errors: true
+    register: nm_no_site_associated
 
-- name: Verify cm_no_site_associated and nm_no_site_associated
-  ansible.builtin.assert:
-    that:
-    - cm_no_site_associated is not changed
-    - nm_no_site_associated is not changed
-    - cm_no_site_associated.msg == nm_no_site_associated.msg == "No site associated with template 'Template3'. Associate the site with the template using mso_schema_site."
+  - name: Verify cm_no_site_associated and nm_no_site_associated
+    ansible.builtin.assert:
+      that:
+      - cm_no_site_associated is not changed
+      - nm_no_site_associated is not changed
+      - cm_no_site_associated.msg == nm_no_site_associated.msg == "No site associated with template 'Template3'. Associate the site with the template using mso_schema_site."
+
+  always:
+  - name: Remove test schemas even when a test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    loop:
+    - '{{ mso_test.schema_without_site }}'
+    - '{{ mso_test.schema }}'

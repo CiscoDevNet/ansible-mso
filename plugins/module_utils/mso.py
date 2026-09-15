@@ -1514,7 +1514,7 @@ class MSOModule(object):
 
     def recursive_dict_from_ref(self, data):
         for key in data:
-            if key.endswith("Ref"):
+            if key.endswith("Ref") and isinstance(data[key], str):
                 data[key] = self.dict_from_ref(data.get(key))
             if isinstance(data[key], list):
                 for item in data[key]:

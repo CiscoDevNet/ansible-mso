@@ -125,8 +125,10 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
+import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
 def main():
@@ -267,16 +269,18 @@ def main():
             mso.fail_json(msg="Provided anp '{0}' does not exist at site level.".format(anp))
         if epg is None:
             mso.existing = schema_obj.get("sites")[site_idx]["anps"][anp_idx]["epgs"]
+            for site_epg in mso.existing:
+                mso.recursive_dict_from_ref(site_epg)
         elif not mso.existing:
             mso.fail_json(msg="EPG '{epg}' not found".format(epg=epg))
+        else:
+            mso.recursive_dict_from_ref(mso.existing)
         mso.exit_json()
 
     # Workaround due to inconsistency in attributes REQUEST/RESPONSE API
     # FIX for MSO Error 400: Bad Request: (0)(0)(0)(0)/deploymentImmediacy error.path.missing
     mso.replace_keys_in_dict("deployImmediacy", "deploymentImmediacy")
-    if mso.existing.get("epgRef"):
-        epg_ref = mso.dict_from_ref(mso.existing.get("epgRef"))
-        mso.existing["epgRef"] = epg_ref
+    mso.recursive_dict_from_ref(mso.existing)
 
     mso.previous = mso.existing
 
@@ -294,13 +298,13 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if mso.existing and epg_path:
-            ops.append(dict(op="replace", path=epg_path, value=mso.sent))
+            append_update_ops_data(ops, copy.deepcopy(mso.previous), epg_path, payload)
         else:
             ops.append(dict(op="add", path=op_path + "/-", value=mso.sent))
 
         mso.existing = mso.proposed
 
-    if not module.check_mode and mso.existing != mso.previous:
+    if not module.check_mode and ops:
         mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()

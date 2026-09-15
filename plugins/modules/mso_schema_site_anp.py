@@ -103,8 +103,10 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
+import copy
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
 def main():
@@ -164,10 +166,13 @@ def main():
         anp_idx = anps.index(anp_ref)
         anp_path = "/sites/{0}/anps/{1}".format(site_template, anp)
         mso.existing = schema_obj.get("sites")[site_idx]["anps"][anp_idx]
+        mso.recursive_dict_from_ref(mso.existing)
 
     if state == "query":
         if anp is None:
             mso.existing = schema_obj.get("sites")[site_idx]["anps"]
+            for site_anp in mso.existing:
+                mso.recursive_dict_from_ref(site_anp)
         elif not mso.existing:
             mso.fail_json(msg="ANP '{anp}' not found".format(anp=anp))
         mso.exit_json()
@@ -178,9 +183,7 @@ def main():
     # Workaround due to inconsistency in attributes REQUEST/RESPONSE API
     # FIX for MSO Error 400: Bad Request: (0)(0)(0)(0)/deploymentImmediacy error.path.missing
     mso.replace_keys_in_dict("deployImmediacy", "deploymentImmediacy")
-    if mso.existing.get("anpRef"):
-        anp_ref = mso.dict_from_ref(mso.existing.get("anpRef"))
-        mso.existing["anpRef"] = anp_ref
+    mso.recursive_dict_from_ref(mso.existing)
 
     mso.previous = mso.existing
     if state == "absent":
@@ -197,20 +200,16 @@ def main():
             ),
         )
 
-        if "epgs" in mso.existing:
-            for epg in mso.existing.get("epgs"):
-                epg = mso.recursive_dict_from_ref(epg)
-
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            ops.append(dict(op="replace", path=anp_path, value=mso.sent))
+            append_update_ops_data(ops, copy.deepcopy(mso.previous), anp_path, payload)
         else:
             ops.append(dict(op="add", path=anps_path + "/-", value=mso.sent))
 
         mso.existing = mso.proposed
 
-    if not module.check_mode and mso.existing != mso.previous:
+    if not module.check_mode and ops:
         mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()

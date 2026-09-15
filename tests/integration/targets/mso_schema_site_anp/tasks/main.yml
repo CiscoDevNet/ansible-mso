@@ -8,7 +8,7 @@
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
@@ -18,337 +18,524 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
-
-- name: Ensure site exists
-  cisco.mso.mso_site:
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ apic_username }}'
-    apic_password: '{{ apic_password }}'
-    apic_site_id: '{{ apic_site_id | default(101) }}'
-    urls:
-      - https://{{ apic_hostname }}
-    state: present
-
-- name: Ensure tenant ansible_test exists
-  cisco.mso.mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test
-    users:
-      - '{{ mso_username }}'
-    sites:
-      - '{{ mso_site | default("ansible_test") }}'
-    state: present
-
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
-
-- name: Ensure schema 1 with Template 1, and Template 2 exist
-  cisco.mso.mso_schema_template:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    tenant: ansible_test
-    template: '{{item.template}}'
-    state: present
-  loop:
-  - { template: Template 1}
-  - { template: Template 2}
-  - { template: Template 3}
-
-- name: Ensure schema 2 with Template 4 exist
-  cisco.mso.mso_schema_template:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    tenant: ansible_test
-    template: Template 4
-    state: present
-
-- name: Add physical site to a schema
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    state: present
-
-- name: Ensure VRF1 exists
-  cisco.mso.mso_schema_template_vrf:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 3
-    vrf: VRF1
-    state: present
-
-- name: Add BD1
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 3
-    bd: BD1
-    vrf:
-      name: VRF1
-    state: present
-
-- name: Ensure ANPs exist at template level
-  cisco.mso.mso_schema_template_anp:
-    <<: *mso_info
-    schema: '{{item.schema}}'
-    template: '{{ item.template }}'
-    anp: '{{ item.anp }}'
-    state: present
-  loop:
-  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 1', anp: 'ANP' }
-  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 2', anp: 'ANP_2' }
-  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3' }
-  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_1' }
-  - { schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_2' }
-  - { schema: '{{ mso_schema | default("ansible_test") }}_2', template: 'Template 4', anp: 'ANP_4' }
-
-- name: Ensure EPGs exist at template level
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 3
-    anp: ANP_3
-    epg: ansible_test_3
-    vrf:
-      name: VRF1
-      schema: ansible_test
+    mso_test:
+      schema: '{{ mso_schema_site_anp | default(mso_schema | default("ansible_test")) }}'
+      schema_2: '{{ mso_schema_site_anp | default(mso_schema | default("ansible_test")) }}_2'
+      schemas:
+      - '{{ mso_schema_site_anp | default(mso_schema | default("ansible_test")) }}_2'
+      - '{{ mso_schema_site_anp | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_site_anp | default(mso_tenant | default("ansible_test")) }}'
+      site: '{{ mso_site_site_anp | default(mso_site | default("ansible_test")) }}'
+      template_1: Template 1
+      template_2: Template 2
       template: Template 3
-    bd:
-      name: BD1
-      schema: ansible_test
-      template: Template 3
-    state: present
+      template_without_site: Template 4
+      vrf: VRF1
+      bd: BD1
+      anp_1: ANP
+      anp_2: ANP_2
+      anp: ANP_3
+      anp_3_1: ANP_3_1
+      anp_3_2: ANP_3_2
+      anp_4: ANP_4
+      epg:
+        name: ansible_test_3
+        epg_subnet:
+          subnet: 10.10.3.1/24
+          description: Site subnet 3
+          scope: public
+          shared: true
+          no_default_gateway: true
+        staticleaf:
+          pod: pod-1
+          leaf: '101'
+          vlan: 126
+        staticport:
+          type: port
+          pod: pod-1
+          leaf: '101'
+          path: eth1/1
+          vlan: 126
+          mode: native
+          deployment_immediacy: immediate
 
-- name: Add ANPs to site
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    site: '{{ item.site }}'
-    schema: '{{ item.schema }}'
-    template: '{{ item.template }}'
-    anp: '{{ item.anp }}'
-    state: present
-  loop:
-  - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3' }
-  - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_1' }
-  - { site: '{{ mso_site | default("ansible_test") }}', schema: '{{ mso_schema | default("ansible_test") }}', template: 'Template 3', anp: 'ANP_3_2' }
+- name: Exercise mso_schema_site_anp
+  block:
 
-- name: Add a new site EPG for idempotency check
-  cisco.mso.mso_schema_site_anp_epg: &idempotency_vmm
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: 'Template 3'
-    anp: 'ANP_3'
-    site: '{{ mso_site | default("ansible_test") }}'
-    epg: ansible_test_3
-    state: present
+  - name: Remove schemas before testing
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    loop: '{{ mso_test.schemas }}'
 
-# Test due to inconsistency in attributes REQUEST/RESPONSE API
-# MSO Error 400: Bad Request: (0)(0)(0)(0)/deploymentImmediacy error.path.missing
-- name: Add new site domain to site EPG for idempotency check
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *idempotency_vmm
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: present
+  - name: Ensure site exists
+    cisco.mso.mso_site:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      apic_username: '{{ apic_username }}'
+      apic_password: '{{ apic_password }}'
+      apic_site_id: '{{ apic_site_id | default(101) }}'
+      urls:
+        - https://{{ apic_hostname }}
+      state: present
 
-- name: Add ANPs to site again
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    site:  '{{ mso_site | default("ansible_test") }}'
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: 'Template 3'
-    anp: 'ANP_3'
-    state: present
-  register: add_anp_again
+  - name: Ensure tenant ansible_test exists
+    cisco.mso.mso_tenant:
+      <<: *mso_info
+      tenant: '{{ mso_test.tenant }}'
+      users:
+        - '{{ mso_username }}'
+      sites:
+        - '{{ mso_test.site }}'
+      state: present
 
-- name: Verify add_anp_again
-  ansible.builtin.assert:
-    that:
-    - add_anp_again is not changed
-    - add_anp_again.current.anpRef.anpName == 'ANP_3'
+  - name: Ensure schema 1 with Template 1, and Template 2 exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{item.template}}'
+      state: present
+    loop:
+    - { template: '{{ mso_test.template_1 }}'}
+    - { template: '{{ mso_test.template_2 }}'}
+    - { template: '{{ mso_test.template }}'}
 
-# QUERY  ANPs
-- name: Query specific ANP (normal mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    anp: ANP_3
-    state: query
-  register: query_anp
+  - name: Ensure schema 2 with Template 4 exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema_2 }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{ mso_test.template_without_site }}'
+      state: present
 
-- name: Verify query_anp
-  ansible.builtin.assert:
-    that:
-    - query_anp is not changed
+  - name: Add physical site to a schema
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      state: present
 
-- name: Query all ANPs (normal mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    state: query
-  register: query_all
+  - name: Ensure VRF1 exists
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf }}'
+      state: present
 
-- name: Verify query_all
-  ansible.builtin.assert:
-    that:
-    - query_all is not changed
-    - query_all | length >= 3
+  - name: Add BD1
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      bd: '{{ mso_test.bd }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+      state: present
 
-# DELETE the ANP
-- name: Delete ANP3 (normal mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    anp: ANP_3
-    state: absent
-  register: delete_anp
+  - name: Ensure ANPs exist at template level
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{item.schema}}'
+      template: '{{ item.template }}'
+      anp: '{{ item.anp }}'
+      state: present
+    loop:
+    - { schema: '{{ mso_test.schema }}', template: '{{ mso_test.template_1 }}', anp: '{{ mso_test.anp_1 }}' }
+    - { schema: '{{ mso_test.schema }}', template: '{{ mso_test.template_2 }}', anp: '{{ mso_test.anp_2 }}' }
+    - { schema: '{{ mso_test.schema }}', template: '{{ mso_test.template }}', anp: '{{ mso_test.anp }}' }
+    - { schema: '{{ mso_test.schema }}', template: '{{ mso_test.template }}', anp: '{{ mso_test.anp_3_1 }}' }
+    - { schema: '{{ mso_test.schema }}', template: '{{ mso_test.template }}', anp: '{{ mso_test.anp_3_2 }}' }
+    - { schema: '{{ mso_test.schema_2 }}', template: '{{ mso_test.template_without_site }}', anp: '{{ mso_test.anp_4 }}' }
 
-- name: Verify delete_anp
-  ansible.builtin.assert:
-    that:
-    - delete_anp is changed
-    - delete_anp.current == {}
+  - name: Ensure EPGs exist at template level
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg.name }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+        schema: '{{ mso_test.schema }}'
+        template: '{{ mso_test.template }}'
+      bd:
+        name: '{{ mso_test.bd }}'
+        schema: '{{ mso_test.schema }}'
+        template: '{{ mso_test.template }}'
+      state: present
 
-- name: Delete ANP1 again
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    anp: ANP_3
-    state: absent
-  register: delete_anp_again
+  - name: Add ANPs to site
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      site: '{{ item.site }}'
+      schema: '{{ item.schema }}'
+      template: '{{ item.template }}'
+      anp: '{{ item.anp }}'
+      state: present
+    loop:
+    - { site: '{{ mso_test.site }}', schema: '{{ mso_test.schema }}', template: '{{ mso_test.template }}', anp: '{{ mso_test.anp }}' }
+    - { site: '{{ mso_test.site }}', schema: '{{ mso_test.schema }}', template: '{{ mso_test.template }}', anp: '{{ mso_test.anp_3_1 }}' }
+    - { site: '{{ mso_test.site }}', schema: '{{ mso_test.schema }}', template: '{{ mso_test.template }}', anp: '{{ mso_test.anp_3_2 }}' }
 
-- name: Verify delete_anp_again
-  ansible.builtin.assert:
-    that:
-    - delete_anp_again is not changed
-    - delete_anp_again.current == {}
+  - name: Add a new site EPG for idempotency check
+    cisco.mso.mso_schema_site_anp_epg: &idempotency_vmm
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      site: '{{ mso_test.site }}'
+      epg: '{{ mso_test.epg.name }}'
+      state: present
 
-# QUERY NON-EXISTING ANP
-- name: Query non-existing ANP (normal mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    anp: non_existing_anp
-    state: query
-  ignore_errors: true
-  register: nm_query_non_anp
+  # Test due to inconsistency in attributes REQUEST/RESPONSE API
+  # MSO Error 400: Bad Request: (0)(0)(0)(0)/deploymentImmediacy error.path.missing
+  - name: Add new site domain to site EPG for idempotency check
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *idempotency_vmm
+      domain_association_type: vmmDomain
+      domain_profile: 'VMware-VMM'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+      state: present
 
-- name: Verify query_non_anp
-  ansible.builtin.assert:
-    that:
-    - nm_query_non_anp is not changed
-    - nm_query_non_anp.msg == "ANP 'non_existing_anp' not found"
+  - name: Add ANPs to site again
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      site:  '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: present
+    register: add_anp_again
 
-# USE A NON-EXISTING STATE
-- name: Non-existing state (normal_mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    state: non-existing-state
-  ignore_errors: true
-  register: nm_non_existing_state
+  - name: Verify add_anp_again
+    ansible.builtin.assert:
+      that:
+      - add_anp_again is not changed
+      - add_anp_again.current.anpRef.anpName == mso_test.anp
 
-- name: Verify non_existing_state
-  ansible.builtin.assert:
-    that:
-    - nm_non_existing_state is not changed
-    - 'nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non-existing-state"'
+  # CHILD PRESERVATION
+  - name: Add EPG subnet for child preservation
+    cisco.mso.mso_schema_site_anp_epg_subnet: &site_anp_child_subnet
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg.name }}'
+      subnet: '{{ mso_test.epg.epg_subnet.subnet }}'
+      description: '{{ mso_test.epg.epg_subnet.description }}'
+      scope: '{{ mso_test.epg.epg_subnet.scope }}'
+      shared: '{{ mso_test.epg.epg_subnet.shared }}'
+      no_default_gateway: '{{ mso_test.epg.epg_subnet.no_default_gateway }}'
+      state: present
+    register: add_site_anp_child_subnet
 
-# USE A NON-EXISTING SCHEMA
-- name: Non-existing schema (normal_mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    schema: non-existing-schema
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    state: query
-  ignore_errors: true
-  register: nm_non_existing_schema
+  - name: Add static leaf for child preservation
+    cisco.mso.mso_schema_site_anp_epg_staticleaf: &site_anp_child_staticleaf
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg.name }}'
+      pod: '{{ mso_test.epg.staticleaf.pod }}'
+      leaf: '{{ mso_test.epg.staticleaf.leaf }}'
+      vlan: '{{ mso_test.epg.staticleaf.vlan }}'
+      state: present
+    register: add_site_anp_child_staticleaf
 
-- name: Verify non_existing_schema
-  ansible.builtin.assert:
-    that:
-    - nm_non_existing_schema is not changed
-    - nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
+  - name: Add static port for child preservation
+    cisco.mso.mso_schema_site_anp_epg_staticport: &site_anp_child_staticport
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg.name }}'
+      type: '{{ mso_test.epg.staticport.type }}'
+      pod: '{{ mso_test.epg.staticport.pod }}'
+      leaf: '{{ mso_test.epg.staticport.leaf }}'
+      path: '{{ mso_test.epg.staticport.path }}'
+      vlan: '{{ mso_test.epg.staticport.vlan }}'
+      mode: '{{ mso_test.epg.staticport.mode }}'
+      deployment_immediacy: '{{ mso_test.epg.staticport.deployment_immediacy }}'
+      state: present
+    register: add_site_anp_child_staticport
 
-# USE A NON-EXISTING SITE
-- name: Non-existing site (normal_mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: non-existing-site
-    template: Template 1
-    anp: ANP
-    state: query
-  ignore_errors: true
-  register: nm_non_existing_site
+  - name: Verify child resources exist before parent reconciliation
+    ansible.builtin.assert:
+      that:
+      - add_site_anp_child_subnet is changed
+      - add_site_anp_child_staticleaf is changed
+      - add_site_anp_child_staticport is changed
 
-- name: Verify non_existing_site
-  ansible.builtin.assert:
-    that:
-    - nm_non_existing_site is not changed
-    - nm_non_existing_site.msg == "Site 'non-existing-site' is not a valid site name."
+  - name: Reconcile site ANP after existing child resources in check mode
+    cisco.mso.mso_schema_site_anp: &site_anp_child_preservation
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: present
+    check_mode: true
+    register: cm_reconcile_site_anp
 
-# USE A TEMPLATE WITHOUT ANY SITE
-- name: Add ANP to Template without any site associated (normal mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 4
-    anp: ANP_4
-    state: present
-  ignore_errors: true
-  register: nm_no_site_associated
+  - name: Reconcile site ANP after existing child resources
+    cisco.mso.mso_schema_site_anp:
+      <<: *site_anp_child_preservation
+    register: nm_reconcile_site_anp
 
-- name: Verify cm_no_site_associated and nm_no_site_associated
-  ansible.builtin.assert:
-    that:
-    - nm_no_site_associated is not changed
-    - nm_no_site_associated.msg == "No site associated with template 'Template4'. Associate the site with the template using mso_schema_site."
+  - name: Query child site EPG after parent reconciliation
+    cisco.mso.mso_schema_site_anp_epg:
+      <<: *idempotency_vmm
+      state: query
+    register: query_site_epg_after_reconcile
 
-# USE A NON-EXISTING SITE-TEMPLATE 
-- name: Non-existing site-template  (normal_mode)
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    anp: ANP_2
-    state: query
-  ignore_errors: true
-  register: nm_non_existing_site_template
+  - name: Query child EPG subnet after parent reconciliation
+    cisco.mso.mso_schema_site_anp_epg_subnet:
+      <<: *site_anp_child_subnet
+      state: query
+    register: query_site_subnet_after_reconcile
 
-- name: Set regex match for verification of non_existing_site_template
-  ansible.builtin.set_fact:
-    regex_match: "Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates: [0-9a-zA-Z]*/Template3"
+  - name: Query child static leaf after parent reconciliation
+    cisco.mso.mso_schema_site_anp_epg_staticleaf:
+      <<: *site_anp_child_staticleaf
+      state: query
+    register: query_site_staticleaf_after_reconcile
 
-- name: Verify non_existing_site_template
-  ansible.builtin.assert:
-    that:
-    - nm_non_existing_site_template is not changed
-    - nm_non_existing_site_template.msg is match(regex_match)
+  - name: Query child static port after parent reconciliation
+    cisco.mso.mso_schema_site_anp_epg_staticport:
+      <<: *site_anp_child_staticport
+      state: query
+    register: query_site_staticport_after_reconcile
+
+  - name: Verify site ANP child EPG preservation
+    ansible.builtin.assert:
+      that:
+      - cm_reconcile_site_anp is not changed
+      - nm_reconcile_site_anp is not changed
+      - query_site_epg_after_reconcile is not changed
+      - query_site_subnet_after_reconcile is not changed
+      - query_site_staticleaf_after_reconcile is not changed
+      - query_site_staticport_after_reconcile is not changed
+      - query_site_epg_after_reconcile.current.epgRef is string
+      - "'/epgs/' ~ mso_test.epg.name in query_site_epg_after_reconcile.current.epgRef"
+      - query_site_subnet_after_reconcile.current.ip == mso_test.epg.epg_subnet.subnet
+      - query_site_subnet_after_reconcile.current.description == mso_test.epg.epg_subnet.description
+      - query_site_subnet_after_reconcile.current.scope == mso_test.epg.epg_subnet.scope
+      - query_site_subnet_after_reconcile.current.shared == mso_test.epg.epg_subnet.shared
+      - query_site_subnet_after_reconcile.current.noDefaultGateway == mso_test.epg.epg_subnet.no_default_gateway
+      - query_site_staticleaf_after_reconcile.current.path == 'topology/' ~ mso_test.epg.staticleaf.pod ~ '/node-' ~ mso_test.epg.staticleaf.leaf
+      - query_site_staticleaf_after_reconcile.current.portEncapVlan == mso_test.epg.staticleaf.vlan
+      - query_site_staticport_after_reconcile.current.type == mso_test.epg.staticport.type
+      - query_site_staticport_after_reconcile.current.portEncapVlan == mso_test.epg.staticport.vlan
+      - query_site_staticport_after_reconcile.current.path == 'topology/' ~ mso_test.epg.staticport.pod ~ '/paths-' ~ mso_test.epg.staticport.leaf ~ '/pathep-[' ~ mso_test.epg.staticport.path ~ ']'
+
+  # QUERY  ANPs
+  - name: Query specific ANP (normal mode)
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: query
+    register: query_anp
+
+  - name: Verify query_anp
+    ansible.builtin.assert:
+      that:
+      - query_anp is not changed
+
+  - name: Query all ANPs (normal mode)
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      state: query
+    register: query_all
+
+  - name: Query all ANPs (check mode)
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      state: query
+    check_mode: true
+    register: check_query_all
+
+  - name: Select ANP with the child EPG from query-all results
+    ansible.builtin.set_fact:
+      queried_anp: "{{ check_query_all.current | selectattr('anpRef.anpName', 'equalto', mso_test.anp) | first }}"
+
+  - name: Verify query_all
+    ansible.builtin.assert:
+      that:
+      - query_all is not changed
+      - check_query_all is not changed
+      - check_query_all.current == query_all.current
+      - check_query_all.current | length >= 3
+      - check_query_all.current | selectattr('anpRef.anpName', 'equalto', mso_test.anp) | list | length == 1
+      - check_query_all.current | selectattr('anpRef.schemaId', 'defined') | list | length >= 3
+      - queried_anp.epgs | selectattr('epgRef.epgName', 'equalto', mso_test.epg.name) | list | length == 1
+
+  # DELETE the ANP
+  - name: Delete ANP3 (normal mode)
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: absent
+    register: delete_anp
+
+  - name: Verify delete_anp
+    ansible.builtin.assert:
+      that:
+      - delete_anp is changed
+      - delete_anp.current == {}
+
+  - name: Delete ANP1 again
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: absent
+    register: delete_anp_again
+
+  - name: Verify delete_anp_again
+    ansible.builtin.assert:
+      that:
+      - delete_anp_again is not changed
+      - delete_anp_again.current == {}
+
+  # QUERY NON-EXISTING ANP
+  - name: Query non-existing ANP (normal mode)
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      anp: non_existing_anp
+      state: query
+    ignore_errors: true
+    register: nm_query_non_anp
+
+  - name: Verify query_non_anp
+    ansible.builtin.assert:
+      that:
+      - nm_query_non_anp is not changed
+      - nm_query_non_anp.msg == "ANP 'non_existing_anp' not found"
+
+  # USE A NON-EXISTING STATE
+  - name: Non-existing state (normal_mode)
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      state: non-existing-state
+    ignore_errors: true
+    register: nm_non_existing_state
+
+  - name: Verify non_existing_state
+    ansible.builtin.assert:
+      that:
+      - nm_non_existing_state is not changed
+      - 'nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non-existing-state"'
+
+  # USE A NON-EXISTING SCHEMA
+  - name: Non-existing schema (normal_mode)
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      schema: non-existing-schema
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      state: query
+    ignore_errors: true
+    register: nm_non_existing_schema
+
+  - name: Verify non_existing_schema
+    ansible.builtin.assert:
+      that:
+      - nm_non_existing_schema is not changed
+      - nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
+
+  # USE A NON-EXISTING SITE
+  - name: Non-existing site (normal_mode)
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: non-existing-site
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      state: query
+    ignore_errors: true
+    register: nm_non_existing_site
+
+  - name: Verify non_existing_site
+    ansible.builtin.assert:
+      that:
+      - nm_non_existing_site is not changed
+      - nm_non_existing_site.msg == "Site 'non-existing-site' is not a valid site name."
+
+  # USE A TEMPLATE WITHOUT ANY SITE
+  - name: Add ANP to Template without any site associated (normal mode)
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema_2 }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_without_site }}'
+      anp: '{{ mso_test.anp_4 }}'
+      state: present
+    ignore_errors: true
+    register: nm_no_site_associated
+
+  - name: Verify cm_no_site_associated and nm_no_site_associated
+    ansible.builtin.assert:
+      that:
+      - nm_no_site_associated is not changed
+      - nm_no_site_associated.msg == "No site associated with template 'Template4'. Associate the site with the template using mso_schema_site."
+
+  # USE A NON-EXISTING SITE-TEMPLATE
+  - name: Non-existing site-template  (normal_mode)
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_2 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      state: query
+    ignore_errors: true
+    register: nm_non_existing_site_template
+
+  - name: Set regex match for verification of non_existing_site_template
+    ansible.builtin.set_fact:
+      regex_match: "Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates: [0-9a-zA-Z]*/Template3"
+
+  - name: Verify non_existing_site_template
+    ansible.builtin.assert:
+      that:
+      - nm_non_existing_site_template is not changed
+      - nm_non_existing_site_template.msg is match(regex_match)
+
+  always:
+  - name: Remove test schemas even when a test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    loop: '{{ mso_test.schemas }}'
+    ignore_errors: true

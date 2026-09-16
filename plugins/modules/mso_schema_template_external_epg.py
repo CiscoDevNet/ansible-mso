@@ -43,6 +43,8 @@ options:
     - The type of external epg.
     - anp needs to be associated with external epg when the type is cloud.
     - l3out can be associated with external epg when the type is on-premise.
+    - The C(cloud) value is deprecated on Nexus Dashboard 4.x (NDO 5.x) because cloud external EPGs are no longer supported.
+      It will be removed in a future version of this collection.
     type: str
     choices: [ on-premise, cloud ]
     default: on-premise
@@ -91,25 +93,27 @@ options:
         - If this parameter is unspecified, it defaults to the current template.
         type: str
   anp:
-     description:
-     - The anp associated with the external epg.
-     type: dict
-     suboptions:
-       name:
-         description:
-         - The name of the anp to associate with.
-         required: true
-         type: str
-       schema:
-         description:
-         - The schema that defines the referenced anp.
-         - If this parameter is unspecified, it defaults to the current schema.
-         type: str
-       template:
-         description:
-         - The template that defines the referenced anp.
-         - If this parameter is unspecified, it defaults to the current template.
-         type: str
+    description:
+    - The anp associated with the external epg.
+    - This parameter is deprecated on Nexus Dashboard 4.x (NDO 5.x) because it is only used by cloud external EPGs.
+      It will be removed in a future version of this collection.
+    type: dict
+    suboptions:
+      name:
+        description:
+        - The name of the anp to associate with.
+        required: true
+        type: str
+      schema:
+        description:
+        - The schema that defines the referenced anp.
+        - If this parameter is unspecified, it defaults to the current schema.
+        type: str
+      template:
+        description:
+        - The template that defines the referenced anp.
+        - If this parameter is unspecified, it defaults to the current template.
+        type: str
   preferred_group:
     description:
     - Preferred Group is enabled for this External EPG or not.
@@ -141,25 +145,6 @@ EXAMPLES = r"""
     external_epg: External EPG 1
     vrf:
       name: VRF
-      schema: Schema 1
-      template: Template 1
-    state: present
-
-- name: Add a new external EPG with external epg in cloud
-  cisco.mso.mso_schema_template_external_epg:
-    host: mso_host
-    username: admin
-    password: SomeSecretPassword
-    schema: Schema 1
-    template: Template 1
-    external_epg: External EPG 1
-    type: cloud
-    vrf:
-      name: VRF
-      schema: Schema 1
-      template: Template 1
-    anp:
-      name: ANP1
       schema: Schema 1
       template: Template 1
     state: present
@@ -252,6 +237,14 @@ def main():
     type_ext_epg = module.params.get("type")
     qos_level = module.params.get("qos_level")
     state = module.params.get("state")
+
+    if type_ext_epg == "cloud" or anp is not None:
+        module.deprecate(
+            msg="The 'type=cloud' value and 'anp' parameter are deprecated because cloud external EPGs are no longer supported in "
+            "Nexus Dashboard 4.x (NDO 5.x) releases.",
+            version="4.0.0",
+            collection_name="cisco.mso",
+        )
 
     mso = MSOModule(module)
 

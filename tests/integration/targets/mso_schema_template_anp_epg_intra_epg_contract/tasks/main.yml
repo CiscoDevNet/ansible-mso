@@ -489,3 +489,13 @@
     that:
       - invalid_contract is not changed
       - invalid_contract.msg is match (regex_error_message_invalid_contract)
+
+# CLEANUP
+- name: Remove schemas after testing
+  cisco.mso.mso_schema:
+    <<: *mso_info
+    schema: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ mso_schema | default("ansible_test") }}_2'
+    - '{{ mso_schema | default("ansible_test") }}'

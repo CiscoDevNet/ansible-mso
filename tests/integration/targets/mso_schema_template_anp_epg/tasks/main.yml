@@ -2,7 +2,7 @@
 # Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
 # Copyright: (c) 2020, Lionel Hercot (@lhercot) <lhercot@cisco.com>
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com> (based on mso_site test case)
-# 
+#
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -12,8 +12,7 @@
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 
-# CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
@@ -23,1261 +22,1489 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(false) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
-
-- name: Query MSO version
-  cisco.mso.mso_version:
-    <<: *mso_info
-    state: query
-  register: version
-
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
-
-- name: Ensure tenant ansible_test exist
-  cisco.mso.mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test
-    users:
-    - '{{ mso_username }}'
-    state: present
-
-- name: Ensure schema 1 with Template 1 exist
-  cisco.mso.mso_schema_template: &schema_present
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    tenant: ansible_test
-    template: Template 1
-    state: present
-
-- name: Ensure schema 1 with Template 2 exist
-  cisco.mso.mso_schema_template:
-    <<: *schema_present
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    tenant: ansible_test
-    template: Template 2
-    state: present
-
-- name: Ensure schema 2 with Template 3 exist
-  cisco.mso.mso_schema_template:
-    <<: *schema_present
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    tenant: ansible_test
-    template: Template 3
-    state: present
-
-- name: Ensure VRF exist
-  cisco.mso.mso_schema_template_vrf: &vrf_present
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    vrf: VRF
-    preferred_group: true
-    layer3_multicast: true
-    state: present
-
-- name: Ensure VRF2 exist
-  cisco.mso.mso_schema_template_vrf:
-    <<: *vrf_present
-    vrf: VRF2
-    state: present
-
-- name: Ensure VRF3 exist
-  cisco.mso.mso_schema_template_vrf:
-    <<: *vrf_present
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 2
-    vrf: VRF3
-    preferred_group: true
-    state: present
-
-- name: Ensure VRF4 exist
-  cisco.mso.mso_schema_template_vrf:
-    <<: *vrf_present
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
-    vrf: VRF4
-    state: present
-
-- name: Ensure ANP exist
-  cisco.mso.mso_schema_template_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    state: present
-
-- name: Ensure ANP2 exist
-  cisco.mso.mso_schema_template_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 2
-    anp: ANP2
-    state: present
-
-- name: Ensure ANP3 exist
-  cisco.mso.mso_schema_template_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
-    anp: ANP3
-    state: present
-
-- name: Ensure Filter 1 exist
-  cisco.mso.mso_schema_template_filter_entry:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    filter: Filter1
-    entry: Filter1-Entry
-    state: present
-
-- name: Ensure Contract1 exist
-  cisco.mso.mso_schema_template_contract_filter:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    contract: Contract1
-    filter: Filter1
-    filter_schema: '{{ mso_schema | default("ansible_test") }}'
-    filter_template: Template 1
-    state: present
-
-- name: Ensure Filter 2 exist
-  cisco.mso.mso_schema_template_filter_entry:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 2
-    filter: Filter2
-    entry: Filter2-Entry
-    state: present
-
-- name: Ensure Contract2 exist
-  cisco.mso.mso_schema_template_contract_filter:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 2
-    contract: Contract2
-    filter: Filter2
-    filter_schema: '{{ mso_schema | default("ansible_test") }}'
-    filter_template: Template 2
-    state: present
-
-- name: Ensure ansible_test_1 BD exist
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_1
-    vrf:
-      name: VRF
-    layer3_multicast: true
-    state: present
-
-- name: Ensure ansible_test_2 BD exist
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: ansible_test_2
-    vrf:
-      name: VRF2
-      template: Template 1
-    layer3_multicast: true
-    state: present
-
-- name: Ensure ansible_test_3 BD exist
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 2
-    bd: ansible_test_3
-    vrf:
-      name: VRF3
+    mso_test:
       schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 2
-    layer3_multicast: true
-    state: present
+      schema_2: '{{ mso_schema | default("ansible_test") }}_2'
+      tenant: ansible_test
+      template: Template1
+      anp: ANP
+      epg: ansible_test_2
+      vrf: VRF2
+      bd: ansible_test_2
+      description: Child preservation update
+      contract: Contract1
+      subnet:
+        ip: 10.20.30.1/24
+        description: Child preservation subnet
+        scope: public
+        shared: true
+        no_default_gateway: true
+      annotation:
+        key: child_preservation
+        value: preserved
+      useg_attribute:
+        name: child_preservation_ip
+        type: ip
+        value: 10.20.30.0/24
 
-- name: Ensure ansible_test_4 BD exist
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
-    bd: ansible_test_4
-    vrf:
-      name: VRF4
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template 3
-    layer3_multicast: true
-    state: present
-
-# ADD EPG
-- name: Add EPG (check_mode)
-  cisco.mso.mso_schema_template_anp_epg: &epg_present
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    epg: ansible_test_1
-    bd:
-      name: ansible_test_1
-    vrf:
-      name: VRF
-    state: present
-  check_mode: true
-  register: cm_add_epg
-
-- name: Verify cm_add_epg
-  ansible.builtin.assert:
-    that:
-    - cm_add_epg is changed
-    - cm_add_epg.previous == {}
-    - cm_add_epg.current.name == "ansible_test_1"
-    - cm_add_epg.current.vrfRef.templateName == "Template1"
-    - cm_add_epg.current.vrfRef.vrfName == "VRF"
-    - cm_add_epg.current.bdRef.templateName == "Template1"
-    - cm_add_epg.current.bdRef.bdName == "ansible_test_1"
-
-- name: Add EPG (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-  register: nm_add_epg
-
-- name: Verify nm_add_epg
-  ansible.builtin.assert:
-    that:
-    - nm_add_epg is changed
-    - nm_add_epg.previous == {}
-    - nm_add_epg.current.name == "ansible_test_1"
-    - nm_add_epg.current.vrfRef.templateName == "Template1"
-    - nm_add_epg.current.vrfRef.vrfName == "VRF"
-    - nm_add_epg.current.bdRef.templateName == "Template1"
-    - nm_add_epg.current.bdRef.bdName == "ansible_test_1"
-    - cm_add_epg.current.vrfRef.schemaId ==  nm_add_epg.current.vrfRef.schemaId
-    - cm_add_epg.current.bdRef.schemaId ==  nm_add_epg.current.bdRef.schemaId
-
-- name: Add EPG again (check_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-  check_mode: true
-  register: cm_add_epg_again
-
-- name: Verify cm_add_epg_again
-  ansible.builtin.assert:
-    that:
-    - cm_add_epg_again is not changed
-    - cm_add_epg_again.current.name == cm_add_epg_again.previous.name == "ansible_test_1"
-    - cm_add_epg_again.current.vrfRef.templateName == cm_add_epg_again.previous.vrfRef.templateName == "Template1"
-    - cm_add_epg_again.current.vrfRef.vrfName == cm_add_epg_again.previous.vrfRef.vrfName == "VRF"
-    - cm_add_epg_again.current.bdRef.templateName == cm_add_epg_again.previous.bdRef.templateName == "Template1"
-    - cm_add_epg_again.current.bdRef.bdName == cm_add_epg_again.previous.bdRef.bdName == "ansible_test_1"
-    - cm_add_epg_again.previous.vrfRef.schemaId ==  cm_add_epg_again.current.vrfRef.schemaId
-    - cm_add_epg_again.previous.bdRef.schemaId ==  cm_add_epg_again.current.bdRef.schemaId
-
-
-- name: Add EPG again (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-  register: nm_add_epg_again
-
-- name: Verify nm_add_epg_again
-  ansible.builtin.assert:
-    that:
-    - nm_add_epg_again is not changed
-    - nm_add_epg_again.current.name == nm_add_epg_again.previous.name == "ansible_test_1"
-    - nm_add_epg_again.current.vrfRef.templateName == nm_add_epg_again.previous.vrfRef.templateName == "Template1"
-    - nm_add_epg_again.current.vrfRef.vrfName == nm_add_epg_again.previous.vrfRef.vrfName == "VRF"
-    - nm_add_epg_again.current.bdRef.templateName == nm_add_epg_again.previous.bdRef.templateName == "Template1"
-    - nm_add_epg_again.current.bdRef.bdName == nm_add_epg_again.previous.bdRef.bdName == "ansible_test_1"
-    - nm_add_epg_again.previous.vrfRef.schemaId ==  nm_add_epg_again.current.vrfRef.schemaId
-    - nm_add_epg_again.previous.bdRef.schemaId ==  nm_add_epg_again.current.bdRef.schemaId
-
-- name: Add EPG 2 (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    epg: ansible_test_2
-
-- name: Add EPG 3 in template of schema 1(normal mode)
-  cisco.mso.mso_schema_template_anp_epg: &epg_schema_1_template_2
-    <<: *epg_present
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 2
-    anp: ANP2
-    epg: ansible_test_3
-    bd:
-      name: ansible_test_3
-      template: Template 2
-    vrf:
-      name: VRF3
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 2
-    useg_epg: true
-    intra_epg_isolation: enforced
-    intersite_multicast_source: true
-    proxy_arp: true
-    preferred_group: true
-    subnets:
-    - subnet: 10.0.0.128/24
-    - subnet: 10.0.1.254/24
-      description: 1234567890
-    - subnet: 172.16.0.1/24
-      description: "My description for a subnet"
-      scope: public
-      shared: true
-      no_default_gateway: false
-    - ip: 192.168.0.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: true
-  register: nm_add_epg_3
-
-- name: Add EPG 4 in template3 of schema 2(normal mode)
-  cisco.mso.mso_schema_template_anp_epg: &epg_schema_2_template_3
-    <<: *epg_present
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
-    anp: ANP3
-    epg: ansible_test_4
-    bd:
-      name: ansible_test_4
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template 3
-    vrf:
-      name: VRF4
-      schema: '{{ mso_schema | default("ansible_test") }}_2'
-      template: Template 3
-  register: nm_add_epg_4
-
-- name: Verify nm_add_epg_3 and nm_add_epg_4
-  ansible.builtin.assert:
-    that:
-    - nm_add_epg_3 is changed
-    - nm_add_epg_4 is changed
-    - nm_add_epg_3.current.name == "ansible_test_3"
-    - nm_add_epg_4.current.name == "ansible_test_4"
-    - nm_add_epg_3.current.vrfRef.templateName == "Template2"
-    - nm_add_epg_4.current.vrfRef.templateName == "Template3"
-    - nm_add_epg_3.current.vrfRef.vrfName == "VRF3"
-    - nm_add_epg_4.current.vrfRef.vrfName == "VRF4"
-    - nm_add_epg_3.current.bdRef.templateName == "Template2"
-    - nm_add_epg_4.current.bdRef.templateName == "Template3"
-    - nm_add_epg_3.current.bdRef.bdName == "ansible_test_3"
-    - nm_add_epg_4.current.bdRef.bdName == "ansible_test_4"
-    - nm_add_epg_3.current.uSegEpg == true
-    - nm_add_epg_3.current.intraEpg == 'enforced'
-    - nm_add_epg_3.current.mCastSource == true
-    - nm_add_epg_3.current.proxyArp == true
-    - nm_add_epg_3.current.preferredGroup == true
-    - nm_add_epg_3.current.subnets[0].description == "10.0.0.128/24"
-    - nm_add_epg_3.current.subnets[0].ip == "10.0.0.128/24"
-    - nm_add_epg_3.current.subnets[0].noDefaultGateway == false
-    - nm_add_epg_3.current.subnets[0].scope == "private"
-    - nm_add_epg_3.current.subnets[0].shared == false
-    - nm_add_epg_3.current.subnets[1].description == "1234567890"
-    - nm_add_epg_3.current.subnets[1].ip == "10.0.1.254/24"
-    - nm_add_epg_3.current.subnets[1].noDefaultGateway == false
-    - nm_add_epg_3.current.subnets[1].scope == "private"
-    - nm_add_epg_3.current.subnets[1].shared == false
-    - nm_add_epg_3.current.subnets[2].description == "My description for a subnet"
-    - nm_add_epg_3.current.subnets[2].ip == "172.16.0.1/24"
-    - nm_add_epg_3.current.subnets[2].noDefaultGateway == false
-    - nm_add_epg_3.current.subnets[2].scope == "public"
-    - nm_add_epg_3.current.subnets[2].shared == true
-    - nm_add_epg_3.current.subnets[3].description == "My description for a subnet"
-    - nm_add_epg_3.current.subnets[3].ip == "192.168.0.254/24"
-    - nm_add_epg_3.current.subnets[3].noDefaultGateway == true
-    - nm_add_epg_3.current.subnets[3].scope == "private"
-    - nm_add_epg_3.current.subnets[3].shared == false
-
-# CHANGE EPG
-- name: Change EPG (check_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    vrf:
-      name: VRF2
-    bd:
-      name: ansible_test_2
-  check_mode: true
-  register: cm_change_epg
-
-- name: Verify cm_change_epg
-  ansible.builtin.assert:
-    that:
-    - cm_change_epg is changed
-    - cm_change_epg.current.name == 'ansible_test_1'
-    - cm_change_epg.current.vrfRef.vrfName == 'VRF2'
-    - cm_change_epg.current.bdRef.templateName == cm_change_epg.current.vrfRef.templateName == "Template1"
-    - cm_change_epg.current.vrfRef.schemaId == cm_change_epg.previous.vrfRef.schemaId
-    - cm_change_epg.current.bdRef.bdName == 'ansible_test_2'
-    - cm_change_epg.current.bdRef.schemaId == cm_change_epg.previous.bdRef.schemaId
-
-- name: Change EPG (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    vrf:
-      name: VRF2
-    bd:
-      name: ansible_test_2
-    output_level: debug
-  register: nm_change_epg
-
-- name: Verify nm_change_epg
-  ansible.builtin.assert:
-    that:
-    - nm_change_epg is changed
-    - nm_change_epg.current.name == 'ansible_test_1'
-    - nm_change_epg.current.vrfRef.vrfName == 'VRF2'
-    - nm_change_epg.current.bdRef.templateName == nm_change_epg.current.vrfRef.templateName == "Template1"
-    - nm_change_epg.current.vrfRef.schemaId == nm_change_epg.previous.vrfRef.schemaId
-    - nm_change_epg.current.bdRef.bdName == 'ansible_test_2'
-    - nm_change_epg.current.bdRef.schemaId == nm_change_epg.previous.bdRef.schemaId
-
-- name: Change EPG again (check_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    vrf:
-      name: VRF2
-    bd:
-      name: ansible_test_2
-  check_mode: true
-  register: cm_change_epg_again
-
-- name: Verify cm_change_epg_again
-  ansible.builtin.assert:
-    that:
-    - cm_change_epg_again is not changed
-    - cm_change_epg_again.current.name == 'ansible_test_1'
-    - cm_change_epg_again.current.vrfRef.vrfName == 'VRF2'
-    - cm_change_epg_again.current.vrfRef.templateName == cm_change_epg_again.current.bdRef.templateName == "Template1"
-    - cm_change_epg_again.current.vrfRef.schemaId == cm_change_epg_again.previous.vrfRef.schemaId
-    - cm_change_epg_again.current.bdRef.bdName == 'ansible_test_2'
-    - cm_change_epg_again.current.bdRef.schemaId == cm_change_epg_again.previous.bdRef.schemaId
-
-- name: Change EPG again (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    vrf:
-      name: VRF2
-    bd:
-      name: ansible_test_2
-  register: nm_change_epg_again
-
-- name: Verify nm_change_epg_again
-  ansible.builtin.assert:
-    that:
-    - nm_change_epg_again is not changed
-    - nm_change_epg_again.current.name == 'ansible_test_1'
-    - nm_change_epg_again.current.vrfRef.vrfName == 'VRF2'
-    - nm_change_epg_again.current.vrfRef.templateName == nm_change_epg_again.current.bdRef.templateName == "Template1"
-    - nm_change_epg_again.current.vrfRef.schemaId == nm_change_epg_again.previous.vrfRef.schemaId
-    - nm_change_epg_again.current.bdRef.bdName == 'ansible_test_2'
-    - nm_change_epg_again.current.bdRef.schemaId == nm_change_epg_again.previous.bdRef.schemaId
-
-- name: Change EPG to VRF in different template (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_schema_1_template_2
-    vrf:
-      name: VRF
-      template: Template 1
-    bd:
-      name: ansible_test_1
-      template: Template 1
-  register: nm_change_epg_vrf3
-
-- name: Change EPG 4 to VRF (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_schema_2_template_3
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
-    anp: ANP3
-    epg: ansible_test_4
-    vrf:
-      name: VRF
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
-    bd:
-      name: ansible_test_1
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      template: Template 1
-  register: nm_change_epg_vrf4
-
-- name: Verify nm_change_epg_vrf3 and nm_change_epg_vrf4
-  ansible.builtin.assert:
-    that:
-    - nm_change_epg_vrf3 is changed
-    - nm_change_epg_vrf3.current.name == 'ansible_test_3'
-    - nm_change_epg_vrf4.current.name == 'ansible_test_4'
-    - nm_change_epg_vrf3.current.vrfRef.vrfName == 'VRF'
-    - nm_change_epg_vrf3.current.bdRef.bdName == 'ansible_test_1'
-    - nm_change_epg_vrf3.current.vrfRef.templateName == nm_change_epg_vrf3.current.bdRef.templateName == "Template1"
-    - nm_change_epg_vrf4.current.vrfRef.vrfName == 'VRF'
-    - nm_change_epg_vrf4.current.bdRef.bdName == 'ansible_test_1'
-    - nm_change_epg_vrf4.current.vrfRef.templateName == nm_change_epg_vrf4.current.bdRef.templateName == "Template1"
-
-- name: Change EPG 1 settings(normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    useg_epg: true
-    intra_epg_isolation: enforced
-    intersite_multicast_source: true
-    proxy_arp: true
-    preferred_group: true
-    subnets:
-    - subnet: 10.1.0.128/24
-    - subnet: 10.1.1.254/24
-      description: 1234567890
-    - subnet: 172.17.0.1/24
-      description: "My description for a subnet"
-      scope: public
-      shared: true
-      no_default_gateway: false
-    - ip: 192.168.1.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: true
-  register: nm_change_epg_1_settings
-
-- name: Change EPG 1 subnets (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    useg_epg: true
-    intra_epg_isolation: enforced
-    intersite_multicast_source: true
-    proxy_arp: true
-    preferred_group: true
-    subnets:
-    - subnet: 10.1.0.127/24
-    - subnet: 172.17.0.1/24
-      description: "New description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: false
-    - ip: 192.168.1.254/24
-      description: "My description for a subnet"
-      scope: private
-      shared: false
-      no_default_gateway: false
-  register: nm_change_epg_1_subnets
-
-- name: Verify nm_change_epg_1_subnets
-  ansible.builtin.assert:
-    that:
-    - nm_change_epg_1_settings is changed
-    - nm_change_epg_1_settings.current.name == "ansible_test_1"
-    - nm_change_epg_1_settings.current.vrfRef.templateName ==  nm_change_epg_1_settings.current.bdRef.templateName ==  "Template1"
-    - nm_change_epg_1_settings.current.vrfRef.vrfName == "VRF"
-    - nm_change_epg_1_settings.current.bdRef.bdName == "ansible_test_1"
-    - nm_change_epg_1_settings.current.uSegEpg == true
-    - nm_change_epg_1_settings.current.intraEpg == 'enforced'
-    - nm_change_epg_1_settings.current.mCastSource == true
-    - nm_change_epg_1_settings.current.proxyArp == true
-    - nm_change_epg_1_settings.current.preferredGroup == true
-    - nm_change_epg_1_settings.current.subnets[0].description == "10.1.0.128/24"
-    - nm_change_epg_1_settings.current.subnets[0].ip == "10.1.0.128/24"
-    - nm_change_epg_1_settings.current.subnets[0].noDefaultGateway == false
-    - nm_change_epg_1_settings.current.subnets[0].scope == "private"
-    - nm_change_epg_1_settings.current.subnets[0].shared == false
-    - nm_change_epg_1_settings.current.subnets[1].description == "1234567890"
-    - nm_change_epg_1_settings.current.subnets[1].ip == "10.1.1.254/24"
-    - nm_change_epg_1_settings.current.subnets[1].noDefaultGateway == false
-    - nm_change_epg_1_settings.current.subnets[1].scope == "private"
-    - nm_change_epg_1_settings.current.subnets[1].shared == false
-    - nm_change_epg_1_settings.current.subnets[2].description == "My description for a subnet"
-    - nm_change_epg_1_settings.current.subnets[2].ip == "172.17.0.1/24"
-    - nm_change_epg_1_settings.current.subnets[2].noDefaultGateway == false
-    - nm_change_epg_1_settings.current.subnets[2].scope == "public"
-    - nm_change_epg_1_settings.current.subnets[2].shared == true
-    - nm_change_epg_1_settings.current.subnets[3].description == "My description for a subnet"
-    - nm_change_epg_1_settings.current.subnets[3].ip == "192.168.1.254/24"
-    - nm_change_epg_1_settings.current.subnets[3].noDefaultGateway == true
-    - nm_change_epg_1_settings.current.subnets[3].scope == "private"
-    - nm_change_epg_1_settings.current.subnets[3].shared == false
-    - nm_change_epg_1_subnets is changed
-    - nm_change_epg_1_subnets.current.subnets | length == 3
-    - nm_change_epg_1_subnets.current.name == "ansible_test_1"
-    - nm_change_epg_1_subnets.current.vrfRef.templateName == nm_change_epg_1_subnets.current.bdRef.templateName == "Template1"
-    - nm_change_epg_1_subnets.current.vrfRef.vrfName == "VRF"
-    - nm_change_epg_1_subnets.current.bdRef.bdName == "ansible_test_1"
-    - nm_change_epg_1_subnets.current.uSegEpg == true
-    - nm_change_epg_1_subnets.current.intraEpg == 'enforced'
-    - nm_change_epg_1_subnets.current.mCastSource == true
-    - nm_change_epg_1_subnets.current.proxyArp == true
-    - nm_change_epg_1_subnets.current.preferredGroup == true
-    - nm_change_epg_1_subnets.current.subnets[0].description == "10.1.0.127/24"
-    - nm_change_epg_1_subnets.current.subnets[0].ip == "10.1.0.127/24"
-    - nm_change_epg_1_subnets.current.subnets[0].noDefaultGateway == false
-    - nm_change_epg_1_subnets.current.subnets[0].scope == "private"
-    - nm_change_epg_1_subnets.current.subnets[0].shared == false
-    - nm_change_epg_1_subnets.current.subnets[1].description == "New description for a subnet"
-    - nm_change_epg_1_subnets.current.subnets[1].ip == "172.17.0.1/24"
-    - nm_change_epg_1_subnets.current.subnets[1].noDefaultGateway == false
-    - nm_change_epg_1_subnets.current.subnets[1].scope == "private"
-    - nm_change_epg_1_subnets.current.subnets[1].shared == false
-    - nm_change_epg_1_subnets.current.subnets[2].description == "My description for a subnet"
-    - nm_change_epg_1_subnets.current.subnets[2].ip == "192.168.1.254/24"
-    - nm_change_epg_1_subnets.current.subnets[2].noDefaultGateway == false
-    - nm_change_epg_1_subnets.current.subnets[2].scope == "private"
-    - nm_change_epg_1_subnets.current.subnets[2].shared == false
-
-
-# # QUERY ALL EPGs
-- name: Query all EPGs in an ANP (check_mode)
-  cisco.mso.mso_schema_template_anp_epg: &epg_query
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    state: query
-  check_mode: true
-  register: cm_query_all_epgs
-
-- name: Query all EPGs (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-  register: nm_query_all_epgs
-
-- name: Verify query_all_epgs
-  ansible.builtin.assert:
-    that:
-    - cm_query_all_epgs is not changed
-    - nm_query_all_epgs is not changed
-    - cm_query_all_epgs.current | length == nm_query_all_epgs.current | length == 2
-
-
-# QUERY AN EPG
-- name: Query EPG 1 (check_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-    epg: ansible_test_1
-  check_mode: true
-  register: cm_query_epg_1
-
-- name: Query EPG 1 (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-    epg: ansible_test_1
-  register: nm_query_epg_1
-
-- name: Query EPG 3 (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-    template: Template 2
-    anp: ANP2
-    epg: ansible_test_3
-  register: nm_query_epg_3
-
-- name: Query EPG 4 (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
-    anp: ANP3
-    epg: ansible_test_4
-  register: nm_query_epg_4
-
-- name: Verify query_epg_x
-  ansible.builtin.assert:
-    that:
-    - cm_query_epg_1 is not changed
-    - nm_query_epg_1 is not changed
-    - nm_query_epg_3 is not changed
-    - nm_query_epg_4 is not changed
-    - nm_query_epg_1.current.subnets | length == 3
-    - nm_query_epg_1.current.name == "ansible_test_1"
-    - nm_query_epg_1.current.vrfRef.templateName == nm_query_epg_1.current.bdRef.templateName == "Template1"
-    - nm_query_epg_1.current.vrfRef.vrfName == "VRF"
-    - nm_query_epg_1.current.bdRef.bdName == "ansible_test_1"
-    - nm_query_epg_1.current.uSegEpg == true
-    - nm_query_epg_1.current.intraEpg == 'enforced'
-    - nm_query_epg_1.current.mCastSource == true
-    - nm_query_epg_1.current.proxyArp == true
-    - nm_query_epg_1.current.preferredGroup == true
-    - nm_query_epg_1.current.subnets[0].description == "10.1.0.127/24"
-    - nm_query_epg_1.current.subnets[0].ip == "10.1.0.127/24"
-    - nm_query_epg_1.current.subnets[0].noDefaultGateway == false
-    - nm_query_epg_1.current.subnets[0].scope == "private"
-    - nm_query_epg_1.current.subnets[0].shared == false
-    - nm_query_epg_1.current.subnets[1].description == "New description for a subnet"
-    - nm_query_epg_1.current.subnets[1].ip == "172.17.0.1/24"
-    - nm_query_epg_1.current.subnets[1].noDefaultGateway == false
-    - nm_query_epg_1.current.subnets[1].scope == "private"
-    - nm_query_epg_1.current.subnets[1].shared == false
-    - nm_query_epg_1.current.subnets[2].description == "My description for a subnet"
-    - nm_query_epg_1.current.subnets[2].ip == "192.168.1.254/24"
-    - nm_query_epg_1.current.subnets[2].noDefaultGateway == false
-    - nm_query_epg_1.current.subnets[2].scope == "private"
-    - nm_query_epg_1.current.subnets[2].shared == false
-    - nm_query_epg_3.current.name == "ansible_test_3"
-    - nm_query_epg_4.current.name == "ansible_test_4"
-    - nm_query_epg_3.current.vrfRef.templateName == nm_query_epg_4.current.vrfRef.templateName == "Template1"
-    - nm_query_epg_3.current.vrfRef.vrfName == nm_query_epg_4.current.vrfRef.vrfName == "VRF"
-    - nm_query_epg_3.current.bdRef.templateName == nm_query_epg_4.current.bdRef.templateName == "Template1"
-    - nm_query_epg_3.current.bdRef.bdName == nm_query_epg_4.current.bdRef.bdName == "ansible_test_1"
-    - nm_query_epg_3.current.uSegEpg == true
-    - nm_query_epg_3.current.intraEpg == 'enforced'
-    - nm_query_epg_3.current.mCastSource == true
-    - nm_query_epg_3.current.proxyArp == true
-    - nm_query_epg_3.current.preferredGroup == true
-    - nm_query_epg_3.current.subnets[0].description == "10.0.0.128/24"
-    - nm_query_epg_3.current.subnets[0].ip == "10.0.0.128/24"
-    - nm_query_epg_3.current.subnets[0].noDefaultGateway == false
-    - nm_query_epg_3.current.subnets[0].scope == "private"
-    - nm_query_epg_3.current.subnets[0].shared == false
-    - nm_query_epg_3.current.subnets[1].description == "1234567890"
-    - nm_query_epg_3.current.subnets[1].ip == "10.0.1.254/24"
-    - nm_query_epg_3.current.subnets[1].noDefaultGateway == false
-    - nm_query_epg_3.current.subnets[1].scope == "private"
-    - nm_query_epg_3.current.subnets[1].shared == false
-    - nm_query_epg_3.current.subnets[2].description == "My description for a subnet"
-    - nm_query_epg_3.current.subnets[2].ip == "172.16.0.1/24"
-    - nm_query_epg_3.current.subnets[2].noDefaultGateway == false
-    - nm_query_epg_3.current.subnets[2].scope == "public"
-    - nm_query_epg_3.current.subnets[2].shared == true
-    - nm_query_epg_3.current.subnets[3].description == "My description for a subnet"
-    - nm_query_epg_3.current.subnets[3].ip == "192.168.0.254/24"
-    - nm_query_epg_3.current.subnets[3].noDefaultGateway == true
-    - nm_query_epg_3.current.subnets[3].scope == "private"
-    - nm_query_epg_3.current.subnets[3].shared == false
-
-# REMOVE EPG
-- name: Remove EPG (check_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    state: absent
-  check_mode: true
-  register: cm_remove_epg
-
-- name: Verify cm_remove_epg
-  ansible.builtin.assert:
-    that:
-    - cm_remove_epg is changed
-    - cm_remove_epg.current == {}
-
-- name: Remove EPG (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    state: absent
-  register: nm_remove_epg
-
-- name: Verify nm_remove_epg
-  ansible.builtin.assert:
-    that:
-    - nm_remove_epg is changed
-    - nm_remove_epg.current == {}
-
-- name: Remove EPG again (check_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    state: absent
-  check_mode: true
-  register: cm_remove_epg_again
-
-- name: Verify cm_remove_epg_again
-  ansible.builtin.assert:
-    that:
-    - cm_remove_epg_again is not changed
-    - cm_remove_epg_again.current == {}
-
-- name: Remove EPG again (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    state: absent
-  register: nm_remove_epg_again
-
-- name: Verify nm_remove_epg_again
-  ansible.builtin.assert:
-    that:
-    - nm_remove_epg_again is not changed
-    - nm_remove_epg_again.current == {}
-
-- name: Remove EPG (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    epg: ansible_test_1
-    state: absent
-  ignore_errors: true
-
-# Add EPG when MSO version >= 3.3
-- name: Execute tasks only for MSO version >= 3.3
-  when:
-  - version.current.version is version('3.3', '>=')
+- name: Exercise mso_schema_template_anp_epg
   block:
-  - name: Add EPG (for version greater than 3.3)
-    cisco.mso.mso_schema_template_anp_epg: &new_epg
+  - name: Query MSO version
+    cisco.mso.mso_version:
+      <<: *mso_info
+      state: query
+    register: version
+
+  - name: Remove schemas
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    loop:
+    - '{{ mso_schema | default("ansible_test") }}_2'
+    - '{{ mso_schema | default("ansible_test") }}'
+
+  - name: Ensure tenant ansible_test exist
+    cisco.mso.mso_tenant:
+      <<: *mso_info
+      tenant: ansible_test
+      users:
+      - '{{ mso_username }}'
+      state: present
+
+  - name: Ensure schema 1 with Template 1 exist
+    cisco.mso.mso_schema_template: &schema_present
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      tenant: ansible_test
+      template: Template 1
+      state: present
+
+  - name: Ensure schema 1 with Template 2 exist
+    cisco.mso.mso_schema_template:
+      <<: *schema_present
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      tenant: ansible_test
+      template: Template 2
+      state: present
+
+  - name: Ensure schema 2 with Template 3 exist
+    cisco.mso.mso_schema_template:
+      <<: *schema_present
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      tenant: ansible_test
+      template: Template 3
+      state: present
+
+  - name: Ensure VRF exist
+    cisco.mso.mso_schema_template_vrf: &vrf_present
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      vrf: VRF
+      preferred_group: true
+      layer3_multicast: true
+      state: present
+
+  - name: Ensure VRF2 exist
+    cisco.mso.mso_schema_template_vrf:
+      <<: *vrf_present
+      vrf: VRF2
+      state: present
+
+  - name: Ensure VRF3 exist
+    cisco.mso.mso_schema_template_vrf:
+      <<: *vrf_present
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 2
+      vrf: VRF3
+      preferred_group: true
+      state: present
+
+  - name: Ensure VRF4 exist
+    cisco.mso.mso_schema_template_vrf:
+      <<: *vrf_present
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
+      vrf: VRF4
+      state: present
+
+  - name: Ensure ANP exist
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      anp: ANP
+      state: present
+
+  - name: Ensure ANP2 exist
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 2
+      anp: ANP2
+      state: present
+
+  - name: Ensure ANP3 exist
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
+      anp: ANP3
+      state: present
+
+  - name: Ensure Filter 1 exist
+    cisco.mso.mso_schema_template_filter_entry:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      filter: Filter1
+      entry: Filter1-Entry
+      state: present
+
+  - name: Ensure Contract1 exist
+    cisco.mso.mso_schema_template_contract_filter:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      contract: Contract1
+      filter: Filter1
+      filter_schema: '{{ mso_schema | default("ansible_test") }}'
+      filter_template: Template 1
+      state: present
+
+  - name: Ensure Filter 2 exist
+    cisco.mso.mso_schema_template_filter_entry:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 2
+      filter: Filter2
+      entry: Filter2-Entry
+      state: present
+
+  - name: Ensure Contract2 exist
+    cisco.mso.mso_schema_template_contract_filter:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 2
+      contract: Contract2
+      filter: Filter2
+      filter_schema: '{{ mso_schema | default("ansible_test") }}'
+      filter_template: Template 2
+      state: present
+
+  - name: Ensure ansible_test_1 BD exist
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_1
+      vrf:
+        name: VRF
+      layer3_multicast: true
+      state: present
+
+  - name: Ensure ansible_test_2 BD exist
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      bd: ansible_test_2
+      vrf:
+        name: VRF2
+        template: Template 1
+      layer3_multicast: true
+      state: present
+
+  - name: Ensure ansible_test_3 BD exist
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 2
+      bd: ansible_test_3
+      vrf:
+        name: VRF3
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 2
+      layer3_multicast: true
+      state: present
+
+  - name: Ensure ansible_test_4 BD exist
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
+      bd: ansible_test_4
+      vrf:
+        name: VRF4
+        schema: '{{ mso_schema | default("ansible_test") }}_2'
+        template: Template 3
+      layer3_multicast: true
+      state: present
+
+  # ADD EPG
+  - name: Add EPG (check_mode)
+    cisco.mso.mso_schema_template_anp_epg: &epg_present
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
       template: Template 1
       anp: ANP
       epg: ansible_test_1
-      description: 'Description of ANP EPG'
+      bd:
+        name: ansible_test_1
+      vrf:
+        name: VRF
       state: present
-    register: add_epg_desc
+    check_mode: true
+    register: cm_add_epg
 
-  - name: Verify Add description
+  - name: Verify cm_add_epg
     ansible.builtin.assert:
       that:
-        - add_epg_desc is changed
-        - add_epg_desc.current.description == "Description of ANP EPG"
-  
-  - name: Remove EPG (for version greater than 3.3)
+      - cm_add_epg is changed
+      - cm_add_epg.previous == {}
+      - cm_add_epg.current.name == "ansible_test_1"
+      - cm_add_epg.current.vrfRef.templateName == "Template1"
+      - cm_add_epg.current.vrfRef.vrfName == "VRF"
+      - cm_add_epg.current.bdRef.templateName == "Template1"
+      - cm_add_epg.current.bdRef.bdName == "ansible_test_1"
+
+  - name: Add EPG (normal mode)
     cisco.mso.mso_schema_template_anp_epg:
-      <<: *new_epg
+      <<: *epg_present
+    register: nm_add_epg
+
+  - name: Verify nm_add_epg
+    ansible.builtin.assert:
+      that:
+      - nm_add_epg is changed
+      - nm_add_epg.previous == {}
+      - nm_add_epg.current.name == "ansible_test_1"
+      - nm_add_epg.current.vrfRef.templateName == "Template1"
+      - nm_add_epg.current.vrfRef.vrfName == "VRF"
+      - nm_add_epg.current.bdRef.templateName == "Template1"
+      - nm_add_epg.current.bdRef.bdName == "ansible_test_1"
+      - cm_add_epg.current.vrfRef.schemaId ==  nm_add_epg.current.vrfRef.schemaId
+      - cm_add_epg.current.bdRef.schemaId ==  nm_add_epg.current.bdRef.schemaId
+
+  - name: Add EPG again (check_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+    check_mode: true
+    register: cm_add_epg_again
+
+  - name: Verify cm_add_epg_again
+    ansible.builtin.assert:
+      that:
+      - cm_add_epg_again is not changed
+      - cm_add_epg_again.current.name == cm_add_epg_again.previous.name == "ansible_test_1"
+      - cm_add_epg_again.current.vrfRef.templateName == cm_add_epg_again.previous.vrfRef.templateName == "Template1"
+      - cm_add_epg_again.current.vrfRef.vrfName == cm_add_epg_again.previous.vrfRef.vrfName == "VRF"
+      - cm_add_epg_again.current.bdRef.templateName == cm_add_epg_again.previous.bdRef.templateName == "Template1"
+      - cm_add_epg_again.current.bdRef.bdName == cm_add_epg_again.previous.bdRef.bdName == "ansible_test_1"
+      - cm_add_epg_again.previous.vrfRef.schemaId ==  cm_add_epg_again.current.vrfRef.schemaId
+      - cm_add_epg_again.previous.bdRef.schemaId ==  cm_add_epg_again.current.bdRef.schemaId
+
+
+  - name: Add EPG again (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+    register: nm_add_epg_again
+
+  - name: Verify nm_add_epg_again
+    ansible.builtin.assert:
+      that:
+      - nm_add_epg_again is not changed
+      - nm_add_epg_again.current.name == nm_add_epg_again.previous.name == "ansible_test_1"
+      - nm_add_epg_again.current.vrfRef.templateName == nm_add_epg_again.previous.vrfRef.templateName == "Template1"
+      - nm_add_epg_again.current.vrfRef.vrfName == nm_add_epg_again.previous.vrfRef.vrfName == "VRF"
+      - nm_add_epg_again.current.bdRef.templateName == nm_add_epg_again.previous.bdRef.templateName == "Template1"
+      - nm_add_epg_again.current.bdRef.bdName == nm_add_epg_again.previous.bdRef.bdName == "ansible_test_1"
+      - nm_add_epg_again.previous.vrfRef.schemaId ==  nm_add_epg_again.current.vrfRef.schemaId
+      - nm_add_epg_again.previous.bdRef.schemaId ==  nm_add_epg_again.current.bdRef.schemaId
+
+  - name: Add EPG 2 (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      epg: ansible_test_2
+
+  - name: Add EPG 3 in template of schema 1(normal mode)
+    cisco.mso.mso_schema_template_anp_epg: &epg_schema_1_template_2
+      <<: *epg_present
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 2
+      anp: ANP2
+      epg: ansible_test_3
+      bd:
+        name: ansible_test_3
+        template: Template 2
+      vrf:
+        name: VRF3
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 2
+      useg_epg: true
+      intra_epg_isolation: enforced
+      intersite_multicast_source: true
+      proxy_arp: true
+      preferred_group: true
+      subnets:
+      - subnet: 10.0.0.128/24
+      - subnet: 10.0.1.254/24
+        description: 1234567890
+      - subnet: 172.16.0.1/24
+        description: "My description for a subnet"
+        scope: public
+        shared: true
+        no_default_gateway: false
+      - ip: 192.168.0.254/24
+        description: "My description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: true
+    register: nm_add_epg_3
+
+  - name: Add EPG 4 in template3 of schema 2(normal mode)
+    cisco.mso.mso_schema_template_anp_epg: &epg_schema_2_template_3
+      <<: *epg_present
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
+      anp: ANP3
+      epg: ansible_test_4
+      bd:
+        name: ansible_test_4
+        schema: '{{ mso_schema | default("ansible_test") }}_2'
+        template: Template 3
+      vrf:
+        name: VRF4
+        schema: '{{ mso_schema | default("ansible_test") }}_2'
+        template: Template 3
+    register: nm_add_epg_4
+
+  - name: Verify nm_add_epg_3 and nm_add_epg_4
+    ansible.builtin.assert:
+      that:
+      - nm_add_epg_3 is changed
+      - nm_add_epg_4 is changed
+      - nm_add_epg_3.current.name == "ansible_test_3"
+      - nm_add_epg_4.current.name == "ansible_test_4"
+      - nm_add_epg_3.current.vrfRef.templateName == "Template2"
+      - nm_add_epg_4.current.vrfRef.templateName == "Template3"
+      - nm_add_epg_3.current.vrfRef.vrfName == "VRF3"
+      - nm_add_epg_4.current.vrfRef.vrfName == "VRF4"
+      - nm_add_epg_3.current.bdRef.templateName == "Template2"
+      - nm_add_epg_4.current.bdRef.templateName == "Template3"
+      - nm_add_epg_3.current.bdRef.bdName == "ansible_test_3"
+      - nm_add_epg_4.current.bdRef.bdName == "ansible_test_4"
+      - nm_add_epg_3.current.uSegEpg == true
+      - nm_add_epg_3.current.intraEpg == 'enforced'
+      - nm_add_epg_3.current.mCastSource == true
+      - nm_add_epg_3.current.proxyArp == true
+      - nm_add_epg_3.current.preferredGroup == true
+      - nm_add_epg_3.current.subnets[0].description == "10.0.0.128/24"
+      - nm_add_epg_3.current.subnets[0].ip == "10.0.0.128/24"
+      - nm_add_epg_3.current.subnets[0].noDefaultGateway == false
+      - nm_add_epg_3.current.subnets[0].scope == "private"
+      - nm_add_epg_3.current.subnets[0].shared == false
+      - nm_add_epg_3.current.subnets[1].description == "1234567890"
+      - nm_add_epg_3.current.subnets[1].ip == "10.0.1.254/24"
+      - nm_add_epg_3.current.subnets[1].noDefaultGateway == false
+      - nm_add_epg_3.current.subnets[1].scope == "private"
+      - nm_add_epg_3.current.subnets[1].shared == false
+      - nm_add_epg_3.current.subnets[2].description == "My description for a subnet"
+      - nm_add_epg_3.current.subnets[2].ip == "172.16.0.1/24"
+      - nm_add_epg_3.current.subnets[2].noDefaultGateway == false
+      - nm_add_epg_3.current.subnets[2].scope == "public"
+      - nm_add_epg_3.current.subnets[2].shared == true
+      - nm_add_epg_3.current.subnets[3].description == "My description for a subnet"
+      - nm_add_epg_3.current.subnets[3].ip == "192.168.0.254/24"
+      - nm_add_epg_3.current.subnets[3].noDefaultGateway == true
+      - nm_add_epg_3.current.subnets[3].scope == "private"
+      - nm_add_epg_3.current.subnets[3].shared == false
+
+  # CHANGE EPG
+  - name: Change EPG (check_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      vrf:
+        name: VRF2
+      bd:
+        name: ansible_test_2
+    check_mode: true
+    register: cm_change_epg
+
+  - name: Verify cm_change_epg
+    ansible.builtin.assert:
+      that:
+      - cm_change_epg is changed
+      - cm_change_epg.current.name == 'ansible_test_1'
+      - cm_change_epg.current.vrfRef.vrfName == 'VRF2'
+      - cm_change_epg.current.bdRef.templateName == cm_change_epg.current.vrfRef.templateName == "Template1"
+      - cm_change_epg.current.vrfRef.schemaId == cm_change_epg.previous.vrfRef.schemaId
+      - cm_change_epg.current.bdRef.bdName == 'ansible_test_2'
+      - cm_change_epg.current.bdRef.schemaId == cm_change_epg.previous.bdRef.schemaId
+
+  - name: Change EPG (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      vrf:
+        name: VRF2
+      bd:
+        name: ansible_test_2
+      output_level: debug
+    register: nm_change_epg
+
+  - name: Verify nm_change_epg
+    ansible.builtin.assert:
+      that:
+      - nm_change_epg is changed
+      - nm_change_epg.current.name == 'ansible_test_1'
+      - nm_change_epg.current.vrfRef.vrfName == 'VRF2'
+      - nm_change_epg.current.bdRef.templateName == nm_change_epg.current.vrfRef.templateName == "Template1"
+      - nm_change_epg.current.vrfRef.schemaId == nm_change_epg.previous.vrfRef.schemaId
+      - nm_change_epg.current.bdRef.bdName == 'ansible_test_2'
+      - nm_change_epg.current.bdRef.schemaId == nm_change_epg.previous.bdRef.schemaId
+
+  - name: Change EPG again (check_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      vrf:
+        name: VRF2
+      bd:
+        name: ansible_test_2
+    check_mode: true
+    register: cm_change_epg_again
+
+  - name: Verify cm_change_epg_again
+    ansible.builtin.assert:
+      that:
+      - cm_change_epg_again is not changed
+      - cm_change_epg_again.current.name == 'ansible_test_1'
+      - cm_change_epg_again.current.vrfRef.vrfName == 'VRF2'
+      - cm_change_epg_again.current.vrfRef.templateName == cm_change_epg_again.current.bdRef.templateName == "Template1"
+      - cm_change_epg_again.current.vrfRef.schemaId == cm_change_epg_again.previous.vrfRef.schemaId
+      - cm_change_epg_again.current.bdRef.bdName == 'ansible_test_2'
+      - cm_change_epg_again.current.bdRef.schemaId == cm_change_epg_again.previous.bdRef.schemaId
+
+  - name: Change EPG again (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      vrf:
+        name: VRF2
+      bd:
+        name: ansible_test_2
+    register: nm_change_epg_again
+
+  - name: Verify nm_change_epg_again
+    ansible.builtin.assert:
+      that:
+      - nm_change_epg_again is not changed
+      - nm_change_epg_again.current.name == 'ansible_test_1'
+      - nm_change_epg_again.current.vrfRef.vrfName == 'VRF2'
+      - nm_change_epg_again.current.vrfRef.templateName == nm_change_epg_again.current.bdRef.templateName == "Template1"
+      - nm_change_epg_again.current.vrfRef.schemaId == nm_change_epg_again.previous.vrfRef.schemaId
+      - nm_change_epg_again.current.bdRef.bdName == 'ansible_test_2'
+      - nm_change_epg_again.current.bdRef.schemaId == nm_change_epg_again.previous.bdRef.schemaId
+
+  - name: Change EPG to VRF in different template (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_schema_1_template_2
+      vrf:
+        name: VRF
+        template: Template 1
+      bd:
+        name: ansible_test_1
+        template: Template 1
+    register: nm_change_epg_vrf3
+
+  - name: Change EPG 4 to VRF (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_schema_2_template_3
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
+      anp: ANP3
+      epg: ansible_test_4
+      vrf:
+        name: VRF
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 1
+      bd:
+        name: ansible_test_1
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 1
+    register: nm_change_epg_vrf4
+
+  - name: Verify nm_change_epg_vrf3 and nm_change_epg_vrf4
+    ansible.builtin.assert:
+      that:
+      - nm_change_epg_vrf3 is changed
+      - nm_change_epg_vrf3.current.name == 'ansible_test_3'
+      - nm_change_epg_vrf4.current.name == 'ansible_test_4'
+      - nm_change_epg_vrf3.current.vrfRef.vrfName == 'VRF'
+      - nm_change_epg_vrf3.current.bdRef.bdName == 'ansible_test_1'
+      - nm_change_epg_vrf3.current.vrfRef.templateName == nm_change_epg_vrf3.current.bdRef.templateName == "Template1"
+      - nm_change_epg_vrf4.current.vrfRef.vrfName == 'VRF'
+      - nm_change_epg_vrf4.current.bdRef.bdName == 'ansible_test_1'
+      - nm_change_epg_vrf4.current.vrfRef.templateName == nm_change_epg_vrf4.current.bdRef.templateName == "Template1"
+
+  - name: Change EPG 1 settings(normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      useg_epg: true
+      intra_epg_isolation: enforced
+      intersite_multicast_source: true
+      proxy_arp: true
+      preferred_group: true
+      subnets:
+      - subnet: 10.1.0.128/24
+      - subnet: 10.1.1.254/24
+        description: 1234567890
+      - subnet: 172.17.0.1/24
+        description: "My description for a subnet"
+        scope: public
+        shared: true
+        no_default_gateway: false
+      - ip: 192.168.1.254/24
+        description: "My description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: true
+    register: nm_change_epg_1_settings
+
+  - name: Change EPG 1 subnets (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      useg_epg: true
+      intra_epg_isolation: enforced
+      intersite_multicast_source: true
+      proxy_arp: true
+      preferred_group: true
+      subnets:
+      - subnet: 10.1.0.127/24
+      - subnet: 172.17.0.1/24
+        description: "New description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: false
+      - ip: 192.168.1.254/24
+        description: "My description for a subnet"
+        scope: private
+        shared: false
+        no_default_gateway: false
+    register: nm_change_epg_1_subnets
+
+  - name: Verify nm_change_epg_1_subnets
+    ansible.builtin.assert:
+      that:
+      - nm_change_epg_1_settings is changed
+      - nm_change_epg_1_settings.current.name == "ansible_test_1"
+      - nm_change_epg_1_settings.current.vrfRef.templateName ==  nm_change_epg_1_settings.current.bdRef.templateName ==  "Template1"
+      - nm_change_epg_1_settings.current.vrfRef.vrfName == "VRF"
+      - nm_change_epg_1_settings.current.bdRef.bdName == "ansible_test_1"
+      - nm_change_epg_1_settings.current.uSegEpg == true
+      - nm_change_epg_1_settings.current.intraEpg == 'enforced'
+      - nm_change_epg_1_settings.current.mCastSource == true
+      - nm_change_epg_1_settings.current.proxyArp == true
+      - nm_change_epg_1_settings.current.preferredGroup == true
+      - nm_change_epg_1_settings.current.subnets[0].description == "10.1.0.128/24"
+      - nm_change_epg_1_settings.current.subnets[0].ip == "10.1.0.128/24"
+      - nm_change_epg_1_settings.current.subnets[0].noDefaultGateway == false
+      - nm_change_epg_1_settings.current.subnets[0].scope == "private"
+      - nm_change_epg_1_settings.current.subnets[0].shared == false
+      - nm_change_epg_1_settings.current.subnets[1].description == "1234567890"
+      - nm_change_epg_1_settings.current.subnets[1].ip == "10.1.1.254/24"
+      - nm_change_epg_1_settings.current.subnets[1].noDefaultGateway == false
+      - nm_change_epg_1_settings.current.subnets[1].scope == "private"
+      - nm_change_epg_1_settings.current.subnets[1].shared == false
+      - nm_change_epg_1_settings.current.subnets[2].description == "My description for a subnet"
+      - nm_change_epg_1_settings.current.subnets[2].ip == "172.17.0.1/24"
+      - nm_change_epg_1_settings.current.subnets[2].noDefaultGateway == false
+      - nm_change_epg_1_settings.current.subnets[2].scope == "public"
+      - nm_change_epg_1_settings.current.subnets[2].shared == true
+      - nm_change_epg_1_settings.current.subnets[3].description == "My description for a subnet"
+      - nm_change_epg_1_settings.current.subnets[3].ip == "192.168.1.254/24"
+      - nm_change_epg_1_settings.current.subnets[3].noDefaultGateway == true
+      - nm_change_epg_1_settings.current.subnets[3].scope == "private"
+      - nm_change_epg_1_settings.current.subnets[3].shared == false
+      - nm_change_epg_1_subnets is changed
+      - nm_change_epg_1_subnets.current.subnets | length == 3
+      - nm_change_epg_1_subnets.current.name == "ansible_test_1"
+      - nm_change_epg_1_subnets.current.vrfRef.templateName == nm_change_epg_1_subnets.current.bdRef.templateName == "Template1"
+      - nm_change_epg_1_subnets.current.vrfRef.vrfName == "VRF"
+      - nm_change_epg_1_subnets.current.bdRef.bdName == "ansible_test_1"
+      - nm_change_epg_1_subnets.current.uSegEpg == true
+      - nm_change_epg_1_subnets.current.intraEpg == 'enforced'
+      - nm_change_epg_1_subnets.current.mCastSource == true
+      - nm_change_epg_1_subnets.current.proxyArp == true
+      - nm_change_epg_1_subnets.current.preferredGroup == true
+      - nm_change_epg_1_subnets.current.subnets[0].description == "10.1.0.127/24"
+      - nm_change_epg_1_subnets.current.subnets[0].ip == "10.1.0.127/24"
+      - nm_change_epg_1_subnets.current.subnets[0].noDefaultGateway == false
+      - nm_change_epg_1_subnets.current.subnets[0].scope == "private"
+      - nm_change_epg_1_subnets.current.subnets[0].shared == false
+      - nm_change_epg_1_subnets.current.subnets[1].description == "New description for a subnet"
+      - nm_change_epg_1_subnets.current.subnets[1].ip == "172.17.0.1/24"
+      - nm_change_epg_1_subnets.current.subnets[1].noDefaultGateway == false
+      - nm_change_epg_1_subnets.current.subnets[1].scope == "private"
+      - nm_change_epg_1_subnets.current.subnets[1].shared == false
+      - nm_change_epg_1_subnets.current.subnets[2].description == "My description for a subnet"
+      - nm_change_epg_1_subnets.current.subnets[2].ip == "192.168.1.254/24"
+      - nm_change_epg_1_subnets.current.subnets[2].noDefaultGateway == false
+      - nm_change_epg_1_subnets.current.subnets[2].scope == "private"
+      - nm_change_epg_1_subnets.current.subnets[2].shared == false
+
+
+  # # QUERY ALL EPGs
+  - name: Query all EPGs in an ANP (check_mode)
+    cisco.mso.mso_schema_template_anp_epg: &epg_query
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      anp: ANP
+      state: query
+    check_mode: true
+    register: cm_query_all_epgs
+
+  - name: Query all EPGs (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_query
+    register: nm_query_all_epgs
+
+  - name: Verify query_all_epgs
+    ansible.builtin.assert:
+      that:
+      - cm_query_all_epgs is not changed
+      - nm_query_all_epgs is not changed
+      - cm_query_all_epgs.current | length == nm_query_all_epgs.current | length == 2
+      - cm_query_all_epgs.current == nm_query_all_epgs.current
+      - nm_query_all_epgs.current | map(attribute='name') | list | sort == ['ansible_test_1', 'ansible_test_2']
+      - (nm_query_all_epgs.current | selectattr('name', 'equalto', 'ansible_test_1') | first).bdRef is mapping
+      - (nm_query_all_epgs.current | selectattr('name', 'equalto', 'ansible_test_1') | first).vrfRef is mapping
+      - (nm_query_all_epgs.current | selectattr('name', 'equalto', 'ansible_test_1') | first).bdRef.bdName == 'ansible_test_1'
+      - (nm_query_all_epgs.current | selectattr('name', 'equalto', 'ansible_test_1') | first).vrfRef.vrfName == 'VRF'
+      - (nm_query_all_epgs.current | selectattr('name', 'equalto', 'ansible_test_2') | first).bdRef is mapping
+      - (nm_query_all_epgs.current | selectattr('name', 'equalto', 'ansible_test_2') | first).vrfRef is mapping
+      - (nm_query_all_epgs.current | selectattr('name', 'equalto', 'ansible_test_2') | first).bdRef.bdName == 'ansible_test_1'
+      - (nm_query_all_epgs.current | selectattr('name', 'equalto', 'ansible_test_2') | first).vrfRef.vrfName == 'VRF'
+
+
+  # QUERY AN EPG
+  - name: Query EPG 1 (check_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_query
+      epg: ansible_test_1
+    check_mode: true
+    register: cm_query_epg_1
+
+  - name: Query EPG 1 (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_query
+      epg: ansible_test_1
+    register: nm_query_epg_1
+
+  - name: Query EPG 3 (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_query
+      template: Template 2
+      anp: ANP2
+      epg: ansible_test_3
+    register: nm_query_epg_3
+
+  - name: Query EPG 4 (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_query
+      schema: '{{ mso_schema | default("ansible_test") }}_2'
+      template: Template 3
+      anp: ANP3
+      epg: ansible_test_4
+    register: nm_query_epg_4
+
+  - name: Verify query_epg_x
+    ansible.builtin.assert:
+      that:
+      - cm_query_epg_1 is not changed
+      - nm_query_epg_1 is not changed
+      - nm_query_epg_3 is not changed
+      - nm_query_epg_4 is not changed
+      - nm_query_epg_1.current.subnets | length == 3
+      - nm_query_epg_1.current.name == "ansible_test_1"
+      - nm_query_epg_1.current.vrfRef.templateName == nm_query_epg_1.current.bdRef.templateName == "Template1"
+      - nm_query_epg_1.current.vrfRef.vrfName == "VRF"
+      - nm_query_epg_1.current.bdRef.bdName == "ansible_test_1"
+      - nm_query_epg_1.current.uSegEpg == true
+      - nm_query_epg_1.current.intraEpg == 'enforced'
+      - nm_query_epg_1.current.mCastSource == true
+      - nm_query_epg_1.current.proxyArp == true
+      - nm_query_epg_1.current.preferredGroup == true
+      - nm_query_epg_1.current.subnets[0].description == "10.1.0.127/24"
+      - nm_query_epg_1.current.subnets[0].ip == "10.1.0.127/24"
+      - nm_query_epg_1.current.subnets[0].noDefaultGateway == false
+      - nm_query_epg_1.current.subnets[0].scope == "private"
+      - nm_query_epg_1.current.subnets[0].shared == false
+      - nm_query_epg_1.current.subnets[1].description == "New description for a subnet"
+      - nm_query_epg_1.current.subnets[1].ip == "172.17.0.1/24"
+      - nm_query_epg_1.current.subnets[1].noDefaultGateway == false
+      - nm_query_epg_1.current.subnets[1].scope == "private"
+      - nm_query_epg_1.current.subnets[1].shared == false
+      - nm_query_epg_1.current.subnets[2].description == "My description for a subnet"
+      - nm_query_epg_1.current.subnets[2].ip == "192.168.1.254/24"
+      - nm_query_epg_1.current.subnets[2].noDefaultGateway == false
+      - nm_query_epg_1.current.subnets[2].scope == "private"
+      - nm_query_epg_1.current.subnets[2].shared == false
+      - nm_query_epg_3.current.name == "ansible_test_3"
+      - nm_query_epg_4.current.name == "ansible_test_4"
+      - nm_query_epg_3.current.vrfRef.templateName == nm_query_epg_4.current.vrfRef.templateName == "Template1"
+      - nm_query_epg_3.current.vrfRef.vrfName == nm_query_epg_4.current.vrfRef.vrfName == "VRF"
+      - nm_query_epg_3.current.bdRef.templateName == nm_query_epg_4.current.bdRef.templateName == "Template1"
+      - nm_query_epg_3.current.bdRef.bdName == nm_query_epg_4.current.bdRef.bdName == "ansible_test_1"
+      - nm_query_epg_3.current.uSegEpg == true
+      - nm_query_epg_3.current.intraEpg == 'enforced'
+      - nm_query_epg_3.current.mCastSource == true
+      - nm_query_epg_3.current.proxyArp == true
+      - nm_query_epg_3.current.preferredGroup == true
+      - nm_query_epg_3.current.subnets[0].description == "10.0.0.128/24"
+      - nm_query_epg_3.current.subnets[0].ip == "10.0.0.128/24"
+      - nm_query_epg_3.current.subnets[0].noDefaultGateway == false
+      - nm_query_epg_3.current.subnets[0].scope == "private"
+      - nm_query_epg_3.current.subnets[0].shared == false
+      - nm_query_epg_3.current.subnets[1].description == "1234567890"
+      - nm_query_epg_3.current.subnets[1].ip == "10.0.1.254/24"
+      - nm_query_epg_3.current.subnets[1].noDefaultGateway == false
+      - nm_query_epg_3.current.subnets[1].scope == "private"
+      - nm_query_epg_3.current.subnets[1].shared == false
+      - nm_query_epg_3.current.subnets[2].description == "My description for a subnet"
+      - nm_query_epg_3.current.subnets[2].ip == "172.16.0.1/24"
+      - nm_query_epg_3.current.subnets[2].noDefaultGateway == false
+      - nm_query_epg_3.current.subnets[2].scope == "public"
+      - nm_query_epg_3.current.subnets[2].shared == true
+      - nm_query_epg_3.current.subnets[3].description == "My description for a subnet"
+      - nm_query_epg_3.current.subnets[3].ip == "192.168.0.254/24"
+      - nm_query_epg_3.current.subnets[3].noDefaultGateway == true
+      - nm_query_epg_3.current.subnets[3].scope == "private"
+      - nm_query_epg_3.current.subnets[3].shared == false
+
+  # REMOVE EPG
+  - name: Remove EPG (check_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
       state: absent
+    check_mode: true
+    register: cm_remove_epg
 
-- name: Execute tasks only for MSO version >= 4.0 and < 5.0
-  when:
-  - version.current.version is version('4.0', '>=')
-  - version.current.version is version('5.0', '<') # in ND 4.1 no error is raised anymore and the config is set into the schema ( not visible in UI )
-  block:
-  - name: Add EPG service type parameters (for version greater than 4.0)
-    cisco.mso.mso_schema_template_anp_epg:
-      <<: *new_epg
-      epg_type: 'service'
-      deployment_type: 'third_party'
-      service_type: 'Azure-Storage'
-      access_type: 'private'
-    register: service_type_epg
+  - name: Verify cm_remove_epg
+    ansible.builtin.assert:
+      that:
+      - cm_remove_epg is changed
+      - cm_remove_epg.current == {}
 
-  - name: Add EPG service type parameters (for version greater than 4.0) with error
+  - name: Remove EPG (normal mode)
     cisco.mso.mso_schema_template_anp_epg:
-      <<: *new_epg
-      epg_type: 'service'
-      deployment_type: 'third_party'
-      service_type: 'Azure-Storage'
-      access_type: 'public_and_private'
+      <<: *epg_present
+      state: absent
+    register: nm_remove_epg
+
+  - name: Verify nm_remove_epg
+    ansible.builtin.assert:
+      that:
+      - nm_remove_epg is changed
+      - nm_remove_epg.current == {}
+
+  - name: Remove EPG again (check_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      state: absent
+    check_mode: true
+    register: cm_remove_epg_again
+
+  - name: Verify cm_remove_epg_again
+    ansible.builtin.assert:
+      that:
+      - cm_remove_epg_again is not changed
+      - cm_remove_epg_again.current == {}
+
+  - name: Remove EPG again (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      state: absent
+    register: nm_remove_epg_again
+
+  - name: Verify nm_remove_epg_again
+    ansible.builtin.assert:
+      that:
+      - nm_remove_epg_again is not changed
+      - nm_remove_epg_again.current == {}
+
+  - name: Remove EPG (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      template: Template 1
+      anp: ANP
+      epg: ansible_test_1
+      state: absent
     ignore_errors: true
-    register: service_type_epg_error
 
-  - name: Set error message for service_type_epg_error
+  # Add EPG when MSO version >= 3.3
+  - name: Execute tasks only for MSO version >= 3.3
+    when:
+    - version.current.version is version('3.3', '>=')
+    block:
+    - name: Add EPG (for version greater than 3.3)
+      cisco.mso.mso_schema_template_anp_epg: &new_epg
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        template: Template 1
+        anp: ANP
+        epg: ansible_test_1
+        description: 'Description of ANP EPG'
+        state: present
+      register: add_epg_desc
+
+    - name: Verify Add description
+      ansible.builtin.assert:
+        that:
+          - add_epg_desc is changed
+          - add_epg_desc.current.description == "Description of ANP EPG"
+
+    - name: Remove EPG (for version greater than 3.3)
+      cisco.mso.mso_schema_template_anp_epg:
+        <<: *new_epg
+        state: absent
+
+  - name: Execute tasks only for MSO version >= 4.0 and < 5.0
+    when:
+    - version.current.version is version('4.0', '>=')
+    - version.current.version is version('5.0', '<') # in ND 4.1 no error is raised anymore and the config is set into the schema ( not visible in UI )
+    block:
+    - name: Add EPG service type parameters (for version greater than 4.0)
+      cisco.mso.mso_schema_template_anp_epg:
+        <<: *new_epg
+        epg_type: 'service'
+        deployment_type: 'third_party'
+        service_type: 'Azure-Storage'
+        access_type: 'private'
+      register: service_type_epg
+
+    - name: Add EPG service type parameters (for version greater than 4.0) with error
+      cisco.mso.mso_schema_template_anp_epg:
+        <<: *new_epg
+        epg_type: 'service'
+        deployment_type: 'third_party'
+        service_type: 'Azure-Storage'
+        access_type: 'public_and_private'
+      ignore_errors: true
+      register: service_type_epg_error
+
+    - name: Set error message for service_type_epg_error
+      ansible.builtin.set_fact:
+        regex_service_type_epg_error: 'MSO Error 400: EPG: ansible_test_1 in Schema: ansible_test\s*,?\s*Template: Template1\s*,?\s*DeploymentType: saas, AccessType :publicAndPrivateType, Combination is not supported'
+
+    - name: Verify service type error
+      ansible.builtin.assert:
+        that:
+        - service_type_epg_error.msg is match (regex_service_type_epg_error)
+
+  # Add EPG when MSO version >= 3.3 and < 4.0
+  - name: Execute tasks only for MSO version >= 3.3 and < 4.0
+    when:
+    - version.current.version is version('3.3', '>=')
+    - version.current.version is version('4.0', '<')
+    block:
+    - name: Add EPG service type parameters (for version greater than 3.3 and less than 4.0)
+      cisco.mso.mso_schema_template_anp_epg:
+        <<: *new_epg
+        epg_type: 'service'
+        deployment_type: 'third_party'
+        service_type: 'Azure-Storage'
+        access_type: 'public_and_private'
+      register: add_epg
+
+    - name: Get Validation status for service type parameters
+      cisco.mso.mso_schema_validate:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        state: query
+      ignore_errors: true
+      register: query_validate
+
+    - name: Set error message for query_validate
+      ansible.builtin.set_fact:
+        error_message_query_validate: "MSO Error 400: Bad Request: Patch Failed, Received: For Deployment type 'Third-party' access type 'PublicAndPrivate' is not supported exception while trying to update schema"
+      when: query_validate is failed
+
+    - name: Verify validation
+      ansible.builtin.assert:
+        that:
+        - query_validate is not changed
+        - query_validate.msg == error_message_query_validate
+
+    - name: Add EPG service type parameters (for version greater than 3.3 and less than 4.0)
+      cisco.mso.mso_schema_template_anp_epg:
+        <<: *new_epg
+        epg_type: 'service'
+        deployment_type: 'cloud_native'
+        service_type: 'Azure-Storage'
+        access_type: 'public'
+      register: add_epg
+
+    - name: Get Validation status for service type parameters
+      cisco.mso.mso_schema_validate:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        state: query
+      ignore_errors: true
+      register: query_validate
+
+    - name: Verify validation
+      ansible.builtin.assert:
+        that:
+        - query_validate is not changed
+        - query_validate.current.result == "true"
+
+    - name: Add new EPG service type parameters (for version greater than 3.3 and less than 4.0)
+      cisco.mso.mso_schema_template_anp_epg:
+        <<: *new_epg
+        epg_type: 'service'
+        deployment_type: 'third_party'
+        service_type: 'Azure-Storage'
+        access_type: 'private'
+      register: add_epg
+
+    - name: Get Validation status for service type parameters
+      cisco.mso.mso_schema_validate:
+        <<: *mso_info
+        schema: '{{ mso_schema | default("ansible_test") }}'
+        state: query
+      ignore_errors: true
+      register: query_validate
+
+    - name: Verify validation
+      ansible.builtin.assert:
+        that:
+        - query_validate is not changed
+        - query_validate.current.result == "true"
+
+  # Add QoS level to EPG
+  - name: Add EPG (for version greater than 3.1)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      name: ansible_test_5
+      qos_level: 'level2'
+    register: add_epg
+    when: version.current.version is version('3.1', '>=')
+
+  - name: Verify Add contract for version greater than 3.1
+    ansible.builtin.assert:
+      that:
+      - add_epg is changed
+    when: version.current.version is version('3.1', '>=')
+
+  # QUERY NON-EXISTING EPG
+  - name: Query non-existing EPG (check_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_query
+      epg: non_existing_epg
+    check_mode: true
+    ignore_errors: true
+    register: cm_query_non_epg
+
+  - name: Query non-existing EPG (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_query
+      epg: non_existing_epg
+    ignore_errors: true
+    register: nm_query_non_epg
+
+  - name: Verify query_non_epg
+    ansible.builtin.assert:
+      that:
+      - cm_query_non_epg is not changed
+      - nm_query_non_epg is not changed
+      - cm_query_non_epg == nm_query_non_epg
+      - cm_query_non_epg.msg == nm_query_non_epg.msg == "EPG 'non_existing_epg' not found"
+
+  # QUERY NON-EXISTING ANP
+  - name: Query non-existing ANP (check_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_query
+      anp: non_existing_anp
+    check_mode: true
+    ignore_errors: true
+    register: cm_query_non_anp
+
+  - name: Query non-existing ANP (normal mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_query
+      anp: non_existing_anp
+    ignore_errors: true
+    register: nm_query_non_anp
+
+  - name: Set error message for cm_query_non_anp
     ansible.builtin.set_fact:
-      regex_service_type_epg_error: 'MSO Error 400: EPG: ansible_test_1 in Schema: ansible_test\s*,?\s*Template: Template1\s*,?\s*DeploymentType: saas, AccessType :publicAndPrivateType, Combination is not supported'
+      error_message_query_non_anp: "Provided anp 'non_existing_anp' does not exist. Existing anps: ANP"
 
-  - name: Verify service type error
+  - name: Verify query_non_anp
     ansible.builtin.assert:
       that:
-      - service_type_epg_error.msg is match (regex_service_type_epg_error)
+      - cm_query_non_anp is not changed
+      - nm_query_non_anp is not changed
+      - cm_query_non_anp == nm_query_non_anp
+      - cm_query_non_anp.msg == nm_query_non_anp.msg == error_message_query_non_anp
 
-# Add EPG when MSO version >= 3.3 and < 4.0
-- name: Execute tasks only for MSO version >= 3.3 and < 4.0
-  when:
-  - version.current.version is version('3.3', '>=')
-  - version.current.version is version('4.0', '<')
-  block:
-  - name: Add EPG service type parameters (for version greater than 3.3 and less than 4.0)
+  # USE A NON-EXISTING STATE
+  - name: Non-existing state for EPG (check_mode)
     cisco.mso.mso_schema_template_anp_epg:
-      <<: *new_epg
-      epg_type: 'service'
-      deployment_type: 'third_party'
-      service_type: 'Azure-Storage'
-      access_type: 'public_and_private'
-    register: add_epg
-
-  - name: Get Validation status for service type parameters
-    cisco.mso.mso_schema_validate:
-      <<: *mso_info
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      state: query
+      <<: *epg_query
+      epg: ansible_test_2
+      state: non-existing-state
+    check_mode: true
     ignore_errors: true
-    register: query_validate
+    register: cm_non_existing_state
 
-  - name: Set error message for query_validate
+  - name: Non-existing state for EPG (normal_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_query
+      epg: ansible_test_2
+      state: non-existing-state
+    ignore_errors: true
+    register: nm_non_existing_state
+
+  - name: Verify non_existing_state
+    ansible.builtin.assert:
+      that:
+      - cm_non_existing_state is not changed
+      - nm_non_existing_state is not changed
+      - cm_non_existing_state == nm_non_existing_state
+      - 'cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non-existing-state"'
+
+  # USE A NON-EXISTING SCHEMA
+  - name: Non-existing schema for EPG (check_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      schema: non-existing-schema
+      epg: ansible_test_2
+    check_mode: true
+    ignore_errors: true
+    register: cm_non_existing_schema
+
+  - name: Non-existing schema for EPG (normal_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      schema: non-existing-schema
+      epg: ansible_test_2
+    ignore_errors: true
+    register: nm_non_existing_schema
+
+  - name: Verify non_existing_schema
+    ansible.builtin.assert:
+      that:
+      - cm_non_existing_schema is not changed
+      - nm_non_existing_schema is not changed
+      - cm_non_existing_schema == nm_non_existing_schema
+      - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
+
+  - name: Non-existing BD schema for EPG (check_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      epg: ansible_test_2
+      bd:
+        name: ansible_test_1
+        schema: non-existing-schema
+        template: Template 1
+    check_mode: true
+    ignore_errors: true
+    register: cm_non_existing_bd_schema
+
+  - name: Non-existing BD schema for EPG (normal_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      epg: ansible_test_2
+      bd:
+        name: ansible_test_1
+        schema: non-existing-schema
+        template: Template 1
+    ignore_errors: true
+    register: nm_non_existing_bd_schema
+
+  - name: Verify non_existing_bd_schema
+    ansible.builtin.assert:
+      that:
+      - cm_non_existing_bd_schema is not changed
+      - nm_non_existing_bd_schema is not changed
+      - cm_non_existing_bd_schema == nm_non_existing_bd_schema
+      - cm_non_existing_bd_schema.msg == nm_non_existing_bd_schema.msg == "Referenced schema 'non-existing-schema' in bdref does not exist"
+
+  - name: Non-existing VRF schema for EPG (check_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      epg: ansible_test_2
+      vrf:
+        name: VRF
+        schema: non-existing-schema
+        template: Template 1
+    check_mode: true
+    ignore_errors: true
+    register: cm_non_existing_vrf_schema
+
+  - name: Non-existing VRF schema for EPG (normal_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      epg: ansible_test_2
+      vrf:
+        name: VRF
+        schema: non-existing-schema
+        template: Template 1
+    ignore_errors: true
+    register: nm_non_existing_vrf_schema
+
+  - name: Verify non_existing_vrf_schema
+    ansible.builtin.assert:
+      that:
+      - cm_non_existing_vrf_schema is not changed
+      - nm_non_existing_vrf_schema is not changed
+      - cm_non_existing_vrf_schema == nm_non_existing_vrf_schema
+      - cm_non_existing_vrf_schema.msg == nm_non_existing_vrf_schema.msg == "Referenced schema 'non-existing-schema' in vrfref does not exist"
+
+  # USE A NON-EXISTING TEMPLATE
+  - name: Non-existing template for EPG (check_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      template: non-existing-template
+      epg: ansible_test_2
+    check_mode: true
+    ignore_errors: true
+    register: cm_non_existing_template
+
+  - name: Non-existing template for EPG (normal_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      template: non-existing-template
+      epg: ansible_test_2
+    ignore_errors: true
+    register: nm_non_existing_template
+
+  - name: Set error message for non_existing_template
     ansible.builtin.set_fact:
-      error_message_query_validate: "MSO Error 400: Bad Request: Patch Failed, Received: For Deployment type 'Third-party' access type 'PublicAndPrivate' is not supported exception while trying to update schema"
-    when: query_validate is failed
+      error_message_non_existing_template: "Provided template 'non-existing-template' does not exist. Existing templates: Template1, Template2"
 
-  - name: Verify validation
+  - name: Verify non_existing_template
     ansible.builtin.assert:
       that:
-      - query_validate is not changed
-      - query_validate.msg == error_message_query_validate
+      - cm_non_existing_template is not changed
+      - nm_non_existing_template is not changed
+      - cm_non_existing_template == nm_non_existing_template
+      - cm_non_existing_template.msg == nm_non_existing_template.msg == error_message_non_existing_template
 
-  - name: Add EPG service type parameters (for version greater than 3.3 and less than 4.0)
+  # Checking if contract are removed after re-applying an EPG. (#13 | #62137)
+  - name: Reset EPG 3 in template of schema 1 to avoid cyclic circles (normal mode)
     cisco.mso.mso_schema_template_anp_epg:
-      <<: *new_epg
-      epg_type: 'service'
-      deployment_type: 'cloud_native'
-      service_type: 'Azure-Storage'
-      access_type: 'public'
-    register: add_epg
+      <<: *epg_schema_1_template_2
+    register: nm_add_epg_3
 
-  - name: Get Validation status for service type parameters
-    cisco.mso.mso_schema_validate:
+  - name: Add Contracts to EPG 2
+    cisco.mso.mso_schema_template_anp_epg_contract:
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
-      state: query
-    ignore_errors: true
-    register: query_validate
+      template: Template 1
+      anp: ANP
+      epg: ansible_test_2
+      contract:
+        name: '{{ item.name }}'
+        template: '{{ item.template }}'
+        type: '{{ item.type }}'
+      state: present
+    loop:
+    - { name: Contract1, template: Template 1, type: consumer }
+    - { name: Contract1, template: Template 1, type: provider }
+    - { name: Contract2, template: Template 2, type: consumer }
+    - { name: Contract2, template: Template 2, type: provider }
 
-  - name: Verify validation
+  - name: Query EPG 2
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_query
+      epg: ansible_test_2
+    register: nm_query_contract_epg
+
+  - name: Verify that 4 contracts are in EPG 2 using nm_query_contract_epg
     ansible.builtin.assert:
       that:
-      - query_validate is not changed
-      - query_validate.current.result == "true"
+      - nm_query_contract_epg.current.contractRelationships | length == 4
 
-  - name: Add new EPG service type parameters (for version greater than 3.3 and less than 4.0)
+  - name: Add EPG 2 again (normal_mode)
     cisco.mso.mso_schema_template_anp_epg:
-      <<: *new_epg
-      epg_type: 'service'
-      deployment_type: 'third_party'
-      service_type: 'Azure-Storage'
-      access_type: 'private'
-    register: add_epg
+      <<: *epg_present
+      epg: ansible_test_2
+    register: nm_add_epg_2_again
 
-  - name: Get Validation status for service type parameters
-    cisco.mso.mso_schema_validate:
+  - name: Verify that EPG 2 didn't change
+    ansible.builtin.assert:
+      that:
+      - nm_add_epg_2_again is not changed
+
+  - name: Query EPG 2
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_query
+      epg: ansible_test_2
+    register: nm_query_contract_epg
+
+  - name: Verify that 4 contracts are in EPG 2 using nm_query_contract_epg
+    ansible.builtin.assert:
+      that:
+      - nm_query_contract_epg.current.contractRelationships | length == 4
+
+  # Checking if issue when querying EPG and VRF is not defined (#66)
+  - name: Add new test EPG 3 (normal mode)
+    cisco.mso.mso_schema_template_anp_epg: &epg_present_2
       <<: *mso_info
       schema: '{{ mso_schema | default("ansible_test") }}'
-      state: query
-    ignore_errors: true
-    register: query_validate
+      template: Template 1
+      anp: ANP
+      epg: ansible_test_3
+      bd:
+        name: ansible_test_1
+    register: nm_add_epg_3
 
-  - name: Verify validation
+  - name: Verify nm_add_epg_3
     ansible.builtin.assert:
       that:
-      - query_validate is not changed
-      - query_validate.current.result == "true"
+      - nm_add_epg_3 is changed
+      - nm_add_epg_3.current.name == 'ansible_test_3'
+      - "'vrfRef' not in nm_add_epg_3.current"
 
-# Add QoS level to EPG
-- name: Add EPG (for version greater than 3.1)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    name: ansible_test_5
-    qos_level: 'level2'
-  register: add_epg
-  when: version.current.version is version('3.1', '>=')
+  - name: Query test EPG 3
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present_2
+    register: nm_query_epg_3
 
-- name: Verify Add contract for version greater than 3.1
-  ansible.builtin.assert:
-    that:
-    - add_epg is changed
-  when: version.current.version is version('3.1', '>=')
+  - name: Verify nm_query_epg_3
+    ansible.builtin.assert:
+      that:
+      - nm_query_epg_3 is not changed
+      - nm_query_epg_3.current.name == 'ansible_test_3'
+      - nm_query_epg_3.current.vrfRef is not defined or nm_query_epg_3.current.vrfRef is none or nm_query_epg_3.current.vrfRef is mapping
+      - nm_query_epg_3.current.vrfRef is not defined or nm_query_epg_3.current.vrfRef is none or nm_query_epg_3.current.vrfRef.vrfName == 'VRF'
 
-# QUERY NON-EXISTING EPG
-- name: Query non-existing EPG (check_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-    epg: non_existing_epg
-  check_mode: true
-  ignore_errors: true
-  register: cm_query_non_epg
+  # Checking if modifying an EPG with existing contracts throw an MSO error. (#82)
+  - name: Change EPG 2 to add VRF (normal_mode)
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_present
+      epg: ansible_test_2
+      vrf:
+        name: VRF2
+      bd:
+        name: ansible_test_2
+    register: nm_change_epg_2_vrf
 
-- name: Query non-existing EPG (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-    epg: non_existing_epg
-  ignore_errors: true
-  register: nm_query_non_epg
+  - name: Verify that EPG 2 did change
+    ansible.builtin.assert:
+      that:
+      - nm_change_epg_2_vrf is changed
+      - nm_change_epg_2_vrf.current.vrfRef.templateName == "Template1"
+      - nm_change_epg_2_vrf.current.vrfRef.vrfName == "VRF2"
+      - nm_change_epg_2_vrf.current.bdRef.bdName == "ansible_test_2"
 
-- name: Verify query_non_epg
-  ansible.builtin.assert:
-    that:
-    - cm_query_non_epg is not changed
-    - nm_query_non_epg is not changed
-    - cm_query_non_epg == nm_query_non_epg
-    - cm_query_non_epg.msg == nm_query_non_epg.msg == "EPG 'non_existing_epg' not found"
+  - name: Query EPG 2
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_query
+      epg: ansible_test_2
+    register: nm_query_contract_epg_2
 
-# QUERY NON-EXISTING ANP
-- name: Query non-existing ANP (check_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-    anp: non_existing_anp
-  check_mode: true
-  ignore_errors: true
-  register: cm_query_non_anp
+  - name: Verify that 4 contracts are in EPG 2 using nm_query_contract_epg_2
+    ansible.builtin.assert:
+      that:
+      - nm_query_contract_epg_2.current.contractRelationships | length == 4
 
-- name: Query non-existing ANP (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-    anp: non_existing_anp
-  ignore_errors: true
-  register: nm_query_non_anp
+  # Verify an EPG parent update preserves objects managed by the supported
+  # subnet, contract, intra-EPG contract, uSeg attribute, and annotation modules.
+  - name: Enable uSeg on the child-preservation EPG
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      bd:
+        name: '{{ mso_test.bd }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+      useg_epg: true
+      state: present
 
-- name: Set error message for cm_query_non_anp
-  ansible.builtin.set_fact:
-    error_message_query_non_anp: "Provided anp 'non_existing_anp' does not exist. Existing anps: ANP"
+  - name: Add subnet child to the template EPG
+    cisco.mso.mso_schema_template_anp_epg_subnet:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      subnet: '{{ mso_test.subnet.ip }}'
+      description: '{{ mso_test.subnet.description }}'
+      scope: '{{ mso_test.subnet.scope }}'
+      shared: '{{ mso_test.subnet.shared }}'
+      no_default_gateway: '{{ mso_test.subnet.no_default_gateway }}'
+      state: present
 
-- name: Verify query_non_anp
-  ansible.builtin.assert:
-    that:
-    - cm_query_non_anp is not changed
-    - nm_query_non_anp is not changed
-    - cm_query_non_anp == nm_query_non_anp
-    - cm_query_non_anp.msg == nm_query_non_anp.msg == error_message_query_non_anp
+  - name: Add intra-EPG contract child to the template EPG
+    cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      contract:
+        name: '{{ mso_test.contract }}'
+      state: present
 
-# USE A NON-EXISTING STATE
-- name: Non-existing state for EPG (check_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-    epg: ansible_test_2
-    state: non-existing-state
-  check_mode: true
-  ignore_errors: true
-  register: cm_non_existing_state
+  - name: Add uSeg attribute child to the template EPG
+    cisco.mso.mso_schema_template_anp_epg_useg_attribute:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      name: '{{ mso_test.useg_attribute.name }}'
+      type: '{{ mso_test.useg_attribute.type }}'
+      value: '{{ mso_test.useg_attribute.value }}'
+      useg_subnet: false
+      state: present
 
-- name: Non-existing state for EPG (normal_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-    epg: ansible_test_2
-    state: non-existing-state
-  ignore_errors: true
-  register: nm_non_existing_state
+  - name: Add annotation child to the template EPG
+    cisco.mso.mso_schema_template_anp_epg_annotation:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      annotation_key: '{{ mso_test.annotation.key }}'
+      annotation_value: '{{ mso_test.annotation.value }}'
+      state: present
+    when: version.current.version is version('4.2', '>=')
 
-- name: Verify non_existing_state
-  ansible.builtin.assert:
-    that:
-    - cm_non_existing_state is not changed
-    - nm_non_existing_state is not changed
-    - cm_non_existing_state == nm_non_existing_state
-    - 'cm_non_existing_state.msg == nm_non_existing_state.msg == "value of state must be one of: absent, present, query, got: non-existing-state"'
+  - name: Update template EPG in check mode
+    cisco.mso.mso_schema_template_anp_epg: &child_preservation_update
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      description: '{{ mso_test.description }}'
+      bd:
+        name: '{{ mso_test.bd }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+      useg_epg: true
+      state: present
+    check_mode: true
+    register: cm_update_epg_with_children
 
-# USE A NON-EXISTING SCHEMA
-- name: Non-existing schema for EPG (check_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    schema: non-existing-schema
-    epg: ansible_test_2
-  check_mode: true
-  ignore_errors: true
-  register: cm_non_existing_schema
+  - name: Update template EPG
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *child_preservation_update
+    register: nm_update_epg_with_children
 
-- name: Non-existing schema for EPG (normal_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    schema: non-existing-schema
-    epg: ansible_test_2
-  ignore_errors: true
-  register: nm_non_existing_schema
+  - name: Update template EPG again
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *child_preservation_update
+    register: nm_update_epg_with_children_again
 
-- name: Verify non_existing_schema
-  ansible.builtin.assert:
-    that:
-    - cm_non_existing_schema is not changed
-    - nm_non_existing_schema is not changed
-    - cm_non_existing_schema == nm_non_existing_schema
-    - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non-existing-schema' does not exist."
+  - name: Query preserved subnet child
+    cisco.mso.mso_schema_template_anp_epg_subnet:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      subnet: '{{ mso_test.subnet.ip }}'
+      state: query
+    register: nm_query_preserved_subnet
 
-- name: Non-existing BD schema for EPG (check_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    epg: ansible_test_2
-    bd:
-      name: ansible_test_1
-      schema: non-existing-schema
-      template: Template 1
-  check_mode: true
-  ignore_errors: true
-  register: cm_non_existing_bd_schema
+  - name: Query preserved intra-EPG contract child
+    cisco.mso.mso_schema_template_anp_epg_intra_epg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      contract:
+        name: '{{ mso_test.contract }}'
+      state: query
+    register: nm_query_preserved_intra_contract
 
-- name: Non-existing BD schema for EPG (normal_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    epg: ansible_test_2
-    bd:
-      name: ansible_test_1
-      schema: non-existing-schema
-      template: Template 1
-  ignore_errors: true
-  register: nm_non_existing_bd_schema
+  - name: Query preserved uSeg attribute child
+    cisco.mso.mso_schema_template_anp_epg_useg_attribute:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      name: '{{ mso_test.useg_attribute.name }}'
+      state: query
+    register: nm_query_preserved_useg_attribute
 
-- name: Verify non_existing_bd_schema
-  ansible.builtin.assert:
-    that:
-    - cm_non_existing_bd_schema is not changed
-    - nm_non_existing_bd_schema is not changed
-    - cm_non_existing_bd_schema == nm_non_existing_bd_schema
-    - cm_non_existing_bd_schema.msg == nm_non_existing_bd_schema.msg == "Referenced schema 'non-existing-schema' in bdref does not exist"
+  - name: Query preserved annotation child
+    cisco.mso.mso_schema_template_anp_epg_annotation:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      annotation_key: '{{ mso_test.annotation.key }}'
+      state: query
+    register: nm_query_preserved_annotation
+    when: version.current.version is version('4.2', '>=')
 
-- name: Non-existing VRF schema for EPG (check_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    epg: ansible_test_2
-    vrf:
-      name: VRF
-      schema: non-existing-schema
-      template: Template 1
-  check_mode: true
-  ignore_errors: true
-  register: cm_non_existing_vrf_schema
+  - name: Query template EPG after parent update
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      state: query
+    register: nm_query_epg_after_child_preservation
 
-- name: Non-existing VRF schema for EPG (normal_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    epg: ansible_test_2
-    vrf:
-      name: VRF
-      schema: non-existing-schema
-      template: Template 1
-  ignore_errors: true
-  register: nm_non_existing_vrf_schema
+  - name: Verify template EPG update and child preservation
+    ansible.builtin.assert:
+      that:
+      - cm_update_epg_with_children is changed
+      - nm_update_epg_with_children is changed
+      - nm_update_epg_with_children_again is not changed
+      - nm_query_epg_after_child_preservation is not changed
+      - nm_query_epg_after_child_preservation.current.description == mso_test.description
+      - nm_query_epg_after_child_preservation.current.contractRelationships | length == 4
+      - nm_query_preserved_subnet is not changed
+      - nm_query_preserved_subnet.current.ip == mso_test.subnet.ip
+      - nm_query_preserved_subnet.current.description == mso_test.subnet.description
+      - nm_query_preserved_subnet.current.scope == mso_test.subnet.scope
+      - nm_query_preserved_subnet.current.shared == mso_test.subnet.shared
+      - nm_query_preserved_subnet.current.noDefaultGateway == mso_test.subnet.no_default_gateway
+      - nm_query_preserved_intra_contract is not changed
+      - nm_query_preserved_intra_contract.current | length == 1
+      - nm_query_preserved_intra_contract.current[0].contractRef is search('/templates/Template1/contracts/' ~ mso_test.contract)
+      - nm_query_preserved_useg_attribute is not changed
+      - nm_query_preserved_useg_attribute.current.name == mso_test.useg_attribute.name
+      - nm_query_preserved_useg_attribute.current.type == mso_test.useg_attribute.type
+      - nm_query_preserved_useg_attribute.current.value == mso_test.useg_attribute.value
 
-- name: Verify non_existing_vrf_schema
-  ansible.builtin.assert:
-    that:
-    - cm_non_existing_vrf_schema is not changed
-    - nm_non_existing_vrf_schema is not changed
-    - cm_non_existing_vrf_schema == nm_non_existing_vrf_schema
-    - cm_non_existing_vrf_schema.msg == nm_non_existing_vrf_schema.msg == "Referenced schema 'non-existing-schema' in vrfref does not exist"
+  - name: Verify template EPG annotation preservation
+    ansible.builtin.assert:
+      that:
+      - nm_query_preserved_annotation is not changed
+      - nm_query_preserved_annotation.current.tagKey == mso_test.annotation.key
+      - nm_query_preserved_annotation.current.tagValue == mso_test.annotation.value
+    when: version.current.version is version('4.2', '>=')
 
-# USE A NON-EXISTING TEMPLATE
-- name: Non-existing template for EPG (check_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    template: non-existing-template
-    epg: ansible_test_2
-  check_mode: true
-  ignore_errors: true
-  register: cm_non_existing_template
-
-- name: Non-existing template for EPG (normal_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    template: non-existing-template
-    epg: ansible_test_2
-  ignore_errors: true
-  register: nm_non_existing_template
-
-- name: Set error message for non_existing_template
-  ansible.builtin.set_fact:
-    error_message_non_existing_template: "Provided template 'non-existing-template' does not exist. Existing templates: Template1, Template2"
-
-- name: Verify non_existing_template
-  ansible.builtin.assert:
-    that:
-    - cm_non_existing_template is not changed
-    - nm_non_existing_template is not changed
-    - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == error_message_non_existing_template
-
-# Checking if contract are removed after re-applying an EPG. (#13 | #62137)
-- name: Reset EPG 3 in template of schema 1 to avoid cyclic circles (normal mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_schema_1_template_2
-  register: nm_add_epg_3
-
-- name: Add Contracts to EPG 2
-  cisco.mso.mso_schema_template_anp_epg_contract:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    epg: ansible_test_2
-    contract:
-      name: '{{ item.name }}'
-      template: '{{ item.template }}'
-      type: '{{ item.type }}'
-    state: present
-  loop:
-  - { name: Contract1, template: Template 1, type: consumer }
-  - { name: Contract1, template: Template 1, type: provider }
-  - { name: Contract2, template: Template 2, type: consumer }
-  - { name: Contract2, template: Template 2, type: provider }
-
-- name: Query EPG 2
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-    epg: ansible_test_2
-  register: nm_query_contract_epg
-
-- name: Verify that 4 contracts are in EPG 2 using nm_query_contract_epg
-  ansible.builtin.assert:
-    that:
-    - nm_query_contract_epg.current.contractRelationships | length == 4
-
-- name: Add EPG 2 again (normal_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    epg: ansible_test_2
-  register: nm_add_epg_2_again
-
-- name: Verify that EPG 2 didn't change
-  ansible.builtin.assert:
-    that:
-    - nm_add_epg_2_again is not changed
-
-- name: Query EPG 2
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-    epg: ansible_test_2
-  register: nm_query_contract_epg
-
-- name: Verify that 4 contracts are in EPG 2 using nm_query_contract_epg
-  ansible.builtin.assert:
-    that:
-    - nm_query_contract_epg.current.contractRelationships | length == 4
-
-# Checking if issue when querying EPG and VRF is not defined (#66)
-- name: Add new test EPG 3 (normal mode)
-  cisco.mso.mso_schema_template_anp_epg: &epg_present_2
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: ANP
-    epg: ansible_test_3
-    bd:
-      name: ansible_test_1
-  register: nm_add_epg_3
-
-- name: Verify nm_add_epg_3
-  ansible.builtin.assert:
-    that:
-    - nm_add_epg_3 is changed
-    - nm_add_epg_3.current.name == 'ansible_test_3'
-    - "'vrfRef' not in nm_add_epg_3.current"
-
-- name: Query test EPG 3
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present_2
-  register: nm_query_epg_3
-
-- name: Verify nm_query_epg_3
-  ansible.builtin.assert:
-    that:
-    - nm_query_epg_3 is not changed
-    - nm_query_epg_3.current.name == 'ansible_test_3'
-    - "'vrfRef' not in nm_query_epg_3.current"
-
-# Checking if modifying an EPG with existing contracts throw an MSO error. (#82)
-- name: Change EPG 2 to add VRF (normal_mode)
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_present
-    epg: ansible_test_2
-    vrf:
-      name: VRF2
-    bd:
-      name: ansible_test_2
-  register: nm_change_epg_2_vrf
-
-- name: Verify that EPG 2 did change
-  ansible.builtin.assert:
-    that:
-    - nm_change_epg_2_vrf is changed
-    - nm_change_epg_2_vrf.current.vrfRef.templateName == "Template1"
-    - nm_change_epg_2_vrf.current.vrfRef.vrfName == "VRF2"
-    - nm_change_epg_2_vrf.current.bdRef.bdName == "ansible_test_2"
-
-- name: Query EPG 2
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *epg_query
-    epg: ansible_test_2
-  register: nm_query_contract_epg_2
-
-- name: Verify that 4 contracts are in EPG 2 using nm_query_contract_epg_2
-  ansible.builtin.assert:
-    that:
-    - nm_query_contract_epg_2.current.contractRelationships | length == 4
+  always:
+  # CLEANUP
+  - name: Remove test schemas even when a test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    loop:
+    - '{{ mso_test.schema_2 }}'
+    - '{{ mso_test.schema }}'

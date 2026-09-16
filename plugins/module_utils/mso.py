@@ -1513,6 +1513,8 @@ class MSOModule(object):
             result[category] = data
 
     def recursive_dict_from_ref(self, data):
+        if not isinstance(data, dict):
+            return data
         for key in data:
             if key.endswith("Ref") and isinstance(data[key], str):
                 data[key] = self.dict_from_ref(data.get(key))

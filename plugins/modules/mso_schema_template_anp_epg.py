@@ -272,9 +272,12 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
+import copy
+
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec, mso_epg_subnet_spec
 from ansible_collections.cisco.mso.plugins.module_utils.constants import QOS_LEVEL
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
 def main():
@@ -358,17 +361,15 @@ def main():
     if epg is not None and epg in epgs:
         epg_idx = epgs.index(epg)
         mso.existing = schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"][epg_idx]
+        mso.recursive_dict_from_ref(mso.existing)
 
     if state == "query":
         if epg is None:
             mso.existing = schema_obj.get("templates")[template_idx]["anps"][anp_idx]["epgs"]
+            for template_epg in mso.existing:
+                mso.recursive_dict_from_ref(template_epg)
         elif not mso.existing:
             mso.fail_json(msg="EPG '{epg}' not found".format(epg=epg))
-
-        if "bdRef" in mso.existing:
-            mso.existing["bdRef"] = mso.dict_from_ref(mso.existing["bdRef"])
-        if "vrfRef" in mso.existing:
-            mso.existing["vrfRef"] = mso.dict_from_ref(mso.existing["vrfRef"])
         mso.exit_json()
 
     epgs_path = "/templates/{0}/anps/{1}/epgs".format(template, anp)
@@ -415,12 +416,11 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            # Clean contractRef to fix api issue
-            for contract in mso.sent.get("contractRelationships"):
-                contract["contractRef"] = mso.dict_from_ref(contract.get("contractRef"))
-            ops.append(dict(op="replace", path=epg_path, value=mso.sent))
+            mso.existing = copy.deepcopy(mso.previous)
+            append_update_ops_data(ops, mso.existing, epg_path, payload)
         else:
             ops.append(dict(op="add", path=epgs_path + "/-", value=mso.sent))
+            mso.existing = mso.proposed
 
         if epg_type == "service":
             access_type_map = {
@@ -444,16 +444,7 @@ def main():
                 )
                 ops.append(dict(op="add", path=service_path, value=cloud_service_epg_config))
 
-    mso.existing = mso.proposed
-
-    if "epgRef" in mso.previous:
-        del mso.previous["epgRef"]
-    if "bdRef" in mso.previous and mso.previous["bdRef"] != "":
-        mso.previous["bdRef"] = mso.dict_from_ref(mso.previous["bdRef"])
-    if "vrfRef" in mso.previous and mso.previous["bdRef"] != "":
-        mso.previous["vrfRef"] = mso.dict_from_ref(mso.previous["vrfRef"])
-
-    if not module.check_mode and mso.proposed != mso.previous:
+    if not module.check_mode and ops:
         mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()

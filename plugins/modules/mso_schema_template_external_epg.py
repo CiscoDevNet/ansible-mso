@@ -199,9 +199,12 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
+import copy
+
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec, mso_reference_spec
 from ansible_collections.cisco.mso.plugins.module_utils.constants import QOS_LEVEL
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
 def main():
@@ -267,21 +270,19 @@ def main():
     if external_epg is not None and external_epg in external_epgs:
         external_epg_idx = external_epgs.index(external_epg)
         mso.existing = schema_obj.get("templates")[template_idx]["externalEpgs"][external_epg_idx]
-        if "externalEpgRef" in mso.existing:
-            del mso.existing["externalEpgRef"]
-        if "vrfRef" in mso.existing:
-            mso.existing["vrfRef"] = mso.dict_from_ref(mso.existing.get("vrfRef"))
-        if "l3outRef" in mso.existing:
-            mso.existing["l3outRef"] = mso.dict_from_ref(mso.existing.get("l3outRef"))
-        if "anpRef" in mso.existing:
-            mso.existing["anpRef"] = mso.dict_from_ref(mso.existing.get("anpRef"))
-        for contract in mso.existing.get("contractRelationships", []) or []:
-            if contract.get("contractRef") and not isinstance(contract.get("contractRef"), dict):
-                contract["contractRef"] = mso.dict_from_ref(contract.get("contractRef"))
+        mso.existing.pop("externalEpgRef", None)
+        if mso.existing.get("anpRef") is None:
+            mso.existing.pop("anpRef", None)
+        mso.recursive_dict_from_ref(mso.existing)
 
     if state == "query":
         if external_epg is None:
             mso.existing = schema_obj.get("templates")[template_idx]["externalEpgs"]
+            for template_external_epg in mso.existing:
+                template_external_epg.pop("externalEpgRef", None)
+                if template_external_epg.get("anpRef") is None:
+                    template_external_epg.pop("anpRef", None)
+                mso.recursive_dict_from_ref(template_external_epg)
         elif not mso.existing:
             mso.fail_json(msg="External EPG '{external_epg}' not found".format(external_epg=external_epg))
         mso.exit_json()
@@ -325,20 +326,13 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            # clean anpRef when anpRef is null
-            if "anpRef" in mso.existing and mso.existing.get("anpRef") is None:
-                del mso.existing["anpRef"]
-            # clean contractRef to fix api issue
-            for contract in mso.sent.get("contractRelationships"):
-                if not isinstance(contract.get("contractRef"), dict):
-                    contract["contractRef"] = mso.dict_from_ref(contract.get("contractRef"))
-            ops.append(dict(op="replace", path=eepg_path, value=mso.sent))
+            mso.existing = copy.deepcopy(mso.previous)
+            append_update_ops_data(ops, mso.existing, eepg_path, payload)
         else:
             ops.append(dict(op="add", path=eepgs_path + "/-", value=mso.sent))
+            mso.existing = mso.proposed
 
-        mso.existing = mso.proposed
-
-    if not module.check_mode and mso.proposed != mso.previous:
+    if not module.check_mode and ops:
         mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()

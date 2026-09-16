@@ -17,6 +17,11 @@ matrix:
     - ND_NAME: "ND42"
       ND_HOST: "10.15.0.128"
       APIC_HOST: "10.15.38.243"
+    - ND_NAME: "ND43"
+      ND_HOST: "10.15.39.129"
+      APIC_HOST: "10.15.39.243"
+      SITE_1: "ansible-test"
+      SITE_2: "ansible-test-2"
 
 steps:
 
@@ -91,6 +96,15 @@ steps:
         apic_username=$${APIC_USERNAME}
         apic_password="$${APIC_PASSWORD}"
         EOF
+
+        # Site/fabric names must not contain underscores on ND 4.3+,
+        # so override the default mso_site/mso_site_2 values used by tests.
+        if [ -n "${SITE_1}" ]; then
+          echo "mso_site=${SITE_1}" >> tests/integration/inventory.networking
+        fi
+        if [ -n "${SITE_2}" ]; then
+          echo "mso_site_2=${SITE_2}" >> tests/integration/inventory.networking
+        fi
 
         timeout "$${TEST_TIMEOUT}" ansible-test network-integration --venv -v --color --truncate 0 --continue-on-error --python 3.11 $${TEST_TARGET}
 

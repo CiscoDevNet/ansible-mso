@@ -374,9 +374,7 @@ def main():
 
     epgs_path = "/templates/{0}/anps/{1}/epgs".format(template, anp)
     epg_path = "/templates/{0}/anps/{1}/epgs/{2}".format(template, anp, epg)
-    service_path = "{0}/cloudServiceEpgConfig".format(epg_path)
     ops = []
-    cloud_service_epg_config = {}
 
     mso.previous = mso.existing
     if state == "absent":
@@ -423,6 +421,8 @@ def main():
             mso.existing = mso.proposed
 
         if epg_type == "service":
+            service_path = "{0}/cloudServiceEpgConfig".format(epg_path)
+            cloud_service_epg_config = copy.deepcopy(mso.previous.get("cloudServiceEpgConfig", {}))
             access_type_map = {
                 "private": "Private",
                 "public": "Public",

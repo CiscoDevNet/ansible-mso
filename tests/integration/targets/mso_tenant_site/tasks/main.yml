@@ -44,7 +44,7 @@
     site: '{{ mso_site | default("ansible_test") }}'
     apic_username: '{{ apic_username }}'
     apic_password: '{{ apic_password }}'
-    apic_site_id: '{{ apic_site_id }}'
+    apic_site_id: '{{ apic_site_id | default(101) }}'
     urls:
     - https://{{ apic_hostname }}
     state: present
@@ -72,7 +72,7 @@
   ansible.builtin.assert:
     that:
     - tenant_site_absent_check.results.0.current == {}
-    - tenant_site_absent_check.warnings.0 == "Site 'invalid_site_ansible_test' is not a valid site name."
+    - tenant_site_absent_check.warnings.0 == "Site 'invalid_site_" ~ (mso_site | default("ansible_test")) ~ "' is not a valid site name."
     - tenant_site_absent_check.results.1.current == {}
 
 - name: Associate site with ansible_test in check mode

@@ -10,7 +10,7 @@
 
 
 # CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
@@ -20,25 +20,63 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(false) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      schema: '{{ mso_schema_template_contract_service_graph | default(mso_schema | default("ansible_test")) }}'
+      schema_2: '{{ mso_schema_template_contract_service_graph_2 | default((mso_schema | default("ansible_test")) ~ "_2") }}'
+      tenant: '{{ mso_tenant_template_contract_service_graph | default(mso_tenant | default("ansible_test")) }}'
+      template: Template 1
+      template_api: Template1
+      template_2: Template 2
+      filter:
+        one:
+          name: Filter1
+          entry: Filter1Entry
+        two:
+          name: Filter2
+          entry: Filter2Entry
+        three:
+          name: Filter3
+          entry: Filter3Entry
+      contract:
+        one: Contract1
+        two: Contract2
+      service_graph:
+        one:
+          name: SG1
+          display_name: sg1
+        two:
+          name: SG2
+          display_name: sg2
+      vrf: VRF1
+      bd:
+        one: BD1
+        two: BD2
+        three: BD3
+      anp:
+        one: AP1
+        two: AP2
+      epg:
+        one: EPG1
+        two: EPG2
 
 - name: Exercise mso_schema_template_contract_service_graph
   block:
     - name: Remove schema 2
       cisco.mso.mso_schema:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
+        schema: "{{ mso_test.schema_2 }}"
         state: absent
 
     - name: Remove schema 1
       cisco.mso.mso_schema:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: "{{ mso_test.schema }}"
         state: absent
 
     - name: Ensure tenant ansible_test exist
       cisco.mso.mso_tenant:
         <<: *mso_info
-        tenant: ansible_test
+        tenant: "{{ mso_test.tenant }}"
         users:
         - '{{ mso_username }}'
         state: present
@@ -46,78 +84,78 @@
     - name: Ensure schema 1 with Template 1 exist
       cisco.mso.mso_schema_template: &schema_present
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        tenant: ansible_test
-        template: Template 1
+        schema: "{{ mso_test.schema }}"
+        tenant: "{{ mso_test.tenant }}"
+        template: "{{ mso_test.template }}"
         state: present
 
     - name: Ensure schema 1 with Template 2 exist
       cisco.mso.mso_schema_template:
         <<: *schema_present
-        template: Template 2
+        template: "{{ mso_test.template_2 }}"
         state: present
 
     - name: Ensure schema 2 with Template 1 exist
       cisco.mso.mso_schema_template:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        tenant: ansible_test
-        template: Template 1
+        schema: "{{ mso_test.schema_2 }}"
+        tenant: "{{ mso_test.tenant }}"
+        template: "{{ mso_test.template }}"
         state: present
 
     - name: Ensure Filter1 exist
       cisco.mso.mso_schema_template_filter_entry: &filter_present
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        filter: Filter1
-        entry: Filter1Entry
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        filter: "{{ mso_test.filter.one.name }}"
+        entry: "{{ mso_test.filter.one.entry }}"
         ethertype: ip
         state: present
 
     - name: Ensure Filter2 exist
       cisco.mso.mso_schema_template_filter_entry:
         <<: *filter_present
-        filter: Filter2
-        entry: Filter2Entry
+        filter: "{{ mso_test.filter.two.name }}"
+        entry: "{{ mso_test.filter.two.entry }}"
         ethertype: ip
         state: present
 
     - name: Ensure Filter3 exist
       cisco.mso.mso_schema_template_filter_entry:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        template: Template 1
-        filter: Filter3
-        entry: Filter3Entry
+        schema: "{{ mso_test.schema_2 }}"
+        template: "{{ mso_test.template }}"
+        filter: "{{ mso_test.filter.three.name }}"
+        entry: "{{ mso_test.filter.three.entry }}"
         ethertype: ip
         state: present
 
     - name: Ensure Contract_1 contract exist
       cisco.mso.mso_schema_template_contract_filter: &contract_present
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        filter: Filter1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        filter: "{{ mso_test.filter.one.name }}"
         state: present
 
     - name: Ensure Contract_2 contract exist
       cisco.mso.mso_schema_template_contract_filter:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        template: Template 1
-        contract: Contract2
-        filter: Filter3
+        schema: "{{ mso_test.schema_2 }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.two }}"
+        filter: "{{ mso_test.filter.three.name }}"
         state: present
 
     - name: Ensure SG_1 service graph exist
       cisco.mso.mso_schema_template_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        service_graph: SG1
-        display_name: sg1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
+        display_name: "{{ mso_test.service_graph.one.display_name }}"
         service_nodes:
           - type: firewall
           - type: load-balancer
@@ -126,10 +164,10 @@
     - name: Ensure SG_2 service graph exist
       cisco.mso.mso_schema_template_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        template: Template 1
-        service_graph: SG2
-        display_name: sg2
+        schema: "{{ mso_test.schema_2 }}"
+        template: "{{ mso_test.template }}"
+        service_graph: "{{ mso_test.service_graph.two.name }}"
+        display_name: "{{ mso_test.service_graph.two.display_name }}"
         service_nodes:
           - type: firewall
           - type: load-balancer
@@ -138,122 +176,122 @@
     - name: Ensure VRF_1 vrf exist
       cisco.mso.mso_schema_template_vrf:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        vrf: VRF1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        vrf: "{{ mso_test.vrf }}"
         layer3_multicast: true
         state: present
 
     - name: Ensure BD_1 bd exist
       cisco.mso.mso_schema_template_bd: &bd_present
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        bd: BD1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        bd: "{{ mso_test.bd.one }}"
         vrf:
-          name: VRF1
+          name: "{{ mso_test.vrf }}"
         state: present
 
     - name: Ensure BD_2 bd exist
       cisco.mso.mso_schema_template_bd:
         <<: *bd_present
-        bd: BD2
+        bd: "{{ mso_test.bd.two }}"
         state: present
 
     - name: Ensure BD_3 bd exist
       cisco.mso.mso_schema_template_bd:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        template: Template 1
-        bd: BD3
+        schema: "{{ mso_test.schema_2 }}"
+        template: "{{ mso_test.template }}"
+        bd: "{{ mso_test.bd.three }}"
         vrf:
-          name: VRF1
-          schema: '{{ mso_schema | default("ansible_test") }}'
+          name: "{{ mso_test.vrf }}"
+          schema: "{{ mso_test.schema }}"
         state: present
 
     - name: Ensure AP1 in Template 1 exists
       cisco.mso.mso_schema_template_anp:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        anp: AP1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        anp: "{{ mso_test.anp.one }}"
         state: present
 
     - name: Ensure AP1 in Template 1 exists
       cisco.mso.mso_schema_template_anp:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        template: Template 1
-        anp: AP2
+        schema: "{{ mso_test.schema_2 }}"
+        template: "{{ mso_test.template }}"
+        anp: "{{ mso_test.anp.two }}"
         state: present
 
     - name: Ensure EPG1 in AP1 in Template 1 exists
       cisco.mso.mso_schema_template_anp_epg:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        anp: AP1
-        epg: EPG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        anp: "{{ mso_test.anp.one }}"
+        epg: "{{ mso_test.epg.one }}"
         bd:
-          name: BD1
+          name: "{{ mso_test.bd.one }}"
         state: present
 
     - name: Ensure EPG2 in AP1 in Template 1 exists
       cisco.mso.mso_schema_template_anp_epg:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        template: Template 1
-        anp: AP2
-        epg: EPG2
+        schema: "{{ mso_test.schema_2 }}"
+        template: "{{ mso_test.template }}"
+        anp: "{{ mso_test.anp.two }}"
+        epg: "{{ mso_test.epg.two }}"
         bd:
-          name: BD3
+          name: "{{ mso_test.bd.three }}"
         state: present
 
     - name: Add Contract1 to EPG1 provider
       cisco.mso.mso_schema_template_anp_epg_contract:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        anp: AP1
-        epg: EPG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        anp: "{{ mso_test.anp.one }}"
+        epg: "{{ mso_test.epg.one }}"
         contract:
-          name: Contract1
+          name: "{{ mso_test.contract.one }}"
           type: provider
         state: present
 
     - name: Add Contract1 to EPG1 consumer
       cisco.mso.mso_schema_template_anp_epg_contract:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        anp: AP1
-        epg: EPG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        anp: "{{ mso_test.anp.one }}"
+        epg: "{{ mso_test.epg.one }}"
         contract:
-          name: Contract1
+          name: "{{ mso_test.contract.one }}"
           type: consumer
         state: present
 
     - name: Add Contract2 to EPG2 provider
       cisco.mso.mso_schema_template_anp_epg_contract:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        template: Template 1
-        anp: AP2
-        epg: EPG2
+        schema: "{{ mso_test.schema_2 }}"
+        template: "{{ mso_test.template }}"
+        anp: "{{ mso_test.anp.two }}"
+        epg: "{{ mso_test.epg.two }}"
         contract:
-          name: Contract2
+          name: "{{ mso_test.contract.two }}"
           type: provider
         state: present
 
     - name: Add Contract2 to EPG2 consumer
       cisco.mso.mso_schema_template_anp_epg_contract:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        template: Template 1
-        anp: AP2
-        epg: EPG2
+        schema: "{{ mso_test.schema_2 }}"
+        template: "{{ mso_test.template }}"
+        anp: "{{ mso_test.anp.two }}"
+        epg: "{{ mso_test.epg.two }}"
         contract:
-          name: Contract2
+          name: "{{ mso_test.contract.two }}"
           type: consumer
         state: present
 
@@ -262,15 +300,15 @@
     - name: Add service graph 1 to Contract1 (check_mode)
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        service_graph: SG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         service_nodes:
-          - consumer: BD1
-            provider: BD2
-          - consumer: BD1
-            provider: BD2
+          - consumer: "{{ mso_test.bd.one }}"
+            provider: "{{ mso_test.bd.two }}"
+          - consumer: "{{ mso_test.bd.one }}"
+            provider: "{{ mso_test.bd.two }}"
         state: present
       check_mode: true
       register: cm_add_sg1_to_c1
@@ -278,15 +316,15 @@
     - name: Add service graph 1 to Contract1
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        service_graph: SG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         service_nodes:
-          - consumer: BD1
-            provider: BD2
-          - consumer: BD1
-            provider: BD2
+          - consumer: "{{ mso_test.bd.one }}"
+            provider: "{{ mso_test.bd.two }}"
+          - consumer: "{{ mso_test.bd.one }}"
+            provider: "{{ mso_test.bd.two }}"
         state: present
       register: nm_add_sg1_to_c1
 
@@ -295,39 +333,39 @@
         that:
         - cm_add_sg1_to_c1 is changed
         - cm_add_sg1_to_c1.previous == {}
-        - cm_add_sg1_to_c1.current.serviceGraphRef.serviceGraphName == "SG1"
-        - cm_add_sg1_to_c1.current.serviceGraphRef.templateName == "Template1"
-        - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+        - cm_add_sg1_to_c1.current.serviceGraphRef.serviceGraphName == mso_test.service_graph.one.name
+        - cm_add_sg1_to_c1.current.serviceGraphRef.templateName == mso_test.template_api
+        - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.one
         - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
+        - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.two
         - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
-        - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
+        - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == mso_test.service_graph.one.name
         - cm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
         - cm_add_sg1_to_c1.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
         - nm_add_sg1_to_c1 is changed
         - nm_add_sg1_to_c1.previous == {}
-        - nm_add_sg1_to_c1.current.serviceGraphRef.serviceGraphName == "SG1"
-        - nm_add_sg1_to_c1.current.serviceGraphRef.templateName == "Template1"
-        - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+        - nm_add_sg1_to_c1.current.serviceGraphRef.serviceGraphName == mso_test.service_graph.one.name
+        - nm_add_sg1_to_c1.current.serviceGraphRef.templateName == mso_test.template_api
+        - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.one
         - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
+        - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.two
         - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
-        - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
+        - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == mso_test.service_graph.one.name
         - nm_add_sg1_to_c1.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
         - nm_add_sg1_to_c1.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
 
     - name: Add service graph 1 to Contract1 again (check_mode)
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        service_graph: SG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         service_nodes:
-          - consumer: BD1
-            provider: BD2
-          - consumer: BD1
-            provider: BD2
+          - consumer: "{{ mso_test.bd.one }}"
+            provider: "{{ mso_test.bd.two }}"
+          - consumer: "{{ mso_test.bd.one }}"
+            provider: "{{ mso_test.bd.two }}"
         state: present
       check_mode: true
       register: cm_add_sg1_to_c1_again
@@ -335,15 +373,15 @@
     - name: Add service graph 1 to Contract1 again
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        service_graph: SG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         service_nodes:
-          - consumer: BD1
-            provider: BD2
-          - consumer: BD1
-            provider: BD2
+          - consumer: "{{ mso_test.bd.one }}"
+            provider: "{{ mso_test.bd.two }}"
+          - consumer: "{{ mso_test.bd.one }}"
+            provider: "{{ mso_test.bd.two }}"
         state: present
       register: nm_add_sg1_to_c1_again
 
@@ -351,38 +389,38 @@
       ansible.builtin.assert:
         that:
         - cm_add_sg1_to_c1_again is not changed
-        - cm_add_sg1_to_c1_again.previous.serviceGraphRef.serviceGraphName == "SG1"
-        - cm_add_sg1_to_c1_again.previous.serviceGraphRef.templateName == "Template1"
-        - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+        - cm_add_sg1_to_c1_again.previous.serviceGraphRef.serviceGraphName == mso_test.service_graph.one.name
+        - cm_add_sg1_to_c1_again.previous.serviceGraphRef.templateName == mso_test.template_api
+        - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.one
         - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
+        - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.two
         - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
-        - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
+        - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == mso_test.service_graph.one.name
         - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
         - cm_add_sg1_to_c1_again.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
         - nm_add_sg1_to_c1_again is not changed
-        - nm_add_sg1_to_c1_again.previous.serviceGraphRef.serviceGraphName == "SG1"
-        - nm_add_sg1_to_c1_again.previous.serviceGraphRef.templateName == "Template1"
-        - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+        - nm_add_sg1_to_c1_again.previous.serviceGraphRef.serviceGraphName == mso_test.service_graph.one.name
+        - nm_add_sg1_to_c1_again.previous.serviceGraphRef.templateName == mso_test.template_api
+        - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.one
         - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
+        - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.two
         - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
-        - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
+        - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == mso_test.service_graph.one.name
         - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
         - nm_add_sg1_to_c1_again.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
 
     - name: Change service graph 1 node to Contract1 (check_mode)
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        service_graph: SG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         service_nodes:
-          - consumer: BD2
-            provider: BD1
-          - consumer: BD2
-            provider: BD1
+          - consumer: "{{ mso_test.bd.two }}"
+            provider: "{{ mso_test.bd.one }}"
+          - consumer: "{{ mso_test.bd.two }}"
+            provider: "{{ mso_test.bd.one }}"
         state: present
       check_mode: true
       register: cm_change_sg1_to_c1
@@ -390,15 +428,15 @@
     - name: Change service graph 1 node to Contract1
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        service_graph: SG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         service_nodes:
-          - consumer: BD2
-            provider: BD1
-          - consumer: BD2
-            provider: BD1
+          - consumer: "{{ mso_test.bd.two }}"
+            provider: "{{ mso_test.bd.one }}"
+          - consumer: "{{ mso_test.bd.two }}"
+            provider: "{{ mso_test.bd.one }}"
         state: present
       register: nm_change_sg1_to_c1
 
@@ -406,41 +444,41 @@
       ansible.builtin.assert:
         that:
         - cm_change_sg1_to_c1 is changed
-        - cm_change_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
+        - cm_change_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.two
         - cm_change_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - cm_change_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
+        - cm_change_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.one
         - cm_change_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
-        - cm_change_sg1_to_c1.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+        - cm_change_sg1_to_c1.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.one
         - cm_change_sg1_to_c1.previous.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - cm_change_sg1_to_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
+        - cm_change_sg1_to_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.two
         - cm_change_sg1_to_c1.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
         - cm_change_sg1_to_c1 is changed
-        - nm_change_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
+        - nm_change_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.two
         - nm_change_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - nm_change_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
+        - nm_change_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.one
         - nm_change_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
-        - nm_change_sg1_to_c1.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+        - nm_change_sg1_to_c1.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.one
         - nm_change_sg1_to_c1.previous.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - nm_change_sg1_to_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD2"
+        - nm_change_sg1_to_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.two
         - nm_change_sg1_to_c1.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
 
     - name: Query service graph 1 to Contract1 (check_mode)
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        service_graph: SG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         state: query
       register: cm_query_sg1_to_c1
 
     - name: Query service graph 1 to Contract1
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        service_graph: SG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         state: query
       register: nm_query_sg1_to_c1
 
@@ -448,27 +486,27 @@
       ansible.builtin.assert:
         that:
         - cm_query_sg1_to_c1 is not changed
-        - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
-        - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+        - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.two
+        - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == mso_test.template_api
         - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
-        - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+        - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.one
+        - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == mso_test.template_api
         - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
         - cm_query_sg1_to_c1 is not changed
-        - nm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
-        - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+        - nm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.two
+        - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == mso_test.template_api
         - nm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - nm_query_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
-        - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+        - nm_query_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.one
+        - cm_query_sg1_to_c1.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == mso_test.template_api
         - nm_query_sg1_to_c1.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
 
     - name: Remove service graph 1 from Contract1 (check_mode)
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        service_graph: SG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         state: absent
       check_mode: true
       register: cm_remove_sg1_from_c1
@@ -476,10 +514,10 @@
     - name: Remove service graph 1 from Contract1
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        service_graph: SG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         state: absent
       register: nm_remove_sg1_from_c1
 
@@ -488,43 +526,43 @@
         that:
         - cm_remove_sg1_from_c1 is changed
         - cm_remove_sg1_from_c1.current == {}
-        - cm_remove_sg1_from_c1.previous.serviceGraphRef.serviceGraphName == "SG1"
-        - cm_remove_sg1_from_c1.previous.serviceGraphRef.templateName == "Template1"
-        - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
+        - cm_remove_sg1_from_c1.previous.serviceGraphRef.serviceGraphName == mso_test.service_graph.one.name
+        - cm_remove_sg1_from_c1.previous.serviceGraphRef.templateName == mso_test.template_api
+        - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.two
         - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
+        - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.one
         - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
-        - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
+        - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == mso_test.service_graph.one.name
         - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
         - cm_remove_sg1_from_c1.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
         - nm_remove_sg1_from_c1 is changed
         - nm_remove_sg1_from_c1.current == {}
-        - nm_remove_sg1_from_c1.previous.serviceGraphRef.serviceGraphName == "SG1"
-        - nm_remove_sg1_from_c1.previous.serviceGraphRef.templateName == "Template1"
-        - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD2"
+        - nm_remove_sg1_from_c1.previous.serviceGraphRef.serviceGraphName == mso_test.service_graph.one.name
+        - nm_remove_sg1_from_c1.previous.serviceGraphRef.templateName == mso_test.template_api
+        - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.two
         - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD1"
+        - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.one
         - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.providerConnector.connectorType == "general"
-        - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG1"
+        - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == mso_test.service_graph.one.name
         - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
         - nm_remove_sg1_from_c1.previous.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
 
     - name: Add service graph 2 to Contract2 with BD in other schema (check_mode)
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        template: Template 1
-        contract: Contract2
-        service_graph: SG2
+        schema: "{{ mso_test.schema_2 }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.two }}"
+        service_graph: "{{ mso_test.service_graph.two.name }}"
         service_nodes:
-          - consumer: BD1
-            consumer_template: Template 1
-            consumer_schema: '{{ mso_schema | default("ansible_test") }}'
-            provider: BD3
-          - consumer: BD3
-            provider: BD2
-            provider_template: Template 1
-            provider_schema: '{{ mso_schema | default("ansible_test") }}'
+          - consumer: "{{ mso_test.bd.one }}"
+            consumer_template: "{{ mso_test.template }}"
+            consumer_schema: "{{ mso_test.schema }}"
+            provider: "{{ mso_test.bd.three }}"
+          - consumer: "{{ mso_test.bd.three }}"
+            provider: "{{ mso_test.bd.two }}"
+            provider_template: "{{ mso_test.template }}"
+            provider_schema: "{{ mso_test.schema }}"
         state: present
       check_mode: true
       register: cm_add_sg2_to_c2
@@ -532,19 +570,19 @@
     - name: Add service graph 2 to Contract2 with BD in other schema
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        template: Template 1
-        contract: Contract2
-        service_graph: SG2
+        schema: "{{ mso_test.schema_2 }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.two }}"
+        service_graph: "{{ mso_test.service_graph.two.name }}"
         service_nodes:
-          - consumer: BD1
-            consumer_template: Template 1
-            consumer_schema: '{{ mso_schema | default("ansible_test") }}'
-            provider: BD3
-          - consumer: BD3
-            provider: BD2
-            provider_template: Template 1
-            provider_schema: '{{ mso_schema | default("ansible_test") }}'
+          - consumer: "{{ mso_test.bd.one }}"
+            consumer_template: "{{ mso_test.template }}"
+            consumer_schema: "{{ mso_test.schema }}"
+            provider: "{{ mso_test.bd.three }}"
+          - consumer: "{{ mso_test.bd.three }}"
+            provider: "{{ mso_test.bd.two }}"
+            provider_template: "{{ mso_test.template }}"
+            provider_schema: "{{ mso_test.schema }}"
         state: present
       register: nm_add_sg2_to_c2
 
@@ -553,44 +591,44 @@
         that:
         - cm_add_sg2_to_c2 is changed
         - cm_add_sg2_to_c2.previous == {}
-        - cm_add_sg2_to_c2.current.serviceGraphRef.serviceGraphName == "SG2"
-        - cm_add_sg2_to_c2.current.serviceGraphRef.templateName == "Template1"
-        - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+        - cm_add_sg2_to_c2.current.serviceGraphRef.serviceGraphName == mso_test.service_graph.two.name
+        - cm_add_sg2_to_c2.current.serviceGraphRef.templateName == mso_test.template_api
+        - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.one
         - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD3"
+        - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.three
         - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
-        - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG2"
+        - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == mso_test.service_graph.two.name
         - cm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
         - cm_add_sg2_to_c2.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
         - nm_add_sg2_to_c2 is changed
         - nm_add_sg2_to_c2.previous == {}
-        - nm_add_sg2_to_c2.current.serviceGraphRef.serviceGraphName == "SG2"
-        - nm_add_sg2_to_c2.current.serviceGraphRef.templateName == "Template1"
-        - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
+        - nm_add_sg2_to_c2.current.serviceGraphRef.serviceGraphName == mso_test.service_graph.two.name
+        - nm_add_sg2_to_c2.current.serviceGraphRef.templateName == mso_test.template_api
+        - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.one
         - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD3"
+        - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.three
         - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
-        - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == "SG2"
+        - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceGraphName == mso_test.service_graph.two.name
         - nm_add_sg2_to_c2.current.serviceNodesRelationship.0.serviceNodeRef.serviceNodeName == "node1"
         - nm_add_sg2_to_c2.current.serviceNodesRelationship.1.serviceNodeRef.serviceNodeName == "node2"
 
     - name: Query service graph 2 to Contract2 (check_mode)
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        template: Template 1
-        contract: Contract2
-        service_graph: SG2
+        schema: "{{ mso_test.schema_2 }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.two }}"
+        service_graph: "{{ mso_test.service_graph.two.name }}"
         state: query
       register: cm_query_sg2_to_c2
 
     - name: Query service graph 2 to Contract2
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        template: Template 1
-        contract: Contract2
-        service_graph: SG2
+        schema: "{{ mso_test.schema_2 }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.two }}"
+        service_graph: "{{ mso_test.service_graph.two.name }}"
         state: query
       register: nm_query_sg2_to_c2
 
@@ -598,19 +636,19 @@
       ansible.builtin.assert:
         that:
         - cm_query_sg2_to_c2 is not changed
-        - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
-        - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+        - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.one
+        - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == mso_test.template_api
         - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD3"
-        - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+        - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.three
+        - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == mso_test.template_api
         - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
         - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.schemaId != cm_query_sg2_to_c2.current.serviceGraphRef.schemaId
         - cm_query_sg2_to_c2 is not changed
-        - nm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == "BD1"
-        - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+        - nm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.bdName == mso_test.bd.one
+        - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == mso_test.template_api
         - nm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.connectorType == "general"
-        - nm_query_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == "BD3"
-        - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == "Template1"
+        - nm_query_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.bdRef.bdName == mso_test.bd.three
+        - cm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.templateName == mso_test.template_api
         - nm_query_sg2_to_c2.current.serviceNodesRelationship.0.providerConnector.connectorType == "general"
         - nm_query_sg2_to_c2.current.serviceNodesRelationship.0.consumerConnector.bdRef.schemaId != nm_query_sg2_to_c2.current.serviceGraphRef.schemaId
 
@@ -619,10 +657,10 @@
     - name: Not existing template provided for absent
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: "{{ mso_test.schema }}"
         template: Template False
-        contract: Contract1
-        service_graph: SG1
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         state: absent
       ignore_errors: true
       register: not_existing_template_input_absent
@@ -630,10 +668,10 @@
     - name: Not existing contract provided for absent
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
         contract: Contract False
-        service_graph: SG1
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         state: absent
       ignore_errors: true
       register: not_existing_contract_input_absent
@@ -641,9 +679,9 @@
     - name: Not existing service graph provided for absent
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
         service_graph: SG False
         state: absent
       register: not_existing_service_graph_input_absent
@@ -651,9 +689,9 @@
     - name: Not existing service graph provided for query
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
         service_graph: SG False
         state: query
       register: not_existing_service_graph_input_query
@@ -661,16 +699,16 @@
     - name: Not existing template provided for present
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        service_graph: SG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         service_graph_template: Template False
         service_nodes:
-          - consumer: BD2
-            provider: BD1
-          - consumer: BD2
-            provider: BD1
+          - consumer: "{{ mso_test.bd.two }}"
+            provider: "{{ mso_test.bd.one }}"
+          - consumer: "{{ mso_test.bd.two }}"
+            provider: "{{ mso_test.bd.one }}"
         state: present
       ignore_errors: true
       register: not_existing_template_input_present
@@ -678,16 +716,16 @@
     - name: Not existing service graph provided for present
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
         service_graph: SG False
-        service_graph_template: Template 2
+        service_graph_template: "{{ mso_test.template_2 }}"
         service_nodes:
-          - consumer: BD2
-            provider: BD1
-          - consumer: BD2
-            provider: BD1
+          - consumer: "{{ mso_test.bd.two }}"
+            provider: "{{ mso_test.bd.one }}"
+          - consumer: "{{ mso_test.bd.two }}"
+            provider: "{{ mso_test.bd.one }}"
         state: present
       ignore_errors: true
       register: not_existing_service_graph_input_present
@@ -711,13 +749,13 @@
     - name: False service graph node amount provided ( less than 2 as provided in SG1 config )
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        service_graph: SG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         service_nodes:
-          - consumer: BD1
-            provider: BD2
+          - consumer: "{{ mso_test.bd.one }}"
+            provider: "{{ mso_test.bd.two }}"
         state: present
       ignore_errors: true
       register: nm_false_sg1_to_c1_less_than_2
@@ -725,17 +763,17 @@
     - name: False service graph node amount provided ( more than 2 as provided in SG1 config )
       cisco.mso.mso_schema_template_contract_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: Template 1
-        contract: Contract1
-        service_graph: SG1
+        schema: "{{ mso_test.schema }}"
+        template: "{{ mso_test.template }}"
+        contract: "{{ mso_test.contract.one }}"
+        service_graph: "{{ mso_test.service_graph.one.name }}"
         service_nodes:
-          - consumer: BD1
-            provider: BD2
-          - consumer: BD1
-            provider: BD2
-          - consumer: BD1
-            provider: BD2
+          - consumer: "{{ mso_test.bd.one }}"
+            provider: "{{ mso_test.bd.two }}"
+          - consumer: "{{ mso_test.bd.one }}"
+            provider: "{{ mso_test.bd.two }}"
+          - consumer: "{{ mso_test.bd.one }}"
+            provider: "{{ mso_test.bd.two }}"
         state: present
       ignore_errors: true
       register: nm_false_sg1_to_c1_more_than_2
@@ -753,13 +791,13 @@
     - name: Remove test schema 2 even when a test fails
       cisco.mso.mso_schema:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
+        schema: "{{ mso_test.schema_2 }}"
         state: absent
       ignore_errors: true
 
     - name: Remove test schema 1 even when a test fails
       cisco.mso.mso_schema:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: "{{ mso_test.schema }}"
         state: absent
       ignore_errors: true

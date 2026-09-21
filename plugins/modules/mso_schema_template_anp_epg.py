@@ -421,8 +421,7 @@ def main():
             mso.existing = mso.proposed
 
         if epg_type == "service":
-            service_path = "{0}/cloudServiceEpgConfig".format(epg_path)
-            cloud_service_epg_config = copy.deepcopy(mso.previous.get("cloudServiceEpgConfig", {}))
+            cloud_service_epg_config = copy.deepcopy(mso.existing.get("cloudServiceEpgConfig", {}))
             access_type_map = {
                 "private": "Private",
                 "public": "Public",
@@ -433,16 +432,15 @@ def main():
                 "cloud_native_managed": "CloudNativeManaged",
                 "third_party": "Third-party",
             }
-            if cloud_service_epg_config != {}:
-                cloud_service_epg_config.update(
-                    dict(deploymentType=deployment_type_map[deployment_type], serviceType=service_type, accessType=access_type_map[access_type])
-                )
-                ops.append(dict(op="replace", path=service_path, value=cloud_service_epg_config))
-            else:
-                cloud_service_epg_config.update(
-                    dict(deploymentType=deployment_type_map[deployment_type], serviceType=service_type, accessType=access_type_map[access_type])
-                )
-                ops.append(dict(op="add", path=service_path, value=cloud_service_epg_config))
+            cloud_service_epg_config.update(
+                dict(deploymentType=deployment_type_map[deployment_type], serviceType=service_type, accessType=access_type_map[access_type])
+            )
+            append_update_ops_data(
+                ops,
+                mso.existing,
+                epg_path,
+                dict(cloudServiceEpgConfig=cloud_service_epg_config),
+            )
 
     if not module.check_mode and ops:
         mso.request(schema_path, method="PATCH", data=ops)

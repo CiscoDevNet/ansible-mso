@@ -592,6 +592,11 @@
       access_type: private
     register: nm_update_epg_2_service
 
+  - name: Update template EPG2 with valid service attributes again
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *epg_2_service_private
+    register: nm_update_epg_2_service_again
+
   - name: Validate template EPG2 service attributes
     cisco.mso.mso_schema_validate:
       <<: *mso_info
@@ -613,6 +618,14 @@
     ansible.builtin.assert:
       that:
       - nm_update_epg_2_service is changed
+      - nm_update_epg_2_service.current.cloudServiceEpgConfig.deploymentType == 'Third-party'
+      - nm_update_epg_2_service.current.cloudServiceEpgConfig.serviceType == mso_test.service.type
+      - nm_update_epg_2_service.current.cloudServiceEpgConfig.accessType == 'Private'
+      - nm_update_epg_2_service_again is not changed
+      - nm_update_epg_2_service_again.previous == nm_update_epg_2_service_again.current
+      - nm_update_epg_2_service_again.current.cloudServiceEpgConfig.deploymentType == 'Third-party'
+      - nm_update_epg_2_service_again.current.cloudServiceEpgConfig.serviceType == mso_test.service.type
+      - nm_update_epg_2_service_again.current.cloudServiceEpgConfig.accessType == 'Private'
       - nm_query_epg_2_service is not changed
       - nm_query_epg_2_service.current.epgType == 'service'
       - nm_query_epg_2_service.current.cloudServiceEpgConfig.deploymentType == 'Third-party'

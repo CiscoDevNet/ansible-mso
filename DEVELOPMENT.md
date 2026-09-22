@@ -117,9 +117,13 @@ behavior in a comment or task name, using both product versions where relevant.
 
 ## Pre-existing objects
 
-Some tests require objects that must already exist in the test environment. Do
-not create or query those objects as part of the target when the API or test
-contract makes them prerequisites. State the reason in a comment, for example:
+Some tests require objects that must already exist in the test environment Do
+not create or query those objects as part of the target when the API or
+test contract makes them prerequisites. When the prerequisite is instead a
+common fixture (such as the `ansible_test` site and tenant) that other targets
+also need, create it once via a [shared setup target](#shared-setup-targets)
+rather than treating it as externally pre-existing. State the reason in a
+comment, for example:
 
 ```yaml
 # Due to API changes in ND 4.2, the configured site and tenant are prerequisites
@@ -135,6 +139,48 @@ contract makes them prerequisites. State the reason in a comment, for example:
 
 The example uses the existing site without attempting to manage the site or
 tenant themselves.
+
+## Shared setup targets
+
+When several targets need the same prerequisite objects (for example, the
+`ansible_test` site and tenant), factor that setup into its own target and
+reference it with `ansible-test`'s
+[`setup/once`](https://docs.ansible.com/projects/ansible/latest/dev_guide/testing/sanity/integration-aliases.html#setup)
+alias instead of duplicating the setup tasks in every target. If a target
+needs the `ansible_test`/`ansible_test_2` sites or the `ansible_test`/
+`ansible_test_2`/`common` tenants, reuse the existing
+`tests/integration/targets/mso_setup_tenant_site` target rather than
+duplicating or creating a new one:
+
+```text
+# tests/integration/targets/<consuming_target>/aliases
+setup/once/mso_setup_tenant_site
+```
+
+`setup/once/<target>` runs the referenced target's tasks once per test
+session, even when multiple consuming targets run together, and relies on
+Ansible fact caching to share `set_fact`/`register` results (such as
+`version`) across the separate playbook runs. Use `setup/always/<target>`
+instead when the setup must run before every consuming target rather than
+once per session.
+
+A shared setup target follows the usual layout
+(`tests/integration/targets/<name>/tasks/main.yml`), plus:
+
+- Its name must start with an existing prefix in
+  `tests/integration/target-prefixes.network` (currently `mso`/`ndo`).
+  `ansible-test network-integration` only resolves `setup/once`/`setup/always`
+  targets that belong to the `network` target group, which is assigned by
+  name prefix; a setup target with an unrelated name fails with
+  `invalid setup target`, even though the target exists and is otherwise
+  valid.
+- Its `aliases` file must contain `hidden`, since it has no test assertions of
+  its own and the automatic hidden-detection for `setup_`/`prepare_`-prefixed
+  names does not apply once the name carries the `mso_`/`ndo_` prefix instead.
+
+YAML anchors (for example `&mso_info`) do not carry over between files, so
+each consuming target still declares its own `mso_info` anchor; only the
+setup logic that does not depend on it is shared.
 
 ## Test block and cleanup
 

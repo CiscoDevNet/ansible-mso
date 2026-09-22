@@ -1,3 +1,4 @@
+---
 # Test code for the MSO modules
 # Copyright: (c) 2024, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 
@@ -8,8 +9,7 @@
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
-# CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
@@ -19,13 +19,40 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      template: ansible_fabric_policy_template
+      mcp_global_policy:
+        name: ansible_mcp_global_policy
+        defaults:
+          description: ""
+          admin_state: disabled
+          per_vlan: false
+          loop_detection_factor: 3
+          port_disable: true
+          initial_delay_time: 180
+          transmission_frequency_sec: 2
+          transmission_frequency_msec: 0
+        updated:
+          name: ansible_mcp_global_policy_new
+          description: A Global MCP Policy
+          key: cisco
+          admin_state: enabled
+          per_vlan: enabled
+          loop_detection_factor: 4
+          port_disable: disabled
+          initial_delay_time: 200
+          transmission_frequency_sec: 3
+          transmission_frequency_msec: 10
+      mcp_global_policy_2:
+        name: ansible_mcp_global_policy_again
+        description: An MCP Global policy to delete with UUID
 
 - name: Exercise ndo_mcp_global_policy
   block:
     - name: Remove fabric template
       cisco.mso.ndo_template: &template_absent
         <<: *mso_info
-        name: ansible_fabric_policy_template
+        name: '{{ mso_test.template }}'
         type: fabric_policy
         state: absent
 
@@ -38,8 +65,8 @@
     - name: Create the MCP Global Policy (check mode)
       cisco.mso.ndo_mcp_global_policy: &add_mcp_global_policy
         <<: *mso_info
-        template: ansible_fabric_policy_template
-        name: ansible_mcp_global_policy
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.mcp_global_policy.name }}'
         state: present
       check_mode: true
       register: cm_add_mcp_global_policy
@@ -61,27 +88,27 @@
           - nm_add_mcp_global_policy is changed
           - cm_add_mcp_global_policy.previous == nm_add_mcp_global_policy.previous == {}
           - cm_add_mcp_global_policy.current == cm_add_mcp_global_policy.proposed
-          - cm_add_mcp_global_policy.current.name == nm_add_mcp_global_policy.current.name == "ansible_mcp_global_policy"
-          - nm_add_mcp_global_policy.current.description == ""
-          - nm_add_mcp_global_policy.current.adminState == "disabled"
-          - nm_add_mcp_global_policy.current.enablePduPerVlan == false
-          - nm_add_mcp_global_policy.current.loopDetectMultFactor == 3
-          - nm_add_mcp_global_policy.current.protectPortDisable == true
-          - nm_add_mcp_global_policy.current.initialDelayTime == 180
-          - nm_add_mcp_global_policy.current.txFreq == 2
-          - nm_add_mcp_global_policy.current.txFreqMsec == 0
+          - cm_add_mcp_global_policy.current.name == nm_add_mcp_global_policy.current.name == mso_test.mcp_global_policy.name
+          - nm_add_mcp_global_policy.current.description == mso_test.mcp_global_policy.defaults.description
+          - nm_add_mcp_global_policy.current.adminState == mso_test.mcp_global_policy.defaults.admin_state
+          - nm_add_mcp_global_policy.current.enablePduPerVlan == mso_test.mcp_global_policy.defaults.per_vlan
+          - nm_add_mcp_global_policy.current.loopDetectMultFactor == mso_test.mcp_global_policy.defaults.loop_detection_factor
+          - nm_add_mcp_global_policy.current.protectPortDisable == mso_test.mcp_global_policy.defaults.port_disable
+          - nm_add_mcp_global_policy.current.initialDelayTime == mso_test.mcp_global_policy.defaults.initial_delay_time
+          - nm_add_mcp_global_policy.current.txFreq == mso_test.mcp_global_policy.defaults.transmission_frequency_sec
+          - nm_add_mcp_global_policy.current.txFreqMsec == mso_test.mcp_global_policy.defaults.transmission_frequency_msec
           - nm_add_mcp_global_policy.current.uuid is defined
           - (nm_add_mcp_global_policy.current.key | default(none)) in [none, "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"]
           - nm_add_mcp_global_policy_again is not changed
-          - nm_add_mcp_global_policy_again.previous.name == nm_add_mcp_global_policy_again.current.name == "ansible_mcp_global_policy"
-          - nm_add_mcp_global_policy_again.previous.description == nm_add_mcp_global_policy.current.description == ""
-          - nm_add_mcp_global_policy_again.previous.adminState == nm_add_mcp_global_policy.current.adminState == "disabled"
-          - nm_add_mcp_global_policy_again.previous.enablePduPerVlan == nm_add_mcp_global_policy.current.enablePduPerVlan == false
-          - nm_add_mcp_global_policy_again.previous.loopDetectMultFactor == nm_add_mcp_global_policy.current.loopDetectMultFactor == 3
-          - nm_add_mcp_global_policy_again.previous.protectPortDisable == nm_add_mcp_global_policy.current.protectPortDisable == true
-          - nm_add_mcp_global_policy_again.previous.initialDelayTime == nm_add_mcp_global_policy.current.initialDelayTime == 180
-          - nm_add_mcp_global_policy_again.previous.txFreq == nm_add_mcp_global_policy.current.txFreq == 2
-          - nm_add_mcp_global_policy_again.previous.txFreqMsec == nm_add_mcp_global_policy.current.txFreqMsec == 0
+          - nm_add_mcp_global_policy_again.previous.name == nm_add_mcp_global_policy_again.current.name == mso_test.mcp_global_policy.name
+          - nm_add_mcp_global_policy_again.previous.description == nm_add_mcp_global_policy.current.description == mso_test.mcp_global_policy.defaults.description
+          - nm_add_mcp_global_policy_again.previous.adminState == nm_add_mcp_global_policy.current.adminState == mso_test.mcp_global_policy.defaults.admin_state
+          - nm_add_mcp_global_policy_again.previous.enablePduPerVlan == nm_add_mcp_global_policy.current.enablePduPerVlan == mso_test.mcp_global_policy.defaults.per_vlan
+          - nm_add_mcp_global_policy_again.previous.loopDetectMultFactor == nm_add_mcp_global_policy.current.loopDetectMultFactor == mso_test.mcp_global_policy.defaults.loop_detection_factor
+          - nm_add_mcp_global_policy_again.previous.protectPortDisable == nm_add_mcp_global_policy.current.protectPortDisable == mso_test.mcp_global_policy.defaults.port_disable
+          - nm_add_mcp_global_policy_again.previous.initialDelayTime == nm_add_mcp_global_policy.current.initialDelayTime == mso_test.mcp_global_policy.defaults.initial_delay_time
+          - nm_add_mcp_global_policy_again.previous.txFreq == nm_add_mcp_global_policy.current.txFreq == mso_test.mcp_global_policy.defaults.transmission_frequency_sec
+          - nm_add_mcp_global_policy_again.previous.txFreqMsec == nm_add_mcp_global_policy.current.txFreqMsec == mso_test.mcp_global_policy.defaults.transmission_frequency_msec
           - nm_add_mcp_global_policy_again.previous.uuid is defined
           - nm_add_mcp_global_policy_again.current.uuid is defined
 
@@ -89,17 +116,17 @@
     - name: Update the MCP Global Policy (check mode)
       cisco.mso.ndo_mcp_global_policy: &update_mcp_global_policy
         <<: *mso_info
-        template: ansible_fabric_policy_template
-        name: ansible_mcp_global_policy_new
-        description: A Global MCP Policy
-        key: cisco
-        admin_state: enabled
-        per_vlan: enabled
-        loop_detection_factor: 4
-        port_disable: disabled
-        initial_delay_time: 200
-        transmission_frequency_sec: 3
-        transmission_frequency_msec: 10
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.mcp_global_policy.updated.name }}'
+        description: '{{ mso_test.mcp_global_policy.updated.description }}'
+        key: '{{ mso_test.mcp_global_policy.updated.key }}'
+        admin_state: '{{ mso_test.mcp_global_policy.updated.admin_state }}'
+        per_vlan: '{{ mso_test.mcp_global_policy.updated.per_vlan }}'
+        loop_detection_factor: '{{ mso_test.mcp_global_policy.updated.loop_detection_factor }}'
+        port_disable: '{{ mso_test.mcp_global_policy.updated.port_disable }}'
+        initial_delay_time: '{{ mso_test.mcp_global_policy.updated.initial_delay_time }}'
+        transmission_frequency_sec: '{{ mso_test.mcp_global_policy.updated.transmission_frequency_sec }}'
+        transmission_frequency_msec: '{{ mso_test.mcp_global_policy.updated.transmission_frequency_msec }}'
         state: present
       check_mode: true
       register: cm_update_mcp_global_policy
@@ -131,29 +158,29 @@
           - cm_update_mcp_global_policy is changed
           - nm_update_mcp_global_policy is changed
           - cm_update_mcp_global_policy.previous == nm_update_mcp_global_policy.previous
-          - cm_update_mcp_global_policy.previous.name == nm_update_mcp_global_policy.previous.name == "ansible_mcp_global_policy"
-          - cm_update_mcp_global_policy.previous.adminState == nm_update_mcp_global_policy.previous.adminState == "disabled"
-          - cm_update_mcp_global_policy.previous.description == nm_update_mcp_global_policy.previous.description == ""
-          - cm_update_mcp_global_policy.previous.enablePduPerVlan == nm_update_mcp_global_policy.previous.enablePduPerVlan == false
+          - cm_update_mcp_global_policy.previous.name == nm_update_mcp_global_policy.previous.name == mso_test.mcp_global_policy.name
+          - cm_update_mcp_global_policy.previous.adminState == nm_update_mcp_global_policy.previous.adminState == mso_test.mcp_global_policy.defaults.admin_state
+          - cm_update_mcp_global_policy.previous.description == nm_update_mcp_global_policy.previous.description == mso_test.mcp_global_policy.defaults.description
+          - cm_update_mcp_global_policy.previous.enablePduPerVlan == nm_update_mcp_global_policy.previous.enablePduPerVlan == mso_test.mcp_global_policy.defaults.per_vlan
           # The initial policy has no configured key. Depending on the NDO version, the API either omits the key or returns a
           # masked placeholder, which the module converts to Ansible's sensitive-value marker.
           - (cm_update_mcp_global_policy.previous.key | default(none)) in [none, "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"]
           - (nm_update_mcp_global_policy.previous.key | default(none)) in [none, "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"]
-          - cm_update_mcp_global_policy.previous.loopDetectMultFactor == nm_update_mcp_global_policy.previous.loopDetectMultFactor == 3
-          - cm_update_mcp_global_policy.previous.protectPortDisable == nm_update_mcp_global_policy.previous.protectPortDisable == true
-          - cm_update_mcp_global_policy.previous.txFreq == nm_update_mcp_global_policy.previous.txFreq == 2
-          - cm_update_mcp_global_policy.previous.txFreqMsec == nm_update_mcp_global_policy.previous.txFreqMsec == 0
+          - cm_update_mcp_global_policy.previous.loopDetectMultFactor == nm_update_mcp_global_policy.previous.loopDetectMultFactor == mso_test.mcp_global_policy.defaults.loop_detection_factor
+          - cm_update_mcp_global_policy.previous.protectPortDisable == nm_update_mcp_global_policy.previous.protectPortDisable == mso_test.mcp_global_policy.defaults.port_disable
+          - cm_update_mcp_global_policy.previous.txFreq == nm_update_mcp_global_policy.previous.txFreq == mso_test.mcp_global_policy.defaults.transmission_frequency_sec
+          - cm_update_mcp_global_policy.previous.txFreqMsec == nm_update_mcp_global_policy.previous.txFreqMsec == mso_test.mcp_global_policy.defaults.transmission_frequency_msec
           - cm_update_mcp_global_policy.current == cm_update_mcp_global_policy.proposed
-          - cm_update_mcp_global_policy.current.name == nm_update_mcp_global_policy.current.name == "ansible_mcp_global_policy_new"
-          - cm_update_mcp_global_policy.current.adminState == nm_update_mcp_global_policy.current.adminState == "enabled"
-          - cm_update_mcp_global_policy.current.description == nm_update_mcp_global_policy.current.description == "A Global MCP Policy"
+          - cm_update_mcp_global_policy.current.name == nm_update_mcp_global_policy.current.name == mso_test.mcp_global_policy.updated.name
+          - cm_update_mcp_global_policy.current.adminState == nm_update_mcp_global_policy.current.adminState == mso_test.mcp_global_policy.updated.admin_state
+          - cm_update_mcp_global_policy.current.description == nm_update_mcp_global_policy.current.description == mso_test.mcp_global_policy.updated.description
           - cm_update_mcp_global_policy.current.enablePduPerVlan == nm_update_mcp_global_policy.current.enablePduPerVlan == true
           - cm_update_mcp_global_policy.current.key == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
           - nm_update_mcp_global_policy.current.key == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
-          - cm_update_mcp_global_policy.current.loopDetectMultFactor == nm_update_mcp_global_policy.current.loopDetectMultFactor == 4
+          - cm_update_mcp_global_policy.current.loopDetectMultFactor == nm_update_mcp_global_policy.current.loopDetectMultFactor == mso_test.mcp_global_policy.updated.loop_detection_factor
           - cm_update_mcp_global_policy.current.protectPortDisable == nm_update_mcp_global_policy.current.protectPortDisable == false
-          - cm_update_mcp_global_policy.current.txFreq == nm_update_mcp_global_policy.current.txFreq == 3
-          - cm_update_mcp_global_policy.current.txFreqMsec == nm_update_mcp_global_policy.current.txFreqMsec == 10
+          - cm_update_mcp_global_policy.current.txFreq == nm_update_mcp_global_policy.current.txFreq == mso_test.mcp_global_policy.updated.transmission_frequency_sec
+          - cm_update_mcp_global_policy.current.txFreqMsec == nm_update_mcp_global_policy.current.txFreqMsec == mso_test.mcp_global_policy.updated.transmission_frequency_msec
           - update_mcp_global_policy_again is not changed
           - update_mcp_global_policy_again.previous == update_mcp_global_policy_again.current
           - nm_update_mcp_global_policy_no_uuid is failed
@@ -163,23 +190,23 @@
     - name: Query the MCP Global Policy with name
       cisco.mso.ndo_mcp_global_policy:
         <<: *mso_info
-        template: ansible_fabric_policy_template
-        name: ansible_mcp_global_policy_new
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.mcp_global_policy.updated.name }}'
         state: query
       register: query_mcp_policy_with_name
 
     - name: Query the MCP Global Policy with UUID
       cisco.mso.ndo_mcp_global_policy:
         <<: *mso_info
-        template: ansible_fabric_policy_template
-        uuid: '{{update_mcp_global_policy_again.current.uuid}}'
+        template: '{{ mso_test.template }}'
+        uuid: '{{ update_mcp_global_policy_again.current.uuid }}'
         state: query
       register: query_mcp_policy_with_uuid
 
     - name: Query the MCP Global Policy without name or UUID
       cisco.mso.ndo_mcp_global_policy: &query_mcp_global_policy
         <<: *mso_info
-        template: ansible_fabric_policy_template
+        template: '{{ mso_test.template }}'
         state: query
       register: query_all_mcp_policy
 
@@ -190,16 +217,16 @@
           - query_mcp_policy_with_uuid is not changed
           - query_all_mcp_policy is not changed
           - query_mcp_policy_with_uuid.current == query_mcp_policy_with_name.current
-          - query_mcp_policy_with_name.current.name == "ansible_mcp_global_policy_new"
+          - query_mcp_policy_with_name.current.name == mso_test.mcp_global_policy.updated.name
           - query_mcp_policy_with_name.current.key == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
           - query_all_mcp_policy.current[0].key == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
-          - query_mcp_policy_with_name.current.description == "A Global MCP Policy"
-          - query_mcp_policy_with_name.current.adminState == "enabled"
+          - query_mcp_policy_with_name.current.description == mso_test.mcp_global_policy.updated.description
+          - query_mcp_policy_with_name.current.adminState == mso_test.mcp_global_policy.updated.admin_state
           - query_mcp_policy_with_name.current.enablePduPerVlan == true
           - query_mcp_policy_with_name.current.protectPortDisable == false
-          - query_mcp_policy_with_name.current.loopDetectMultFactor == 4
-          - query_mcp_policy_with_name.current.txFreq == 3
-          - query_mcp_policy_with_name.current.txFreqMsec == 10
+          - query_mcp_policy_with_name.current.loopDetectMultFactor == mso_test.mcp_global_policy.updated.loop_detection_factor
+          - query_mcp_policy_with_name.current.txFreq == mso_test.mcp_global_policy.updated.transmission_frequency_sec
+          - query_mcp_policy_with_name.current.txFreqMsec == mso_test.mcp_global_policy.updated.transmission_frequency_msec
           - query_mcp_policy_with_name.current.uuid is defined
           - query_all_mcp_policy.current | length == 1 # Can only be one
 
@@ -207,8 +234,8 @@
     - name: Delete MCP Global Policy with name (check mode)
       cisco.mso.ndo_mcp_global_policy: &delete_mcp_global_policy
         <<: *mso_info
-        template: ansible_fabric_policy_template
-        name: ansible_mcp_global_policy_changed
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.mcp_global_policy.updated.name }}'
         state: absent
       check_mode: true
       register: cm_delete_mcp_global_policy
@@ -229,10 +256,10 @@
           - cm_delete_mcp_global_policy is changed
           - nm_delete_mcp_global_policy is changed
           - cm_delete_mcp_global_policy.current == nm_delete_mcp_global_policy.current == {}
-          - cm_delete_mcp_global_policy.previous.name == nm_delete_mcp_global_policy.previous.name == "ansible_mcp_global_policy_new"
+          - cm_delete_mcp_global_policy.previous.name == nm_delete_mcp_global_policy.previous.name == mso_test.mcp_global_policy.updated.name
           - cm_delete_mcp_global_policy.previous.key == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
           - nm_delete_mcp_global_policy.previous.key == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
-          - cm_delete_mcp_global_policy.previous.description == nm_delete_mcp_global_policy.previous.description == "A Global MCP Policy"
+          - cm_delete_mcp_global_policy.previous.description == nm_delete_mcp_global_policy.previous.description == mso_test.mcp_global_policy.updated.description
           - nm_delete_mcp_global_policy.previous.uuid is defined
           - nm_delete_mcp_global_policy_again is not changed
           - nm_delete_mcp_global_policy_again.previous == nm_delete_mcp_global_policy_again.current == {}
@@ -240,14 +267,14 @@
     - name: Create the MCP Global Policy
       cisco.mso.ndo_mcp_global_policy:
         <<: *add_mcp_global_policy
-        name: ansible_mcp_global_policy_again
-        description: An MCP Global policy to delete with UUID
+        name: '{{ mso_test.mcp_global_policy_2.name }}'
+        description: '{{ mso_test.mcp_global_policy_2.description }}'
       register: new_mcp_global_policy
 
     - name: Delete the MCP Global Policy with UUID
       cisco.mso.ndo_mcp_global_policy:
         <<: *mso_info
-        template: ansible_fabric_policy_template
+        template: '{{ mso_test.template }}'
         uuid: '{{ new_mcp_global_policy.current.uuid }}'
         state: absent
       register: nm_delete_mcp_global_policy_uuid
@@ -257,8 +284,8 @@
         that:
           - nm_delete_mcp_global_policy_uuid is changed
           - nm_delete_mcp_global_policy_uuid.previous.uuid is defined
-          - nm_delete_mcp_global_policy_uuid.previous.name == "ansible_mcp_global_policy_again"
-          - nm_delete_mcp_global_policy_uuid.previous.description == "An MCP Global policy to delete with UUID"
+          - nm_delete_mcp_global_policy_uuid.previous.name == mso_test.mcp_global_policy_2.name
+          - nm_delete_mcp_global_policy_uuid.previous.description == mso_test.mcp_global_policy_2.description
           - nm_delete_mcp_global_policy_uuid.current == {}
 
     # Errors and no policy found
@@ -270,7 +297,7 @@
     - name: Create the MCP Global Policy with a UUID
       cisco.mso.ndo_mcp_global_policy:
         <<: *mso_info
-        template: ansible_fabric_policy_template
+        template: '{{ mso_test.template }}'
         uuid: not-possible
         state: present
       ignore_errors: true
@@ -283,7 +310,7 @@
     - name: Update the MCP Global Policy with incorrect UUID
       cisco.mso.ndo_mcp_global_policy:
         <<: *mso_info
-        template: ansible_fabric_policy_template
+        template: '{{ mso_test.template }}'
         uuid: non-existing-uuid
         state: present
       ignore_errors: true
@@ -292,7 +319,7 @@
     - name: Delete the MCP Global Policy with incorrect UUID
       cisco.mso.ndo_mcp_global_policy:
         <<: *mso_info
-        template: ansible_fabric_policy_template
+        template: '{{ mso_test.template }}'
         uuid: does-not-exist
         state: absent
       ignore_errors: true

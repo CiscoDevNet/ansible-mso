@@ -30,36 +30,7 @@
 - name: Execute tasks only for NDO version > 4.2
   when: version.current.version is version('4.2', '>')
   block:
-    # Setup Part
-    - name: Ensure ansible_test site exist
-      cisco.mso.mso_site:
-        <<: *mso_info
-        site: '{{ mso_site | default("ansible_test") }}'
-        state: query
-      register: ansible_test_site
-
-    - name: Ensure ansible_test tenant exist
-      cisco.mso.mso_tenant:
-        <<: *mso_info
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        users:
-          - "{{ mso_username }}"
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
-      when: ansible_test_site.current.common.name == 'ansible_test'
-
-    - name: Ensure common tenant exist
-      cisco.mso.mso_tenant:
-        <<: *mso_info
-        tenant: common
-        users:
-          - "{{ mso_username }}"
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
-      when: ansible_test_site.current.common.name == 'ansible_test'
-
+    # Setup Part (ansible_test/common tenant+site handled by the mso_setup_tenant_site setup target)
     - name: Ensure l3out template not exist
       cisco.mso.ndo_template: &ndo_l3out_template_absent
         <<: *mso_info
@@ -868,6 +839,7 @@
           - create_ngp1_bfd_disabled.current.name == "ngp1"
           - create_ngp1_bfd_disabled.current.bfdMultiHop is not defined
 
+  always:
     # Cleanup Part
     - name: Remove l3out tenant template
       cisco.mso.ndo_template:

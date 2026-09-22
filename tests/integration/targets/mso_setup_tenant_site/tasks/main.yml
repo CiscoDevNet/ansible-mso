@@ -1,0 +1,58 @@
+# Test code for the MSO modules
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+# Shared setup for integration test targets that need the ansible_test site/tenant to
+# exist (see the `setup/once` alias in the consuming targets). Ensures the tenant/site
+# are present without needing to duplicate this logic in every test.
+# NOTE: name must start with "mso_" or "ndo_" (see tests/integration/target-prefixes.network)
+# so it is included in the "network" target group used by `ansible-test network-integration`.
+
+- name: Set vars
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: "{{ mso_hostname }}"
+      username: "{{ mso_username }}"
+      password: "{{ mso_password }}"
+      validate_certs: "{{ mso_validate_certs | default(false) }}"
+      use_ssl: "{{ mso_use_ssl | default(true) }}"
+      use_proxy: "{{ mso_use_proxy | default(true) }}"
+      output_level: '{{ mso_output_level | default("debug") }}'
+
+# QUERY VERSION
+- name: Query MSO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Ensure sites exist
+  cisco.mso.mso_site:
+    <<: *mso_info
+    site: "{{ item.site }}"
+    apic_username: "{{ apic_username }}"
+    apic_password: "{{ apic_password }}"
+    apic_site_id: "{{ item.apic_site_id }}"
+    urls:
+      - https://{{ apic_hostname }}
+    state: present
+  loop:
+    - { site: '{{ mso_site | default("ansible_test") }}', apic_site_id: 101 }
+    - { site: '{{ mso_site_2 | default("ansible_test_2") }}', apic_site_id: 102 }
+
+# On ND v4.2 (NDO v5.2) "admin" and any admin users (ie the CI user) are allways associated to all tenants.
+# The version is only needed for the users field, which is version-gated (omitted) inline below.
+- name: Ensure tenants exist
+  cisco.mso.mso_tenant:
+    <<: *mso_info
+    tenant: "{{ item }}"
+    users: "{{ [mso_username] if version.current.version is version('5.2', '<') else omit }}"
+    sites:
+      - '{{ mso_site | default("ansible_test") }}'
+      - '{{ mso_site_2 | default("ansible_test_2") }}'
+    state: present
+  loop:
+    - ansible_test
+    - ansible_test_2
+    - common

@@ -284,7 +284,7 @@ def main():
     eepg_path = "/templates/{0}/externalEpgs/{1}".format(template, external_epg)
     ops = []
 
-    mso.previous = mso.existing
+    mso.previous = copy.deepcopy(mso.existing)
     if state == "absent":
         if mso.existing:
             mso.sent = mso.existing = {}
@@ -319,7 +319,6 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            mso.existing = copy.deepcopy(mso.previous)
             append_update_ops_data(ops, mso.existing, eepg_path, payload)
         else:
             ops.append(dict(op="add", path=eepgs_path + "/-", value=mso.sent))

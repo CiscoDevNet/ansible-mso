@@ -14,6 +14,7 @@ import ast
 import datetime
 import shutil
 import tempfile
+import time
 from ansible.module_utils.basic import json
 from ansible.module_utils.basic import env_fallback
 from ansible.module_utils.six import PY3
@@ -880,7 +881,41 @@ class MSOModule(object):
             self.fail_json(msg="Backup file upload failed due to: {0}".format(info))
         return {}
 
-    def request(self, path, method=None, data=None, qs=None, api_version="v1", ignore_errors=None):
+    def _retry_request(self, info, retry_count, request_callback):
+        """Work around the transient NDO post-processing response.
+
+        This helper keeps the workaround separate from the existing request and
+        error-handling flow, allowing the request to be retried without
+        rewriting the transport implementations or response processing.
+
+        The callback is supplied by the caller so this retry policy can also be
+        reused by nd_request() in the future without coupling the helper to
+        request().
+
+        For now, this helper is wired only into request(). nd_request() is
+        currently used only for the NDO local/remote-user APIs, primarily with
+        GET requests, and there is no known occurrence of this transient save
+        error there.
+        """
+        # Keep these local for now; expose them as user options later if tuning is needed.
+        max_retries = 2  # Two additional attempts (three total); a bounded workaround default.
+        retry_delay = 5  # Gives NDO time to finish post-processing before the next attempt.
+
+        body = info.get("body", {})
+        body_text = json.dumps(body) if isinstance(body, dict) else to_text(body or "")
+
+        # Extend this mapping with additional status-specific retry conditions as needed.
+        retry_conditions = {
+            400: "save post processing in progress, please retry" in body_text,
+        }
+
+        if retry_count >= max_retries or not retry_conditions.get(info.get("status"), False):
+            return False, None
+
+        time.sleep(retry_delay)
+        return True, request_callback()
+
+    def request(self, path, method=None, data=None, qs=None, api_version="v1", ignore_errors=None, _retry_count=0):
         """Generic HTTP method for MSO requests."""
         self.path = path
 
@@ -955,6 +990,22 @@ class MSOModule(object):
 
         self.response = info.get("msg")
         self.status = info.get("status", -1)
+
+        retried, result = self._retry_request(
+            info,
+            _retry_count,
+            lambda: self.request(
+                self.path,
+                method=self.method,
+                data=data,
+                qs=qs,
+                api_version=api_version,
+                ignore_errors=ignore_errors,
+                _retry_count=_retry_count + 1,
+            ),
+        )
+        if retried:
+            return result
 
         # Get change status from HTTP headers
         if "modified" in info:

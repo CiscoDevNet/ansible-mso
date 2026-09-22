@@ -53,6 +53,13 @@ options:
   key:
     description:
     - The key of the MCP Global Policy.
+    - When updating an existing policy, omitting this option leaves the existing
+      key unchanged. Providing this option updates the key.
+    - This value is treated as sensitive and is obscured in module output.
+    - Any value returned by NDO for this attribute is replaced with Ansible's
+      C(VALUE_SPECIFIED_IN_NO_LOG_PARAMETER) marker in module output.
+    - As an accepted security trade-off, unrelated module output containing the
+      same text as the key may also be obscured.
     type: str
   per_vlan:
     description:
@@ -222,7 +229,7 @@ def main():
         uuid=dict(type="str", aliases=["mcp_global_policy_uuid"]),
         description=dict(type="str"),
         admin_state=dict(type="str", choices=["enabled", "disabled"]),
-        key=dict(type="str", no_log=False),
+        key=dict(type="str", no_log=True),
         per_vlan=dict(
             type="str",
             aliases=["per_epg", "mcp_pdu_per_vlan"],
@@ -281,6 +288,13 @@ def main():
     object_base_path = "/fabricPolicyTemplate/template/mcpGlobalPolicy"
 
     existing_mcp_global_policy = mso_template.template.get("fabricPolicyTemplate", {}).get("template", {}).get("mcpGlobalPolicy", {})
+    existing_key = existing_mcp_global_policy.get("key")
+    if existing_key:
+        # no_log=True protects values supplied through module parameters, but query and delete calls do not supply the key.
+        # Register the API-returned value explicitly so exit_json() and fail_json() replace every matching occurrence in the
+        # module result with VALUE_SPECIFIED_IN_NO_LOG_PARAMETER. This can also obscure unrelated output containing the same
+        # text as the key; that trade-off is accepted to prevent disclosure of the API-returned secret.
+        module.no_log_values.add(existing_key)
 
     if state in ["query", "absent"] and existing_mcp_global_policy == {}:
         mso.exit_json()
@@ -315,6 +329,11 @@ def main():
         mso.existing = response_object.get("fabricPolicyTemplate", {}).get("template", {}).get("mcpGlobalPolicy", {})
     elif module.check_mode and state != "query":  # When the state is present/absent with check mode
         mso.existing = mso.proposed if state == "present" else {}
+
+    returned_key = mso.existing.get("key") if isinstance(mso.existing, dict) else None
+    if returned_key:
+        # Also protect a key introduced by the create or update response.
+        module.no_log_values.add(returned_key)
 
     mso.exit_json()
 

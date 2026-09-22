@@ -71,7 +71,7 @@
           - nm_add_mcp_global_policy.current.txFreq == 2
           - nm_add_mcp_global_policy.current.txFreqMsec == 0
           - nm_add_mcp_global_policy.current.uuid is defined
-          - nm_add_mcp_global_policy.current.key is undefined
+          - (nm_add_mcp_global_policy.current.key | default(none)) in [none, "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"]
           - nm_add_mcp_global_policy_again is not changed
           - nm_add_mcp_global_policy_again.previous.name == nm_add_mcp_global_policy_again.current.name == "ansible_mcp_global_policy"
           - nm_add_mcp_global_policy_again.previous.description == nm_add_mcp_global_policy.current.description == ""
@@ -135,8 +135,10 @@
           - cm_update_mcp_global_policy.previous.adminState == nm_update_mcp_global_policy.previous.adminState == "disabled"
           - cm_update_mcp_global_policy.previous.description == nm_update_mcp_global_policy.previous.description == ""
           - cm_update_mcp_global_policy.previous.enablePduPerVlan == nm_update_mcp_global_policy.previous.enablePduPerVlan == false
-          - cm_update_mcp_global_policy.previous.key is undefined 
-          - nm_update_mcp_global_policy.previous.key is undefined
+          # The initial policy has no configured key. Depending on the NDO version, the API either omits the key or returns a
+          # masked placeholder, which the module converts to Ansible's sensitive-value marker.
+          - (cm_update_mcp_global_policy.previous.key | default(none)) in [none, "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"]
+          - (nm_update_mcp_global_policy.previous.key | default(none)) in [none, "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"]
           - cm_update_mcp_global_policy.previous.loopDetectMultFactor == nm_update_mcp_global_policy.previous.loopDetectMultFactor == 3
           - cm_update_mcp_global_policy.previous.protectPortDisable == nm_update_mcp_global_policy.previous.protectPortDisable == true
           - cm_update_mcp_global_policy.previous.txFreq == nm_update_mcp_global_policy.previous.txFreq == 2
@@ -146,7 +148,8 @@
           - cm_update_mcp_global_policy.current.adminState == nm_update_mcp_global_policy.current.adminState == "enabled"
           - cm_update_mcp_global_policy.current.description == nm_update_mcp_global_policy.current.description == "A Global MCP Policy"
           - cm_update_mcp_global_policy.current.enablePduPerVlan == nm_update_mcp_global_policy.current.enablePduPerVlan == true
-          - cm_update_mcp_global_policy.current.key == nm_update_mcp_global_policy.current.key == "cisco"
+          - cm_update_mcp_global_policy.current.key == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
+          - nm_update_mcp_global_policy.current.key == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
           - cm_update_mcp_global_policy.current.loopDetectMultFactor == nm_update_mcp_global_policy.current.loopDetectMultFactor == 4
           - cm_update_mcp_global_policy.current.protectPortDisable == nm_update_mcp_global_policy.current.protectPortDisable == false
           - cm_update_mcp_global_policy.current.txFreq == nm_update_mcp_global_policy.current.txFreq == 3
@@ -188,7 +191,8 @@
           - query_all_mcp_policy is not changed
           - query_mcp_policy_with_uuid.current == query_mcp_policy_with_name.current
           - query_mcp_policy_with_name.current.name == "ansible_mcp_global_policy_new"
-          - query_mcp_policy_with_name.current.key == "cisco"
+          - query_mcp_policy_with_name.current.key == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
+          - query_all_mcp_policy.current[0].key == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
           - query_mcp_policy_with_name.current.description == "A Global MCP Policy"
           - query_mcp_policy_with_name.current.adminState == "enabled"
           - query_mcp_policy_with_name.current.enablePduPerVlan == true
@@ -226,7 +230,8 @@
           - nm_delete_mcp_global_policy is changed
           - cm_delete_mcp_global_policy.current == nm_delete_mcp_global_policy.current == {}
           - cm_delete_mcp_global_policy.previous.name == nm_delete_mcp_global_policy.previous.name == "ansible_mcp_global_policy_new"
-          - cm_delete_mcp_global_policy.previous.key == nm_delete_mcp_global_policy.previous.key == "cisco"
+          - cm_delete_mcp_global_policy.previous.key == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
+          - nm_delete_mcp_global_policy.previous.key == "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER"
           - cm_delete_mcp_global_policy.previous.description == nm_delete_mcp_global_policy.previous.description == "A Global MCP Policy"
           - nm_delete_mcp_global_policy.previous.uuid is defined
           - nm_delete_mcp_global_policy_again is not changed

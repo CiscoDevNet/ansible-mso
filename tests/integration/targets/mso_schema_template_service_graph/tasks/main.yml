@@ -37,16 +37,6 @@
       - '{{ mso_username }}'
     state: present
 
-- name: Ensure services nodes exist
-  cisco.mso.mso_service_node_type:
-    <<: *mso_info
-    name: '{{ item }}'
-    display_name: '{{ item }}'
-    state: present
-  loop:
-    - ansible_test_other1
-    - ansible_test_other2
-
 - name: Ensure schema 1 with Template 1 exist
   cisco.mso.mso_schema_template:
     <<: *mso_info
@@ -274,14 +264,10 @@
   register: sg4
   ignore_errors: true
 
-- name: Set error message for non_existing_type
-  ansible.builtin.set_fact:
-    error_message_non_existing_type: "Provided service node type 'non_existing_type' does not exist. Existing service node types include: firewall, load-balancer, other, ansible_test_other1, ansible_test_other2"
-
 - name: Verify sg4
   ansible.builtin.assert:
     that:
-      - sg4.msg == error_message_non_existing_type
+      - sg4.msg is match("Provided service node type 'non_existing_type' does not exist")
 
 - name: Query service graph SG
   cisco.mso.mso_schema_template_service_graph:

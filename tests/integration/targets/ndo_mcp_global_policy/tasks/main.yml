@@ -20,15 +20,7 @@
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
 
-# QUERY VERSION
-- name: Query MSO version
-  cisco.mso.mso_version:
-    <<: *mso_info
-    state: query
-  register: version
-
-- name: Execute tasks only for MSO version >= 4.3
-  when: version.current.version is version('4.3', '>=')
+- name: Exercise ndo_mcp_global_policy
   block:
     - name: Remove fabric template
       cisco.mso.ndo_template: &template_absent
@@ -323,7 +315,9 @@
           - create_with_uuid is failed
           - create_with_uuid.msg == "MCP Global Policy cannot be created with a UUID"
 
-    # CLEANUP TEMPLATE
-    - name: Ensure fabric resource policy template do not exist
+  always:
+    # CLEANUP
+    - name: Remove test fabric policy template even when a test fails
       cisco.mso.ndo_template:
         <<: *template_absent
+      ignore_errors: true

@@ -30,6 +30,7 @@
   when: version.current.version is version('5.1', '>=')
   block:
     # CLEAN TEST ENVIRONMENT
+    # (ansible_test tenant+site handled by the mso_setup_tenant_site setup target)
     - name: Ensure Tenant Policy template does not exist
       cisco.mso.ndo_template: &tenant_policy_template_absent
         <<: *mso_info
@@ -47,27 +48,6 @@
         template: ansible_tenant_template
         state: absent
       ignore_errors: true
-
-    - name: Ensure Tenant does not exist
-      cisco.mso.mso_tenant: &tenant_absent
-        <<: *mso_info
-        tenant: '{{ ansible_tenant | default("ansible_test") }}'
-        state: absent
-  
-    - name: Ensure ansible_test site exist
-      cisco.mso.mso_site:
-        <<: *mso_info
-        site: '{{ mso_site | default("ansible_test") }}'
-        state: query
-
-    - name: Ensure ansible_test tenant exist
-      cisco.mso.mso_tenant:
-        <<: *tenant_absent
-        users:
-          - "{{ mso_username }}"
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
 
     # Schema Template Setup VRF and BD
 
@@ -509,8 +489,8 @@
           - nm_delete_endpoint_mac_tag_policy_again is not changed
           - nm_delete_endpoint_mac_tag_policy_again.previous == nm_delete_endpoint_mac_tag_policy_again.current == nm_delete_endpoint_mac_tag_policy.current
 
+  always:
     # CLEAN TEST ENVIRONMENT
-
     - name: Ensure Tenant Policy template does not exist
       cisco.mso.ndo_template:
         <<: *tenant_policy_template_absent
@@ -518,7 +498,3 @@
     - name: Esnure schema template does not exist
       cisco.mso.mso_schema_template:
         <<: *schema_template_absent
-    
-    - name: Ensure Tenant does not exist
-      cisco.mso.mso_tenant:
-        <<: *tenant_absent

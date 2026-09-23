@@ -30,25 +30,15 @@
   when: version.current.version is version('5.1', '>=')
   block:
     # CLEAN TEST ENVIRONMENT
+    # (ansible_test tenant+site handled by the mso_setup_tenant_site setup target)
     - name: Ensure Tenant Policy template does not exist
       cisco.mso.ndo_template: &rm_tenant_policy_template
         <<: *mso_info
         template: ansible_tenant_policy_template
         template_type: tenant
-        tenant: ansible_test
+        tenant: '{{ mso_tenant | default("ansible_test") }}'
         state: absent
       ignore_errors: true
-
-    - name: Ensure Tenant does not exist
-      cisco.mso.mso_tenant: &rm_tenant
-        <<: *mso_info
-        tenant: ansible_test
-        state: absent
-
-    - name: Ensure Tenant exists
-      cisco.mso.mso_tenant:
-        <<: *rm_tenant
-        state: present
 
     - name: Ensure Tenant Policy template exist
       cisco.mso.ndo_template:
@@ -267,12 +257,8 @@
           - nm_delete_match_rule_policy_again is not changed
           - nm_delete_match_rule_policy_again.previous == nm_delete_match_rule_policy_again.current == nm_delete_match_rule_policy.current
 
+  always:
     # CLEAN TEST ENVIRONMENT
-
     - name: Ensure Tenant Policy template does not exist
       cisco.mso.ndo_template:
         <<: *rm_tenant_policy_template
-    
-    - name: Ensure Tenant does not exist
-      cisco.mso.mso_tenant:
-        <<: *rm_tenant

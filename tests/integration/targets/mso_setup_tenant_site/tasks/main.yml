@@ -19,6 +19,15 @@
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      site: '{{ mso_site | default("ansible_test") }}'
+      site_2: '{{ mso_site_2 | default("ansible_test_2") }}'
+      site_id: '{{ apic_site_id | default(101) }}'
+      site_id_2: '{{ apic_site_id_2 | default(102) }}'
+      tenants:
+        - ansible_test
+        - ansible_test_2
+        - common
 
 # QUERY VERSION
 - name: Query MSO version
@@ -38,8 +47,8 @@
       - https://{{ apic_hostname }}
     state: present
   loop:
-    - { site: '{{ mso_site | default("ansible_test") }}', apic_site_id: 101 }
-    - { site: '{{ mso_site_2 | default("ansible_test_2") }}', apic_site_id: 102 }
+    - { site: "{{ mso_test.site }}", apic_site_id: "{{ mso_test.site_id }}" }
+    - { site: "{{ mso_test.site_2 }}", apic_site_id: "{{ mso_test.site_id_2 }}" }
 
 # On ND v4.2 (NDO v5.2) "admin" and any admin users (ie the CI user) are allways associated to all tenants.
 # The version is only needed for the users field, which is version-gated (omitted) inline below.
@@ -49,10 +58,7 @@
     tenant: "{{ item }}"
     users: "{{ [mso_username] if version.current.version is version('5.2', '<') else omit }}"
     sites:
-      - '{{ mso_site | default("ansible_test") }}'
-      - '{{ mso_site_2 | default("ansible_test_2") }}'
+      - "{{ mso_test.site }}"
+      - "{{ mso_test.site_2 }}"
     state: present
-  loop:
-    - ansible_test
-    - ansible_test_2
-    - common
+  loop: "{{ mso_test.tenants }}"

@@ -126,19 +126,26 @@ rather than treating it as externally pre-existing. State the reason in a
 comment, for example:
 
 ```yaml
-# Due to API changes in ND 4.2, the configured site and tenant are prerequisites
-# for this test and must already exist. They are intentionally not created or
-# queried here.
-- name: Associate the pre-existing site with the test schema template
-  cisco.mso.mso_schema_site:
+# The VMM domain is provisioned out-of-band on APIC/vCenter and is a
+# prerequisite for this test. It cannot be created through the MSO/NDO API
+# used by this collection, so it is intentionally not created or queried here.
+- name: Associate the pre-existing VMM domain with the site EPG
+  cisco.mso.mso_schema_site_anp_epg_domain:
     <<: *mso_info
     schema: '{{ mso_test.schema }}'
     site: '{{ mso_test.site }}'
     template: '{{ mso_test.template }}'
+    anp: '{{ mso_test.anp }}'
+    epg: '{{ mso_test.epg }}'
+    domain_association_type: vmmDomain
+    domain_profile: VMware-VMM
+    deployment_immediacy: lazy
+    resolution_immediacy: pre-provision
+    state: present
 ```
 
-The example uses the existing site without attempting to manage the site or
-tenant themselves.
+The example uses the existing VMM domain without attempting to manage the
+domain itself.
 
 ## Shared setup targets
 
@@ -146,8 +153,15 @@ When several targets need the same prerequisite objects (for example, the
 `ansible_test` site and tenant), factor that setup into its own target and
 reference it with `ansible-test`'s
 [`setup/once`](https://docs.ansible.com/projects/ansible/latest/dev_guide/testing/sanity/integration-aliases.html#setup)
-alias instead of duplicating the setup tasks in every target. If a target
-needs the `ansible_test`/`ansible_test_2` sites or the `ansible_test`/
+alias instead of duplicating the setup tasks in every target.
+
+Existing shared setup targets:
+
+| Target                  | Objects created                                                                             |
+| ----------------------- | --------------------------------------------------------------------------------------------- |
+| `mso_setup_tenant_site` | The `ansible_test`/`ansible_test_2` sites and the `ansible_test`/`ansible_test_2`/`common` tenants |
+
+If a target needs the `ansible_test`/`ansible_test_2` sites or the `ansible_test`/
 `ansible_test_2`/`common` tenants, reuse the existing
 `tests/integration/targets/mso_setup_tenant_site` target rather than
 duplicating or creating a new one:

@@ -21,6 +21,9 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      tenant_rest: '{{ mso_tenant_rest | default("ansible_test_rest") }}'
 
 - name: Remove schemas
   cisco.mso.mso_schema:
@@ -28,13 +31,13 @@
     schema: '{{ item }}'
     state: absent
   loop:
-  - '{{ mso_schema | default("ansible_test") }}_1'
-  - '{{ mso_schema | default("ansible_test") }}'
+  - '{{ mso_test.schema }}_1'
+  - '{{ mso_test.schema }}'
 
-- name: Remove tenant ansible_test
+- name: Remove tenant ansible_test_rest
   cisco.mso.mso_tenant:
     <<: *mso_info
-    tenant: ansible_test
+    tenant: '{{ mso_test.tenant_rest }}'
     state: absent
 
 # QUERY A USER
@@ -60,8 +63,8 @@
     content: "{{ lookup('template', 'tenant.json.j2') }}"
   register: add_tenant
 
-- name: Verify add_tenant in json_string
+- name: Verify add_tenant in json_template
   ansible.builtin.assert:
     that:
     - add_tenant is changed
-    - add_tenant.jsondata.displayName == 'ansible_test'
+    - add_tenant.jsondata.displayName == mso_test.tenant_rest

@@ -21,6 +21,9 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      tenant_rest: '{{ mso_tenant_rest | default("ansible_test_rest") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -33,7 +36,7 @@
     <<: *mso_info
     dhcp_relay_policy: ansible_dhcp_relay_1
     tenant: ansible_test
-    schema: '{{ mso_schema | default("ansible_test") }}'
+    schema: '{{ mso_test.schema }}'
     template: Template 1
     external_endpoint_group: "{{ item }}"
     state: absent
@@ -47,7 +50,7 @@
     <<: *mso_info
     dhcp_relay_policy: ansible_dhcp_relay_1
     tenant: ansible_test
-    schema: '{{ mso_schema | default("ansible_test") }}'
+    schema: '{{ mso_test.schema }}'
     template: Template 1
     endpoint_group: "{{ item }}"
     application_profile: "ANP_1"
@@ -60,7 +63,7 @@
 - name: Stop consuming DHCP Policy
   cisco.mso.mso_schema_template_bd:
     <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
+    schema: '{{ mso_test.schema }}'
     template: Template 1
     bd: CLIENT_BD
     vrf:
@@ -95,13 +98,13 @@
     state: absent
   ignore_errors: true
   loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
+  - '{{ mso_test.schema }}_2'
+  - '{{ mso_test.schema }}'
 
-- name: Remove tenant ansible_test
+- name: Remove tenant ansible_test_rest
   cisco.mso.mso_tenant:
     <<: *mso_info
-    tenant: ansible_test
+    tenant: '{{ mso_test.tenant_rest }}'
     state: absent
   ignore_errors: true
 
@@ -141,8 +144,8 @@
     method: post
     content:
       {
-          "displayName": "ansible_test",
-          "name": "ansible_test",
+          "displayName": "{{ mso_test.tenant_rest }}",
+          "name": "{{ mso_test.tenant_rest }}",
           "description": "",
           "siteAssociations": [],
           "userAssociations": [{
@@ -156,7 +159,7 @@
   ansible.builtin.assert:
     that:
     - add_tenant is changed
-    - add_tenant.jsondata.displayName == 'ansible_test'
+    - add_tenant.jsondata.displayName == mso_test.tenant_rest
 
 # ADD schema
 - name: Add schema
@@ -166,7 +169,7 @@
     method: post
     content:
       {
-          "displayName": "{{ mso_schema | default('ansible_test') }}",
+          "displayName": "{{ mso_test.schema }}",
           "templates": [{
               "name": "Template_1",
               "tenantId": "{{ add_tenant.jsondata.id }}",
@@ -191,7 +194,7 @@
   ansible.builtin.assert:
     that:
     - add_schema is changed
-    - add_schema.jsondata.displayName == 'ansible_test'
+    - add_schema.jsondata.displayName == mso_test.schema
 
 # PUT schema
 - name: Put schema
@@ -202,7 +205,7 @@
     method: put
     content:
       {
-          "displayName": "ansible_test_2",
+          "displayName": "{{ mso_test.schema }}_2",
           "templates": [{
               "name": "Template_1",
               "tenantId": "{{ add_tenant.jsondata.id }}",
@@ -227,7 +230,7 @@
   ansible.builtin.assert:
     that:
     - put_schema is changed
-    - put_schema.jsondata.displayName == 'ansible_test_2'
+    - put_schema.jsondata.displayName == mso_test.schema + '_2'
 
 # PATCH schema
 - name: Patch schema

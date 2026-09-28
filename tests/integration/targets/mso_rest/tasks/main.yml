@@ -22,6 +22,7 @@
       output_level: '{{ mso_output_level | default("debug") }}'
     mso_test:
       schema: '{{ mso_schema | default("ansible_test") }}'
+      schema_2: '{{ mso_schema | default("ansible_test") }}_2'
       tenant_rest: '{{ mso_tenant_rest | default("ansible_test_rest") }}'
       template: Template_1
       anp: AP2
@@ -55,7 +56,7 @@
         state: absent
       ignore_errors: true
       loop:
-      - '{{ mso_test.schema }}_2'
+      - '{{ mso_test.schema_2 }}'
       - '{{ mso_test.schema }}'
 
     - name: Remove tenant ansible_test_rest even when a test fails

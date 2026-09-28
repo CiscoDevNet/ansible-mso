@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2020, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 #
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -21,9 +22,6 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
-    mso_test:
-      schema: '{{ mso_schema | default("ansible_test") }}'
-      tenant_rest: '{{ mso_tenant_rest | default("ansible_test_rest") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -105,9 +103,9 @@
     content:
       displayName: '{{ mso_test.schema }}'
       templates:
-        - name: Template_1
+        - name: '{{ mso_test.template }}'
           tenantId: '{{ add_tenant.jsondata.id }}'
-          displayName: Template_1
+          displayName: '{{ mso_test.template }}'
           templateSubType: []
           templateType: stretched-template
           anps: []
@@ -137,9 +135,9 @@
     content:
       displayName: '{{ mso_test.schema }}_2'
       templates:
-      - name: Template_1
+      - name: '{{ mso_test.template }}'
         tenantId: '{{ add_tenant.jsondata.id }}'
-        displayName: Template_1
+        displayName: '{{ mso_test.template }}'
         templateSubType: []
         templateType: stretched-template
         anps: []
@@ -168,10 +166,10 @@
     method: patch
     content:
       - op: add
-        path: /templates/Template_1/anps/-
+        path: /templates/{{ mso_test.template }}/anps/-
         value:
-          name: AP2
-          displayName: AP2
+          name: '{{ mso_test.anp }}'
+          displayName: '{{ mso_test.anp }}'
           epgs: []
         _updateVersion: 0
   register: patch_schema
@@ -184,7 +182,7 @@
 - name: Verify patch_schema in yaml_string
   ansible.builtin.assert:
     that:
-    - patch_schema.jsondata.templates[0].anps[0].displayName == 'AP2'
+    - patch_schema.jsondata.templates[0].anps[0].displayName == mso_test.anp
   # MSO 3.3 PATCH does not return anything anymore.
   when: version.current.version is version('3.3', '<')
 

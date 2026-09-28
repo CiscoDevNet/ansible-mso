@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2020, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 #
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -9,20 +10,57 @@
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
-- ansible.builtin.include_tasks: json_inline.yml
-  tags: json_inline
+- name: Set test connection and fixture variables
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      tenant_rest: '{{ mso_tenant_rest | default("ansible_test_rest") }}'
+      template: Template_1
+      anp: AP2
 
-- ansible.builtin.include_tasks: json_string.yml
-  tags: json_string
+- name: Run mso_rest test scenarios
+  block:
+    - ansible.builtin.include_tasks: json_inline.yml
+      tags: json_inline
 
-- ansible.builtin.include_tasks: json_template.yml
-  tags: json_template
+    - ansible.builtin.include_tasks: json_string.yml
+      tags: json_string
 
-- ansible.builtin.include_tasks: yaml_inline.yml
-  tags: yaml_inline
+    - ansible.builtin.include_tasks: json_template.yml
+      tags: json_template
 
-- ansible.builtin.include_tasks: yaml_string.yml
-  tags: yaml_string
+    - ansible.builtin.include_tasks: yaml_inline.yml
+      tags: yaml_inline
 
-- ansible.builtin.include_tasks: error_handling.yml
-  tags: error_handling
+    - ansible.builtin.include_tasks: yaml_string.yml
+      tags: yaml_string
+
+    - ansible.builtin.include_tasks: error_handling.yml
+      tags: error_handling
+
+  always:
+    # CLEANUP
+    - name: Remove schemas even when a test fails
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: '{{ item }}'
+        state: absent
+      ignore_errors: true
+      loop:
+      - '{{ mso_test.schema }}_2'
+      - '{{ mso_test.schema }}'
+
+    - name: Remove tenant ansible_test_rest even when a test fails
+      cisco.mso.mso_tenant:
+        <<: *mso_info
+        tenant: '{{ mso_test.tenant_rest }}'
+        state: absent
+      ignore_errors: true

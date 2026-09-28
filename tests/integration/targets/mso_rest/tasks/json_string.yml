@@ -35,7 +35,7 @@
     schema: '{{ item }}'
     state: absent
   loop:
-  - '{{ mso_test.schema }}_2'
+  - '{{ mso_test.schema_2 }}'
   - '{{ mso_test.schema }}'
 
 - name: Remove tenant ansible_test_rest
@@ -140,7 +140,7 @@
     method: put
     content: |
       {
-          "displayName": "{{ mso_test.schema }}_2",
+          "displayName": "{{ mso_test.schema_2 }}",
           "templates": [{
               "name": "{{ mso_test.template }}",
               "tenantId": "{{ add_tenant.jsondata.id }}",
@@ -165,7 +165,7 @@
   ansible.builtin.assert:
     that:
     - put_schema is changed
-    - put_schema.jsondata.displayName == mso_test.schema + '_2'
+    - put_schema.jsondata.displayName == mso_test.schema_2
 
 # PATCH schema
 - name: Patch schema

@@ -18,6 +18,14 @@
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      schema: '{{ mso_schema_l3out_routed_sub_interface | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_l3out_routed_sub_interface | default(mso_tenant | default("ansible_test")) }}'
+      site: '{{ mso_site_l3out_routed_sub_interface | default(mso_site | default("ansible_test")) }}'
+      schema_template: template_1
+      l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+      fabric_resource_template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+      fabric_policy_template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -26,60 +34,57 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version >= 4.4
+- name: Exercise ndo_l3out_routed_sub_interface
   when: version.current.version is version('4.4', '>=')
   block:
     
     # CLEAN ENVIRONMENT - ENSURE CLEAN ENVIRONMENT FOR TESTS
 
-    - name: Ensure ansible_test tenant exist
-      cisco.mso.mso_tenant:
-        <<: *mso_info
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        users:
-          - '{{ mso_username }}'
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
-
     - name: Ensure L3out template does not exist
       cisco.mso.ndo_template: &ndo_l3out_template_absent
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         template_type: l3out
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
-        state: absent
-
-    - name: Ensure ansible_test schema does not exist
-      cisco.mso.mso_schema_template: &mso_schema_template_absent
-        <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        template: template_1
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_fabric_resource_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_resource_template_absent
         <<: *mso_info
-        name: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        name: '{{ mso_test.fabric_resource_template }}'
         template_type: fabric_resource
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_fabric_policy_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
         <<: *mso_info
-        name: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        name: '{{ mso_test.fabric_policy_template }}'
         template_type: fabric_policy
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     # CLEAN ENVIRONMENT - REQUIRED FOR TESTS
 
+    - name: Ensure ansible_test schema does not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: '{{ mso_test.schema }}'
+        tenant: '{{ mso_test.tenant }}'
+        template: "{{ mso_test.schema_template }}"
+        state: absent
+
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true
     - name: Create a fabric_policy template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_policy_template_absent
@@ -88,7 +93,7 @@
     - name: Create a VLAN pool in the fabric_policy template
       cisco.mso.ndo_vlan_pool:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         vlan_pool: ansible_test_vlan_pool_1
         vlan_ranges:
           - from_vlan: 100
@@ -98,7 +103,7 @@
     - name: Create a L3 domain in the fabric_policy template
       cisco.mso.ndo_l3_domain:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         l3_domain: ansible_test_l3_domain
         pool: ansible_test_vlan_pool_1
         state: present
@@ -106,7 +111,7 @@
     - name: Create a interface policy group of type port channel
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         name: ansible_test_interface_policy_group_port_channel
         interface_type: port_channel
         state: present
@@ -114,7 +119,7 @@
     - name: Create a PTP policy
       cisco.mso.ndo_ptp_policy:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         ptp_policy: ansible_test_ptp_policy
         admin_state: enabled
         fabric_sync_interval: -3
@@ -130,7 +135,7 @@
     - name: Create PTP profile ptp_profile_1
       cisco.mso.ndo_ptp_policy_profiles:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         ptp_policy_profile_name: ptp_profile_1
         delay_interval: 2
         sync_interval: 1
@@ -143,7 +148,7 @@
     - name: Create PTP profile ptp_profile_2
       cisco.mso.ndo_ptp_policy_profiles:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         ptp_policy_profile_name: ptp_profile_2
         delay_interval: 2
         sync_interval: 1
@@ -161,12 +166,12 @@
     - name: Create port_channel_interface_1 in the fabric_resource template
       cisco.mso.ndo_port_channel_interface:
         <<: *mso_info
-        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_resource_template }}'
         port_channel_interface: ansible_port_channel_interface_1
         node: 101
         interfaces: 1/20
         interface_policy_group:
-          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          template: '{{ mso_test.fabric_policy_template }}'
           name: ansible_test_interface_policy_group_port_channel
         state: present
       register: port_channel_interface_1
@@ -174,12 +179,12 @@
     - name: Create port_channel_interface_2 in the fabric_resource template
       cisco.mso.ndo_port_channel_interface:
         <<: *mso_info
-        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_resource_template }}'
         port_channel_interface: ansible_port_channel_interface_2
         node: 102
         interfaces: 1/20
         interface_policy_group:
-          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          template: '{{ mso_test.fabric_policy_template }}'
           name: ansible_test_interface_policy_group_port_channel
         state: present
       register: port_channel_interface_2
@@ -192,8 +197,8 @@
     - name: Create a VRF in the schema template
       cisco.mso.mso_schema_template_vrf:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: template_1
+        schema: '{{ mso_test.schema }}'
+        template: "{{ mso_test.schema_template }}"
         vrf: vrf_1
         state: present
 
@@ -205,12 +210,12 @@
     - name: Create L3Out object in the L3Out template
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1
         vrf:
           name: vrf_1
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: template_1
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         l3_domain: ansible_test_l3_domain
         ospf:
           state: enabled
@@ -223,7 +228,7 @@
     - name: Create L3Out node group policies
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         name: '{{ item }}'
         state: present
@@ -234,7 +239,7 @@
     - name: Create L3Out interface group policy
       cisco.mso.ndo_l3out_interface_group_policy:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         name: interface_group_policy_1
         state: present
@@ -244,7 +249,7 @@
     - name: Create a L3out routed sub-interface of type port (check mode)
       cisco.mso.ndo_l3out_routed_sub_interface: &create_routed_sub_interface
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/1
@@ -350,7 +355,7 @@
     - name: Create a L3out routed sub-interface of type port channel with uuid (check mode)
       cisco.mso.ndo_l3out_routed_sub_interface: &create_routed_sub_interface_port_channel_uuid
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         port_channel:
           uuid: '{{ port_channel_interface_1.current.uuid }}'
@@ -444,14 +449,14 @@
     - name: Create a L3out routed sub-interface of type port channel with reference
       cisco.mso.ndo_l3out_routed_sub_interface: &create_routed_sub_interface_port_channel_reference
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_router_id: 2.2.2.2
         use_router_id_as_loopback: true
         port_channel:
           reference:
             name: '{{ port_channel_interface_2.current.name }}'
-            template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+            template: '{{ mso_test.fabric_resource_template }}'
         encapsulation_type: vlan
         encapsulation_value: 101
         ipv6_address: 1::102/16
@@ -599,7 +604,7 @@
           user_profile:
             reference:
               name: ptp_profile_2
-              template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+              template: '{{ mso_test.fabric_policy_template }}'
           source_address: 12.0.0.1
           unicast_destinations:
             - 12.0.0.2
@@ -867,7 +872,7 @@
         port_channel:
           reference:
             name: invalid_name
-            template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+            template: '{{ mso_test.fabric_resource_template }}'
       register: error_create_routed_sub_interface_port_channel_invalid_name
       ignore_errors: true
 
@@ -900,7 +905,7 @@
           user_profile:
             reference:
               name: invalid_name
-              template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+              template: '{{ mso_test.fabric_policy_template }}'
       register: error_create_routed_sub_interface_port_channel_invalid_user_profile_name
       ignore_errors: true
     
@@ -949,8 +954,8 @@
           user_profile:
             reference:
               name: '{{ ptp_profile_1.current.name }}'
-              template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
-              template_id: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+              template: '{{ mso_test.fabric_policy_template }}'
+              template_id: '{{ mso_test.fabric_policy_template }}'
       register: error_create_routed_sub_interface_port_channel_invalid_user_profile_with_both_templates
       ignore_errors: true
 
@@ -1007,7 +1012,7 @@
     - name: Query all L3out routed sub-interfaces in a L3out
       cisco.mso.ndo_l3out_routed_sub_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         state: query
       register: query_all_routed_sub_interfaces
@@ -1176,20 +1181,30 @@
           - nm_delete_routed_sub_interface_port_channel_uuid_again is not changed
           - nm_delete_routed_sub_interface_port_channel_uuid_again.previous == nm_delete_routed_sub_interface_port_channel_uuid_again.proposed == nm_delete_routed_sub_interface_port_channel_uuid_again.current == {}
 
-    # CLEANUP TEMPLATE
-
+  always:
     - name: Remove l3out template
       cisco.mso.ndo_template:
         <<: *ndo_l3out_template_absent
-
-    - name: Remove ansible_test schema template
-      cisco.mso.mso_schema_template:
-        <<: *mso_schema_template_absent
+      ignore_errors: true
 
     - name: Remove ansible_fabric_resource_template fabric_resource template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_resource_template_absent
+      ignore_errors: true
 
     - name: Remove ansible_fabric_policy_template fabric_policy template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_policy_template_absent
+      ignore_errors: true
+
+    - name: Remove ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+      ignore_errors: true
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true

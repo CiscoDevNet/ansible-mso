@@ -18,6 +18,14 @@
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      schema: '{{ mso_schema_l3out_node_static_route | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_l3out_node_static_route | default(mso_tenant | default("ansible_test")) }}'
+      site: '{{ mso_site_l3out_node_static_route | default(mso_site | default("ansible_test")) }}'
+      schema_template: template_1
+      l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+      fabric_policy_template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+      tenant_policy_template: '{{ mso_tenant_policy_template | default("ansible_test") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -26,59 +34,56 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version >= 4.3
+- name: Exercise ndo_l3out_node_static_route
   when: version.current.version is version('4.3', '>=')
   block:
 
     # CLEAN ENVIRONMENT - ENSURE CLEAN ENVIRONMENT FOR TESTS
 
-    - name: Ensure ansible_test tenant exist
-      cisco.mso.mso_tenant: &mso_tenant_present
-        <<: *mso_info
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        users:
-          - '{{ mso_username }}'
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
-
     - name: Ensure L3out template does not exist
       cisco.mso.ndo_template: &ndo_l3out_template_absent
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         template_type: l3out
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
-        state: absent
-
-    - name: Ensure ansible_test schema does not exist
-      cisco.mso.mso_schema_template: &mso_schema_template_absent
-        <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        template: template_1
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_fabric_policy_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
         <<: *mso_info
-        name: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        name: '{{ mso_test.fabric_policy_template }}'
         template_type: fabric_policy
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_tenant_policy_template does not exist
       cisco.mso.ndo_template: &ndo_tenant_policy_template_absent
         <<: *mso_info
-        name: '{{ mso_tenant_policy_template | default("ansible_test") }}'
+        name: '{{ mso_test.tenant_policy_template }}'
         template_type: tenant
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
         state: absent
 
     # CLEAN ENVIRONMENT - REQUIRED FOR TESTS
 
+    - name: Ensure ansible_test schema does not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: '{{ mso_test.schema }}'
+        tenant: '{{ mso_test.tenant }}'
+        template: "{{ mso_test.schema_template }}"
+        state: absent
+
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true
     - name: Create a fabric_policy template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_policy_template_absent
@@ -87,7 +92,7 @@
     - name: Create a VLAN pool in the fabric_policy template
       cisco.mso.ndo_vlan_pool:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         vlan_pool: ansible_test_vlan_pool_1
         vlan_ranges:
           - from_vlan: 100
@@ -97,7 +102,7 @@
     - name: Create a L3 domain in the fabric_policy template
       cisco.mso.ndo_l3_domain:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         l3_domain: ansible_test_l3_domain
         pool: ansible_test_vlan_pool_1
         state: present
@@ -110,7 +115,7 @@
     - name: Create a new IPSLA track list in the fabric_policy template
       cisco.mso.ndo_ipsla_track_list:
         <<: *mso_info
-        template: '{{ mso_tenant_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.tenant_policy_template }}'
         ipsla_track_list: ansible_test_ipsla_track_list
         type: percentage
       register: ipsla_track_list
@@ -123,8 +128,8 @@
     - name: Create a VRF in the schema template
       cisco.mso.mso_schema_template_vrf:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: template_1
+        schema: '{{ mso_test.schema }}'
+        template: "{{ mso_test.schema_template }}"
         vrf: vrf_1
         state: present
 
@@ -136,19 +141,19 @@
     - name: Create L3Out object in the L3Out template
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1
         vrf:
           name: vrf_1
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: template_1
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         l3_domain: ansible_test_l3_domain
         state: present
 
     - name: Create a L3out node and routed interface
       cisco.mso.ndo_l3out_routed_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/1
@@ -163,7 +168,7 @@
     - name: Create a L3out node static route (check mode)
       cisco.mso.ndo_l3out_node_static_route: &create_node_static_route
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         pod_id: 1
         node_id: 101
@@ -462,7 +467,7 @@
     - name: Query all L3out node static routes in a L3out node
       cisco.mso.ndo_l3out_node_static_route:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         pod_id: 1
         node_id: 101
@@ -542,20 +547,30 @@
           - nm_delete_node_static_route_again is not changed
           - nm_delete_node_static_route_again.previous == nm_delete_node_static_route_again.proposed == nm_delete_node_static_route_again.current == {}
 
-    # CLEANUP TEMPLATE
-
+  always:
     - name: Remove l3out template
       cisco.mso.ndo_template:
         <<: *ndo_l3out_template_absent
-
-    - name: Remove ansible_test schema template
-      cisco.mso.mso_schema_template:
-        <<: *mso_schema_template_absent
-
-    - name: Remove ansible_fabric_policy_template fabric_policy template
-      cisco.mso.ndo_template:
-        <<: *ndo_fabric_policy_template_absent
+      ignore_errors: true
 
     - name: Remove ansible_tenant_policy_template tenant template
       cisco.mso.ndo_template:
         <<: *ndo_tenant_policy_template_absent
+      ignore_errors: true
+
+    - name: Remove ansible_fabric_policy_template fabric_policy template
+      cisco.mso.ndo_template:
+        <<: *ndo_fabric_policy_template_absent
+      ignore_errors: true
+
+    - name: Remove ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+      ignore_errors: true
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true

@@ -8,8 +8,7 @@
     msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
-# CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: "{{ mso_hostname }}"
@@ -20,815 +19,843 @@
       use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("debug") }}'
     ignore_errors: true
+    mso_test:
+      schema: '{{ mso_schema_site_anp_epg_useg_attribute | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_site_anp_epg_useg_attribute | default(mso_tenant | default("ansible_test")) }}'
+      site: '{{ mso_site_site_anp_epg_useg_attribute | default(mso_site | default("ansible_test")) }}'
+      template: 'ans_test_template'
+      anp: 'ans_test_anp'
+      epg: 'ans_test_epg'
+      epg_2: 'ans_test_epg_2'
+      bd: 'ans_test_bd'
+      vrf: 'ans_test_vrf'
+      attribute_1: 'ans_test_uSeg_1'
+      attribute_2: 'ans_test_uSeg_2'
+      attribute_3: 'ans_test_uSeg_3'
+      attribute_4: 'ans_test_uSeg_4'
+      attribute_6: 'ans_test_uSeg_6'
+      attribute_7: 'ans_test_uSeg_7'
+      attribute_8: 'ans_test_uSeg_8'
+      attribute_9: 'ans_test_uSeg_9'
+      attribute_10: 'ans_test_uSeg_10'
+      attribute_11: 'ans_test_uSeg_11'
+      attribute_12: 'ans_test_uSeg_12'
+      attribute_13: 'ans_test_uSeg_13'
+      ip_value: '1.2.3.4'
+      ip_value_2: '11.22.33.44'
+      mac_value: 'aa:bb:cc:dd:ee:ff'
+      mac_value_upper: 'AA:BB:CC:DD:EE:FF'
+      dns_value: 'test_dns_value'
+      vm_datacenter_value: 'test_vm_datacenter_value'
+      vm_hypervisor_value: 'test_vm_hypervisor_identifier_value'
+      vm_os_value: 'test_vm_operating_system_value'
+      vm_tag_value: 'test_vm_tag_value'
+      vm_identifier_value: 'test_vm_identifier_value'
+      vmm_domain_value: 'test_vmm_domain_value'
+      vm_name_value: 'test_vm_value'
+      vnic_dn_value: 'test_vnic_dn_value'
+      vnic_dn_updated_value: 'test_vnic_dn_value_updated'
 
 # Setup Part
-- name: Ensure site exists
-  cisco.mso.mso_site:
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ apic_username }}'
-    apic_password: '{{ apic_password }}'
-    apic_site_id: '{{ apic_site_id | default(101) }}'
-    urls:
-      - https://{{ apic_hostname }}
-    state: present
-
-- name: Ensure tenant ansible_test exists
-  cisco.mso.mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test
-    users:
-      - '{{ mso_username }}'
-    sites:
-      - '{{ mso_site | default("ansible_test") }}'
-    state: present
-
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
-
-- name: Ensure ansible_test schema with ans_test_template exist
-  cisco.mso.mso_schema_template:
-    <<: *mso_info
-    schema: ansible_test
-    tenant: ansible_test
-    template: ans_test_template
-    state: present
-
-- name: Ensure ans_test_anp exist
-  cisco.mso.mso_schema_template_anp:
-    <<: *mso_info
-    schema: ansible_test
-    template: ans_test_template
-    anp: ans_test_anp
-    state: present
-
-- name: Add a new VRF
-  cisco.mso.mso_schema_template_vrf:
-    <<: *mso_info
-    schema: ansible_test
-    template: ans_test_template
-    vrf: ans_test_vrf
-    state: present
-
-- name: Add a new BD
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: ansible_test
-    template: ans_test_template
-    bd: ans_test_bd
-    vrf:
-      name: ans_test_vrf
-    state: present
-
-- name: Ensure ans_test_epg exist
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: ansible_test
-    template: ans_test_template
-    anp: ans_test_anp
-    epg: ans_test_epg
-    useg_epg: true
-    bd:
-     name: ans_test_bd
-    vrf:
-     name: ans_test_vrf
-    state: present
-
-- name: Ensure ans_test_epg_2 exist without useg_epg
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: ansible_test
-    template: ans_test_template
-    anp: ans_test_anp
-    epg: ans_test_epg_2
-    bd:
-     name: ans_test_bd
-    vrf:
-     name: ans_test_vrf
-    state: present
-
-- name: Associate a ansible_test site with a ansible_test tenant
-  cisco.mso.mso_tenant_site:
-    <<: *mso_info
-    tenant: ansible_test
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: present
-
-- name: Ensure ansible_test site associated with ansible_test schema
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: ansible_test
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: ans_test_template
-    state: present
-
-- name: Add ans_test_epg to the ansible_test site
-  cisco.mso.mso_schema_site_anp_epg:
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    schema: ansible_test
-    template: ans_test_template
-    anp: ans_test_anp
-    epg: ans_test_epg
-    state: present
-
-# Test Part
-# Note: Ignore the below task, which is used to reference the attributes to other tasks
-- name: Invalid test - check for missing required attributes error message
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute: &useg_attribute_present
-    <<: *mso_info
-    schema: ansible_test
-    template: ans_test_template
-    anp: ans_test_anp
-    epg: ans_test_epg
-    description: "uSeg Attr object created using Ansible"
-    site: '{{ mso_site | default("ansible_test") }}'
-    state: present
-  ignore_errors: true
-  register: ans_test_uSeg_1_nt
-
-- name: ans_test_uSeg_1 present - attribute_type - ip, useg_subnet - true, without value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    schema: ansible_test
-    template: ans_test_template
-    anp: ans_test_anp
-    epg: ans_test_epg
-    name: ans_test_uSeg_1
-    attribute_type: ip
-    useg_subnet: true
-  register: ans_test_uSeg_1
-
-- name: Invalid test - ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, without value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_2
-    attribute_type: ip
-    useg_subnet: false
-  ignore_errors: true
-  register: ans_test_uSeg_2_nt
-
-- name: Invalid test - ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - true, with value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_2
-    attribute_type: ip
-    useg_subnet: true
-    value: 1.2.3.4
-  ignore_errors: true
-  register: ans_test_uSeg_2_nt1
-
-- name: ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, with value - check mode
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute: &ans_test_uSeg_2_cm_present
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_2
-    attribute_type: ip
-    useg_subnet: false
-    value: 11.22.33.44
-  check_mode: true
-  register: ans_test_uSeg_2_cm_present
-
-- name: ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, with value - normal mode
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute: &ans_test_uSeg_2_nm_present
-    <<: *ans_test_uSeg_2_cm_present
-    output_level: debug
-  register: ans_test_uSeg_2_nm_present
-
-- name: ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, with value - normal mode again
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *ans_test_uSeg_2_nm_present
-    output_level: debug
-  register: ans_test_uSeg_2_nm_present_again
-
-- name: Assertions check for add ans_test_uSeg_1 and ans_test_uSeg_2 object
-  ansible.builtin.assert:
-    that:
-      - ans_test_uSeg_1 is changed
-      - ans_test_uSeg_1.current != {}
-      - ans_test_uSeg_1.current.name == "ans_test_uSeg_1"
-      - ans_test_uSeg_1.current.type == "ip"
-      - ans_test_uSeg_1.current.value == "0.0.0.0"
-      - ans_test_uSeg_1.current.fvSubnet == true
-      - ans_test_uSeg_1.current.description == "ans_test_uSeg_1"
-      - ans_test_uSeg_2_nt is not changed
-      - 'ans_test_uSeg_2_nt.msg == "useg_subnet is False but all of the following are missing: value"'
-      - ans_test_uSeg_2_nt1 is not changed
-      - ans_test_uSeg_2_nt1.msg == "The value of uSeg subnet IP should be an empty string or 0.0.0.0, when the useg_subnet is set to true."
-      - ans_test_uSeg_2_cm_present is changed
-      - ans_test_uSeg_2_cm_present.current != {}
-      - ans_test_uSeg_2_cm_present.previous == {}
-      - ans_test_uSeg_2_cm_present.current.name == "ans_test_uSeg_2"
-      - ans_test_uSeg_2_cm_present.current.type == "ip"
-      - ans_test_uSeg_2_cm_present.current.value == "11.22.33.44"
-      - ans_test_uSeg_2_cm_present.current.fvSubnet == false
-      - ans_test_uSeg_2_cm_present.current.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_2_nm_present is changed
-      - ans_test_uSeg_2_nm_present.current != {}
-      - ans_test_uSeg_2_nm_present.previous == {}
-      - ans_test_uSeg_2_nm_present.current.name == "ans_test_uSeg_2"
-      - ans_test_uSeg_2_nm_present.current.type == "ip"
-      - ans_test_uSeg_2_nm_present.current.value == "11.22.33.44"
-      - ans_test_uSeg_2_nm_present.sent.fvSubnet == false
-      - ans_test_uSeg_2_nm_present.current.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_2_nm_present_again is not changed
-      - ans_test_uSeg_2_nm_present_again.current != {}
-      - ans_test_uSeg_2_nm_present_again.previous != {}
-      - ans_test_uSeg_2_nm_present_again.current.name == "ans_test_uSeg_2"
-      - ans_test_uSeg_2_nm_present_again.current.type == "ip"
-      - ans_test_uSeg_2_nm_present_again.current.value == "11.22.33.44"
-      - ans_test_uSeg_2_nm_present_again.sent.fvSubnet == false
-      - ans_test_uSeg_2_nm_present_again.current.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_2_nm_present_again.previous.name == "ans_test_uSeg_2"
-      - ans_test_uSeg_2_nm_present_again.previous.type == "ip"
-      - ans_test_uSeg_2_nm_present_again.previous.value == "11.22.33.44"
-      - ans_test_uSeg_2_nm_present_again.previous.description == "uSeg Attr object created using Ansible"
-
-- name: Invalid test - ans_test_uSeg_3 present - attribute_type - mac and without value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_3
-    attribute_type: mac
-  ignore_errors: true
-  register: ans_test_uSeg_3_nt
-
-- name: ans_test_uSeg_3 present - attribute_type - mac and with value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_3
-    attribute_type: mac
-    value: "aa:bb:cc:dd:ee:ff"
-  register: ans_test_uSeg_3
-
-- name: Set error message for ans_test_uSeg_3
-  ansible.builtin.set_fact:
-    error_message_ans_test_uSeg_3_nt: "Failed due to invalid 'value' and the attribute_type is: mac."
-
-- name: Assertions check for add ans_test_uSeg_3 object
-  ansible.builtin.assert:
-    that:
-      - ans_test_uSeg_3_nt is not changed
-      - ans_test_uSeg_3_nt.msg == error_message_ans_test_uSeg_3_nt
-      - ans_test_uSeg_3 is changed
-      - ans_test_uSeg_3.current != {}
-      - ans_test_uSeg_3.previous == {}
-      - ans_test_uSeg_3.current.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_3.current.name == "ans_test_uSeg_3"
-      - ans_test_uSeg_3.current.type == "mac"
-      - ans_test_uSeg_3.current.value == "aa:bb:cc:dd:ee:ff"
-
-- name: Invalid test - ans_test_uSeg_4 present - attribute_type - dns and without value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_4
-    attribute_type: dns
-  ignore_errors: true
-  register: ans_test_uSeg_4_nt
-
-- name: ans_test_uSeg_4 present - attribute_type - dns and with value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_4
-    attribute_type: dns
-    value: "test_dns_value"
-  register: ans_test_uSeg_4
-
-- name: Set error message for ans_test_uSeg_4_nt
-  ansible.builtin.set_fact:
-    error_message_ans_test_uSeg_4_nt: "Failed due to invalid 'value' and the attribute_type is: dns."
-
-- name: Assertions check for add ans_test_uSeg_4 object
-  ansible.builtin.assert:
-    that:
-      - ans_test_uSeg_4_nt is not changed
-      - ans_test_uSeg_4_nt.msg == error_message_ans_test_uSeg_4_nt
-      - ans_test_uSeg_4 is changed
-      - ans_test_uSeg_4.current != {}
-      - ans_test_uSeg_4.previous == {}
-      - ans_test_uSeg_4.current.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_4.current.name == "ans_test_uSeg_4"
-      - ans_test_uSeg_4.current.type == "dns"
-      - ans_test_uSeg_4.current.value == "test_dns_value"
-
-- name: Invalid test - ans_test_uSeg_6 present - attribute_type - vm_datacenter and without operator
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_6
-    attribute_type: vm_datacenter
-    value: test_vm_datacenter_value
-  ignore_errors: true
-  register: ans_test_uSeg_6_nt
-
-- name: Invalid test - ans_test_uSeg_6 present - attribute_type - vm_datacenter, operator - equals and without value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_6
-    attribute_type: vm_datacenter
-    operator: equals
-  ignore_errors: true
-  register: ans_test_uSeg_6_nt1
-
-- name: ans_test_uSeg_6 present - attribute_type - vm_datacenter, operator - equals and value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_6
-    attribute_type: vm_datacenter
-    operator: equals
-    value: test_vm_datacenter_value
-  register: ans_test_uSeg_6
-
-- name: Set error message for ans_test_uSeg_6_nt
-  ansible.builtin.set_fact:
-    error_message_ans_test_uSeg_6_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_datacenter."
-
-- name: Assertions check for add ans_test_uSeg_6 object
-  ansible.builtin.assert:
-    that:
-      - ans_test_uSeg_6_nt is not changed
-      - ans_test_uSeg_6_nt.msg == error_message_ans_test_uSeg_6_nt
-      - ans_test_uSeg_6_nt1 is not changed
-      - ans_test_uSeg_6_nt1.msg == error_message_ans_test_uSeg_6_nt
-      - ans_test_uSeg_6 is changed
-      - ans_test_uSeg_6.current != {}
-      - ans_test_uSeg_6.previous == {}
-      - ans_test_uSeg_6.current.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_6.current.name == "ans_test_uSeg_6"
-      - ans_test_uSeg_6.current.type == "rootContName"
-      - ans_test_uSeg_6.current.value == "test_vm_datacenter_value"
-
-- name: Invalid test - ans_test_uSeg_7 present - attribute_type - vm_hypervisor_identifier and without operator
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_7
-    attribute_type: vm_hypervisor_identifier
-    value: test_vm_hypervisor_identifier_value
-  ignore_errors: true
-  register: ans_test_uSeg_7_nt
-
-- name: Invalid test - ans_test_uSeg_7 present - attribute_type - vm_hypervisor_identifier, operator - equals and without value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_7
-    attribute_type: vm_hypervisor_identifier
-    operator: equals
-  ignore_errors: true
-  register: ans_test_uSeg_7_nt1
-
-- name: ans_test_uSeg_7 present - attribute_type - vm_hypervisor_identifier, operator - equals and value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_7
-    attribute_type: vm_hypervisor_identifier
-    operator: equals
-    value: test_vm_hypervisor_identifier_value
-  register: ans_test_uSeg_7
-
-- name: Set error message for ans_test_uSeg_7_nt
-  ansible.builtin.set_fact:
-    error_message_ans_test_uSeg_7_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_hypervisor_identifier."
-
-- name: Assertions check for add ans_test_uSeg_7 object
-  ansible.builtin.assert:
-    that:
-      - ans_test_uSeg_7_nt is not changed
-      - ans_test_uSeg_7_nt.msg == error_message_ans_test_uSeg_7_nt
-      - ans_test_uSeg_7_nt1 is not changed
-      - ans_test_uSeg_7_nt1.msg == error_message_ans_test_uSeg_7_nt
-      - ans_test_uSeg_7 is changed
-      - ans_test_uSeg_7.current != {}
-      - ans_test_uSeg_7.previous == {}
-      - ans_test_uSeg_7.current.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_7.current.name == "ans_test_uSeg_7"
-      - ans_test_uSeg_7.current.type == "hv"
-      - ans_test_uSeg_7.current.value == "test_vm_hypervisor_identifier_value"
-
-- name: Invalid test - ans_test_uSeg_8 present - attribute_type - vm_operating_system and without operator
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_8
-    attribute_type: vm_operating_system
-    value: test_vm_operating_system_value
-  ignore_errors: true
-  register: ans_test_uSeg_8_nt
-
-- name: Invalid test - ans_test_uSeg_8 present - attribute_type - vm_operating_system, operator - equals and without value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_8
-    attribute_type: vm_operating_system
-    operator: equals
-  ignore_errors: true
-  register: ans_test_uSeg_8_nt1
-
-- name: ans_test_uSeg_8 present - attribute_type - vm_operating_system, operator - equals and value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_8
-    attribute_type: vm_operating_system
-    operator: equals
-    value: test_vm_operating_system_value
-  register: ans_test_uSeg_8
-
-- name: Set error message for ans_test_uSeg_8_nt
-  ansible.builtin.set_fact:
-    error_message_ans_test_uSeg_8_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_operating_system."
-
-- name: Assertions check for add ans_test_uSeg_8 object
-  ansible.builtin.assert:
-    that:
-      - ans_test_uSeg_8_nt is not changed
-      - ans_test_uSeg_8_nt.msg == error_message_ans_test_uSeg_8_nt
-      - ans_test_uSeg_8_nt1 is not changed
-      - ans_test_uSeg_8_nt1.msg == error_message_ans_test_uSeg_8_nt
-      - ans_test_uSeg_8 is changed
-      - ans_test_uSeg_8.current != {}
-      - ans_test_uSeg_8.previous == {}
-      - ans_test_uSeg_8.current.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_8.current.name == "ans_test_uSeg_8"
-      - ans_test_uSeg_8.current.type == "guest-os"
-      - ans_test_uSeg_8.current.value == "test_vm_operating_system_value"
-
-- name: Invalid test - ans_test_uSeg_9 present - attribute_type - vm_tag and without operator
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_9
-    attribute_type: vm_tag
-    value: test_vm_tag_value
-  ignore_errors: true
-  register: ans_test_uSeg_9_nt
-
-- name: Invalid test - ans_test_uSeg_9 present - attribute_type - vm_tag, operator - equals and without value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_9
-    attribute_type: vm_tag
-    operator: equals
-  ignore_errors: true
-  register: ans_test_uSeg_9_nt1
-
-- name: ans_test_uSeg_9 present - attribute_type - vm_tag, operator - equals and value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_9
-    attribute_type: vm_tag
-    operator: equals
-    value: test_vm_tag_value
-  register: ans_test_uSeg_9
-
-- name: Set error message for ans_test_uSeg_9_nt
-  ansible.builtin.set_fact:
-    error_message_ans_test_uSeg_9_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_tag."
-
-- name: Assertions check for add ans_test_uSeg_9 object
-  ansible.builtin.assert:
-    that:
-      - ans_test_uSeg_9_nt is not changed
-      - ans_test_uSeg_9_nt.msg == error_message_ans_test_uSeg_9_nt
-      - ans_test_uSeg_9_nt1 is not changed
-      - ans_test_uSeg_9_nt1.msg == error_message_ans_test_uSeg_9_nt
-      - ans_test_uSeg_9 is changed
-      - ans_test_uSeg_9.current != {}
-      - ans_test_uSeg_9.previous == {}
-      - ans_test_uSeg_9.current.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_9.current.name == "ans_test_uSeg_9"
-      - ans_test_uSeg_9.current.type == "tag"
-      - ans_test_uSeg_9.current.value == "test_vm_tag_value"
-
-- name: Invalid test - ans_test_uSeg_10 present - attribute_type - vm_identifier and without operator
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_10
-    attribute_type: vm_identifier
-    value: test_vm_identifier_value
-  ignore_errors: true
-  register: ans_test_uSeg_10_nt
-
-- name: Invalid test - ans_test_uSeg_10 present - attribute_type - vm_identifier, operator - equals and without value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_10
-    attribute_type: vm_identifier
-    operator: equals
-  ignore_errors: true
-  register: ans_test_uSeg_10_nt1
-
-- name: ans_test_uSeg_10 present - attribute_type - vm_identifier, operator - equals and value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_10
-    attribute_type: vm_identifier
-    operator: equals
-    value: test_vm_identifier_value
-  register: ans_test_uSeg_10
-
-- name: Set error message for ans_test_uSeg_10_nt
-  ansible.builtin.set_fact:
-    error_message_ans_test_uSeg_10_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_identifier."
-
-- name: Assertions check for add ans_test_uSeg_10 object
-  ansible.builtin.assert:
-    that:
-      - ans_test_uSeg_10_nt is not changed
-      - ans_test_uSeg_10_nt.msg == error_message_ans_test_uSeg_10_nt
-      - ans_test_uSeg_10_nt1 is not changed
-      - ans_test_uSeg_10_nt1.msg == error_message_ans_test_uSeg_10_nt
-      - ans_test_uSeg_10 is changed
-      - ans_test_uSeg_10.current != {}
-      - ans_test_uSeg_10.previous == {}
-      - ans_test_uSeg_10.current.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_10.current.name == "ans_test_uSeg_10"
-      - ans_test_uSeg_10.current.type == "vm"
-      - ans_test_uSeg_10.current.value == "test_vm_identifier_value"
-
-- name: Invalid test - ans_test_uSeg_11 present - attribute_type - vmm_domain and without operator
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_11
-    attribute_type: vmm_domain
-    value: test_vmm_domain_value
-  ignore_errors: true
-  register: ans_test_uSeg_11_nt
-
-- name: Invalid test - ans_test_uSeg_11 present - attribute_type - vmm_domain, operator - equals and without value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_11
-    attribute_type: vmm_domain
-    operator: equals
-  ignore_errors: true
-  register: ans_test_uSeg_11_nt1
-
-- name: ans_test_uSeg_11 present - attribute_type - vmm_domain, operator - equals and value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_11
-    attribute_type: vmm_domain
-    operator: equals
-    value: test_vmm_domain_value
-  register: ans_test_uSeg_11
-
-- name: Set error message for ans_test_uSeg_11_nt
-  ansible.builtin.set_fact:
-    error_message_ans_test_uSeg_11_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vmm_domain."
-
-- name: Assertions check for add ans_test_uSeg_11 object
-  ansible.builtin.assert:
-    that:
-      - ans_test_uSeg_11_nt is not changed
-      - ans_test_uSeg_11_nt.msg == error_message_ans_test_uSeg_11_nt
-      - ans_test_uSeg_11_nt1 is not changed
-      - ans_test_uSeg_11_nt1.msg == error_message_ans_test_uSeg_11_nt
-      - ans_test_uSeg_11 is changed
-      - ans_test_uSeg_11.current != {}
-      - ans_test_uSeg_11.previous == {}
-      - ans_test_uSeg_11.current.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_11.current.name == "ans_test_uSeg_11"
-      - ans_test_uSeg_11.current.type == "domain"
-      - ans_test_uSeg_11.current.value == "test_vmm_domain_value"
-
-- name: Invalid test - ans_test_uSeg_12 present - attribute_type - vm_name and without operator
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_12
-    attribute_type: vm_name
-    value: test_vm_value
-  ignore_errors: true
-  register: ans_test_uSeg_12_nt
-
-- name: Invalid test - ans_test_uSeg_12 present - attribute_type - vm_name, operator - equals and without value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_12
-    attribute_type: vm_name
-    operator: equals
-  ignore_errors: true
-  register: ans_test_uSeg_12_nt1
-
-- name: ans_test_uSeg_12 present - attribute_type - vm_name, operator - equals and value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_12
-    attribute_type: vm_name
-    operator: equals
-    value: test_vm_value
-  register: ans_test_uSeg_12
-
-- name: Set error message for ans_test_uSeg_12_nt
-  ansible.builtin.set_fact:
-    error_message_ans_test_uSeg_12_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_name."
-
-- name: Assertions check for add ans_test_uSeg_12 object
-  ansible.builtin.assert:
-    that:
-      - ans_test_uSeg_12_nt is not changed
-      - ans_test_uSeg_12_nt.msg == error_message_ans_test_uSeg_12_nt
-      - ans_test_uSeg_12_nt1 is not changed
-      - ans_test_uSeg_12_nt1.msg == error_message_ans_test_uSeg_12_nt
-      - ans_test_uSeg_12 is changed
-      - ans_test_uSeg_12.current != {}
-      - ans_test_uSeg_12.previous == {}
-      - ans_test_uSeg_12.current.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_12.current.name == "ans_test_uSeg_12"
-      - ans_test_uSeg_12.current.type == "vm-name"
-      - ans_test_uSeg_12.current.value == "test_vm_value"
-
-- name: Invalid test - ans_test_uSeg_13 present - attribute_type - vnic_dn and without operator
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_13
-    attribute_type: vnic_dn
-    value: test_vnic_dn_value
-  ignore_errors: true
-  register: ans_test_uSeg_13_nt
-
-- name: Invalid test - ans_test_uSeg_13 present - attribute_type - vnic_dn, operator - equals and without value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_13
-    attribute_type: vnic_dn
-    operator: equals
-  ignore_errors: true
-  register: ans_test_uSeg_13_nt1
-
-- name: ans_test_uSeg_13 present - attribute_type - vnic_dn, operator - equals and value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute: &ans_test_uSeg_13_present
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_13
-    attribute_type: vnic_dn
-    operator: equals
-    value: test_vnic_dn_value
-  register: ans_test_uSeg_13
-
-- name: Set error message for ans_test_uSeg_13_nt
-  ansible.builtin.set_fact:
-    error_message_ans_test_uSeg_13_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vnic_dn."
-
-- name: Assertions check for add ans_test_uSeg_12 object
-  ansible.builtin.assert:
-    that:
-      - ans_test_uSeg_13_nt is not changed
-      - ans_test_uSeg_13_nt.msg == error_message_ans_test_uSeg_13_nt
-      - ans_test_uSeg_13_nt1 is not changed
-      - ans_test_uSeg_13_nt1.msg == error_message_ans_test_uSeg_13_nt
-      - ans_test_uSeg_13 is changed
-      - ans_test_uSeg_13.current != {}
-      - ans_test_uSeg_13.previous == {}
-      - ans_test_uSeg_13.current.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_13.current.name == "ans_test_uSeg_13"
-      - ans_test_uSeg_13.current.type == "vnic"
-      - ans_test_uSeg_13.current.value == "test_vnic_dn_value"
-
-# Query Part
-- name: Invalid test - Query an uSeg Attr with name - invalid_useg_attr
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: invalid_useg_attr
-    state: query
-  register: invalid_useg_attr
-  ignore_errors: true
-
-- name: Query an uSeg Attr with name - ans_test_uSeg_1
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_6
-    state: query
-  register: query_a_useg_6
-
-- name: Query all uSeg Attrs
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    state: query
-  register: query_all_useg_objects
-
-- name: Assertions check for query uSeg Attr objects
-  ansible.builtin.assert:
-    that:
-      - invalid_useg_attr is not changed
-      - 'invalid_useg_attr.msg == "The uSeg Attribute: invalid_useg_attr not found."'
-      - query_a_useg_6 is not changed
-      - query_a_useg_6.current != {}
-      - query_a_useg_6.current.name == "ans_test_uSeg_6"
-      - query_a_useg_6.current.type == "rootContName"
-      - query_a_useg_6.current.value == "test_vm_datacenter_value"
-      - query_all_useg_objects is not changed
-      - query_all_useg_objects.current | length >= 12
-
-# Update Part
-- name: Update ans_test_uSeg_13 object description and value
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *ans_test_uSeg_13_present
-    description: "ans_test_uSeg_13 updated!"
-    value: test_vnic_dn_value_updated
-  register: ans_test_uSeg_13_update
-
-- name: Query an uSeg Attr with name - ans_test_uSeg_13 to check the updated changes
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_13
-    state: query
-  register: query_a_useg_object_with_name
-
-- name: Assertions check for update ans_test_uSeg_13 object
-  ansible.builtin.assert:
-    that:
-      - ans_test_uSeg_13_update is changed
-      - ans_test_uSeg_13_update.current != {}
-      - ans_test_uSeg_13_update.current.description == "ans_test_uSeg_13 updated!"
-      - ans_test_uSeg_13_update.current.name == "ans_test_uSeg_13"
-      - ans_test_uSeg_13_update.current.type == "vnic"
-      - ans_test_uSeg_13_update.current.value == "test_vnic_dn_value_updated"
-      - ans_test_uSeg_13_update.previous != {}
-      - ans_test_uSeg_13_update.previous.description == "uSeg Attr object created using Ansible"
-      - ans_test_uSeg_13_update.previous.name == "ans_test_uSeg_13"
-      - ans_test_uSeg_13_update.previous.type == "vnic"
-      - ans_test_uSeg_13_update.previous.value == "test_vnic_dn_value"
-      - query_a_useg_object_with_name is not changed
-      - query_a_useg_object_with_name.current != {}
-      - query_a_useg_object_with_name.current.description == "ans_test_uSeg_13 updated!"
-      - query_a_useg_object_with_name.current.name == "ans_test_uSeg_13"
-      - query_a_useg_object_with_name.current.type == "vnic"
-      - query_a_useg_object_with_name.current.value == "test_vnic_dn_value_updated"
-
-# Cleanup Part
-- name: ans_test_uSeg_1 absent with check mode
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute: &ans_test_uSeg_1_cm_absent
-    <<: *useg_attribute_present
-    name: ans_test_uSeg_1
-    state: absent
-  check_mode: true
-  register: ans_test_uSeg_1_cm_absent
-
-- name: ans_test_uSeg_1 absent with normal mode
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute: &ans_test_uSeg_1_nm_absent
-    <<: *ans_test_uSeg_1_cm_absent
-  register: ans_test_uSeg_1_nm_absent
-
-- name: ans_test_uSeg_1 absent with normal mode again
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *ans_test_uSeg_1_nm_absent
-  register: ans_test_uSeg_1_nm_absent_again
-
-- name: Assertions check for ans_test_uSeg_1 absent
-  ansible.builtin.assert:
-    that:
-      - ans_test_uSeg_1_cm_absent is changed
-      - ans_test_uSeg_1_cm_absent.current == {}
-      - ans_test_uSeg_1_cm_absent.previous != {}
-      - ans_test_uSeg_1_nm_absent is changed
-      - ans_test_uSeg_1_nm_absent.current == {}
-      - ans_test_uSeg_1_nm_absent.previous != {}
-      - ans_test_uSeg_1_nm_absent_again is not changed
-      - ans_test_uSeg_1_nm_absent_again.current == {}
-      - ans_test_uSeg_1_nm_absent_again.previous == {}
-
-- name: Query all uSeg Attrs - invalid template name
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    template: ans_test_template_123
-    state: query
-  ignore_errors: true
-  register: query_invalid_template
-
-- name: Query all uSeg Attrs - invalid Application Profile name
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    anp: ans_test_anp_123
-    state: query
-  ignore_errors: true
-  register: query_invalid_ap
-
-- name: Query all uSeg Attrs - invalid EPG name
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    epg: ans_test_epg_123
-    state: query
-  ignore_errors: true
-  register: query_invalid_epg
-
-- name: Invalid test - ans_test_anp_123 present under ans_test_epg_2
-  cisco.mso.mso_schema_site_anp_epg_useg_attribute:
-    <<: *useg_attribute_present
-    epg: ans_test_epg_2
-    name: ans_test_anp_123
-    attribute_type: mac
-    value: "AA:BB:CC:DD:EE:FF"
-  ignore_errors: true
-  register: ans_test_epg_2_nt
-
-- name: Assertions check for invalid inputs
-  ansible.builtin.assert:
-    that:
-      - query_invalid_template is not changed
-      - query_invalid_template.msg is match("Provided template 'ans_test_template_123' not matching existing template.+")
-      - query_invalid_ap is not changed
-      - query_invalid_ap.msg is match("Provided ANP 'ans_test_anp_123' not matching existing anp.+")
-      - query_invalid_epg is not changed
-      - query_invalid_epg.msg is match("Provided EPG 'ans_test_epg_123' not matching existing epg.+")
-      - ans_test_epg_2_nt is not changed
-      - 'ans_test_epg_2_nt.msg == "ans_test_epg_2: is not a valid uSeg EPG."'
+- name: Exercise mso_schema_site_anp_epg_useg_attribute
+  block:
+  - name: Remove schemas
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    loop:
+    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema }}'
+
+  - name: Ensure ansible_test schema with ans_test_template exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{ mso_test.template }}'
+      state: present
+
+  - name: Ensure ans_test_anp exist
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: present
+
+  - name: Add a new VRF
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf }}'
+      state: present
+
+  - name: Add a new BD
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      bd: '{{ mso_test.bd }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+      state: present
+
+  - name: Ensure ans_test_epg exist
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      useg_epg: true
+      bd:
+       name: '{{ mso_test.bd }}'
+      vrf:
+       name: '{{ mso_test.vrf }}'
+      state: present
+
+  - name: Ensure ans_test_epg_2 exist without useg_epg
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg_2 }}'
+      bd:
+       name: '{{ mso_test.bd }}'
+      vrf:
+       name: '{{ mso_test.vrf }}'
+      state: present
+
+  - name: Associate a ansible_test site with a ansible_test tenant
+    cisco.mso.mso_tenant_site:
+      <<: *mso_info
+      tenant: '{{ mso_test.tenant }}'
+      site: '{{ mso_test.site }}'
+      state: present
+
+  - name: Ensure ansible_test site associated with ansible_test schema
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template }}'
+      state: present
+
+  - name: Add ans_test_epg to the ansible_test site
+    cisco.mso.mso_schema_site_anp_epg:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      state: present
+
+  # Test Part
+  # Note: Ignore the below task, which is used to reference the attributes to other tasks
+  - name: Invalid test - check for missing required attributes error message
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute: &useg_attribute_present
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      description: "uSeg Attr object created using Ansible"
+      site: '{{ mso_test.site }}'
+      state: present
+    ignore_errors: true
+    register: ans_test_uSeg_1_nt
+
+  - name: ans_test_uSeg_1 present - attribute_type - ip, useg_subnet - true, without value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      epg: '{{ mso_test.epg }}'
+      name: '{{ mso_test.attribute_1 }}'
+      attribute_type: ip
+      useg_subnet: true
+    register: ans_test_uSeg_1
+
+  - name: Invalid test - ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, without value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_2 }}'
+      attribute_type: ip
+      useg_subnet: false
+    ignore_errors: true
+    register: ans_test_uSeg_2_nt
+
+  - name: Invalid test - ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - true, with value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_2 }}'
+      attribute_type: ip
+      useg_subnet: true
+      value: '{{ mso_test.ip_value }}'
+    ignore_errors: true
+    register: ans_test_uSeg_2_nt1
+
+  - name: ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, with value - check mode
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute: &ans_test_uSeg_2_cm_present
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_2 }}'
+      attribute_type: ip
+      useg_subnet: false
+      value: '{{ mso_test.ip_value_2 }}'
+    check_mode: true
+    register: ans_test_uSeg_2_cm_present
+
+  - name: ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, with value - normal mode
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute: &ans_test_uSeg_2_nm_present
+      <<: *ans_test_uSeg_2_cm_present
+      output_level: debug
+    register: ans_test_uSeg_2_nm_present
+
+  - name: ans_test_uSeg_2 present - attribute_type - ip, useg_subnet - false, with value - normal mode again
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *ans_test_uSeg_2_nm_present
+      output_level: debug
+    register: ans_test_uSeg_2_nm_present_again
+
+  - name: Assertions check for add ans_test_uSeg_1 and ans_test_uSeg_2 object
+    ansible.builtin.assert:
+      that:
+        - ans_test_uSeg_1 is changed
+        - ans_test_uSeg_1.current != {}
+        - ans_test_uSeg_1.current.name == "{{ mso_test.attribute_1 }}"
+        - ans_test_uSeg_1.current.type == "ip"
+        - ans_test_uSeg_1.current.value == "0.0.0.0"
+        - ans_test_uSeg_1.current.fvSubnet == true
+        - ans_test_uSeg_1.current.description == "{{ mso_test.attribute_1 }}"
+        - ans_test_uSeg_2_nt is not changed
+        - 'ans_test_uSeg_2_nt.msg == "useg_subnet is False but all of the following are missing: value"'
+        - ans_test_uSeg_2_nt1 is not changed
+        - ans_test_uSeg_2_nt1.msg == "The value of uSeg subnet IP should be an empty string or 0.0.0.0, when the useg_subnet is set to true."
+        - ans_test_uSeg_2_cm_present is changed
+        - ans_test_uSeg_2_cm_present.current != {}
+        - ans_test_uSeg_2_cm_present.previous == {}
+        - ans_test_uSeg_2_cm_present.current.name == "{{ mso_test.attribute_2 }}"
+        - ans_test_uSeg_2_cm_present.current.type == "ip"
+        - ans_test_uSeg_2_cm_present.current.value == "{{ mso_test.ip_value_2 }}"
+        - ans_test_uSeg_2_cm_present.current.fvSubnet == false
+        - ans_test_uSeg_2_cm_present.current.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_2_nm_present is changed
+        - ans_test_uSeg_2_nm_present.current != {}
+        - ans_test_uSeg_2_nm_present.previous == {}
+        - ans_test_uSeg_2_nm_present.current.name == "{{ mso_test.attribute_2 }}"
+        - ans_test_uSeg_2_nm_present.current.type == "ip"
+        - ans_test_uSeg_2_nm_present.current.value == "{{ mso_test.ip_value_2 }}"
+        - ans_test_uSeg_2_nm_present.sent.fvSubnet == false
+        - ans_test_uSeg_2_nm_present.current.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_2_nm_present_again is not changed
+        - ans_test_uSeg_2_nm_present_again.current != {}
+        - ans_test_uSeg_2_nm_present_again.previous != {}
+        - ans_test_uSeg_2_nm_present_again.current.name == "{{ mso_test.attribute_2 }}"
+        - ans_test_uSeg_2_nm_present_again.current.type == "ip"
+        - ans_test_uSeg_2_nm_present_again.current.value == "{{ mso_test.ip_value_2 }}"
+        - ans_test_uSeg_2_nm_present_again.sent.fvSubnet == false
+        - ans_test_uSeg_2_nm_present_again.current.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_2_nm_present_again.previous.name == "{{ mso_test.attribute_2 }}"
+        - ans_test_uSeg_2_nm_present_again.previous.type == "ip"
+        - ans_test_uSeg_2_nm_present_again.previous.value == "{{ mso_test.ip_value_2 }}"
+        - ans_test_uSeg_2_nm_present_again.previous.description == "uSeg Attr object created using Ansible"
+
+  - name: Invalid test - ans_test_uSeg_3 present - attribute_type - mac and without value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_3 }}'
+      attribute_type: mac
+    ignore_errors: true
+    register: ans_test_uSeg_3_nt
+
+  - name: ans_test_uSeg_3 present - attribute_type - mac and with value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_3 }}'
+      attribute_type: mac
+      value: '{{ mso_test.mac_value }}'
+    register: ans_test_uSeg_3
+
+  - name: Set error message for ans_test_uSeg_3
+    ansible.builtin.set_fact:
+      error_message_ans_test_uSeg_3_nt: "Failed due to invalid 'value' and the attribute_type is: mac."
+
+  - name: Assertions check for add ans_test_uSeg_3 object
+    ansible.builtin.assert:
+      that:
+        - ans_test_uSeg_3_nt is not changed
+        - ans_test_uSeg_3_nt.msg == error_message_ans_test_uSeg_3_nt
+        - ans_test_uSeg_3 is changed
+        - ans_test_uSeg_3.current != {}
+        - ans_test_uSeg_3.previous == {}
+        - ans_test_uSeg_3.current.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_3.current.name == "{{ mso_test.attribute_3 }}"
+        - ans_test_uSeg_3.current.type == "mac"
+        - ans_test_uSeg_3.current.value == "{{ mso_test.mac_value }}"
+
+  - name: Invalid test - ans_test_uSeg_4 present - attribute_type - dns and without value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_4 }}'
+      attribute_type: dns
+    ignore_errors: true
+    register: ans_test_uSeg_4_nt
+
+  - name: ans_test_uSeg_4 present - attribute_type - dns and with value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_4 }}'
+      attribute_type: dns
+      value: '{{ mso_test.dns_value }}'
+    register: ans_test_uSeg_4
+
+  - name: Set error message for ans_test_uSeg_4_nt
+    ansible.builtin.set_fact:
+      error_message_ans_test_uSeg_4_nt: "Failed due to invalid 'value' and the attribute_type is: dns."
+
+  - name: Assertions check for add ans_test_uSeg_4 object
+    ansible.builtin.assert:
+      that:
+        - ans_test_uSeg_4_nt is not changed
+        - ans_test_uSeg_4_nt.msg == error_message_ans_test_uSeg_4_nt
+        - ans_test_uSeg_4 is changed
+        - ans_test_uSeg_4.current != {}
+        - ans_test_uSeg_4.previous == {}
+        - ans_test_uSeg_4.current.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_4.current.name == "{{ mso_test.attribute_4 }}"
+        - ans_test_uSeg_4.current.type == "dns"
+        - ans_test_uSeg_4.current.value == "{{ mso_test.dns_value }}"
+
+  - name: Invalid test - ans_test_uSeg_6 present - attribute_type - vm_datacenter and without operator
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_6 }}'
+      attribute_type: vm_datacenter
+      value: '{{ mso_test.vm_datacenter_value }}'
+    ignore_errors: true
+    register: ans_test_uSeg_6_nt
+
+  - name: Invalid test - ans_test_uSeg_6 present - attribute_type - vm_datacenter, operator - equals and without value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_6 }}'
+      attribute_type: vm_datacenter
+      operator: equals
+    ignore_errors: true
+    register: ans_test_uSeg_6_nt1
+
+  - name: ans_test_uSeg_6 present - attribute_type - vm_datacenter, operator - equals and value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_6 }}'
+      attribute_type: vm_datacenter
+      operator: equals
+      value: '{{ mso_test.vm_datacenter_value }}'
+    register: ans_test_uSeg_6
+
+  - name: Set error message for ans_test_uSeg_6_nt
+    ansible.builtin.set_fact:
+      error_message_ans_test_uSeg_6_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_datacenter."
+
+  - name: Assertions check for add ans_test_uSeg_6 object
+    ansible.builtin.assert:
+      that:
+        - ans_test_uSeg_6_nt is not changed
+        - ans_test_uSeg_6_nt.msg == error_message_ans_test_uSeg_6_nt
+        - ans_test_uSeg_6_nt1 is not changed
+        - ans_test_uSeg_6_nt1.msg == error_message_ans_test_uSeg_6_nt
+        - ans_test_uSeg_6 is changed
+        - ans_test_uSeg_6.current != {}
+        - ans_test_uSeg_6.previous == {}
+        - ans_test_uSeg_6.current.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_6.current.name == "{{ mso_test.attribute_6 }}"
+        - ans_test_uSeg_6.current.type == "rootContName"
+        - ans_test_uSeg_6.current.value == "{{ mso_test.vm_datacenter_value }}"
+
+  - name: Invalid test - ans_test_uSeg_7 present - attribute_type - vm_hypervisor_identifier and without operator
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_7 }}'
+      attribute_type: vm_hypervisor_identifier
+      value: '{{ mso_test.vm_hypervisor_value }}'
+    ignore_errors: true
+    register: ans_test_uSeg_7_nt
+
+  - name: Invalid test - ans_test_uSeg_7 present - attribute_type - vm_hypervisor_identifier, operator - equals and without value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_7 }}'
+      attribute_type: vm_hypervisor_identifier
+      operator: equals
+    ignore_errors: true
+    register: ans_test_uSeg_7_nt1
+
+  - name: ans_test_uSeg_7 present - attribute_type - vm_hypervisor_identifier, operator - equals and value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_7 }}'
+      attribute_type: vm_hypervisor_identifier
+      operator: equals
+      value: '{{ mso_test.vm_hypervisor_value }}'
+    register: ans_test_uSeg_7
+
+  - name: Set error message for ans_test_uSeg_7_nt
+    ansible.builtin.set_fact:
+      error_message_ans_test_uSeg_7_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_hypervisor_identifier."
+
+  - name: Assertions check for add ans_test_uSeg_7 object
+    ansible.builtin.assert:
+      that:
+        - ans_test_uSeg_7_nt is not changed
+        - ans_test_uSeg_7_nt.msg == error_message_ans_test_uSeg_7_nt
+        - ans_test_uSeg_7_nt1 is not changed
+        - ans_test_uSeg_7_nt1.msg == error_message_ans_test_uSeg_7_nt
+        - ans_test_uSeg_7 is changed
+        - ans_test_uSeg_7.current != {}
+        - ans_test_uSeg_7.previous == {}
+        - ans_test_uSeg_7.current.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_7.current.name == "{{ mso_test.attribute_7 }}"
+        - ans_test_uSeg_7.current.type == "hv"
+        - ans_test_uSeg_7.current.value == "{{ mso_test.vm_hypervisor_value }}"
+
+  - name: Invalid test - ans_test_uSeg_8 present - attribute_type - vm_operating_system and without operator
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_8 }}'
+      attribute_type: vm_operating_system
+      value: '{{ mso_test.vm_os_value }}'
+    ignore_errors: true
+    register: ans_test_uSeg_8_nt
+
+  - name: Invalid test - ans_test_uSeg_8 present - attribute_type - vm_operating_system, operator - equals and without value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_8 }}'
+      attribute_type: vm_operating_system
+      operator: equals
+    ignore_errors: true
+    register: ans_test_uSeg_8_nt1
+
+  - name: ans_test_uSeg_8 present - attribute_type - vm_operating_system, operator - equals and value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_8 }}'
+      attribute_type: vm_operating_system
+      operator: equals
+      value: '{{ mso_test.vm_os_value }}'
+    register: ans_test_uSeg_8
+
+  - name: Set error message for ans_test_uSeg_8_nt
+    ansible.builtin.set_fact:
+      error_message_ans_test_uSeg_8_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_operating_system."
+
+  - name: Assertions check for add ans_test_uSeg_8 object
+    ansible.builtin.assert:
+      that:
+        - ans_test_uSeg_8_nt is not changed
+        - ans_test_uSeg_8_nt.msg == error_message_ans_test_uSeg_8_nt
+        - ans_test_uSeg_8_nt1 is not changed
+        - ans_test_uSeg_8_nt1.msg == error_message_ans_test_uSeg_8_nt
+        - ans_test_uSeg_8 is changed
+        - ans_test_uSeg_8.current != {}
+        - ans_test_uSeg_8.previous == {}
+        - ans_test_uSeg_8.current.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_8.current.name == "{{ mso_test.attribute_8 }}"
+        - ans_test_uSeg_8.current.type == "guest-os"
+        - ans_test_uSeg_8.current.value == "{{ mso_test.vm_os_value }}"
+
+  - name: Invalid test - ans_test_uSeg_9 present - attribute_type - vm_tag and without operator
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_9 }}'
+      attribute_type: vm_tag
+      value: '{{ mso_test.vm_tag_value }}'
+    ignore_errors: true
+    register: ans_test_uSeg_9_nt
+
+  - name: Invalid test - ans_test_uSeg_9 present - attribute_type - vm_tag, operator - equals and without value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_9 }}'
+      attribute_type: vm_tag
+      operator: equals
+    ignore_errors: true
+    register: ans_test_uSeg_9_nt1
+
+  - name: ans_test_uSeg_9 present - attribute_type - vm_tag, operator - equals and value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_9 }}'
+      attribute_type: vm_tag
+      operator: equals
+      value: '{{ mso_test.vm_tag_value }}'
+    register: ans_test_uSeg_9
+
+  - name: Set error message for ans_test_uSeg_9_nt
+    ansible.builtin.set_fact:
+      error_message_ans_test_uSeg_9_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_tag."
+
+  - name: Assertions check for add ans_test_uSeg_9 object
+    ansible.builtin.assert:
+      that:
+        - ans_test_uSeg_9_nt is not changed
+        - ans_test_uSeg_9_nt.msg == error_message_ans_test_uSeg_9_nt
+        - ans_test_uSeg_9_nt1 is not changed
+        - ans_test_uSeg_9_nt1.msg == error_message_ans_test_uSeg_9_nt
+        - ans_test_uSeg_9 is changed
+        - ans_test_uSeg_9.current != {}
+        - ans_test_uSeg_9.previous == {}
+        - ans_test_uSeg_9.current.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_9.current.name == "{{ mso_test.attribute_9 }}"
+        - ans_test_uSeg_9.current.type == "tag"
+        - ans_test_uSeg_9.current.value == "{{ mso_test.vm_tag_value }}"
+
+  - name: Invalid test - ans_test_uSeg_10 present - attribute_type - vm_identifier and without operator
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_10 }}'
+      attribute_type: vm_identifier
+      value: '{{ mso_test.vm_identifier_value }}'
+    ignore_errors: true
+    register: ans_test_uSeg_10_nt
+
+  - name: Invalid test - ans_test_uSeg_10 present - attribute_type - vm_identifier, operator - equals and without value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_10 }}'
+      attribute_type: vm_identifier
+      operator: equals
+    ignore_errors: true
+    register: ans_test_uSeg_10_nt1
+
+  - name: ans_test_uSeg_10 present - attribute_type - vm_identifier, operator - equals and value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_10 }}'
+      attribute_type: vm_identifier
+      operator: equals
+      value: '{{ mso_test.vm_identifier_value }}'
+    register: ans_test_uSeg_10
+
+  - name: Set error message for ans_test_uSeg_10_nt
+    ansible.builtin.set_fact:
+      error_message_ans_test_uSeg_10_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_identifier."
+
+  - name: Assertions check for add ans_test_uSeg_10 object
+    ansible.builtin.assert:
+      that:
+        - ans_test_uSeg_10_nt is not changed
+        - ans_test_uSeg_10_nt.msg == error_message_ans_test_uSeg_10_nt
+        - ans_test_uSeg_10_nt1 is not changed
+        - ans_test_uSeg_10_nt1.msg == error_message_ans_test_uSeg_10_nt
+        - ans_test_uSeg_10 is changed
+        - ans_test_uSeg_10.current != {}
+        - ans_test_uSeg_10.previous == {}
+        - ans_test_uSeg_10.current.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_10.current.name == "{{ mso_test.attribute_10 }}"
+        - ans_test_uSeg_10.current.type == "vm"
+        - ans_test_uSeg_10.current.value == "{{ mso_test.vm_identifier_value }}"
+
+  - name: Invalid test - ans_test_uSeg_11 present - attribute_type - vmm_domain and without operator
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_11 }}'
+      attribute_type: vmm_domain
+      value: '{{ mso_test.vmm_domain_value }}'
+    ignore_errors: true
+    register: ans_test_uSeg_11_nt
+
+  - name: Invalid test - ans_test_uSeg_11 present - attribute_type - vmm_domain, operator - equals and without value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_11 }}'
+      attribute_type: vmm_domain
+      operator: equals
+    ignore_errors: true
+    register: ans_test_uSeg_11_nt1
+
+  - name: ans_test_uSeg_11 present - attribute_type - vmm_domain, operator - equals and value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_11 }}'
+      attribute_type: vmm_domain
+      operator: equals
+      value: '{{ mso_test.vmm_domain_value }}'
+    register: ans_test_uSeg_11
+
+  - name: Set error message for ans_test_uSeg_11_nt
+    ansible.builtin.set_fact:
+      error_message_ans_test_uSeg_11_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vmm_domain."
+
+  - name: Assertions check for add ans_test_uSeg_11 object
+    ansible.builtin.assert:
+      that:
+        - ans_test_uSeg_11_nt is not changed
+        - ans_test_uSeg_11_nt.msg == error_message_ans_test_uSeg_11_nt
+        - ans_test_uSeg_11_nt1 is not changed
+        - ans_test_uSeg_11_nt1.msg == error_message_ans_test_uSeg_11_nt
+        - ans_test_uSeg_11 is changed
+        - ans_test_uSeg_11.current != {}
+        - ans_test_uSeg_11.previous == {}
+        - ans_test_uSeg_11.current.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_11.current.name == "{{ mso_test.attribute_11 }}"
+        - ans_test_uSeg_11.current.type == "domain"
+        - ans_test_uSeg_11.current.value == "{{ mso_test.vmm_domain_value }}"
+
+  - name: Invalid test - ans_test_uSeg_12 present - attribute_type - vm_name and without operator
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_12 }}'
+      attribute_type: vm_name
+      value: '{{ mso_test.vm_name_value }}'
+    ignore_errors: true
+    register: ans_test_uSeg_12_nt
+
+  - name: Invalid test - ans_test_uSeg_12 present - attribute_type - vm_name, operator - equals and without value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_12 }}'
+      attribute_type: vm_name
+      operator: equals
+    ignore_errors: true
+    register: ans_test_uSeg_12_nt1
+
+  - name: ans_test_uSeg_12 present - attribute_type - vm_name, operator - equals and value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_12 }}'
+      attribute_type: vm_name
+      operator: equals
+      value: '{{ mso_test.vm_name_value }}'
+    register: ans_test_uSeg_12
+
+  - name: Set error message for ans_test_uSeg_12_nt
+    ansible.builtin.set_fact:
+      error_message_ans_test_uSeg_12_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vm_name."
+
+  - name: Assertions check for add ans_test_uSeg_12 object
+    ansible.builtin.assert:
+      that:
+        - ans_test_uSeg_12_nt is not changed
+        - ans_test_uSeg_12_nt.msg == error_message_ans_test_uSeg_12_nt
+        - ans_test_uSeg_12_nt1 is not changed
+        - ans_test_uSeg_12_nt1.msg == error_message_ans_test_uSeg_12_nt
+        - ans_test_uSeg_12 is changed
+        - ans_test_uSeg_12.current != {}
+        - ans_test_uSeg_12.previous == {}
+        - ans_test_uSeg_12.current.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_12.current.name == "{{ mso_test.attribute_12 }}"
+        - ans_test_uSeg_12.current.type == "vm-name"
+        - ans_test_uSeg_12.current.value == "{{ mso_test.vm_name_value }}"
+
+  - name: Invalid test - ans_test_uSeg_13 present - attribute_type - vnic_dn and without operator
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_13 }}'
+      attribute_type: vnic_dn
+      value: '{{ mso_test.vnic_dn_value }}'
+    ignore_errors: true
+    register: ans_test_uSeg_13_nt
+
+  - name: Invalid test - ans_test_uSeg_13 present - attribute_type - vnic_dn, operator - equals and without value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_13 }}'
+      attribute_type: vnic_dn
+      operator: equals
+    ignore_errors: true
+    register: ans_test_uSeg_13_nt1
+
+  - name: ans_test_uSeg_13 present - attribute_type - vnic_dn, operator - equals and value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute: &ans_test_uSeg_13_present
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_13 }}'
+      attribute_type: vnic_dn
+      operator: equals
+      value: '{{ mso_test.vnic_dn_value }}'
+    register: ans_test_uSeg_13
+
+  - name: Set error message for ans_test_uSeg_13_nt
+    ansible.builtin.set_fact:
+      error_message_ans_test_uSeg_13_nt: "Failed due to invalid 'value' or 'operator' and the attribute_type is: vnic_dn."
+
+  - name: Assertions check for add ans_test_uSeg_12 object
+    ansible.builtin.assert:
+      that:
+        - ans_test_uSeg_13_nt is not changed
+        - ans_test_uSeg_13_nt.msg == error_message_ans_test_uSeg_13_nt
+        - ans_test_uSeg_13_nt1 is not changed
+        - ans_test_uSeg_13_nt1.msg == error_message_ans_test_uSeg_13_nt
+        - ans_test_uSeg_13 is changed
+        - ans_test_uSeg_13.current != {}
+        - ans_test_uSeg_13.previous == {}
+        - ans_test_uSeg_13.current.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_13.current.name == "{{ mso_test.attribute_13 }}"
+        - ans_test_uSeg_13.current.type == "vnic"
+        - ans_test_uSeg_13.current.value == "{{ mso_test.vnic_dn_value }}"
+
+  # Query Part
+  - name: Invalid test - Query an uSeg Attr with name - invalid_useg_attr
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: invalid_useg_attr
+      state: query
+    register: invalid_useg_attr
+    ignore_errors: true
+
+  - name: Query an uSeg Attr with name - ans_test_uSeg_1
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_6 }}'
+      state: query
+    register: query_a_useg_6
+
+  - name: Query all uSeg Attrs
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      state: query
+    register: query_all_useg_objects
+
+  - name: Assertions check for query uSeg Attr objects
+    ansible.builtin.assert:
+      that:
+        - invalid_useg_attr is not changed
+        - 'invalid_useg_attr.msg == "The uSeg Attribute: invalid_useg_attr not found."'
+        - query_a_useg_6 is not changed
+        - query_a_useg_6.current != {}
+        - query_a_useg_6.current.name == "{{ mso_test.attribute_6 }}"
+        - query_a_useg_6.current.type == "rootContName"
+        - query_a_useg_6.current.value == "{{ mso_test.vm_datacenter_value }}"
+        - query_all_useg_objects is not changed
+        - query_all_useg_objects.current | length >= 12
+
+  # Update Part
+  - name: Update ans_test_uSeg_13 object description and value
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *ans_test_uSeg_13_present
+      description: "{{ mso_test.attribute_13 }} updated!"
+      value: '{{ mso_test.vnic_dn_updated_value }}'
+    register: ans_test_uSeg_13_update
+
+  - name: Query an uSeg Attr with name - ans_test_uSeg_13 to check the updated changes
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_13 }}'
+      state: query
+    register: query_a_useg_object_with_name
+
+  - name: Assertions check for update ans_test_uSeg_13 object
+    ansible.builtin.assert:
+      that:
+        - ans_test_uSeg_13_update is changed
+        - ans_test_uSeg_13_update.current != {}
+        - ans_test_uSeg_13_update.current.description == "{{ mso_test.attribute_13 }} updated!"
+        - ans_test_uSeg_13_update.current.name == "{{ mso_test.attribute_13 }}"
+        - ans_test_uSeg_13_update.current.type == "vnic"
+        - ans_test_uSeg_13_update.current.value == "{{ mso_test.vnic_dn_updated_value }}"
+        - ans_test_uSeg_13_update.previous != {}
+        - ans_test_uSeg_13_update.previous.description == "uSeg Attr object created using Ansible"
+        - ans_test_uSeg_13_update.previous.name == "{{ mso_test.attribute_13 }}"
+        - ans_test_uSeg_13_update.previous.type == "vnic"
+        - ans_test_uSeg_13_update.previous.value == "{{ mso_test.vnic_dn_value }}"
+        - query_a_useg_object_with_name is not changed
+        - query_a_useg_object_with_name.current != {}
+        - query_a_useg_object_with_name.current.description == "{{ mso_test.attribute_13 }} updated!"
+        - query_a_useg_object_with_name.current.name == "{{ mso_test.attribute_13 }}"
+        - query_a_useg_object_with_name.current.type == "vnic"
+        - query_a_useg_object_with_name.current.value == "{{ mso_test.vnic_dn_updated_value }}"
+
+  # Cleanup Part
+  - name: ans_test_uSeg_1 absent with check mode
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute: &ans_test_uSeg_1_cm_absent
+      <<: *useg_attribute_present
+      name: '{{ mso_test.attribute_1 }}'
+      state: absent
+    check_mode: true
+    register: ans_test_uSeg_1_cm_absent
+
+  - name: ans_test_uSeg_1 absent with normal mode
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute: &ans_test_uSeg_1_nm_absent
+      <<: *ans_test_uSeg_1_cm_absent
+    register: ans_test_uSeg_1_nm_absent
+
+  - name: ans_test_uSeg_1 absent with normal mode again
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *ans_test_uSeg_1_nm_absent
+    register: ans_test_uSeg_1_nm_absent_again
+
+  - name: Assertions check for ans_test_uSeg_1 absent
+    ansible.builtin.assert:
+      that:
+        - ans_test_uSeg_1_cm_absent is changed
+        - ans_test_uSeg_1_cm_absent.current == {}
+        - ans_test_uSeg_1_cm_absent.previous != {}
+        - ans_test_uSeg_1_nm_absent is changed
+        - ans_test_uSeg_1_nm_absent.current == {}
+        - ans_test_uSeg_1_nm_absent.previous != {}
+        - ans_test_uSeg_1_nm_absent_again is not changed
+        - ans_test_uSeg_1_nm_absent_again.current == {}
+        - ans_test_uSeg_1_nm_absent_again.previous == {}
+
+  - name: Query all uSeg Attrs - invalid template name
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      template: ans_test_template_123
+      state: query
+    ignore_errors: true
+    register: query_invalid_template
+
+  - name: Query all uSeg Attrs - invalid Application Profile name
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      anp: ans_test_anp_123
+      state: query
+    ignore_errors: true
+    register: query_invalid_ap
+
+  - name: Query all uSeg Attrs - invalid EPG name
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      epg: ans_test_epg_123
+      state: query
+    ignore_errors: true
+    register: query_invalid_epg
+
+  - name: Invalid test - ans_test_anp_123 present under ans_test_epg_2
+    cisco.mso.mso_schema_site_anp_epg_useg_attribute:
+      <<: *useg_attribute_present
+      epg: '{{ mso_test.epg_2 }}'
+      name: ans_test_anp_123
+      attribute_type: mac
+      value: '{{ mso_test.mac_value_upper }}'
+    ignore_errors: true
+    register: ans_test_epg_2_nt
+
+  - name: Assertions check for invalid inputs
+    ansible.builtin.assert:
+      that:
+        - query_invalid_template is not changed
+        - query_invalid_template.msg is match("Provided template 'ans_test_template_123' not matching existing template.+")
+        - query_invalid_ap is not changed
+        - query_invalid_ap.msg is match("Provided ANP 'ans_test_anp_123' not matching existing anp.+")
+        - query_invalid_epg is not changed
+        - query_invalid_epg.msg is match("Provided EPG 'ans_test_epg_123' not matching existing epg.+")
+        - ans_test_epg_2_nt is not changed
+        - 'ans_test_epg_2_nt.msg == "{{ mso_test.epg_2 }}: is not a valid uSeg EPG."'
+
+  always:
+  - name: Remove test schemas even if the test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    loop:
+    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema }}'
+    ignore_errors: true

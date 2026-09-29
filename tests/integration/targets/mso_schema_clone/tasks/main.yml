@@ -8,8 +8,7 @@
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
-# CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
@@ -19,140 +18,143 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      source_schema: '{{ mso_schema_clone_source | default("Source_Schema") }}'
+      destination_schema: '{{ mso_schema_clone_destination | default("Destination_Schema") }}'
+      tenant: '{{ mso_tenant_clone | default(mso_tenant | default("ansible_test")) }}'
+      site: '{{ mso_site_clone | default(mso_site | default("ansible_test")) }}'
+      template_1: 'Template 1'
+      template_2: 'Template 2'
+      template_3: 'Template 3'
+      template_without_space: 'Template1'
+      vrf_1: 'VRF1'
+      bd_1: 'BD_1'
 
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  ignore_errors: true
-  loop:
-  - Destination_Schema
-  - Source_Schema
+- name: Exercise mso_schema_clone
+  block:
+  - name: Remove schemas
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    ignore_errors: true
+    loop:
+    - '{{ mso_test.destination_schema }}'
+    - '{{ mso_test.source_schema }}'
 
-- name: Ensure site exists
-  cisco.mso.mso_site:
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ apic_username }}'
-    apic_password: '{{ apic_password }}'
-    apic_site_id: '{{ apic_site_id | default(101) }}'
-    urls:
-    - https://{{ apic_hostname }}
-    state: present
+  - name: Create Source schema with Template 1, and Template 2, Template 3 exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.source_schema }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{item.template}}'
+      state: present
+    loop:
+    - { template: '{{ mso_test.template_1 }}'}
+    - { template: '{{ mso_test.template_2 }}'}
+    - { template: '{{ mso_test.template_3 }}'}
 
-- name: Ensure tenant ansible_test exists
-  cisco.mso.mso_tenant: 
-    <<: *mso_info
-    tenant: ansible_test
-    users:
-      - '{{ mso_username }}'
-    sites:
-    - '{{ mso_site | default("ansible_test") }}'
-    state: present
+  - name: Ensure VRF exist
+    cisco.mso.mso_schema_template_vrf: &vrf_present
+      <<: *mso_info
+      schema: '{{ mso_test.source_schema }}'
+      template: '{{ mso_test.template_without_space }}'
+      vrf: '{{ mso_test.vrf_1 }}'
+      state: present
 
-- name: Create Source schema with Template 1, and Template 2, Template 3 exist
-  cisco.mso.mso_schema_template:
-    <<: *mso_info
-    schema: Source_Schema
-    tenant: ansible_test
-    template: '{{item.template}}'
-    state: present
-  loop:
-  - { template: Template 1}
-  - { template: Template 2}
-  - { template: Template 3}
+  - name: Add bd in Source schema
+    cisco.mso.mso_schema_template_bd: &bd_present
+      <<: *mso_info
+      schema: '{{ mso_test.source_schema }}'
+      template: '{{ mso_test.template_without_space }}'
+      bd: '{{ mso_test.bd_1 }}'
+      vrf:
+        name: '{{ mso_test.vrf_1 }}'
+      state: present
 
-- name: Ensure VRF exist
-  cisco.mso.mso_schema_template_vrf: &vrf_present
-    <<: *mso_info
-    schema: Source_Schema
-    template: Template1
-    vrf: VRF1
-    state: present
+  - name: Clone schema
+    cisco.mso.mso_schema_clone:
+      <<: *mso_info
+      source_schema: '{{ mso_test.source_schema }}'
+      destination_schema: '{{ mso_test.destination_schema }}'
+      state: clone
+    register: add_schema
 
-- name: Add bd in Source schema
-  cisco.mso.mso_schema_template_bd: &bd_present
-    <<: *mso_info
-    schema: Source_Schema
-    template: Template1
-    bd: BD_1
-    vrf:
-      name: VRF1
-    state: present
+  - name: Verify add_schema
+    ansible.builtin.assert:
+      that:
+      - add_schema is changed
+      - add_schema.previous == {}
+      - add_schema.current.displayName == mso_test.destination_schema
 
-- name: Clone schema
-  cisco.mso.mso_schema_clone:
-    <<: *mso_info
-    source_schema: Source_Schema
-    destination_schema: Destination_Schema
-    state: clone
-  register: add_schema
+  - name: Clone schema with same name
+    cisco.mso.mso_schema_clone:
+      <<: *mso_info
+      source_schema: '{{ mso_test.source_schema }}'
+      destination_schema: '{{ mso_test.source_schema }}'
+      state: clone
+    ignore_errors: true
+    register: add_same_schema
 
-- name: Verify add_schema
-  ansible.builtin.assert:
-    that:
-    - add_schema is changed
-    - add_schema.previous == {}
-    - add_schema.current.displayName == 'Destination_Schema'
+  - name: Verify add_same_schema
+    ansible.builtin.assert:
+      that:
+      - add_same_schema is not changed
+      - add_same_schema.current == {}
+      - add_same_schema.msg == "Source and Destination schema cannot have same names."
 
-- name: Clone schema with same name
-  cisco.mso.mso_schema_clone:
-    <<: *mso_info
-    source_schema: Source_Schema
-    destination_schema: Source_Schema
-    state: clone
-  ignore_errors: true
-  register: add_same_schema
+  - name: Clone schema when destination schema exists
+    cisco.mso.mso_schema_clone:
+      <<: *mso_info
+      source_schema: '{{ mso_test.source_schema }}'
+      destination_schema: '{{ mso_test.destination_schema }}'
+      state: clone
+    ignore_errors: true
+    register: add_existing_schema
 
-- name: Verify add_same_schema
-  ansible.builtin.assert:
-    that:
-    - add_same_schema is not changed
-    - add_same_schema.current == {}
-    - add_same_schema.msg == "Source and Destination schema cannot have same names."
+  - name: Verify add_existing_schema
+    ansible.builtin.assert:
+      that:
+      - add_existing_schema is not changed
+      - add_existing_schema.msg == "Schema with the name '" ~ mso_test.destination_schema ~ "' already exists. Please use another name."
 
-- name: Clone schema when destination schema exists
-  cisco.mso.mso_schema_clone:
-    <<: *mso_info
-    source_schema: Source_Schema
-    destination_schema: Destination_Schema
-    state: clone
-  ignore_errors: true
-  register: add_existing_schema
+  - name: Clone schema when source schema does not exist
+    cisco.mso.mso_schema_clone:
+      <<: *mso_info
+      source_schema: Source_Schema_1
+      destination_schema: Destination_Schema_2
+      state: clone
+    ignore_errors: true
+    register: add_existing_schema
 
-- name: Verify add_existing_schema
-  ansible.builtin.assert:
-    that:
-    - add_existing_schema is not changed
-    - add_existing_schema.msg == "Schema with the name 'Destination_Schema' already exists. Please use another name."
+  - name: Verify add_existing_schema
+    ansible.builtin.assert:
+      that:
+      - add_existing_schema is not changed
+      - add_existing_schema.msg == "Provided schema 'Source_Schema_1' does not exist."
 
-- name: Clone schema when source schema does not exist
-  cisco.mso.mso_schema_clone:
-    <<: *mso_info
-    source_schema: Source_Schema_1
-    destination_schema: Destination_Schema_2
-    state: clone
-  ignore_errors: true
-  register: add_existing_schema
+  - name: Remove schemas
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    register: rm_schema
+    loop:
+    - '{{ mso_test.destination_schema }}'
+    - '{{ mso_test.source_schema }}'
 
-- name: Verify add_existing_schema
-  ansible.builtin.assert:
-    that:
-    - add_existing_schema is not changed
-    - add_existing_schema.msg == "Provided schema 'Source_Schema_1' does not exist."
+  - name: Verify rm_schema
+    ansible.builtin.assert:
+      that:
+      - rm_schema is changed
 
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  register: rm_schema
-  loop:
-  - Destination_Schema
-  - Source_Schema
-
-- name: Verify rm_schema
-  ansible.builtin.assert:
-    that:
-    - rm_schema is changed
+  always:
+  - name: Remove test schemas even if the test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    loop:
+    - '{{ mso_test.destination_schema }}'
+    - '{{ mso_test.source_schema }}'
+    ignore_errors: true

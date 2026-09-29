@@ -19,6 +19,14 @@
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      schema: '{{ mso_schema_l3out_template | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_l3out_template | default(mso_tenant | default("ansible_test")) }}'
+      site: '{{ mso_site_l3out_template | default(mso_site | default("ansible_test")) }}'
+      schema_template: "Template1"
+      l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+      tenant_policy_template: ansible_test_policy
+      fabric_policy_template: ans_fabric_pol_template
 
 # QUERY VERSION
 - name: Query MSO version
@@ -27,44 +35,26 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version > 4.2
+- name: Exercise ndo_l3out_template
   when: version.current.version is version('4.2', '>')
   block:
     # Setup Part
-    - name: Ensure ansible_test site exist
-      cisco.mso.mso_site:
-        <<: *mso_info
-        site: '{{ mso_site | default("ansible_test") }}'
-        state: query
-      register: ansible_test_site
-
-    - name: Ensure ansible_test tenant exist
-      cisco.mso.mso_tenant:
-        <<: *mso_info
-        tenant: '{{ ansible_tenant | default("ansible_test") }}'
-        users:
-          - "{{ mso_username }}"
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
-      when: ansible_test_site.current.common.name == mso_site | default("ansible_test")
-
     - name: Ensure l3out template not exist
       cisco.mso.ndo_template: &ndo_l3out_template_absent
         <<: *mso_info
-        template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         template_type: l3out
-        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure tenant policy template not exists
       cisco.mso.ndo_template: &tenant_pol_template_absent
         <<: *mso_info
-        name: ansible_test_policy
+        name: "{{ mso_test.tenant_policy_template }}"
         template_type: tenant
-        tenant: '{{ ansible_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
         state: absent
 
     - name: Ensure fabric_policy template not exists
@@ -77,12 +67,19 @@
     - name: Ensure ansible_test schema template not exist
       cisco.mso.mso_schema_template: &mso_schema_template_absent
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        tenant: '{{ ansible_tenant | default("ansible_test") }}'
-        template: "Template1"
+        schema: '{{ mso_test.schema }}'
+        tenant: '{{ mso_test.tenant }}'
+        template: "{{ mso_test.schema_template }}"
         state: absent
 
     # Schema Template Setup for the VRF
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true
     - name: Add an ansible_test schema template
       cisco.mso.mso_schema_template:
         <<: *mso_schema_template_absent
@@ -91,8 +88,8 @@
     - name: Add a new VRF1
       cisco.mso.mso_schema_template_vrf: &vrf1_present
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: "Template1"
+        schema: '{{ mso_test.schema }}'
+        template: "{{ mso_test.schema_template }}"
         vrf: VRF1
         state: present
 
@@ -156,14 +153,14 @@
       cisco.mso.ndo_template:
         <<: *fabric_pol_template_absent
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: present
       register: ans_fabric_pol_template
 
     - name: Create a new vlan pool
       cisco.mso.ndo_vlan_pool:
         <<: *mso_info
-        template: ans_fabric_pol_template
+        template: "{{ mso_test.fabric_policy_template }}"
         vlan_pool: "ansible_test_vlan_pool_1"
         vlan_ranges:
           - from_vlan: 100
@@ -173,7 +170,7 @@
     - name: Create a new ans_l3_domain
       cisco.mso.ndo_l3_domain:
         <<: *mso_info
-        template: ans_fabric_pol_template
+        template: "{{ mso_test.fabric_policy_template }}"
         l3_domain: ans_l3_domain
         pool: ansible_test_vlan_pool_1
         state: present
@@ -189,7 +186,7 @@
     - name: Query all L3Out objects when the L3Out template is empty
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         state: "query"
       register: query_all_l3outs_with_empty_template
 
@@ -202,12 +199,12 @@
     - name: Create L3Out object with default values - check_mode
       cisco.mso.ndo_l3out_template: &cm_l3out_1_present
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: "l3out_1"
         vrf:
           name: "VRF1"
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: "Template1"
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         state: "present"
         output_level: debug
       check_mode: true
@@ -289,13 +286,13 @@
     - name: Update L3Out object with check_mode
       cisco.mso.ndo_l3out_template: &cm_l3out_1_update
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: "l3out_1"
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: "Template1"
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         description: "test description"
         pim: false
         target_dscp: "unspecified"
@@ -608,13 +605,13 @@
     - name: Update L3Out l3out_1 object name, vrf and pim value
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         uuid: "{{ nm_l3out_1_update_again.current.uuid}}"
         name: l3out_1_updated
         vrf:
           name: "VRF2"
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: "Template1"
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         pim: true
         target_dscp: "af11"
         state: present
@@ -680,7 +677,7 @@
     - name: Update L3Out l3out_1_updated object bgp route map values
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1_updated
         interleak: "ans_route_map_2"
         static_route_redistribution: "ans_route_map_2"
@@ -754,7 +751,7 @@
     - name: Set bgp route maps with empty string for L3Out l3out_1_updated object
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1_updated
         interleak: "ans_route_map_2"
         static_route_redistribution: "ans_route_map_2"
@@ -829,7 +826,7 @@
     - name: Update L3Out l3out_1_updated object ospf values
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1_updated
         ospf:
           area_id: "0.0.0.1"
@@ -895,7 +892,7 @@
     - name: Clear ospf originate_default_route for L3Out l3out_1_updated object
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1_updated
         ospf:
           area_id: "0.0.0.1"
@@ -959,7 +956,7 @@
     - name: Clear bgp from L3Out l3out_1_updated object
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1_updated
         bgp:
           state: disabled
@@ -1014,7 +1011,7 @@
     - name: Update L3Out l3out_1_updated object ospf originate_default_route_always to true
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1_updated
         ospf:
           # when you enable originate_default_route_always, originate_default_route set to "only" when it is not configured and specified in the config
@@ -1073,7 +1070,7 @@
     - name: Update L3Out l3out_1_updated object ospf area_type, cost and originate_default_route
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1_updated
         ospf:
           area_id: "0.0.0.1"
@@ -1135,7 +1132,7 @@
     - name: Update L3Out l3out_1_updated object ospf area_id
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1_updated
         ospf:
           area_id: "0.0.0.2"
@@ -1195,7 +1192,7 @@
     - name: Clear ospf from L3Out l3out_1_updated object
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1_updated
         ospf:
           state: disabled
@@ -1246,7 +1243,7 @@
     - name: Clear bgp and ospf from L3Out l3out_1_updated object when it is not configured
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1_updated
         bgp:
           state: disabled
@@ -1291,13 +1288,13 @@
     - name: Create l3out_2 object with full details
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: "l3out_2"
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: "Template1"
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         description: "test description"
         pim: false
         target_dscp: "unspecified"
@@ -1357,13 +1354,13 @@
     - name: Create l3out_3 object with min config of bgp and ospf
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: "l3out_3"
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: "Template1"
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         description: "test description"
         pim: false
         target_dscp: "unspecified"
@@ -1405,13 +1402,13 @@
     - name: Update l3out_3 object with min config of bgp
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: "l3out_3"
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: "Template1"
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         description: "test description"
         pim: false
         target_dscp: "unspecified"
@@ -1472,7 +1469,7 @@
     - name: Query a L3Out with name
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: "l3out_2"
         state: query
       register: query_l3out_with_name
@@ -1480,7 +1477,7 @@
     - name: Query a L3Out with uuid
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         uuid: "{{ query_l3out_with_name.current.uuid }}"
         state: query
       register: query_l3out_with_uuid
@@ -1529,7 +1526,7 @@
     - name: Delete l3out_2 object - check_mode
       cisco.mso.ndo_l3out_template: &cm_l3out_2_absent
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: "l3out_2"
         state: absent
         output_level: debug
@@ -1571,14 +1568,14 @@
     - name: Update l3out_3 object name using invalid uuid
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: "l3out_3_nt"
         uuid: "invalid_uuid"
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: "Template1"
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         state: "present"
       register: update_with_invalid_uuid
       ignore_errors: true
@@ -1596,13 +1593,13 @@
     - name: Update l3out_3 object without ospf - id and type
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: "l3out_3"
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: "Template1"
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         ospf:
           cost: 5
         state: "present"
@@ -1618,13 +1615,13 @@
     - name: Enable pim with L3 Multicast disabled vrf
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: "l3out_nt"
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: "Template1"
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         pim: true
         state: present
       register: enable_pim_with_invalid_vrf
@@ -1643,13 +1640,13 @@
     - name: Update l3out_3 object to enable with L3 Multicast disabled vrf
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         uuid: "{{ update_l3out_3_bgp_min_config.current.uuid }}"
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: "Template1"
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         pim: true
         state: "present"
       register: update_l3out_3_pim_nt
@@ -1664,13 +1661,13 @@
     - name: Create L3Out object without ospf area_id
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: "l3out_nt"
         l3_domain: ans_l3_domain
         vrf:
           name: "VRF1"
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: "Template1"
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         ospf:
           area_type: "stub"
         state: present
@@ -1686,7 +1683,7 @@
     - name: Create L3Out object without vrf
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: "l3out_nt"
         l3_domain: ans_l3_domain
         state: present
@@ -1703,7 +1700,7 @@
     - name: Query all L3Out objects
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         state: "query"
       register: query_all_l3outs
 
@@ -1716,7 +1713,7 @@
     - name: Delete L3Out using uuid
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ ansible_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         uuid: "{{ update_l3out_3_bgp_min_config.current.uuid }}"
         state: "absent"
       register: absent_with_uuid
@@ -1728,19 +1725,30 @@
           - absent_with_uuid.current == {}
           - absent_with_uuid.previous.name == "l3out_3"
 
-    # Cleanup Part
+  always:
     - name: Remove l3out tenant template
       cisco.mso.ndo_template:
         <<: *ndo_l3out_template_absent
+      ignore_errors: true
 
     - name: Remove tenant policy template
       cisco.mso.ndo_template:
         <<: *tenant_pol_template_absent
+      ignore_errors: true
 
     - name: Remove fabric_policy template
       cisco.mso.ndo_template:
         <<: *fabric_pol_template_absent
+      ignore_errors: true
 
     - name: Remove ansible_test schema template not exist
       cisco.mso.mso_schema_template:
         <<: *mso_schema_template_absent
+      ignore_errors: true
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true

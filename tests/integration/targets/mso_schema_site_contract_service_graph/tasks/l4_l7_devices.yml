@@ -30,13 +30,13 @@
 - name: Remove an existing tenant on APIC
   cisco.aci.aci_tenant:
     <<: *aci_info
-    name: '{{ mso_tenant | default("ansible_test") }}'
+    name: '{{ mso_test.tenant }}'
     state: absent
 
 - name: Add a tenant on APIC
   cisco.aci.aci_tenant:
     <<: *aci_info
-    name: '{{ mso_tenant | default("ansible_test") }}'
+    name: '{{ mso_test.tenant }}'
 
 - name: Remove the redirect_policy2 from the common tenant - setup part
   cisco.aci.aci_rest:
@@ -46,19 +46,19 @@
     content:
       vnsSvcRedirectPol:
         attributes:
-          name: redirect_policy2
+          name: '{{ mso_test.redirect_policy_2 }}'
           status: deleted
 
 - name: Remove ansible_tenant from the APIC - setup part
   cisco.aci.aci_tenant:
     <<: *aci_info
-    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    tenant: '{{ mso_test.tenant }}'
     state: absent
 
 - name: Add ansible_tenant to the APIC
   cisco.aci.aci_tenant:
     <<: *aci_info
-    tenant: '{{ mso_tenant | default("ansible_test") }}'
+    tenant: '{{ mso_test.tenant }}'
     state: present
 
 - name: Add devices and cluster interfaces to the ansible_tenant
@@ -101,25 +101,25 @@
 
   loop:
     - {
-        tenant: '{{ mso_tenant | default("ansible_test") }}',
+        tenant: '{{ mso_test.tenant }}',
         type: FW,
-        name: ansible_tenant_firewall1,
-        cluster_interface: clu_if1,
-        concrete_interface: cn_if1,
+        name: '{{ mso_test.firewall_device }}',
+        cluster_interface: '{{ mso_test.cluster_interface_1 }}',
+        concrete_interface: '{{ mso_test.concrete_interface_1 }}',
       }
     - {
-        tenant: '{{ mso_tenant | default("ansible_test") }}',
+        tenant: '{{ mso_test.tenant }}',
         type: ADC,
-        name: ansible_tenant_adc,
-        cluster_interface: clu_if3,
-        concrete_interface: cn_if3,
+        name: '{{ mso_test.adc_device }}',
+        cluster_interface: '{{ mso_test.cluster_interface_2 }}',
+        concrete_interface: '{{ mso_test.concrete_interface_2 }}',
       }
     - {
-        tenant: '{{ mso_tenant | default("ansible_test") }}',
+        tenant: '{{ mso_test.tenant }}',
         type: OTHERS,
-        name: ansible_tenant_other,
-        cluster_interface: clu_if4,
-        concrete_interface: cn_if4,
+        name: '{{ mso_test.other_device }}',
+        cluster_interface: '{{ mso_test.cluster_interface_3 }}',
+        concrete_interface: '{{ mso_test.concrete_interface_3 }}',
       }
 
 - name: Add redirect policies to the common and ansible_tenant tenants
@@ -133,7 +133,7 @@
           name: "{{ item.name }}"
   loop:
     - {
-        tenant: '{{ mso_tenant | default("ansible_test") }}',
-        name: redirect_policy1,
+        tenant: '{{ mso_test.tenant }}',
+        name: '{{ mso_test.redirect_policy_1 }}',
       }
-    - { tenant: common, name: redirect_policy2 }
+    - { tenant: common, name: '{{ mso_test.redirect_policy_2 }}' }

@@ -19,6 +19,15 @@
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      schema: '{{ mso_schema_l3out_bgp_peer | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_l3out_bgp_peer | default(mso_tenant | default("ansible_test")) }}'
+      site: '{{ mso_site_l3out_bgp_peer | default(mso_site | default("ansible_test")) }}'
+      schema_template: "Template1"
+      l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+      fabric_resource_template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+      fabric_policy_template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+      tenant_policy_template: ansible_test_policy
 
 # QUERY VERSION
 - name: Query MSO version
@@ -27,72 +36,62 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version >= 4.3
+- name: Exercise ndo_l3out_bgp_peer
   when: version.current.version is version('4.3', '>=')
   block:
     # Setup Part
-    - name: Ensure ansible_test site exist
-      cisco.mso.mso_site:
-        <<: *mso_info
-        site: '{{ mso_site | default("ansible_test") }}'
-        state: query
-      register: ansible_test_site
-
-    - name: Ensure ansible_test tenant exist
-      cisco.mso.mso_tenant:
-        <<: *mso_info
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        users:
-          - '{{ mso_username }}'
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
-
     - name: Ensure l3out template not exist
       cisco.mso.ndo_template: &ndo_l3out_template_absent
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         template_type: l3out
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_fabric_resource_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_resource_template_absent
         <<: *mso_info
-        name: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        name: '{{ mso_test.fabric_resource_template }}'
         template_type: fabric_resource
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_fabric_policy_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
         <<: *mso_info
-        name: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        name: '{{ mso_test.fabric_policy_template }}'
         template_type: fabric_policy
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_test_policy tenant policy template not exists
       cisco.mso.ndo_template: &tenant_pol_template_absent
         <<: *mso_info
-        name: ansible_test_policy
+        name: "{{ mso_test.tenant_policy_template }}"
         template_type: tenant
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
         state: absent
 
     - name: Ensure ansible_test schema template not exist
       cisco.mso.mso_schema_template: &mso_schema_template_absent
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        template: "Template1"
+        schema: '{{ mso_test.schema }}'
+        tenant: '{{ mso_test.tenant }}'
+        template: "{{ mso_test.schema_template }}"
         state: absent
 
     # Schema Template Setup for the VRF
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true
     - name: Add an ansible_test schema template
       cisco.mso.mso_schema_template:
         <<: *mso_schema_template_absent
@@ -101,8 +100,8 @@
     - name: Add a new VRF1
       cisco.mso.mso_schema_template_vrf:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: "Template1"
+        schema: '{{ mso_test.schema }}'
+        template: "{{ mso_test.schema_template }}"
         vrf: VRF1
         layer3_multicast: true
         state: present
@@ -117,7 +116,7 @@
     - name: Create BGP Peer Prefix Policy
       cisco.mso.ndo_tenant_bgp_peer_prefix_policy:
         <<: *mso_info
-        template: ansible_test_policy
+        template: "{{ mso_test.tenant_policy_template }}"
         name: "{{ item }}"
         state: present
       register: bgp_peer_prefix_policy
@@ -134,7 +133,7 @@
     - name: Create a VLAN pool in the fabric_policy template
       cisco.mso.ndo_vlan_pool:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         vlan_pool: ansible_test_vlan_pool_1
         vlan_ranges:
           - from_vlan: 100
@@ -144,7 +143,7 @@
     - name: Create a L3 domain in the fabric_policy template
       cisco.mso.ndo_l3_domain:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         l3_domain: ansible_test_l3_domain
         pool: ansible_test_vlan_pool_1
         state: present
@@ -152,7 +151,7 @@
     - name: Create a interface policy group of type port channel
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         name: ansible_test_interface_policy_group_port_channel
         interface_type: port_channel
         state: present
@@ -166,12 +165,12 @@
     - name: Create port_channel_interface_1 in the fabric_resource template
       cisco.mso.ndo_port_channel_interface:
         <<: *mso_info
-        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_resource_template }}'
         port_channel_interface: ansible_port_channel_interface_1
         node: 101
         interfaces: 1/20
         interface_policy_group:
-          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          template: '{{ mso_test.fabric_policy_template }}'
           name: ansible_test_interface_policy_group_port_channel
         state: present
       register: port_channel_interface_1
@@ -179,7 +178,7 @@
     - name: Create ansible_virtual_port_channel_interface_1 in the fabric_resource template
       cisco.mso.ndo_virtual_port_channel_interface:
         <<: *mso_info
-        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_resource_template }}'
         name: ansible_virtual_port_channel_interface_1
         node_1: 101
         node_2: 102
@@ -188,7 +187,7 @@
         interfaces_node_2:
           - 1/21
         interface_policy_group:
-          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          template: '{{ mso_test.fabric_policy_template }}'
           name: ansible_test_interface_policy_group_port_channel
         state: present
       register: virtual_port_channel_interface_1
@@ -209,12 +208,12 @@
     - name: Create l3out_1 object with bgp routing protocol
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: "l3out_1"
         vrf:
           name: "VRF1"
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: "Template1"
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         l3_domain: ansible_test_l3_domain
         bgp:
           state: enabled
@@ -224,7 +223,7 @@
     - name: Create L3Out node group policy
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         name: "node_group_policy_1"
         state: present
@@ -274,7 +273,7 @@
       cisco.mso.ndo_template:
         <<: *mso_info
         template_type: tenant
-        template: ansible_test_policy
+        template: "{{ mso_test.tenant_policy_template }}"
         state: query
       register: tenant_pol_template
 
@@ -282,7 +281,7 @@
     - name: Create L3Out BGP Peer minimum config (check_mode)
       cisco.mso.ndo_l3out_bgp_peer: &cm_bgp_peer_ipv4_present
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "1.1.1.1"
@@ -351,7 +350,7 @@
     - name: Create L3Out BGP Peer full config using only ipv6
       cisco.mso.ndo_l3out_bgp_peer: &add_ipv6_bgp_peer
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv6_address: "1::8/16"
@@ -359,10 +358,10 @@
         admin_state: enabled
         import_route_map:
           name: ans_route_map
-          template: ansible_test_policy
+          template: "{{ mso_test.tenant_policy_template }}"
         export_route_map:
           name: ans_route_map_2
-          template: ansible_test_policy
+          template: "{{ mso_test.tenant_policy_template }}"
         peer_prefix:
           name: ansible_test_bgp_peer_prefix_policy
           template_id: "{{ ansible_test_policy.current.templateId }}"
@@ -396,7 +395,7 @@
     - name: Create L3Out BGP Peer minimum config with IPv4 and IPv6 address
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "5.5.5.5"
@@ -407,7 +406,7 @@
     - name: Query a specific L3Out BGP Peer object with IPv4 and IPv6 address
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "5.5.5.5"
@@ -418,7 +417,7 @@
     - name: Query a specific L3Out BGP Peer object with IPv6 address
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv6_address: "1::19/16"
@@ -428,7 +427,7 @@
     - name: Query a specific L3Out BGP Peer object with IPv4 address
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "5.5.5.5"
@@ -438,7 +437,7 @@
     - name: Create L3Out BGP Peer using route map and peer prefix object UUIDs (check_mode)
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv6_address: "1::20/16"
@@ -452,7 +451,7 @@
     - name: Create L3Out BGP Peer using route map and peer prefix object UUIDs
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv6_address: "1::20/16"
@@ -465,7 +464,7 @@
     - name: Create L3Out BGP Peer config with IPv4, IPv6 address and default control values
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "3.3.3.3"
@@ -501,11 +500,11 @@
           - add_ipv6_bgp_peer.current.exportRouteMapName == "ans_route_map_2"
           - add_ipv6_bgp_peer.current.exportRouteMapRef != ""
           - add_ipv6_bgp_peer.current.exportRouteMapTemplateId != ""
-          - add_ipv6_bgp_peer.current.exportRouteMapTemplateName == "ansible_test_policy"
+          - add_ipv6_bgp_peer.current.exportRouteMapTemplateName == mso_test.tenant_policy_template
           - add_ipv6_bgp_peer.current.importRouteMapName == "ans_route_map"
           - add_ipv6_bgp_peer.current.importRouteMapRef != ""
           - add_ipv6_bgp_peer.current.importRouteMapTemplateId != ""
-          - add_ipv6_bgp_peer.current.importRouteMapTemplateName == "ansible_test_policy"
+          - add_ipv6_bgp_peer.current.importRouteMapTemplateName == mso_test.tenant_policy_template
           - add_ipv6_bgp_peer.current.localAsn == 1
           - add_ipv6_bgp_peer.current.localAsnConfig == "replace-as"
           - add_ipv6_bgp_peer.current.peerAddressV6 == "1::8/16"
@@ -515,7 +514,7 @@
           - add_ipv6_bgp_peer.current.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
           - add_ipv6_bgp_peer.current.peerPrefixRef != ""
           - add_ipv6_bgp_peer.current.peerPrefixTemplateId != ""
-          - add_ipv6_bgp_peer.current.peerPrefixTemplateName == "ansible_test_policy"
+          - add_ipv6_bgp_peer.current.peerPrefixTemplateName == mso_test.tenant_policy_template
           - add_ipv6_bgp_peer.current.privateASControls.removeAll == true
           - add_ipv6_bgp_peer.current.privateASControls.removeExclusive == true
           - add_ipv6_bgp_peer.current.privateASControls.replaceWithLocalAS == true
@@ -539,16 +538,16 @@
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapName == "ans_route_map_2"
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapRef != ""
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateId != ""
-          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateName == "ansible_test_policy"
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateName == mso_test.tenant_policy_template
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapName == "ans_route_map"
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapRef != ""
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateId != ""
-          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateName == "ansible_test_policy"
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateName == mso_test.tenant_policy_template
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.peerAddressV6 == "1::20/16"
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixRef != ""
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateId != ""
-          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateName == "ansible_test_policy"
+          - cm_add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateName == mso_test.tenant_policy_template
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.templateId != ""
           - cm_add_ipv6_bgp_peer_with_obj_uuid.current.templateName is defined
           - cm_add_ipv6_bgp_peer_with_obj_uuid.previous == {}
@@ -560,16 +559,16 @@
           - add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapName == "ans_route_map_2"
           - add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapRef != ""
           - add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateId != ""
-          - add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateName == "ansible_test_policy"
+          - add_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateName == mso_test.tenant_policy_template
           - add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapName == "ans_route_map"
           - add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapRef != ""
           - add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateId != ""
-          - add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateName == "ansible_test_policy"
+          - add_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateName == mso_test.tenant_policy_template
           - add_ipv6_bgp_peer_with_obj_uuid.current.peerAddressV6 == "1::20/16"
           - add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
           - add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixRef != ""
           - add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateId != ""
-          - add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateName == "ansible_test_policy"
+          - add_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateName == mso_test.tenant_policy_template
           - add_ipv6_bgp_peer_with_obj_uuid.current.templateId != ""
           - add_ipv6_bgp_peer_with_obj_uuid.current.templateName is defined
           - add_ipv6_bgp_peer_with_obj_uuid.previous == {}
@@ -650,16 +649,16 @@
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapName == "ans_route_map_2"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapRef == ""
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateId != ""
-          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateName == "ansible_test_policy"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.exportRouteMapTemplateName == mso_test.tenant_policy_template
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapName == "ans_route_map"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapRef == ""
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateId != ""
-          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateName == "ansible_test_policy"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.importRouteMapTemplateName == mso_test.tenant_policy_template
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerAddressV6 == "1::20/16"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixRef == ""
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateId != ""
-          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateName == "ansible_test_policy"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.current.peerPrefixTemplateName == mso_test.tenant_policy_template
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.templateId != ""
           - cm_update_ipv6_bgp_peer_with_obj_uuid.current.templateName is defined
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.adminState == "enabled"
@@ -669,16 +668,16 @@
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapName == "ans_route_map_2"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapRef != ""
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapTemplateId != ""
-          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapTemplateName == "ansible_test_policy"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapTemplateName == mso_test.tenant_policy_template
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapName == "ans_route_map"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapRef != ""
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapTemplateId != ""
-          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapTemplateName == "ansible_test_policy"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapTemplateName == mso_test.tenant_policy_template
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerAddressV6 == "1::20/16"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixRef != ""
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateId != ""
-          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateName == "ansible_test_policy"
+          - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateName == mso_test.tenant_policy_template
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateId != ""
           - cm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateName is defined
           - nm_update_ipv6_bgp_peer_with_obj_uuid is changed
@@ -696,16 +695,16 @@
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapName == "ans_route_map_2"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapRef != ""
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapTemplateId != ""
-          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapTemplateName == "ansible_test_policy"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.exportRouteMapTemplateName == mso_test.tenant_policy_template
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapName == "ans_route_map"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapRef != ""
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapTemplateId != ""
-          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapTemplateName == "ansible_test_policy"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.importRouteMapTemplateName == mso_test.tenant_policy_template
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerAddressV6 == "1::20/16"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixRef != ""
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateId != ""
-          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateName == "ansible_test_policy"
+          - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.peerPrefixTemplateName == mso_test.tenant_policy_template
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateId != ""
           - nm_update_ipv6_bgp_peer_with_obj_uuid.previous.templateName is defined
           - nm_update_ipv6_bgp_peer_with_obj_uuid_again is not changed
@@ -736,7 +735,7 @@
           template_id: "{{ ansible_test_policy.current.templateId }}"
         peer_prefix:
           name: ansible_test_bgp_peer_prefix_policy_1
-          template: ansible_test_policy
+          template: "{{ mso_test.tenant_policy_template }}"
         ebgp_multi_hop_ttl: 3
         auth_password: ""
         weight: ""
@@ -766,7 +765,7 @@
     - name: Clear control attribute values of an existing L3Out BGP Peer object
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv6_address: "1::8/16"
@@ -788,7 +787,7 @@
     - name: Add control attribute with default values of an existing L3Out BGP Peer object again
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv6_address: "1::8/16"
@@ -810,7 +809,7 @@
     - name: Enable remove_all when the private_as_controls replace_with_local_as is false
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "3.3.3.3"
@@ -841,11 +840,11 @@
           - update_ipv6_bgp_peer.current.exportRouteMapName == "ans_route_map"
           - update_ipv6_bgp_peer.current.exportRouteMapRef != ""
           - update_ipv6_bgp_peer.current.exportRouteMapTemplateId != ""
-          - update_ipv6_bgp_peer.current.exportRouteMapTemplateName == "ansible_test_policy"
+          - update_ipv6_bgp_peer.current.exportRouteMapTemplateName == mso_test.tenant_policy_template
           - update_ipv6_bgp_peer.current.importRouteMapName == "ans_route_map_2"
           - update_ipv6_bgp_peer.current.importRouteMapRef != ""
           - update_ipv6_bgp_peer.current.importRouteMapTemplateId != ""
-          - update_ipv6_bgp_peer.current.importRouteMapTemplateName == "ansible_test_policy"
+          - update_ipv6_bgp_peer.current.importRouteMapTemplateName == mso_test.tenant_policy_template
           - update_ipv6_bgp_peer.current.localAsnConfig == "none"
           - update_ipv6_bgp_peer.current.peerAddressV6 == "1::8/16"
           - update_ipv6_bgp_peer.current.peerControls.bfd == false
@@ -853,7 +852,7 @@
           - update_ipv6_bgp_peer.current.peerPrefixName == "ansible_test_bgp_peer_prefix_policy_1"
           - update_ipv6_bgp_peer.current.peerPrefixRef != ""
           - update_ipv6_bgp_peer.current.peerPrefixTemplateId != ""
-          - update_ipv6_bgp_peer.current.peerPrefixTemplateName == "ansible_test_policy"
+          - update_ipv6_bgp_peer.current.peerPrefixTemplateName == mso_test.tenant_policy_template
           - update_ipv6_bgp_peer.current.privateASControls.removeAll == true
           - update_ipv6_bgp_peer.current.privateASControls.removeExclusive == true
           - update_ipv6_bgp_peer.current.privateASControls.replaceWithLocalAS == true
@@ -875,11 +874,11 @@
           - update_ipv6_bgp_peer.previous.exportRouteMapName == "ans_route_map_2"
           - update_ipv6_bgp_peer.previous.exportRouteMapRef != ""
           - update_ipv6_bgp_peer.previous.exportRouteMapTemplateId != ""
-          - update_ipv6_bgp_peer.previous.exportRouteMapTemplateName == "ansible_test_policy"
+          - update_ipv6_bgp_peer.previous.exportRouteMapTemplateName == mso_test.tenant_policy_template
           - update_ipv6_bgp_peer.previous.importRouteMapName == "ans_route_map"
           - update_ipv6_bgp_peer.previous.importRouteMapRef != ""
           - update_ipv6_bgp_peer.previous.importRouteMapTemplateId != ""
-          - update_ipv6_bgp_peer.previous.importRouteMapTemplateName == "ansible_test_policy"
+          - update_ipv6_bgp_peer.previous.importRouteMapTemplateName == mso_test.tenant_policy_template
           - update_ipv6_bgp_peer.previous.localAsn == 1
           - update_ipv6_bgp_peer.previous.localAsnConfig == "replace-as"
           - update_ipv6_bgp_peer.previous.password == {}
@@ -890,7 +889,7 @@
           - update_ipv6_bgp_peer.previous.peerPrefixName == "ansible_test_bgp_peer_prefix_policy"
           - update_ipv6_bgp_peer.previous.peerPrefixRef != ""
           - update_ipv6_bgp_peer.previous.peerPrefixTemplateId != ""
-          - update_ipv6_bgp_peer.previous.peerPrefixTemplateName == "ansible_test_policy"
+          - update_ipv6_bgp_peer.previous.peerPrefixTemplateName == mso_test.tenant_policy_template
           - update_ipv6_bgp_peer.previous.privateASControls.removeAll == true
           - update_ipv6_bgp_peer.previous.privateASControls.removeExclusive == true
           - update_ipv6_bgp_peer.previous.privateASControls.replaceWithLocalAS == true
@@ -923,11 +922,11 @@
           - clear_ctrl_attr.previous.exportRouteMapName == "ans_route_map"
           - clear_ctrl_attr.previous.exportRouteMapRef != ""
           - clear_ctrl_attr.previous.exportRouteMapTemplateId != ""
-          - clear_ctrl_attr.previous.exportRouteMapTemplateName == "ansible_test_policy"
+          - clear_ctrl_attr.previous.exportRouteMapTemplateName == mso_test.tenant_policy_template
           - clear_ctrl_attr.previous.importRouteMapName == "ans_route_map_2"
           - clear_ctrl_attr.previous.importRouteMapRef != ""
           - clear_ctrl_attr.previous.importRouteMapTemplateId != ""
-          - clear_ctrl_attr.previous.importRouteMapTemplateName == "ansible_test_policy"
+          - clear_ctrl_attr.previous.importRouteMapTemplateName == mso_test.tenant_policy_template
           - clear_ctrl_attr.previous.localAsnConfig == "none"
           - clear_ctrl_attr.previous.peerAddressV6 == "1::8/16"
           - clear_ctrl_attr.previous.peerControls.bfd == false
@@ -935,7 +934,7 @@
           - clear_ctrl_attr.previous.peerPrefixName == "ansible_test_bgp_peer_prefix_policy_1"
           - clear_ctrl_attr.previous.peerPrefixRef != ""
           - clear_ctrl_attr.previous.peerPrefixTemplateId != ""
-          - clear_ctrl_attr.previous.peerPrefixTemplateName == "ansible_test_policy"
+          - clear_ctrl_attr.previous.peerPrefixTemplateName == mso_test.tenant_policy_template
           - clear_ctrl_attr.previous.privateASControls.removeAll == true
           - clear_ctrl_attr.previous.privateASControls.removeExclusive == true
           - clear_ctrl_attr.previous.privateASControls.replaceWithLocalAS == true
@@ -996,7 +995,7 @@
     - name: Invalid test - create L3Out BGP Peer config without IPv4, IPv6 address
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         state: present
@@ -1006,7 +1005,7 @@
     - name: Invalid test - change allowed_self_as_count when the bgp_controls allow_self_as is false
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "3.3.3.3"
@@ -1035,7 +1034,7 @@
           - nt_change_allowed_self_as_count.current.peerAddressV4 == "3.3.3.3"
           - nt_change_allowed_self_as_count.current.peerAddressV6 == "1::9/16"
           - nt_change_allowed_self_as_count.current.templateId != ""
-          - nt_change_allowed_self_as_count.current.templateName == "ansible_test"
+          - nt_change_allowed_self_as_count.current.templateName == mso_test.l3out_template
           - nt_change_allowed_self_as_count.msg == error_message_change_allowed_self_as_count
           - nt_change_allowed_self_as_count.previous.addressTypeControls.afMast == false
           - nt_change_allowed_self_as_count.previous.addressTypeControls.afUcast == false
@@ -1050,7 +1049,7 @@
     - name: Clear IPv4 address for the L3Out BGP Peer object
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: ""
@@ -1064,7 +1063,7 @@
     - name: Invalid test - change configured IPv4 address when IPv6 is already configured
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "5.5.5.6"
@@ -1076,7 +1075,7 @@
     - name: Clear IPv6 address for the L3Out BGP Peer object
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "5.5.5.5"
@@ -1115,7 +1114,7 @@
     - name: Invalid test - Add IPv4 address back to the L3Out BGP Peer object
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "3.3.3.3"
@@ -1127,7 +1126,7 @@
     - name: Invalid test - change configured IPv6 address when IPv4 is already configured
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "5.5.5.5"
@@ -1150,14 +1149,14 @@
     - name: Invalid test - create L3Out BGP Peer with import_route_map and import_route_map_uuid
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "1.1.1.1"
         auth_password: 123
         import_route_map:
           name: "import_route_map"
-          template: ansible_test_policy
+          template: "{{ mso_test.tenant_policy_template }}"
         import_route_map_uuid: "import_route_map_uuid"
         state: present
       register: nt_create_with_import_route_map
@@ -1166,14 +1165,14 @@
     - name: Invalid test - create L3Out BGP Peer with export_route_map and export_route_map_uuid
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "1.1.1.1"
         auth_password: 123
         export_route_map:
           name: "export_route_map"
-          template: ansible_test_policy
+          template: "{{ mso_test.tenant_policy_template }}"
         export_route_map_uuid: "export_route_map_uuid"
         state: present
       register: nt_create_with_export_route_map
@@ -1182,14 +1181,14 @@
     - name: Invalid test - create L3Out BGP Peer with peer_prefix and peer_prefix_uuid
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "1.1.1.1"
         auth_password: 123
         peer_prefix:
           name: "peer_prefix"
-          template: ansible_test_policy
+          template: "{{ mso_test.tenant_policy_template }}"
         peer_prefix_uuid: "peer_prefix_uuid"
         state: present
       register: nt_create_with_peer_prefix
@@ -1229,7 +1228,7 @@
     - name: Query all L3Out BGP Peer
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         state: query
@@ -1282,7 +1281,7 @@
     - name: Remove an existing L3Out BGP Peer with IPv6 address
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv6_address: "1::8/16"
@@ -1292,7 +1291,7 @@
     - name: Remove an existing L3Out BGP Peer with IPv4 address
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: "l3out_1"
         node_group: "node_group_policy_1"
         ipv4_address: "5.5.5.5"
@@ -1331,7 +1330,7 @@
     - name: Create a L3out routed interface of type port
       cisco.mso.ndo_l3out_routed_interface: &create_l3out_routed_interface_port
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/1
@@ -1344,7 +1343,7 @@
     - name: Create L3Out BGP Peer on a L3out routed interface of type port
       cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_routed_interface_port
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: "routed"
@@ -1396,7 +1395,7 @@
     - name: Create a L3out routed interface of type port channel with uuid
       cisco.mso.ndo_l3out_routed_interface: &create_l3out_routed_interface_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         port_channel:
           uuid: '{{ port_channel_interface_1.current.uuid }}'
@@ -1409,7 +1408,7 @@
     - name: Create L3Out BGP Peer on a L3out routed interface of type port channel
       cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_routed_interface_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: "routed"
@@ -1465,7 +1464,7 @@
     - name: Create a L3out routed sub-interface of type port
       cisco.mso.ndo_l3out_routed_sub_interface: &create_l3out_routed_sub_interface_port
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/1
@@ -1480,7 +1479,7 @@
     - name: Create L3Out BGP Peer on a L3out routed sub-interface of type port
       cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_routed_sub_interface_port
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: "routed_sub"
@@ -1538,7 +1537,7 @@
     - name: Create a L3out routed sub-interface of type port channel with uuid
       cisco.mso.ndo_l3out_routed_sub_interface: &create_l3out_routed_sub_interface_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         port_channel:
           uuid: '{{ port_channel_interface_1.current.uuid }}'
@@ -1553,7 +1552,7 @@
     - name: Create L3Out BGP Peer on a L3out routed sub-interface of type port channel
       cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_routed_sub_interface_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: "routed_sub"
@@ -1615,7 +1614,7 @@
     - name: Create a L3out svi interface of type port
       cisco.mso.ndo_l3out_svi_interface: &create_l3out_svi_interface_port
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/1
@@ -1630,7 +1629,7 @@
     - name: Create L3Out BGP Peer on a L3out svi interface of type port
       cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_svi_interface_port
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: "svi"
@@ -1688,7 +1687,7 @@
     - name: Create a L3out svi interface of type port channel with uuid
       cisco.mso.ndo_l3out_svi_interface: &create_l3out_svi_interface_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         port_channel:
           uuid: '{{ port_channel_interface_1.current.uuid }}'
@@ -1703,7 +1702,7 @@
     - name: Create L3Out BGP Peer on a L3out svi interface of type port channel
       cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_svi_interface_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: "svi"
@@ -1763,7 +1762,7 @@
     - name: Create a L3out svi interface of type virtual port channel with uuid
       cisco.mso.ndo_l3out_svi_interface: &create_l3out_svi_interface_virtual_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         virtual_port_channel:
           uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
@@ -1780,7 +1779,7 @@
     - name: Create L3Out BGP Peer on a L3out svi interface of type virtual port channel
       cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_svi_interface_virtual_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: "svi"
@@ -1842,7 +1841,7 @@
     - name: Create a L3out floating svi interface
       cisco.mso.ndo_l3out_floating_svi_interface: &create_l3out_floating_svi_interface
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         ipv4_address: 10.0.0.1/24
@@ -1856,7 +1855,7 @@
     - name: Create L3Out BGP Peer on a L3out floating svi interface
       cisco.mso.ndo_l3out_bgp_peer: &create_bgp_peer_for_l3out_floating_svi_interface
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: "floating_svi"
@@ -1913,7 +1912,7 @@
     - name: Error creating L3Out BGP Peer with parent_type node_group without node_group
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         # parent_type: "floating_svi"
@@ -1924,7 +1923,7 @@
     - name: Error creating L3Out BGP Peer with parent_type routed without path or port_channel
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: routed
@@ -1935,7 +1934,7 @@
     - name: Error creating L3Out BGP Peer with parent_type routed_sub without path or port_channel
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: routed_sub
@@ -1946,7 +1945,7 @@
     - name: Error creating L3Out BGP Peer with parent_type routed_sub with path without encapsulation_type and encapsulation_value
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: routed_sub
@@ -1958,7 +1957,7 @@
     - name: Error creating L3Out BGP Peer with parent_type routed_sub with path and encapsulation_type but without encapsulation_value
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: routed_sub
@@ -1971,7 +1970,7 @@
     - name: Error creating L3Out BGP Peer with parent_type routed_sub with path and encapsulation_value but without encapsulation_type
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: routed_sub
@@ -1984,7 +1983,7 @@
     - name: Error creating L3Out BGP Peer with parent_type routed_sub with path without node_id
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: routed_sub
@@ -1998,7 +1997,7 @@
     - name: Error creating L3Out BGP Peer with parent_type svi without path, port_channel or vitrual_port_channel
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: svi
@@ -2009,7 +2008,7 @@
     - name: Error creating L3Out BGP Peer with parent_type routed_sub with path without encapsulation_type and encapsulation_value
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: svi
@@ -2021,7 +2020,7 @@
     - name: Error creating L3Out BGP Peer with parent_type routed_sub with path and encapsulation_type but without encapsulation_value
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: svi
@@ -2034,7 +2033,7 @@
     - name: Error creating L3Out BGP Peer with parent_type routed_sub with path and encapsulation_value but without encapsulation_type
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: svi
@@ -2047,7 +2046,7 @@
     - name: Error creating L3Out BGP Peer with parent_type floating_svi without node_id, encapsulation_type or encapsulation_value
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: floating_svi
@@ -2058,7 +2057,7 @@
     - name: Error creating L3Out BGP Peer with parent_type floating_svi without node_id
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: floating_svi
@@ -2071,7 +2070,7 @@
     - name: Error creating L3Out BGP Peer with parent_type floating_svi without encapsulation_type
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: floating_svi
@@ -2084,7 +2083,7 @@
     - name: Error creating L3Out BGP Peer with parent_type floating_svi without encapsulation_value
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: floating_svi
@@ -2097,7 +2096,7 @@
     - name: Error mutually exclusive parameters port_channel and path
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: svi
@@ -2114,7 +2113,7 @@
     - name: Error mutually exclusive parameters port_channel and node_id
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: svi
@@ -2130,7 +2129,7 @@
     - name: Error mutually exclusive parameters port_channel and virtual_port_channel
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: svi
@@ -2147,7 +2146,7 @@
     - name: Error mutually exclusive parameters virtual_port_channel and path
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: svi
@@ -2164,7 +2163,7 @@
     - name: Error mutually exclusive parameters virtual_port_channel and node_id
       cisco.mso.ndo_l3out_bgp_peer:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         ipv4_address: 5.5.5.5
         parent_type: svi
@@ -2225,23 +2224,35 @@
           - err_mutually_exclusive_virtual_port_channel_node_id.failed
           - 'err_mutually_exclusive_virtual_port_channel_node_id.msg == "parameters are mutually exclusive: virtual_port_channel|node_id"'
 
-    # CLEANUP TEMPLATE
+  always:
     - name: Ensure l3out template not exist
       cisco.mso.ndo_template:
         <<: *ndo_l3out_template_absent
+      ignore_errors: true
 
     - name: Ensure ansible_test_policy tenant policy template not exists
       cisco.mso.ndo_template:
         <<: *tenant_pol_template_absent
+      ignore_errors: true
 
     - name: Remove ansible_fabric_resource_template fabric_resource template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_resource_template_absent
+      ignore_errors: true
 
     - name: Remove ansible_fabric_policy_template fabric_policy template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_policy_template_absent
+      ignore_errors: true
 
     - name: Ensure ansible_test schema template not exist
       cisco.mso.mso_schema_template:
         <<: *mso_schema_template_absent
+      ignore_errors: true
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true

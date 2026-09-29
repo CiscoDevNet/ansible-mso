@@ -26,6 +26,14 @@
       use_ssl: "{{ apic_use_ssl | default(true) }}"
       use_proxy: "{{ apic_use_proxy | default(true) }}"
       output_level: '{{ apic_output_level | default("debug") }}'
+    mso_test:
+      schema: '{{ mso_schema_l3out_secondary_ip | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_l3out_secondary_ip | default(mso_tenant | default("ansible_test")) }}'
+      site: '{{ mso_site_l3out_secondary_ip | default(mso_site | default("ansible_test")) }}'
+      schema_template: template_1
+      l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+      fabric_resource_template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+      fabric_policy_template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -34,60 +42,57 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version >= 4.4
+- name: Exercise ndo_l3out_secondary_ip
   when: version.current.version is version('4.4', '>=')
   block:
     
     # CLEAN ENVIRONMENT - ENSURE CLEAN ENVIRONMENT FOR TESTS
 
-    - name: Ensure ansible_test tenant exist
-      cisco.mso.mso_tenant:
-        <<: *mso_info
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        users:
-          - '{{ mso_username }}'
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
-
     - name: Ensure L3out template does not exist
       cisco.mso.ndo_template: &ndo_l3out_template_absent
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         template_type: l3out
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
-        state: absent
-
-    - name: Ensure ansible_test schema does not exist
-      cisco.mso.mso_schema_template: &mso_schema_template_absent
-        <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        template: template_1
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_fabric_resource_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_resource_template_absent
         <<: *mso_info
-        name: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        name: '{{ mso_test.fabric_resource_template }}'
         template_type: fabric_resource
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_fabric_policy_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
         <<: *mso_info
-        name: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        name: '{{ mso_test.fabric_policy_template }}'
         template_type: fabric_policy
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     # CLEAN ENVIRONMENT - REQUIRED FOR TESTS
 
+    - name: Ensure ansible_test schema does not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: '{{ mso_test.schema }}'
+        tenant: '{{ mso_test.tenant }}'
+        template: "{{ mso_test.schema_template }}"
+        state: absent
+
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true
     - name: Set ansible_network_os to cisco.aci.aci
       ansible.builtin.set_fact:
         ansible_network_os: cisco.aci.aci
@@ -146,7 +151,7 @@
     - name: Create a VLAN pool in the fabric_policy template
       cisco.mso.ndo_vlan_pool:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         vlan_pool: ansible_test_vlan_pool_1
         vlan_ranges:
           - from_vlan: 100
@@ -156,7 +161,7 @@
     - name: Create a L3 domain in the fabric_policy template
       cisco.mso.ndo_l3_domain:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         l3_domain: ansible_test_l3_domain
         pool: ansible_test_vlan_pool_1
         state: present
@@ -164,7 +169,7 @@
     - name: Create a interface policy group of type port channel
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         name: ansible_test_interface_policy_group_port_channel
         interface_type: port_channel
         state: present
@@ -177,12 +182,12 @@
     - name: Create port_channel_interface_1 in the fabric_resource template
       cisco.mso.ndo_port_channel_interface:
         <<: *mso_info
-        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_resource_template }}'
         port_channel_interface: ansible_port_channel_interface_1
         node: 101
         interfaces: 1/20
         interface_policy_group:
-          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          template: '{{ mso_test.fabric_policy_template }}'
           name: ansible_test_interface_policy_group_port_channel
         state: present
       register: port_channel_interface_1
@@ -190,12 +195,12 @@
     - name: Create port_channel_interface_2 in the fabric_resource template
       cisco.mso.ndo_port_channel_interface:
         <<: *mso_info
-        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_resource_template }}'
         port_channel_interface: ansible_port_channel_interface_2
         node: 101
         interfaces: 1/21
         interface_policy_group:
-          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          template: '{{ mso_test.fabric_policy_template }}'
           name: ansible_test_interface_policy_group_port_channel
         state: present
       register: port_channel_interface_2
@@ -203,12 +208,12 @@
     - name: Create port_channel_interface_3 in the fabric_resource template
       cisco.mso.ndo_port_channel_interface:
         <<: *mso_info
-        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_resource_template }}'
         port_channel_interface: ansible_port_channel_interface_3
         node: 102
         interfaces: 1/20
         interface_policy_group:
-          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          template: '{{ mso_test.fabric_policy_template }}'
           name: ansible_test_interface_policy_group_port_channel
         state: present
       register: port_channel_interface_3
@@ -216,7 +221,7 @@
     - name: Create ansible_virtual_port_channel_interface_1 in the fabric_resource template
       cisco.mso.ndo_virtual_port_channel_interface:
         <<: *mso_info
-        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_resource_template }}'
         name: ansible_virtual_port_channel_interface_1
         node_1: 101
         node_2: 102
@@ -225,7 +230,7 @@
         interfaces_node_2:
           - 1/22
         interface_policy_group:
-          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          template: '{{ mso_test.fabric_policy_template }}'
           name: ansible_test_interface_policy_group_port_channel
         state: present
       register: virtual_port_channel_interface_1
@@ -238,8 +243,8 @@
     - name: Create a VRF in the schema template
       cisco.mso.mso_schema_template_vrf:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: template_1
+        schema: '{{ mso_test.schema }}'
+        template: "{{ mso_test.schema_template }}"
         vrf: vrf_1
         state: present
 
@@ -252,12 +257,12 @@
     - name: Create L3Out object in the L3Out template
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1
         vrf:
           name: vrf_1
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: template_1
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         l3_domain: ansible_test_l3_domain
         ospf:
           state: enabled
@@ -271,7 +276,7 @@
     - name: Create a L3out svi interface of type port
       cisco.mso.ndo_l3out_svi_interface: 
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/1
@@ -287,7 +292,7 @@
     - name: Create a L3out svi interface of type port channel
       cisco.mso.ndo_l3out_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         port_channel:
           uuid: '{{ port_channel_interface_1.current.uuid }}'
@@ -303,7 +308,7 @@
     - name: Create a L3out svi interface of type virtual port channel
       cisco.mso.ndo_l3out_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         encapsulation_type: vlan
         encapsulation_value: 1000
@@ -321,14 +326,14 @@
     - name: Create a L3out routed sub-interface of type port channel
       cisco.mso.ndo_l3out_routed_sub_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_router_id: 1.1.1.1
         use_router_id_as_loopback: true
         port_channel:
           reference:
             name: '{{ port_channel_interface_2.current.name }}'
-            template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+            template: '{{ mso_test.fabric_resource_template }}'
         encapsulation_type: vlan
         encapsulation_value: 101
         ipv6_address: 2::101/16
@@ -340,7 +345,7 @@
     - name: Create a L3out routed sub-interface of type port
       cisco.mso.ndo_l3out_routed_sub_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/2
@@ -356,14 +361,14 @@
     - name: Create a L3out routed interface of type port channel
       cisco.mso.ndo_l3out_routed_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_router_id: 2.2.2.2
         use_router_id_as_loopback: true
         port_channel:
           reference:
             name: '{{ port_channel_interface_3.current.name }}'
-            template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+            template: '{{ mso_test.fabric_resource_template }}'
         ipv4_address: 10.2.0.1/24
         mac: 00:22:BD:F8:19:EE
         mtu: 2000
@@ -373,7 +378,7 @@
     - name: Create a L3out routed interface of type port
       cisco.mso.ndo_l3out_routed_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/3
@@ -387,7 +392,7 @@
     - name: Create a L3out floating svi interface
       cisco.mso.ndo_l3out_floating_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         encapsulation_type: vlan
@@ -402,7 +407,7 @@
     - name: Create Path Attributes for a L3Out Floating SVI Interface
       cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         encapsulation_type: vlan
@@ -419,7 +424,7 @@
     - name: Create a secondary address on a L3out Routed Interface of type port (check mode)
       cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/3
@@ -479,7 +484,7 @@
     - name: Create a secondary address on a L3out Routed Interface of type port channel
       cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_routed_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         port_channel:
           uuid: '{{ port_channel_interface_3.current.uuid }}'
@@ -491,7 +496,7 @@
     - name: Create a secondary address on a L3out SVI Interface of type port
       cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_svi_port
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/1
@@ -505,7 +510,7 @@
     - name: Create a secondary address on a L3out SVI Interface of type port channel
       cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_svi_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         port_channel:
           uuid: '{{ port_channel_interface_1.current.uuid }}'
@@ -519,7 +524,7 @@
     - name: Create a secondary address on a L3out SVI Interface of type virtual port channel
       cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_svi_virtual_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         virtual_port_channel: 
           uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
@@ -533,7 +538,7 @@
     - name: Create a secondary address on a L3out SVI Interface of type virtual port channel side b
       cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_svi_virtual_port_channel_side_b
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         virtual_port_channel: 
           uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
@@ -548,7 +553,7 @@
     - name: Create a secondary address on a L3out Routed Sub-Interface of type port
       cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_routed_sub_port
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/2
@@ -562,7 +567,7 @@
     - name: Create a secondary address on a L3out Routed Sub-Interface of type port channel
       cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_routed_sub_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         port_channel:
           uuid: '{{ port_channel_interface_2.current.uuid }}'
@@ -576,7 +581,7 @@
     - name: Create a secondary address on a L3Out Floating SVI Interface
       cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_floating_svi
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         encapsulation_type: vlan
@@ -589,7 +594,7 @@
     - name: Create a secondary address on a L3Out Floating SVI Interface path attributes
       cisco.mso.ndo_l3out_secondary_ip: &create_secondary_address_floating_svi_path_attributes
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         encapsulation_type: vlan
@@ -782,7 +787,7 @@
     - name: Error creating L3Out Secondary Address with parent_type routed without path or port_channel
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: routed
@@ -793,7 +798,7 @@
     - name: Error creating L3Out Secondary Address with parent_type routed_sub without path or port_channel
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: routed_sub
@@ -804,7 +809,7 @@
     - name: Error creating L3Out Secondary Address with parent_type routed_sub with path without encapsulation_type and encapsulation_value
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: routed_sub
@@ -816,7 +821,7 @@
     - name: Error creating L3Out Secondary Address with parent_type routed_sub with path and encapsulation_type but without encapsulation_value
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: routed_sub
@@ -829,7 +834,7 @@
     - name: Error creating L3Out Secondary Address with parent_type routed_sub with path and encapsulation_value but without encapsulation_type
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: routed_sub
@@ -842,7 +847,7 @@
     - name: Error creating L3Out Secondary Address with parent_type routed_sub with path without node_id
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: routed_sub
@@ -856,7 +861,7 @@
     - name: Error creating L3Out Secondary Address with parent_type svi without path, port_channel or vitrual_port_channel
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: svi
@@ -867,7 +872,7 @@
     - name: Error creating L3Out Secondary Address with parent_type routed_sub with path without encapsulation_type and encapsulation_value
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: svi
@@ -879,7 +884,7 @@
     - name: Error creating L3Out Secondary Address with parent_type routed_sub with path and encapsulation_type but without encapsulation_value
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: svi
@@ -892,7 +897,7 @@
     - name: Error creating L3Out Secondary Address with parent_type routed_sub with path and encapsulation_value but without encapsulation_type
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: svi
@@ -905,7 +910,7 @@
     - name: Error creating L3Out Secondary Address with parent_type floating_svi without node_id, encapsulation_type or encapsulation_value
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: floating_svi
@@ -916,7 +921,7 @@
     - name: Error creating L3Out Secondary Address with parent_type floating_svi without node_id
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: floating_svi
@@ -929,7 +934,7 @@
     - name: Error creating L3Out Secondary Address with parent_type floating_svi without encapsulation_type
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: floating_svi
@@ -942,7 +947,7 @@
     - name: Error creating L3Out Secondary Address with parent_type floating_svi without encapsulation_value
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: floating_svi
@@ -955,7 +960,7 @@
     - name: Error mutually exclusive parameters port_channel and path
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: svi
@@ -972,7 +977,7 @@
     - name: Error mutually exclusive parameters port_channel and node_id
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: svi
@@ -988,7 +993,7 @@
     - name: Error mutually exclusive parameters port_channel and virtual_port_channel
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: svi
@@ -1005,7 +1010,7 @@
     - name: Error mutually exclusive parameters virtual_port_channel and path
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: svi
@@ -1022,7 +1027,7 @@
     - name: Error mutually exclusive parameters virtual_port_channel and node_id
       cisco.mso.ndo_l3out_secondary_ip:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         secondary_address: 5.5.5.5
         parent_type: svi
@@ -1098,7 +1103,7 @@
     
     - name: Get all secondary addresses on a L3out Routed Interface of type port
       cisco.mso.ndo_l3out_secondary_ip:
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/3
@@ -1232,23 +1237,33 @@
           - nm_delete_secondary_address_floating_svi_path_attributes.previous == nm_create_secondary_address_floating_svi_path_attributes.current
           - nm_delete_secondary_address_floating_svi_path_attributes.current == nm_delete_secondary_address_floating_svi_path_attributes.proposed == {}
 
-    # CLEANUP TEMPLATE
-
+  always:
     - name: Remove l3out template
       cisco.mso.ndo_template:
         <<: *ndo_l3out_template_absent
-
-    - name: Remove ansible_test schema template
-      cisco.mso.mso_schema_template:
-        <<: *mso_schema_template_absent
+      ignore_errors: true
 
     - name: Remove ansible_fabric_resource_template fabric_resource template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_resource_template_absent
+      ignore_errors: true
 
     - name: Remove ansible_fabric_policy_template fabric_policy template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_policy_template_absent
+      ignore_errors: true
+
+    - name: Remove ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+      ignore_errors: true
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true
 
     - name: Set ansible_network_os to cisco.aci.aci
       ansible.builtin.set_fact:
@@ -1261,8 +1276,10 @@
       cisco.aci.aci_domain:
         <<: *vmm_domain_present
         state: absent
+      ignore_errors: true
 
     - name: Remove the physical domain
       cisco.aci.aci_domain:
         <<: *phys_domain_present
         state: absent
+      ignore_errors: true

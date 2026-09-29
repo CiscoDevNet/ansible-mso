@@ -11,9 +11,8 @@
     msg: 'Please define the following variables: mso_hostname, mso_username and mso_password.'
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
-# CLEAN ENVIRONMENT
-- name: Set vars
-  ansible.builtin.set_fact: 
+- name: Set test connection and fixture variables
+  ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
       username: '{{ mso_username }}'
@@ -22,1042 +21,1062 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
-
-- name: Ensure site exists
-  cisco.mso.mso_site:
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ apic_username }}'
-    apic_password: '{{ apic_password }}'
-    apic_site_id: '{{ apic_site_id | default(101) }}'
-    urls:
-      - https://{{ apic_hostname }}
-    state: present
-
-- name: Ensure tenant ansible_test exists
-  cisco.mso.mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test
-    users:
-      - '{{ mso_username }}'
-    sites:
-      - '{{ mso_site | default("ansible_test") }}'
-    state: present
-
-- name: Remove schemas
-  cisco.mso.mso_schema:
-    <<: *mso_info
-    schema: '{{ item }}'
-    state: absent
-  loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
-
-- name: Ensure schema 1 with Template 1 and 2 exists
-  cisco.mso.mso_schema_template: 
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    tenant: ansible_test
-    template: '{{ item }}'
-    state: present
-  loop:
-  - Template 1
-  - Template 2
-
-- name: Ensure schema 2 with Template 3 exists
-  cisco.mso.mso_schema_template:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    tenant: ansible_test
-    template: Template 3
-    state: present
-
-- name: Add a new site to a schema
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    state: present
-
-- name: Ensure VRF1 exists
-  cisco.mso.mso_schema_template_vrf: 
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    vrf: VRF1
-    state: present
-    
-- name: Add BD1
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: BD1
-    vrf:
-      name: VRF1
-    state: present
-
-- name: Ensure Template 1 with AP1 exists
-  cisco.mso.mso_schema_template_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    state: present
-
-- name: Ensure Template 1 and AP1 with EPG1 exists
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    bd:
-      name: BD1
-    vrf:
-      name: VRF1
-    state: present
-
-- name: Ensure Template 1 and AP1 with EPG3 exists
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG3
-    bd:
-      name: BD1
-    vrf:
-      name: VRF1
-    state: present
-
-- name: Ensure Template 1 with AP2 exists
-  cisco.mso.mso_schema_template_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    state: present
-
-- name: Ensure Template 1 and AP2 with EPG2 exists
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG2
-    bd:
-      name: BD1
-    vrf:
-      name: VRF1
-    state: present
-
-- name: Ensure Template 1 and AP2 with EPG4 exists
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    bd:
-      name: BD1
-    vrf:
-      name: VRF1
-    state: present
-
-# ADD DOMAINS
-- name: Add domain 1 to site EPG1 with AP1 (check mode)
-  cisco.mso.mso_schema_site_anp_epg_domain: 
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    domain_association_type: vmmDomain
-    domain_profile: VMware-VMM
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: present
-  check_mode: true
-  register: cm_add_dom1e1
-
-- name: Verify cm_add_dom1e1
-  ansible.builtin.assert:
-    that:
-    - cm_add_dom1e1 is changed
-    - cm_add_dom1e1.previous == {}
-    - cm_add_dom1e1.current.deploymentImmediacy == 'lazy'
-    - cm_add_dom1e1.current.domainType == 'vmmDomain'
-    - cm_add_dom1e1.current.dn == 'uni/vmmp-VMware/dom-VMware-VMM'
-    - cm_add_dom1e1.current.resolutionImmediacy == 'pre-provision'
-
-- name: Add domain 1 to site EPG1 with AP1 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: present
-  register: nm_add_dom1e1
-
-- name: Verify nm_add_dom1e1
-  ansible.builtin.assert:
-    that:
-    - nm_add_dom1e1 is changed
-    - nm_add_dom1e1.previous == {}
-    - nm_add_dom1e1.current.deploymentImmediacy == 'lazy'
-    - nm_add_dom1e1.current.domainType == 'vmmDomain'
-    - nm_add_dom1e1.current.dn == 'uni/vmmp-VMware/dom-VMware-VMM'
-    - nm_add_dom1e1.current.resolutionImmediacy == 'pre-provision'
-
-- name: Add domain 2 to site EPG1 with AP1 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    domain_association_type: physicalDomain
-    domain_profile: phys
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: present
-  register: nm_add_dom2e1
-
-- name: Verify nm_add_dom2e1
-  ansible.builtin.assert:
-    that:
-    - nm_add_dom2e1 is changed
-    - nm_add_dom2e1.previous == {}
-    - nm_add_dom2e1.current.deploymentImmediacy == 'lazy'
-    - nm_add_dom2e1.current.domainType == 'physicalDomain'
-    - nm_add_dom2e1.current.dn == 'uni/phys-phys'
-    - nm_add_dom2e1.current.resolutionImmediacy == 'pre-provision'
-
-- name: Add domain 3 to site EPG1 with AP1 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    domain_association_type: physicalDomain
-    domain_profile: phys
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    state: present
-  register: nm_add_dom3e1
-
-- name: Verify nm_add_dom3e1
-  ansible.builtin.assert:
-    that:
-    - nm_add_dom3e1 is changed
-    - nm_add_dom3e1.previous != {}
-    - nm_add_dom3e1.current.deploymentImmediacy == 'lazy'
-    - nm_add_dom3e1.current.domainType == 'physicalDomain'
-    - nm_add_dom3e1.current.dn == 'uni/phys-phys'
-    - nm_add_dom3e1.current.resolutionImmediacy == 'lazy'
-
-- name: Add domain1 to site EPG3 with AP1 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG3
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    state: present
-  register: nm_add_dom1e3
-
-- name: Verify nm_add_dom1e2
-  ansible.builtin.assert:
-    that:
-    - nm_add_dom1e3 is changed
-    - nm_add_dom1e3.previous == {}
-    - nm_add_dom1e3.current.deploymentImmediacy == 'lazy'
-    - nm_add_dom1e3.current.domainType == 'vmmDomain'
-    - nm_add_dom1e3.current.dn == 'uni/vmmp-VMware/dom-VMware-VMM'
-    - nm_add_dom1e3.current.resolutionImmediacy == 'lazy'
-   
-- name: Add domain 2 to EPG2 (check mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG2
-    domain_association_type: physicalDomain
-    domain_profile: phys
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: present
-  check_mode: true
-  register: cm_add_dom2e2
-
-- name: Verify cm_add_dom2e2
-  ansible.builtin.assert:
-    that:
-    - cm_add_dom2e2 is changed
-    - cm_add_dom2e2.previous == {}
-    - cm_add_dom2e2.current.deploymentImmediacy == 'lazy'
-    - cm_add_dom2e2.current.domainType == 'physicalDomain'
-    - cm_add_dom2e2.current.dn == 'uni/phys-phys'
-    - cm_add_dom2e2.current.resolutionImmediacy == 'pre-provision'
-
-# QUERY DOMAINS
-- name: Query domains of site EPG1 with AP1 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    state: query
-  register: nm_query_domse1
-
-- name: Verify nm_query_domse1
-  ansible.builtin.assert:
-    that:
-    - nm_query_domse1 is not changed
-
-# QUERY A DOMAIN
-- name: Query domain3 of site EPG1 with AP1 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    domain_association_type: physicalDomain
-    domain_profile: phys
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: query
-  register: nm_query_dom3e1
-
-- name: Verify nm_query_dom3e1
-  ansible.builtin.assert:
-    that:
-    - nm_query_dom3e1 is not changed
-
-# QUERY REMOVED DOMAIN
-- name: Add domain 2 to site EPG2 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG2
-    domain_association_type: physicalDomain
-    domain_profile: phys
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: present
-  register: nm_add_dom2e2
-
-- name: Verify nm_add_dom2e2
-  ansible.builtin.assert:
-    that:
-    - nm_add_dom2e2 is changed
-    - nm_add_dom2e2.previous == {}
-    - nm_add_dom2e2.current.deploymentImmediacy == 'lazy'
-    - nm_add_dom2e2.current.domainType == 'physicalDomain'
-    - nm_add_dom2e2.current.dn == 'uni/phys-phys'
-    - nm_add_dom2e2.current.resolutionImmediacy == 'pre-provision'
-
-- name: Remove domain2 from EPG2 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG2
-    domain_association_type: physicalDomain
-    domain_profile: phys
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: absent
-  register: nm_remove_dom2e2
-
-- name: Verify nm_remove_dom2e2
-  ansible.builtin.assert:
-    that:
-    - nm_remove_dom2e2 is changed
-
-- name: Query removed domain2 from EPG2 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG2
-    domain_association_type: physicalDomain
-    domain_profile: phys
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: query
-  ignore_errors: true
-  register: nm_non_existent_dom2e2
-
-- name: Verify non_existing_domain
-  ansible.builtin.assert:
-    that:
-    - nm_non_existent_dom2e2 is not changed
-    - nm_non_existent_dom2e2.msg == "Domain association 'physicalDomain/phys' not found"
-
-- name: Remove domain2 from EPG2 again(normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG2
-    domain_association_type: physicalDomain
-    domain_profile: phys
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: absent
-  ignore_errors: true
-  register: nm_remove_again_dom2e2
-
-- name: Verify nm_remove_again_dom2e2
-  ansible.builtin.assert:
-    that:
-    - nm_remove_again_dom2e2 is not changed
-
-# ADD EXISTING DOMAIN
-- name: Add domain 1 to site EPG1 again (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: present
-  register: nm_add_dom1e1_2
-
-- name: Verify nm_add_dom1e1_2
-  ansible.builtin.assert:
-    that:
-    - nm_add_dom1e1_2 is not changed
-
-# ADD DOMAIN WITH NO STATE
-- name: Add domain 1 to site EPG1 again with no state (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-  ignore_errors: true
-  register: nm_add_stateless_dom1e1_2
-
-- name: Verify nm_add_stateless_dom1e1_2
-  ansible.builtin.assert:
-    that:
-    - nm_add_stateless_dom1e1_2 is not changed
-
-# ADD OTHER DOMAIN OPTIONS
-- name: Add domain l3ExtDomain to site EPG1 with AP1 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    domain_association_type: l3ExtDomain
-    domain_profile: 'ansible_l3domain'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    state: present
-  register: nm_add_doml3
-
-- name: Verify nm_add_doml3
-  ansible.builtin.assert:
-    that:
-    - nm_add_doml3 is changed
-    - nm_add_doml3.previous == {}
-    - nm_add_doml3.current.deploymentImmediacy == 'lazy'
-    - nm_add_doml3.current.domainType == 'l3ExtDomain'
-    - nm_add_doml3.current.dn =='uni/l3dom-ansible_l3domain'
-    - nm_add_doml3.current.resolutionImmediacy == 'lazy'
-
-- name: Add domain l2ExtDomain to site EPG1 with AP1 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    domain_association_type: l2ExtDomain
-    domain_profile: 'ansible_l2domain'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    state: present
-  ignore_errors: true
-  register: nm_add_doml2
-
-- name: Verify nm_add_doml2
-  ansible.builtin.assert:
-    that:
-    - nm_add_doml2 is changed
-    - nm_add_doml2.previous == {}
-    - nm_add_doml2.current.deploymentImmediacy == 'lazy'
-    - nm_add_doml2.current.domainType == 'l2ExtDomain'
-    - nm_add_doml2.current.dn =='uni/l2dom-ansible_l2domain'
-    - nm_add_doml2.current.resolutionImmediacy == 'lazy'
-
-- name: Add domain fibreChannel to site EPG1 with AP1 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    domain_association_type: fibreChannelDomain
-    domain_profile: 'ansible_fibreChanneldomain'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    state: present
-  register: nm_add_domfc
-
-- name: Verify nm_add_domfc
-  ansible.builtin.assert:
-    that:
-    - nm_add_domfc is changed
-    - nm_add_domfc.previous == {}
-    - nm_add_domfc.current.domainType == 'fibreChannelDomain'
-    - nm_add_domfc.current.dn =='uni/fc-ansible_fibreChanneldomain'
-    - nm_add_domfc.current.resolutionImmediacy == 'lazy'
-    - nm_add_domfc.current.deploymentImmediacy == 'lazy'
-
-# USE OTHER ATTRIBUTES OF VMM DOMAIN
-- name: Add domain vmm to site EPG2 with AP2 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain: &domain_ap1_epg2
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG2
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: immediate
-    resolution_immediacy: immediate
-    micro_seg_vlan_type: 'vlan'
-    micro_seg_vlan: 100
-    port_encap_vlan_type: 'vlan'
-    port_encap_vlan: 100
-    vlan_encap_mode: static
-    allow_micro_segmentation: true
-    switch_type: 'default'
-    switching_mode: native
-    enhanced_lagpolicy_name: 'ansible_check_name'
-    enhanced_lagpolicy_dn: 'ansible_check'
-    delimiter: '|'
-    binding_type: static
-    num_ports: 2
-    port_allocation: elastic
-    netflow_pref: enabled
-    allow_promiscuous: accept
-    forged_transmits: accept
-    mac_changes: accept
-    custom_epg_name: ansible_custom_epg
-    state: present
-  register: nm_add_domvmprop
-
-- name: Query domain vmms attached to site EPG2 with AP2
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *domain_ap1_epg2
-    state: query
-  register: nm_query_domvmprop
-
-- name: Verify domain vmm to site EPG2 with AP2
-  ansible.builtin.assert:
-    that:
-    - nm_add_domvmprop is changed
-    - nm_add_domvmprop.previous == {}
-    - nm_add_domvmprop.current.allowMicroSegmentation == true
-    - nm_add_domvmprop.current.deploymentImmediacy == "immediate"
-    - nm_add_domvmprop.current.deployImmediacy == "immediate"
-    - nm_add_domvmprop.current.dn == "uni/vmmp-VMware/dom-VMware-VMM"
-    - nm_add_domvmprop.current.epgLagPol.enhancedLagPol.dn == "ansible_check"
-    - nm_add_domvmprop.current.epgLagPol.enhancedLagPol.name == "ansible_check_name"
-    - nm_add_domvmprop.current.microSegVlan.vlan == 100
-    - nm_add_domvmprop.current.microSegVlan.vlanType == "vlan"
-    - nm_add_domvmprop.current.portEncapVlan.vlan == 100
-    - nm_add_domvmprop.current.portEncapVlan.vlanType == "vlan"
-    - nm_add_domvmprop.current.resolutionImmediacy == "immediate"
-    - nm_add_domvmprop.current.switchType == "default"
-    - nm_add_domvmprop.current.switchingMode == "native"
-    - nm_add_domvmprop.current.vlanEncapMode == "static"
-    - nm_add_domvmprop.current.delimiter == "|"
-    - nm_add_domvmprop.current.bindingType == "static"
-    - nm_add_domvmprop.current.numPorts == 2
-    - nm_add_domvmprop.current.portAllocation == "elastic"
-    - nm_add_domvmprop.current.netflowPref == "enabled"
-    - nm_add_domvmprop.current.allowPromiscuous == "accept"
-    - nm_add_domvmprop.current.forgedTransmits == "accept"
-    - nm_add_domvmprop.current.macChanges == "accept"
-    - nm_add_domvmprop.current.customEpgName == "ansible_custom_epg"
-    - nm_add_domvmprop.current.vmmDomainProperties.allowMicroSegmentation == true
-    - nm_add_domvmprop.current.vmmDomainProperties.epgLagPol.enhancedLagPol.dn == "ansible_check"
-    - nm_add_domvmprop.current.vmmDomainProperties.epgLagPol.enhancedLagPol.name == "ansible_check_name"
-    - nm_add_domvmprop.current.vmmDomainProperties.microSegVlan.vlan == 100
-    - nm_add_domvmprop.current.vmmDomainProperties.microSegVlan.vlanType == "vlan"
-    - nm_add_domvmprop.current.vmmDomainProperties.portEncapVlan.vlan == 100
-    - nm_add_domvmprop.current.vmmDomainProperties.portEncapVlan.vlanType == "vlan"
-    - nm_add_domvmprop.current.vmmDomainProperties.switchType == "default"
-    - nm_add_domvmprop.current.vmmDomainProperties.switchingMode == "native"
-    - nm_add_domvmprop.current.vmmDomainProperties.vlanEncapMode == "static"
-    - nm_add_domvmprop.current.vmmDomainProperties.delimiter == "|"
-    - nm_add_domvmprop.current.vmmDomainProperties.bindingType == "static"
-    - nm_add_domvmprop.current.vmmDomainProperties.numPorts == 2
-    - nm_add_domvmprop.current.vmmDomainProperties.portAllocation == "elastic"
-    - nm_add_domvmprop.current.vmmDomainProperties.netflowPref == "enabled"
-    - nm_add_domvmprop.current.vmmDomainProperties.allowPromiscuous == "accept"
-    - nm_add_domvmprop.current.vmmDomainProperties.forgedTransmits == "accept"
-    - nm_add_domvmprop.current.vmmDomainProperties.macChanges == "accept"
-    - nm_add_domvmprop.current.vmmDomainProperties.customEpgName == "ansible_custom_epg"
-    - nm_query_domvmprop.current.allowMicroSegmentation == true
-    - nm_query_domvmprop.current.deployImmediacy == "immediate"
-    - nm_query_domvmprop.current.dn == "uni/vmmp-VMware/dom-VMware-VMM"
-    - nm_query_domvmprop.current.epgLagPol.enhancedLagPol.dn == "ansible_check"
-    - nm_query_domvmprop.current.epgLagPol.enhancedLagPol.name == "ansible_check_name"
-    - nm_query_domvmprop.current.microSegVlan.vlan == 100
-    - nm_query_domvmprop.current.microSegVlan.vlanType == "vlan"
-    - nm_query_domvmprop.current.portEncapVlan.vlan == 100
-    - nm_query_domvmprop.current.portEncapVlan.vlanType == "vlan"
-    - nm_query_domvmprop.current.resolutionImmediacy == "immediate"
-    - nm_query_domvmprop.current.switchType == "default"
-    - nm_query_domvmprop.current.switchingMode == "native"
-    - nm_query_domvmprop.current.vlanEncapMode == "static"
-    - nm_query_domvmprop.current.delimiter == "|"
-    - nm_query_domvmprop.current.bindingType == "static"
-    - nm_query_domvmprop.current.numPorts == 2
-    - nm_query_domvmprop.current.portAllocation == "elastic"
-    - nm_query_domvmprop.current.netflowPref == "enabled"
-    - nm_query_domvmprop.current.allowPromiscuous == "accept"
-    - nm_query_domvmprop.current.forgedTransmits == "accept"
-    - nm_query_domvmprop.current.macChanges == "accept"
-    - nm_query_domvmprop.current.customEpgName == "ansible_custom_epg"
-
-- name: Add another domain vmm to site EPG2 with AP2 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *domain_ap1_epg2
-    domain_profile: 'TEST'
-    state: present
-  register: nm_add_another_domvmprop
-
-- name: Query all domains vmms attached to site EPG2 with AP2
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG2
-    state: query
-  register: nm_query_another_domvmprop
-
-- name: Verify domain vmm to site EPG2 with AP2
-  ansible.builtin.assert:
-    that:
-    - nm_add_another_domvmprop is changed
-    - nm_query_another_domvmprop is not changed
-    - nm_query_another_domvmprop.current | length == 2
-
-- name: Error binding type static and port_allocation not provided (error mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    binding_type: static
-    state: present
-  ignore_errors: true
-  register: err_binding_type_static
-
-- name: Verify binding type static error
-  ansible.builtin.assert:
-    that:
-    - err_binding_type_static is not changed
-    - 'err_binding_type_static.msg == "binding_type is static but all of the following are missing: port_allocation"'
-
-- name: Error micro_seg_vlan and micro_seg_vlan_type not provided (error mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    micro_seg_vlan: 100
-    state: present
-  ignore_errors: true
-  register: err_no_micro_seg_vlan_type
-
-- name: Error micro_seg_vlan_type and micro_seg_vlan not provided (error mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    micro_seg_vlan_type: 'vlan'
-    state: present
-  ignore_errors: true
-  register: err_no_micro_seg_vlan
-
-- name: Verify micro segmentation vlan error
-  ansible.builtin.assert:
-    that:
-    - err_no_micro_seg_vlan_type is not changed
-    - 'err_no_micro_seg_vlan_type.msg == "parameters are required together: micro_seg_vlan_type, micro_seg_vlan"'
-    - err_no_micro_seg_vlan is not changed
-    - 'err_no_micro_seg_vlan.msg == "parameters are required together: micro_seg_vlan_type, micro_seg_vlan"'
-
-- name: Error port_encap_vlan and port_encap_vlan_type not provided (error mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    port_encap_vlan: 100
-    state: present
-  ignore_errors: true
-  register: err_no_port_encap_vlan_type
-
-- name: Error port_encap_vlan_type and port_encap_vlan not provided (error mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    port_encap_vlan_type: 'vlan'
-    state: present
-  ignore_errors: true
-  register: err_no_port_encap_vlan
-
-- name: Verify port encap vlan error
-  ansible.builtin.assert:
-    that:
-    - err_no_port_encap_vlan_type is not changed
-    - 'err_no_port_encap_vlan_type.msg == "parameters are required together: port_encap_vlan_type, port_encap_vlan"'
-    - err_no_port_encap_vlan is not changed
-    - 'err_no_port_encap_vlan.msg == "parameters are required together: port_encap_vlan_type, port_encap_vlan"'
-
-- name: Error enhanced_lagpolicy_dn and enhanced_lagpolicy_name not provided (error mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    enhanced_lagpolicy_dn: 'ansible_check'
-    state: present
-  ignore_errors: true
-  register: err_no_enhanced_lagpolicy_name
-
-- name: Error enhanced_lagpolicy_name and enhanced_lagpolicy_dn not provided (error mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: lazy
-    enhanced_lagpolicy_name: 'ansible_check'
-    state: present
-  ignore_errors: true
-  register: err_no_enhanced_lagpolicy_dn
-
-- name: Verify nm_add_domvmprop6
-  ansible.builtin.assert:
-    that:
-    - err_no_enhanced_lagpolicy_name is not changed
-    - 'err_no_enhanced_lagpolicy_name.msg == "parameters are required together: enhanced_lagpolicy_name, enhanced_lagpolicy_dn"'
-    - err_no_enhanced_lagpolicy_dn is not changed
-    - 'err_no_enhanced_lagpolicy_dn.msg == "parameters are required together: enhanced_lagpolicy_name, enhanced_lagpolicy_dn"'
-
-# USE NON-EXISTING EPG and ANP AT TEMPLATE LEVEL
-- name: Add domain 1 to non-existent site EPG5 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP5
-    epg: EPG5
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: present
-  ignore_errors: true
-  register: nm_add_dom1e5
-
-- name: Verify nm_add_dom1e5
-  ansible.builtin.assert:
-    that:
-    - nm_add_dom1e5 is not changed
-
-# USE NON-EXISTING EPG AT TEMPLATE LEVEL
-- name: Add domain 1 to non-existent site EPG5 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG6
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-    state: present
-  ignore_errors: true
-  register: nm_add_dom1e6
-
-- name: Verify nm_add_dom1e6
-  ansible.builtin.assert:
-    that:
-    - nm_add_dom1e6 is not changed
-
-# USE A NON-EXISTING SCHEMA
-- name: Non-existing schema for domain (check_mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: non_existing_schema
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-  check_mode: true
-  ignore_errors: true
-  register: cm_non_existing_schema
-
-- name: Non-existing schema for domain (normal_mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: non_existing_schema
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-  ignore_errors: true
-  register: nm_non_existing_schema
-
-- name: Verify non_existing_schema
-  ansible.builtin.assert:
-    that:
-    - cm_non_existing_schema is not changed
-    - nm_non_existing_schema is not changed
-    - cm_non_existing_schema == nm_non_existing_schema
-    - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
-
-# USE A NON-EXISTING TEMPLATE
-- name: Non-existing template for domain (check_mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: non_existing_template
-    anp: AP1
-    epg: EPG1
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-  check_mode: true
-  ignore_errors: true
-  register: cm_non_existing_template
-
-- name: Non-existing template for domain (normal_mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema:  '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: non_existing_template
-    anp: AP1
-    epg: EPG1
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-  ignore_errors: true
-  register: nm_non_existing_template
-
-- name: Set assert message for nm_non_existing_template
-  ansible.builtin.set_fact:
-    assert_message_non_existing_template: "Provided template 'non_existing_template' does not exist. Existing templates: Template1, Template2"
-
-- name: Verify non_existing_template
-  ansible.builtin.assert:
-    that:
-    - cm_non_existing_template is not changed
-    - nm_non_existing_template is not changed
-    - cm_non_existing_template == nm_non_existing_template
-    - cm_non_existing_template.msg == nm_non_existing_template.msg == assert_message_non_existing_template
-
-# USE A NON-EXISTING SITE
-- name: Non-existing site for domain (check_mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    anp: AP1
-    epg: EPG1
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-  check_mode: true
-  ignore_errors: true
-  register: cm_non_existing_site
-
-- name: Non-existing site for domain (normal_mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 2
-    anp: AP1
-    epg: EPG1
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-  ignore_errors: true
-  register: nm_non_existing_site
-
-- name: Set regex match for verification of non_existing_site
-  ansible.builtin.set_fact:
-    regex_match: "Provided site/siteId/template 'ansible_test/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates: [0-9a-zA-Z]*/Template1"
-
-- name: Verify non_existing_site
-  ansible.builtin.assert:
-    that:
-    - cm_non_existing_site is not changed
-    - nm_non_existing_site is not changed
-    - cm_non_existing_site == nm_non_existing_site
-    - cm_non_existing_site.msg is match(regex_match)
-    - nm_non_existing_site.msg is match(regex_match)
-
-# USE A TEMPLATE WITHOUT ANY SITE
-- name: Add site EPG domain association to Schema 2 Template 3 without any site associated (check mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    anp: AP1
-    epg: EPG1
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-  ignore_errors: true
-  check_mode: true
-  register: cm_no_site_associated
-
-- name: Add site EPG domain association to Template 3 without any site associated (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_domain:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    anp: AP1
-    epg: EPG1
-    domain_association_type: vmmDomain
-    domain_profile: 'VMware-VMM'
-    deployment_immediacy: lazy
-    resolution_immediacy: pre-provision
-  ignore_errors: true
-  register: nm_no_site_associated
-
-- name: Verify cm_no_site_associated and nm_no_site_associated
-  ansible.builtin.assert:
-    that:
-    - cm_no_site_associated is not changed
-    - nm_no_site_associated is not changed
-    - cm_no_site_associated.msg == nm_no_site_associated.msg == "No site associated with template 'Template3'. Associate the site with the template using mso_schema_site."
+    mso_test:
+      schema: '{{ mso_schema_site_anp_epg_domain | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_site_anp_epg_domain | default(mso_tenant | default("ansible_test")) }}'
+      site: '{{ mso_site_site_anp_epg_domain | default(mso_site | default("ansible_test")) }}'
+      template_1: 'Template 1'
+      template_2: 'Template 2'
+      template_3: 'Template 3'
+      anp_1: 'AP1'
+      anp_2: 'AP2'
+      anp_5: 'AP5'
+      epg_1: 'EPG1'
+      epg_2: 'EPG2'
+      epg_3: 'EPG3'
+      epg_4: 'EPG4'
+      epg_5: 'EPG5'
+      epg_6: 'EPG6'
+      bd_1: 'BD1'
+      vrf_1: 'VRF1'
+      vmm_domain_profile: 'VMware-VMM'
+      physical_domain_profile: 'phys'
+      fc_domain_profile: 'ansible_fibreChanneldomain'
+      l2_domain_profile: 'ansible_l2domain'
+      l3_domain_profile: 'ansible_l3domain'
+      vmm_domain_type: 'vmmDomain'
+      physical_domain_type: 'physicalDomain'
+      fc_domain_type: 'fibreChannelDomain'
+      l2_domain_type: 'l2ExtDomain'
+      l3_domain_type: 'l3ExtDomain'
+
+- name: Exercise mso_schema_site_anp_epg_domain
+  block:
+  - name: Remove schemas
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    loop:
+    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema }}'
+
+  - name: Ensure schema 1 with Template 1 and 2 exists
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{ item }}'
+      state: present
+    loop:
+    - '{{ mso_test.template_1 }}'
+    - '{{ mso_test.template_2 }}'
+
+  - name: Ensure schema 2 with Template 3 exists
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}_2'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{ mso_test.template_3 }}'
+      state: present
+
+  - name: Add a new site to a schema
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      state: present
+
+  - name: Ensure VRF1 exists
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      vrf: '{{ mso_test.vrf_1 }}'
+      state: present
+
+  - name: Add BD1
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      bd: '{{ mso_test.bd_1 }}'
+      vrf:
+        name: '{{ mso_test.vrf_1 }}'
+      state: present
+
+  - name: Ensure Template 1 with AP1 exists
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      state: present
+
+  - name: Ensure Template 1 and AP1 with EPG1 exists
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      bd:
+        name: '{{ mso_test.bd_1 }}'
+      vrf:
+        name: '{{ mso_test.vrf_1 }}'
+      state: present
+
+  - name: Ensure Template 1 and AP1 with EPG3 exists
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_3 }}'
+      bd:
+        name: '{{ mso_test.bd_1 }}'
+      vrf:
+        name: '{{ mso_test.vrf_1 }}'
+      state: present
+
+  - name: Ensure Template 1 with AP2 exists
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      state: present
+
+  - name: Ensure Template 1 and AP2 with EPG2 exists
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_2 }}'
+      bd:
+        name: '{{ mso_test.bd_1 }}'
+      vrf:
+        name: '{{ mso_test.vrf_1 }}'
+      state: present
+
+  - name: Ensure Template 1 and AP2 with EPG4 exists
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_4 }}'
+      bd:
+        name: '{{ mso_test.bd_1 }}'
+      vrf:
+        name: '{{ mso_test.vrf_1 }}'
+      state: present
+
+  # ADD DOMAINS
+  - name: Add domain 1 to site EPG1 with AP1 (check mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+      state: present
+    check_mode: true
+    register: cm_add_dom1e1
+
+  - name: Verify cm_add_dom1e1
+    ansible.builtin.assert:
+      that:
+      - cm_add_dom1e1 is changed
+      - cm_add_dom1e1.previous == {}
+      - cm_add_dom1e1.current.deploymentImmediacy == 'lazy'
+      - cm_add_dom1e1.current.domainType == '{{ mso_test.vmm_domain_type }}'
+      - cm_add_dom1e1.current.dn == 'uni/vmmp-VMware/dom-{{ mso_test.vmm_domain_profile }}'
+      - cm_add_dom1e1.current.resolutionImmediacy == 'pre-provision'
+
+  - name: Add domain 1 to site EPG1 with AP1 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+      state: present
+    register: nm_add_dom1e1
+
+  - name: Verify nm_add_dom1e1
+    ansible.builtin.assert:
+      that:
+      - nm_add_dom1e1 is changed
+      - nm_add_dom1e1.previous == {}
+      - nm_add_dom1e1.current.deploymentImmediacy == 'lazy'
+      - nm_add_dom1e1.current.domainType == '{{ mso_test.vmm_domain_type }}'
+      - nm_add_dom1e1.current.dn == 'uni/vmmp-VMware/dom-{{ mso_test.vmm_domain_profile }}'
+      - nm_add_dom1e1.current.resolutionImmediacy == 'pre-provision'
+
+  - name: Add domain 2 to site EPG1 with AP1 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.physical_domain_type }}'
+      domain_profile: '{{ mso_test.physical_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+      state: present
+    register: nm_add_dom2e1
+
+  - name: Verify nm_add_dom2e1
+    ansible.builtin.assert:
+      that:
+      - nm_add_dom2e1 is changed
+      - nm_add_dom2e1.previous == {}
+      - nm_add_dom2e1.current.deploymentImmediacy == 'lazy'
+      - nm_add_dom2e1.current.domainType == '{{ mso_test.physical_domain_type }}'
+      - nm_add_dom2e1.current.dn == 'uni/phys-{{ mso_test.physical_domain_profile }}'
+      - nm_add_dom2e1.current.resolutionImmediacy == 'pre-provision'
+
+  - name: Add domain 3 to site EPG1 with AP1 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.physical_domain_type }}'
+      domain_profile: '{{ mso_test.physical_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: lazy
+      state: present
+    register: nm_add_dom3e1
+
+  - name: Verify nm_add_dom3e1
+    ansible.builtin.assert:
+      that:
+      - nm_add_dom3e1 is changed
+      - nm_add_dom3e1.previous != {}
+      - nm_add_dom3e1.current.deploymentImmediacy == 'lazy'
+      - nm_add_dom3e1.current.domainType == '{{ mso_test.physical_domain_type }}'
+      - nm_add_dom3e1.current.dn == 'uni/phys-{{ mso_test.physical_domain_profile }}'
+      - nm_add_dom3e1.current.resolutionImmediacy == 'lazy'
+
+  - name: Add domain1 to site EPG3 with AP1 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_3 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: lazy
+      state: present
+    register: nm_add_dom1e3
+
+  - name: Verify nm_add_dom1e2
+    ansible.builtin.assert:
+      that:
+      - nm_add_dom1e3 is changed
+      - nm_add_dom1e3.previous == {}
+      - nm_add_dom1e3.current.deploymentImmediacy == 'lazy'
+      - nm_add_dom1e3.current.domainType == '{{ mso_test.vmm_domain_type }}'
+      - nm_add_dom1e3.current.dn == 'uni/vmmp-VMware/dom-{{ mso_test.vmm_domain_profile }}'
+      - nm_add_dom1e3.current.resolutionImmediacy == 'lazy'
+
+  - name: Add domain 2 to EPG2 (check mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_2 }}'
+      domain_association_type: '{{ mso_test.physical_domain_type }}'
+      domain_profile: '{{ mso_test.physical_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+      state: present
+    check_mode: true
+    register: cm_add_dom2e2
+
+  - name: Verify cm_add_dom2e2
+    ansible.builtin.assert:
+      that:
+      - cm_add_dom2e2 is changed
+      - cm_add_dom2e2.previous == {}
+      - cm_add_dom2e2.current.deploymentImmediacy == 'lazy'
+      - cm_add_dom2e2.current.domainType == '{{ mso_test.physical_domain_type }}'
+      - cm_add_dom2e2.current.dn == 'uni/phys-{{ mso_test.physical_domain_profile }}'
+      - cm_add_dom2e2.current.resolutionImmediacy == 'pre-provision'
+
+  # QUERY DOMAINS
+  - name: Query domains of site EPG1 with AP1 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      state: query
+    register: nm_query_domse1
+
+  - name: Verify nm_query_domse1
+    ansible.builtin.assert:
+      that:
+      - nm_query_domse1 is not changed
+
+  # QUERY A DOMAIN
+  - name: Query domain3 of site EPG1 with AP1 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.physical_domain_type }}'
+      domain_profile: '{{ mso_test.physical_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+      state: query
+    register: nm_query_dom3e1
+
+  - name: Verify nm_query_dom3e1
+    ansible.builtin.assert:
+      that:
+      - nm_query_dom3e1 is not changed
+
+  # QUERY REMOVED DOMAIN
+  - name: Add domain 2 to site EPG2 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_2 }}'
+      domain_association_type: '{{ mso_test.physical_domain_type }}'
+      domain_profile: '{{ mso_test.physical_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+      state: present
+    register: nm_add_dom2e2
+
+  - name: Verify nm_add_dom2e2
+    ansible.builtin.assert:
+      that:
+      - nm_add_dom2e2 is changed
+      - nm_add_dom2e2.previous == {}
+      - nm_add_dom2e2.current.deploymentImmediacy == 'lazy'
+      - nm_add_dom2e2.current.domainType == '{{ mso_test.physical_domain_type }}'
+      - nm_add_dom2e2.current.dn == 'uni/phys-{{ mso_test.physical_domain_profile }}'
+      - nm_add_dom2e2.current.resolutionImmediacy == 'pre-provision'
+
+  - name: Remove domain2 from EPG2 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_2 }}'
+      domain_association_type: '{{ mso_test.physical_domain_type }}'
+      domain_profile: '{{ mso_test.physical_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+      state: absent
+    register: nm_remove_dom2e2
+
+  - name: Verify nm_remove_dom2e2
+    ansible.builtin.assert:
+      that:
+      - nm_remove_dom2e2 is changed
+
+  - name: Query removed domain2 from EPG2 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_2 }}'
+      domain_association_type: '{{ mso_test.physical_domain_type }}'
+      domain_profile: '{{ mso_test.physical_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+      state: query
+    ignore_errors: true
+    register: nm_non_existent_dom2e2
+
+  - name: Verify non_existing_domain
+    ansible.builtin.assert:
+      that:
+      - nm_non_existent_dom2e2 is not changed
+      - nm_non_existent_dom2e2.msg == "Domain association '{{ mso_test.physical_domain_type }}/{{ mso_test.physical_domain_profile }}' not found"
+
+  - name: Remove domain2 from EPG2 again(normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_2 }}'
+      domain_association_type: '{{ mso_test.physical_domain_type }}'
+      domain_profile: '{{ mso_test.physical_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+      state: absent
+    ignore_errors: true
+    register: nm_remove_again_dom2e2
+
+  - name: Verify nm_remove_again_dom2e2
+    ansible.builtin.assert:
+      that:
+      - nm_remove_again_dom2e2 is not changed
+
+  # ADD EXISTING DOMAIN
+  - name: Add domain 1 to site EPG1 again (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+      state: present
+    register: nm_add_dom1e1_2
+
+  - name: Verify nm_add_dom1e1_2
+    ansible.builtin.assert:
+      that:
+      - nm_add_dom1e1_2 is not changed
+
+  # ADD DOMAIN WITH NO STATE
+  - name: Add domain 1 to site EPG1 again with no state (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+    ignore_errors: true
+    register: nm_add_stateless_dom1e1_2
+
+  - name: Verify nm_add_stateless_dom1e1_2
+    ansible.builtin.assert:
+      that:
+      - nm_add_stateless_dom1e1_2 is not changed
+
+  # ADD OTHER DOMAIN OPTIONS
+  - name: Add domain l3ExtDomain to site EPG1 with AP1 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.l3_domain_type }}'
+      domain_profile: '{{ mso_test.l3_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: lazy
+      state: present
+    register: nm_add_doml3
+
+  - name: Verify nm_add_doml3
+    ansible.builtin.assert:
+      that:
+      - nm_add_doml3 is changed
+      - nm_add_doml3.previous == {}
+      - nm_add_doml3.current.deploymentImmediacy == 'lazy'
+      - nm_add_doml3.current.domainType == '{{ mso_test.l3_domain_type }}'
+      - nm_add_doml3.current.dn =='uni/l3dom-{{ mso_test.l3_domain_profile }}'
+      - nm_add_doml3.current.resolutionImmediacy == 'lazy'
+
+  - name: Add domain l2ExtDomain to site EPG1 with AP1 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.l2_domain_type }}'
+      domain_profile: '{{ mso_test.l2_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: lazy
+      state: present
+    ignore_errors: true
+    register: nm_add_doml2
+
+  - name: Verify nm_add_doml2
+    ansible.builtin.assert:
+      that:
+      - nm_add_doml2 is changed
+      - nm_add_doml2.previous == {}
+      - nm_add_doml2.current.deploymentImmediacy == 'lazy'
+      - nm_add_doml2.current.domainType == '{{ mso_test.l2_domain_type }}'
+      - nm_add_doml2.current.dn =='uni/l2dom-{{ mso_test.l2_domain_profile }}'
+      - nm_add_doml2.current.resolutionImmediacy == 'lazy'
+
+  - name: Add domain fibreChannel to site EPG1 with AP1 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.fc_domain_type }}'
+      domain_profile: '{{ mso_test.fc_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: lazy
+      state: present
+    register: nm_add_domfc
+
+  - name: Verify nm_add_domfc
+    ansible.builtin.assert:
+      that:
+      - nm_add_domfc is changed
+      - nm_add_domfc.previous == {}
+      - nm_add_domfc.current.domainType == '{{ mso_test.fc_domain_type }}'
+      - nm_add_domfc.current.dn =='uni/fc-{{ mso_test.fc_domain_profile }}'
+      - nm_add_domfc.current.resolutionImmediacy == 'lazy'
+      - nm_add_domfc.current.deploymentImmediacy == 'lazy'
+
+  # USE OTHER ATTRIBUTES OF VMM DOMAIN
+  - name: Add domain vmm to site EPG2 with AP2 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain: &domain_ap1_epg2
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_2 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: immediate
+      resolution_immediacy: immediate
+      micro_seg_vlan_type: 'vlan'
+      micro_seg_vlan: 100
+      port_encap_vlan_type: 'vlan'
+      port_encap_vlan: 100
+      vlan_encap_mode: static
+      allow_micro_segmentation: true
+      switch_type: 'default'
+      switching_mode: native
+      enhanced_lagpolicy_name: 'ansible_check_name'
+      enhanced_lagpolicy_dn: 'ansible_check'
+      delimiter: '|'
+      binding_type: static
+      num_ports: 2
+      port_allocation: elastic
+      netflow_pref: enabled
+      allow_promiscuous: accept
+      forged_transmits: accept
+      mac_changes: accept
+      custom_epg_name: ansible_custom_epg
+      state: present
+    register: nm_add_domvmprop
+
+  - name: Query domain vmms attached to site EPG2 with AP2
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *domain_ap1_epg2
+      state: query
+    register: nm_query_domvmprop
+
+  - name: Verify domain vmm to site EPG2 with AP2
+    ansible.builtin.assert:
+      that:
+      - nm_add_domvmprop is changed
+      - nm_add_domvmprop.previous == {}
+      - nm_add_domvmprop.current.allowMicroSegmentation == true
+      - nm_add_domvmprop.current.deploymentImmediacy == "immediate"
+      - nm_add_domvmprop.current.deployImmediacy == "immediate"
+      - nm_add_domvmprop.current.dn == "uni/vmmp-VMware/dom-{{ mso_test.vmm_domain_profile }}"
+      - nm_add_domvmprop.current.epgLagPol.enhancedLagPol.dn == "ansible_check"
+      - nm_add_domvmprop.current.epgLagPol.enhancedLagPol.name == "ansible_check_name"
+      - nm_add_domvmprop.current.microSegVlan.vlan == 100
+      - nm_add_domvmprop.current.microSegVlan.vlanType == "vlan"
+      - nm_add_domvmprop.current.portEncapVlan.vlan == 100
+      - nm_add_domvmprop.current.portEncapVlan.vlanType == "vlan"
+      - nm_add_domvmprop.current.resolutionImmediacy == "immediate"
+      - nm_add_domvmprop.current.switchType == "default"
+      - nm_add_domvmprop.current.switchingMode == "native"
+      - nm_add_domvmprop.current.vlanEncapMode == "static"
+      - nm_add_domvmprop.current.delimiter == "|"
+      - nm_add_domvmprop.current.bindingType == "static"
+      - nm_add_domvmprop.current.numPorts == 2
+      - nm_add_domvmprop.current.portAllocation == "elastic"
+      - nm_add_domvmprop.current.netflowPref == "enabled"
+      - nm_add_domvmprop.current.allowPromiscuous == "accept"
+      - nm_add_domvmprop.current.forgedTransmits == "accept"
+      - nm_add_domvmprop.current.macChanges == "accept"
+      - nm_add_domvmprop.current.customEpgName == "ansible_custom_epg"
+      - nm_add_domvmprop.current.vmmDomainProperties.allowMicroSegmentation == true
+      - nm_add_domvmprop.current.vmmDomainProperties.epgLagPol.enhancedLagPol.dn == "ansible_check"
+      - nm_add_domvmprop.current.vmmDomainProperties.epgLagPol.enhancedLagPol.name == "ansible_check_name"
+      - nm_add_domvmprop.current.vmmDomainProperties.microSegVlan.vlan == 100
+      - nm_add_domvmprop.current.vmmDomainProperties.microSegVlan.vlanType == "vlan"
+      - nm_add_domvmprop.current.vmmDomainProperties.portEncapVlan.vlan == 100
+      - nm_add_domvmprop.current.vmmDomainProperties.portEncapVlan.vlanType == "vlan"
+      - nm_add_domvmprop.current.vmmDomainProperties.switchType == "default"
+      - nm_add_domvmprop.current.vmmDomainProperties.switchingMode == "native"
+      - nm_add_domvmprop.current.vmmDomainProperties.vlanEncapMode == "static"
+      - nm_add_domvmprop.current.vmmDomainProperties.delimiter == "|"
+      - nm_add_domvmprop.current.vmmDomainProperties.bindingType == "static"
+      - nm_add_domvmprop.current.vmmDomainProperties.numPorts == 2
+      - nm_add_domvmprop.current.vmmDomainProperties.portAllocation == "elastic"
+      - nm_add_domvmprop.current.vmmDomainProperties.netflowPref == "enabled"
+      - nm_add_domvmprop.current.vmmDomainProperties.allowPromiscuous == "accept"
+      - nm_add_domvmprop.current.vmmDomainProperties.forgedTransmits == "accept"
+      - nm_add_domvmprop.current.vmmDomainProperties.macChanges == "accept"
+      - nm_add_domvmprop.current.vmmDomainProperties.customEpgName == "ansible_custom_epg"
+      - nm_query_domvmprop.current.allowMicroSegmentation == true
+      - nm_query_domvmprop.current.deployImmediacy == "immediate"
+      - nm_query_domvmprop.current.dn == "uni/vmmp-VMware/dom-{{ mso_test.vmm_domain_profile }}"
+      - nm_query_domvmprop.current.epgLagPol.enhancedLagPol.dn == "ansible_check"
+      - nm_query_domvmprop.current.epgLagPol.enhancedLagPol.name == "ansible_check_name"
+      - nm_query_domvmprop.current.microSegVlan.vlan == 100
+      - nm_query_domvmprop.current.microSegVlan.vlanType == "vlan"
+      - nm_query_domvmprop.current.portEncapVlan.vlan == 100
+      - nm_query_domvmprop.current.portEncapVlan.vlanType == "vlan"
+      - nm_query_domvmprop.current.resolutionImmediacy == "immediate"
+      - nm_query_domvmprop.current.switchType == "default"
+      - nm_query_domvmprop.current.switchingMode == "native"
+      - nm_query_domvmprop.current.vlanEncapMode == "static"
+      - nm_query_domvmprop.current.delimiter == "|"
+      - nm_query_domvmprop.current.bindingType == "static"
+      - nm_query_domvmprop.current.numPorts == 2
+      - nm_query_domvmprop.current.portAllocation == "elastic"
+      - nm_query_domvmprop.current.netflowPref == "enabled"
+      - nm_query_domvmprop.current.allowPromiscuous == "accept"
+      - nm_query_domvmprop.current.forgedTransmits == "accept"
+      - nm_query_domvmprop.current.macChanges == "accept"
+      - nm_query_domvmprop.current.customEpgName == "ansible_custom_epg"
+
+  - name: Add another domain vmm to site EPG2 with AP2 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *domain_ap1_epg2
+      domain_profile: 'TEST'
+      state: present
+    register: nm_add_another_domvmprop
+
+  - name: Query all domains vmms attached to site EPG2 with AP2
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_2 }}'
+      state: query
+    register: nm_query_another_domvmprop
+
+  - name: Verify domain vmm to site EPG2 with AP2
+    ansible.builtin.assert:
+      that:
+      - nm_add_another_domvmprop is changed
+      - nm_query_another_domvmprop is not changed
+      - nm_query_another_domvmprop.current | length == 2
+
+  - name: Error binding type static and port_allocation not provided (error mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_4 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: lazy
+      binding_type: static
+      state: present
+    ignore_errors: true
+    register: err_binding_type_static
+
+  - name: Verify binding type static error
+    ansible.builtin.assert:
+      that:
+      - err_binding_type_static is not changed
+      - 'err_binding_type_static.msg == "binding_type is static but all of the following are missing: port_allocation"'
+
+  - name: Error micro_seg_vlan and micro_seg_vlan_type not provided (error mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_4 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: lazy
+      micro_seg_vlan: 100
+      state: present
+    ignore_errors: true
+    register: err_no_micro_seg_vlan_type
+
+  - name: Error micro_seg_vlan_type and micro_seg_vlan not provided (error mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_4 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: lazy
+      micro_seg_vlan_type: 'vlan'
+      state: present
+    ignore_errors: true
+    register: err_no_micro_seg_vlan
+
+  - name: Verify micro segmentation vlan error
+    ansible.builtin.assert:
+      that:
+      - err_no_micro_seg_vlan_type is not changed
+      - 'err_no_micro_seg_vlan_type.msg == "parameters are required together: micro_seg_vlan_type, micro_seg_vlan"'
+      - err_no_micro_seg_vlan is not changed
+      - 'err_no_micro_seg_vlan.msg == "parameters are required together: micro_seg_vlan_type, micro_seg_vlan"'
+
+  - name: Error port_encap_vlan and port_encap_vlan_type not provided (error mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_4 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: lazy
+      port_encap_vlan: 100
+      state: present
+    ignore_errors: true
+    register: err_no_port_encap_vlan_type
+
+  - name: Error port_encap_vlan_type and port_encap_vlan not provided (error mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_4 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: lazy
+      port_encap_vlan_type: 'vlan'
+      state: present
+    ignore_errors: true
+    register: err_no_port_encap_vlan
+
+  - name: Verify port encap vlan error
+    ansible.builtin.assert:
+      that:
+      - err_no_port_encap_vlan_type is not changed
+      - 'err_no_port_encap_vlan_type.msg == "parameters are required together: port_encap_vlan_type, port_encap_vlan"'
+      - err_no_port_encap_vlan is not changed
+      - 'err_no_port_encap_vlan.msg == "parameters are required together: port_encap_vlan_type, port_encap_vlan"'
+
+  - name: Error enhanced_lagpolicy_dn and enhanced_lagpolicy_name not provided (error mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_4 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: lazy
+      enhanced_lagpolicy_dn: 'ansible_check'
+      state: present
+    ignore_errors: true
+    register: err_no_enhanced_lagpolicy_name
+
+  - name: Error enhanced_lagpolicy_name and enhanced_lagpolicy_dn not provided (error mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_2 }}'
+      epg: '{{ mso_test.epg_4 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: lazy
+      enhanced_lagpolicy_name: 'ansible_check'
+      state: present
+    ignore_errors: true
+    register: err_no_enhanced_lagpolicy_dn
+
+  - name: Verify nm_add_domvmprop6
+    ansible.builtin.assert:
+      that:
+      - err_no_enhanced_lagpolicy_name is not changed
+      - 'err_no_enhanced_lagpolicy_name.msg == "parameters are required together: enhanced_lagpolicy_name, enhanced_lagpolicy_dn"'
+      - err_no_enhanced_lagpolicy_dn is not changed
+      - 'err_no_enhanced_lagpolicy_dn.msg == "parameters are required together: enhanced_lagpolicy_name, enhanced_lagpolicy_dn"'
+
+  # USE NON-EXISTING EPG and ANP AT TEMPLATE LEVEL
+  - name: Add domain 1 to non-existent site EPG5 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_5 }}'
+      epg: '{{ mso_test.epg_5 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+      state: present
+    ignore_errors: true
+    register: nm_add_dom1e5
+
+  - name: Verify nm_add_dom1e5
+    ansible.builtin.assert:
+      that:
+      - nm_add_dom1e5 is not changed
+
+  # USE NON-EXISTING EPG AT TEMPLATE LEVEL
+  - name: Add domain 1 to non-existent site EPG5 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_6 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+      state: present
+    ignore_errors: true
+    register: nm_add_dom1e6
+
+  - name: Verify nm_add_dom1e6
+    ansible.builtin.assert:
+      that:
+      - nm_add_dom1e6 is not changed
+
+  # USE A NON-EXISTING SCHEMA
+  - name: Non-existing schema for domain (check_mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: non_existing_schema
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+    check_mode: true
+    ignore_errors: true
+    register: cm_non_existing_schema
+
+  - name: Non-existing schema for domain (normal_mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: non_existing_schema
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+    ignore_errors: true
+    register: nm_non_existing_schema
+
+  - name: Verify non_existing_schema
+    ansible.builtin.assert:
+      that:
+      - cm_non_existing_schema is not changed
+      - nm_non_existing_schema is not changed
+      - cm_non_existing_schema == nm_non_existing_schema
+      - cm_non_existing_schema.msg == nm_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
+
+  # USE A NON-EXISTING TEMPLATE
+  - name: Non-existing template for domain (check_mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: non_existing_template
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+    check_mode: true
+    ignore_errors: true
+    register: cm_non_existing_template
+
+  - name: Non-existing template for domain (normal_mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema:  '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: non_existing_template
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+    ignore_errors: true
+    register: nm_non_existing_template
+
+  - name: Set assert message for nm_non_existing_template
+    ansible.builtin.set_fact:
+      assert_message_non_existing_template: "Provided template 'non_existing_template' does not exist. Existing templates: Template1, Template2"
+
+  - name: Verify non_existing_template
+    ansible.builtin.assert:
+      that:
+      - cm_non_existing_template is not changed
+      - nm_non_existing_template is not changed
+      - cm_non_existing_template == nm_non_existing_template
+      - cm_non_existing_template.msg == nm_non_existing_template.msg == assert_message_non_existing_template
+
+  # USE A NON-EXISTING SITE
+  - name: Non-existing site for domain (check_mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_2 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+    check_mode: true
+    ignore_errors: true
+    register: cm_non_existing_site
+
+  - name: Non-existing site for domain (normal_mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_2 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+    ignore_errors: true
+    register: nm_non_existing_site
+
+  - name: Set regex match for verification of non_existing_site
+    ansible.builtin.set_fact:
+      regex_match: "Provided site/siteId/template '{{ mso_test.site }}/[0-9a-zA-Z]*/Template2' does not exist. Existing siteIds/templates: [0-9a-zA-Z]*/Template1"
+
+  - name: Verify non_existing_site
+    ansible.builtin.assert:
+      that:
+      - cm_non_existing_site is not changed
+      - nm_non_existing_site is not changed
+      - cm_non_existing_site == nm_non_existing_site
+      - cm_non_existing_site.msg is match(regex_match)
+      - nm_non_existing_site.msg is match(regex_match)
+
+  # USE A TEMPLATE WITHOUT ANY SITE
+  - name: Add site EPG domain association to Schema 2 Template 3 without any site associated (check mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}_2'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_3 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+    ignore_errors: true
+    check_mode: true
+    register: cm_no_site_associated
+
+  - name: Add site EPG domain association to Template 3 without any site associated (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_domain:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}_2'
+      site: '{{ mso_test.site }}'
+      template: '{{ mso_test.template_3 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.epg_1 }}'
+      domain_association_type: '{{ mso_test.vmm_domain_type }}'
+      domain_profile: '{{ mso_test.vmm_domain_profile }}'
+      deployment_immediacy: lazy
+      resolution_immediacy: pre-provision
+    ignore_errors: true
+    register: nm_no_site_associated
+
+  - name: Verify cm_no_site_associated and nm_no_site_associated
+    ansible.builtin.assert:
+      that:
+      - cm_no_site_associated is not changed
+      - nm_no_site_associated is not changed
+      - cm_no_site_associated.msg == nm_no_site_associated.msg == "No site associated with template 'Template3'. Associate the site with the template using mso_schema_site."
+
+  always:
+  - name: Remove test schemas even if the test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ item }}'
+      state: absent
+    loop:
+    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema }}'
+    ignore_errors: true

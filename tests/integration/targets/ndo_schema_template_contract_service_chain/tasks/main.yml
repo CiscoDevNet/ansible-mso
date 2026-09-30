@@ -55,22 +55,6 @@
 - name: Exercise ndo_schema_template_contract_service_chain
   block:
     # CLEAN TEST ENVIRONMENT
-    - name: Ensure ansible_test site exists
-      cisco.mso.mso_site:
-        <<: *mso_info
-        site: "{{ mso_test.site }}"
-        state: query
-      register: ansible_test_site
-
-    - name: Ensure ansible_test tenant exists
-      cisco.mso.mso_tenant:
-        <<: *mso_info
-        tenant: "{{ mso_test.tenant }}"
-        sites:
-          - "{{ mso_test.site }}"
-        state: present
-      when: ansible_test_site.current.common.name == mso_test.site
-
     - name: Remove site from the ansible_template
       cisco.mso.mso_schema_site:
         <<: *mso_info

@@ -8,8 +8,7 @@
     msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
-# CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: "{{ mso_hostname }}"
@@ -19,6 +18,24 @@
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("info") }}'
+    mso_test:
+      tenant: '{{ mso_tenant_route_map_policy_route_control | default(mso_tenant | default("ansible_test")) }}'
+      template: '{{ mso_template_route_map_policy_route_control | default(mso_template | default("ansible_tenant_template")) }}'
+      route_map_policy:
+        first: route_map_policy_1
+        first_updated: route_map_policy_1_updated
+        second: route_map_policy_2
+      description:
+        initial: ""
+        second: test
+        updated: updated
+        updated_again: updated_again
+      match_type:
+        combinable: prefix_and_routing_policy
+        global: routing_policy_only
+      route_map_type:
+        combinable: combinable
+        global: global
 
 # QUERY VERSION
 - name: Query MSO version
@@ -27,23 +44,23 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version >= 4.1
-  when: version.current.version is version('4.1', '>=')
-  block:
-    # CLEAN ENVIRONMENT
-    - name: Ensure ansible_test exist
-      cisco.mso.mso_tenant:
-        <<: *mso_info
-        name: ansible_test
-        state: present
+# NDO 4.4 accepts route map policies but omits routeMapType from responses, even
+# when match_type is sent. Exercise CRUD on every version; check this field on 5.1+.
+- name: Set Route Map Type support
+  ansible.builtin.set_fact:
+    route_map_type_supported: "{{ version.current.version is version('5.1', '>=') }}"
 
+- name: Exercise ndo_route_map_policy_route_control
+  block:
+    # CLEAN TEST ENVIRONMENT
     - name: Ensure templates do not exist
       cisco.mso.ndo_template: &template_absent
         <<: *mso_info
-        name: ansible_tenant_template
+        name: "{{ mso_test.template }}"
         template_type: tenant
-        tenant: ansible_test
+        tenant: "{{ mso_test.tenant }}"
         state: absent
+      ignore_errors: true
 
     - name: Ensure templates exist
       cisco.mso.ndo_template:
@@ -55,8 +72,8 @@
     - name: Add Route Map Policy for Route Control 1 (check_mode)
       cisco.mso.ndo_route_map_policy_route_control: &cm_add_route_map_policy
         <<: *mso_info
-        template: ansible_tenant_template
-        name: route_map_policy_1
+        template: "{{ mso_test.template }}"
+        name: "{{ mso_test.route_map_policy.first }}"
         state: present
         output_level: debug
       check_mode: true
@@ -76,9 +93,9 @@
       cisco.mso.ndo_route_map_policy_route_control:
         <<: *mso_info
         template_id: "{{ add_ansible_tenant_template.current.templateId }}"
-        name: route_map_policy_2
-        description: test
-        match_type: prefix_and_routing_policy
+        name: "{{ mso_test.route_map_policy.second }}"
+        description: "{{ mso_test.description.second }}"
+        match_type: "{{ mso_test.match_type.combinable if (route_map_type_supported | bool) else omit }}"
         state: present
       register: add_route_map_policy_2
 
@@ -86,43 +103,43 @@
       ansible.builtin.assert:
         that:
           - cm_add_route_map_policy is changed
-          - cm_add_route_map_policy.current.name == "route_map_policy_1"
+          - cm_add_route_map_policy.current.name == mso_test.route_map_policy.first
           - cm_add_route_map_policy.current.templateId is defined
-          - cm_add_route_map_policy.current.templateName == "ansible_tenant_template"
+          - cm_add_route_map_policy.current.templateName == mso_test.template
           - cm_add_route_map_policy.previous == {}
-          - cm_add_route_map_policy.proposed.name == "route_map_policy_1"
+          - cm_add_route_map_policy.proposed.name == mso_test.route_map_policy.first
           - cm_add_route_map_policy.proposed.templateId is defined
-          - cm_add_route_map_policy.proposed.templateName == "ansible_tenant_template"
+          - cm_add_route_map_policy.proposed.templateName == mso_test.template
           - nm_add_route_map_policy is changed
-          - nm_add_route_map_policy.current.description == ""
-          - nm_add_route_map_policy.current.name == "route_map_policy_1"
-          - nm_add_route_map_policy.current.routeMapType == "global"
+          - nm_add_route_map_policy.current.description == mso_test.description.initial
+          - nm_add_route_map_policy.current.name == mso_test.route_map_policy.first
+          - not (route_map_type_supported | bool) or nm_add_route_map_policy.current.routeMapType == mso_test.route_map_type.global
           - nm_add_route_map_policy.current.templateId is defined
-          - nm_add_route_map_policy.current.templateName == "ansible_tenant_template"
+          - nm_add_route_map_policy.current.templateName == mso_test.template
           - nm_add_route_map_policy.current.uuid is defined
           - nm_add_route_map_policy.previous == {}
-          - nm_add_route_map_policy.proposed.name == "route_map_policy_1"
+          - nm_add_route_map_policy.proposed.name == mso_test.route_map_policy.first
           - nm_add_route_map_policy.proposed.templateId is defined
-          - nm_add_route_map_policy.proposed.templateName == "ansible_tenant_template"
+          - nm_add_route_map_policy.proposed.templateName == mso_test.template
           - nm_add_route_map_policy_again is not changed
-          - nm_add_route_map_policy_again.current.description == ""
-          - nm_add_route_map_policy_again.current.name == "route_map_policy_1"
-          - nm_add_route_map_policy_again.current.routeMapType == "global"
+          - nm_add_route_map_policy_again.current.description == mso_test.description.initial
+          - nm_add_route_map_policy_again.current.name == mso_test.route_map_policy.first
+          - not (route_map_type_supported | bool) or nm_add_route_map_policy_again.current.routeMapType == mso_test.route_map_type.global
           - nm_add_route_map_policy_again.current.templateId is defined
-          - nm_add_route_map_policy_again.current.templateName == "ansible_tenant_template"
+          - nm_add_route_map_policy_again.current.templateName == mso_test.template
           - nm_add_route_map_policy_again.current.uuid is defined
-          - nm_add_route_map_policy_again.previous.description == ""
-          - nm_add_route_map_policy_again.previous.name == "route_map_policy_1"
-          - nm_add_route_map_policy_again.previous.routeMapType == "global"
+          - nm_add_route_map_policy_again.previous.description == mso_test.description.initial
+          - nm_add_route_map_policy_again.previous.name == mso_test.route_map_policy.first
+          - not (route_map_type_supported | bool) or nm_add_route_map_policy_again.previous.routeMapType == mso_test.route_map_type.global
           - nm_add_route_map_policy_again.previous.templateId is defined
-          - nm_add_route_map_policy_again.previous.templateName == "ansible_tenant_template"
+          - nm_add_route_map_policy_again.previous.templateName == mso_test.template
           - nm_add_route_map_policy_again.previous.uuid is defined
           - add_route_map_policy_2 is changed
-          - add_route_map_policy_2.current.description == "test"
-          - add_route_map_policy_2.current.name == "route_map_policy_2"
-          - add_route_map_policy_2.current.routeMapType == "combinable"
+          - add_route_map_policy_2.current.description == mso_test.description.second
+          - add_route_map_policy_2.current.name == mso_test.route_map_policy.second
+          - not (route_map_type_supported | bool) or add_route_map_policy_2.current.routeMapType == mso_test.route_map_type.combinable
           - add_route_map_policy_2.current.templateId is defined
-          - add_route_map_policy_2.current.templateName == "ansible_tenant_template"
+          - add_route_map_policy_2.current.templateName == mso_test.template
           - add_route_map_policy_2.current.uuid is defined
           - add_route_map_policy_2.previous == {}
 
@@ -130,11 +147,11 @@
     - name: Update Route Map Policy for Route Control 1 (check_mode)
       cisco.mso.ndo_route_map_policy_route_control: &cm_update_route_map_policy
         <<: *mso_info
-        template: ansible_tenant_template
+        template: "{{ mso_test.template }}"
         uuid: "{{ nm_add_route_map_policy.current.uuid }}"
-        name: route_map_policy_1_updated
-        description: updated
-        match_type: prefix_and_routing_policy
+        name: "{{ mso_test.route_map_policy.first_updated }}"
+        description: "{{ mso_test.description.updated }}"
+        match_type: "{{ mso_test.match_type.combinable if (route_map_type_supported | bool) else omit }}"
         state: present
         output_level: debug
       check_mode: true
@@ -153,10 +170,10 @@
     - name: Update Route Map Policy for Route Control 1 using name
       cisco.mso.ndo_route_map_policy_route_control:
         <<: *mso_info
-        template: ansible_tenant_template
-        name: route_map_policy_1_updated
-        description: updated_again
-        match_type: routing_policy_only
+        template: "{{ mso_test.template }}"
+        name: "{{ mso_test.route_map_policy.first_updated }}"
+        description: "{{ mso_test.description.updated_again }}"
+        match_type: "{{ mso_test.match_type.global if (route_map_type_supported | bool) else omit }}"
         state: present
       register: update_route_map_policy_with_name
 
@@ -164,69 +181,69 @@
       ansible.builtin.assert:
         that:
           - cm_update_route_map_policy is changed
-          - cm_update_route_map_policy.current.description == "updated"
-          - cm_update_route_map_policy.current.name == "route_map_policy_1_updated"
-          - cm_update_route_map_policy.current.routeMapType == "combinable"
+          - cm_update_route_map_policy.current.description == mso_test.description.updated
+          - cm_update_route_map_policy.current.name == mso_test.route_map_policy.first_updated
+          - not (route_map_type_supported | bool) or cm_update_route_map_policy.current.routeMapType == mso_test.route_map_type.combinable
           - cm_update_route_map_policy.current.templateId is defined
-          - cm_update_route_map_policy.current.templateName == "ansible_tenant_template"
+          - cm_update_route_map_policy.current.templateName == mso_test.template
           - cm_update_route_map_policy.current.uuid is defined
-          - cm_update_route_map_policy.previous.description == ""
-          - cm_update_route_map_policy.previous.name == "route_map_policy_1"
-          - cm_update_route_map_policy.previous.routeMapType == "global"
+          - cm_update_route_map_policy.previous.description == mso_test.description.initial
+          - cm_update_route_map_policy.previous.name == mso_test.route_map_policy.first
+          - not (route_map_type_supported | bool) or cm_update_route_map_policy.previous.routeMapType == mso_test.route_map_type.global
           - cm_update_route_map_policy.previous.templateId is defined
-          - cm_update_route_map_policy.previous.templateName == "ansible_tenant_template"
+          - cm_update_route_map_policy.previous.templateName == mso_test.template
           - cm_update_route_map_policy.previous.uuid is defined
-          - cm_update_route_map_policy.proposed.description == "updated"
-          - cm_update_route_map_policy.proposed.name == "route_map_policy_1_updated"
-          - cm_update_route_map_policy.proposed.routeMapType == "combinable"
+          - cm_update_route_map_policy.proposed.description == mso_test.description.updated
+          - cm_update_route_map_policy.proposed.name == mso_test.route_map_policy.first_updated
+          - not (route_map_type_supported | bool) or cm_update_route_map_policy.proposed.routeMapType == mso_test.route_map_type.combinable
           - cm_update_route_map_policy.proposed.templateId is defined
-          - cm_update_route_map_policy.proposed.templateName == "ansible_tenant_template"
+          - cm_update_route_map_policy.proposed.templateName == mso_test.template
           - cm_update_route_map_policy.proposed.uuid is defined
           - nm_update_route_map_policy is changed
-          - nm_update_route_map_policy.current.description == "updated"
-          - nm_update_route_map_policy.current.name == "route_map_policy_1_updated"
-          - nm_update_route_map_policy.current.routeMapType == "combinable"
+          - nm_update_route_map_policy.current.description == mso_test.description.updated
+          - nm_update_route_map_policy.current.name == mso_test.route_map_policy.first_updated
+          - not (route_map_type_supported | bool) or nm_update_route_map_policy.current.routeMapType == mso_test.route_map_type.combinable
           - nm_update_route_map_policy.current.templateId is defined
-          - nm_update_route_map_policy.current.templateName == "ansible_tenant_template"
+          - nm_update_route_map_policy.current.templateName == mso_test.template
           - nm_update_route_map_policy.current.uuid is defined
-          - nm_update_route_map_policy.previous.description == ""
-          - nm_update_route_map_policy.previous.name == "route_map_policy_1"
-          - nm_update_route_map_policy.previous.routeMapType == "global"
+          - nm_update_route_map_policy.previous.description == mso_test.description.initial
+          - nm_update_route_map_policy.previous.name == mso_test.route_map_policy.first
+          - not (route_map_type_supported | bool) or nm_update_route_map_policy.previous.routeMapType == mso_test.route_map_type.global
           - nm_update_route_map_policy.previous.templateId is defined
-          - nm_update_route_map_policy.previous.templateName == "ansible_tenant_template"
+          - nm_update_route_map_policy.previous.templateName == mso_test.template
           - nm_update_route_map_policy.previous.uuid is defined
           - nm_update_route_map_policy_again is not changed
-          - nm_update_route_map_policy_again.current.description == "updated"
-          - nm_update_route_map_policy_again.current.name == "route_map_policy_1_updated"
-          - nm_update_route_map_policy_again.current.routeMapType == "combinable"
+          - nm_update_route_map_policy_again.current.description == mso_test.description.updated
+          - nm_update_route_map_policy_again.current.name == mso_test.route_map_policy.first_updated
+          - not (route_map_type_supported | bool) or nm_update_route_map_policy_again.current.routeMapType == mso_test.route_map_type.combinable
           - nm_update_route_map_policy_again.current.templateId is defined
-          - nm_update_route_map_policy_again.current.templateName == "ansible_tenant_template"
+          - nm_update_route_map_policy_again.current.templateName == mso_test.template
           - nm_update_route_map_policy_again.current.uuid is defined
-          - nm_update_route_map_policy_again.previous.description == "updated"
-          - nm_update_route_map_policy_again.previous.name == "route_map_policy_1_updated"
-          - nm_update_route_map_policy_again.previous.routeMapType == "combinable"
+          - nm_update_route_map_policy_again.previous.description == mso_test.description.updated
+          - nm_update_route_map_policy_again.previous.name == mso_test.route_map_policy.first_updated
+          - not (route_map_type_supported | bool) or nm_update_route_map_policy_again.previous.routeMapType == mso_test.route_map_type.combinable
           - nm_update_route_map_policy_again.previous.templateId is defined
-          - nm_update_route_map_policy_again.previous.templateName == "ansible_tenant_template"
+          - nm_update_route_map_policy_again.previous.templateName == mso_test.template
           - nm_update_route_map_policy_again.previous.uuid is defined
           - update_route_map_policy_with_name is changed
-          - update_route_map_policy_with_name.current.description == "updated_again"
-          - update_route_map_policy_with_name.current.name == "route_map_policy_1_updated"
-          - update_route_map_policy_with_name.current.routeMapType == "global"
+          - update_route_map_policy_with_name.current.description == mso_test.description.updated_again
+          - update_route_map_policy_with_name.current.name == mso_test.route_map_policy.first_updated
+          - not (route_map_type_supported | bool) or update_route_map_policy_with_name.current.routeMapType == mso_test.route_map_type.global
           - update_route_map_policy_with_name.current.templateId is defined
-          - update_route_map_policy_with_name.current.templateName == "ansible_tenant_template"
+          - update_route_map_policy_with_name.current.templateName == mso_test.template
           - update_route_map_policy_with_name.current.uuid is defined
-          - update_route_map_policy_with_name.previous.description == "updated"
-          - update_route_map_policy_with_name.previous.name == "route_map_policy_1_updated"
-          - update_route_map_policy_with_name.previous.routeMapType == "combinable"
+          - update_route_map_policy_with_name.previous.description == mso_test.description.updated
+          - update_route_map_policy_with_name.previous.name == mso_test.route_map_policy.first_updated
+          - not (route_map_type_supported | bool) or update_route_map_policy_with_name.previous.routeMapType == mso_test.route_map_type.combinable
           - update_route_map_policy_with_name.previous.templateId is defined
-          - update_route_map_policy_with_name.previous.templateName == "ansible_tenant_template"
+          - update_route_map_policy_with_name.previous.templateName == mso_test.template
           - update_route_map_policy_with_name.previous.uuid is defined
 
     # QUERY
     - name: Query Route Map Policy for Route Control 1 using UUID
       cisco.mso.ndo_route_map_policy_route_control:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: "{{ mso_test.template }}"
         uuid: "{{ nm_add_route_map_policy.current.uuid }}"
         state: query
       register: query_route_map_policy_1_uuid
@@ -234,15 +251,15 @@
     - name: Query Route Map Policy for Route Control 1 using name
       cisco.mso.ndo_route_map_policy_route_control:
         <<: *mso_info
-        template: ansible_tenant_template
-        name: route_map_policy_1_updated
+        template: "{{ mso_test.template }}"
+        name: "{{ mso_test.route_map_policy.first_updated }}"
         state: query
       register: query_route_map_policy_1_name
 
     - name: Query all Route Map Policy for Route Control
       cisco.mso.ndo_route_map_policy_route_control:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: "{{ mso_test.template }}"
         state: query
       register: query_all
 
@@ -250,33 +267,33 @@
       ansible.builtin.assert:
         that:
           - query_route_map_policy_1_uuid is not changed
-          - query_route_map_policy_1_uuid.current.description == "updated_again"
-          - query_route_map_policy_1_uuid.current.name == "route_map_policy_1_updated"
-          - query_route_map_policy_1_uuid.current.routeMapType == "global"
+          - query_route_map_policy_1_uuid.current.description == mso_test.description.updated_again
+          - query_route_map_policy_1_uuid.current.name == mso_test.route_map_policy.first_updated
+          - not (route_map_type_supported | bool) or query_route_map_policy_1_uuid.current.routeMapType == mso_test.route_map_type.global
           - query_route_map_policy_1_uuid.current.templateId is defined
-          - query_route_map_policy_1_uuid.current.templateName == "ansible_tenant_template"
+          - query_route_map_policy_1_uuid.current.templateName == mso_test.template
           - query_route_map_policy_1_uuid.current.uuid is defined
           - query_route_map_policy_1_name is not changed
           - query_route_map_policy_1_uuid.current == query_route_map_policy_1_name.current
           - query_all is not changed
-          - query_all.current.0.description == "updated_again"
-          - query_all.current.0.name == "route_map_policy_1_updated"
-          - query_all.current.0.routeMapType == "global"
+          - query_all.current.0.description == mso_test.description.updated_again
+          - query_all.current.0.name == mso_test.route_map_policy.first_updated
+          - not (route_map_type_supported | bool) or query_all.current.0.routeMapType == mso_test.route_map_type.global
           - query_all.current.0.templateId is defined
-          - query_all.current.0.templateName == "ansible_tenant_template"
+          - query_all.current.0.templateName == mso_test.template
           - query_all.current.0.uuid is defined
-          - query_all.current.1.description == "test"
-          - query_all.current.1.name == "route_map_policy_2"
-          - query_all.current.1.routeMapType == "combinable"
+          - query_all.current.1.description == mso_test.description.second
+          - query_all.current.1.name == mso_test.route_map_policy.second
+          - not (route_map_type_supported | bool) or query_all.current.1.routeMapType == mso_test.route_map_type.combinable
           - query_all.current.1.templateId is defined
-          - query_all.current.1.templateName == "ansible_tenant_template"
+          - query_all.current.1.templateName == mso_test.template
           - query_all.current.1.uuid is defined
 
     # DELETE
     - name: Delete Route Map Policy for Route Control 1 using UUID (check_mode)
       cisco.mso.ndo_route_map_policy_route_control: &cm_rm_route_map_policy_1_uuid
         <<: *mso_info
-        template: ansible_tenant_template
+        template: "{{ mso_test.template }}"
         uuid: "{{ nm_add_route_map_policy.current.uuid }}"
         state: absent
         output_level: debug
@@ -296,8 +313,8 @@
     - name: Delete Route Map Policy for Route Control 2 using name (check_mode)
       cisco.mso.ndo_route_map_policy_route_control: &cm_rm_route_map_policy_2_name
         <<: *mso_info
-        template: ansible_tenant_template
-        name: route_map_policy_2
+        template: "{{ mso_test.template }}"
+        name: "{{ mso_test.route_map_policy.second }}"
         state: absent
         output_level: debug
       check_mode: true
@@ -324,11 +341,11 @@
           - nm_rm_route_map_policy_1_uuid is changed
           - nm_rm_route_map_policy_1_uuid.current == {}
           - nm_rm_route_map_policy_1_uuid.previous == cm_rm_route_map_policy_1_uuid.previous
-          - nm_rm_route_map_policy_1_uuid.previous.description == "updated_again"
-          - nm_rm_route_map_policy_1_uuid.previous.name == "route_map_policy_1_updated"
-          - nm_rm_route_map_policy_1_uuid.previous.routeMapType == "global"
+          - nm_rm_route_map_policy_1_uuid.previous.description == mso_test.description.updated_again
+          - nm_rm_route_map_policy_1_uuid.previous.name == mso_test.route_map_policy.first_updated
+          - not (route_map_type_supported | bool) or nm_rm_route_map_policy_1_uuid.previous.routeMapType == mso_test.route_map_type.global
           - nm_rm_route_map_policy_1_uuid.previous.templateId is defined
-          - nm_rm_route_map_policy_1_uuid.previous.templateName == "ansible_tenant_template"
+          - nm_rm_route_map_policy_1_uuid.previous.templateName == mso_test.template
           - nm_rm_route_map_policy_1_uuid.previous.uuid is defined
           - nm_rm_route_map_policy_1_uuid_again is not changed
           - nm_rm_route_map_policy_1_uuid_again.current == {}
@@ -339,11 +356,11 @@
           - nm_rm_route_map_policy_2_name is changed
           - nm_rm_route_map_policy_2_name.current == {}
           - cm_rm_route_map_policy_2_name.previous == nm_rm_route_map_policy_2_name.previous
-          - nm_rm_route_map_policy_2_name.previous.description == "test"
-          - nm_rm_route_map_policy_2_name.previous.name == "route_map_policy_2"
-          - nm_rm_route_map_policy_2_name.previous.routeMapType == "combinable"
+          - nm_rm_route_map_policy_2_name.previous.description == mso_test.description.second
+          - nm_rm_route_map_policy_2_name.previous.name == mso_test.route_map_policy.second
+          - not (route_map_type_supported | bool) or nm_rm_route_map_policy_2_name.previous.routeMapType == mso_test.route_map_type.combinable
           - nm_rm_route_map_policy_2_name.previous.templateId is defined
-          - nm_rm_route_map_policy_2_name.previous.templateName == "ansible_tenant_template"
+          - nm_rm_route_map_policy_2_name.previous.templateName == mso_test.template
           - nm_rm_route_map_policy_2_name.previous.uuid is defined
           - nm_rm_route_map_policy_2_name_again is not changed
           - nm_rm_route_map_policy_2_name_again.current == {}
@@ -353,7 +370,7 @@
     - name: Negative test add Route Map Policy for Route Control without template
       cisco.mso.ndo_route_map_policy_route_control:
         <<: *mso_info
-        name: route_map_policy_1
+        name: "{{ mso_test.route_map_policy.first }}"
         state: present
       register: nt_add_route_map_policy_without_template
       ignore_errors: true
@@ -361,7 +378,7 @@
     - name: Negative test add Route Map Policy for Route Control without name and uuid
       cisco.mso.ndo_route_map_policy_route_control:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: "{{ mso_test.template }}"
         state: present
       register: nt_add_route_map_policy_without_name_uuid
       ignore_errors: true
@@ -374,7 +391,9 @@
           - nt_add_route_map_policy_without_name_uuid is not changed
           - 'nt_add_route_map_policy_without_name_uuid.msg == "state is present but any of the following are missing: name, uuid"'
 
-    # CLEAN ENVIRONMENT
-    - name: Ensure templates do not exist
+  always:
+    # CLEANUP
+    - name: Remove test tenant template even when a test fails
       cisco.mso.ndo_template:
         <<: *template_absent
+      ignore_errors: true

@@ -9,7 +9,7 @@
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
@@ -19,6 +19,15 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      tenant: '{{ mso_tenant | default("ansible_test") }}'
+      template: ansible_tenant_template
+      igmp_interface_policy: ansible_igmp_interface_policy
+      igmp_interface_policy_2: ansible_igmp_interface_policy_2
+      igmp_interface_policy_2_updated: ansible_igmp_interface_policy_2_updated
+      route_map_policy_1: ansible_test_route_map_policy_1
+      route_map_policy_2: ansible_test_route_map_policy_2
+      route_map_policy_3: ansible_test_route_map_policy_3
 
 # QUERY VERSION
 - name: Query MSO version
@@ -28,43 +37,16 @@
   register: version
 
 
-- name: Execute tasks only for MSO version >= 4.3
+- name: Exercise ndo_tenant_igmp_interface_policy
   when: version.current.version is version('4.3', '>=')
   block:
-
-    - name: Ensure sites exists
-      cisco.mso.mso_site:
-        <<: *mso_info
-        site: '{{ item.site }}'
-        apic_username: '{{ apic_username }}'
-        apic_password: '{{ apic_password }}'
-        apic_site_id: '{{ item.apic_site_id }}'
-        urls:
-          - https://{{ apic_hostname }}
-        state: present
-      loop:
-        - {site: '{{ mso_site | default("ansible_test") }}', apic_site_id: 101}
-        - {site: '{{ mso_site_2 | default("ansible_test_2") }}', apic_site_id: 102}
-
-    - name: Ensure tenants exist
-      cisco.mso.mso_tenant: 
-        <<: *mso_info
-        tenant: '{{ item }}'
-        users:
-          - '{{ mso_username }}'
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-          - '{{ mso_site_2 | default("ansible_test_2") }}'
-        state: present
-      loop:
-        - ansible_test
-
+    # (ansible_test tenant+site handled by the mso_setup_tenant_site setup target)
     - name: Ensure templates do not exist
       cisco.mso.ndo_template: &template_absent
         <<: *mso_info
-        name: ansible_tenant_template
+        name: '{{ mso_test.template }}'
         template_type: tenant
-        tenant: ansible_test
+        tenant: '{{ mso_test.tenant }}'
         state: absent
 
     - name: Ensure templates exist
@@ -75,16 +57,16 @@
     - name: Ensure IGMP Interface Policy does not exist
       cisco.mso.ndo_tenant_igmp_interface_policy: &igmp_interface_policy_absent
         <<: *mso_info
-        template: ansible_tenant_template
-        name: ansible_igmp_interface_policy
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.igmp_interface_policy }}'
         state: absent
 
     #  Create route map policy for multicast
     - name: Create first route map policy for multicast
       cisco.mso.ndo_route_map_policy_multicast: &create_route_map_policy_multicast
         <<: *mso_info
-        template: ansible_tenant_template
-        route_map_policy: ansible_test_route_map_policy_1
+        template: '{{ mso_test.template }}'
+        route_map_policy: '{{ mso_test.route_map_policy_1 }}'
         entries:
           - order: 1
             group: 226.2.2.0/24
@@ -96,21 +78,21 @@
     - name: Create second route map policy for multicast
       cisco.mso.ndo_route_map_policy_multicast:
         <<: *create_route_map_policy_multicast
-        route_map_policy: ansible_test_route_map_policy_2
+        route_map_policy: '{{ mso_test.route_map_policy_2 }}'
       register: create_route_map_policy_multicast_2
 
     - name: Create third route map policy for multicast
       cisco.mso.ndo_route_map_policy_multicast:
         <<: *create_route_map_policy_multicast
-        route_map_policy: ansible_test_route_map_policy_3
+        route_map_policy: '{{ mso_test.route_map_policy_3 }}'
       register: create_route_map_policy_multicast_3
 
     # CREATE
     - name: Create a new IGMP Interface Policy (check_mode)
       cisco.mso.ndo_tenant_igmp_interface_policy: &igmp_interface_policy_present
         <<: *mso_info
-        template: ansible_tenant_template
-        name: ansible_igmp_interface_policy
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.igmp_interface_policy }}'
         state: present
       check_mode: true
       register: cm_create_new_igmp_interface_policy
@@ -130,12 +112,12 @@
         that:
           - cm_create_new_igmp_interface_policy is changed
           - cm_create_new_igmp_interface_policy.previous == {}
-          - cm_create_new_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy'
-          - cm_create_new_igmp_interface_policy.current.templateName == 'ansible_tenant_template'
+          - cm_create_new_igmp_interface_policy.current.name == mso_test.igmp_interface_policy
+          - cm_create_new_igmp_interface_policy.current.templateName == mso_test.template
           - nm_create_new_igmp_interface_policy is changed
           - nm_create_new_igmp_interface_policy.previous == {}
-          - nm_create_new_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy'
-          - nm_create_new_igmp_interface_policy.current.templateName == 'ansible_tenant_template'
+          - nm_create_new_igmp_interface_policy.current.name == mso_test.igmp_interface_policy
+          - nm_create_new_igmp_interface_policy.current.templateName == mso_test.template
           - cm_create_new_igmp_interface_policy.current.templateId == nm_create_new_igmp_interface_policy.current.templateId
           - nm_create_new_igmp_interface_policy.current.uuid is defined
           - nm_create_new_igmp_interface_policy.current.description == ""
@@ -158,8 +140,8 @@
           - nm_create_new_igmp_interface_policy.current.stateLimitRouteMapRef == ""
           - nm_create_new_igmp_interface_policy.current.staticReportRouteMapRef == ""
           - nm_create_new_igmp_interface_policy_again is not changed
-          - nm_create_new_igmp_interface_policy_again.previous.name == nm_create_new_igmp_interface_policy_again.current.name == 'ansible_igmp_interface_policy'
-          - nm_create_new_igmp_interface_policy_again.previous.templateName == nm_create_new_igmp_interface_policy_again.current.templateName == 'ansible_tenant_template'
+          - nm_create_new_igmp_interface_policy_again.previous.name == nm_create_new_igmp_interface_policy_again.current.name == mso_test.igmp_interface_policy
+          - nm_create_new_igmp_interface_policy_again.previous.templateName == nm_create_new_igmp_interface_policy_again.current.templateName == mso_test.template
           - nm_create_new_igmp_interface_policy_again.previous.templateId == nm_create_new_igmp_interface_policy_again.current.templateId
           - nm_create_new_igmp_interface_policy_again.previous.description == nm_create_new_igmp_interface_policy_again.current.description == ""
           - nm_create_new_igmp_interface_policy_again.previous.enableFastLeaveControl == nm_create_new_igmp_interface_policy_again.current.enableFastLeaveControl == false
@@ -187,8 +169,8 @@
     - name: Create another IGMP Interface Policy
       cisco.mso.ndo_tenant_igmp_interface_policy: &igmp_interface_policy_2
         <<: *mso_info
-        template: ansible_tenant_template
-        name: ansible_igmp_interface_policy_2
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.igmp_interface_policy_2 }}'
         description: 'IGMP Interface Policy 2 description'
         version3_asm: 'enabled'
         fast_leave: 'enabled'
@@ -204,11 +186,11 @@
         querier_timeout: 700
         robustness_variable: 6
         state_limit_route_map:
-          name: ansible_test_route_map_policy_1
+          name: '{{ mso_test.route_map_policy_1 }}'
         report_policy_route_map:
-          name: ansible_test_route_map_policy_2
+          name: '{{ mso_test.route_map_policy_2 }}'
         static_report_route_map:
-          name: ansible_test_route_map_policy_3
+          name: '{{ mso_test.route_map_policy_3 }}'
         maximum_multicast_entries: 3244545
         reserved_multicast_entries: 8635434
         state: present
@@ -219,8 +201,8 @@
         that:
           - create_igmp_interface_policy_2 is changed
           - create_igmp_interface_policy_2.previous == {}
-          - create_igmp_interface_policy_2.current.name == 'ansible_igmp_interface_policy_2'
-          - create_igmp_interface_policy_2.current.templateName == 'ansible_tenant_template'
+          - create_igmp_interface_policy_2.current.name == mso_test.igmp_interface_policy_2
+          - create_igmp_interface_policy_2.current.templateName == mso_test.template
           - create_igmp_interface_policy_2.current.templateId is defined
           - create_igmp_interface_policy_2.current.uuid is defined
           - create_igmp_interface_policy_2.current.description == 'IGMP Interface Policy 2 description'
@@ -239,19 +221,19 @@
           - create_igmp_interface_policy_2.current.robustnessFactor == 6
           - create_igmp_interface_policy_2.current.startQueryCount == 4
           - create_igmp_interface_policy_2.current.startQueryInterval == 1000
-          - create_igmp_interface_policy_2.current.reportPolicyRouteMapName == 'ansible_test_route_map_policy_2'
+          - create_igmp_interface_policy_2.current.reportPolicyRouteMapName == mso_test.route_map_policy_2
           - create_igmp_interface_policy_2.current.reportPolicyRouteMapRef is defined
-          - create_igmp_interface_policy_2.current.stateLimitRouteMapName == 'ansible_test_route_map_policy_1'
+          - create_igmp_interface_policy_2.current.stateLimitRouteMapName == mso_test.route_map_policy_1
           - create_igmp_interface_policy_2.current.stateLimitRouteMapRef is defined
-          - create_igmp_interface_policy_2.current.staticReportRouteMapName == 'ansible_test_route_map_policy_3'
+          - create_igmp_interface_policy_2.current.staticReportRouteMapName == mso_test.route_map_policy_3
           - create_igmp_interface_policy_2.current.staticReportRouteMapRef is defined
 
     # UPDATE
     - name: Update an IGMP interface policy (check mode)
       cisco.mso.ndo_tenant_igmp_interface_policy: &igmp_interface_policy_update
         <<: *mso_info
-        template: ansible_tenant_template
-        name: ansible_igmp_interface_policy_2
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.igmp_interface_policy_2 }}'
         description: 'IGMP Interface Policy 2 description updated'
         version3_asm: 'disabled'
         fast_leave: 'disabled'
@@ -269,7 +251,7 @@
         state_limit_route_map_uuid: "{{ create_route_map_policy_multicast_2.current.uuid }}"
         report_policy_route_map_uuid: "{{ create_route_map_policy_multicast_3.current.uuid }}"
         static_report_route_map:
-          name: ansible_test_route_map_policy_1
+          name: '{{ mso_test.route_map_policy_1 }}'
         maximum_multicast_entries: 3244546
         reserved_multicast_entries: 86354345
         state: present
@@ -291,10 +273,10 @@
         that:
           - cm_update_igmp_interface_policy is changed
           - nm_update_igmp_interface_policy is changed
-          - cm_update_igmp_interface_policy.previous.name == nm_update_igmp_interface_policy.previous.name == 'ansible_igmp_interface_policy_2'
-          - cm_update_igmp_interface_policy.current.name == nm_update_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy_2'
-          - cm_update_igmp_interface_policy.previous.templateName == nm_update_igmp_interface_policy.previous.templateName == 'ansible_tenant_template'
-          - cm_update_igmp_interface_policy.current.templateName == nm_update_igmp_interface_policy.current.templateName == 'ansible_tenant_template'
+          - cm_update_igmp_interface_policy.previous.name == nm_update_igmp_interface_policy.previous.name == mso_test.igmp_interface_policy_2
+          - cm_update_igmp_interface_policy.current.name == nm_update_igmp_interface_policy.current.name == mso_test.igmp_interface_policy_2
+          - cm_update_igmp_interface_policy.previous.templateName == nm_update_igmp_interface_policy.previous.templateName == mso_test.template
+          - cm_update_igmp_interface_policy.current.templateName == nm_update_igmp_interface_policy.current.templateName == mso_test.template
           - cm_update_igmp_interface_policy.previous.templateId == nm_update_igmp_interface_policy.previous.templateId
           - cm_update_igmp_interface_policy.current.templateId == nm_update_igmp_interface_policy.current.templateId
           - cm_update_igmp_interface_policy.previous.description == nm_update_igmp_interface_policy.previous.description == 'IGMP Interface Policy 2 description'
@@ -329,15 +311,15 @@
           - cm_update_igmp_interface_policy.current.startQueryCount == nm_update_igmp_interface_policy.current.startQueryCount == 3
           - cm_update_igmp_interface_policy.previous.startQueryInterval == nm_update_igmp_interface_policy.previous.startQueryInterval == 1000
           - cm_update_igmp_interface_policy.current.startQueryInterval == nm_update_igmp_interface_policy.current.startQueryInterval == 1001
-          - cm_update_igmp_interface_policy.previous.reportPolicyRouteMapName == nm_update_igmp_interface_policy.previous.reportPolicyRouteMapName == 'ansible_test_route_map_policy_2'
-          - cm_update_igmp_interface_policy.current.reportPolicyRouteMapName == nm_update_igmp_interface_policy.current.reportPolicyRouteMapName == 'ansible_test_route_map_policy_3'
-          - cm_update_igmp_interface_policy.previous.stateLimitRouteMapName == nm_update_igmp_interface_policy.previous.stateLimitRouteMapName == 'ansible_test_route_map_policy_1'
-          - cm_update_igmp_interface_policy.current.stateLimitRouteMapName == nm_update_igmp_interface_policy.current.stateLimitRouteMapName == 'ansible_test_route_map_policy_2'
-          - cm_update_igmp_interface_policy.previous.staticReportRouteMapName == nm_update_igmp_interface_policy.previous.staticReportRouteMapName == 'ansible_test_route_map_policy_3'
-          - cm_update_igmp_interface_policy.current.staticReportRouteMapName == nm_update_igmp_interface_policy.current.staticReportRouteMapName == 'ansible_test_route_map_policy_1'
+          - cm_update_igmp_interface_policy.previous.reportPolicyRouteMapName == nm_update_igmp_interface_policy.previous.reportPolicyRouteMapName == mso_test.route_map_policy_2
+          - cm_update_igmp_interface_policy.current.reportPolicyRouteMapName == nm_update_igmp_interface_policy.current.reportPolicyRouteMapName == mso_test.route_map_policy_3
+          - cm_update_igmp_interface_policy.previous.stateLimitRouteMapName == nm_update_igmp_interface_policy.previous.stateLimitRouteMapName == mso_test.route_map_policy_1
+          - cm_update_igmp_interface_policy.current.stateLimitRouteMapName == nm_update_igmp_interface_policy.current.stateLimitRouteMapName == mso_test.route_map_policy_2
+          - cm_update_igmp_interface_policy.previous.staticReportRouteMapName == nm_update_igmp_interface_policy.previous.staticReportRouteMapName == mso_test.route_map_policy_3
+          - cm_update_igmp_interface_policy.current.staticReportRouteMapName == nm_update_igmp_interface_policy.current.staticReportRouteMapName == mso_test.route_map_policy_1
           - nm_update_igmp_interface_policy_again is not changed
-          - nm_update_igmp_interface_policy_again.previous.name == nm_update_igmp_interface_policy_again.current.name == 'ansible_igmp_interface_policy_2'
-          - nm_update_igmp_interface_policy_again.previous.templateName == nm_update_igmp_interface_policy_again.current.templateName == 'ansible_tenant_template'
+          - nm_update_igmp_interface_policy_again.previous.name == nm_update_igmp_interface_policy_again.current.name == mso_test.igmp_interface_policy_2
+          - nm_update_igmp_interface_policy_again.previous.templateName == nm_update_igmp_interface_policy_again.current.templateName == mso_test.template
           - nm_update_igmp_interface_policy_again.previous.templateId == nm_update_igmp_interface_policy_again.current.templateId
           - nm_update_igmp_interface_policy_again.previous.description == nm_update_igmp_interface_policy_again.current.description == 'IGMP Interface Policy 2 description updated'
           - nm_update_igmp_interface_policy_again.previous.enableFastLeaveControl == nm_update_igmp_interface_policy_again.current.enableFastLeaveControl == false
@@ -355,16 +337,16 @@
           - nm_update_igmp_interface_policy_again.previous.robustnessFactor == nm_update_igmp_interface_policy_again.current.robustnessFactor == 7
           - nm_update_igmp_interface_policy_again.previous.startQueryCount == nm_update_igmp_interface_policy_again.current.startQueryCount == 3
           - nm_update_igmp_interface_policy_again.previous.startQueryInterval == nm_update_igmp_interface_policy_again.current.startQueryInterval == 1001
-          - nm_update_igmp_interface_policy_again.previous.reportPolicyRouteMapName == nm_update_igmp_interface_policy_again.current.reportPolicyRouteMapName == 'ansible_test_route_map_policy_3'
-          - nm_update_igmp_interface_policy_again.previous.stateLimitRouteMapName == nm_update_igmp_interface_policy_again.current.stateLimitRouteMapName == 'ansible_test_route_map_policy_2'
-          - nm_update_igmp_interface_policy_again.previous.staticReportRouteMapName == nm_update_igmp_interface_policy_again.current.staticReportRouteMapName == 'ansible_test_route_map_policy_1'
+          - nm_update_igmp_interface_policy_again.previous.reportPolicyRouteMapName == nm_update_igmp_interface_policy_again.current.reportPolicyRouteMapName == mso_test.route_map_policy_3
+          - nm_update_igmp_interface_policy_again.previous.stateLimitRouteMapName == nm_update_igmp_interface_policy_again.current.stateLimitRouteMapName == mso_test.route_map_policy_2
+          - nm_update_igmp_interface_policy_again.previous.staticReportRouteMapName == nm_update_igmp_interface_policy_again.current.staticReportRouteMapName == mso_test.route_map_policy_1
 
     - name: Update the name of the IGMP interface policy 2 using UUID
       cisco.mso.ndo_tenant_igmp_interface_policy: &ansible_igmp_interface_policy_2_updated
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         uuid: '{{ create_igmp_interface_policy_2.current.uuid }}'
-        name: ansible_igmp_interface_policy_2_updated
+        name: '{{ mso_test.igmp_interface_policy_2_updated }}'
         state: present
       register: update_igmp_interface_policy_name
 
@@ -372,9 +354,9 @@
       assert:
         that:
           - update_igmp_interface_policy_name is changed
-          - update_igmp_interface_policy_name.previous.name == 'ansible_igmp_interface_policy_2'
-          - update_igmp_interface_policy_name.current.name == 'ansible_igmp_interface_policy_2_updated'
-          - update_igmp_interface_policy_name.current.templateName == 'ansible_tenant_template'
+          - update_igmp_interface_policy_name.previous.name == mso_test.igmp_interface_policy_2
+          - update_igmp_interface_policy_name.current.name == mso_test.igmp_interface_policy_2_updated
+          - update_igmp_interface_policy_name.current.templateName == mso_test.template
 
     - name: Update the state_limit_route_map and static_report_route_map in ansible_igmp_interface_policy_2_updated
       cisco.mso.ndo_tenant_igmp_interface_policy:
@@ -389,13 +371,13 @@
       assert:
         that:
           - updated_route_map is changed
-          - updated_route_map.previous.name == updated_route_map.current.name == 'ansible_igmp_interface_policy_2_updated'
-          - updated_route_map.previous.templateName == updated_route_map.current.templateName == 'ansible_tenant_template'
+          - updated_route_map.previous.name == updated_route_map.current.name == mso_test.igmp_interface_policy_2_updated
+          - updated_route_map.previous.templateName == updated_route_map.current.templateName == mso_test.template
           - updated_route_map.previous.templateId == updated_route_map.current.templateId
-          - updated_route_map.previous.stateLimitRouteMapName == 'ansible_test_route_map_policy_2'
+          - updated_route_map.previous.stateLimitRouteMapName == mso_test.route_map_policy_2
           - updated_route_map.previous.stateLimitRouteMapRef != ""
           - updated_route_map.current.stateLimitRouteMapRef == ""
-          - updated_route_map.previous.staticReportRouteMapName == 'ansible_test_route_map_policy_1'
+          - updated_route_map.previous.staticReportRouteMapName == mso_test.route_map_policy_1
           - updated_route_map.previous.stateLimitRouteMapRef != ""
           - updated_route_map.current.staticReportRouteMapRef == ""
 
@@ -410,10 +392,10 @@
       assert:
         that:
           - updated_report_policy_route_map is changed
-          - updated_report_policy_route_map.previous.name == updated_report_policy_route_map.current.name == 'ansible_igmp_interface_policy_2_updated'
-          - updated_report_policy_route_map.previous.templateName == updated_report_policy_route_map.current.templateName == 'ansible_tenant_template'
+          - updated_report_policy_route_map.previous.name == updated_report_policy_route_map.current.name == mso_test.igmp_interface_policy_2_updated
+          - updated_report_policy_route_map.previous.templateName == updated_report_policy_route_map.current.templateName == mso_test.template
           - updated_report_policy_route_map.previous.templateId == updated_report_policy_route_map.current.templateId
-          - updated_report_policy_route_map.previous.reportPolicyRouteMapName == 'ansible_test_route_map_policy_3'
+          - updated_report_policy_route_map.previous.reportPolicyRouteMapName == mso_test.route_map_policy_3
           - updated_report_policy_route_map.previous.reportPolicyRouteMapRef != ""
           - updated_report_policy_route_map.current.reportPolicyRouteMapRef == ""
 
@@ -421,15 +403,15 @@
     - name: Query an IGMP Interface Policy
       cisco.mso.ndo_tenant_igmp_interface_policy:
         <<: *mso_info
-        template: ansible_tenant_template
-        name: ansible_igmp_interface_policy_2_updated
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.igmp_interface_policy_2_updated }}'
         state: query
       register: query_igmp_interface_policy
 
     - name: Query an IGMP Interface Policy using UUID
       cisco.mso.ndo_tenant_igmp_interface_policy:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         uuid: '{{ nm_create_new_igmp_interface_policy.current.uuid }}'
         state: query
       register: query_igmp_interface_policy_uuid
@@ -437,7 +419,7 @@
     - name: Query all IGMP Interface Policies
       cisco.mso.ndo_tenant_igmp_interface_policy:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         state: query
       register: query_all_igmp_interface_policies
 
@@ -445,25 +427,25 @@
       ansible.builtin.assert:
         that:
           - query_igmp_interface_policy is not changed
-          - query_igmp_interface_policy.current.name == 'ansible_igmp_interface_policy_2_updated'
-          - query_igmp_interface_policy.current.templateName == 'ansible_tenant_template'
+          - query_igmp_interface_policy.current.name == mso_test.igmp_interface_policy_2_updated
+          - query_igmp_interface_policy.current.templateName == mso_test.template
           - query_igmp_interface_policy.current.templateId is defined
           - query_igmp_interface_policy_uuid is not changed
-          - query_igmp_interface_policy_uuid.current.name == 'ansible_igmp_interface_policy'
+          - query_igmp_interface_policy_uuid.current.name == mso_test.igmp_interface_policy
           - query_all_igmp_interface_policies is not changed
           - query_all_igmp_interface_policies.current | length == 2
-          - query_all_igmp_interface_policies.current[0].name == 'ansible_igmp_interface_policy'
-          - query_all_igmp_interface_policies.current[0].templateName == 'ansible_tenant_template'
-          - query_all_igmp_interface_policies.current[1].name == 'ansible_igmp_interface_policy_2_updated'
-          - query_all_igmp_interface_policies.current[1].templateName == 'ansible_tenant_template'
+          - query_all_igmp_interface_policies.current[0].name == mso_test.igmp_interface_policy
+          - query_all_igmp_interface_policies.current[0].templateName == mso_test.template
+          - query_all_igmp_interface_policies.current[1].name == mso_test.igmp_interface_policy_2_updated
+          - query_all_igmp_interface_policies.current[1].templateName == mso_test.template
           - query_all_igmp_interface_policies.current[0].templateId == query_all_igmp_interface_policies.current[1].templateId
 
     # DELETE
     - name: Delete an IGMP Interface Policy (check mode)
       cisco.mso.ndo_tenant_igmp_interface_policy: &igmp_interface_policy_delete
         <<: *mso_info
-        template: ansible_tenant_template
-        name: ansible_igmp_interface_policy_2_updated
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.igmp_interface_policy_2_updated }}'
         state: absent
       check_mode: true
       register: cm_delete_igmp_interface_policy
@@ -484,8 +466,8 @@
           - cm_delete_igmp_interface_policy is changed
           - nm_delete_igmp_interface_policy is changed
           - cm_delete_igmp_interface_policy.current == nm_delete_igmp_interface_policy.current == {}
-          - cm_delete_igmp_interface_policy.previous.name == nm_delete_igmp_interface_policy.previous.name == 'ansible_igmp_interface_policy_2_updated'
-          - cm_delete_igmp_interface_policy.previous.templateName == nm_delete_igmp_interface_policy.previous.templateName == 'ansible_tenant_template'
+          - cm_delete_igmp_interface_policy.previous.name == nm_delete_igmp_interface_policy.previous.name == mso_test.igmp_interface_policy_2_updated
+          - cm_delete_igmp_interface_policy.previous.templateName == nm_delete_igmp_interface_policy.previous.templateName == mso_test.template
           - cm_delete_igmp_interface_policy.previous.templateId == nm_delete_igmp_interface_policy.previous.templateId
           - cm_delete_igmp_interface_policy.previous.uuid == nm_delete_igmp_interface_policy.previous.uuid
           - cm_delete_igmp_interface_policy.previous.description == nm_delete_igmp_interface_policy.previous.description == 'IGMP Interface Policy 2 description updated'
@@ -513,7 +495,7 @@
     - name: Delete IGMP Interface Policy using UUID
       cisco.mso.ndo_tenant_igmp_interface_policy:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         uuid: '{{ nm_create_new_igmp_interface_policy.current.uuid }}'
         state: absent
       register: delete_igmp_interface_policy_uuid
@@ -522,8 +504,8 @@
       ansible.builtin.assert:
         that:
         - delete_igmp_interface_policy_uuid is changed
-        - delete_igmp_interface_policy_uuid.previous.name == 'ansible_igmp_interface_policy'
-        - delete_igmp_interface_policy_uuid.previous.templateName == 'ansible_tenant_template'
+        - delete_igmp_interface_policy_uuid.previous.name == mso_test.igmp_interface_policy
+        - delete_igmp_interface_policy_uuid.previous.templateName == mso_test.template
         - delete_igmp_interface_policy_uuid.previous.templateId is defined
         - delete_igmp_interface_policy_uuid.previous.description == ""
         - delete_igmp_interface_policy_uuid.current == {}
@@ -534,14 +516,14 @@
     - name: Query all IGMP Interface Policy in the template when all are deleted
       cisco.mso.ndo_tenant_igmp_interface_policy:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         state: query
       register: query_all_none
     
     - name: Update with non-existing UUID
       cisco.mso.ndo_tenant_igmp_interface_policy:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         uuid: non-existing-uuid
         state: present
       ignore_errors: true
@@ -559,8 +541,9 @@
           - update_non_existing_uuid is failed
           - update_non_existing_uuid.msg == error_message_non_existing_uuid
 
+  always:
     # CLEANUP TEMPLATE
-
-    - name: Ensure templates do not exist
+    - name: Ensure templates do not exist even when a test fails
       cisco.mso.ndo_template:
         <<: *template_absent
+      ignore_errors: true

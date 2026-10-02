@@ -9,7 +9,7 @@
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: "{{ mso_hostname }}"
@@ -19,6 +19,12 @@
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      tenant: '{{ mso_tenant | default("ansible_test") }}'
+      template: ansible_tenant_template
+      set_rule_policy: ansible_set_rule_policy
+      set_rule_policy_1: ansible_set_rule_policy_1
+      set_rule_policy_2: ansible_set_rule_policy_2
 
 # QUERY VERSION
 - name: Query MSO version
@@ -27,44 +33,18 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version > 5.1
+- name: Exercise ndo_set_rule_policy
   when: version.current.version is version('5.1', '>')
   block:
 
     # SETUP
-    - name: Ensure sites exists
-      cisco.mso.mso_site:
-        <<: *mso_info
-        site: '{{ item.site }}'
-        apic_username: '{{ apic_username }}'
-        apic_password: '{{ apic_password }}'
-        apic_site_id: '{{ item.apic_site_id }}'
-        urls:
-          - https://{{ apic_hostname }}
-        state: present
-      loop:
-        - {site: '{{ mso_site | default("ansible_test") }}', apic_site_id: 101}
-        - {site: '{{ mso_site_2 | default("ansible_test_2") }}', apic_site_id: 102}
-    
-    - name: Ensure tenant exist
-      cisco.mso.mso_tenant: 
-        <<: *mso_info
-        tenant: '{{ item }}'
-        users:
-          - '{{ mso_username }}'
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-          - '{{ mso_site_2 | default("ansible_test_2") }}'
-        state: present
-      loop:
-        - '{{ mso_tenant | default("ansible_test") }}'
-
+    # (ansible_test tenant+site handled by the mso_setup_tenant_site setup target)
     - name: Ensure templates do not exist
       cisco.mso.ndo_template: &template_absent
         <<: *mso_info
-        name: ansible_tenant_template
+        name: '{{ mso_test.template }}'
         template_type: tenant
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
         state: absent
 
     - name: Ensure templates exist
@@ -77,8 +57,8 @@
     - name: Create Set Rule Policy (check mode)
       cisco.mso.ndo_set_rule_policy: &add_set_rule_policy
         <<: *mso_info
-        template: ansible_tenant_template
-        name: ansible_set_rule_policy
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.set_rule_policy }}'
         description: Test Ansible Set Rule Policy
         set_community:
           community: no-export
@@ -125,7 +105,7 @@
           - nm_set_rule_policy is changed
           - cm_set_rule_policy.previous == nm_set_rule_policy.previous == {}
           - cm_set_rule_policy.proposed == cm_set_rule_policy.current
-          - cm_set_rule_policy.current.name == nm_set_rule_policy.current.name == "ansible_set_rule_policy"
+          - cm_set_rule_policy.current.name == nm_set_rule_policy.current.name == mso_test.set_rule_policy
           - cm_set_rule_policy.current.description == nm_set_rule_policy.current.description == "Test Ansible Set Rule Policy"
           - cm_set_rule_policy.current.templateName == nm_set_rule_policy.current.templateName == create_tenant_template.current.displayName
           - cm_set_rule_policy.current.templateId == nm_set_rule_policy.current.templateId == create_tenant_template.current.templateId
@@ -156,7 +136,7 @@
           - cm_set_rule_policy.current.setAsPath | length == nm_set_rule_policy.current.setAsPath | length == 2
           - cm_set_rule_policy.current.setAsPath.1.pathASNs | length == nm_set_rule_policy.current.setAsPath.1.pathASNs | length == 2
           - nm_set_rule_policy.current.uuid is defined
-          - cm_set_rule_policy.proposed.name == nm_set_rule_policy.proposed.name == "ansible_set_rule_policy"
+          - cm_set_rule_policy.proposed.name == nm_set_rule_policy.proposed.name == mso_test.set_rule_policy
           - cm_set_rule_policy.proposed.description == nm_set_rule_policy.proposed.description == "Test Ansible Set Rule Policy"
           - cm_set_rule_policy.proposed.setWeight == nm_set_rule_policy.proposed.setWeight == 50
           - cm_set_rule_policy.proposed.setRouteTag == nm_set_rule_policy.proposed.setRouteTag == 500
@@ -192,7 +172,7 @@
       cisco.mso.ndo_set_rule_policy: &update_set_rule_policy
         <<: *mso_info
         template_id: '{{ create_tenant_template.current.templateId }}'
-        name: ansible_set_rule_policy
+        name: '{{ mso_test.set_rule_policy }}'
         description: 'Test Ansible Set Rule Policy Updated'
         set_community:
           community: no-advertise
@@ -247,7 +227,7 @@
       cisco.mso.ndo_set_rule_policy:
         <<: *mso_info
         template_id: '{{ create_tenant_template.current.templateId }}'
-        name: ansible_set_rule_policy_1
+        name: '{{ mso_test.set_rule_policy_1 }}'
         uuid: "{{ nm_set_rule_policy.current.uuid }}"
         state: present
       register: nm_update_set_rule_policy_name
@@ -259,8 +239,8 @@
           - nm_update_set_rule_policy is changed
           - cm_update_set_rule_policy.previous == nm_update_set_rule_policy.previous
           - cm_update_set_rule_policy.proposed == cm_update_set_rule_policy.current
-          - cm_update_set_rule_policy.previous.name == nm_update_set_rule_policy.previous.name == "ansible_set_rule_policy"
-          - cm_update_set_rule_policy.current.name == nm_update_set_rule_policy.current.name == "ansible_set_rule_policy"
+          - cm_update_set_rule_policy.previous.name == nm_update_set_rule_policy.previous.name == mso_test.set_rule_policy
+          - cm_update_set_rule_policy.current.name == nm_update_set_rule_policy.current.name == mso_test.set_rule_policy
           - cm_update_set_rule_policy.previous.description == nm_update_set_rule_policy.previous.description == "Test Ansible Set Rule Policy"
           - cm_update_set_rule_policy.current.description == nm_update_set_rule_policy.current.description == "Test Ansible Set Rule Policy Updated"
           - cm_update_set_rule_policy.previous.templateName == nm_update_set_rule_policy.previous.templateName == create_tenant_template.current.displayName
@@ -288,7 +268,7 @@
           - cm_update_set_rule_policy.current.setAsPath.0.criteria == nm_update_set_rule_policy.current.setAsPath.0.criteria == "prepend-last-as"
           - cm_update_set_rule_policy.previous.setAsPath == nm_update_set_rule_policy.previous.setAsPath == nm_set_rule_policy.current.setAsPath
           - cm_update_set_rule_policy.current.uuid == nm_update_set_rule_policy.current.uuid
-          - cm_update_set_rule_policy.proposed.name == nm_update_set_rule_policy.proposed.name == "ansible_set_rule_policy"
+          - cm_update_set_rule_policy.proposed.name == nm_update_set_rule_policy.proposed.name == mso_test.set_rule_policy
           - cm_update_set_rule_policy.proposed.description == nm_update_set_rule_policy.proposed.description == "Test Ansible Set Rule Policy Updated"
           - cm_update_set_rule_policy.proposed.setPreference == nm_update_set_rule_policy.proposed.setPreference == 220
           - cm_update_set_rule_policy.proposed.setMetricType == nm_update_set_rule_policy.proposed.setMetricType == "ospf-type1"
@@ -302,13 +282,13 @@
           - nm_update_set_rule_policy_again is not changed
           - nm_update_set_rule_policy_again.previous == nm_update_set_rule_policy_again.current == nm_update_set_rule_policy.current
           - nm_update_set_rule_policy_name is changed
-          - nm_update_set_rule_policy_name.previous.name == "ansible_set_rule_policy"
-          - nm_update_set_rule_policy_name.current.name == "ansible_set_rule_policy_1"
+          - nm_update_set_rule_policy_name.previous.name == mso_test.set_rule_policy
+          - nm_update_set_rule_policy_name.current.name == mso_test.set_rule_policy_1
           - nm_update_set_rule_policy_remove_all is changed
           - nm_update_set_rule_policy_remove_all.previous == nm_update_set_rule_policy_again.current
           - nm_update_set_rule_policy_remove_all.current | length == 5
           - nm_update_set_rule_policy_remove_all.current.description == "Test Ansible Set Rule Policy Updated"
-          - nm_update_set_rule_policy_remove_all.current.name == "ansible_set_rule_policy"
+          - nm_update_set_rule_policy_remove_all.current.name == mso_test.set_rule_policy
           - nm_update_set_rule_policy_remove_all.current.templateId == create_tenant_template.current.templateId
           - nm_update_set_rule_policy_remove_all.current.templateName == create_tenant_template.current.displayName
           - nm_update_set_rule_policy_remove_all.current.uuid == nm_set_rule_policy.current.uuid
@@ -317,14 +297,14 @@
     - name: Create another Set Rule Policy
       cisco.mso.ndo_set_rule_policy:
         <<: *add_set_rule_policy
-        name: ansible_set_rule_policy_2
+        name: '{{ mso_test.set_rule_policy_2 }}'
       register: nm_set_rule_policy_2
 
     - name: Query one Set Rule Policy by name
       cisco.mso.ndo_set_rule_policy:
         <<: *mso_info
-        name: ansible_set_rule_policy_2
-        template: ansible_tenant_template
+        name: '{{ mso_test.set_rule_policy_2 }}'
+        template: '{{ mso_test.template }}'
         state: query
       register: query_name
 
@@ -332,14 +312,14 @@
       cisco.mso.ndo_set_rule_policy:
         <<: *mso_info
         uuid: '{{ nm_set_rule_policy.current.uuid }}'
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         state: query
       register: query_uuid
 
     - name: Query all Set Rule Policies
       cisco.mso.ndo_set_rule_policy: &query_all_set_rule_policies
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         state: query
       register: query_all
 
@@ -352,15 +332,15 @@
           - query_name.current == nm_set_rule_policy_2.current
           - query_uuid.current == nm_update_set_rule_policy_name.current
           - query_all.current | length == 2
-          - query_all.current[0].name == "ansible_set_rule_policy_1"
-          - query_all.current[1].name == "ansible_set_rule_policy_2"
+          - query_all.current[0].name == mso_test.set_rule_policy_1
+          - query_all.current[1].name == mso_test.set_rule_policy_2
 
     # DELETE
     - name: Delete Set Rule Policy (check mode)
       cisco.mso.ndo_set_rule_policy: &delete_set_rule_policy
         <<: *mso_info
-        template: ansible_tenant_template
-        name: ansible_set_rule_policy_1
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.set_rule_policy_1 }}'
         state: absent
       check_mode: true
       register: cm_delete_set_rule_policy
@@ -378,7 +358,7 @@
     - name: Delete Set Rule Policy with UUID
       cisco.mso.ndo_set_rule_policy:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         uuid: "{{ nm_set_rule_policy_2.current.uuid }}"
         state: absent
       register: nm_delete_set_rule_policy_with_uuid
@@ -390,14 +370,14 @@
           - nm_delete_set_rule_policy is changed
           - cm_delete_set_rule_policy.current == nm_delete_set_rule_policy.current == {}
           - cm_delete_set_rule_policy.previous == nm_delete_set_rule_policy.previous
-          - cm_delete_set_rule_policy.previous.name == nm_delete_set_rule_policy.previous.name == "ansible_set_rule_policy_1"
+          - cm_delete_set_rule_policy.previous.name == nm_delete_set_rule_policy.previous.name == mso_test.set_rule_policy_1
           - cm_delete_set_rule_policy.previous.uuid is defined
           - nm_delete_set_rule_policy_again is not changed
           - nm_delete_set_rule_policy_again.previous == nm_delete_set_rule_policy_again.current == {}
           - nm_delete_set_rule_policy_again.current.uuid is not defined
           - nm_delete_set_rule_policy_with_uuid is changed
           - nm_delete_set_rule_policy_with_uuid.current == {}
-          - nm_delete_set_rule_policy_with_uuid.previous.name == "ansible_set_rule_policy_2"
+          - nm_delete_set_rule_policy_with_uuid.previous.name == mso_test.set_rule_policy_2
 
     # NO POLICIES
     - name: Query all Set Rule Policies in the template when all are deleted
@@ -408,7 +388,7 @@
     - name: Update Set Rule Policy with non-existing UUID
       cisco.mso.ndo_set_rule_policy:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         uuid: non-existing-uuid
         state: present
       ignore_errors: true
@@ -428,6 +408,7 @@
 
   always:
     # CLEANUP
-    - name: Ensure tenant template does not exist
+    - name: Ensure tenant template does not exist even when a test fails
       cisco.mso.ndo_template:
         <<: *template_absent
+      ignore_errors: true

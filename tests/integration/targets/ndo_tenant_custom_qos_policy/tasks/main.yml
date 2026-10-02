@@ -9,7 +9,7 @@
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
@@ -19,6 +19,12 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      tenant: '{{ mso_tenant | default("ansible_test") }}'
+      template: ansible_tenant_template
+      custom_qos_policy: ansible_test_custom_qos_policy
+      custom_qos_policy_changed: ansible_test_custom_qos_policy_changed
+      custom_qos_policy_2: ansible_test_custom_qos_policy_2
 
 # QUERY VERSION
 - name: Query MSO version
@@ -28,43 +34,16 @@
   register: version
 
 
-- name: Execute tasks only for MSO version >= 4.3
+- name: Exercise ndo_tenant_custom_qos_policy
   when: version.current.version is version('4.3', '>=')
   block:
-
-    - name: Ensure sites exists
-      cisco.mso.mso_site:
-        <<: *mso_info
-        site: '{{ item.site }}'
-        apic_username: '{{ apic_username }}'
-        apic_password: '{{ apic_password }}'
-        apic_site_id: '{{ item.apic_site_id }}'
-        urls:
-          - https://{{ apic_hostname }}
-        state: present
-      loop:
-        - {site: '{{ mso_site | default("ansible_test") }}', apic_site_id: 101}
-        - {site: '{{ mso_site_2 | default("ansible_test_2") }}', apic_site_id: 102}
-
-    - name: Ensure tenants exist
-      cisco.mso.mso_tenant: 
-        <<: *mso_info
-        tenant: '{{ item }}'
-        users:
-          - '{{ mso_username }}'
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-          - '{{ mso_site_2 | default("ansible_test_2") }}'
-        state: present
-      loop:
-        - ansible_test
-
+    # (ansible_test tenant+site handled by the mso_setup_tenant_site setup target)
     - name: Ensure templates do not exist
       cisco.mso.ndo_template: &template_absent
         <<: *mso_info
-        name: ansible_tenant_template
+        name: '{{ mso_test.template }}'
         template_type: tenant
-        tenant: ansible_test
+        tenant: '{{ mso_test.tenant }}'
         state: absent
 
     - name: Ensure templates exist
@@ -77,8 +56,8 @@
     - name: Create a new Custom QoS Policy (check_mode)
       cisco.mso.ndo_tenant_custom_qos_policy: &create_custom_qos_policy
         <<: *mso_info
-        template: ansible_tenant_template
-        name: ansible_test_custom_qos_policy
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.custom_qos_policy }}'
         description: Ansible Custom QoS policy
         dscp_mappings:
           - dscp_from: af11
@@ -111,7 +90,7 @@
         that:
           - cm_create_new_custom_qos_policy is changed
           - cm_create_new_custom_qos_policy.previous == {}
-          - cm_create_new_custom_qos_policy.current.name == "ansible_test_custom_qos_policy"
+          - cm_create_new_custom_qos_policy.current.name == mso_test.custom_qos_policy
           - cm_create_new_custom_qos_policy.current.description == "Ansible Custom QoS policy"
           - cm_create_new_custom_qos_policy.current.dscpMappings.0.dscpFrom == "af11"
           - cm_create_new_custom_qos_policy.current.dscpMappings.0.dscpTo == "af12"
@@ -125,7 +104,7 @@
           - cm_create_new_custom_qos_policy.current.cosMappings.0.priority == "level1"
           - nm_create_new_custom_qos_policy is changed
           - nm_create_new_custom_qos_policy.previous == {}
-          - nm_create_new_custom_qos_policy.current.name == "ansible_test_custom_qos_policy"
+          - nm_create_new_custom_qos_policy.current.name == mso_test.custom_qos_policy
           - nm_create_new_custom_qos_policy.current.description == "Ansible Custom QoS policy"
           - nm_create_new_custom_qos_policy.current.dscpMappings.0.dscpFrom == "af11"
           - nm_create_new_custom_qos_policy.current.dscpMappings.0.dscpTo == "af12"
@@ -139,7 +118,7 @@
           - nm_create_new_custom_qos_policy.current.cosMappings.0.priority == "level1"
           - nm_create_new_custom_qos_policy.current.uuid is defined
           - nm_create_new_custom_qos_policy_again is not changed
-          - nm_create_new_custom_qos_policy_again.previous.name == "ansible_test_custom_qos_policy"
+          - nm_create_new_custom_qos_policy_again.previous.name == mso_test.custom_qos_policy
           - nm_create_new_custom_qos_policy_again.previous.description == "Ansible Custom QoS policy"
           - nm_create_new_custom_qos_policy_again.previous.dscpMappings.0.dscpFrom == "af11"
           - nm_create_new_custom_qos_policy_again.previous.dscpMappings.0.dscpTo == "af12"
@@ -152,7 +131,7 @@
           - nm_create_new_custom_qos_policy_again.previous.cosMappings.0.targetCos == "cos0"
           - nm_create_new_custom_qos_policy_again.previous.cosMappings.0.priority == "level1"
           - nm_create_new_custom_qos_policy_again.previous.uuid is defined
-          - nm_create_new_custom_qos_policy_again.current.name == "ansible_test_custom_qos_policy"
+          - nm_create_new_custom_qos_policy_again.current.name == mso_test.custom_qos_policy
           - nm_create_new_custom_qos_policy_again.current.description == "Ansible Custom QoS policy"
           - nm_create_new_custom_qos_policy_again.current.dscpMappings.0.dscpFrom == "af11"
           - nm_create_new_custom_qos_policy_again.current.dscpMappings.0.dscpTo == "af12"
@@ -212,7 +191,7 @@
       assert:
         that:
           - cm_update_custom_qos_policy is changed
-          - cm_update_custom_qos_policy.previous.name == "ansible_test_custom_qos_policy"
+          - cm_update_custom_qos_policy.previous.name == mso_test.custom_qos_policy
           - cm_update_custom_qos_policy.previous.description == "Ansible Custom QoS policy"
           - cm_update_custom_qos_policy.previous.dscpMappings.0.dscpFrom == "af11"
           - cm_update_custom_qos_policy.previous.dscpMappings.0.dscpTo == "af12"
@@ -225,7 +204,7 @@
           - cm_update_custom_qos_policy.previous.cosMappings.0.targetCos == "cos0"
           - cm_update_custom_qos_policy.previous.cosMappings.0.priority == "level1"
           - cm_update_custom_qos_policy.previous.uuid is defined
-          - cm_update_custom_qos_policy.current.name == "ansible_test_custom_qos_policy"
+          - cm_update_custom_qos_policy.current.name == mso_test.custom_qos_policy
           - cm_update_custom_qos_policy.current.description == "New Ansible Custom QoS policy"
           - cm_update_custom_qos_policy.current.dscpMappings.0.dscpFrom == "af12"
           - cm_update_custom_qos_policy.current.dscpMappings.0.dscpTo == "af13"
@@ -239,7 +218,7 @@
           - cm_update_custom_qos_policy.current.cosMappings.0.priority == "level2"         
           - cm_update_custom_qos_policy.current.uuid is defined
           - nm_update_custom_qos_policy is changed
-          - nm_update_custom_qos_policy.previous.name == "ansible_test_custom_qos_policy"
+          - nm_update_custom_qos_policy.previous.name == mso_test.custom_qos_policy
           - nm_update_custom_qos_policy.previous.description == "Ansible Custom QoS policy"
           - nm_update_custom_qos_policy.previous.dscpMappings.0.dscpFrom == "af11"
           - nm_update_custom_qos_policy.previous.dscpMappings.0.dscpTo == "af12"
@@ -252,7 +231,7 @@
           - nm_update_custom_qos_policy.previous.cosMappings.0.targetCos == "cos0"
           - nm_update_custom_qos_policy.previous.cosMappings.0.priority == "level1"
           - nm_update_custom_qos_policy.previous.uuid is defined
-          - nm_update_custom_qos_policy.current.name == "ansible_test_custom_qos_policy"
+          - nm_update_custom_qos_policy.current.name == mso_test.custom_qos_policy
           - nm_update_custom_qos_policy.current.description == "New Ansible Custom QoS policy"
           - nm_update_custom_qos_policy.current.dscpMappings.0.dscpFrom == "af12"
           - nm_update_custom_qos_policy.current.dscpMappings.0.dscpTo == "af13"
@@ -267,7 +246,7 @@
           - nm_update_custom_qos_policy.current.cosMappings.0.priority == "level2"         
           - nm_update_custom_qos_policy.current.uuid is defined
           - nm_update_custom_qos_policy_again is not changed
-          - nm_update_custom_qos_policy_again.previous.name == "ansible_test_custom_qos_policy"
+          - nm_update_custom_qos_policy_again.previous.name == mso_test.custom_qos_policy
           - nm_update_custom_qos_policy_again.previous.description == "New Ansible Custom QoS policy"
           - nm_update_custom_qos_policy_again.previous.dscpMappings.0.dscpFrom == "af12"
           - nm_update_custom_qos_policy_again.previous.dscpMappings.0.dscpTo == "af13"
@@ -281,7 +260,7 @@
           - nm_update_custom_qos_policy_again.previous.cosMappings.0.targetCos == "cos1"
           - nm_update_custom_qos_policy_again.previous.cosMappings.0.priority == "level2"         
           - nm_update_custom_qos_policy_again.previous.uuid is defined
-          - nm_update_custom_qos_policy_again.current.name == "ansible_test_custom_qos_policy"
+          - nm_update_custom_qos_policy_again.current.name == mso_test.custom_qos_policy
           - nm_update_custom_qos_policy_again.current.description == "New Ansible Custom QoS policy"
           - nm_update_custom_qos_policy_again.current.dscpMappings.0.dscpFrom == "af12"
           - nm_update_custom_qos_policy_again.current.dscpMappings.0.dscpTo == "af13"
@@ -296,7 +275,7 @@
           - nm_update_custom_qos_policy_again.current.cosMappings.0.priority == "level2"          
           - nm_update_custom_qos_policy_again.current.uuid is defined
           - cm_update_custom_qos_policy is changed
-          - nm_remove_custom_qos_policy_dscp.previous.name == "ansible_test_custom_qos_policy"
+          - nm_remove_custom_qos_policy_dscp.previous.name == mso_test.custom_qos_policy
           - nm_remove_custom_qos_policy_dscp.previous.description == "New Ansible Custom QoS policy"
           - nm_remove_custom_qos_policy_dscp.previous.dscpMappings.0.dscpFrom == "af12"
           - nm_remove_custom_qos_policy_dscp.previous.dscpMappings.0.dscpTo == "af13"
@@ -309,7 +288,7 @@
           - nm_remove_custom_qos_policy_dscp.previous.cosMappings.0.targetCos == "cos1"
           - nm_remove_custom_qos_policy_dscp.previous.cosMappings.0.priority == "level2"
           - nm_remove_custom_qos_policy_dscp.previous.uuid is defined
-          - nm_remove_custom_qos_policy_dscp.current.name == "ansible_test_custom_qos_policy"
+          - nm_remove_custom_qos_policy_dscp.current.name == mso_test.custom_qos_policy
           - nm_remove_custom_qos_policy_dscp.current.description == "New Ansible Custom QoS policy"
           - nm_remove_custom_qos_policy_dscp.current.dscpMappings is not defined
           - nm_remove_custom_qos_policy_dscp.current.cosMappings.0.dot1pFrom == "cos1"
@@ -319,7 +298,7 @@
           - nm_remove_custom_qos_policy_dscp.current.cosMappings.0.priority == "level2"
           - nm_remove_custom_qos_policy_dscp.current.uuid is defined
           - nm_remove_custom_qos_policy_dscp_again is not changed
-          - nm_remove_custom_qos_policy_dscp_again.previous.name == "ansible_test_custom_qos_policy"
+          - nm_remove_custom_qos_policy_dscp_again.previous.name == mso_test.custom_qos_policy
           - nm_remove_custom_qos_policy_dscp_again.previous.description == "New Ansible Custom QoS policy"
           - nm_remove_custom_qos_policy_dscp_again.previous.dscpMappings is not defined
           - nm_remove_custom_qos_policy_dscp_again.previous.cosMappings.0.dot1pFrom == "cos1"
@@ -328,7 +307,7 @@
           - nm_remove_custom_qos_policy_dscp_again.previous.cosMappings.0.targetCos == "cos1"
           - nm_remove_custom_qos_policy_dscp_again.previous.cosMappings.0.priority == "level2"
           - nm_remove_custom_qos_policy_dscp_again.previous.uuid is defined
-          - nm_remove_custom_qos_policy_dscp_again.current.name == "ansible_test_custom_qos_policy"
+          - nm_remove_custom_qos_policy_dscp_again.current.name == mso_test.custom_qos_policy
           - nm_remove_custom_qos_policy_dscp_again.current.description == "New Ansible Custom QoS policy"
           - nm_remove_custom_qos_policy_dscp_again.current.dscpMappings is not defined
           - nm_remove_custom_qos_policy_dscp_again.current.cosMappings.0.dot1pFrom == "cos1"
@@ -343,22 +322,22 @@
       cisco.mso.ndo_tenant_custom_qos_policy: &update_custom_qos_policy_name
         <<: *remove_custom_qos_policy_dscp
         uuid: '{{ nm_update_custom_qos_policy.current.uuid }}'
-        name: ansible_test_custom_qos_policy_changed
+        name: '{{ mso_test.custom_qos_policy_changed }}'
       register: nm_update_custom_qos_policy_name
 
     - name: Assert Custom QoS Policy was updated
       assert:
         that:
           - nm_update_custom_qos_policy_name is changed
-          - nm_update_custom_qos_policy_name.previous.name == "ansible_test_custom_qos_policy"
-          - nm_update_custom_qos_policy_name.current.name == "ansible_test_custom_qos_policy_changed"
+          - nm_update_custom_qos_policy_name.previous.name == mso_test.custom_qos_policy
+          - nm_update_custom_qos_policy_name.current.name == mso_test.custom_qos_policy_changed
 
     # QUERY
 
     - name: Create another Custom QoS Policy
       cisco.mso.ndo_tenant_custom_qos_policy: &create_custom_qos_policy_2
         <<: *create_custom_qos_policy
-        name: ansible_test_custom_qos_policy_2
+        name: '{{ mso_test.custom_qos_policy_2 }}'
 
     - name: Query a Custom QoS Policy with template_name
       cisco.mso.ndo_tenant_custom_qos_policy:
@@ -377,7 +356,7 @@
     - name: Query all Custom QoS Policy in the template
       cisco.mso.ndo_tenant_custom_qos_policy:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         state: query
       register: query_all
 
@@ -385,12 +364,12 @@
       assert:
         that:
           - query_one is not changed
-          - query_one.current.name == "ansible_test_custom_qos_policy_2"
+          - query_one.current.name == mso_test.custom_qos_policy_2
           - query_one_uuid is not changed
-          - query_one_uuid.current.name == "ansible_test_custom_qos_policy_2"
+          - query_one_uuid.current.name == mso_test.custom_qos_policy_2
           - query_all is not changed
-          - query_all.current.0.name == "ansible_test_custom_qos_policy_changed"
-          - query_all.current.1.name == "ansible_test_custom_qos_policy_2"
+          - query_all.current.0.name == mso_test.custom_qos_policy_changed
+          - query_all.current.1.name == mso_test.custom_qos_policy_2
           - query_all.current | length == 2
 
     # DELETE
@@ -416,7 +395,7 @@
       assert:
         that:
           - cm_delete_custom_qos_policy is changed
-          - cm_delete_custom_qos_policy.previous.name == "ansible_test_custom_qos_policy_changed"
+          - cm_delete_custom_qos_policy.previous.name == mso_test.custom_qos_policy_changed
           - cm_delete_custom_qos_policy.previous.description == "New Ansible Custom QoS policy"
           - cm_delete_custom_qos_policy.previous.dscpMappings is not defined
           - cm_delete_custom_qos_policy.previous.cosMappings.0.dot1pFrom == "cos1"
@@ -427,7 +406,7 @@
           - cm_delete_custom_qos_policy.previous.uuid is defined
           - nm_delete_custom_qos_policy.current == {}
           - nm_delete_custom_qos_policy is changed
-          - nm_delete_custom_qos_policy.previous.name == "ansible_test_custom_qos_policy_changed"
+          - nm_delete_custom_qos_policy.previous.name == mso_test.custom_qos_policy_changed
           - nm_delete_custom_qos_policy.previous.description == "New Ansible Custom QoS policy"
           - nm_delete_custom_qos_policy.previous.dscpMappings is not defined
           - nm_delete_custom_qos_policy.previous.cosMappings.0.dot1pFrom == "cos1"
@@ -451,7 +430,7 @@
       assert:
         that:
           - nm_delete_custom_qos_policy_uuid is changed
-          - nm_delete_custom_qos_policy_uuid.previous.name == "ansible_test_custom_qos_policy_2"
+          - nm_delete_custom_qos_policy_uuid.previous.name == mso_test.custom_qos_policy_2
           - nm_delete_custom_qos_policy_uuid.current == {}
     
     # Errors and no policies found
@@ -459,14 +438,14 @@
     - name: Query all Custom QoS Policy in the template when all are deleted
       cisco.mso.ndo_tenant_custom_qos_policy:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         state: query
       register: query_all_none
     
     - name: Update with non-existing UUID
       cisco.mso.ndo_tenant_custom_qos_policy:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         uuid: non-existing-uuid
         state: present
       ignore_errors: true
@@ -484,8 +463,9 @@
           - update_non_existing_uuid is failed
           - update_non_existing_uuid.msg == error_message_non_existing_uuid
 
+  always:
     # CLEANUP TEMPLATE
-
-    - name: Ensure templates do not exist
+    - name: Ensure templates do not exist even when a test fails
       cisco.mso.ndo_template:
         <<: *template_absent
+      ignore_errors: true

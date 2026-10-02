@@ -9,7 +9,7 @@
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: "{{ mso_hostname }}"
@@ -19,6 +19,21 @@
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      tenant: '{{ mso_tenant | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      template: ansible_monitoring_tenant_policy_template
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      schema_template: ansible_test
+      anp: ansible_test_anp
+      epg_1: ansible_test_epg_1
+      epg_2: ansible_test_epg_2
+      epg_3: ansible_test_epg_3
+      epg_4: ansible_test_epg_4
+      epg_5: ansible_test_epg_5
+      span_session: ansible_span_session
+      span_session_1: ansible_span_session_1
+      span_session_2: ansible_span_session_2
 
 # QUERY VERSION
 - name: Query MSO version
@@ -27,45 +42,19 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version > 4.3
+- name: Exercise ndo_tenant_span_session
   when: version.current.version is version('4.3', '>')
   block:
 
     # SETUP
-    - name: Ensure sites exists
-      cisco.mso.mso_site:
-        <<: *mso_info
-        site: '{{ item.site }}'
-        apic_username: '{{ apic_username }}'
-        apic_password: '{{ apic_password }}'
-        apic_site_id: '{{ item.apic_site_id }}'
-        urls:
-          - https://{{ apic_hostname }}
-        state: present
-      loop:
-        - {site: '{{ mso_site | default("ansible_test") }}', apic_site_id: 101}
-        - {site: '{{ mso_site_2 | default("ansible_test_2") }}', apic_site_id: 102}
-    
-    - name: Ensure tenant exist
-      cisco.mso.mso_tenant: 
-        <<: *mso_info
-        tenant: '{{ item }}'
-        users:
-          - '{{ mso_username }}'
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-          - '{{ mso_site_2 | default("ansible_test_2") }}'
-        state: present
-      loop:
-        - ansible_test
-
+    # (ansible_test tenant+site handled by the mso_setup_tenant_site setup target)
     - name: Ensure Tenant Monitoring Policy template does not exist
       cisco.mso.ndo_template: &ndo_monitoring_tenant_template_absent
         <<: *mso_info
-        template: ansible_monitoring_tenant_policy_template
-        tenant: ansible_test
+        template: '{{ mso_test.template }}'
+        tenant: '{{ mso_test.tenant }}'
         sites: 
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         type: monitoring_tenant
         state: absent
 
@@ -78,15 +67,15 @@
     - name: Ensure schema does not exist
       cisco.mso.mso_schema: &remove_schemas
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         state: absent
 
     - name: Ensure schema with template exists
       cisco.mso.mso_schema_template:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        tenant: ansible_test
-        template: ansible_test
+        schema: '{{ mso_test.schema }}'
+        tenant: '{{ mso_test.tenant }}'
+        template: '{{ mso_test.schema_template }}'
         state: present
 
     - name: Query the schema
@@ -98,9 +87,9 @@
     - name: Ensure an ANP exists
       cisco.mso.mso_schema_template_anp: &anp_present
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: ansible_test
-        anp: ansible_test_anp
+        schema: '{{ mso_test.schema }}'
+        template: '{{ mso_test.schema_template }}'
+        anp: '{{ mso_test.anp }}'
         state: present
 
     - name: Query ANP
@@ -112,12 +101,12 @@
     - name: Ensure EPGs exist
       cisco.mso.mso_schema_template_anp_epg: &epg_present
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: ansible_test
-        anp: ansible_test_anp
+        schema: '{{ mso_test.schema }}'
+        template: '{{ mso_test.schema_template }}'
+        anp: '{{ mso_test.anp }}'
         epg: '{{ item }}'
         state: present
-      loop: [ ansible_test_epg_1, ansible_test_epg_2, ansible_test_epg_3, ansible_test_epg_4, ansible_test_epg_5 ]
+      loop: [ '{{ mso_test.epg_1 }}', '{{ mso_test.epg_2 }}', '{{ mso_test.epg_3 }}', '{{ mso_test.epg_4 }}', '{{ mso_test.epg_5 }}' ]
 
     - name: Query all EPGs
       cisco.mso.mso_schema_template_anp_epg:
@@ -130,17 +119,17 @@
     - name: Create SPAN Session (check mode)
       cisco.mso.ndo_tenant_span_session: &add_span_session
         <<: *mso_info
-        template: ansible_monitoring_tenant_policy_template
-        name: ansible_span_session
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.span_session }}'
         description: Test Ansible SPAN Session
         sources:
           - name: source_1
             direction: both
             epg:
-              schema: ansible_test
-              template: ansible_test
-              anp: ansible_test_anp
-              name: ansible_test_epg_3
+              schema: '{{ mso_test.schema }}'
+              template: '{{ mso_test.schema_template }}'
+              anp: '{{ mso_test.anp }}'
+              name: '{{ mso_test.epg_3 }}'
           - name: source_2
             direction: outgoing
             epg_uuid: '{{ query_epgs.current.3.uuid }}'
@@ -150,15 +139,15 @@
               schema_id: '{{ query_schema.current.id }}'
               template_id: '{{ query_schema.current.templates.0.templateID }}'
               anp_uuid: '{{ query_anp.current.uuid }}'
-              name: ansible_test_epg_5
+              name: '{{ mso_test.epg_5 }}'
         admin_state: disabled
         mtu: 9001
         destination_epg:
           epg:
-            schema: ansible_test
-            template: ansible_test
-            anp: ansible_test_anp
-            name: ansible_test_epg_1
+            schema: '{{ mso_test.schema }}'
+            template: '{{ mso_test.schema_template }}'
+            anp: '{{ mso_test.anp }}'
+            name: '{{ mso_test.epg_1 }}'
           destination_ip: 10.1.1.1
           source_ip_prefix: 10.1.1.1/24
           span_version: v1
@@ -186,7 +175,7 @@
           - cm_span_session is changed
           - nm_span_session is changed
           - cm_span_session.previous == nm_span_session.previous == {}
-          - cm_span_session.current.name == nm_span_session.current.name == "ansible_span_session"
+          - cm_span_session.current.name == nm_span_session.current.name == mso_test.span_session
           - cm_span_session.current.description == nm_span_session.current.description == "Test Ansible SPAN Session"
           - cm_span_session.current.templateName == nm_span_session.current.templateName == create_monitoring_tenant.current.displayName
           - cm_span_session.current.templateId == nm_span_session.current.templateId == create_monitoring_tenant.current.templateId
@@ -209,7 +198,7 @@
           - cm_span_session.current.sourceGroup.sources.0.name == nm_span_session.current.sourceGroup.sources.0.name == "source_1"
           - cm_span_session.current.sourceGroup.sources.0.direction == nm_span_session.current.sourceGroup.sources.0.direction == "both"
           - cm_span_session.current.sourceGroup.sources.0.epg == nm_span_session.current.sourceGroup.sources.0.epg == query_epgs.current.2.uuid
-          - cm_span_session.current.sourceGroup.sources.0.epgName == nm_span_session.current.sourceGroup.sources.0.epgName == "ansible_test_epg_3"
+          - cm_span_session.current.sourceGroup.sources.0.epgName == nm_span_session.current.sourceGroup.sources.0.epgName == mso_test.epg_3
           - cm_span_session.current.sourceGroup.sources.0.epgSchemaName == nm_span_session.current.sourceGroup.sources.0.epgSchemaName == query_schema.current.displayName
           - cm_span_session.current.sourceGroup.sources.0.epgSchemaId == nm_span_session.current.sourceGroup.sources.0.epgSchemaId == query_schema.current.id
           - cm_span_session.current.sourceGroup.sources.0.epgTemplateName == nm_span_session.current.sourceGroup.sources.0.epgTemplateName == query_schema.current.templates.0.displayName
@@ -217,7 +206,7 @@
           - cm_span_session.current.sourceGroup.sources.1.name == nm_span_session.current.sourceGroup.sources.1.name == "source_2"
           - cm_span_session.current.sourceGroup.sources.1.direction == nm_span_session.current.sourceGroup.sources.1.direction == "outgoing"
           - cm_span_session.current.sourceGroup.sources.1.epg == nm_span_session.current.sourceGroup.sources.1.epg == query_epgs.current.3.uuid
-          - cm_span_session.current.sourceGroup.sources.1.epgName == nm_span_session.current.sourceGroup.sources.1.epgName == "ansible_test_epg_4"
+          - cm_span_session.current.sourceGroup.sources.1.epgName == nm_span_session.current.sourceGroup.sources.1.epgName == mso_test.epg_4
           - cm_span_session.current.sourceGroup.sources.1.epgSchemaName == nm_span_session.current.sourceGroup.sources.1.epgSchemaName == query_schema.current.displayName
           - cm_span_session.current.sourceGroup.sources.1.epgSchemaId == nm_span_session.current.sourceGroup.sources.1.epgSchemaId == query_schema.current.id
           - cm_span_session.current.sourceGroup.sources.1.epgTemplateName == nm_span_session.current.sourceGroup.sources.1.epgTemplateName == query_schema.current.templates.0.displayName
@@ -225,7 +214,7 @@
           - cm_span_session.current.sourceGroup.sources.2.name == nm_span_session.current.sourceGroup.sources.2.name == "source_3"
           - cm_span_session.current.sourceGroup.sources.2.direction == nm_span_session.current.sourceGroup.sources.2.direction == "incoming"
           - cm_span_session.current.sourceGroup.sources.2.epg == nm_span_session.current.sourceGroup.sources.2.epg == query_epgs.current.4.uuid
-          - cm_span_session.current.sourceGroup.sources.2.epgName == nm_span_session.current.sourceGroup.sources.2.epgName == "ansible_test_epg_5"
+          - cm_span_session.current.sourceGroup.sources.2.epgName == nm_span_session.current.sourceGroup.sources.2.epgName == mso_test.epg_5
           - cm_span_session.current.sourceGroup.sources.2.epgSchemaName == nm_span_session.current.sourceGroup.sources.2.epgSchemaName == query_schema.current.displayName
           - cm_span_session.current.sourceGroup.sources.2.epgSchemaId == nm_span_session.current.sourceGroup.sources.2.epgSchemaId == query_schema.current.id
           - cm_span_session.current.sourceGroup.sources.2.epgTemplateName == nm_span_session.current.sourceGroup.sources.2.epgTemplateName == query_schema.current.templates.0.displayName
@@ -274,7 +263,7 @@
       cisco.mso.ndo_tenant_span_session:
         <<: *mso_info
         template_id: '{{ create_monitoring_tenant.current.templateId }}'
-        name: ansible_span_session_1
+        name: '{{ mso_test.span_session_1 }}'
         uuid: "{{ nm_span_session.current.uuid}}"
         state: present
       register: nm_update_span_session_name
@@ -285,8 +274,8 @@
           - cm_update_span_session is changed
           - nm_update_span_session is changed
           - cm_update_span_session.previous == nm_update_span_session.previous
-          - cm_update_span_session.previous.name == nm_update_span_session.previous.name == "ansible_span_session"
-          - cm_update_span_session.current.name == nm_update_span_session.current.name == "ansible_span_session"
+          - cm_update_span_session.previous.name == nm_update_span_session.previous.name == mso_test.span_session
+          - cm_update_span_session.current.name == nm_update_span_session.current.name == mso_test.span_session
           - cm_update_span_session.previous.description == nm_update_span_session.previous.description == "Test Ansible SPAN Session"
           - cm_update_span_session.current.description == nm_update_span_session.current.description == "Test Ansible SPAN Session Updated"
           - cm_update_span_session.previous.templateName == nm_update_span_session.previous.templateName == create_monitoring_tenant.current.displayName
@@ -307,7 +296,7 @@
           - cm_update_span_session.current.sourceGroup.sources.0.name == nm_update_span_session.current.sourceGroup.sources.0.name == "source_1"
           - cm_update_span_session.current.sourceGroup.sources.0.direction == nm_update_span_session.current.sourceGroup.sources.0.direction == "both"
           - cm_update_span_session.current.sourceGroup.sources.0.epg == nm_update_span_session.current.sourceGroup.sources.0.epg == query_epgs.current.2.uuid
-          - cm_update_span_session.current.sourceGroup.sources.0.epgName == nm_update_span_session.current.sourceGroup.sources.0.epgName == "ansible_test_epg_3"
+          - cm_update_span_session.current.sourceGroup.sources.0.epgName == nm_update_span_session.current.sourceGroup.sources.0.epgName == mso_test.epg_3
           - cm_update_span_session.current.sourceGroup.sources.0.epgSchemaName == nm_update_span_session.current.sourceGroup.sources.0.epgSchemaName == query_schema.current.displayName
           - cm_update_span_session.current.sourceGroup.sources.0.epgSchemaId == nm_update_span_session.current.sourceGroup.sources.0.epgSchemaId == query_schema.current.id
           - cm_update_span_session.current.sourceGroup.sources.0.epgTemplateName == nm_update_span_session.current.sourceGroup.sources.0.epgTemplateName == query_schema.current.templates.0.displayName
@@ -315,7 +304,7 @@
           - cm_update_span_session.current.sourceGroup.sources.1.name == nm_update_span_session.current.sourceGroup.sources.1.name == "source_2"
           - cm_update_span_session.current.sourceGroup.sources.1.direction == nm_update_span_session.current.sourceGroup.sources.1.direction == "outgoing"
           - cm_update_span_session.current.sourceGroup.sources.1.epg == nm_update_span_session.current.sourceGroup.sources.1.epg == query_epgs.current.3.uuid
-          - cm_update_span_session.current.sourceGroup.sources.1.epgName == nm_update_span_session.current.sourceGroup.sources.1.epgName == "ansible_test_epg_4"
+          - cm_update_span_session.current.sourceGroup.sources.1.epgName == nm_update_span_session.current.sourceGroup.sources.1.epgName == mso_test.epg_4
           - cm_update_span_session.current.sourceGroup.sources.1.epgSchemaName == nm_update_span_session.current.sourceGroup.sources.1.epgSchemaName == query_schema.current.displayName
           - cm_update_span_session.current.sourceGroup.sources.1.epgSchemaId == nm_update_span_session.current.sourceGroup.sources.1.epgSchemaId == query_schema.current.id
           - cm_update_span_session.current.sourceGroup.sources.1.epgTemplateName == nm_update_span_session.current.sourceGroup.sources.1.epgTemplateName == query_schema.current.templates.0.displayName
@@ -323,7 +312,7 @@
           - cm_update_span_session.current.sourceGroup.sources.2.name == nm_update_span_session.current.sourceGroup.sources.2.name == "source_3"
           - cm_update_span_session.current.sourceGroup.sources.2.direction == nm_update_span_session.current.sourceGroup.sources.2.direction == "incoming"
           - cm_update_span_session.current.sourceGroup.sources.2.epg == nm_update_span_session.current.sourceGroup.sources.2.epg == query_epgs.current.4.uuid
-          - cm_update_span_session.current.sourceGroup.sources.2.epgName == nm_update_span_session.current.sourceGroup.sources.2.epgName == "ansible_test_epg_5"
+          - cm_update_span_session.current.sourceGroup.sources.2.epgName == nm_update_span_session.current.sourceGroup.sources.2.epgName == mso_test.epg_5
           - cm_update_span_session.current.sourceGroup.sources.2.epgSchemaName == nm_update_span_session.current.sourceGroup.sources.2.epgSchemaName == query_schema.current.displayName
           - cm_update_span_session.current.sourceGroup.sources.2.epgSchemaId == nm_update_span_session.current.sourceGroup.sources.2.epgSchemaId == query_schema.current.id
           - cm_update_span_session.current.sourceGroup.sources.2.epgTemplateName == nm_update_span_session.current.sourceGroup.sources.2.epgTemplateName == query_schema.current.templates.0.displayName
@@ -332,8 +321,8 @@
           - nm_update_span_session_again is not changed
           - nm_update_span_session_again.previous == nm_update_span_session_again.current == nm_update_span_session.current
           - nm_update_span_session_name is changed
-          - nm_update_span_session_name.previous.name == "ansible_span_session"
-          - nm_update_span_session_name.current.name == "ansible_span_session_1"
+          - nm_update_span_session_name.previous.name == mso_test.span_session
+          - nm_update_span_session_name.current.name == mso_test.span_session_1
           - nm_update_span_session_remove_sources is changed
           - nm_update_span_session_remove_sources.previous.sourceGroup.sources == nm_update_span_session_again.current.sourceGroup.sources
           - nm_update_span_session_remove_sources.current.sourceGroup.sources is undefined
@@ -341,14 +330,14 @@
     - name: Create another SPAN Session
       cisco.mso.ndo_tenant_span_session:
         <<: *add_span_session
-        name: ansible_span_session_2
+        name: '{{ mso_test.span_session_2 }}'
       register: nm_span_session_2
 
     - name: Query one SPAN Session by name
       cisco.mso.ndo_tenant_span_session:
         <<: *mso_info
-        name: ansible_span_session_2
-        template: ansible_monitoring_tenant_policy_template
+        name: '{{ mso_test.span_session_2 }}'
+        template: '{{ mso_test.template }}'
         state: query
       register: query_name
 
@@ -356,14 +345,14 @@
       cisco.mso.ndo_tenant_span_session:
         <<: *mso_info
         uuid: '{{ nm_span_session.current.uuid }}'
-        template: ansible_monitoring_tenant_policy_template
+        template: '{{ mso_test.template }}'
         state: query
       register: query_uuid
 
     - name: Query all SPAN Sessions
       cisco.mso.ndo_tenant_span_session: &query_all_span_sessions
         <<: *mso_info
-        template: ansible_monitoring_tenant_policy_template
+        template: '{{ mso_test.template }}'
         state: query
       register: query_all
 
@@ -376,15 +365,15 @@
           - query_name.current == nm_span_session_2.current
           - query_uuid.current == nm_update_span_session_name.current
           - query_all.current | length == 2
-          - query_all.current[0].name == "ansible_span_session_1"
-          - query_all.current[1].name == "ansible_span_session_2"
+          - query_all.current[0].name == mso_test.span_session_1
+          - query_all.current[1].name == mso_test.span_session_2
 
     # DELETE
     - name: Delete SPAN Session (check mode)
       cisco.mso.ndo_tenant_span_session: &delete_span_session
         <<: *mso_info
-        template: ansible_monitoring_tenant_policy_template
-        name: ansible_span_session_1
+        template: '{{ mso_test.template }}'
+        name: '{{ mso_test.span_session_1 }}'
         state: absent
       check_mode: true
       register: cm_delete_span_session
@@ -402,7 +391,7 @@
     - name: Delete SPAN Session with UUID
       cisco.mso.ndo_tenant_span_session:
         <<: *mso_info
-        template: ansible_monitoring_tenant_policy_template
+        template: '{{ mso_test.template }}'
         uuid: "{{ nm_span_session_2.current.uuid }}"
         state: absent
       register: nm_delete_span_session_with_uuid
@@ -414,14 +403,14 @@
           - nm_delete_span_session is changed
           - cm_delete_span_session.current == nm_delete_span_session.current == {}
           - cm_delete_span_session.previous == nm_delete_span_session.previous
-          - cm_delete_span_session.previous.name == nm_delete_span_session.previous.name == "ansible_span_session_1"
+          - cm_delete_span_session.previous.name == nm_delete_span_session.previous.name == mso_test.span_session_1
           - cm_delete_span_session.previous.uuid is defined
           - nm_delete_span_session_again is not changed
           - nm_delete_span_session_again.previous == nm_delete_span_session_again.current == {}
           - nm_delete_span_session_again.current.uuid is not defined
           - nm_delete_span_session_with_uuid is changed
           - nm_delete_span_session_with_uuid.current == {}
-          - nm_delete_span_session_with_uuid.previous.name == "ansible_span_session_2"
+          - nm_delete_span_session_with_uuid.previous.name == mso_test.span_session_2
 
     # NO POLICIES
     - name: Query all SPAN Sessions in the template when all are deleted
@@ -432,7 +421,7 @@
     - name: Update SPAN Session with non-existing UUID
       cisco.mso.ndo_tenant_span_session:
         <<: *mso_info
-        template: ansible_monitoring_tenant_policy_template
+        template: '{{ mso_test.template }}'
         uuid: non-existing-uuid
         state: present
       ignore_errors: true
@@ -450,11 +439,14 @@
           - update_non_existing_uuid is failed
           - update_non_existing_uuid.msg == error_message_non_existing_uuid
 
+  always:
     # CLEANUP
-    - name: Ensure Tenant Monitoring Policy template does not exist
+    - name: Ensure Tenant Monitoring Policy template does not exist even when a test fails
       cisco.mso.ndo_template:
         <<: *ndo_monitoring_tenant_template_absent
+      ignore_errors: true
 
-    - name: Ensure schema does not exist
+    - name: Ensure schema does not exist even when a test fails
       cisco.mso.mso_schema:
         <<: *remove_schemas
+      ignore_errors: true

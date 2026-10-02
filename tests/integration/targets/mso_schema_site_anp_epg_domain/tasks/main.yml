@@ -23,6 +23,7 @@
       output_level: '{{ mso_output_level | default("debug") }}'
     mso_test:
       schema: '{{ mso_schema_site_anp_epg_domain | default(mso_schema | default("ansible_test")) }}'
+      schema_2: '{{ mso_schema_site_anp_epg_domain | default(mso_schema | default("ansible_test")) }}_2'
       tenant: '{{ mso_tenant_site_anp_epg_domain | default(mso_tenant | default("ansible_test")) }}'
       site: '{{ mso_site_site_anp_epg_domain | default(mso_site | default("ansible_test")) }}'
       template_1: 'Template 1'
@@ -58,7 +59,7 @@
       schema: '{{ item }}'
       state: absent
     loop:
-    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema_2 }}'
     - '{{ mso_test.schema }}'
 
   - name: Ensure schema 1 with Template 1 and 2 exists
@@ -75,7 +76,7 @@
   - name: Ensure schema 2 with Template 3 exists
     cisco.mso.mso_schema_template:
       <<: *mso_info
-      schema: '{{ mso_test.schema }}_2'
+      schema: '{{ mso_test.schema_2 }}'
       tenant: '{{ mso_test.tenant }}'
       template: '{{ mso_test.template_3 }}'
       state: present
@@ -1035,7 +1036,7 @@
   - name: Add site EPG domain association to Schema 2 Template 3 without any site associated (check mode)
     cisco.mso.mso_schema_site_anp_epg_domain:
       <<: *mso_info
-      schema: '{{ mso_test.schema }}_2'
+      schema: '{{ mso_test.schema_2 }}'
       site: '{{ mso_test.site }}'
       template: '{{ mso_test.template_3 }}'
       anp: '{{ mso_test.anp_1 }}'
@@ -1051,7 +1052,7 @@
   - name: Add site EPG domain association to Template 3 without any site associated (normal mode)
     cisco.mso.mso_schema_site_anp_epg_domain:
       <<: *mso_info
-      schema: '{{ mso_test.schema }}_2'
+      schema: '{{ mso_test.schema_2 }}'
       site: '{{ mso_test.site }}'
       template: '{{ mso_test.template_3 }}'
       anp: '{{ mso_test.anp_1 }}'
@@ -1077,6 +1078,6 @@
       schema: '{{ item }}'
       state: absent
     loop:
-    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema_2 }}'
     - '{{ mso_test.schema }}'
     ignore_errors: true

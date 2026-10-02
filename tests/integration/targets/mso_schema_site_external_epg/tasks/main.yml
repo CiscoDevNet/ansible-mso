@@ -21,6 +21,7 @@
       output_level: '{{ mso_output_level | default("debug") }}'
     mso_test:
       schema: '{{ mso_schema_site_external_epg | default(mso_schema | default("ansible_test")) }}'
+      schema_2: '{{ mso_schema_site_external_epg | default(mso_schema | default("ansible_test")) }}_2'
       tenant: '{{ mso_tenant_site_external_epg | default(mso_tenant | default("ansible_test")) }}'
       site: '{{ mso_site_site_external_epg | default(mso_site | default("ansible_test")) }}'
       template_1: 'Template1'
@@ -52,7 +53,7 @@
       schema: '{{ item }}'
       state: absent
     loop:
-    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema_2 }}'
     - '{{ mso_test.schema }}'
 
   # Ensure pre requisites exist
@@ -934,6 +935,6 @@
       schema: '{{ item }}'
       state: absent
     loop:
-    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema_2 }}'
     - '{{ mso_test.schema }}'
     ignore_errors: true

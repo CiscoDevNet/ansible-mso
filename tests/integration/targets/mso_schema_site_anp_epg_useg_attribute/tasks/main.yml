@@ -21,6 +21,7 @@
     ignore_errors: true
     mso_test:
       schema: '{{ mso_schema_site_anp_epg_useg_attribute | default(mso_schema | default("ansible_test")) }}'
+      schema_2: '{{ mso_schema_site_anp_epg_useg_attribute | default(mso_schema | default("ansible_test")) }}_2'
       tenant: '{{ mso_tenant_site_anp_epg_useg_attribute | default(mso_tenant | default("ansible_test")) }}'
       site: '{{ mso_site_site_anp_epg_useg_attribute | default(mso_site | default("ansible_test")) }}'
       template: 'ans_test_template'
@@ -65,7 +66,7 @@
       schema: '{{ item }}'
       state: absent
     loop:
-    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema_2 }}'
     - '{{ mso_test.schema }}'
 
   - name: Ensure ansible_test schema with ans_test_template exist
@@ -856,6 +857,6 @@
       schema: '{{ item }}'
       state: absent
     loop:
-    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema_2 }}'
     - '{{ mso_test.schema }}'
     ignore_errors: true

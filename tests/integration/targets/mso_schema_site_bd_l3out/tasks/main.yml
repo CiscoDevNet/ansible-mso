@@ -29,6 +29,7 @@
       output_level: '{{ mso_output_level | default("debug") }}'
     mso_test:
       schema: '{{ mso_schema_site_bd_l3out | default(mso_schema | default("ansible_test")) }}'
+      schema_2: '{{ mso_schema_site_bd_l3out | default(mso_schema | default("ansible_test")) }}_2'
       tenant: '{{ mso_tenant_site_bd_l3out | default(mso_tenant | default("ansible_test")) }}'
       site: '{{ mso_site_site_bd_l3out | default(mso_site | default("ansible_test")) }}'
       template_1: 'Template1'
@@ -63,7 +64,7 @@
       schema: '{{ item }}'
       state: absent
     loop:
-    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema_2 }}'
     - '{{ mso_test.schema }}'
 
   - name: Ensure schema with Template1, Template2, and TemplateL3out exist
@@ -81,7 +82,7 @@
   - name: Ensure schema 2 with Template3 exist
     cisco.mso.mso_schema_template:
       <<: *mso_info
-      schema: '{{ mso_test.schema }}_2'
+      schema: '{{ mso_test.schema_2 }}'
       tenant: '{{ mso_test.tenant }}'
       template: '{{ mso_test.template_3 }}'
       state: present
@@ -97,7 +98,7 @@
   - name: Add physical site to a schema2
     cisco.mso.mso_schema_site:
       <<: *mso_info
-      schema: '{{ mso_test.schema }}_2'
+      schema: '{{ mso_test.schema_2 }}'
       site: '{{ mso_test.site }}'
       template: '{{ mso_test.template_3 }}'
       state: present
@@ -121,7 +122,7 @@
   - name: Ensure VRF3 exists
     cisco.mso.mso_schema_template_vrf:
       <<: *mso_info
-      schema: '{{ mso_test.schema }}_2'
+      schema: '{{ mso_test.schema_2 }}'
       template: '{{ mso_test.template_3 }}'
       vrf: '{{ mso_test.vrf_3 }}'
       state: present
@@ -171,7 +172,7 @@
   - name: Add a new L3out3 in different schema
     cisco.mso.mso_schema_template_l3out:
       <<: *mso_info
-      schema: '{{ mso_test.schema }}_2'
+      schema: '{{ mso_test.schema_2 }}'
       template: '{{ mso_test.template_3 }}'
       l3out: '{{ mso_test.l3out_3 }}'
       vrf:
@@ -274,7 +275,7 @@
       bd: '{{ mso_test.bd_1 }}'
       l3out:
         name: '{{ mso_test.l3out_3 }}'
-        schema: '{{ mso_test.schema }}_2'
+        schema: '{{ mso_test.schema_2 }}'
         template: '{{ mso_test.template_3 }}'
       state: present
     register: nm_bd_site_l3out3
@@ -632,7 +633,7 @@
       state: absent
     ignore_errors: true
     loop:
-      - '{{ mso_test.schema }}_2'
+      - '{{ mso_test.schema_2 }}'
       - '{{ mso_test.schema }}'
 
   - name: Set connection to APIC for L3Out cleanup

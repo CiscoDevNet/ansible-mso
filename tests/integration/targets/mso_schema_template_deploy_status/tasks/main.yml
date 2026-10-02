@@ -21,6 +21,7 @@
       output_level: '{{ mso_output_level | default("debug") }}'
     mso_test:
       schema: '{{ mso_schema_template_deploy_status | default(mso_schema | default("ansible_test")) }}'
+      schema_2: '{{ mso_schema_template_deploy_status | default(mso_schema | default("ansible_test")) }}_2'
       tenant: '{{ mso_tenant_template_deploy_status | default(mso_tenant | default("ansible_test")) }}'
       site: '{{ mso_site_template_deploy_status | default(mso_site | default("ansible_test")) }}'
       template_1: 'Template 1'
@@ -76,7 +77,7 @@
       schema: '{{ item }}'
       state: absent
     loop:
-    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema_2 }}'
     - '{{ mso_test.schema }}'
 
   - name: Ensure schema 1 with Template 1, Template 2
@@ -629,6 +630,6 @@
       schema: '{{ item }}'
       state: absent
     loop:
-    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema_2 }}'
     - '{{ mso_test.schema }}'
     ignore_errors: true

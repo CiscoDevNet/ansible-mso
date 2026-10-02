@@ -20,6 +20,7 @@
       output_level: '{{ mso_output_level | default("debug") }}'
     mso_test:
       schema: '{{ mso_schema_site_bd_subnet | default(mso_schema | default("ansible_test")) }}'
+      schema_2: '{{ mso_schema_site_bd_subnet | default(mso_schema | default("ansible_test")) }}_2'
       tenant: '{{ mso_tenant_site_bd_subnet | default(mso_tenant | default("ansible_test")) }}'
       site: '{{ mso_site_site_bd_subnet | default(mso_site | default("ansible_test")) }}'
       template_1: 'Template1'
@@ -52,7 +53,7 @@
       schema: '{{ item }}'
       state: absent
     loop:
-    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema_2 }}'
     - '{{ mso_test.schema }}'
 
   - name: Ensure schema 1 with Template1, Template2, Template4 and Template5
@@ -71,7 +72,7 @@
   - name: Ensure schema 2 with Template3 exist
     cisco.mso.mso_schema_template:
       <<: *mso_info
-      schema: '{{ mso_test.schema }}_2'
+      schema: '{{ mso_test.schema_2 }}'
       tenant: '{{ mso_test.tenant }}'
       template: '{{ mso_test.template_3 }}'
       state: present
@@ -113,7 +114,7 @@
   - name: Add template BD to Template3
     cisco.mso.mso_schema_template_bd:
       <<: *mso_info
-      schema: '{{ mso_test.schema }}_2'
+      schema: '{{ mso_test.schema_2 }}'
       template: '{{ mso_test.template_3 }}'
       bd: '{{ mso_test.bd_3 }}'
       vrf:
@@ -602,7 +603,7 @@
   - name: Query with no site associated to template
     cisco.mso.mso_schema_site_bd_subnet:
       <<: *mso_info
-      schema: '{{ mso_test.schema }}_2'
+      schema: '{{ mso_test.schema_2 }}'
       site: '{{ mso_test.site }}'
       template: '{{ mso_test.template_3 }}'
       bd: '{{ mso_test.bd_3 }}'
@@ -614,7 +615,7 @@
   - name: Verify template_without_sites
     ansible.builtin.assert:
       that:
-      - template_without_sites.msg == "No sites associated with schema '" ~ mso_test.schema ~ "_2'. Associate the site with the schema using (M) mso_schema_site."
+      - template_without_sites.msg == "No sites associated with schema '" ~ mso_test.schema_2 ~ "'. Associate the site with the schema using (M) mso_schema_site."
 
   # Use non_existing_subnet
   - name: Query with non_existing_subnet
@@ -663,6 +664,6 @@
       schema: '{{ item }}'
       state: absent
     loop:
-    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema_2 }}'
     - '{{ mso_test.schema }}'
     ignore_errors: true

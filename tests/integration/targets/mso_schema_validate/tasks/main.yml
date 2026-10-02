@@ -21,6 +21,7 @@
       output_level: '{{ mso_output_level | default("debug") }}'
     mso_test:
       schema: '{{ mso_schema_validate | default(mso_schema | default("ansible_test")) }}'
+      schema_2: '{{ mso_schema_validate | default(mso_schema | default("ansible_test")) }}_2'
       tenant: '{{ mso_tenant_validate | default(mso_tenant | default("ansible_test")) }}'
       site: '{{ mso_site_validate | default(mso_site | default("ansible_test")) }}'
       template_1: 'Template 1'
@@ -44,7 +45,7 @@
       schema: '{{ item }}'
       state: absent
     loop:
-    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema_2 }}'
     - '{{ mso_test.schema }}'
 
   - name: Execute tasks only for MSO version >= 3.3
@@ -163,7 +164,7 @@
     - name: Ensure schema 2 with Template 2 exist
       cisco.mso.mso_schema_template:
         <<: *mso_info
-        schema: '{{ mso_test.schema }}_2'
+        schema: '{{ mso_test.schema_2 }}'
         tenant: '{{ mso_test.tenant }}'
         template: '{{ mso_test.template_2 }}'
         state: present
@@ -171,7 +172,7 @@
     - name: Ensure VRF exist
       cisco.mso.mso_schema_template_vrf:
         <<: *mso_info
-        schema: '{{ mso_test.schema }}_2'
+        schema: '{{ mso_test.schema_2 }}'
         template: '{{ mso_test.template_2 }}'
         vrf: '{{ mso_test.vrf_2 }}'
         layer3_multicast: true
@@ -181,14 +182,14 @@
     - name: Get Validation status
       cisco.mso.mso_schema_validate:
         <<: *mso_info
-        schema: '{{ mso_test.schema }}_2'
+        schema: '{{ mso_test.schema_2 }}'
         state: query
       ignore_errors: true
       register: query_validate_2
 
     - name: Set error messages for query validation
       ansible.builtin.set_fact:
-        error_message_query_validate_above_41: "MSO Error 400: VRF: {{ mso_test.vrf_2 }} in Schema: {{ mso_test.schema }}_2, Template: {{ mso_test.template_2 | replace(' ', '') }}, has VzAnyEnabled flag enabled but is not consuming or providing contracts"
+        error_message_query_validate_above_41: "MSO Error 400: VRF: {{ mso_test.vrf_2 }} in Schema: {{ mso_test.schema_2 }}, Template: {{ mso_test.template_2 | replace(' ', '') }}, has VzAnyEnabled flag enabled but is not consuming or providing contracts"
         error_message_query_validate_below_40: "MSO Error 400: Bad Request: Patch Failed, Received: vzAny contract must be configured if vzAny flag is set. VRF(s) : {{ mso_test.vrf_2 }} exception while trying to update schema"
 
     - name: Verify query_validate_2 for NDO 4.1 and higher
@@ -233,6 +234,6 @@
       schema: '{{ item }}'
       state: absent
     loop:
-    - '{{ mso_test.schema }}_2'
+    - '{{ mso_test.schema_2 }}'
     - '{{ mso_test.schema }}'
     ignore_errors: true

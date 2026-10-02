@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2024, Akini Ross (@akinross) <akinross@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -9,7 +10,7 @@
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
@@ -19,6 +20,13 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      tenant: '{{ mso_tenant | default("ansible_test") }}'
+      template: ansible_tenant_template
+      dhcp_option_policy: ansible_test_option_policy
+      dhcp_option_policy_changed: ansible_test_option_policy_changed
+      dhcp_option_policy_2: ansible_test_option_policy_2
+      dhcp_option_policy_3: ansible_test_option_policy_3
 
 # QUERY VERSION
 - name: Query MSO version
@@ -28,43 +36,16 @@
   register: version
 
 
-- name: Execute tasks only for MSO version >= 4.3
+- name: Exercise ndo_dhcp_option_policy
   when: version.current.version is version('4.3', '>=')
   block:
-    
-    - name: Ensure sites exists
-      cisco.mso.mso_site:
-        <<: *mso_info
-        site: '{{ item.site }}'
-        apic_username: '{{ apic_username }}'
-        apic_password: '{{ apic_password }}'
-        apic_site_id: '{{ item.apic_site_id }}'
-        urls:
-          - https://{{ apic_hostname }}
-        state: present
-      loop:
-        - {site: '{{ mso_site | default("ansible_test") }}', apic_site_id: 101}
-        - {site: '{{ mso_site_2 | default("ansible_test_2") }}', apic_site_id: 102}
-    
-    - name: Ensure tenants exist
-      cisco.mso.mso_tenant: 
-        <<: *mso_info
-        tenant: '{{ item }}'
-        users:
-          - '{{ mso_username }}'
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-          - '{{ mso_site_2 | default("ansible_test_2") }}'
-        state: present
-      loop:
-        - ansible_test
-    
+    # (ansible_test tenant+site handled by the mso_setup_tenant_site setup target)
     - name: Ensure templates do not exist
       cisco.mso.ndo_template: &template_absent
         <<: *mso_info
-        name: ansible_tenant_template
+        name: '{{ mso_test.template }}'
         template_type: tenant
-        tenant: ansible_test
+        tenant: '{{ mso_test.tenant }}'
         state: absent
 
     - name: Ensure templates exist
@@ -77,8 +58,8 @@
     - name: Create a new dhcp option policy (check_mode)
       cisco.mso.ndo_dhcp_option_policy: &create_dhcp_option_policy
         <<: *mso_info
-        template: ansible_tenant_template
-        option_policy: ansible_test_option_policy
+        template: '{{ mso_test.template }}'
+        option_policy: '{{ mso_test.dhcp_option_policy }}'
         options:
           - name: option_0
             id: 0
@@ -102,21 +83,21 @@
         that:
           - cm_create_new_dhcp_option_policy is changed
           - cm_create_new_dhcp_option_policy.previous == {}
-          - cm_create_new_dhcp_option_policy.current.name == "ansible_test_option_policy"
+          - cm_create_new_dhcp_option_policy.current.name == mso_test.dhcp_option_policy
           - cm_create_new_dhcp_option_policy.current.options.0.name == "option_0"
           - cm_create_new_dhcp_option_policy.current.options.0.data == "data_0"
           - nm_create_new_dhcp_option_policy is changed
           - nm_create_new_dhcp_option_policy.previous == {}
-          - nm_create_new_dhcp_option_policy.current.name == "ansible_test_option_policy"
+          - nm_create_new_dhcp_option_policy.current.name == mso_test.dhcp_option_policy
           - nm_create_new_dhcp_option_policy.current.options.0.name == "option_0"
           - nm_create_new_dhcp_option_policy.current.options.0.data == "data_0"
           - nm_create_new_dhcp_option_policy_again is not changed
-          - nm_create_new_dhcp_option_policy_again.previous.name == "ansible_test_option_policy"
+          - nm_create_new_dhcp_option_policy_again.previous.name == mso_test.dhcp_option_policy
           - nm_create_new_dhcp_option_policy_again.previous.description == ""
           - nm_create_new_dhcp_option_policy_again.previous.uuid is defined
           - nm_create_new_dhcp_option_policy_again.previous.options.0.name == "option_0"
           - nm_create_new_dhcp_option_policy_again.previous.options.0.data == "data_0"
-          - nm_create_new_dhcp_option_policy_again.current.name == "ansible_test_option_policy"
+          - nm_create_new_dhcp_option_policy_again.current.name == mso_test.dhcp_option_policy
           - nm_create_new_dhcp_option_policy_again.current.description == ""
           - nm_create_new_dhcp_option_policy_again.current.uuid is defined
           - nm_create_new_dhcp_option_policy_again.current.options.0.name == "option_0"
@@ -158,7 +139,7 @@
       cisco.mso.ndo_dhcp_option_policy: &update_dhcp_option_policy_name
         <<: *update_dhcp_option_policy
         option_policy_uuid: '{{ nm_update_dhcp_option_policy_description.current.uuid }}'
-        option_policy: ansible_test_option_policy_changed
+        option_policy: '{{ mso_test.dhcp_option_policy_changed }}'
       register: nm_update_dhcp_option_policy_name
 
     - name: Update a dhcp option policy options change input
@@ -227,8 +208,8 @@
       assert:
         that:
           - nm_update_dhcp_option_policy_name is changed
-          - nm_update_dhcp_option_policy_name.previous.name == "ansible_test_option_policy"
-          - nm_update_dhcp_option_policy_name.current.name == "ansible_test_option_policy_changed"
+          - nm_update_dhcp_option_policy_name.previous.name == mso_test.dhcp_option_policy
+          - nm_update_dhcp_option_policy_name.current.name == mso_test.dhcp_option_policy_changed
           - nm_update_dhcp_option_policy_options_change_input is changed
           - nm_update_dhcp_option_policy_options_change_input.previous.options | length == 1
           - nm_update_dhcp_option_policy_options_change_input.previous.options.0.name == "option_0"
@@ -252,7 +233,7 @@
     - name: Create another dhcp option policy
       cisco.mso.ndo_dhcp_option_policy: &create_dhcp_option_policy_2
         <<: *create_dhcp_option_policy
-        option_policy: ansible_test_option_policy_2
+        option_policy: '{{ mso_test.dhcp_option_policy_2 }}'
         description: "This is a test option policy 2"
 
     - name: Query a dhcp option policy with template_name
@@ -264,7 +245,7 @@
     - name: Query a dhcp option policy with uuid
       cisco.mso.ndo_dhcp_option_policy:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         option_policy_uuid: '{{ query_one.current.uuid }}'
         state: query
       register: query_with_uuid
@@ -272,7 +253,7 @@
     - name: Query all dhcp option policy in the template
       cisco.mso.ndo_dhcp_option_policy:
         <<: *mso_info
-        template: ansible_tenant_template
+        template: '{{ mso_test.template }}'
         state: query
       register: query_all
     
@@ -281,7 +262,7 @@
         that:
           - query_one is not changed
           - query_with_uuid is not changed
-          - query_one.current.name == query_with_uuid.current.name == "ansible_test_option_policy_2"
+          - query_one.current.name == query_with_uuid.current.name == mso_test.dhcp_option_policy_2
           - query_one.current.uuid == query_with_uuid.current.uuid
           - query_all is not changed
           - query_all.current | length == 2
@@ -291,7 +272,7 @@
     - name: Error options provided as null on create
       cisco.mso.ndo_dhcp_option_policy: &create_dhcp_option_policy_null_options
         <<: *create_dhcp_option_policy
-        option_policy: ansible_test_option_policy_3
+        option_policy: '{{ mso_test.dhcp_option_policy_3 }}'
         options: '{{ fakevar | default(omit)}}'
       register: err_options_create_null
       ignore_errors: true
@@ -343,19 +324,20 @@
       assert:
         that:
           - cm_delete_dhcp_option_policy is changed
-          - cm_delete_dhcp_option_policy.previous.name == 'ansible_test_option_policy_changed'
+          - cm_delete_dhcp_option_policy.previous.name == mso_test.dhcp_option_policy_changed
           - cm_delete_dhcp_option_policy.previous.options | length == 3
           - cm_delete_dhcp_option_policy.current == {}
           - nm_delete_dhcp_option_policy is changed
-          - nm_delete_dhcp_option_policy.previous.name == 'ansible_test_option_policy_changed'
+          - nm_delete_dhcp_option_policy.previous.name == mso_test.dhcp_option_policy_changed
           - nm_delete_dhcp_option_policy.previous.options | length == 3
           - nm_delete_dhcp_option_policy.current == {}
           - nm_delete_dhcp_option_policy_again is not changed
           - nm_delete_dhcp_option_policy_again.previous == {}
           - nm_delete_dhcp_option_policy_again.current == {}
-    
-    # CLEANUP TEMPLATE
 
-    - name: Ensure templates do not exist
+  always:
+    # CLEANUP TEMPLATE
+    - name: Ensure templates do not exist even when a test fails
       cisco.mso.ndo_template:
         <<: *template_absent
+      ignore_errors: true

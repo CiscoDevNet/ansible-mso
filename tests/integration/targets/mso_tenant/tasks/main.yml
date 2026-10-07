@@ -1,6 +1,7 @@
 # Test code for the MSO modules
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
 # Copyright: (c) 2020, Cindy Zhao (@cizhao) <cizhao@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 - name: Test that we have an ACI MultiSite host, username and password
@@ -410,19 +411,36 @@
     - nm_query_non_tenant is not changed
     - cm_query_non_tenant.current == nm_query_non_tenant.current
 
-- name: Add common tenant
-  cisco.mso.mso_tenant:
-    <<: *tenant_present
-    tenant: common
-    display_name: common
-    sites: ['{{ mso_site | default("ansible_test") }}']
-  register: nm_add_common_tenant
+- name: Add common tenant and restore its site/user associations established by setup/once/mso_setup_tenant_site afterwards
+  block:
+  - name: Add common tenant
+    cisco.mso.mso_tenant:
+      <<: *tenant_present
+      tenant: common
+      display_name: common
+      sites: ['{{ mso_site | default("ansible_test") }}']
+    register: nm_add_common_tenant
 
-- name: Verify nm_add_common_tenant
-  ansible.builtin.assert:
-    that:
-    - nm_add_common_tenant is changed
-    - nm_add_common_tenant.current.name == "common"
+  - name: Verify nm_add_common_tenant
+    ansible.builtin.assert:
+      that:
+      - nm_add_common_tenant is changed
+      - nm_add_common_tenant.current.name == "common"
+
+  always:
+  # setup/once/mso_setup_tenant_site establishes this as the baseline state for the common
+  # tenant. "Add common tenant" above replaces the site associations with a single site,
+  # dropping the ansible_test_2 association, so it must be restored here.
+  - name: Restore common tenant's site and user associations even when a test fails
+    cisco.mso.mso_tenant:
+      <<: *mso_info
+      tenant: common
+      users: "{{ [mso_username] if version.current.version is version('5.2', '<') else omit }}"
+      sites:
+      - '{{ mso_site | default("ansible_test") }}'
+      - '{{ mso_site_2 | default("ansible_test_2") }}'
+      state: present
+    ignore_errors: true
 
 - name: Add tenant with site
   cisco.mso.mso_tenant:

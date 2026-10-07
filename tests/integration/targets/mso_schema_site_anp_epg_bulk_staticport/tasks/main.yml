@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2023, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -9,7 +10,7 @@
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact: 
     mso_info: &mso_info
       host: '{{ mso_hostname }}'
@@ -19,27 +20,13 @@
       use_ssl: '{{ mso_use_ssl | default(true) }}'
       use_proxy: '{{ mso_use_proxy | default(true) }}'
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      tenant: '{{ mso_tenant | default("ansible_test") }}'
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      schema_2: '{{ mso_schema | default("ansible_test") }}_2'
+      site: '{{ mso_site | default("ansible_test") }}'
 
-- name: Ensure site exists
-  cisco.mso.mso_site:
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    apic_username: '{{ apic_username }}'
-    apic_password: '{{ apic_password }}'
-    apic_site_id: '{{ apic_site_id | default(101) }}'
-    urls:
-      - https://{{ apic_hostname }}
-    state: present
-
-- name: Ensure tenant ansible_test exists
-  cisco.mso.mso_tenant:
-    <<: *mso_info
-    tenant: ansible_test
-    users:
-      - '{{ mso_username }}'
-    sites:
-      - '{{ mso_site | default("ansible_test") }}'
-    state: present
+# (ansible_test tenant+site handled by the mso_setup_tenant_site setup target)
 
 - name: Remove schemas
   cisco.mso.mso_schema:
@@ -47,721 +34,735 @@
     schema: '{{ item }}'
     state: absent
   loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
+  - '{{ mso_test.schema_2 }}'
+  - '{{ mso_test.schema }}'
 
-- name: Ensure schema 1 with Template 1 and 2 exists
-  cisco.mso.mso_schema_template: 
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    tenant: ansible_test
-    template: '{{ item }}'
-    state: present
-  loop:
-  - Template 1
-  - Template 2
+- name: Exercise mso_schema_site_anp_epg_bulk_staticport
+  block:
+  - name: Ensure schema 1 with Template 1 and 2 exists
+    cisco.mso.mso_schema_template: 
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{ item }}'
+      state: present
+    loop:
+    - Template 1
+    - Template 2
 
-- name: Ensure schema 2 with Template 3 exists
-  cisco.mso.mso_schema_template:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    tenant: ansible_test
-    template: Template 3
-    state: present
+  - name: Ensure schema 2 with Template 3 exists
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema_2 }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: Template 3
+      state: present
 
-- name: Add a new site to a schema
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    state: present
+  - name: Add a new site to a schema
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: Template 1
+      state: present
 
-- name: Ensure VRF1 exists
-  cisco.mso.mso_schema_template_vrf: 
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    vrf: VRF1
-    state: present
+  - name: Ensure VRF1 exists
+    cisco.mso.mso_schema_template_vrf: 
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: Template 1
+      vrf: VRF1
+      state: present
     
-- name: Add BD1
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    bd: BD1
-    vrf:
-      name: VRF1
-    state: present
+  - name: Add BD1
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: Template 1
+      bd: BD1
+      vrf:
+        name: VRF1
+      state: present
 
-- name: Ensure Template 1 with AP1 exists
-  cisco.mso.mso_schema_template_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    state: present
+  - name: Ensure Template 1 with AP1 exists
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: Template 1
+      anp: AP1
+      state: present
 
-- name: Ensure Template 1 and AP1 with EPG1 exists
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    bd:
-      name: BD1
-    vrf:
-      name: VRF1
-    state: present
+  - name: Ensure Template 1 and AP1 with EPG1 exists
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: Template 1
+      anp: AP1
+      epg: EPG1
+      bd:
+        name: BD1
+      vrf:
+        name: VRF1
+      state: present
 
-- name: Ensure Template 1 and AP1 with EPG3 exists
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG3
-    bd:
-      name: BD1
-    vrf:
-      name: VRF1
-    state: present
+  - name: Ensure Template 1 and AP1 with EPG3 exists
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: Template 1
+      anp: AP1
+      epg: EPG3
+      bd:
+        name: BD1
+      vrf:
+        name: VRF1
+      state: present
 
-- name: Ensure Template 1 with AP2 exists
-  cisco.mso.mso_schema_template_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    state: present
+  - name: Ensure Template 1 with AP2 exists
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: Template 1
+      anp: AP2
+      state: present
 
-- name: Ensure Template 1 and AP2 with EPG2 exists
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG2
-    bd:
-      name: BD1
-    vrf:
-      name: VRF1
-    state: present
+  - name: Ensure Template 1 and AP2 with EPG2 exists
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: Template 1
+      anp: AP2
+      epg: EPG2
+      bd:
+        name: BD1
+      vrf:
+        name: VRF1
+      state: present
 
-- name: Ensure Template 1 and AP2 with EPG4 exists
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    bd:
-      name: BD1
-    vrf:
-      name: VRF1
-    state: present
+  - name: Ensure Template 1 and AP2 with EPG4 exists
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: Template 1
+      anp: AP2
+      epg: EPG4
+      bd:
+        name: BD1
+      vrf:
+        name: VRF1
+      state: present
 
-- name: Ensure Template 1 and AP2 with EPG6 exists
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG6
-    bd:
-      name: BD1
-    vrf:
-      name: VRF1
-    state: present
+  - name: Ensure Template 1 and AP2 with EPG6 exists
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: Template 1
+      anp: AP2
+      epg: EPG6
+      bd:
+        name: BD1
+      vrf:
+        name: VRF1
+      state: present
 
-# ADD STATIC PORTS
-- name: Add static port 1 to site EPG1 of AP1 (check mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport: 
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    pod: pod-1
-    leaf: 101
-    path: eth1/1
-    vlan: 126
-    mode: native
-    type: port
-    deployment_immediacy: immediate
-    static_ports:
+  # ADD STATIC PORTS
+  - name: Add static port 1 to site EPG1 of AP1 (check mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport: 
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: Template 1
+      anp: AP1
+      epg: EPG1
+      pod: pod-1
+      leaf: 101
+      path: eth1/1
+      vlan: 126
+      mode: native
+      type: port
+      deployment_immediacy: immediate
+      static_ports:
+        - path: eth1/2
+          leaf: 102
+        - path: eth1/3
+          vlan: 124
+        - leaf: 102
+          path: eth1/3
+          vlan: 124
+      state: present
+    check_mode: true
+    register: cm_add_stat1e1
+
+  - name: Verify cm_add_stat1e1
+    ansible.builtin.assert:
+      that:
+      - cm_add_stat1e1 is changed
+      - cm_add_stat1e1.previous == []
+      - cm_add_stat1e1.current[0].deploymentImmediacy == 'immediate'
+      - cm_add_stat1e1.current[0].portEncapVlan == 126
+      - cm_add_stat1e1.current[0].path == 'topology/pod-1/paths-102/pathep-[eth1/2]'
+      - cm_add_stat1e1.current[0].mode == 'native'
+      - cm_add_stat1e1.current[0].type == 'port'
+      - cm_add_stat1e1.current[1].deploymentImmediacy == 'immediate'
+      - cm_add_stat1e1.current[1].portEncapVlan == 124
+      - cm_add_stat1e1.current[1].path == 'topology/pod-1/paths-101/pathep-[eth1/3]'
+      - cm_add_stat1e1.current[1].mode == 'native'
+      - cm_add_stat1e1.current[1].type == 'port'
+      - cm_add_stat1e1.current[2].portEncapVlan == 124
+      - cm_add_stat1e1.current[2].path == 'topology/pod-1/paths-102/pathep-[eth1/3]'
+      - cm_add_stat1e1.current|length == 3
+
+  - name: Add static port 1 to site EPG1 of AP1 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport: &add_static_port_1
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: Template 1
+      anp: AP1
+      epg: EPG1
+      pod: pod-1
+      leaf: 101
+      path: eth1/1
+      vlan: 126
+      mode: native
+      type: port
+      deployment_immediacy: immediate
+      static_ports:
+        - path: eth1/2
+          leaf: 102
+        - path: eth1/3
+          vlan: 124
+        - leaf: 102
+          path: eth1/3
+          vlan: 124
+      state: present
+    register: nm_add_stat1e1
+
+  - name: Verify nm_add_stat1e1
+    ansible.builtin.assert:
+      that:
+      - nm_add_stat1e1 is changed
+      - nm_add_stat1e1.previous == []
+      - nm_add_stat1e1.current[0].deploymentImmediacy == 'immediate'
+      - nm_add_stat1e1.current[0].portEncapVlan == 126
+      - nm_add_stat1e1.current[0].path == 'topology/pod-1/paths-102/pathep-[eth1/2]'
+      - nm_add_stat1e1.current[0].mode == 'native'
+      - nm_add_stat1e1.current[0].type == 'port'
+      - nm_add_stat1e1.current[1].deploymentImmediacy == 'immediate'
+      - nm_add_stat1e1.current[1].portEncapVlan == 124
+      - nm_add_stat1e1.current[1].path == 'topology/pod-1/paths-101/pathep-[eth1/3]'
+      - nm_add_stat1e1.current[1].mode == 'native'
+      - nm_add_stat1e1.current[1].type == 'port'
+      - nm_add_stat1e1.current[2].portEncapVlan == 124
+      - nm_add_stat1e1.current[2].path == 'topology/pod-1/paths-102/pathep-[eth1/3]'
+      - nm_add_stat1e1.current|length ==3
+
+  - name: Add static port 3 (vpc) to site EPG1 of AP1 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *add_static_port_1
+      static_ports:
+        - path: eth1/2
+          leaf: 102
+        - path: eth1/3
+          vlan: 124
+        - leaf: 102
+          path: eth1/3
+          vlan: 124
+        - path: ansible_polgrp
+          type: vpc
+          leaf: 103-104
+          vlan: 105
+      state: present
+    register: nm_add_stat3e1
+
+  - name: Verify nm_add_stat3e1 
+    ansible.builtin.assert:
+      that:
+      - nm_add_stat3e1 is changed
+      - nm_add_stat3e1.previous != []
+      - nm_add_stat3e1.current[3].deploymentImmediacy == 'immediate'
+      - nm_add_stat3e1.current[3].portEncapVlan == 105
+      - nm_add_stat3e1.current[3].path == 'topology/pod-1/protpaths-103-104/pathep-[ansible_polgrp]'
+      - nm_add_stat3e1.current[3].mode == 'native'
+      - nm_add_stat3e1.current[3].type == 'vpc'
+      - nm_add_stat3e1.current|length > nm_add_stat1e1.current|length   # verifying length of current task (nm_add_stat3e1) is greater than the previous task (nm_add_stat1e1)
+
+  - name: Add static port 2 (dpc) to EPG6 of AP2 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: Template 1
+      anp: AP2
+      epg: EPG6
+      pod: pod-1
+      leaf: 101
+      path: eth1/1
+      vlan: 126
+      static_ports:
       - path: eth1/2
+        pod: pod-2
         leaf: 102
-      - path: eth1/3
-        vlan: 124
-      - leaf: 102
-        path: eth1/3
-        vlan: 124
-    state: present
-  check_mode: true
-  register: cm_add_stat1e1
+        vlan: 100
+        deployment_immediacy: lazy
+        mode: regular
+        type: dpc
+        primary_micro_segment_vlan: 199
+      state: present
+    register: nm_add_stat2e6
 
-- name: Verify cm_add_stat1e1
-  ansible.builtin.assert:
-    that:
-    - cm_add_stat1e1 is changed
-    - cm_add_stat1e1.previous == []
-    - cm_add_stat1e1.current[0].deploymentImmediacy == 'immediate'
-    - cm_add_stat1e1.current[0].portEncapVlan == 126
-    - cm_add_stat1e1.current[0].path == 'topology/pod-1/paths-102/pathep-[eth1/2]'
-    - cm_add_stat1e1.current[0].mode == 'native'
-    - cm_add_stat1e1.current[0].type == 'port'
-    - cm_add_stat1e1.current[1].deploymentImmediacy == 'immediate'
-    - cm_add_stat1e1.current[1].portEncapVlan == 124
-    - cm_add_stat1e1.current[1].path == 'topology/pod-1/paths-101/pathep-[eth1/3]'
-    - cm_add_stat1e1.current[1].mode == 'native'
-    - cm_add_stat1e1.current[1].type == 'port'
-    - cm_add_stat1e1.current[2].portEncapVlan == 124
-    - cm_add_stat1e1.current[2].path == 'topology/pod-1/paths-102/pathep-[eth1/3]'
-    - cm_add_stat1e1.current|length == 3
+  - name: Verify nm_add_stat2e6
+    ansible.builtin.assert:
+      that:
+      - nm_add_stat2e6 is changed
+      - nm_add_stat2e6.previous == []
+      - nm_add_stat2e6.current[0].deploymentImmediacy == 'lazy'
+      - nm_add_stat2e6.current[0].portEncapVlan == 100
+      - nm_add_stat2e6.current[0].microSegVlan == 199
+      - nm_add_stat2e6.current[0].path == 'topology/pod-2/paths-102/pathep-[eth1/2]'
+      - nm_add_stat2e6.current[0].mode == 'regular'
+      - nm_add_stat2e6.current[0].type == 'dpc'
 
-- name: Add static port 1 to site EPG1 of AP1 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport: &add_static_port_1
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    pod: pod-1
-    leaf: 101
-    path: eth1/1
-    vlan: 126
-    mode: native
-    type: port
-    deployment_immediacy: immediate
-    static_ports:
-      - path: eth1/2
-        leaf: 102
-      - path: eth1/3
-        vlan: 124
-      - leaf: 102
-        path: eth1/3
-        vlan: 124
-    state: present
-  register: nm_add_stat1e1
-
-- name: Verify nm_add_stat1e1
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat1e1 is changed
-    - nm_add_stat1e1.previous == []
-    - nm_add_stat1e1.current[0].deploymentImmediacy == 'immediate'
-    - nm_add_stat1e1.current[0].portEncapVlan == 126
-    - nm_add_stat1e1.current[0].path == 'topology/pod-1/paths-102/pathep-[eth1/2]'
-    - nm_add_stat1e1.current[0].mode == 'native'
-    - nm_add_stat1e1.current[0].type == 'port'
-    - nm_add_stat1e1.current[1].deploymentImmediacy == 'immediate'
-    - nm_add_stat1e1.current[1].portEncapVlan == 124
-    - nm_add_stat1e1.current[1].path == 'topology/pod-1/paths-101/pathep-[eth1/3]'
-    - nm_add_stat1e1.current[1].mode == 'native'
-    - nm_add_stat1e1.current[1].type == 'port'
-    - nm_add_stat1e1.current[2].portEncapVlan == 124
-    - nm_add_stat1e1.current[2].path == 'topology/pod-1/paths-102/pathep-[eth1/3]'
-    - nm_add_stat1e1.current|length ==3
-
-- name: Add static port 3 (vpc) to site EPG1 of AP1 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *add_static_port_1
-    static_ports:
-      - path: eth1/2
-        leaf: 102
-      - path: eth1/3
-        vlan: 124
-      - leaf: 102
-        path: eth1/3
-        vlan: 124
-      - path: ansible_polgrp
-        type: vpc
-        leaf: 103-104
-        vlan: 105
-    state: present
-  register: nm_add_stat3e1
-
-- name: Verify nm_add_stat3e1 
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat3e1 is changed
-    - nm_add_stat3e1.previous != []
-    - nm_add_stat3e1.current[3].deploymentImmediacy == 'immediate'
-    - nm_add_stat3e1.current[3].portEncapVlan == 105
-    - nm_add_stat3e1.current[3].path == 'topology/pod-1/protpaths-103-104/pathep-[ansible_polgrp]'
-    - nm_add_stat3e1.current[3].mode == 'native'
-    - nm_add_stat3e1.current[3].type == 'vpc'
-    - nm_add_stat3e1.current|length > nm_add_stat1e1.current|length   # verifying length of current task (nm_add_stat3e1) is greater than the previous task (nm_add_stat1e1)
-
-- name: Add static port 2 (dpc) to EPG6 of AP2 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG6
-    pod: pod-1
-    leaf: 101
-    path: eth1/1
-    vlan: 126
-    static_ports:
-    - path: eth1/2
-      pod: pod-2
-      leaf: 102
+  - name: Add static port 2 to site EPG2 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport: &static_port_2
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: Template 1
+      anp: AP2
+      epg: EPG2
+      pod: pod-1
+      leaf: 101
+      path: eth1/1
       vlan: 100
-      deployment_immediacy: lazy
       mode: regular
-      type: dpc
-      primary_micro_segment_vlan: 199
-    state: present
-  register: nm_add_stat2e6
+      type: port
+      deployment_immediacy: immediate
+      static_ports:
+        - path: eth1/2
+          pod: pod-2
+          leaf: 102
+      state: present
+    register: nm_add_stat2e2
 
-- name: Verify nm_add_stat2e6
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat2e6 is changed
-    - nm_add_stat2e6.previous == []
-    - nm_add_stat2e6.current[0].deploymentImmediacy == 'lazy'
-    - nm_add_stat2e6.current[0].portEncapVlan == 100
-    - nm_add_stat2e6.current[0].microSegVlan == 199
-    - nm_add_stat2e6.current[0].path == 'topology/pod-2/paths-102/pathep-[eth1/2]'
-    - nm_add_stat2e6.current[0].mode == 'regular'
-    - nm_add_stat2e6.current[0].type == 'dpc'
+  - name: Verify nm_add_stat2e2
+    ansible.builtin.assert:
+      that:
+      - nm_add_stat2e2 is changed
+      - nm_add_stat2e2.previous == []
+      - nm_add_stat2e2.current[0].deploymentImmediacy == 'immediate'
+      - nm_add_stat2e2.current[0].portEncapVlan == 100
+      - nm_add_stat2e2.current[0].path == 'topology/pod-2/paths-102/pathep-[eth1/2]'
+      - nm_add_stat2e2.current[0].mode == 'regular'
+      - nm_add_stat2e2.current[0].type == 'port'
 
-- name: Add static port 2 to site EPG2 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport: &static_port_2
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG2
-    pod: pod-1
-    leaf: 101
-    path: eth1/1
-    vlan: 100
-    mode: regular
-    type: port
-    deployment_immediacy: immediate
-    static_ports:
-      - path: eth1/2
-        pod: pod-2
-        leaf: 102
-    state: present
-  register: nm_add_stat2e2
+  # ADD EXISTING STATIC PORT
+  - name: Add static port 1 to site EPG1 again (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *static_port_2
+      state: present
+    register: nm_add_stat1e1_2
 
-- name: Verify nm_add_stat2e2
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat2e2 is changed
-    - nm_add_stat2e2.previous == []
-    - nm_add_stat2e2.current[0].deploymentImmediacy == 'immediate'
-    - nm_add_stat2e2.current[0].portEncapVlan == 100
-    - nm_add_stat2e2.current[0].path == 'topology/pod-2/paths-102/pathep-[eth1/2]'
-    - nm_add_stat2e2.current[0].mode == 'regular'
-    - nm_add_stat2e2.current[0].type == 'port'
+  - name: Verify nm_add_stat1e1_2
+    ansible.builtin.assert:
+      that:
+      - nm_add_stat1e1_2 is not changed
 
-# ADD EXISTING STATIC PORT
-- name: Add static port 1 to site EPG1 again (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *static_port_2
-    state: present
-  register: nm_add_stat1e1_2
+  # ADD STATIC FEX PORT
+  - name: Add static fex port to site EPG1 with AP1 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *static_port_2
+      static_ports:
+        - path: eth1/2
+          pod: pod-2
+          leaf: 102
+        - pod: pod-4
+          vlan: 126
+          fex: 151
+          mode: native
+      deployment_immediacy: lazy
+      state: present
+    register: nm_add_statfex
 
-- name: Verify nm_add_stat1e1_2
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat1e1_2 is not changed
+  - name: Verify nm_add_statfex
+    ansible.builtin.assert:
+      that:
+      - nm_add_statfex is changed
+      - nm_add_statfex.previous != []
+      - nm_add_statfex.current[1].deploymentImmediacy == 'lazy'
+      - nm_add_statfex.current[1].portEncapVlan == 126
+      - nm_add_statfex.current[1].path == 'topology/pod-4/paths-101/extpaths-151/pathep-[eth1/1]'
+      - nm_add_statfex.current[1].mode == 'native'
+      - nm_add_statfex.current[1].type == 'port'
 
-# ADD STATIC FEX PORT
-- name: Add static fex port to site EPG1 with AP1 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *static_port_2
-    static_ports:
-      - path: eth1/2
-        pod: pod-2
-        leaf: 102
-      - pod: pod-4
-        vlan: 126
-        fex: 151
-        mode: native
-    deployment_immediacy: lazy
-    state: present
-  register: nm_add_statfex
+  # QUERY STATIC PORTS
+  - name: Query STATIC PORTS of site EPG1 with AP1 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: Template 1
+      anp: AP1
+      epg: EPG1
+      state: query
+    register: nm_query_statse1
 
-- name: Verify nm_add_statfex
-  ansible.builtin.assert:
-    that:
-    - nm_add_statfex is changed
-    - nm_add_statfex.previous != []
-    - nm_add_statfex.current[1].deploymentImmediacy == 'lazy'
-    - nm_add_statfex.current[1].portEncapVlan == 126
-    - nm_add_statfex.current[1].path == 'topology/pod-4/paths-101/extpaths-151/pathep-[eth1/1]'
-    - nm_add_statfex.current[1].mode == 'native'
-    - nm_add_statfex.current[1].type == 'port'
+  - name: Verify nm_query_statse1
+    ansible.builtin.assert:
+      that:
+      - nm_query_statse1 is not changed
 
-# QUERY STATIC PORTS
-- name: Query STATIC PORTS of site EPG1 with AP1 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP1
-    epg: EPG1
-    state: query
-  register: nm_query_statse1
+  #REMOVE STATIC PORT
+  - name: Remove all static ports from EPG2 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *static_port_2
+      state: absent
+    register: nm_remove_stat2e2
 
-- name: Verify nm_query_statse1
-  ansible.builtin.assert:
-    that:
-    - nm_query_statse1 is not changed
+  - name: Verify nm_remove_stat2e2
+    ansible.builtin.assert:
+      that:
+      - nm_remove_stat2e2 is changed
 
-#REMOVE STATIC PORT
-- name: Remove all static ports from EPG2 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *static_port_2
-    state: absent
-  register: nm_remove_stat2e2
+  - name: Remove all static ports from EPG2 again(normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *static_port_2
+      state: absent
+    ignore_errors: true
+    register: nm_remove_again_stat2e2
 
-- name: Verify nm_remove_stat2e2
-  ansible.builtin.assert:
-    that:
-    - nm_remove_stat2e2 is changed
+  - name: Verify nm_remove_again_stat2e2
+    ansible.builtin.assert:
+      that:
+      - nm_remove_again_stat2e2 is not changed
 
-- name: Remove all static ports from EPG2 again(normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *static_port_2
-    state: absent
-  ignore_errors: true
-  register: nm_remove_again_stat2e2
+  # VERIFY NON EXISTENT 'DEPLOYMENT IMMEDIACY', 'TYPE' AND 'MODE'
+  - name: Add static port 1 to site EPG4 with AP2 with no deployment immediacy, type and mode (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport: &add_static_port
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: Template 1
+      anp: AP2
+      epg: EPG4
+      pod: pod-4
+      leaf: 101
+      path: eth1/1
+      vlan: 126
+      static_ports:
+        - path: eth1/2
+          leaf: 101
+      state: present
+    register: nm_add_stat_no_di_type_mode
 
-- name: Verify nm_remove_again_stat2e2
-  ansible.builtin.assert:
-    that:
-    - nm_remove_again_stat2e2 is not changed
+  - name: Verify nm_add_stat_no_di_type_mode
+    ansible.builtin.assert:
+      that:
+      - nm_add_stat_no_di_type_mode.current[0].deploymentImmediacy == 'lazy'
+      - nm_add_stat_no_di_type_mode.current[0].mode == 'untagged'
+      - nm_add_stat_no_di_type_mode.current[0].type == 'port'
 
-# VERIFY NON EXISTENT 'DEPLOYMENT IMMEDIACY', 'TYPE' AND 'MODE'
-- name: Add static port 1 to site EPG4 with AP2 with no deployment immediacy, type and mode (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport: &add_static_port
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    pod: pod-4
-    leaf: 101
-    path: eth1/1
-    vlan: 126
-    static_ports:
-      - path: eth1/2
-        leaf: 101
-    state: present
-  register: nm_add_stat_no_di_type_mode
+  # VERIFY NON EXISTENT parent values.
+  - name: Add static port 1 to site EPG4 with AP2 with no parent values (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: Template 1
+      anp: AP2
+      epg: EPG4
+      static_ports:
+        - path: eth1/2
+          pod: pod-4
+          leaf: 101
+          vlan: 126
+      state: present
+    register: nm_add_stat_no_parent
 
-- name: Verify nm_add_stat_no_di_type_mode
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat_no_di_type_mode.current[0].deploymentImmediacy == 'lazy'
-    - nm_add_stat_no_di_type_mode.current[0].mode == 'untagged'
-    - nm_add_stat_no_di_type_mode.current[0].type == 'port'
+  - name: Verify nm_add_stat_no_parent
+    ansible.builtin.assert:
+      that:
+      - nm_add_stat_no_parent.current[0].deploymentImmediacy == 'lazy'
+      - nm_add_stat_no_parent.current[0].mode == 'untagged'
+      - nm_add_stat_no_parent.current[0].type == 'port'
 
-# VERIFY NON EXISTENT parent values.
-- name: Add static port 1 to site EPG4 with AP2 with no parent values (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    static_ports:
-      - path: eth1/2
-        pod: pod-4
-        leaf: 101
-        vlan: 126
-    state: present
-  register: nm_add_stat_no_parent
+  # VERIFY NON EXISTENT required values.
+  - name: Add static port 1 to site EPG4 with AP2 with missing required values (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport: 
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: Template 1
+      anp: AP2
+      epg: EPG4
+      static_ports:
+        - mode: regular
+      state: present
+    ignore_errors: true
+    register: nm_add_stat_no_req
 
-- name: Verify nm_add_stat_no_parent
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat_no_parent.current[0].deploymentImmediacy == 'lazy'
-    - nm_add_stat_no_parent.current[0].mode == 'untagged'
-    - nm_add_stat_no_parent.current[0].type == 'port'
+  - name: Verify nm_add_stat_no_req
+    ansible.builtin.assert:
+      that:
+      - nm_add_stat_no_req is not changed
+      - 'nm_add_stat_no_req.msg == "state is present but all of the following are missing: pod, leaf, path, vlan."'
 
-# VERIFY NON EXISTENT required values.
-- name: Add static port 1 to site EPG4 with AP2 with missing required values (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport: 
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    static_ports:
-      - mode: regular
-    state: present
-  ignore_errors: true
-  register: nm_add_stat_no_req
+  # VERIFY path in each leaf within a pod is unique (pod->leaf->path)
+  - name: Add static port 1 to site EPG4 with AP2 with missing required values (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport: 
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      site: '{{ mso_test.site }}'
+      template: Template 1
+      anp: AP2
+      epg: EPG4
+      static_ports:
+        - path: eth1/2
+          pod: pod-1
+          leaf: 101
+          vlan: 126
+        - path: eth1/2
+          pod: pod-1
+          leaf: 101
+          vlan: 127
+      state: present
+    ignore_errors: true
+    register: nm_add_unique_path
 
-- name: Verify nm_add_stat_no_req
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat_no_req is not changed
-    - 'nm_add_stat_no_req.msg == "state is present but all of the following are missing: pod, leaf, path, vlan."'
+  - name: Verify nm_add_unique_path
+    ansible.builtin.assert:
+      that:
+      - nm_add_unique_path is not changed
+      - nm_add_unique_path.msg == "Each leaf in a pod of a static port should have an unique path."
 
-# VERIFY path in each leaf within a pod is unique (pod->leaf->path)
-- name: Add static port 1 to site EPG4 with AP2 with missing required values (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport: 
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 1
-    anp: AP2
-    epg: EPG4
-    static_ports:
-      - path: eth1/2
-        pod: pod-1
-        leaf: 101
-        vlan: 126
-      - path: eth1/2
-        pod: pod-1
-        leaf: 101
-        vlan: 127
-    state: present
-  ignore_errors: true
-  register: nm_add_unique_path
+  # USE NON-EXISTING EPG and ANP AT TEMPLATE LEVEL
+  - name: Add static port 1 to non-existent site EPG5 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *add_static_port
+      anp: AP5
+      epg: EPG5
+      state: present
+    ignore_errors: true
+    register: nm_add_stat1e5
 
-- name: Verify nm_add_unique_path
-  ansible.builtin.assert:
-    that:
-    - nm_add_unique_path is not changed
-    - nm_add_unique_path.msg == "Each leaf in a pod of a static port should have an unique path."
+  - name: Verify nm_add_stat1e5
+    ansible.builtin.assert:
+      that:
+      - nm_add_stat1e5 is not changed
 
-# USE NON-EXISTING EPG and ANP AT TEMPLATE LEVEL
-- name: Add static port 1 to non-existent site EPG5 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *add_static_port
-    anp: AP5
-    epg: EPG5
-    state: present
-  ignore_errors: true
-  register: nm_add_stat1e5
+  # USE NON-EXISTING EPG AT TEMPLATE LEVEL
+  - name: Add static port 1 to non-existent site EPG5 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *add_static_port
+      anp: AP1
+      epg: EPG6
+      state: present
+    ignore_errors: true
+    register: nm_add_stat1e6
 
-- name: Verify nm_add_stat1e5
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat1e5 is not changed
+  - name: Verify nm_add_stat1e6
+    ansible.builtin.assert:
+      that:
+      - nm_add_stat1e6 is not changed
 
-# USE NON-EXISTING EPG AT TEMPLATE LEVEL
-- name: Add static port 1 to non-existent site EPG5 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *add_static_port
-    anp: AP1
-    epg: EPG6
-    state: present
-  ignore_errors: true
-  register: nm_add_stat1e6
+  # USE A NON-EXISTING SCHEMA
+  - name: Non-existing schema for static port
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *add_static_port
+      schema: non_existing_schema
+    ignore_errors: true
+    register: nm_non_existing_schema
 
-- name: Verify nm_add_stat1e6
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat1e6 is not changed
+  - name: Verify non_existing_schema
+    ansible.builtin.assert:
+      that:
+      - nm_non_existing_schema is not changed
+      - nm_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
 
-# USE A NON-EXISTING SCHEMA
-- name: Non-existing schema for static port
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *add_static_port
-    schema: non_existing_schema
-  ignore_errors: true
-  register: nm_non_existing_schema
+  # USE A NON-EXISTING TEMPLATE
+  - name: Non-existing template for static port (normal_mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *add_static_port
+      template: non_existing_template
+    ignore_errors: true
+    register: nm_non_existing_template
 
-- name: Verify non_existing_schema
-  ansible.builtin.assert:
-    that:
-    - nm_non_existing_schema is not changed
-    - nm_non_existing_schema.msg == "Provided schema 'non_existing_schema' does not exist."
+  - name: Set assert message for verification of non_existing_site_template
+    ansible.builtin.set_fact:
+      assert_message_non_existing_site_template: "Provided template 'non_existing_template' not matching existing template(s): Template1, Template2"
 
-# USE A NON-EXISTING TEMPLATE
-- name: Non-existing template for static port (normal_mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *add_static_port
-    template: non_existing_template
-  ignore_errors: true
-  register: nm_non_existing_template
+  - name: Verify non_existing_template
+    ansible.builtin.assert:
+      that:
+      - nm_non_existing_template is not changed
+      - nm_non_existing_template.msg == assert_message_non_existing_site_template
 
-- name: Set assert message for verification of non_existing_site_template
-  ansible.builtin.set_fact:
-    assert_message_non_existing_site_template: "Provided template 'non_existing_template' not matching existing template(s): Template1, Template2"
+  # USE A NON-EXISTING SITE
+  - name: Non-existing site for static port (normal_mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *add_static_port
+      site: 'non_existing_site'
+    ignore_errors: true
+    register: nm_non_existing_site
 
-- name: Verify non_existing_template
-  ansible.builtin.assert:
-    that:
-    - nm_non_existing_template is not changed
-    - nm_non_existing_template.msg == assert_message_non_existing_site_template
+  - name: Verify non_existing_site
+    ansible.builtin.assert:
+      that:
+      - nm_non_existing_site is not changed
+      - nm_non_existing_site.msg == "Site 'non_existing_site' is not a valid site name."
 
-# USE A NON-EXISTING SITE
-- name: Non-existing site for static port (normal_mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *add_static_port
-    site: 'non_existing_site'
-  ignore_errors: true
-  register: nm_non_existing_site
+  # USE A TEMPLATE WITHOUT ANY SITE
+  - name: Add site EPG static port association to Template 3 without any site associated (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *add_static_port
+      schema: '{{ mso_test.schema_2 }}'
+      site: '{{ mso_test.site }}'
+      template: Template 3
+    ignore_errors: true
+    register: nm_no_site_associated
 
-- name: Verify non_existing_site
-  ansible.builtin.assert:
-    that:
-    - nm_non_existing_site is not changed
-    - nm_non_existing_site.msg == "Site 'non_existing_site' is not a valid site name."
+  - name: Verify cm_no_site_associated and nm_no_site_associated
+    ansible.builtin.assert:
+      that:
+      - nm_no_site_associated is not changed
+      - nm_no_site_associated.msg == "No sites associated with schema '" ~ mso_test.schema_2 ~ "'. Associate the site with the schema using (M) mso_schema_site."
 
-# USE A TEMPLATE WITHOUT ANY SITE
-- name: Add site EPG static port association to Template 3 without any site associated (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *add_static_port
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-  ignore_errors: true
-  register: nm_no_site_associated
+  # Add static port 3 after adding ANP and EPG to site 
+  - name: Add a new site to a schema 2
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_test.schema_2 }}'
+      site: '{{ mso_test.site }}'
+      template: Template 3
+      state: present
 
-- name: Verify cm_no_site_associated and nm_no_site_associated
-  ansible.builtin.assert:
-    that:
-    - nm_no_site_associated is not changed
-    - nm_no_site_associated.msg == "No sites associated with schema 'ansible_test_2'. Associate the site with the schema using (M) mso_schema_site."
-
-# Add static port 3 after adding ANP and EPG to site 
-- name: Add a new site to a schema 2
-  cisco.mso.mso_schema_site:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    state: present
-
-- name: Ensure VRF1 exists
-  cisco.mso.mso_schema_template_vrf: 
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
-    vrf: VRF1
-    state: present
+  - name: Ensure VRF1 exists
+    cisco.mso.mso_schema_template_vrf: 
+      <<: *mso_info
+      schema: '{{ mso_test.schema_2 }}'
+      template: Template 3
+      vrf: VRF1
+      state: present
     
-- name: Add BD1
-  cisco.mso.mso_schema_template_bd:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
-    bd: BD1
-    vrf:
-      name: VRF1
-    state: present
+  - name: Add BD1
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_test.schema_2 }}'
+      template: Template 3
+      bd: BD1
+      vrf:
+        name: VRF1
+      state: present
 
-- name: Ensure Template 3 with AP1 exists
-  cisco.mso.mso_schema_template_anp:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
-    anp: AP1
-    state: present
+  - name: Ensure Template 3 with AP1 exists
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema_2 }}'
+      template: Template 3
+      anp: AP1
+      state: present
 
-- name: Ensure Template 3 and AP1 with EPG1 exists
-  cisco.mso.mso_schema_template_anp_epg:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
-    anp: AP1
-    epg: EPG1
-    bd:
-      name: BD1
-    vrf:
-      name: VRF1
-    state: present
+  - name: Ensure Template 3 and AP1 with EPG1 exists
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema_2 }}'
+      template: Template 3
+      anp: AP1
+      epg: EPG1
+      bd:
+        name: BD1
+      vrf:
+        name: VRF1
+      state: present
 
-- name: Add new ANP to site
-  cisco.mso.mso_schema_site_anp:
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
-    anp: AP1
-    state: present
-  register: cm_add_epg
+  - name: Add new ANP to site
+    cisco.mso.mso_schema_site_anp:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema_2 }}'
+      template: Template 3
+      anp: AP1
+      state: present
+    register: cm_add_epg
 
-- name: Add new EPG to site after adding ANP to site
-  cisco.mso.mso_schema_site_anp_epg:
-    <<: *mso_info
-    site: '{{ mso_site | default("ansible_test") }}'
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    template: Template 3
-    anp: AP1
-    epg: EPG1
-    state: present
-  register: cm_add_epg
+  - name: Add new EPG to site after adding ANP to site
+    cisco.mso.mso_schema_site_anp_epg:
+      <<: *mso_info
+      site: '{{ mso_test.site }}'
+      schema: '{{ mso_test.schema_2 }}'
+      template: Template 3
+      anp: AP1
+      epg: EPG1
+      state: present
+    register: cm_add_epg
 
-- name: Add static port to site EPG1 in schema 2 (normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    anp: AP1
-    epg: EPG1
-    pod: pod-1
-    leaf: 101
-    path: eth1/1
-    vlan: 100
-    mode: regular
-    type: port
-    deployment_immediacy: immediate
-    static_ports:
-      - path: eth1/2
-        pod: pod-2
-        leaf: 102
-      - vlan: 101
-    state: present
-  register: nm_add_stat3
+  - name: Add static port to site EPG1 in schema 2 (normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *mso_info
+      schema: '{{ mso_test.schema_2 }}'
+      site: '{{ mso_test.site }}'
+      template: Template 3
+      anp: AP1
+      epg: EPG1
+      pod: pod-1
+      leaf: 101
+      path: eth1/1
+      vlan: 100
+      mode: regular
+      type: port
+      deployment_immediacy: immediate
+      static_ports:
+        - path: eth1/2
+          pod: pod-2
+          leaf: 102
+        - vlan: 101
+      state: present
+    register: nm_add_stat3
 
-- name: Verify nm_add_stat3
-  ansible.builtin.assert:
-    that:
-    - nm_add_stat3 is changed
-    - nm_add_stat3.previous == []
-    - nm_add_stat3.current[0].deploymentImmediacy == 'immediate'
-    - nm_add_stat3.current[0].portEncapVlan == 100
-    - nm_add_stat3.current[0].path == 'topology/pod-2/paths-102/pathep-[eth1/2]'
-    - nm_add_stat3.current[0].mode == 'regular'
-    - nm_add_stat3.current[0].type == 'port'
+  - name: Verify nm_add_stat3
+    ansible.builtin.assert:
+      that:
+      - nm_add_stat3 is changed
+      - nm_add_stat3.previous == []
+      - nm_add_stat3.current[0].deploymentImmediacy == 'immediate'
+      - nm_add_stat3.current[0].portEncapVlan == 100
+      - nm_add_stat3.current[0].path == 'topology/pod-2/paths-102/pathep-[eth1/2]'
+      - nm_add_stat3.current[0].mode == 'regular'
+      - nm_add_stat3.current[0].type == 'port'
 
-- name: Add static port to site EPG1 in schema 2 again without static_ports(normal mode)
-  cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
-    <<: *mso_info
-    schema: '{{ mso_schema | default("ansible_test") }}_2'
-    site: '{{ mso_site | default("ansible_test") }}'
-    template: Template 3
-    anp: AP1
-    epg: EPG1
-    pod: pod-1
-    leaf: 101
-    path: eth1/1
-    vlan: 100
-    mode: regular
-    type: port
-    deployment_immediacy: immediate
-    state: present
-  ignore_errors: true
-  register: nm_add_no_static_port
+  - name: Add static port to site EPG1 in schema 2 again without static_ports(normal mode)
+    cisco.mso.mso_schema_site_anp_epg_bulk_staticport:
+      <<: *mso_info
+      schema: '{{ mso_test.schema_2 }}'
+      site: '{{ mso_test.site }}'
+      template: Template 3
+      anp: AP1
+      epg: EPG1
+      pod: pod-1
+      leaf: 101
+      path: eth1/1
+      vlan: 100
+      mode: regular
+      type: port
+      deployment_immediacy: immediate
+      state: present
+    ignore_errors: true
+    register: nm_add_no_static_port
 
-- name: Verify nm_add_no_static_port
-  ansible.builtin.assert:
-    that:
-    - nm_add_no_static_port is not changed
-    - 'nm_add_no_static_port.msg == "state is present but all of the following are missing: static_ports"'
+  - name: Verify nm_add_no_static_port
+    ansible.builtin.assert:
+      that:
+      - nm_add_no_static_port is not changed
+      - 'nm_add_no_static_port.msg == "state is present but all of the following are missing: static_ports"'
+
+  always:
+    # CLEANUP SCHEMAS
+    - name: Remove schemas even when a test fails
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: '{{ item }}'
+        state: absent
+      ignore_errors: true
+      loop:
+      - '{{ mso_test.schema_2 }}'
+      - '{{ mso_test.schema }}'

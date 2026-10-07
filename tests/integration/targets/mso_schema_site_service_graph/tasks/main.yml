@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2020, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -9,7 +10,7 @@
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
 # CLEAN ENVIRONMENT
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: "{{ mso_hostname }}"
@@ -27,6 +28,11 @@
       use_ssl: "{{ apic_use_ssl | default(true) }}"
       use_proxy: "{{ apic_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      tenant: '{{ mso_tenant | default("ansible_test") }}'
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      schema_2: '{{ mso_schema | default("ansible_test") }}_2'
+      site: '{{ mso_site | default("ansible_test") }}'
 
 - name: Query MSO version
   cisco.mso.mso_version:
@@ -70,26 +76,7 @@
     - version.current.version is version('3.3', '>=')
     - version.current.version is version('5.0', '<')
   block:
-    - name: Ensure site exists
-      cisco.mso.mso_site:
-        <<: *mso_info
-        site: '{{ mso_site | default("ansible_test") }}'
-        apic_username: '{{ apic_username }}'
-        apic_password: '{{ apic_password }}'
-        apic_site_id: '{{ apic_site_id | default(101) }}'
-        urls:
-          - https://{{ apic_hostname }}
-        state: present
-
-    - name: Ensure tenant ansible_test exists
-      cisco.mso.mso_tenant:
-        <<: *mso_info
-        tenant: ansible_test
-        users:
-          - '{{ mso_username }}'
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
+    # (ansible_test tenant+site handled by the mso_setup_tenant_site setup target)
 
     - name: Remove schemas
       cisco.mso.mso_schema:
@@ -97,8 +84,8 @@
         schema: '{{ item }}'
         state: absent
       loop:
-      - '{{ mso_schema | default("ansible_test") }}_2'
-      - '{{ mso_schema | default("ansible_test") }}'
+      - '{{ mso_test.schema_2 }}'
+      - '{{ mso_test.schema }}'
 
     - name: Set ansible_network_os to cisco.aci.aci and ansible_connection to ansible.netcommon.httpapi
       ansible.builtin.set_fact:
@@ -122,8 +109,8 @@
     - name: Ensure schema 1 with Template1, 2 and 3 exist
       cisco.mso.mso_schema_template:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        tenant: ansible_test
+        schema: '{{ mso_test.schema }}'
+        tenant: '{{ mso_test.tenant }}'
         template: "{{ item }}"
         state: present
       loop:
@@ -133,8 +120,8 @@
     - name: Ensure schema 2 with Template1 exists
       cisco.mso.mso_schema_template:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        tenant: ansible_test
+        schema: '{{ mso_test.schema_2 }}'
+        tenant: '{{ mso_test.tenant }}'
         template: Template1
         state: present
 
@@ -155,7 +142,7 @@
     - name: Create a service graph 1 at Template level
       cisco.mso.mso_schema_template_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG1
         display_name: sg1
@@ -167,7 +154,7 @@
     - name: Create service graph 2 at Template level
       cisco.mso.mso_schema_template_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG2
         display_name: sg2
@@ -181,7 +168,7 @@
     - name: Create service graph 3 at Template level
       cisco.mso.mso_schema_template_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG3
         display_name: sg3
@@ -196,7 +183,7 @@
     - name: Create a service graph 4 at Template level
       cisco.mso.mso_schema_template_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG4
         display_name: sg4
@@ -210,7 +197,7 @@
     - name: Create a service graph 5 at Template level
       cisco.mso.mso_schema_template_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG5
         display_name: sg5
@@ -224,7 +211,7 @@
     - name: Create a service graph 6 at Template level
       cisco.mso.mso_schema_template_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG6
         display_name: sg6
@@ -238,7 +225,7 @@
     - name: Create a service graph 7 at Template level
       cisco.mso.mso_schema_template_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG7
         display_name: sg7
@@ -251,19 +238,19 @@
     - name: Add physical site to a schema
       cisco.mso.mso_schema_site:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        site: '{{ mso_site | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
+        site: '{{ mso_test.site }}'
         template: Template1
         state: present
 
     - name: Add a new Graph at site level (check mode)
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG1
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_firewall1
         state: present
@@ -282,11 +269,11 @@
     - name: Add a new Graph SG1 at site level (normal mode)
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG1
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_firewall1
         state: present
@@ -304,11 +291,11 @@
     - name: Add Graph SG1 at site level again
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG1
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_firewall1
         state: present
@@ -326,11 +313,11 @@
     - name: Change service graph SG1 at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG1
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_firewall2
         state: present
@@ -348,11 +335,11 @@
     - name: Add a new Graph SG2 at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG2
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_firewall1
           - name: ansible_test_adc
@@ -372,11 +359,11 @@
     - name: Add a new Graph SG3 at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG3
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_firewall1
           - name: ansible_test_adc
@@ -398,11 +385,11 @@
     - name: Add a new Graph SG4 at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG4
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_other
           - name: ansible_test_adc
@@ -424,11 +411,11 @@
     - name: Change Graph SG4 at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG4
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_other
           - name: ansible_test_adc
@@ -450,11 +437,11 @@
     - name: Change Graph SG4 at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG4
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_other
         state: present
@@ -470,11 +457,11 @@
     - name: Change Graph SG4 at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG4
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_adc
         state: present
@@ -490,11 +477,11 @@
     - name: Change Graph SG4 at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG4
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_firewall1
         state: present
@@ -510,11 +497,11 @@
     - name: Change Graph SG4 at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG4
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_other
           - name: ansible_test_adc
@@ -531,11 +518,11 @@
     - name: Add Graph SG5 at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG5
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_other
           - name: ansible_test_firewall1
@@ -557,11 +544,11 @@
     - name: Add Graph SG6 at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG6
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_other
           - name: ansible_test_other
@@ -583,11 +570,11 @@
     - name: Add Graph SG7 at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG7
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_adc
           - name: ansible_test_adc
@@ -607,11 +594,11 @@
     - name: Query service graph SG at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG1
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         state: query
       register: query_sg
 
@@ -624,10 +611,10 @@
     - name: Query all service graphs at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         state: query
       register: query_all
 
@@ -640,11 +627,11 @@
     - name: Query non_existing service graph at site level
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
-        site: '{{ mso_site | default("ansible_test") }}'
+        site: '{{ mso_test.site }}'
         service_graph: non_existent
-        tenant: ansible_test
+        tenant: '{{ mso_test.tenant }}'
         state: query
       ignore_errors: true
       register: query_non_existing_sg
@@ -660,8 +647,8 @@
         schema: non_existing_schema
         template: Template1
         service_graph: SG
-        tenant: ansible_test
-        site: '{{ mso_site | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
+        site: '{{ mso_test.site }}'
         state: query
       ignore_errors: true
       register: query_non_existing_schema
@@ -675,11 +662,11 @@
     - name: Use non_existing template
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: non_existing_template
         service_graph: SG
-        tenant: ansible_test
-        site: '{{ mso_site | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
+        site: '{{ mso_test.site }}'
         state: query
       ignore_errors: true
       register: query_non_existing_template
@@ -696,11 +683,11 @@
     - name: Use non_existing_site_template
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        site: '{{ mso_site | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
+        site: '{{ mso_test.site }}'
         service_graph: SG
         template: Template2
-        tenant: ansible_test
+        tenant: '{{ mso_test.tenant }}'
         state: query
       ignore_errors: true
       register: nm_non_existing_site_template
@@ -714,11 +701,11 @@
     - name: Add site Service Graph to Template2 without any site association
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}_2'
-        site: '{{ mso_site | default("ansible_test") }}'
+        schema: '{{ mso_test.schema_2 }}'
+        site: '{{ mso_test.site }}'
         template: Template1
         service_graph: SG1
-        tenant: ansible_test
+        tenant: '{{ mso_test.tenant }}'
         devices:
           - name: ansible_test_firewall2
         state: present
@@ -734,11 +721,11 @@
     - name: Remove service graph from site level(check mode)
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG1
-        site: '{{ mso_site | default("ansible_test") }}'
-        tenant: ansible_test
+        site: '{{ mso_test.site }}'
+        tenant: '{{ mso_test.tenant }}'
         state: absent
       register: rm_sg_cm
       check_mode: true
@@ -753,11 +740,11 @@
     - name: Remove service graph from site level (normal mode)
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG1
-        tenant: ansible_test
-        site: '{{ mso_site | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
+        site: '{{ mso_test.site }}'
         state: absent
       register: rm_sg
 
@@ -771,11 +758,11 @@
     - name: Remove service graph again
       cisco.mso.mso_schema_site_service_graph:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: Template1
         service_graph: SG1
-        tenant: ansible_test
-        site: '{{ mso_site | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
+        site: '{{ mso_test.site }}'
         state: absent
       register: rm_sg_again
 
@@ -787,6 +774,18 @@
           - rm_sg_again.previous == {}
       when: version.current.version is version('4.0', '<') # no change in NDO4.0 because site will already be present when template is defined
 
+  always:
+    # CLEANUP SCHEMAS
+    - name: Remove schemas even when a test fails
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: '{{ item }}'
+        state: absent
+      ignore_errors: true
+      loop:
+      - '{{ mso_test.schema_2 }}'
+      - '{{ mso_test.schema }}'
+
     # To clear the ACI Config
     - name: Set ansible_network_os to cisco.aci.aci and ansible_connection to ansible.netcommon.httpapi
       ansible.builtin.set_fact:
@@ -796,8 +795,10 @@
     - name: Reset the ansible_connection to access the APIC
       ansible.builtin.meta: reset_connection
 
-    - name: Remove the ansible_test tenant from APIC
+    - name: Remove the ansible_test tenant from APIC even when a test fails
       cisco.aci.aci_tenant:
         <<: *aci_info
         name: ansible_test
         state: absent
+      ignore_errors: true
+

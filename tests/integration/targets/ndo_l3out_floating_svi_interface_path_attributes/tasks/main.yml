@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2025, Akini Ross (@akinross) <akinross@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -8,7 +9,7 @@
     msg: "Please define the following variables: mso_hostname, mso_username and mso_password."
   when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
 
-- name: Set vars
+- name: Set test connection and fixture variables
   ansible.builtin.set_fact:
     mso_info: &mso_info
       host: "{{ mso_hostname }}"
@@ -26,6 +27,13 @@
       use_ssl: "{{ apic_use_ssl | default(true) }}"
       use_proxy: "{{ apic_use_proxy | default(true) }}"
       output_level: '{{ apic_output_level | default("debug") }}'
+    mso_test:
+      tenant: '{{ mso_tenant | default("ansible_test") }}'
+      site: '{{ mso_site | default("ansible_test") }}'
+      schema: '{{ mso_schema | default("ansible_test") }}'
+      l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+      fabric_resource_template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+      fabric_policy_template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
 
 # QUERY VERSION
 
@@ -40,51 +48,42 @@
   block:
     
     # CLEAN ENVIRONMENT - ENSURE CLEAN ENVIRONMENT FOR TESTS
-
-    - name: Ensure ansible_test tenant exist
-      cisco.mso.mso_tenant:
-        <<: *mso_info
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        users:
-          - '{{ mso_username }}'
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
+    # (ansible_test tenant+site handled by the mso_setup_tenant_site setup target)
 
     - name: Ensure L3out template does not exist
       cisco.mso.ndo_template: &ndo_l3out_template_absent
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         template_type: l3out
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_test schema does not exist
       cisco.mso.mso_schema_template: &mso_schema_template_absent
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
+        tenant: '{{ mso_test.tenant }}'
         template: template_1
         state: absent
 
     - name: Ensure ansible_fabric_resource_template does not exist
       cisco.mso.ndo_template:
         <<: *mso_info
-        name: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        name: '{{ mso_test.fabric_resource_template }}'
         template_type: fabric_resource
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_fabric_policy_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
         <<: *mso_info
-        name: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        name: '{{ mso_test.fabric_policy_template }}'
         template_type: fabric_policy
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     # APIC CONFIGURATION
@@ -149,7 +148,7 @@
     - name: Create a VLAN pool in the fabric_policy template
       cisco.mso.ndo_vlan_pool:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         vlan_pool: ansible_test_vlan_pool_1
         vlan_ranges:
           - from_vlan: 100
@@ -159,7 +158,7 @@
     - name: Create a L3 domain in the fabric_policy template
       cisco.mso.ndo_l3_domain:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         l3_domain: ansible_test_l3_domain
         pool: ansible_test_vlan_pool_1
         state: present
@@ -172,7 +171,7 @@
     - name: Create a VRF in the schema template
       cisco.mso.mso_schema_template_vrf:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
+        schema: '{{ mso_test.schema }}'
         template: template_1
         vrf: vrf_1
         state: present
@@ -186,11 +185,11 @@
     - name: Create L3Out object in the L3Out template
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1
         vrf:
           name: vrf_1
-          schema: '{{ mso_schema | default("ansible_test") }}'
+          schema: '{{ mso_test.schema }}'
           template: template_1
         l3_domain: ansible_test_l3_domain
         ospf:
@@ -205,7 +204,7 @@
     - name: Create a L3out floating svi interface
       cisco.mso.ndo_l3out_floating_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         encapsulation_type: vlan
@@ -223,7 +222,7 @@
     - name: Create Path Attributes for a L3Out Floating SVI Interface (check mode)
       cisco.mso.ndo_l3out_floating_svi_interface_path_attributes: &create_floating_svi_interface_path_attributes
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         encapsulation_value: 100
@@ -372,7 +371,7 @@
     - name: Create Path Attributes of a L3Out Floating SVI Interface without l3out or l3out_uuid
       cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         node_id: 101
         encapsulation_type: vlan
         encapsulation_value: 100
@@ -386,7 +385,7 @@
     - name: Create Path Attributes of a L3Out Floating SVI Interface without node_id
       cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         encapsulation_type: vlan
         encapsulation_value: 100
@@ -400,7 +399,7 @@
     - name: Create Path Attributes of a L3Out Floating SVI Interface without encapsulation_value
       cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         encapsulation_type: vlan
@@ -414,7 +413,7 @@
     - name: Create Path Attributes of a L3Out Floating SVI Interface with domain_type vmm without provider
       cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         encapsulation_type: vlan
@@ -472,7 +471,7 @@
     - name: Query all Path Attributes for a L3Out Floating SVI Interface
       cisco.mso.ndo_l3out_floating_svi_interface_path_attributes:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         encapsulation_type: vlan
@@ -549,19 +548,23 @@
           - nm_delete_floating_svi_interface_path_attributes_again is not changed
           - nm_delete_floating_svi_interface_path_attributes_again.previous == nm_delete_floating_svi_interface_path_attributes_again.proposed == nm_delete_floating_svi_interface_path_attributes_again.current == {}
 
+  always:
     # CLEANUP TEMPLATE
 
-    - name: Remove l3out template
+    - name: Remove l3out template even when a test fails
       cisco.mso.ndo_template:
         <<: *ndo_l3out_template_absent
+      ignore_errors: true
 
-    - name: Remove ansible_test schema template
+    - name: Remove ansible_test schema template even when a test fails
       cisco.mso.mso_schema_template:
         <<: *mso_schema_template_absent
+      ignore_errors: true
 
-    - name: Remove ansible_fabric_policy_template fabric_policy template
+    - name: Remove ansible_fabric_policy_template fabric_policy template even when a test fails
       cisco.mso.ndo_template:
         <<: *ndo_fabric_policy_template_absent
+      ignore_errors: true
 
     - name: Set ansible_network_os to cisco.aci.aci
       ansible.builtin.set_fact:
@@ -570,12 +573,14 @@
     - name: Reset the ansible_connection to access the APIC
       ansible.builtin.meta: reset_connection
 
-    - name: Remove the VMM domain
+    - name: Remove the VMM domain even when a test fails
       cisco.aci.aci_domain:
         <<: *vmm_domain_present
         state: absent
+      ignore_errors: true
 
-    - name: Remove the physical domain
+    - name: Remove the physical domain even when a test fails
       cisco.aci.aci_domain:
         <<: *phys_domain_present
         state: absent
+      ignore_errors: true

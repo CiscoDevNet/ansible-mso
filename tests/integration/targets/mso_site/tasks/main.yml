@@ -501,6 +501,23 @@
       - nm_add_site_no_location.current.common.name == mso_site|default("ansible_test")
     when: version.current.version is version('3.2', '>=')
 
+  always:
+  # This test removes and re-creates the shared site, which drops its tenant associations
+  # Restore the shared tenants/sites baseline here so other test targets relying on 
+  # it are not left broken for the rest of the test run.
+  - name: Ensure shared tenants are re-associated with the shared sites
+    cisco.mso.mso_tenant:
+      <<: *mso_info
+      tenant: '{{ item }}'
+      sites:
+      - '{{ mso_site | default("ansible_test") }}'
+      - '{{ mso_site_2 | default("ansible_test_2") }}'
+      state: present
+    loop:
+    - '{{ mso_tenant | default("ansible_test") }}'
+    - '{{ mso_tenant | default("ansible_test") }}_2'
+    - common
+
   # Commented out below part since this is not required anymore in ND 3.2 and is causing issues.
   # This was a workaround when NDO 4.0 was released where fabric connectivity was broken when sites were removed and added
   # This caused issues with site connectivity due to wrong site information being stored in connectivity parts

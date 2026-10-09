@@ -509,6 +509,7 @@
     cisco.mso.mso_tenant:
       <<: *mso_info
       tenant: '{{ item }}'
+      users: "{{ [mso_username] if version.current.version is version('5.2', '<') else omit }}"
       sites:
       - '{{ mso_site | default("ansible_test") }}'
       - '{{ mso_site_2 | default("ansible_test_2") }}'

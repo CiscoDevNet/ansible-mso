@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2021, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 #
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -84,19 +85,11 @@
         state: query
       register: query_validate
 
-    - name: Verify query_validate for NDO 4.1 and higher
-      ansible.builtin.assert:
-        that:
-        - query_validate is not changed
-        - query_validate.current.result == true
-      when: version.current.version is version('4.0', '>=')
-
     - name: Verify query_validate
       ansible.builtin.assert:
         that:
         - query_validate is not changed
-        - query_validate.current.result == "true"
-      when: version.current.version is version('4.0', '<')
+        - query_validate.current.result == true
 
     - name: Add physical site to a schema
       cisco.mso.mso_schema_site:
@@ -113,32 +106,14 @@
         state: query
       register: query_validate_again
 
-    - name: Verify query_validate_again for NDO 4.1 and higher
+    - name: Verify query_validate_again
       ansible.builtin.assert:
         that:
         - query_validate_again is not changed
         - query_validate_again.current.result == true
-      when: version.current.version is version('4.0', '>=')
 
-    - name: Verify query_validate_again for NDO 3.7 and lower
-      ansible.builtin.assert:
-        that:
-        - query_validate_again is not changed
-        - query_validate_again.current.result == "true"
-      when: version.current.version is version('4.0', '<')
-
-    - name: Deploy templates for NDO 3.7 and lower (normal_mode)
-      cisco.mso.mso_schema_template_deploy:
-        <<: *mso_info
-        schema: '{{ mso_test.schema }}'
-        template: '{{ mso_test.template_1 }}'
-        site: '{{ mso_test.site }}'
-        state: deploy
-      register: nm_deploy_template_37
-      when: version.current.version is version('4.0', '<')
-
-    - name: Deploy templates for NDO 4.1 and higher (normal_mode)
-      cisco.mso.ndo_schema_template_deploy:
+    - name: Deploy template
+      cisco.mso.ndo_template_deploy:
         <<: *mso_info
         schema: '{{ mso_test.schema }}'
         template: '{{ mso_test.template_1 }}'
@@ -146,20 +121,11 @@
         - '{{ mso_test.site }}'
         state: deploy
       register: nm_deploy_template_40
-      when: version.current.version is version('4.0', '>=')
 
-    - name: Verify nm_deploy_template for NDO 3.7 and lower
-      ansible.builtin.assert:
-        that:
-        - nm_deploy_template_37 is not changed
-        - nm_deploy_template_37.msg == "Successfully deployed"
-      when: version.current.version is version('4.0', '<')
-
-    - name: Verify nm_deploy_template for NDO 4.1 and higher
+    - name: Verify deployment
       ansible.builtin.assert:
         that:
         - '"deploy" in nm_deploy_template_40.current.reqDetails'
-      when: version.current.version is version('4.0', '>=')
 
     - name: Ensure schema 2 with Template 2 exist
       cisco.mso.mso_schema_template:
@@ -190,35 +156,16 @@
     - name: Set error messages for query validation
       ansible.builtin.set_fact:
         error_message_query_validate_above_41: "MSO Error 400: VRF: {{ mso_test.vrf_2 }} in Schema: {{ mso_test.schema_2 }}, Template: {{ mso_test.template_2 | replace(' ', '') }}, has VzAnyEnabled flag enabled but is not consuming or providing contracts"
-        error_message_query_validate_below_40: "MSO Error 400: Bad Request: Patch Failed, Received: vzAny contract must be configured if vzAny flag is set. VRF(s) : {{ mso_test.vrf_2 }} exception while trying to update schema"
 
-    - name: Verify query_validate_2 for NDO 4.1 and higher
+    - name: Verify query_validate_2
       ansible.builtin.assert:
         that:
         - query_validate_2 is not changed
         - query_validate_2.msg == error_message_query_validate_above_41
-      when: version.current.version is version('4.0', '>=')
-
-    - name: Verify query_validate_2 for NDO 3.7 and lower
-      ansible.builtin.assert:
-        that:
-        - query_validate_2 is not changed
-        - query_validate_2.msg == error_message_query_validate_below_40
-      when: version.current.version is version('4.0', '<')
 
     always:
     - name: Undeploy template from Schema 1
-      cisco.mso.mso_schema_template_deploy:
-        <<: *mso_info
-        schema: '{{ mso_test.schema }}'
-        template: '{{ mso_test.template_1 }}'
-        site: '{{ mso_test.site }}'
-        state: undeploy
-      ignore_errors: true
-      when: version.current.version is version('4.0', '<')
-
-    - name: Undeploy template from Schema 1
-      cisco.mso.ndo_schema_template_deploy:
+      cisco.mso.ndo_template_deploy:
         <<: *mso_info
         schema: '{{ mso_test.schema }}'
         template: '{{ mso_test.template_1 }}'

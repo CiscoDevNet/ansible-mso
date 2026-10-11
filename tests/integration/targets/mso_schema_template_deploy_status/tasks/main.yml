@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2021, Shreyas Srish (@shrsr) <ssrish@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3[0].txt)
 
@@ -24,6 +25,7 @@
       schema_2: '{{ mso_schema_template_deploy_status | default(mso_schema | default("ansible_test")) }}_2'
       tenant: '{{ mso_tenant_template_deploy_status | default(mso_tenant | default("ansible_test")) }}'
       site: '{{ mso_site_template_deploy_status | default(mso_site | default("ansible_test")) }}'
+      site_2: '{{ mso_site_2 | default("ansible_test_2") }}'
       template_1: 'Template 1'
       template_2: 'Template 2'
       unassociated_template_1: 'Template1'
@@ -37,39 +39,20 @@
       object_2: 'ansible_test_2'
       object_3: 'ansible_test_3'
 
-- name: Query MSO version
-  cisco.mso.mso_version:
-    <<: *mso_info
-    state: query
-  register: version
-
 - name: Exercise mso_schema_template_deploy_status
   block:
-  - name: Undeploy templates if deployed to clean the environment before ndo 4.0
-    cisco.mso.mso_schema_template_deploy:
+  - name: Undeploy templates if deployed to clean the environment
+    cisco.mso.ndo_template_deploy:
       <<: *mso_info
       schema: '{{ mso_test.schema }}'
       template: '{{ item }}'
-      site: '{{ mso_test.site }}'
+      sites:
+      - '{{ mso_test.site }}'
       state: undeploy
     ignore_errors: true
     loop:
     - '{{ mso_test.template_1 }}'
     - '{{ mso_test.template_2 }}'
-    when: version.current.version is version('4.0', '<')
-
-  #- name: Undeploy templates if deployed to clean the environment after ndo 4.0
-  #  <TBD>:
-  #    <<: *mso_info
-  #    schema: '{{ mso_test.schema }}'
-  #    template: "{{ item }}"
-  #    site: '{{ mso_test.site }}'
-  #    state: undeploy
-  #  ignore_errors: true
-  #  loop:
-  #  - Template 1
-  #  - Template 2
-  #  when: version.current.version is version('4.0', '>=')
 
   - name: Remove schemas
     cisco.mso.mso_schema:
@@ -298,326 +281,288 @@
       - status3_temp1.current[0].bds[0].state == 'created'
       - status3_temp1.current[0].vrfs[0].state == 'created'
 
-  # mso_schema_template_deploy is deprecated in MSO/NDO v4.0+, different api endpoint thus different module
-  # when new module created, remove block and do execution for each cisco.mso.mso_schema_template_deploy tasks
-  - name: Execute tasks only for MSO version < 4.0
-    when: version.current.version is version('4.0', '<')
-    block:
-    - name: Deploy templates
-      cisco.mso.mso_schema_template_deploy:
-        <<: *mso_info
-        schema: '{{ mso_test.schema }}'
-        template: "{{ item }}"
-        site: '{{ mso_test.site }}'
-        state: deploy
-      register: cm_deploy_template
-      loop:
-      - '{{ mso_test.template_1 }}'
-      - '{{ mso_test.template_2 }}'
+  - name: Deploy templates
+    cisco.mso.ndo_template_deploy:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: "{{ item }}"
+      sites:
+      - '{{ mso_test.site }}'
+      state: deploy
+    register: cm_deploy_template
+    loop:
+    - '{{ mso_test.template_1 }}'
+    - '{{ mso_test.template_2 }}'
 
-    - name: Change EPG
-      cisco.mso.mso_schema_template_anp_epg:
-        <<: *mso_info
-        schema: '{{ mso_test.schema }}'
-        template: '{{ mso_test.template_1 }}'
-        anp: '{{ mso_test.anp_1 }}'
-        epg: '{{ mso_test.object_1 }}'
-        bd:
-          name: '{{ mso_test.object_3 }}'
-        vrf:
-          name: '{{ mso_test.vrf_3 }}'
-        state: present
-
-    - name: Check deployment status of Template 1
-      cisco.mso.mso_schema_template_deploy_status:
-        <<: *mso_info
-        schema: '{{ mso_test.schema }}'
-        template: '{{ mso_test.template_1 }}'
-        state: query
-      register: status_change_temp1
-
-    - name: Verify status after changing EPG
-      ansible.builtin.assert:
-        that:
-        - status_change_temp1.current[0].anps[0].epgs[0].state == 'modified'
-
-    - name: Delete ansible_test_1 BD
-      cisco.mso.mso_schema_template_bd:
-        <<: *mso_info
-        schema: '{{ mso_test.schema }}'
-        template: '{{ mso_test.template_1 }}'
-        bd: '{{ mso_test.object_1 }}'
-        vrf:
-          name: '{{ mso_test.vrf_1 }}'
-          template: '{{ mso_test.template_1 }}'
-        state: absent
-
-    - name: Delete VRF1
-      cisco.mso.mso_schema_template_vrf:
-        <<: *mso_info
-        schema: '{{ mso_test.schema }}'
-        template: '{{ mso_test.template_1 }}'
-        vrf: '{{ mso_test.vrf_1 }}'
-        state: absent
-
-    - name: Check deployment status of Template 1
-      cisco.mso.mso_schema_template_deploy_status:
-        <<: *mso_info
-        schema: '{{ mso_test.schema }}'
-        template: '{{ mso_test.template_1 }}'
-        state: query
-      register: status4_temp1
-
-    - name: Verify status after deleting VRF1
-      ansible.builtin.assert:
-        that:
-        - status4_temp1.current[0].bds[0].state == 'deleted'
-        - status4_temp1.current[0].vrfs[0].state == 'deleted'
-
-    - name: Try deploy and check results
-      block:
-      - name: Deploy templates Template 1
-        cisco.mso.mso_schema_template_deploy:
-          <<: *mso_info
-          schema: '{{ mso_test.schema }}'
-          template: '{{ mso_test.template_1 }}'
-          site: '{{ mso_test.site }}'
-          state: deploy
-
-      - name: Check deployment status of Template 1
-        cisco.mso.mso_schema_template_deploy_status:
-          <<: *mso_info
-          schema: '{{ mso_test.schema }}'
-          template: '{{ mso_test.template_1 }}'
-          state: query
-        register: status5_temp1
-
-      - name: Increment the retry count
-        ansible.builtin.set_fact:
-          retry_count: "{{ 0 if retry_count is undefined else retry_count | int + 1 }}"
-
-      rescue:
-      - ansible.builtin.fail:
-          msg: Status5_temp1 correct value retrieved continuing
-        when:
-        - status5_temp1.current[0] is defined
-        - status5_temp1.current[0].anps == []
-
-      - ansible.builtin.fail:
-          msg: Maximum retries of deploy and check group for status5_temp1 reached
-        when: retry_count | int == 10
-
-      - ansible.builtin.debug:
-          msg: "Deploy and check group for status5_temp1 failed, let's give it another shot"
-
-    - name: Reset the retry count
-      ansible.builtin.set_fact:
-        retry_count:
-
-    - name: Try deploy and check results
-      block:
-      - name: Deploy templates Template 2
-        cisco.mso.mso_schema_template_deploy:
-          <<: *mso_info
-          schema: '{{ mso_test.schema }}'
-          template: '{{ mso_test.template_2 }}'
-          site: '{{ mso_test.site }}'
-          state: deploy
-
-      - name: Check deployment status of Template 2
-        cisco.mso.mso_schema_template_deploy_status:
-          <<: *mso_info
-          schema: '{{ mso_test.schema }}'
-          template: '{{ mso_test.template_2 }}'
-          state: query
-        register: status5_temp2
-
-      - name: Increment the retry count
-        ansible.builtin.set_fact:
-          retry_count: "{{ 0 if retry_count is undefined else retry_count | int + 1 }}"
-
-      rescue:
-      - ansible.builtin.fail:
-          msg: status5_temp2 correct value retrieved continuing
-        when:
-        - status5_temp2.current[0] is defined
-        - status5_temp2.current[0].anps == []
-
-      - ansible.builtin.fail:
-          msg: Maximum retries of deploy and check group for status5_temp2 reached
-        when: retry_count | int == 10
-
-      - ansible.builtin.debug:
-          msg: "Deploy and check group for status5_temp2 failed, let's give it another shot"
-
-    - name: Verify status after deploying Templates to site
-      ansible.builtin.assert:
-        that:
-        - status5_temp1.current[0].anps == []
-        - status5_temp1.current[0].bds == []
-        - status5_temp1.current[0].vrfs == []
-        - status5_temp2.current[0].anps == []
-        - status5_temp2.current[0].bds == []
-        - status5_temp2.current[0].vrfs == []
-
-    - name: Check status of all templates
-      cisco.mso.mso_schema_template_deploy_status:
-        <<: *mso_info
-        schema: '{{ mso_test.schema }}'
-        state: query
-      register: all_templates
-
-    - name: Verify all
-      ansible.builtin.assert:
-        that:
-        - all_templates.current.policyStates | length == 2
-
-    - name: Check deployment status by querying site
-      cisco.mso.mso_schema_template_deploy_status:
-        <<: *mso_info
-        schema: '{{ mso_test.schema }}'
-        site: '{{ mso_test.site }}'
-        state: query
-      register: status2_site
-
-    - name: Reset the retry count
-      ansible.builtin.set_fact:
-        retry_count:
-
-    - name: Try deploy and check results for a site and Template1
-      block:
-      - name: Deploy templates Template1
-        cisco.mso.mso_schema_template_deploy:
-          <<: *mso_info
-          schema: '{{ mso_test.schema }}'
-          template: '{{ mso_test.unassociated_template_1 }}'
-          site: '{{ mso_test.site }}'
-          state: deploy
-
-      - name: Check deployment status by querying site and Template1
-        cisco.mso.mso_schema_template_deploy_status:
-          <<: *mso_info
-          schema: '{{ mso_test.schema }}'
-          template: '{{ mso_test.unassociated_template_1 }}'
-          site: '{{ mso_test.site }}'
-          state: query
-        register: status2_site_temp1
-
-      - name: Increment the retry count
-        ansible.builtin.set_fact:
-          retry_count: "{{ 0 if retry_count is undefined else retry_count | int + 1 }}"
-
-      rescue:
-      - ansible.builtin.fail:
-          msg: status2_site_temp1 correct value retrieved continuing
-        when:
-        - status2_site_temp1.current is defined
-        - status2_site_temp1.current.anps == []
-
-      - ansible.builtin.fail:
-          msg: Maximum retries of deploy and check group for status2_site_temp1 reached
-        when: retry_count | int == 10
-
-      - ansible.builtin.debug:
-          msg: "Deploy and check group for status2_site_temp1 failed, let's give it another shot"
-
-    - name: Try deploy and check results for a site and Template2
-      block:
-      - name: Deploy templates Template2
-        cisco.mso.mso_schema_template_deploy:
-          <<: *mso_info
-          schema: '{{ mso_test.schema }}'
-          template: '{{ mso_test.unassociated_template_2 }}'
-          site: '{{ mso_test.site }}'
-          state: deploy
-
-      - name: Check deployment status by querying site and Template2
-        cisco.mso.mso_schema_template_deploy_status:
-          <<: *mso_info
-          schema: '{{ mso_test.schema }}'
-          template: '{{ mso_test.unassociated_template_2 }}'
-          site: '{{ mso_test.site }}'
-          state: query
-        register: status2_site_temp2
-
-      - name: Increment the retry count
-        ansible.builtin.set_fact:
-          retry_count: "{{ 0 if retry_count is undefined else retry_count | int + 1 }}"
-
-      rescue:
-      - ansible.builtin.fail:
-          msg: status2_site_temp2 correct value retrieved continuing
-        when:
-        - status2_site_temp2.current is defined
-        - status2_site_temp2.current.anps == []
-
-      - ansible.builtin.fail:
-          msg: Maximum retries of deploy and check group for status2_site_temp2 reached
-        when: retry_count | int == 10
-
-      - ansible.builtin.debug:
-          msg: "Deploy and check group for status2_site_temp2 failed, let's give it another shot"
-
-    - name: Verify status after querying site post deployment
-      ansible.builtin.assert:
-        that:
-        - status2_site.current | length == 2
-        - status2_site_temp1.current.anps == []
-        - status2_site_temp1.current.bds == []
-        - status2_site_temp1.current.vrfs == []
-        - status2_site_temp2.current.anps == []
-        - status2_site_temp2.current.bds == []
-        - status2_site_temp2.current.vrfs == []
-
-    - name: Check deployment status by querying site and non associated Template 1
-      cisco.mso.mso_schema_template_deploy_status:
-        <<: *mso_info
-        schema: '{{ mso_test.schema }}'
-        template: '{{ mso_test.unassociated_template_1 }}'
-        site: '{{ mso_test.site }}'
-        state: query
-      ignore_errors: true
-      register: status_site_temp3
-
-    - name: Verify status after querying site with non associated Template 1
-      ansible.builtin.assert:
-        that:
-        - status_site_temp3.msg == "Provided Template '{{ mso_test.unassociated_template_1 }}' not associated with Site '" ~ mso_test.site ~ "'."
-
-    - name: Check Non-existing schema
-      cisco.mso.mso_schema_template_deploy_status:
-        <<: *mso_info
-        schema: non-existing-schema
-        state: query
-      ignore_errors: true
-      register: non_schema
-
-    - name: Verify non_existing_schema
-      ansible.builtin.assert:
-        that:
-        - non_schema.msg == "Schema 'non-existing-schema' not found."
-
-    - name: Check deployment status of non-existing-template
-      cisco.mso.mso_schema_template_deploy_status:
-        <<: *mso_info
-        schema: '{{ mso_test.schema }}'
-        template: non-existing-template
-        state: query
-      ignore_errors: true
-      register: non_temp
-
-    - name: Verify non_existing_template
-      ansible.builtin.assert:
-        that:
-        - non_temp.msg == "Template 'non-existing-template' not found."
-
-  always:
-  - name: Undeploy test templates even if the test fails
-    cisco.mso.mso_schema_template_deploy:
+  - name: Wait for initial template deployments to succeed
+    cisco.mso.ndo_template_deploy:
       <<: *mso_info
       schema: '{{ mso_test.schema }}'
       template: '{{ item }}'
+      state: query
+    register: initial_deploy_status
+    until:
+    - initial_deploy_status.current.status | length == 1
+    - initial_deploy_status.current.status[0].status.siteStatus == "Succeeded"
+    retries: 10
+    delay: 10
+    loop:
+    - '{{ mso_test.template_1 }}'
+    - '{{ mso_test.template_2 }}'
+
+  - name: Change EPG
+    cisco.mso.mso_schema_template_anp_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      anp: '{{ mso_test.anp_1 }}'
+      epg: '{{ mso_test.object_1 }}'
+      bd:
+        name: '{{ mso_test.object_3 }}'
+      vrf:
+        name: '{{ mso_test.vrf_3 }}'
+      state: present
+
+  - name: Check deployment status of Template 1
+    cisco.mso.mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      state: query
+    register: status_change_temp1
+
+  - name: Verify status after changing EPG
+    ansible.builtin.assert:
+      that:
+      - status_change_temp1.current[0].anps[0].epgs[0].state == 'modified'
+
+  - name: Delete ansible_test_1 BD
+    cisco.mso.mso_schema_template_bd:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      bd: '{{ mso_test.object_1 }}'
+      vrf:
+        name: '{{ mso_test.vrf_1 }}'
+        template: '{{ mso_test.template_1 }}'
+      state: absent
+
+  - name: Delete VRF1
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      vrf: '{{ mso_test.vrf_1 }}'
+      state: absent
+
+  - name: Check deployment status of Template 1
+    cisco.mso.mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      state: query
+    register: status4_temp1
+
+  - name: Verify status after deleting VRF1
+    ansible.builtin.assert:
+      that:
+      - status4_temp1.current[0].bds[0].state == 'deleted'
+      - status4_temp1.current[0].vrfs[0].state == 'deleted'
+
+  - name: Deploy templates Template 1
+    cisco.mso.ndo_template_deploy:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      state: deploy
+
+  - name: Check deployment status of Template 1
+    cisco.mso.mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      state: query
+    register: status5_temp1
+    until:
+    - status5_temp1.current | length == 1
+    - status5_temp1.current[0].anps | default([]) == []
+    - status5_temp1.current[0].bds | default([]) == []
+    - status5_temp1.current[0].vrfs | default([]) == []
+    retries: 10
+    delay: 10
+
+  - name: Deploy templates Template 2
+    cisco.mso.ndo_template_deploy:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_2 }}'
+      state: deploy
+
+  - name: Check deployment status of Template 2
+    cisco.mso.mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_2 }}'
+      state: query
+    register: status5_temp2
+    until:
+    - status5_temp2.current | length == 1
+    - status5_temp2.current[0].anps | default([]) == []
+    - status5_temp2.current[0].bds | default([]) == []
+    - status5_temp2.current[0].vrfs | default([]) == []
+    retries: 10
+    delay: 10
+
+  - name: Verify status after deploying Templates to site
+    ansible.builtin.assert:
+      that:
+      - status5_temp1.current | length == 1
+      - status5_temp1.current[0].anps | default([]) == []
+      - status5_temp1.current[0].bds | default([]) == []
+      - status5_temp1.current[0].vrfs | default([]) == []
+      - status5_temp2.current | length == 1
+      - status5_temp2.current[0].anps | default([]) == []
+      - status5_temp2.current[0].bds | default([]) == []
+      - status5_temp2.current[0].vrfs | default([]) == []
+
+  - name: Check status of all templates
+    cisco.mso.mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: query
+    register: all_templates
+
+  - name: Verify all
+    ansible.builtin.assert:
+      that:
+      - all_templates.current.policyStates | length == 2
+
+  - name: Check deployment status by querying site
+    cisco.mso.mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
       site: '{{ mso_test.site }}'
+      state: query
+    register: status2_site
+
+  - name: Check deployment status by querying site and Template1
+    cisco.mso.mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.unassociated_template_1 }}'
+      site: '{{ mso_test.site }}'
+      state: query
+    register: status2_site_temp1
+
+  - name: Check deployment status by querying site and Template2
+    cisco.mso.mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.unassociated_template_2 }}'
+      site: '{{ mso_test.site }}'
+      state: query
+    register: status2_site_temp2
+
+  - name: Verify status after querying site post deployment
+    ansible.builtin.assert:
+      that:
+      - status2_site.current | length == 2
+      - status2_site_temp1.current.templateName == mso_test.template_1 | replace(' ', '')
+      - status2_site_temp1.current.anps | default([]) == []
+      - status2_site_temp1.current.bds | default([]) == []
+      - status2_site_temp1.current.vrfs | default([]) == []
+      - status2_site_temp2.current.templateName == mso_test.template_2 | replace(' ', '')
+      - status2_site_temp2.current.anps | default([]) == []
+      - status2_site_temp2.current.bds | default([]) == []
+      - status2_site_temp2.current.vrfs | default([]) == []
+
+  - name: Undeploy Template 1 before removing its site association
+    cisco.mso.ndo_template_deploy:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      sites:
+      - '{{ mso_test.site }}'
+      state: undeploy
+
+  - name: Wait for Template 1 to be undeployed
+    cisco.mso.ndo_template_deploy:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      state: query
+    register: undeploy_status
+    until: undeploy_status.current.status == []
+    retries: 10
+    delay: 10
+
+  - name: Associate Template 1 with the second site before removing the first
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      site: '{{ mso_test.site_2 }}'
+      state: present
+
+  - name: Remove the site association from Template 1
+    cisco.mso.mso_schema_site:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template_1 }}'
+      site: '{{ mso_test.site }}'
+      state: absent
+
+  - name: Check deployment status by querying site and non associated Template 1
+    cisco.mso.mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.unassociated_template_1 }}'
+      site: '{{ mso_test.site }}'
+      state: query
+    ignore_errors: true
+    register: status_site_temp3
+
+  - name: Verify status after querying site with non associated Template 1
+    ansible.builtin.assert:
+      that:
+      - status_site_temp3 is failed
+      - status_site_temp3.msg == "Provided Template '{{ mso_test.unassociated_template_1 }}' not associated with Site '" ~ mso_test.site ~ "'."
+
+  - name: Check Non-existing schema
+    cisco.mso.mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: non-existing-schema
+      state: query
+    ignore_errors: true
+    register: non_schema
+
+  - name: Verify non_existing_schema
+    ansible.builtin.assert:
+      that:
+      - non_schema.msg == "Schema 'non-existing-schema' not found."
+
+  - name: Check deployment status of non-existing-template
+    cisco.mso.mso_schema_template_deploy_status:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: non-existing-template
+      state: query
+    ignore_errors: true
+    register: non_temp
+
+  - name: Verify non_existing_template
+    ansible.builtin.assert:
+      that:
+      - non_temp.msg == "Template 'non-existing-template' not found."
+
+  always:
+  - name: Undeploy test templates even if the test fails
+    cisco.mso.ndo_template_deploy:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ item }}'
+      sites:
+      - '{{ mso_test.site }}'
       state: undeploy
     loop:
     - '{{ mso_test.template_1 }}'

@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2020, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 #
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -179,15 +180,14 @@
     when: version.current.version is version('2.2.4e', '!=')
     register: object_migrate
 
-  - name: Deploy a schema 1 template 1 after version 4.0
-    cisco.mso.ndo_schema_template_deploy:
+  - name: Deploy a schema 1 template 1
+    cisco.mso.ndo_template_deploy:
       <<: *mso_info
       template: '{{ mso_test.template }}'
       schema: '{{ mso_test.schema }}'
       sites:
         - '{{ mso_test.site }}'
       state: deploy
-    when: version.current.version is version('4.0', '>=')
 
   - name: Migration of BD objects between templates
     cisco.mso.mso_schema_template_migrate:
@@ -218,15 +218,14 @@
     when: version.current.version is version('2.2.4e', '!=')
     register: epg_migrate
 
-  - name: Deploy a schema 2 template 1 and 2 after version 4.0
-    cisco.mso.ndo_schema_template_deploy:
+  - name: Deploy a schema 2 template 1 and 2
+    cisco.mso.ndo_template_deploy:
       <<: *mso_info
       template: '{{ item }}'
       schema: '{{ mso_test.schema_2 }}'
       sites:
         - '{{ mso_test.site }}'
       state: deploy
-    when: version.current.version is version('4.0', '>=')
     loop:
       - '{{ mso_test.template }}'
       - '{{ mso_test.template_2 }}'
@@ -245,34 +244,10 @@
     retries: 10
     delay: 10
 
-  - name: Undeploy before 4.0
-    when:
-      - version.current.version is version('4.0', '<')
+  - name: Undeploy templates
     block:
     - name: Undeploy a schema 2 template 2
-      cisco.mso.mso_schema_template_deploy:
-        <<: *mso_info
-        template: '{{ mso_test.template_2 }}'
-        schema: '{{ mso_test.schema_2 }}'
-        site: '{{ mso_test.site }}'
-        state: undeploy
-      ignore_errors: true
-
-    - name: Undeploy a schema 1 template 1
-      cisco.mso.mso_schema_template_deploy:
-        <<: *mso_info
-        template: '{{ mso_test.template }}'
-        schema: '{{ mso_test.schema }}'
-        site: '{{ mso_test.site }}'
-        state: undeploy
-      ignore_errors: true
-
-  - name: Undeploy after 4.0
-    when:
-      - version.current.version is version('4.0', '>=')
-    block:
-    - name: Undeploy a schema 2 template 2
-      cisco.mso.ndo_schema_template_deploy:
+      cisco.mso.ndo_template_deploy:
         <<: *mso_info
         template: '{{ item }}'
         schema: '{{ mso_test.schema_2 }}'
@@ -284,7 +259,7 @@
         - '{{ mso_test.template }}'
 
     - name: Undeploy a schema 1 template 1
-      cisco.mso.ndo_schema_template_deploy:
+      cisco.mso.ndo_template_deploy:
         <<: *mso_info
         template: '{{ mso_test.template }}'
         schema: '{{ mso_test.schema }}'
@@ -293,7 +268,7 @@
         state: undeploy
 
     - name: Query undeployment until un-deployment succeeds
-      cisco.mso.ndo_schema_template_deploy:
+      cisco.mso.ndo_template_deploy:
         <<: *mso_info
         schema: '{{ mso_test.schema_2 }}'
         template: "{{ item }}"

@@ -78,10 +78,10 @@ Go to the `ansible-mso` directory
 cd ansible-mso
 ```
 
-Pull the latest master on your mso
+Pull the latest develop on your mso
 
 ```sh
-git pull origin master
+git pull origin develop
 ```
 
 Build and Install a collection from source
@@ -93,9 +93,9 @@ ansible-galaxy collection install cisco-mso-* --force
 
 #### Second Approach - Download From Latest CI Build
 
-Go to [ansible-mso Actions](https://github.com/CiscoDevNet/ansible-mso/actions/workflows/ansible-test.yml?query=branch%3Amaster) and select the latest CI build.
+Go to [ansible-mso Actions](https://github.com/CiscoDevNet/ansible-mso/actions/workflows/ansible-test.yml?query=branch%3Adevelop) and select the latest CI build.
 
-Under Artifacts download collection suffixed with the latest version of Ansible (eg. `collection-stable-2.17`) and unzip it using Terminal or Console.
+Under Artifacts download the `collection` artifact and unzip it using Terminal or Console.
 
 *Note: The collection file is a zip file containing a tar.gz file. We recommend using CLI because some GUI-based unarchiver might unarchive both nested archives in one go.*
 
@@ -184,7 +184,7 @@ To find EOL announcements for MSO/NDO versions, refer to the [End-of-Life and En
 
 ## Release Notes
 
-See the [Changelog](https://github.com/CiscoDevNet/ansible-mso/blob/master/CHANGELOG.rst) for full release notes.
+See the [Changelog](https://github.com/CiscoDevNet/ansible-mso/blob/main/CHANGELOG.rst) for full release notes.
 
 ## Related Information
 
@@ -197,4 +197,4 @@ For further information, refer to the following:
 
 ## License Information
 
-This collection is licensed under the [GNU General Public License v3.0](https://github.com/CiscoDevNet/ansible-mso/blob/master/LICENSE)
+This collection is licensed under the [GNU General Public License v3.0](https://github.com/CiscoDevNet/ansible-mso/blob/main/LICENSE)

@@ -6,6 +6,70 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v3.0.0
+======
+
+Release Summary
+---------------
+
+Release v3.0.0 of the ``ansible-mso`` collection on 2026-10-15.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.13.0.
+
+Minor Changes
+-------------
+
+- Add multiple node group policy support to ndo_l3out_floating_svi_interface
+- Add multiple node group policy support to ndo_l3out_routed_interface
+- Add multiple node group policy support to ndo_l3out_routed_sub_interface
+- Add multiple node group policy support to ndo_l3out_svi_interface
+- Added NetFlow Exporter and Monitor tenant policy modules
+- Deprecate cloud attributes in mso_schema_template_external_epg
+- Deprecate display_name, users and remote_users in mso_tenant on ND 4.2+ (NDO 5.2+).
+- Deprecate mso_backup module
+- Deprecate mso_backup_schedule module
+- Deprecate mso_dhcp_option_policy module
+- Deprecate mso_dhcp_option_policy_option module
+- Deprecate mso_dhcp_relay_policy module
+- Deprecate mso_dhcp_relay_policy_provider module
+- Deprecate mso_label module
+- Deprecate mso_remote_location module
+- Deprecate mso_role module
+- Deprecate mso_schema_site_anp_epg_selector module
+- Deprecate mso_schema_site_contract_service_graph_listener module
+- Deprecate mso_schema_site_external_epg_selector module
+- Deprecate mso_schema_site_vrf_region module
+- Deprecate mso_schema_site_vrf_region_cidr module
+- Deprecate mso_schema_site_vrf_region_cidr_subnet module
+- Deprecate mso_schema_site_vrf_region_hub_network module
+- Deprecate mso_schema_template_anp_epg_selector module
+- Deprecate mso_schema_template_bd_dhcp_policy module
+- Deprecate mso_schema_template_external_epg_selector module
+- Deprecate mso_service_node_type module
+- Deprecate mso_site module
+- Deprecate mso_tenant module
+- Deprecate mso_tenant_site module
+- Deprecate mso_user module
+- Make template EPG service updates idempotent
+
+Bugfixes
+--------
+
+- Correct mso_schema_template_anp_epg query example
+- Fix idempotency in mso_schema_template_l3out and mso_schema_template_external_epg.
+- Fix missing site/template error in mso_schema_site_anp_epg_staticleaf
+- Fix query-all for ndo_match_rule_community_term and ndo_match_rule_prefix modules
+- Fix site/template error formatting in mso_schema_site_vrf
+- Mark MCP global policy key as sensitive
+- Preserve child resources during site ANP EPG updates
+- Preserve child resources during site ANP updates
+- Preserve child resources during site BD updates
+- Preserve child resources during site VRF updates
+- Preserve child resources during template ANP EPG updates
+- Preserve child resources during template external EPG updates
+- Retry NDO save post processing errors
+- Support query-all in mso_schema_template_anp_epg_subnet and mso_schema_site_anp_epg_subnet modules
+- Use existing cloud service configuration during template EPG updates
+
 v2.13.0
 =======
 

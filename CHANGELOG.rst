@@ -6,6 +6,91 @@ Cisco MSO Ansible Collection Release Notes
 
 This changelog describes changes after version 0.0.4.
 
+v3.0.0
+======
+
+Release Summary
+---------------
+
+Release v3.0.0 of the ``ansible-mso`` collection on 2026-10-30.
+This changelog describes all changes made to the modules and plugins included in this collection since v2.13.0.
+
+Minor Changes
+-------------
+
+- Add node_group_policies option to ndo_l3out_floating_svi_interface, ndo_l3out_routed_interface, ndo_l3out_routed_sub_interface and ndo_l3out_svi_interface modules to support multiple node group policies on Nexus Dashboard 4.2+ (NDO 5.2+).
+- Add side_b_node_group_policies option to the virtual_port_channel option in ndo_l3out_svi_interface module to support multiple node group policies on Nexus Dashboard 4.2+ (NDO 5.2+).
+
+Deprecated Features
+-------------------
+
+- Deprecate mso_backup module: no longer functional on Nexus Dashboard 3.2+ (NDO 4.4+) and will be removed in v4.0.0.
+- Deprecate mso_backup_schedule module: no longer functional on Nexus Dashboard 3.2+ (NDO 4.4+) and will be removed in v4.0.0.
+- Deprecate mso_dhcp_option_policy module: use ndo_dhcp_option_policy instead; no longer functional on NDO 4.0+ and will be removed in v4.0.0.
+- Deprecate mso_dhcp_option_policy_option module: use ndo_dhcp_option_policy instead; no longer functional on NDO 4.0+ and will be removed in v4.0.0.
+- Deprecate mso_dhcp_relay_policy module: use ndo_dhcp_relay_policy instead; no longer functional on NDO 4.0+ and will be removed in v4.0.0.
+- Deprecate mso_dhcp_relay_policy_provider module: use ndo_dhcp_relay_policy instead; no longer functional on NDO 4.0+ and will be removed in v4.0.0.
+- Deprecate mso_label module: no longer functional on Nexus Dashboard 3.2+ (NDO 4.4+) and will be removed in v4.0.0.
+- Deprecate mso_remote_location module: no longer functional on Nexus Dashboard 4.0+ (NDO 5.0+) and will be removed in v4.0.0.
+- Deprecate mso_role module: no longer functional on Nexus Dashboard 3.2+ (NDO 4.4+) and will be removed in v4.0.0.
+- Deprecate mso_schema_site_anp_epg_selector module: cloud-specific features are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases and the module will be removed in v4.0.0.
+- Deprecate mso_schema_site_contract_service_graph_listener module: cloud-specific features are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases and the module will be removed in v4.0.0.
+- Deprecate mso_schema_site_external_epg_selector module: cloud-specific features are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases and the module will be removed in v4.0.0.
+- Deprecate mso_schema_site_vrf_region module: cloud-specific features are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases and the module will be removed in v4.0.0.
+- Deprecate mso_schema_site_vrf_region_cidr module: cloud-specific features are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases and the module will be removed in v4.0.0.
+- Deprecate mso_schema_site_vrf_region_cidr_subnet module: cloud-specific features are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases and the module will be removed in v4.0.0.
+- Deprecate mso_schema_site_vrf_region_hub_network module: cloud-specific features are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases and the module will be removed in v4.0.0.
+- Deprecate mso_schema_template_anp_epg_selector module: cloud-specific features are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases and the module will be removed in v4.0.0.
+- Deprecate mso_schema_template_bd_dhcp_policy module: use ndo_schema_template_bd_dhcp_policy instead; no longer functional on NDO 4.0+ and will be removed in v4.0.0.
+- Deprecate mso_schema_template_external_epg_selector module: cloud-specific features are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases and the module will be removed in v4.0.0.
+- Deprecate mso_service_node_type module: no longer functional on Nexus Dashboard 4.3+ (NDO 5.3+) and will be removed in v4.0.0.
+- Deprecate mso_site module: site management is no longer functional on Nexus Dashboard 4.0+ (NDO 5.0+) and will be removed in v4.0.0.
+- Deprecate mso_tenant module: no longer functional on Nexus Dashboard 4.4+ (NDO 5.4+) and will be removed in v4.0.0.
+- Deprecate mso_tenant_site module: no longer functional on Nexus Dashboard 4.4+ (NDO 5.4+) and will be removed in v4.0.0.
+- Deprecate mso_user module: no longer functional on Nexus Dashboard 3.2+ (NDO 4.4+) and will be removed in v4.0.0.
+- Deprecate the anp option in mso_schema_template_external_epg module: cloud external EPGs are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases and the option will be removed in v4.0.0.
+- Deprecate the cloud value of the type option in mso_schema_template_external_epg module: cloud external EPGs are no longer supported in Nexus Dashboard 4.x (NDO 5.x) releases and the value will be removed in v4.0.0.
+- Deprecate the display_name option in mso_tenant module: on Nexus Dashboard 4.2+ (NDO 5.2+) display_name must equal tenant; the option will be removed in v4.0.0.
+- Deprecate the users and remote_users options in mso_tenant module: on Nexus Dashboard 4.2+ (NDO 5.2+) user associations are derived from tenant domain membership; the options will be removed in v4.0.0.
+
+Removed Features (previously deprecated)
+----------------------------------------
+
+- Remove mso_schema_site_anp_epg_bulk_staticport module: use mso_schema_site_anp_epg_staticport with force_replace=true instead.
+- Remove mso_schema_template_deploy module: use ndo_template_deploy instead.
+
+Bugfixes
+--------
+
+- Fix all modules to retry requests that fail with an HTTP 400 response containing "save post processing in progress, please retry".
+- Fix mso_schema_site_anp to only patch changed attributes on update, preserving existing child objects.
+- Fix mso_schema_site_anp_epg to only patch changed attributes on update, preserving existing child objects.
+- Fix mso_schema_site_anp_epg_staticleaf to return a correctly formatted error when the site or template does not exist.
+- Fix mso_schema_site_anp_epg_subnet to return a correctly formatted error when the site or template does not exist.
+- Fix mso_schema_site_anp_epg_subnet to support state=query without the subnet option, returning all subnets of the EPG.
+- Fix mso_schema_site_bd to only patch changed attributes on update, preserving existing child objects and the current host_based_routing value when the option is omitted.
+- Fix mso_schema_site_vrf to only patch changed attributes on update, preserving existing child objects.
+- Fix mso_schema_site_vrf to return a correctly formatted error when the site or template does not exist.
+- Fix mso_schema_template_anp_epg to be idempotent when the cloud service options are unchanged.
+- Fix mso_schema_template_anp_epg to only patch changed attributes on update, preserving existing child objects.
+- Fix mso_schema_template_anp_epg to use the existing cloudServiceEpgConfig values when the cloud service options are updated.
+- Fix mso_schema_template_anp_epg_subnet to support state=query without the subnet option, returning all subnets of the EPG.
+- Fix mso_schema_template_external_epg to be idempotent when contract or VRF references are returned as strings.
+- Fix mso_schema_template_external_epg to only patch changed attributes on update, preserving existing child objects.
+- Fix mso_schema_template_l3out to be idempotent when contract or VRF references are returned as strings.
+- Fix mso_tenant to avoid a false changed result on Nexus Dashboard 4.2+ (NDO 5.2+) caused by platform-managed users and cloud account keys in site associations.
+- Fix mso_tenant to stop adding the admin user to users on Nexus Dashboard 4.2+ (NDO 5.2+), where user associations are managed by the platform.
+- Fix ndo_match_rule_community_term to support state=query without identifiers, returning all match community terms.
+- Fix ndo_match_rule_prefix to support state=query without identifiers, returning all match prefix lists.
+- Fix ndo_mcp_global_policy to mark the key option as sensitive and obscure it in the module output.
+- Fix ndo_tenant_netflow_record to preserve existing match_parameters on update when the option is omitted.
+
+New Modules
+-----------
+
+- cisco.mso.ndo_tenant_netflow_exporter - Manage NetFlow Exporter on Cisco Nexus Dashboard Orchestrator (NDO).
+- cisco.mso.ndo_tenant_netflow_monitor - Manage NetFlow Monitor on Cisco Nexus Dashboard Orchestrator (NDO).
+
 v2.13.0
 =======
 

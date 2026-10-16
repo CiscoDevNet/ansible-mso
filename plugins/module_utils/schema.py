@@ -201,6 +201,26 @@ class MSOSchema:
             self.mso.recursive_dict_from_ref(match.details)
         self.schema_objects["template_anp_esg"] = match
 
+    def set_template_anp_esg_external_epg_selector(self, external_epg_ref, fail_module=True):
+        """
+        Get template ESG external EPG selector that matches the complete external EPG reference.
+        :param external_epg_ref: Reference of the external EPG to match. -> Dict
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template ESG external EPG selector item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template_anp_esg"])
+        kv_list = [KVPair("extEpgRef", external_epg_ref)]
+        selectors = self.schema_objects["template_anp_esg"].details.get("extEpgSelectors") or []
+        match, existing = self.get_object_from_list(selectors, kv_list)
+        if not match and fail_module:
+            reference_format = "/schemas/{schemaId}/templates/{templateName}/externalEpgs/{externalEpgName}"
+            existing_references = [reference_format.format(**reference) for reference in existing]
+            msg = "Provided External EPG Reference '{0}' not matching existing External EPG Selector(s): {1}".format(
+                reference_format.format(**external_epg_ref), ", ".join(existing_references)
+            )
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["template_anp_esg_external_epg_selector"] = match
+
     def set_template_anp_epg_contract(self, contract_ref, relation_type, fail_module=True):
         """
         Get template endpoint group contract item that matches the reference and type of an contract.

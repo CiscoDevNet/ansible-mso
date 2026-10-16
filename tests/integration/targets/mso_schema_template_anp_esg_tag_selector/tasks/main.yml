@@ -1,0 +1,483 @@
+---
+# Test code for the MSO modules
+# Copyright: (c) 2026, Cisco Systems, Inc.
+# Copyright: (c) 2026, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE for the full text)
+
+- name: Test that required ACI MultiSite variables are defined
+  ansible.builtin.fail:
+    msg: 'Please define mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set test connection and fixture variables
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: debug
+    mso_test:
+      schema: '{{ mso_schema_template_anp_esg_tag_selector | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_template_anp_esg_tag_selector | default(mso_tenant | default("ansible_test")) }}'
+      template: ESG_tag_selector_template
+      anp: ESG_tag_selector_ANP
+      vrf: ESG_tag_selector_VRF
+      esg: ESG_tag_selector_ESG
+      tag_selector_1:
+        key: __vmm::vmname
+        operator: contains
+        value: web
+        updated_description: Select web virtual machines
+      tag_selector_2:
+        key: __vmm::vmname
+        operator: equals
+        value: database
+        description: Select the database virtual machine
+      tag_selector_3:
+        key: __vmm::vmname
+        operator: regex
+        value: '^app-.*'
+        description: Select application virtual machines
+
+- name: Query NDO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Exercise mso_schema_template_anp_esg_tag_selector
+  when: version.current.version is version('5.1', '>=')
+  block:
+
+  # CLEAN ENVIRONMENT
+  # The ansible_test tenant is created by the mso_setup_tenant_site setup target.
+  - name: Remove test schema before testing
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent
+
+  - name: Ensure schema and template exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{ mso_test.template }}'
+      state: present
+
+  - name: Ensure the template ANP exists
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: present
+
+  - name: Ensure the ESG VRF exists
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf }}'
+      state: present
+
+  - name: Ensure the ESG exists
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+      state: present
+
+  # CREATE
+  - name: Create ESG tag selector with minimum configuration in check mode
+    cisco.mso.mso_schema_template_anp_esg_tag_selector: &tag_selector_1_present
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      tag_key: '{{ mso_test.tag_selector_1.key }}'
+      operator: '{{ mso_test.tag_selector_1.operator }}'
+      tag_value: '{{ mso_test.tag_selector_1.value }}'
+      state: present
+    check_mode: true
+    register: cm_create_tag_selector
+
+  - name: Create ESG tag selector with minimum configuration
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *tag_selector_1_present
+    register: nm_create_tag_selector
+
+  - name: Create ESG tag selector again
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *tag_selector_1_present
+    register: nm_create_tag_selector_again
+
+  - name: Verify ESG tag selector creation and idempotency
+    ansible.builtin.assert:
+      that:
+      - cm_create_tag_selector is changed
+      - nm_create_tag_selector is changed
+      - nm_create_tag_selector_again is not changed
+      - cm_create_tag_selector.previous == {}
+      - cm_create_tag_selector.proposed.key == mso_test.tag_selector_1.key
+      - cm_create_tag_selector.proposed.operator == mso_test.tag_selector_1.operator
+      - cm_create_tag_selector.proposed.value == mso_test.tag_selector_1.value
+      - cm_create_tag_selector.current == cm_create_tag_selector.proposed
+      - nm_create_tag_selector.previous == cm_create_tag_selector.previous
+      - nm_create_tag_selector.proposed == cm_create_tag_selector.proposed
+      - nm_create_tag_selector.current == nm_create_tag_selector.proposed
+      - nm_create_tag_selector_again.previous == nm_create_tag_selector_again.proposed
+      - nm_create_tag_selector_again.current == nm_create_tag_selector_again.previous
+      - nm_create_tag_selector_again.current.key == mso_test.tag_selector_1.key
+      - nm_create_tag_selector_again.current.operator == mso_test.tag_selector_1.operator
+      - nm_create_tag_selector_again.current.value == mso_test.tag_selector_1.value
+
+  # UPDATE
+  - name: Update ESG tag selector description in check mode
+    cisco.mso.mso_schema_template_anp_esg_tag_selector: &tag_selector_1_updated
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      tag_key: '{{ mso_test.tag_selector_1.key }}'
+      operator: '{{ mso_test.tag_selector_1.operator }}'
+      tag_value: '{{ mso_test.tag_selector_1.value }}'
+      description: '{{ mso_test.tag_selector_1.updated_description }}'
+      state: present
+    check_mode: true
+    register: cm_update_tag_selector
+
+  - name: Update ESG tag selector description
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *tag_selector_1_updated
+    register: nm_update_tag_selector
+
+  - name: Update ESG tag selector description again
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *tag_selector_1_updated
+    register: nm_update_tag_selector_again
+
+  - name: Verify ESG tag selector previous proposed and current state after update
+    ansible.builtin.assert:
+      that:
+      - cm_update_tag_selector is changed
+      - nm_update_tag_selector is changed
+      - nm_update_tag_selector_again is not changed
+      - cm_update_tag_selector.previous == nm_create_tag_selector_again.current
+      - cm_update_tag_selector.proposed.key == mso_test.tag_selector_1.key
+      - cm_update_tag_selector.proposed.operator == mso_test.tag_selector_1.operator
+      - cm_update_tag_selector.proposed.value == mso_test.tag_selector_1.value
+      - cm_update_tag_selector.proposed.description == mso_test.tag_selector_1.updated_description
+      - cm_update_tag_selector.current == cm_update_tag_selector.proposed
+      - cm_update_tag_selector.current == nm_update_tag_selector.current
+      - nm_update_tag_selector.previous == cm_update_tag_selector.previous
+      - nm_update_tag_selector.proposed == cm_update_tag_selector.proposed
+      - nm_update_tag_selector_again.previous == nm_update_tag_selector_again.current
+      - nm_update_tag_selector_again.proposed == nm_update_tag_selector.proposed
+      - nm_update_tag_selector_again.current == nm_update_tag_selector.current
+
+  # QUERY
+  - name: Create a second ESG tag selector with the same key
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      key: '{{ mso_test.tag_selector_2.key }}'
+      operator: '{{ mso_test.tag_selector_2.operator }}'
+      value: '{{ mso_test.tag_selector_2.value }}'
+      description: '{{ mso_test.tag_selector_2.description }}'
+      state: present
+    register: nm_create_tag_selector_2
+
+  - name: Create a third ESG tag selector with the same key
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      tag_key: '{{ mso_test.tag_selector_3.key }}'
+      operator: '{{ mso_test.tag_selector_3.operator }}'
+      tag_value: '{{ mso_test.tag_selector_3.value }}'
+      description: '{{ mso_test.tag_selector_3.description }}'
+      state: present
+    register: nm_create_tag_selector_3
+
+  - name: Query an ESG tag selector
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      tag_key: '{{ mso_test.tag_selector_1.key }}'
+      operator: '{{ mso_test.tag_selector_1.operator }}'
+      tag_value: '{{ mso_test.tag_selector_1.value }}'
+      state: query
+    register: nm_query_tag_selector
+
+  - name: Query all ESG tag selectors
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: query
+    register: nm_query_all_tag_selectors
+
+  - name: Verify specific and collection ESG tag selector queries
+    ansible.builtin.assert:
+      that:
+      - nm_query_tag_selector is not changed
+      - nm_query_tag_selector.current == nm_update_tag_selector.current
+      - nm_query_all_tag_selectors is not changed
+      - nm_query_all_tag_selectors.current | length == 3
+      - nm_query_all_tag_selectors.current | map(attribute='key') | unique | list == [mso_test.tag_selector_1.key]
+      - nm_query_all_tag_selectors.current | selectattr('key', 'equalto', mso_test.tag_selector_1.key) | selectattr('operator', 'equalto', mso_test.tag_selector_1.operator) | selectattr('value', 'equalto', mso_test.tag_selector_1.value) | list | length == 1
+      - nm_query_all_tag_selectors.current | selectattr('key', 'equalto', mso_test.tag_selector_2.key) | selectattr('operator', 'equalto', mso_test.tag_selector_2.operator) | selectattr('value', 'equalto', mso_test.tag_selector_2.value) | list | length == 1
+      - nm_query_all_tag_selectors.current | selectattr('key', 'equalto', mso_test.tag_selector_3.key) | selectattr('operator', 'equalto', mso_test.tag_selector_3.operator) | selectattr('value', 'equalto', mso_test.tag_selector_3.value) | list | length == 1
+      - (nm_query_all_tag_selectors.current | selectattr('operator', 'equalto', mso_test.tag_selector_1.operator) | first) == nm_update_tag_selector.current
+      - (nm_query_all_tag_selectors.current | selectattr('operator', 'equalto', mso_test.tag_selector_2.operator) | first) == nm_create_tag_selector_2.current
+      - (nm_query_all_tag_selectors.current | selectattr('operator', 'equalto', mso_test.tag_selector_3.operator) | first) == nm_create_tag_selector_3.current
+      - nm_create_tag_selector_2.current.key == mso_test.tag_selector_2.key
+      - nm_create_tag_selector_2.current.operator == mso_test.tag_selector_2.operator
+      - nm_create_tag_selector_2.current.value == mso_test.tag_selector_2.value
+      - nm_create_tag_selector_2.current.description == mso_test.tag_selector_2.description
+      - nm_create_tag_selector_3.current.key == mso_test.tag_selector_3.key
+      - nm_create_tag_selector_3.current.operator == mso_test.tag_selector_3.operator
+      - nm_create_tag_selector_3.current.value == mso_test.tag_selector_3.value
+      - nm_create_tag_selector_3.current.description == mso_test.tag_selector_3.description
+
+  # ERROR HANDLING
+  - name: Query a missing ESG tag selector in check mode
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      tag_key: '{{ mso_test.tag_selector_1.key }}'
+      operator: '{{ mso_test.tag_selector_1.operator }}'
+      tag_value: missing_vm
+      state: query
+    check_mode: true
+    register: cm_missing_tag_selector
+    ignore_errors: true
+
+  - name: Query tag selector for a missing ESG in check mode
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: MissingESG
+      tag_key: '{{ mso_test.tag_selector_1.key }}'
+      operator: '{{ mso_test.tag_selector_1.operator }}'
+      tag_value: '{{ mso_test.tag_selector_1.value }}'
+      state: query
+    check_mode: true
+    register: cm_missing_esg
+    ignore_errors: true
+
+  - name: Query tag selector for a missing schema in check mode
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *mso_info
+      schema: MissingSchema
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      tag_key: '{{ mso_test.tag_selector_1.key }}'
+      operator: '{{ mso_test.tag_selector_1.operator }}'
+      tag_value: '{{ mso_test.tag_selector_1.value }}'
+      state: query
+    check_mode: true
+    register: cm_missing_schema
+    ignore_errors: true
+
+  - name: Query tag selector for a missing template in check mode
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: MissingTemplate
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      tag_key: '{{ mso_test.tag_selector_1.key }}'
+      operator: '{{ mso_test.tag_selector_1.operator }}'
+      tag_value: '{{ mso_test.tag_selector_1.value }}'
+      state: query
+    check_mode: true
+    register: cm_missing_template
+    ignore_errors: true
+
+  - name: Query tag selector for a missing ANP in check mode
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: MissingANP
+      esg: '{{ mso_test.esg }}'
+      tag_key: '{{ mso_test.tag_selector_1.key }}'
+      operator: '{{ mso_test.tag_selector_1.operator }}'
+      tag_value: '{{ mso_test.tag_selector_1.value }}'
+      state: query
+    check_mode: true
+    register: cm_missing_anp
+    ignore_errors: true
+
+  - name: Reject a present ESG tag selector without its identity in check mode
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: present
+    check_mode: true
+    register: cm_missing_tag_selector_present
+    ignore_errors: true
+
+  - name: Reject an absent ESG tag selector without its identity in check mode
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: absent
+    check_mode: true
+    register: cm_missing_tag_selector_absent
+    ignore_errors: true
+
+  - name: Reject partial ESG tag selector query identities in check mode
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      tag_key: '{{ item.tag_key | default(omit) }}'
+      operator: '{{ item.operator | default(omit) }}'
+      tag_value: '{{ item.tag_value | default(omit) }}'
+      state: query
+    loop:
+    - tag_key: '{{ mso_test.tag_selector_1.key }}'
+    - operator: '{{ mso_test.tag_selector_1.operator }}'
+    - tag_value: '{{ mso_test.tag_selector_1.value }}'
+    - tag_key: '{{ mso_test.tag_selector_1.key }}'
+      operator: '{{ mso_test.tag_selector_1.operator }}'
+    - tag_key: '{{ mso_test.tag_selector_1.key }}'
+      tag_value: '{{ mso_test.tag_selector_1.value }}'
+    - operator: '{{ mso_test.tag_selector_1.operator }}'
+      tag_value: '{{ mso_test.tag_selector_1.value }}'
+    check_mode: true
+    register: cm_partial_query_tag_selector
+    ignore_errors: true
+
+  - name: Reject an invalid ESG tag selector operator in check mode
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      tag_key: '{{ mso_test.tag_selector_1.key }}'
+      operator: invalid
+      tag_value: '{{ mso_test.tag_selector_1.value }}'
+      state: present
+    check_mode: true
+    register: cm_invalid_operator
+    ignore_errors: true
+
+  - name: Verify ESG tag selector error handling
+    vars:
+      missing_tag_selector_prefix: "Provided Tag Selector '(key=__vmm::vmname, operator=contains, value=missing_vm)' not matching existing Tag Selector(s): "
+      expected_existing_values:
+      - '{{ mso_test.tag_selector_1.key }}'
+      - '{{ mso_test.tag_selector_1.operator }}'
+      - '{{ mso_test.tag_selector_1.value }}'
+      - '{{ mso_test.tag_selector_2.key }}'
+      - '{{ mso_test.tag_selector_2.operator }}'
+      - '{{ mso_test.tag_selector_2.value }}'
+      - '{{ mso_test.tag_selector_3.key }}'
+      - '{{ mso_test.tag_selector_3.operator }}'
+      - '{{ mso_test.tag_selector_3.value }}'
+    ansible.builtin.assert:
+      that:
+      - cm_missing_tag_selector is failed
+      - cm_missing_tag_selector.msg.startswith(missing_tag_selector_prefix)
+      - cm_missing_tag_selector.msg | replace(missing_tag_selector_prefix, '', 1) | from_yaml == expected_existing_values
+      - cm_missing_esg is failed
+      - "cm_missing_esg.msg == \"Provided ESG 'MissingESG' not matching existing ESG(s): ESG_tag_selector_ESG\""
+      - cm_missing_schema is failed
+      - "cm_missing_schema.msg == \"Provided schema 'MissingSchema' does not exist.\""
+      - cm_missing_template is failed
+      - "cm_missing_template.msg == \"Provided template 'MissingTemplate' not matching existing template(s): ESG_tag_selector_template\""
+      - cm_missing_anp is failed
+      - "cm_missing_anp.msg == \"Provided ANP 'MissingANP' not matching existing anp(s): ESG_tag_selector_ANP\""
+      - cm_missing_tag_selector_present is failed
+      - "cm_missing_tag_selector_present.msg == 'state is present but all of the following are missing: tag_key, operator, tag_value'"
+      - cm_missing_tag_selector_absent is failed
+      - "cm_missing_tag_selector_absent.msg == 'state is absent but all of the following are missing: tag_key, operator, tag_value'"
+      - cm_partial_query_tag_selector is failed
+      - cm_partial_query_tag_selector.results | selectattr('failed', 'equalto', true) | list | length == 6
+      - cm_partial_query_tag_selector.results | map(attribute='msg') | unique | list == ['tag_key, operator and tag_value must be provided together when state is query']
+      - cm_invalid_operator is failed
+      - "cm_invalid_operator.msg == 'value of operator must be one of: equals, contains, regex, got: invalid'"
+
+  # DELETE
+  - name: Remove ESG tag selector in check mode
+    cisco.mso.mso_schema_template_anp_esg_tag_selector: &tag_selector_1_absent
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      tag_key: '{{ mso_test.tag_selector_1.key }}'
+      operator: '{{ mso_test.tag_selector_1.operator }}'
+      tag_value: '{{ mso_test.tag_selector_1.value }}'
+      state: absent
+    check_mode: true
+    register: cm_remove_tag_selector
+
+  - name: Remove ESG tag selector
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *tag_selector_1_absent
+    register: nm_remove_tag_selector
+
+  - name: Remove ESG tag selector again
+    cisco.mso.mso_schema_template_anp_esg_tag_selector:
+      <<: *tag_selector_1_absent
+    register: nm_remove_tag_selector_again
+
+  - name: Verify ESG tag selector previous proposed and current state after removal
+    ansible.builtin.assert:
+      that:
+      - cm_remove_tag_selector is changed
+      - nm_remove_tag_selector is changed
+      - nm_remove_tag_selector_again is not changed
+      - cm_remove_tag_selector.previous == nm_update_tag_selector.current
+      - cm_remove_tag_selector.proposed == cm_remove_tag_selector.current == {}
+      - nm_remove_tag_selector.previous == cm_remove_tag_selector.previous
+      - nm_remove_tag_selector.proposed == nm_remove_tag_selector.current == {}
+      - nm_remove_tag_selector_again.previous == nm_remove_tag_selector_again.proposed == nm_remove_tag_selector_again.current == {}
+
+  always:
+  # CLEANUP
+  - name: Remove test schema even when a test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent

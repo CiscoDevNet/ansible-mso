@@ -201,6 +201,26 @@ class MSOSchema:
             self.mso.recursive_dict_from_ref(match.details)
         self.schema_objects["template_anp_esg"] = match
 
+    def set_template_anp_esg_intra_esg_contract(self, contract_ref, fail_module=True):
+        """
+        Get template ESG intra-ESG contract that matches the normalized contract reference.
+        :param contract_ref: Normalized reference of the contract to match. -> Dict
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template ESG intra-ESG contract item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template_anp_esg"])
+        kv_list = [KVPair("contractRef", contract_ref)]
+        intra_esg_contracts = self.schema_objects["template_anp_esg"].details.get("intraEsgContracts") or []
+        match, existing = self.get_object_from_list(intra_esg_contracts, kv_list)
+        if not match and fail_module:
+            reference_format = "/schemas/{schemaId}/templates/{templateName}/contracts/{contractName}"
+            existing_references = [reference_format.format(**reference) for reference in existing]
+            msg = "Provided Intra-ESG Contract Reference '{0}' not matching existing Intra-ESG Contract(s): {1}".format(
+                reference_format.format(**contract_ref), ", ".join(existing_references)
+            )
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["template_anp_esg_intra_esg_contract"] = match
+
     def set_template_anp_epg_contract(self, contract_ref, relation_type, fail_module=True):
         """
         Get template endpoint group contract item that matches the reference and type of an contract.

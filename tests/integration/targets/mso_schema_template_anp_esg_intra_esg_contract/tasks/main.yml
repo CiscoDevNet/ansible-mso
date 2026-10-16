@@ -1,0 +1,468 @@
+---
+# Test code for the MSO modules
+# Copyright: (c) 2026, Cisco Systems, Inc.
+# Copyright: (c) 2026, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE for the full text)
+
+- name: Test that required ACI MultiSite variables are defined
+  ansible.builtin.fail:
+    msg: 'Please define mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set test connection and fixture variables
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: debug
+    mso_test:
+      schema: '{{ mso_schema_template_anp_esg_intra_esg_contract | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_template_anp_esg_intra_esg_contract | default(mso_tenant | default("ansible_test")) }}'
+      template: ESG_intra_contract_template
+      reference_template: ESG intra contract reference template
+      anp: ESG_intra_contract_ANP
+      vrf: ESG_intra_contract_VRF
+      esg: ESG_intra_contract_ESG
+      filter: ESG_intra_contract_filter
+      contract_1: ESG_intra_contract_1
+      contract_2: ESG_intra_contract_2
+      contract_3: ESG_intra_contract_3
+
+- name: Query NDO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Exercise mso_schema_template_anp_esg_intra_esg_contract
+  when: version.current.version is version('5.1', '>=')
+  block:
+
+  # CLEAN ENVIRONMENT
+  # The ansible_test tenant is created by the mso_setup_tenant_site setup target.
+  - name: Remove test schema before testing
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent
+
+  - name: Ensure schema and templates exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{ item }}'
+      state: present
+    loop:
+    - '{{ mso_test.template }}'
+    - '{{ mso_test.reference_template }}'
+
+  - name: Ensure the template ANP exists
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: present
+
+  - name: Ensure the ESG VRF exists
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf }}'
+      state: present
+
+  - name: Ensure the ESG exists
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+      intra_esg: enforced
+      state: present
+
+  - name: Ensure the contract filters exist
+    cisco.mso.mso_schema_template_filter_entry:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ item }}'
+      filter: '{{ mso_test.filter }}'
+      entry: ESG_intra_contract_entry
+      state: present
+    loop:
+    - '{{ mso_test.template }}'
+    - '{{ mso_test.reference_template }}'
+
+  - name: Ensure the referenced contracts exist
+    cisco.mso.mso_schema_template_contract_filter:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ item.template }}'
+      contract: '{{ item.name }}'
+      filter: '{{ mso_test.filter }}'
+      state: present
+    loop:
+    - name: '{{ mso_test.contract_1 }}'
+      template: '{{ mso_test.template }}'
+    - name: '{{ mso_test.contract_2 }}'
+      template: '{{ mso_test.template }}'
+    - name: '{{ mso_test.contract_3 }}'
+      template: '{{ mso_test.reference_template }}'
+
+  - name: Query the fixture schema
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: query
+    register: fixture_schema
+
+  # CREATE
+  - name: Create ESG intra-ESG contract in check mode
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract: &intra_contract_1_present
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      contract:
+        name: '{{ mso_test.contract_1 }}'
+      state: present
+    check_mode: true
+    register: cm_create_intra_contract
+
+  - name: Create ESG intra-ESG contract
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *intra_contract_1_present
+    register: nm_create_intra_contract
+
+  - name: Create ESG intra-ESG contract again with explicit current reference context
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      contract:
+        name: '{{ mso_test.contract_1 }}'
+        schema: '{{ mso_test.schema }}'
+        template: '{{ mso_test.template }}'
+      state: present
+    register: nm_create_intra_contract_again
+
+  - name: Verify ESG intra-ESG contract creation and idempotency
+    ansible.builtin.assert:
+      that:
+      - cm_create_intra_contract is changed
+      - nm_create_intra_contract is changed
+      - nm_create_intra_contract_again is not changed
+      - cm_create_intra_contract.previous == {}
+      - cm_create_intra_contract.proposed.contractRef.contractName == mso_test.contract_1
+      - cm_create_intra_contract.proposed.contractRef.schemaId == fixture_schema.current.id
+      - cm_create_intra_contract.proposed.contractRef.templateName == mso_test.template
+      - cm_create_intra_contract.current == cm_create_intra_contract.proposed
+      - nm_create_intra_contract.previous == cm_create_intra_contract.previous
+      - nm_create_intra_contract.proposed == cm_create_intra_contract.proposed
+      - nm_create_intra_contract.current == nm_create_intra_contract.proposed
+      - nm_create_intra_contract_again.previous == nm_create_intra_contract_again.current
+      - nm_create_intra_contract_again.proposed == nm_create_intra_contract.proposed
+      - nm_create_intra_contract_again.current == nm_create_intra_contract.current
+
+  # QUERY
+  - name: Create a second ESG intra-ESG contract with explicit current reference context
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      contract:
+        name: '{{ mso_test.contract_2 }}'
+        schema: '{{ mso_test.schema }}'
+        template: '{{ mso_test.template }}'
+      state: present
+    register: nm_create_intra_contract_2
+
+  - name: Create a third ESG intra-ESG contract with a spaced reference template
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      contract:
+        name: '{{ mso_test.contract_3 }}'
+        template: '{{ mso_test.reference_template }}'
+      state: present
+    register: nm_create_intra_contract_3
+
+  - name: Query an ESG intra-ESG contract
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      contract:
+        name: '{{ mso_test.contract_1 }}'
+      state: query
+    register: nm_query_intra_contract
+
+  - name: Query all ESG intra-ESG contracts
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: query
+    register: nm_query_all_intra_contracts
+
+  - name: Verify specific and collection ESG intra-ESG contract queries
+    ansible.builtin.assert:
+      that:
+      - nm_query_intra_contract is not changed
+      - nm_query_intra_contract.current == nm_create_intra_contract_again.current
+      - nm_query_all_intra_contracts is not changed
+      - nm_query_all_intra_contracts.current | length == 3
+      - nm_query_all_intra_contracts.current | selectattr('contractRef.contractName', 'equalto', mso_test.contract_1) | list | length == 1
+      - nm_query_all_intra_contracts.current | selectattr('contractRef.contractName', 'equalto', mso_test.contract_2) | list | length == 1
+      - nm_query_all_intra_contracts.current | selectattr('contractRef.contractName', 'equalto', mso_test.contract_3) | list | length == 1
+      - (nm_query_all_intra_contracts.current | selectattr('contractRef.contractName', 'equalto', mso_test.contract_1) | first) == nm_query_intra_contract.current
+      - (nm_query_all_intra_contracts.current | selectattr('contractRef.contractName', 'equalto', mso_test.contract_2) | first) == nm_create_intra_contract_2.current
+      - (nm_query_all_intra_contracts.current | selectattr('contractRef.contractName', 'equalto', mso_test.contract_3) | first) == nm_create_intra_contract_3.current
+      - nm_create_intra_contract_2.current.contractRef.contractName == mso_test.contract_2
+      - nm_create_intra_contract_2.current.contractRef.schemaId == fixture_schema.current.id
+      - nm_create_intra_contract_2.current.contractRef.templateName == mso_test.template
+      - nm_create_intra_contract_3.current.contractRef.contractName == mso_test.contract_3
+      - nm_create_intra_contract_3.current.contractRef.schemaId == fixture_schema.current.id
+      - nm_create_intra_contract_3.current.contractRef.templateName == mso_test.reference_template | replace(' ', '')
+
+  # ERROR HANDLING
+  - name: Query a missing ESG intra-ESG contract in check mode
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      contract:
+        name: missing_contract
+      state: query
+    check_mode: true
+    register: cm_missing_intra_contract
+    ignore_errors: true
+
+  - name: Query intra-ESG contracts for a missing ESG in check mode
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: MissingESG
+      state: query
+    check_mode: true
+    register: cm_missing_esg
+    ignore_errors: true
+
+  - name: Query intra-ESG contracts for a missing schema in check mode
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: MissingSchema
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: query
+    check_mode: true
+    register: cm_missing_schema
+    ignore_errors: true
+
+  - name: Query intra-ESG contracts for a missing template in check mode
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: MissingTemplate
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: query
+    check_mode: true
+    register: cm_missing_template
+    ignore_errors: true
+
+  - name: Query intra-ESG contracts for a missing ANP in check mode
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: MissingANP
+      esg: '{{ mso_test.esg }}'
+      state: query
+    check_mode: true
+    register: cm_missing_anp
+    ignore_errors: true
+
+  - name: Reject an intra-ESG contract referencing a missing schema in check mode
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      contract:
+        name: '{{ mso_test.contract_1 }}'
+        schema: MissingContractSchema
+      state: present
+    check_mode: true
+    register: cm_missing_contract_schema
+    ignore_errors: true
+
+  - name: Reject a present ESG intra-ESG contract without a contract in check mode
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: present
+    check_mode: true
+    register: cm_missing_contract_present
+    ignore_errors: true
+
+  - name: Reject an absent ESG intra-ESG contract without a contract in check mode
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: absent
+    check_mode: true
+    register: cm_missing_contract_absent
+    ignore_errors: true
+
+  - name: Reject a partial contract reference in check mode
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      contract:
+        template: '{{ mso_test.template }}'
+      state: query
+    check_mode: true
+    register: cm_partial_contract
+    ignore_errors: true
+
+  - name: Reject an invalid state in check mode
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: invalid
+    check_mode: true
+    register: cm_invalid_state
+    ignore_errors: true
+
+  - name: Verify ESG intra-ESG contract error handling
+    ansible.builtin.assert:
+      that:
+      - cm_missing_intra_contract is failed
+      - cm_missing_intra_contract.msg == expected_missing_contract_message
+      - cm_missing_esg is failed
+      - "cm_missing_esg.msg == \"Provided ESG 'MissingESG' not matching existing ESG(s): ESG_intra_contract_ESG\""
+      - cm_missing_schema is failed
+      - "cm_missing_schema.msg == \"Provided schema 'MissingSchema' does not exist.\""
+      - cm_missing_template is failed
+      - "cm_missing_template.msg == \"Provided template 'MissingTemplate' not matching existing template(s): ESG_intra_contract_template, ESGintracontractreferencetemplate\""
+      - cm_missing_anp is failed
+      - "cm_missing_anp.msg == \"Provided ANP 'MissingANP' not matching existing anp(s): ESG_intra_contract_ANP\""
+      - cm_missing_contract_schema is failed
+      - "cm_missing_contract_schema.msg == \"Referenced schema 'MissingContractSchema' in contractref does not exist\""
+      - cm_missing_contract_present is failed
+      - "cm_missing_contract_present.msg == 'state is present but all of the following are missing: contract'"
+      - cm_missing_contract_absent is failed
+      - "cm_missing_contract_absent.msg == 'state is absent but all of the following are missing: contract'"
+      - cm_partial_contract is failed
+      - "cm_partial_contract.msg == 'missing required arguments: name found in contract'"
+      - cm_invalid_state is failed
+      - "cm_invalid_state.msg == 'value of state must be one of: absent, present, query, got: invalid'"
+    vars:
+      reference_prefix: '/schemas/{{ fixture_schema.current.id }}/templates/'
+      expected_missing_contract_message: >-
+        Provided Intra-ESG Contract Reference '{{ reference_prefix }}{{ mso_test.template }}/contracts/missing_contract'
+        not matching existing Intra-ESG Contract(s): {{ reference_prefix }}{{ mso_test.template }}/contracts/{{ mso_test.contract_1 }},
+        {{ reference_prefix }}{{ mso_test.template }}/contracts/{{ mso_test.contract_2 }},
+        {{ reference_prefix }}{{ mso_test.reference_template | replace(' ', '') }}/contracts/{{ mso_test.contract_3 }}
+
+  # DELETE
+  - name: Remove ESG intra-ESG contract in check mode
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract: &intra_contract_1_absent
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      contract:
+        name: '{{ mso_test.contract_1 }}'
+      state: absent
+    check_mode: true
+    register: cm_remove_intra_contract
+
+  - name: Remove ESG intra-ESG contract
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *intra_contract_1_absent
+    register: nm_remove_intra_contract
+
+  - name: Remove ESG intra-ESG contract again
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *intra_contract_1_absent
+    register: nm_remove_intra_contract_again
+
+  - name: Verify ESG intra-ESG contract previous proposed and current state after removal
+    ansible.builtin.assert:
+      that:
+      - cm_remove_intra_contract is changed
+      - nm_remove_intra_contract is changed
+      - nm_remove_intra_contract_again is not changed
+      - cm_remove_intra_contract.previous == nm_query_intra_contract.current
+      - cm_remove_intra_contract.proposed == cm_remove_intra_contract.current == {}
+      - nm_remove_intra_contract.previous == cm_remove_intra_contract.previous
+      - nm_remove_intra_contract.proposed == nm_remove_intra_contract.current == {}
+      - nm_remove_intra_contract_again.previous == nm_remove_intra_contract_again.proposed == nm_remove_intra_contract_again.current == {}
+
+  - name: Query remaining ESG intra-ESG contracts after removal
+    cisco.mso.mso_schema_template_anp_esg_intra_esg_contract:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: query
+    register: nm_query_remaining_intra_contracts
+
+  - name: Verify removal preserves the other ESG intra-ESG contracts
+    ansible.builtin.assert:
+      that:
+      - nm_query_remaining_intra_contracts is not changed
+      - nm_query_remaining_intra_contracts.current | length == 2
+      - nm_create_intra_contract_2.current in nm_query_remaining_intra_contracts.current
+      - nm_create_intra_contract_3.current in nm_query_remaining_intra_contracts.current
+
+  always:
+  # CLEANUP
+  - name: Remove test schema even when a test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent

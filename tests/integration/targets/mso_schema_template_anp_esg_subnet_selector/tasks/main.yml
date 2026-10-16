@@ -1,0 +1,395 @@
+---
+# Test code for the MSO modules
+# Copyright: (c) 2026, Cisco Systems, Inc.
+# Copyright: (c) 2026, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE for the full text)
+
+- name: Test that required ACI MultiSite variables are defined
+  ansible.builtin.fail:
+    msg: 'Please define mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set test connection and fixture variables
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: debug
+    mso_test:
+      schema: '{{ mso_schema_template_anp_esg_subnet_selector | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_template_anp_esg_subnet_selector | default(mso_tenant | default("ansible_test")) }}'
+      template: ESG_subnet_selector_template
+      anp: ESG_subnet_selector_ANP
+      vrf: ESG_subnet_selector_VRF
+      esg: ESG_subnet_selector_ESG
+      subnet_selector_1:
+        ip: 10.15.35.0
+        updated_description: Updated subnet selector
+      subnet_selector_2:
+        ip: 10.15.36.0
+        description: Second subnet selector
+      subnet_selector_3:
+        ip: 10.15.37.0
+        description: Third subnet selector
+
+- name: Query NDO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Exercise mso_schema_template_anp_esg_subnet_selector
+  when: version.current.version is version('5.1', '>=')
+  block:
+
+  # CLEAN ENVIRONMENT
+  # The ansible_test tenant is created by the mso_setup_tenant_site setup target.
+  - name: Remove test schema before testing
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent
+
+  - name: Ensure schema and template exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{ mso_test.template }}'
+      state: present
+
+  - name: Ensure the template ANP exists
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: present
+
+  - name: Ensure the ESG VRF exists
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf }}'
+      state: present
+
+  - name: Ensure the ESG exists
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+      state: present
+
+  # CREATE
+  - name: Create ESG subnet selector in check mode
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector: &subnet_selector_1_present
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      ip: '{{ mso_test.subnet_selector_1.ip }}'
+      state: present
+    check_mode: true
+    register: cm_create_subnet_selector
+
+  - name: Create ESG subnet selector
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *subnet_selector_1_present
+    register: nm_create_subnet_selector
+
+  - name: Create ESG subnet selector again
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *subnet_selector_1_present
+    register: nm_create_subnet_selector_again
+
+  - name: Verify ESG subnet selector creation and idempotency
+    ansible.builtin.assert:
+      that:
+      - cm_create_subnet_selector is changed
+      - nm_create_subnet_selector is changed
+      - nm_create_subnet_selector_again is not changed
+      - cm_create_subnet_selector.previous == {}
+      - cm_create_subnet_selector.proposed.ip == mso_test.subnet_selector_1.ip
+      - cm_create_subnet_selector.current == cm_create_subnet_selector.proposed
+      - nm_create_subnet_selector.previous == cm_create_subnet_selector.previous
+      - nm_create_subnet_selector.proposed == cm_create_subnet_selector.proposed
+      - nm_create_subnet_selector.current == nm_create_subnet_selector.proposed
+      - nm_create_subnet_selector_again.previous == nm_create_subnet_selector_again.current
+      - nm_create_subnet_selector_again.proposed == nm_create_subnet_selector_again.current
+      - nm_create_subnet_selector_again.current.ip == mso_test.subnet_selector_1.ip
+
+  # UPDATE
+  - name: Update ESG subnet selector in check mode
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector: &subnet_selector_1_updated
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      ip: '{{ mso_test.subnet_selector_1.ip }}'
+      description: '{{ mso_test.subnet_selector_1.updated_description }}'
+      state: present
+    check_mode: true
+    register: cm_update_subnet_selector
+
+  - name: Update ESG subnet selector
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *subnet_selector_1_updated
+    register: nm_update_subnet_selector
+
+  - name: Update ESG subnet selector again
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *subnet_selector_1_updated
+    register: nm_update_subnet_selector_again
+
+  - name: Verify ESG subnet selector previous proposed and current state after update
+    ansible.builtin.assert:
+      that:
+      - cm_update_subnet_selector is changed
+      - nm_update_subnet_selector is changed
+      - nm_update_subnet_selector_again is not changed
+      - cm_update_subnet_selector.previous == nm_create_subnet_selector_again.current
+      - cm_update_subnet_selector.proposed.ip == mso_test.subnet_selector_1.ip
+      - cm_update_subnet_selector.proposed.description == mso_test.subnet_selector_1.updated_description
+      - cm_update_subnet_selector.current == cm_update_subnet_selector.proposed
+      - cm_update_subnet_selector.current == nm_update_subnet_selector.current
+      - nm_update_subnet_selector.previous == cm_update_subnet_selector.previous
+      - nm_update_subnet_selector.proposed == cm_update_subnet_selector.proposed
+      - nm_update_subnet_selector_again.previous == nm_update_subnet_selector_again.current
+      - nm_update_subnet_selector_again.proposed == nm_update_subnet_selector.proposed
+      - nm_update_subnet_selector_again.current == nm_update_subnet_selector.current
+
+  # QUERY
+  - name: Create a second ESG subnet selector
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      ip: '{{ mso_test.subnet_selector_2.ip }}'
+      description: '{{ mso_test.subnet_selector_2.description }}'
+      state: present
+
+  - name: Create a third ESG subnet selector
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      ip: '{{ mso_test.subnet_selector_3.ip }}'
+      description: '{{ mso_test.subnet_selector_3.description }}'
+      state: present
+
+  - name: Query an ESG subnet selector
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      ip: '{{ mso_test.subnet_selector_1.ip }}'
+      state: query
+    register: nm_query_subnet_selector
+
+  - name: Query all ESG subnet selectors
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: query
+    register: nm_query_all_subnet_selectors
+
+  - name: Verify specific and collection ESG subnet selector queries
+    ansible.builtin.assert:
+      that:
+      - nm_query_subnet_selector is not changed
+      - nm_query_subnet_selector.current == nm_update_subnet_selector.current
+      - nm_query_all_subnet_selectors is not changed
+      - nm_query_all_subnet_selectors.current | length == 3
+      - nm_query_all_subnet_selectors.current | selectattr('ip', 'equalto', mso_test.subnet_selector_1.ip) | list | length == 1
+      - nm_query_all_subnet_selectors.current | selectattr('ip', 'equalto', mso_test.subnet_selector_2.ip) | list | length == 1
+      - nm_query_all_subnet_selectors.current | selectattr('ip', 'equalto', mso_test.subnet_selector_3.ip) | list | length == 1
+      - (nm_query_all_subnet_selectors.current | selectattr('ip', 'equalto', mso_test.subnet_selector_1.ip) | first).description == mso_test.subnet_selector_1.updated_description
+      - (nm_query_all_subnet_selectors.current | selectattr('ip', 'equalto', mso_test.subnet_selector_2.ip) | first).description == mso_test.subnet_selector_2.description
+      - (nm_query_all_subnet_selectors.current | selectattr('ip', 'equalto', mso_test.subnet_selector_3.ip) | first).description == mso_test.subnet_selector_3.description
+
+  # ERROR HANDLING
+  - name: Query a missing ESG subnet selector in check mode
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      ip: 10.15.99.0
+      state: query
+    check_mode: true
+    register: cm_missing_subnet_selector
+    ignore_errors: true
+
+  - name: Query subnet selector for a missing ESG in check mode
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: MissingESG
+      ip: '{{ mso_test.subnet_selector_1.ip }}'
+      state: query
+    check_mode: true
+    register: cm_missing_esg
+    ignore_errors: true
+
+  - name: Query subnet selector for a missing schema in check mode
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *mso_info
+      schema: MissingSchema
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      ip: '{{ mso_test.subnet_selector_1.ip }}'
+      state: query
+    check_mode: true
+    register: cm_missing_schema
+    ignore_errors: true
+
+  - name: Query subnet selector for a missing template in check mode
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: MissingTemplate
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      ip: '{{ mso_test.subnet_selector_1.ip }}'
+      state: query
+    check_mode: true
+    register: cm_missing_template
+    ignore_errors: true
+
+  - name: Query subnet selector for a missing ANP in check mode
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: MissingANP
+      esg: '{{ mso_test.esg }}'
+      ip: '{{ mso_test.subnet_selector_1.ip }}'
+      state: query
+    check_mode: true
+    register: cm_missing_anp
+    ignore_errors: true
+
+  - name: Reject a present ESG subnet selector without an IP in check mode
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: present
+    check_mode: true
+    register: cm_missing_subnet_selector_present
+    ignore_errors: true
+
+  - name: Reject an absent ESG subnet selector without an IP in check mode
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: absent
+    check_mode: true
+    register: cm_missing_subnet_selector_absent
+    ignore_errors: true
+
+  - name: Reject an invalid ESG subnet selector state in check mode
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      ip: '{{ mso_test.subnet_selector_1.ip }}'
+      state: invalid
+    check_mode: true
+    register: cm_invalid_state
+    ignore_errors: true
+
+  - name: Verify ESG subnet selector error handling
+    ansible.builtin.assert:
+      that:
+      - cm_missing_subnet_selector is failed
+      - "cm_missing_subnet_selector.msg == \"Provided Subnet Selector '10.15.99.0' not matching existing Subnet Selector(s): 10.15.35.0, 10.15.36.0, 10.15.37.0\""
+      - cm_missing_esg is failed
+      - "cm_missing_esg.msg == \"Provided ESG 'MissingESG' not matching existing ESG(s): ESG_subnet_selector_ESG\""
+      - cm_missing_schema is failed
+      - "cm_missing_schema.msg == \"Provided schema 'MissingSchema' does not exist.\""
+      - cm_missing_template is failed
+      - "cm_missing_template.msg == \"Provided template 'MissingTemplate' not matching existing template(s): ESG_subnet_selector_template\""
+      - cm_missing_anp is failed
+      - "cm_missing_anp.msg == \"Provided ANP 'MissingANP' not matching existing anp(s): ESG_subnet_selector_ANP\""
+      - cm_missing_subnet_selector_present is failed
+      - "cm_missing_subnet_selector_present.msg == 'state is present but all of the following are missing: ip'"
+      - cm_missing_subnet_selector_absent is failed
+      - "cm_missing_subnet_selector_absent.msg == 'state is absent but all of the following are missing: ip'"
+      - cm_invalid_state is failed
+      - "cm_invalid_state.msg == 'value of state must be one of: absent, present, query, got: invalid'"
+
+  # DELETE
+  - name: Remove ESG subnet selector in check mode
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector: &subnet_selector_1_absent
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      ip: '{{ mso_test.subnet_selector_1.ip }}'
+      state: absent
+    check_mode: true
+    register: cm_remove_subnet_selector
+
+  - name: Remove ESG subnet selector
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *subnet_selector_1_absent
+    register: nm_remove_subnet_selector
+
+  - name: Remove ESG subnet selector again
+    cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+      <<: *subnet_selector_1_absent
+    register: nm_remove_subnet_selector_again
+
+  - name: Verify ESG subnet selector previous proposed and current state after removal
+    ansible.builtin.assert:
+      that:
+      - cm_remove_subnet_selector is changed
+      - nm_remove_subnet_selector is changed
+      - nm_remove_subnet_selector_again is not changed
+      - cm_remove_subnet_selector.previous == nm_update_subnet_selector.current
+      - cm_remove_subnet_selector.proposed == cm_remove_subnet_selector.current == {}
+      - nm_remove_subnet_selector.previous == cm_remove_subnet_selector.previous
+      - nm_remove_subnet_selector.proposed == nm_remove_subnet_selector.current == {}
+      - nm_remove_subnet_selector_again.previous == nm_remove_subnet_selector_again.proposed == nm_remove_subnet_selector_again.current == {}
+
+  always:
+  # CLEANUP
+  - name: Remove test schema even when a test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent

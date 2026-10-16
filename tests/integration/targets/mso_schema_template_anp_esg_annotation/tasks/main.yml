@@ -1,0 +1,383 @@
+---
+# Test code for the MSO modules
+# Copyright: (c) 2026, Cisco Systems, Inc.
+# Copyright: (c) 2026, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE for the full text)
+
+- name: Test that required ACI MultiSite variables are defined
+  ansible.builtin.fail:
+    msg: 'Please define mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set test connection and fixture variables
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: debug
+    mso_test:
+      schema: '{{ mso_schema_template_anp_esg_annotation | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_template_anp_esg_annotation | default(mso_tenant | default("ansible_test")) }}'
+      template: ESG_annotation_template
+      anp: ESG_annotation_ANP
+      vrf: ESG_annotation_VRF
+      esg: ESG_annotation_ESG
+      annotation_1:
+        key: annotation_key_1
+        value: annotation_value_1
+        updated_value: annotation_value_1_updated
+      annotation_2:
+        key: annotation_key_2
+        value: annotation_value_2
+      annotation_3:
+        key: annotation_key_3
+        value: annotation_value_3
+
+- name: Query NDO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Exercise mso_schema_template_anp_esg_annotation
+  when: version.current.version is version('5.1', '>=')
+  block:
+
+  # CLEAN ENVIRONMENT
+  # The ansible_test tenant is created by the mso_setup_tenant_site setup target.
+  - name: Remove test schema before testing
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent
+
+  - name: Ensure schema and template exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{ mso_test.template }}'
+      state: present
+
+  - name: Ensure the template ANP exists
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: present
+
+  - name: Ensure the ESG VRF exists
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf }}'
+      state: present
+
+  - name: Ensure the ESG exists
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+      state: present
+
+  # CREATE
+  - name: Create ESG annotation in check mode
+    cisco.mso.mso_schema_template_anp_esg_annotation: &annotation_1_present
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      annotation_key: '{{ mso_test.annotation_1.key }}'
+      annotation_value: '{{ mso_test.annotation_1.value }}'
+      state: present
+    check_mode: true
+    register: cm_create_annotation
+
+  - name: Create ESG annotation
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *annotation_1_present
+    register: nm_create_annotation
+
+  - name: Create ESG annotation again
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *annotation_1_present
+    register: nm_create_annotation_again
+
+  - name: Verify ESG annotation creation and idempotency
+    ansible.builtin.assert:
+      that:
+      - cm_create_annotation is changed
+      - nm_create_annotation is changed
+      - nm_create_annotation_again is not changed
+      - cm_create_annotation.previous == {}
+      - cm_create_annotation.proposed.tagKey == mso_test.annotation_1.key
+      - cm_create_annotation.proposed.tagValue == mso_test.annotation_1.value
+      - cm_create_annotation.current == cm_create_annotation.proposed
+      - nm_create_annotation.previous == cm_create_annotation.previous
+      - nm_create_annotation.proposed == cm_create_annotation.proposed
+      - nm_create_annotation.current == nm_create_annotation.proposed
+      - nm_create_annotation_again.previous == nm_create_annotation_again.current
+      - nm_create_annotation_again.proposed == nm_create_annotation.proposed
+      - nm_create_annotation_again.current == nm_create_annotation.current
+
+  # UPDATE
+  - name: Update ESG annotation in check mode
+    cisco.mso.mso_schema_template_anp_esg_annotation: &annotation_1_updated
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      annotation_key: '{{ mso_test.annotation_1.key }}'
+      annotation_value: '{{ mso_test.annotation_1.updated_value }}'
+      state: present
+    check_mode: true
+    register: cm_update_annotation
+
+  - name: Update ESG annotation
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *annotation_1_updated
+    register: nm_update_annotation
+
+  - name: Update ESG annotation again
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *annotation_1_updated
+    register: nm_update_annotation_again
+
+  - name: Verify ESG annotation previous proposed and current state after update
+    ansible.builtin.assert:
+      that:
+      - cm_update_annotation is changed
+      - nm_update_annotation is changed
+      - nm_update_annotation_again is not changed
+      - cm_update_annotation.previous == nm_create_annotation_again.current
+      - cm_update_annotation.proposed.tagKey == mso_test.annotation_1.key
+      - cm_update_annotation.proposed.tagValue == mso_test.annotation_1.updated_value
+      - cm_update_annotation.current == cm_update_annotation.proposed
+      - cm_update_annotation.current == nm_update_annotation.current
+      - nm_update_annotation.previous == cm_update_annotation.previous
+      - nm_update_annotation.proposed == cm_update_annotation.proposed
+      - nm_update_annotation_again.previous == nm_update_annotation_again.current
+      - nm_update_annotation_again.proposed == nm_update_annotation.proposed
+      - nm_update_annotation_again.current == nm_update_annotation.current
+
+  # QUERY
+  - name: Create a second ESG annotation
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      annotation_key: '{{ mso_test.annotation_2.key }}'
+      annotation_value: '{{ mso_test.annotation_2.value }}'
+      state: present
+
+  - name: Create a third ESG annotation
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      annotation_key: '{{ mso_test.annotation_3.key }}'
+      annotation_value: '{{ mso_test.annotation_3.value }}'
+      state: present
+
+  - name: Query an ESG annotation
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      annotation_key: '{{ mso_test.annotation_1.key }}'
+      state: query
+    register: nm_query_annotation
+
+  - name: Query all ESG annotations
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: query
+    register: nm_query_all_annotations
+
+  - name: Verify specific and collection ESG annotation queries
+    ansible.builtin.assert:
+      that:
+      - nm_query_annotation is not changed
+      - nm_query_annotation.current == nm_update_annotation.current
+      - nm_query_all_annotations is not changed
+      - nm_query_all_annotations.current | length == 3
+      - nm_query_all_annotations.current | selectattr('tagKey', 'equalto', mso_test.annotation_1.key) | list | length == 1
+      - nm_query_all_annotations.current | selectattr('tagKey', 'equalto', mso_test.annotation_2.key) | list | length == 1
+      - nm_query_all_annotations.current | selectattr('tagKey', 'equalto', mso_test.annotation_3.key) | list | length == 1
+      - (nm_query_all_annotations.current | selectattr('tagKey', 'equalto', mso_test.annotation_1.key) | first).tagValue == mso_test.annotation_1.updated_value
+      - (nm_query_all_annotations.current | selectattr('tagKey', 'equalto', mso_test.annotation_2.key) | first).tagValue == mso_test.annotation_2.value
+      - (nm_query_all_annotations.current | selectattr('tagKey', 'equalto', mso_test.annotation_3.key) | first).tagValue == mso_test.annotation_3.value
+
+  # ERROR HANDLING
+  - name: Query a missing ESG annotation in check mode
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      annotation_key: missing_annotation
+      state: query
+    check_mode: true
+    register: cm_missing_annotation
+    ignore_errors: true
+
+  - name: Query annotation for a missing ESG in check mode
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: MissingESG
+      annotation_key: '{{ mso_test.annotation_1.key }}'
+      state: query
+    check_mode: true
+    register: cm_missing_esg
+    ignore_errors: true
+
+  - name: Query annotation for a missing schema in check mode
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *mso_info
+      schema: MissingSchema
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      annotation_key: '{{ mso_test.annotation_1.key }}'
+      state: query
+    check_mode: true
+    register: cm_missing_schema
+    ignore_errors: true
+
+  - name: Query annotation for a missing template in check mode
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: MissingTemplate
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      annotation_key: '{{ mso_test.annotation_1.key }}'
+      state: query
+    check_mode: true
+    register: cm_missing_template
+    ignore_errors: true
+
+  - name: Query annotation for a missing ANP in check mode
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: MissingANP
+      esg: '{{ mso_test.esg }}'
+      annotation_key: '{{ mso_test.annotation_1.key }}'
+      state: query
+    check_mode: true
+    register: cm_missing_anp
+    ignore_errors: true
+
+  - name: Reject a present ESG annotation without a key and value in check mode
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: present
+    check_mode: true
+    register: cm_missing_annotation_present
+    ignore_errors: true
+
+  - name: Reject an absent ESG annotation without a key in check mode
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: absent
+    check_mode: true
+    register: cm_missing_annotation_absent
+    ignore_errors: true
+
+  - name: Verify ESG annotation error handling
+    ansible.builtin.assert:
+      that:
+      - cm_missing_annotation is failed
+      - "cm_missing_annotation.msg == \"Provided Annotation Key 'missing_annotation' not matching existing Annotation(s): annotation_key_1, annotation_key_2, annotation_key_3\""
+      - cm_missing_esg is failed
+      - "cm_missing_esg.msg == \"Provided ESG 'MissingESG' not matching existing ESG(s): ESG_annotation_ESG\""
+      - cm_missing_schema is failed
+      - "cm_missing_schema.msg == \"Provided schema 'MissingSchema' does not exist.\""
+      - cm_missing_template is failed
+      - "cm_missing_template.msg == \"Provided template 'MissingTemplate' not matching existing template(s): ESG_annotation_template\""
+      - cm_missing_anp is failed
+      - "cm_missing_anp.msg == \"Provided ANP 'MissingANP' not matching existing anp(s): ESG_annotation_ANP\""
+      - cm_missing_annotation_present is failed
+      - "cm_missing_annotation_present.msg == 'state is present but all of the following are missing: annotation_key, annotation_value'"
+      - cm_missing_annotation_absent is failed
+      - "cm_missing_annotation_absent.msg == 'state is absent but all of the following are missing: annotation_key'"
+
+  # DELETE
+  - name: Remove ESG annotation in check mode
+    cisco.mso.mso_schema_template_anp_esg_annotation: &annotation_1_absent
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      annotation_key: '{{ mso_test.annotation_1.key }}'
+      state: absent
+    check_mode: true
+    register: cm_remove_annotation
+
+  - name: Remove ESG annotation
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *annotation_1_absent
+    register: nm_remove_annotation
+
+  - name: Remove ESG annotation again
+    cisco.mso.mso_schema_template_anp_esg_annotation:
+      <<: *annotation_1_absent
+    register: nm_remove_annotation_again
+
+  - name: Verify ESG annotation previous proposed and current state after removal
+    ansible.builtin.assert:
+      that:
+      - cm_remove_annotation is changed
+      - nm_remove_annotation is changed
+      - nm_remove_annotation_again is not changed
+      - cm_remove_annotation.previous == nm_update_annotation.current
+      - cm_remove_annotation.proposed == cm_remove_annotation.current == {}
+      - nm_remove_annotation.previous == cm_remove_annotation.previous
+      - nm_remove_annotation.proposed == nm_remove_annotation.current == {}
+      - nm_remove_annotation_again.previous == nm_remove_annotation_again.proposed == nm_remove_annotation_again.current == {}
+
+  always:
+  # CLEANUP
+  - name: Remove test schema even when a test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent

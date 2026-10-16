@@ -1,0 +1,492 @@
+---
+# Test code for the MSO modules
+# Copyright: (c) 2026, Cisco Systems, Inc.
+# Copyright: (c) 2026, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE for the full text)
+
+- name: Test that required ACI MultiSite variables are defined
+  ansible.builtin.fail:
+    msg: 'Please define mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set test connection and fixture variables
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: debug
+    mso_test:
+      schema: '{{ mso_schema_template_anp_esg_external_epg_selector | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_template_anp_esg_external_epg_selector | default(mso_tenant | default("ansible_test")) }}'
+      template: ESGExternalEPGSelectorTemplate
+      spaced_template: ESG External EPG Selector Template
+      anp: ESG_external_epg_selector_ANP
+      vrf: ESG_external_epg_selector_VRF
+      l3out: ESG_external_epg_selector_L3Out
+      esg: ESG_external_epg_selector_ESG
+      external_epg_1:
+        name: ESG_external_epg_selector_external_EPG_1
+        updated_description: Updated external EPG selector description
+      external_epg_2:
+        name: ESG_external_epg_selector_external_EPG_2
+        description: Second external EPG selector description
+      external_epg_3:
+        name: ESG_external_epg_selector_external_EPG_3
+        description: Third external EPG selector description
+
+- name: Query NDO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Exercise mso_schema_template_anp_esg_external_epg_selector
+  when: version.current.version is version('5.1', '>=')
+  block:
+
+  # CLEAN ENVIRONMENT
+  # The ansible_test tenant is created by the mso_setup_tenant_site setup target.
+  - name: Remove test schema before testing
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent
+
+  - name: Ensure schema and template exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{ mso_test.template }}'
+      state: present
+
+  - name: Ensure the template ANP exists
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: present
+
+  - name: Ensure the ESG and external EPG VRF exists
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf }}'
+      state: present
+
+  - name: Ensure the external EPG L3Out exists
+    cisco.mso.mso_schema_template_l3out:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      l3out: '{{ mso_test.l3out }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+      state: present
+
+  - name: Ensure the referenced external EPGs exist
+    cisco.mso.mso_schema_template_external_epg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      external_epg: '{{ item }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+      l3out:
+        name: '{{ mso_test.l3out }}'
+      state: present
+    loop:
+    - '{{ mso_test.external_epg_1.name }}'
+    - '{{ mso_test.external_epg_2.name }}'
+    - '{{ mso_test.external_epg_3.name }}'
+
+  - name: Ensure the ESG exists
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      vrf:
+        name: '{{ mso_test.vrf }}'
+      state: present
+    register: fixture_esg
+
+  # CREATE
+  - name: Create ESG external EPG selector with minimum configuration in check mode
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector: &selector_1_present
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      external_epg:
+        name: '{{ mso_test.external_epg_1.name }}'
+      state: present
+    check_mode: true
+    register: cm_create_selector
+
+  - name: Create ESG external EPG selector with minimum configuration
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *selector_1_present
+    register: nm_create_selector
+
+  - name: Create ESG external EPG selector again
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *selector_1_present
+    register: nm_create_selector_again
+
+  - name: Verify ESG external EPG selector creation and idempotency
+    ansible.builtin.assert:
+      that:
+      - cm_create_selector is changed
+      - nm_create_selector is changed
+      - nm_create_selector_again is not changed
+      - cm_create_selector.previous == {}
+      - cm_create_selector.proposed.extEpgRef.externalEpgName == mso_test.external_epg_1.name
+      - cm_create_selector.proposed.extEpgRef.schemaId == fixture_esg.current.vrfRef.schemaId
+      - cm_create_selector.proposed.extEpgRef.templateName == mso_test.template
+      - cm_create_selector.current == cm_create_selector.proposed
+      - nm_create_selector.previous == cm_create_selector.previous
+      - nm_create_selector.proposed == cm_create_selector.proposed
+      - nm_create_selector.current == nm_create_selector.proposed
+      - nm_create_selector_again.previous == nm_create_selector_again.current
+      - nm_create_selector_again.proposed == nm_create_selector_again.current
+      - nm_create_selector_again.current.extEpgRef == nm_create_selector.current.extEpgRef
+
+  # UPDATE
+  - name: Update ESG external EPG selector with explicit current reference context in check mode
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector: &selector_1_updated
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      external_epg:
+        name: '{{ mso_test.external_epg_1.name }}'
+        schema: '{{ mso_test.schema }}'
+        template: '{{ mso_test.template }}'
+      description: '{{ mso_test.external_epg_1.updated_description }}'
+      state: present
+    check_mode: true
+    register: cm_update_selector
+
+  - name: Update ESG external EPG selector
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *selector_1_updated
+    register: nm_update_selector
+
+  - name: Update ESG external EPG selector again
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *selector_1_updated
+    register: nm_update_selector_again
+
+  - name: Verify ESG external EPG selector previous proposed and current state after update
+    ansible.builtin.assert:
+      that:
+      - cm_update_selector is changed
+      - nm_update_selector is changed
+      - nm_update_selector_again is not changed
+      - cm_update_selector.previous == nm_create_selector_again.current
+      - cm_update_selector.proposed.extEpgRef == nm_create_selector.current.extEpgRef
+      - cm_update_selector.proposed.description == mso_test.external_epg_1.updated_description
+      - cm_update_selector.current == cm_update_selector.proposed
+      - cm_update_selector.current == nm_update_selector.current
+      - nm_update_selector.previous == cm_update_selector.previous
+      - nm_update_selector.proposed == cm_update_selector.proposed
+      - nm_update_selector_again.previous == nm_update_selector_again.current
+      - nm_update_selector_again.proposed == nm_update_selector.proposed
+      - nm_update_selector_again.current == nm_update_selector.current
+
+  # QUERY
+  - name: Create a second ESG external EPG selector with explicit current reference context
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      external_epg:
+        name: '{{ mso_test.external_epg_2.name }}'
+        schema: '{{ mso_test.schema }}'
+        template: '{{ mso_test.template }}'
+      description: '{{ mso_test.external_epg_2.description }}'
+      state: present
+
+  - name: Create a third ESG external EPG selector with spaces in the reference template
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      external_epg:
+        name: '{{ mso_test.external_epg_3.name }}'
+        schema: '{{ mso_test.schema }}'
+        template: '{{ mso_test.spaced_template }}'
+      description: '{{ mso_test.external_epg_3.description }}'
+      state: present
+
+  - name: Query the updated ESG external EPG selector with default reference context
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      external_epg:
+        name: '{{ mso_test.external_epg_1.name }}'
+      state: query
+    register: nm_query_selector
+
+  - name: Query all ESG external EPG selectors
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: query
+    register: nm_query_all_selectors
+
+  - name: Verify specific and collection ESG external EPG selector queries
+    ansible.builtin.assert:
+      that:
+      - nm_query_selector is not changed
+      - nm_query_selector.current == nm_update_selector.current
+      - nm_query_all_selectors is not changed
+      - nm_query_all_selectors.current | length == 3
+      - nm_query_all_selectors.current | map(attribute='extEpgRef') | unique | list | length == 3
+      - nm_query_all_selectors.current | selectattr('extEpgRef.externalEpgName', 'equalto', mso_test.external_epg_1.name) | list | length == 1
+      - nm_query_all_selectors.current | selectattr('extEpgRef.externalEpgName', 'equalto', mso_test.external_epg_2.name) | list | length == 1
+      - nm_query_all_selectors.current | selectattr('extEpgRef.externalEpgName', 'equalto', mso_test.external_epg_3.name) | list | length == 1
+      - (nm_query_all_selectors.current | selectattr('extEpgRef.externalEpgName', 'equalto', mso_test.external_epg_1.name) | first) == nm_update_selector.current
+      - (nm_query_all_selectors.current | selectattr('extEpgRef.externalEpgName', 'equalto', mso_test.external_epg_2.name) | first).extEpgRef.schemaId == fixture_esg.current.vrfRef.schemaId
+      - (nm_query_all_selectors.current | selectattr('extEpgRef.externalEpgName', 'equalto', mso_test.external_epg_2.name) | first).extEpgRef.templateName == mso_test.template
+      - (nm_query_all_selectors.current | selectattr('extEpgRef.externalEpgName', 'equalto', mso_test.external_epg_2.name) | first).description == mso_test.external_epg_2.description
+      - (nm_query_all_selectors.current | selectattr('extEpgRef.externalEpgName', 'equalto', mso_test.external_epg_3.name) | first).extEpgRef.schemaId == fixture_esg.current.vrfRef.schemaId
+      - (nm_query_all_selectors.current | selectattr('extEpgRef.externalEpgName', 'equalto', mso_test.external_epg_3.name) | first).extEpgRef.templateName == mso_test.template
+      - (nm_query_all_selectors.current | selectattr('extEpgRef.externalEpgName', 'equalto', mso_test.external_epg_3.name) | first).description == mso_test.external_epg_3.description
+
+  # ERROR HANDLING
+  - name: Query a missing ESG external EPG selector in check mode
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      external_epg:
+        name: missing_external_epg
+      state: query
+    check_mode: true
+    register: cm_missing_selector
+    ignore_errors: true
+
+  - name: Query selector for a missing ESG in check mode
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: MissingESG
+      external_epg:
+        name: '{{ mso_test.external_epg_1.name }}'
+      state: query
+    check_mode: true
+    register: cm_missing_esg
+    ignore_errors: true
+
+  - name: Query selector for a missing schema in check mode
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: MissingSchema
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      external_epg:
+        name: '{{ mso_test.external_epg_1.name }}'
+      state: query
+    check_mode: true
+    register: cm_missing_schema
+    ignore_errors: true
+
+  - name: Query selector for a missing template in check mode
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: MissingTemplate
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      external_epg:
+        name: '{{ mso_test.external_epg_1.name }}'
+      state: query
+    check_mode: true
+    register: cm_missing_template
+    ignore_errors: true
+
+  - name: Query selector for a missing ANP in check mode
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: MissingANP
+      esg: '{{ mso_test.esg }}'
+      external_epg:
+        name: '{{ mso_test.external_epg_1.name }}'
+      state: query
+    check_mode: true
+    register: cm_missing_anp
+    ignore_errors: true
+
+  - name: Reject a missing referenced schema in check mode
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      external_epg:
+        name: '{{ mso_test.external_epg_1.name }}'
+        schema: MissingReferencedSchema
+      state: present
+    check_mode: true
+    register: cm_missing_reference_schema
+    ignore_errors: true
+
+  - name: Reject a present ESG external EPG selector without a reference in check mode
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: present
+    check_mode: true
+    register: cm_missing_selector_present
+    ignore_errors: true
+
+  - name: Reject an absent ESG external EPG selector without a reference in check mode
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      state: absent
+    check_mode: true
+    register: cm_missing_selector_absent
+    ignore_errors: true
+
+  - name: Reject a partial external EPG reference in check mode
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      external_epg:
+        schema: '{{ mso_test.schema }}'
+        template: '{{ mso_test.template }}'
+      state: query
+    check_mode: true
+    register: cm_partial_reference
+    ignore_errors: true
+
+  - name: Reject an invalid selector state in check mode
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      external_epg:
+        name: '{{ mso_test.external_epg_1.name }}'
+      state: invalid
+    check_mode: true
+    register: cm_invalid_state
+    ignore_errors: true
+
+  - name: Verify ESG external EPG selector error handling
+    vars:
+      missing_reference_prefix: "Provided External EPG Reference '"
+      missing_reference_parts: >-
+        {{ cm_missing_selector.msg.split("' not matching existing External EPG Selector(s): ", 1) }}
+      expected_missing_reference: "{{ nm_create_selector.current.extEpgRef | combine({'externalEpgName': 'missing_external_epg'}) }}"
+      expected_existing_references: "{{ nm_query_all_selectors.current | map(attribute='extEpgRef') | list }}"
+    ansible.builtin.assert:
+      that:
+      - cm_missing_selector is failed
+      - missing_reference_parts | length == 2
+      - missing_reference_parts[0].startswith(missing_reference_prefix)
+      - missing_reference_parts[0] | replace(missing_reference_prefix, '', 1) | from_yaml == expected_missing_reference
+      - missing_reference_parts[1] | from_yaml == expected_existing_references
+      - cm_missing_esg is failed
+      - "cm_missing_esg.msg == \"Provided ESG 'MissingESG' not matching existing ESG(s): ESG_external_epg_selector_ESG\""
+      - cm_missing_schema is failed
+      - "cm_missing_schema.msg == \"Provided schema 'MissingSchema' does not exist.\""
+      - cm_missing_template is failed
+      - "cm_missing_template.msg == \"Provided template 'MissingTemplate' not matching existing template(s): ESGExternalEPGSelectorTemplate\""
+      - cm_missing_anp is failed
+      - "cm_missing_anp.msg == \"Provided ANP 'MissingANP' not matching existing anp(s): ESG_external_epg_selector_ANP\""
+      - cm_missing_reference_schema is failed
+      - "cm_missing_reference_schema.msg == \"Referenced schema 'MissingReferencedSchema' in externalEpgref does not exist\""
+      - cm_missing_selector_present is failed
+      - "cm_missing_selector_present.msg == 'state is present but all of the following are missing: external_epg'"
+      - cm_missing_selector_absent is failed
+      - "cm_missing_selector_absent.msg == 'state is absent but all of the following are missing: external_epg'"
+      - cm_partial_reference is failed
+      - "cm_partial_reference.msg == 'missing required arguments: name found in external_epg'"
+      - cm_invalid_state is failed
+      - "cm_invalid_state.msg == 'value of state must be one of: absent, present, query, got: invalid'"
+
+  # DELETE
+  - name: Remove ESG external EPG selector in check mode
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector: &selector_1_absent
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg }}'
+      external_epg:
+        name: '{{ mso_test.external_epg_1.name }}'
+      state: absent
+    check_mode: true
+    register: cm_remove_selector
+
+  - name: Remove ESG external EPG selector
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *selector_1_absent
+    register: nm_remove_selector
+
+  - name: Remove ESG external EPG selector again
+    cisco.mso.mso_schema_template_anp_esg_external_epg_selector:
+      <<: *selector_1_absent
+    register: nm_remove_selector_again
+
+  - name: Verify ESG external EPG selector previous proposed and current state after removal
+    ansible.builtin.assert:
+      that:
+      - cm_remove_selector is changed
+      - nm_remove_selector is changed
+      - nm_remove_selector_again is not changed
+      - cm_remove_selector.previous == nm_update_selector.current
+      - cm_remove_selector.proposed == cm_remove_selector.current == {}
+      - nm_remove_selector.previous == cm_remove_selector.previous
+      - nm_remove_selector.proposed == nm_remove_selector.current == {}
+      - nm_remove_selector_again.previous == nm_remove_selector_again.proposed == nm_remove_selector_again.current == {}
+
+  always:
+  # CLEANUP
+  - name: Remove test schema even when a test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent

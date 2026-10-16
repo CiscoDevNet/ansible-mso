@@ -1529,6 +1529,7 @@ class MSOModule(object):
                     "bds": ["bdName", "schemaId", "templateName"],
                     "filters": ["filterName", "schemaId", "templateName"],
                     "contracts": ["contractName", "schemaId", "templateName"],
+                    "externalEpgs": ["externalEpgName", "schemaId", "templateName"],
                     "l3outs": ["l3outName", "schemaId", "templateName"],
                     "anps": ["anpName", "schemaId", "templateName"],
                     "serviceGraphs": ["serviceGraphName", "schemaId", "templateName"],

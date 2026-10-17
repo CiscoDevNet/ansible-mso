@@ -183,6 +183,47 @@ class MSOSchema:
             self.mso.fail_json(msg=msg)
         self.schema_objects["template_anp_epg"] = match
 
+    def set_template_anp_esg(self, esg, fail_module=True):
+        """
+        Get template application network profile ESG item that matches the name of an ESG.
+        :param esg: Name of the ESG to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template ANP ESG item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template_anp"])
+        kv_list = [KVPair("name", esg)]
+        esgs = self.schema_objects["template_anp"].details.get("esgs") or []
+        match, existing = self.get_object_from_list(esgs, kv_list)
+        if not match and fail_module:
+            msg = "Provided ESG '{0}' not matching existing ESG(s): {1}".format(esg, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        if match:
+            self.mso.recursive_dict_from_ref(match.details)
+        self.schema_objects["template_anp_esg"] = match
+
+    def set_template_anp_esg_contract(self, contract_ref, relationship_type, fail_module=True):
+        """
+        Get the ESG contract relationship that matches the contract reference and relationship type.
+        :param contract_ref: Normalized reference of the contract to match. -> Dict
+        :param relationship_type: Relationship type of the contract to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template ANP ESG contract relationship item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template_anp_esg"])
+        contracts = self.schema_objects["template_anp_esg"].details.get("contractRelationships") or []
+        kv_list = [KVPair("contractRef", contract_ref), KVPair("relationshipType", relationship_type)]
+        match = self.get_object_from_list(contracts, kv_list)[0]
+        if not match and fail_module:
+            reference_format = "/schemas/{schemaId}/templates/{templateName}/contracts/{contractName}"
+            existing_references = [
+                "{0} ({1})".format(reference_format.format(**contract.get("contractRef")), contract.get("relationshipType")) for contract in contracts
+            ]
+            msg = "Provided Contract Reference '{0}' with type '{1}' not matching existing contract(s): {2}".format(
+                reference_format.format(**contract_ref), relationship_type, ", ".join(existing_references)
+            )
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["template_anp_esg_contract"] = match
+
     def set_template_anp_epg_contract(self, contract_ref, relation_type, fail_module=True):
         """
         Get template endpoint group contract item that matches the reference and type of an contract.

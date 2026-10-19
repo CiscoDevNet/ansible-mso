@@ -1,0 +1,421 @@
+---
+# Test code for the MSO modules
+# Copyright: (c) 2026, Cisco Systems, Inc.
+# Copyright: (c) 2026, Akini Ross (@akinross) <akinross@cisco.com>
+
+# GNU General Public License v3.0+ (see LICENSE for the full text)
+
+- name: Test that required ACI MultiSite variables are defined
+  ansible.builtin.fail:
+    msg: 'Please define mso_hostname, mso_username and mso_password.'
+  when: mso_hostname is not defined or mso_username is not defined or mso_password is not defined
+
+- name: Set test connection and fixture variables
+  ansible.builtin.set_fact:
+    mso_info: &mso_info
+      host: '{{ mso_hostname }}'
+      username: '{{ mso_username }}'
+      password: '{{ mso_password }}'
+      validate_certs: '{{ mso_validate_certs | default(false) }}'
+      use_ssl: '{{ mso_use_ssl | default(true) }}'
+      use_proxy: '{{ mso_use_proxy | default(true) }}'
+      output_level: debug
+    mso_test:
+      schema: '{{ mso_schema_template_anp_esg | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_template_anp_esg | default(mso_tenant | default("ansible_test")) }}'
+      template: ESG_template
+      anp: ESG_ANP
+      vrf_1: ESG_VRF
+      vrf_2: ESG_VRF_2
+      esg_1:
+        name: ESG_1
+        display_name: ESG 1 Updated
+        description: ESG integration test updated
+        intra_esg: enforced
+        shutdown: true
+        preferred_group: true
+        deployment_immediacy: immediate
+      esg_2:
+        name: ESG_2
+        display_name: ESG 2
+        description: Second ESG for collection query
+        intra_esg: unenforced
+        shutdown: false
+        preferred_group: false
+        deployment_immediacy: lazy
+      esg_3:
+        name: ESG_3
+        display_name: ESG 3
+        description: Third ESG for collection query
+        intra_esg: enforced
+        shutdown: true
+        preferred_group: true
+        deployment_immediacy: immediate
+
+- name: Query NDO version
+  cisco.mso.mso_version:
+    <<: *mso_info
+    state: query
+  register: version
+
+- name: Exercise mso_schema_template_anp_esg
+  when: version.current.version is version('5.1', '>=')
+  block:
+
+  # CLEAN ENVIRONMENT
+  # The ansible_test tenant is created by the mso_setup_tenant_site setup target.
+  - name: Remove test schema before testing
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent
+
+  - name: Ensure schema and template exist
+    cisco.mso.mso_schema_template:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      tenant: '{{ mso_test.tenant }}'
+      template: '{{ mso_test.template }}'
+      state: present
+
+  - name: Ensure the template ANP exists
+    cisco.mso.mso_schema_template_anp:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: present
+
+  - name: Ensure the initial VRF exists
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf_1 }}'
+      state: present
+
+  - name: Ensure the updated VRF exists with preferred group enabled
+    cisco.mso.mso_schema_template_vrf:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      vrf: '{{ mso_test.vrf_2 }}'
+      preferred_group: true
+      state: present
+
+  # CREATE
+  - name: Create ESG with minimum configuration in check mode
+    cisco.mso.mso_schema_template_anp_esg: &esg_minimal
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg_1.name }}'
+      vrf:
+        name: '{{ mso_test.vrf_1 }}'
+      state: present
+    check_mode: true
+    register: cm_create_esg
+
+  - name: Create ESG with minimum configuration
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *esg_minimal
+    register: nm_create_esg
+
+  - name: Create ESG with minimum configuration again
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *esg_minimal
+    register: nm_create_esg_again
+
+  - name: Verify ESG creation and idempotency
+    ansible.builtin.assert:
+      that:
+      - cm_create_esg is changed
+      - cm_create_esg.previous == {}
+      - cm_create_esg.proposed.name == mso_test.esg_1.name
+      - cm_create_esg.proposed.vrfRef.vrfName == mso_test.vrf_1
+      - cm_create_esg.current == cm_create_esg.proposed
+      - nm_create_esg is changed
+      - nm_create_esg.previous == {}
+      - nm_create_esg.proposed.name == mso_test.esg_1.name
+      - nm_create_esg.current.name == mso_test.esg_1.name
+      - nm_create_esg.current.displayName == mso_test.esg_1.name
+      - nm_create_esg.current.vrfRef.schemaId is defined
+      - nm_create_esg.current.vrfRef.templateName == mso_test.template
+      - nm_create_esg.current.vrfRef.vrfName == mso_test.vrf_1
+      - nm_create_esg_again is not changed
+      - nm_create_esg_again.previous == nm_create_esg_again.current
+      - nm_create_esg_again.proposed.name == mso_test.esg_1.name
+      - nm_create_esg_again.proposed.epgType == 'security'
+      - nm_create_esg_again.proposed.vrfRef.vrfName == mso_test.vrf_1
+      - nm_create_esg_again.current.name == mso_test.esg_1.name
+      - nm_create_esg_again.current.uuid is defined
+      - nm_create_esg_again.current.displayName == mso_test.esg_1.name
+      - nm_create_esg_again.current.description == ''
+      - nm_create_esg_again.current.intraEsg == 'unenforced'
+      - nm_create_esg_again.current.shutdown == 'adminUp'
+      - nm_create_esg_again.current.preferredGroup == false
+      - nm_create_esg_again.current.epgType == 'security'
+      - nm_create_esg_again.current.deploymentImmediacy == 'lazy'
+      - nm_create_esg_again.current.vrfRef.schemaId is defined
+      - nm_create_esg_again.current.vrfRef.templateName == mso_test.template
+      - nm_create_esg_again.current.vrfRef.vrfName == mso_test.vrf_1
+
+  # UPDATE
+  - name: Update ESG attributes and normalize spaces in the VRF template name in check mode
+    cisco.mso.mso_schema_template_anp_esg: &esg_update
+      <<: *esg_minimal
+      display_name: '{{ mso_test.esg_1.display_name }}'
+      description: '{{ mso_test.esg_1.description }}'
+      intra_esg: '{{ mso_test.esg_1.intra_esg }}'
+      shutdown: '{{ mso_test.esg_1.shutdown }}'
+      preferred_group: '{{ mso_test.esg_1.preferred_group }}'
+      vrf:
+        name: '{{ mso_test.vrf_2 }}'
+        template: 'ESG _template'
+      deployment_immediacy: '{{ mso_test.esg_1.deployment_immediacy }}'
+    check_mode: true
+    register: cm_update_esg
+
+  - name: Update all ESG attributes
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *esg_update
+    register: nm_update_esg
+
+  - name: Update all ESG attributes again
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *esg_update
+    register: nm_update_esg_again
+
+  - name: Verify ESG previous proposed and current state after update
+    ansible.builtin.assert:
+      that:
+      - cm_update_esg is changed
+      - nm_update_esg is changed
+      - nm_update_esg_again is not changed
+      - cm_update_esg.previous == nm_create_esg_again.current
+      - cm_update_esg.proposed.name == mso_test.esg_1.name
+      - cm_update_esg.proposed.displayName == mso_test.esg_1.display_name
+      - cm_update_esg.proposed.description == mso_test.esg_1.description
+      - cm_update_esg.proposed.intraEsg == mso_test.esg_1.intra_esg
+      - cm_update_esg.proposed.shutdown == 'adminShut'
+      - cm_update_esg.proposed.preferredGroup == mso_test.esg_1.preferred_group
+      - cm_update_esg.proposed.deploymentImmediacy == mso_test.esg_1.deployment_immediacy
+      - cm_update_esg.proposed.vrfRef.schemaId is defined
+      - cm_update_esg.proposed.vrfRef.templateName == mso_test.template
+      - cm_update_esg.proposed.vrfRef.vrfName == mso_test.vrf_2
+      - cm_update_esg.current == nm_update_esg.current
+      - nm_update_esg.previous == cm_update_esg.previous
+      - nm_update_esg.proposed == cm_update_esg.proposed
+      - nm_update_esg_again.previous == nm_update_esg_again.current
+      - nm_update_esg_again.proposed == nm_update_esg.proposed
+      - nm_update_esg_again.current == nm_update_esg.current
+
+  # QUERY
+  - name: Create second ESG with full configuration
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg_2.name }}'
+      display_name: '{{ mso_test.esg_2.display_name }}'
+      description: '{{ mso_test.esg_2.description }}'
+      intra_esg: '{{ mso_test.esg_2.intra_esg }}'
+      shutdown: '{{ mso_test.esg_2.shutdown }}'
+      preferred_group: '{{ mso_test.esg_2.preferred_group }}'
+      vrf:
+        name: '{{ mso_test.vrf_1 }}'
+      deployment_immediacy: '{{ mso_test.esg_2.deployment_immediacy }}'
+      state: present
+
+  - name: Create third ESG with full configuration
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      esg: '{{ mso_test.esg_3.name }}'
+      display_name: '{{ mso_test.esg_3.display_name }}'
+      description: '{{ mso_test.esg_3.description }}'
+      intra_esg: '{{ mso_test.esg_3.intra_esg }}'
+      shutdown: '{{ mso_test.esg_3.shutdown }}'
+      preferred_group: '{{ mso_test.esg_3.preferred_group }}'
+      vrf:
+        name: '{{ mso_test.vrf_2 }}'
+      deployment_immediacy: '{{ mso_test.esg_3.deployment_immediacy }}'
+      state: present
+
+  - name: Query ESG
+    cisco.mso.mso_schema_template_anp_esg: &esg_query
+      <<: *esg_update
+      state: query
+    register: nm_query_esg
+
+  - name: Query all ESGs in the ANP
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *esg_minimal
+      esg: null
+      state: query
+    register: nm_query_all_esgs
+
+  - name: Verify specific and collection ESG queries
+    ansible.builtin.assert:
+      that:
+      - nm_query_esg is not changed
+      - nm_query_esg.current.name == mso_test.esg_1.name
+      - nm_query_esg.current.uuid == nm_create_esg_again.current.uuid
+      - nm_query_esg.current.displayName == mso_test.esg_1.display_name
+      - nm_query_esg.current.description == mso_test.esg_1.description
+      - nm_query_esg.current.intraEsg == mso_test.esg_1.intra_esg
+      - nm_query_esg.current.shutdown == 'adminShut'
+      - nm_query_esg.current.preferredGroup == mso_test.esg_1.preferred_group
+      - nm_query_esg.current.deploymentImmediacy == mso_test.esg_1.deployment_immediacy
+      - nm_query_esg.current.vrfRef.schemaId is defined
+      - nm_query_esg.current.vrfRef.templateName == mso_test.template
+      - nm_query_esg.current.vrfRef.vrfName == mso_test.vrf_2
+      - nm_query_all_esgs is not changed
+      - nm_query_all_esgs.current | length == 3
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_1.name) | first).uuid is defined
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_2.name) | first).uuid is defined
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_3.name) | first).uuid is defined
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_1.name) | first).displayName == mso_test.esg_1.display_name
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_1.name) | first).description == mso_test.esg_1.description
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_1.name) | first).intraEsg == mso_test.esg_1.intra_esg
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_1.name) | first).shutdown == 'adminShut'
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_1.name) | first).preferredGroup == mso_test.esg_1.preferred_group
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_1.name) | first).deploymentImmediacy == mso_test.esg_1.deployment_immediacy
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_1.name) | first).vrfRef.schemaId is defined
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_1.name) | first).vrfRef.templateName == mso_test.template
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_1.name) | first).vrfRef.vrfName == mso_test.vrf_2
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_2.name) | first).displayName == mso_test.esg_2.display_name
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_2.name) | first).description == mso_test.esg_2.description
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_2.name) | first).intraEsg == mso_test.esg_2.intra_esg
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_2.name) | first).shutdown == 'adminUp'
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_2.name) | first).preferredGroup == mso_test.esg_2.preferred_group
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_2.name) | first).deploymentImmediacy == mso_test.esg_2.deployment_immediacy
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_2.name) | first).vrfRef.schemaId is defined
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_2.name) | first).vrfRef.templateName == mso_test.template
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_2.name) | first).vrfRef.vrfName == mso_test.vrf_1
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_3.name) | first).displayName == mso_test.esg_3.display_name
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_3.name) | first).description == mso_test.esg_3.description
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_3.name) | first).intraEsg == mso_test.esg_3.intra_esg
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_3.name) | first).shutdown == 'adminShut'
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_3.name) | first).preferredGroup == mso_test.esg_3.preferred_group
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_3.name) | first).deploymentImmediacy == mso_test.esg_3.deployment_immediacy
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_3.name) | first).vrfRef.schemaId is defined
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_3.name) | first).vrfRef.templateName == mso_test.template
+      - (nm_query_all_esgs.current | selectattr('name', 'equalto', mso_test.esg_3.name) | first).vrfRef.vrfName == mso_test.vrf_2
+
+  # ERROR HANDLING
+  - name: Query a missing ESG in check mode
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *esg_query
+      esg: MissingESG
+    check_mode: true
+    register: cm_missing_esg
+    ignore_errors: true
+
+  - name: Query a missing schema in check mode
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *esg_query
+      schema: MissingSchema
+    check_mode: true
+    register: cm_missing_schema
+    ignore_errors: true
+
+  - name: Query a missing template in check mode
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *esg_query
+      template: MissingTemplate
+    check_mode: true
+    register: cm_missing_template
+    ignore_errors: true
+
+  - name: Reject a present ESG without an ESG name in check mode
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: present
+    check_mode: true
+    register: cm_missing_esg_present
+    ignore_errors: true
+
+  - name: Reject an absent ESG without an ESG name in check mode
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      template: '{{ mso_test.template }}'
+      anp: '{{ mso_test.anp }}'
+      state: absent
+    check_mode: true
+    register: cm_missing_esg_absent
+    ignore_errors: true
+
+  - name: Verify ESG error handling
+    ansible.builtin.assert:
+      that:
+      - cm_missing_esg is failed
+      - "cm_missing_esg.msg == \"Provided ESG 'MissingESG' not matching existing ESG(s): ESG_1, ESG_2, ESG_3\""
+      - cm_missing_schema is failed
+      - "cm_missing_schema.msg == \"Provided schema 'MissingSchema' does not exist.\""
+      - cm_missing_template is failed
+      - "cm_missing_template.msg == \"Provided template 'MissingTemplate' not matching existing template(s): ESG_template\""
+      - cm_missing_esg_present is failed
+      - "cm_missing_esg_present.msg == 'state is present but all of the following are missing: esg'"
+      - cm_missing_esg_absent is failed
+      - "cm_missing_esg_absent.msg == 'state is absent but all of the following are missing: esg'"
+
+  # DELETE
+  - name: Remove ESG in check mode
+    cisco.mso.mso_schema_template_anp_esg: &esg_absent
+      <<: *esg_update
+      state: absent
+    check_mode: true
+    register: cm_remove_esg
+
+  - name: Remove ESG
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *esg_absent
+    register: nm_remove_esg
+
+  - name: Remove ESG again
+    cisco.mso.mso_schema_template_anp_esg:
+      <<: *esg_absent
+    register: nm_remove_esg_again
+
+  - name: Verify ESG previous proposed and current state after removal
+    ansible.builtin.assert:
+      that:
+      - cm_remove_esg is changed
+      - cm_remove_esg.previous.name == mso_test.esg_1.name
+      - cm_remove_esg.previous.displayName == mso_test.esg_1.display_name
+      - cm_remove_esg.previous.description == mso_test.esg_1.description
+      - cm_remove_esg.previous.intraEsg == mso_test.esg_1.intra_esg
+      - cm_remove_esg.previous.shutdown == 'adminShut'
+      - cm_remove_esg.previous.preferredGroup == mso_test.esg_1.preferred_group
+      - cm_remove_esg.previous.deploymentImmediacy == mso_test.esg_1.deployment_immediacy
+      - cm_remove_esg.previous.vrfRef.vrfName == mso_test.vrf_2
+      - cm_remove_esg.proposed == cm_remove_esg.current == {}
+      - nm_remove_esg is changed
+      - nm_remove_esg.previous.name == mso_test.esg_1.name
+      - nm_remove_esg.previous.displayName == mso_test.esg_1.display_name
+      - nm_remove_esg.previous.description == mso_test.esg_1.description
+      - nm_remove_esg.previous.intraEsg == mso_test.esg_1.intra_esg
+      - nm_remove_esg.previous.shutdown == 'adminShut'
+      - nm_remove_esg.previous.preferredGroup == mso_test.esg_1.preferred_group
+      - nm_remove_esg.previous.deploymentImmediacy == mso_test.esg_1.deployment_immediacy
+      - nm_remove_esg.previous.vrfRef.vrfName == mso_test.vrf_2
+      - nm_remove_esg.proposed == nm_remove_esg.current == {}
+      - nm_remove_esg_again is not changed
+      - nm_remove_esg_again.proposed == nm_remove_esg_again.current == {}
+
+  always:
+  # CLEANUP
+  - name: Remove test schema even when a test fails
+    cisco.mso.mso_schema:
+      <<: *mso_info
+      schema: '{{ mso_test.schema }}'
+      state: absent

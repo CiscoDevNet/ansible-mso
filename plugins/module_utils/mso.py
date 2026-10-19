@@ -149,6 +149,15 @@ def mso_reference_spec():
     )
 
 
+def mso_epg_reference_spec():
+    return dict(
+        name=dict(type="str", required=True),
+        schema=dict(type="str"),
+        template=dict(type="str"),
+        anp=dict(type="str"),
+    )
+
+
 def mso_l3out_reference_spec():
     return dict(
         name=dict(type="str", required=True),
@@ -1529,6 +1538,7 @@ class MSOModule(object):
                     "bds": ["bdName", "schemaId", "templateName"],
                     "filters": ["filterName", "schemaId", "templateName"],
                     "contracts": ["contractName", "schemaId", "templateName"],
+                    "externalEpgs": ["externalEpgName", "schemaId", "templateName"],
                     "l3outs": ["l3outName", "schemaId", "templateName"],
                     "anps": ["anpName", "schemaId", "templateName"],
                     "serviceGraphs": ["serviceGraphName", "schemaId", "templateName"],

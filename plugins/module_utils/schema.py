@@ -183,6 +183,38 @@ class MSOSchema:
             self.mso.fail_json(msg=msg)
         self.schema_objects["template_anp_epg"] = match
 
+    def set_template_anp_esg(self, esg, fail_module=True):
+        """
+        Get template application network profile ESG item that matches the name of an ESG.
+        :param esg: Name of the ESG to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template ANP ESG item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template_anp"])
+        kv_list = [KVPair("name", esg)]
+        match, existing = self.get_object_from_list(self.schema_objects["template_anp"].details.get("esgs") or [], kv_list)
+        if not match and fail_module:
+            msg = "Provided ESG '{0}' not matching existing ESG(s): {1}".format(esg, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        if match:
+            self.mso.recursive_dict_from_ref(match.details)
+        self.schema_objects["template_anp_esg"] = match
+
+    def set_template_anp_esg_intra_esg_contract(self, contract_ref, fail_module=True):
+        """
+        Get template ESG intra-ESG contract that matches the normalized contract reference.
+        :param contract_ref: Normalized reference of the contract to match. -> Dict
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template ESG intra-ESG contract item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template_anp_esg"])
+        kv_list = [KVPair("contractRef", contract_ref)]
+        match, existing = self.get_object_from_list(self.schema_objects["template_anp_esg"].details.get("intraEsgContracts") or [], kv_list)
+        if not match and fail_module:
+            msg = "Provided Intra-ESG Contract Reference '{0}' not matching existing Intra-ESG Contract(s): {1}".format(contract_ref, existing)
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["template_anp_esg_intra_esg_contract"] = match
+
     def set_template_anp_epg_contract(self, contract_ref, relation_type, fail_module=True):
         """
         Get template endpoint group contract item that matches the reference and type of an contract.

@@ -183,6 +183,41 @@ class MSOSchema:
             self.mso.fail_json(msg=msg)
         self.schema_objects["template_anp_epg"] = match
 
+    def set_template_anp_esg(self, esg, fail_module=True):
+        """
+        Get template application network profile ESG item that matches the name of an ESG.
+        :param esg: Name of the ESG to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template ANP ESG item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template_anp"])
+        kv_list = [KVPair("name", esg)]
+        match, existing = self.get_object_from_list(self.schema_objects["template_anp"].details.get("esgs") or [], kv_list)
+        if not match and fail_module:
+            msg = "Provided ESG '{0}' not matching existing ESG(s): {1}".format(esg, ", ".join(existing))
+            self.mso.fail_json(msg=msg)
+        if match:
+            self.mso.recursive_dict_from_ref(match.details)
+        self.schema_objects["template_anp_esg"] = match
+
+    def set_template_anp_esg_tag_selector(self, tag_key, operator, tag_value, fail_module=True):
+        """
+        Get template ESG tag selector that matches its key, operator and value.
+        :param tag_key: Key of the ESG tag selector to match. -> Str
+        :param operator: Operator of the ESG tag selector to match. -> Str
+        :param tag_value: Value of the ESG tag selector to match. -> Str
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template ESG tag selector item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template_anp_esg"])
+        kv_list = [KVPair("key", tag_key), KVPair("operator", operator), KVPair("value", tag_value)]
+        match, existing = self.get_object_from_list(self.schema_objects["template_anp_esg"].details.get("tagSelectors") or [], kv_list)
+        if not match and fail_module:
+            identity = "(key={0}, operator={1}, value={2})".format(tag_key, operator, tag_value)
+            msg = "Provided Tag Selector '{0}' not matching existing Tag Selector(s): {1}".format(identity, existing)
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["template_anp_esg_tag_selector"] = match
+
     def set_template_anp_epg_contract(self, contract_ref, relation_type, fail_module=True):
         """
         Get template endpoint group contract item that matches the reference and type of an contract.

@@ -52,16 +52,19 @@ options:
   intra_esg:
     description:
     - Whether intra-ESG communication is enforced.
+    - If unspecified when creating an ESG, NDO defaults to C(unenforced).
     type: str
     choices: [ enforced, unenforced ]
   shutdown:
     description:
     - Administratively disable the ESG.
     - C(true) maps to the API value C(adminShut), and C(false) maps to C(adminUp).
+    - If unspecified when creating an ESG, NDO defaults to C(false) (API value C(adminUp)).
     type: bool
   preferred_group:
     description:
     - Whether to include the ESG in the preferred group.
+    - If unspecified when creating an ESG, NDO defaults to C(false).
     type: bool
   vrf:
     description:
@@ -87,6 +90,7 @@ options:
   deployment_immediacy:
     description:
     - The deployment immediacy configured for the ESG.
+    - If unspecified when creating an ESG, NDO defaults to C(lazy).
     type: str
     choices: [ immediate, lazy ]
   state:

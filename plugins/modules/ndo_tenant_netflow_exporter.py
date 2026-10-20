@@ -15,7 +15,7 @@ ANSIBLE_METADATA = {"metadata_version": "1.1", "status": ["preview"], "supported
 DOCUMENTATION = r"""
 ---
 module: ndo_tenant_netflow_exporter
-version_added: "2.12.0"
+version_added: "3.0.0"
 short_description: Manage NetFlow Exporter on Cisco Nexus Dashboard Orchestrator (NDO).
 description:
 - Manage NetFlow Exporter on Cisco Nexus Dashboard Orchestrator (NDO).

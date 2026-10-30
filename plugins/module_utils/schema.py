@@ -200,6 +200,21 @@ class MSOSchema:
             self.mso.recursive_dict_from_ref(match.details)
         self.schema_objects["template_anp_esg"] = match
 
+    def set_template_anp_esg_epg_selector(self, epg_ref, fail_module=True):
+        """
+        Get template ESG EPG selector that matches the full EPG reference.
+        :param epg_ref: Normalized reference of the selected EPG to match. -> Dict
+        :param fail_module: When match is not found fail the ansible module. -> Bool
+        :return: Template ESG EPG selector item. -> Item(Int, Dict) | None
+        """
+        self.validate_schema_objects_present(["template_anp_esg"])
+        kv_list = [KVPair("epgRef", epg_ref)]
+        match, existing = self.get_object_from_list(self.schema_objects["template_anp_esg"].details.get("epgSelectors") or [], kv_list)
+        if not match and fail_module:
+            msg = "Provided EPG Reference '{0}' not matching existing EPG Selector(s): {1}".format(epg_ref, existing)
+            self.mso.fail_json(msg=msg)
+        self.schema_objects["template_anp_esg_epg_selector"] = match
+
     def set_template_anp_epg_contract(self, contract_ref, relation_type, fail_module=True):
         """
         Get template endpoint group contract item that matches the reference and type of an contract.

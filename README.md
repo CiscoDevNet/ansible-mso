@@ -171,7 +171,7 @@ Ongoing development efforts and contributions to this collection are tracked as 
 
 We welcome community contributions to this collection. If you find problems, need an enhancement or need a new module, please open an issue or create a PR against the [Cisco MSO collection repository](https://github.com/CiscoDevNet/ansible-mso/issues).
 
-See the [Development Guide](DEVELOPMENT.md) for the integration-test structure,
+See the [Development Guide](https://github.com/CiscoDevNet/ansible-mso/blob/develop/DEVELOPMENT.md) for the integration-test structure,
 version handling, prerequisites, cleanup, and validation conventions.
 
 ## Support

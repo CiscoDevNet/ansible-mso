@@ -17,6 +17,7 @@ short_description: Manage ESG external subnet selectors in schema templates
 description:
 - Manage Endpoint Security Group (ESG) external subnet selectors in Application Profiles (ANPs) in schema templates on Cisco ACI Multi-Site.
 - This module is only supported on ND v4.1 (NDO v5.1) and later.
+version_added: '3.1.0'
 author:
 - Akini Ross (@akinross)
 options:

@@ -17,6 +17,7 @@ short_description: Manage ESG external subnet selectors in schema templates
 description:
 - Manage Endpoint Security Group (ESG) external subnet selectors in Application Profiles (ANPs) in schema templates on Cisco ACI Multi-Site.
 - This module is only supported on ND v4.1 (NDO v5.1) and later.
+version_added: '3.1.0'
 author:
 - Akini Ross (@akinross)
 options:
@@ -43,10 +44,10 @@ options:
   ip:
     description:
     - The IP address or subnet of the external subnet selector.
-    - This is the exact identity of the selector and is used as supplied without normalization.
     - Required when O(state) is C(present) or C(absent).
     - This argument is not required when querying all external subnet selectors on the ESG.
     type: str
+    aliases: [ subnet ]
   description:
     description:
     - The description of the external subnet selector.
@@ -90,6 +91,19 @@ EXAMPLES = r"""
     anp: ANP 1
     esg: ESG 1
     ip: 10.15.37.0
+    state: present
+
+- name: Create an ESG external subnet selector using the subnet alias
+  cisco.mso.mso_schema_template_anp_esg_external_subnet_selector:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema 1
+    template: Template 1
+    anp: ANP 1
+    esg: ESG 1
+    subnet: 10.15.38.0/24
+    shared: true
     state: present
 
 - name: Update an ESG external subnet selector
@@ -162,7 +176,7 @@ def main():
         template=dict(type="str", required=True),
         anp=dict(type="str", required=True),
         esg=dict(type="str", required=True),
-        ip=dict(type="str"),  # This parameter is not required for querying all objects
+        ip=dict(type="str", aliases=["subnet"]),  # This parameter is not required for querying all objects
         description=dict(type="str"),
         shared=dict(type="bool"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),

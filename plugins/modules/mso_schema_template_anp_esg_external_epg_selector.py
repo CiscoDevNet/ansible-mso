@@ -18,6 +18,7 @@ description:
 - Manage external Endpoint Group (EPG) selectors for an Endpoint Security Group (ESG) in an Application Profile (ANP)
   in a schema template on Cisco ACI Multi-Site.
 - This module is only supported on ND v4.1 (NDO v5.1) and later.
+version_added: '3.1.0'
 author:
 - Akini Ross (@akinross)
 options:

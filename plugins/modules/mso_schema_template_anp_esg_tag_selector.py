@@ -64,7 +64,6 @@ options:
   description:
     description:
     - The description of the tag selector.
-    - This is the only mutable attribute of an existing tag selector.
     type: str
   state:
     description:

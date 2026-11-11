@@ -31,7 +31,7 @@
         ip: 10.15.35.0
         updated_description: Updated subnet selector
       subnet_selector_2:
-        ip: 10.15.36.0
+        ip: 10.15.36.0/24
         description: Second subnet selector
       subnet_selector_3:
         ip: 10.15.37.0
@@ -171,14 +171,14 @@
       - nm_update_subnet_selector_again.current == nm_update_subnet_selector.current
 
   # QUERY
-  - name: Create a second ESG subnet selector
+  - name: Create a second ESG subnet selector using the subnet alias
     cisco.mso.mso_schema_template_anp_esg_subnet_selector:
       <<: *mso_info
       schema: '{{ mso_test.schema }}'
       template: '{{ mso_test.template }}'
       anp: '{{ mso_test.anp }}'
       esg: '{{ mso_test.esg }}'
-      ip: '{{ mso_test.subnet_selector_2.ip }}'
+      subnet: '{{ mso_test.subnet_selector_2.ip }}'
       description: '{{ mso_test.subnet_selector_2.description }}'
       state: present
 
@@ -193,14 +193,14 @@
       description: '{{ mso_test.subnet_selector_3.description }}'
       state: present
 
-  - name: Query an ESG subnet selector
+  - name: Query an ESG subnet selector using the subnet alias
     cisco.mso.mso_schema_template_anp_esg_subnet_selector:
       <<: *mso_info
       schema: '{{ mso_test.schema }}'
       template: '{{ mso_test.template }}'
       anp: '{{ mso_test.anp }}'
       esg: '{{ mso_test.esg }}'
-      ip: '{{ mso_test.subnet_selector_1.ip }}'
+      subnet: '{{ mso_test.subnet_selector_2.ip }}'
       state: query
     register: nm_query_subnet_selector
 
@@ -218,7 +218,8 @@
     ansible.builtin.assert:
       that:
       - nm_query_subnet_selector is not changed
-      - nm_query_subnet_selector.current == nm_update_subnet_selector.current
+      - nm_query_subnet_selector.current.ip == mso_test.subnet_selector_2.ip
+      - nm_query_subnet_selector.current.description == mso_test.subnet_selector_2.description
       - nm_query_all_subnet_selectors is not changed
       - nm_query_all_subnet_selectors.current | length == 3
       - nm_query_all_subnet_selectors.current | selectattr('ip', 'equalto', mso_test.subnet_selector_1.ip) | list | length == 1
@@ -335,7 +336,7 @@
     ansible.builtin.assert:
       that:
       - cm_missing_subnet_selector is failed
-      - "cm_missing_subnet_selector.msg == \"Provided Subnet Selector '10.15.99.0' not matching existing Subnet Selector(s): 10.15.35.0, 10.15.36.0, 10.15.37.0\""
+      - "cm_missing_subnet_selector.msg == \"Provided Subnet Selector '10.15.99.0' not matching existing Subnet Selector(s): 10.15.35.0, 10.15.36.0/24, 10.15.37.0\""
       - cm_missing_esg is failed
       - "cm_missing_esg.msg == \"Provided ESG 'MissingESG' not matching existing ESG(s): ESG_subnet_selector_ESG\""
       - cm_missing_schema is failed

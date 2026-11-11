@@ -47,6 +47,7 @@ options:
     - Required when O(state) is C(present) or C(absent).
     - This argument is not required when querying all subnet selectors on the ESG.
     type: str
+    aliases: [ subnet ]
   description:
     description:
     - The description of the subnet selector.
@@ -155,7 +156,7 @@ def main():
         template=dict(type="str", required=True),
         anp=dict(type="str", required=True),
         esg=dict(type="str", required=True),
-        ip=dict(type="str"),  # This parameter is not required for querying all objects
+        ip=dict(type="str", aliases=["subnet"]),  # This parameter is not required for querying all objects
         description=dict(type="str"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
     )

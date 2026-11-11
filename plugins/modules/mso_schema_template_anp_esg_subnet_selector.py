@@ -87,6 +87,18 @@ EXAMPLES = r"""
     ip: 10.15.35.0
     state: present
 
+- name: Create an ESG subnet selector using the subnet alias
+  cisco.mso.mso_schema_template_anp_esg_subnet_selector:
+    host: mso_host
+    username: admin
+    password: SomeSecretPassword
+    schema: Schema 1
+    template: Template 1
+    anp: ANP 1
+    esg: ESG 1
+    subnet: 10.15.36.0/24
+    state: present
+
 - name: Update an ESG subnet selector
   cisco.mso.mso_schema_template_anp_esg_subnet_selector:
     host: mso_host

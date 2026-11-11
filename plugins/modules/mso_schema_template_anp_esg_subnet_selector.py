@@ -44,7 +44,6 @@ options:
   ip:
     description:
     - The IP address or subnet of the subnet selector.
-    - This is the exact identity of the selector and is used as supplied without normalization.
     - Required when O(state) is C(present) or C(absent).
     - This argument is not required when querying all subnet selectors on the ESG.
     type: str
